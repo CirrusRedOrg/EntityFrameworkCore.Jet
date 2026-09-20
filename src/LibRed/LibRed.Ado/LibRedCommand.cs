@@ -157,20 +157,18 @@ public sealed class LibRedCommand : DbCommand
     {
         var map = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         foreach (LibRedParameter parameter in _parameters.Cast<LibRedParameter>())
-            map[parameter.ParameterName] = Normalize(parameter.EffectiveValue);
+            map[parameter.ParameterName] = Normalize(parameter.EffectiveValue, parameter.DbType);
         return map;
     }
 
-    /// <summary>The OLE epoch (1899-12-30): Jet stores every temporal as a DateTime relative to it — a time as
-    /// the epoch date + time-of-day, a date at midnight.</summary>
-    private static readonly DateTime OleEpoch = new(1899, 12, 30);
-
     /// <summary>
     /// Coerces a parameter value to what the engine should see. Jet/ACE has no native TimeSpan, TimeOnly,
-    /// DateOnly or DateTimeOffset — they are all stored as a <see cref="DateTime"/> on the 1899-12-30 epoch — so
-    /// this boundary (the single point EF parameters enter the engine) converts each to that DateTime, exactly as
-    /// the literal path does (a TimeSpan literal renders as a <c>#…#</c>/TIMEVALUE DateTime). The engine then only
-    /// ever handles DateTime for temporals, and the reader converts back on the way out.
+    /// DateOnly or DateTimeOffset — they are all stored as a <see cref="DateTime"/> — so this boundary (the single
+    /// point EF parameters enter the engine) converts DateOnly and DateTimeOffset to that DateTime, and the reader
+    /// converts back on the way out. A TimeSpan or TimeOnly goes in as itself: the engine's parameter bag turns it
+    /// into the time on the 1899-12-30 epoch wherever it is read — saved, compared, passed to a function — exactly
+    /// as the literal path does, but first remembers it was a span, because a date less a span is a date where a
+    /// date less a date is a day count.
     /// </summary>
     /// <remarks>
     /// Values are truncated to whole MILLISECONDS, not whole seconds. ACE has one-second resolution, but that is
@@ -178,15 +176,20 @@ public sealed class LibRedCommand : DbCommand
     /// (measured: 12:34:56.123 round-trips with zero tick loss). Below a millisecond nothing survives whatever
     /// this does, because .NET's ToOADate/FromOADate quantise there; truncating to the same boundary the store
     /// uses is what keeps <c>WHERE d = @p</c> matching, which is the reason this truncates at all.
+    /// <para>A <see cref="DbType.DateTime2"/> parameter is the exception, as it is for SqlClient: a DATETIME2 column
+    /// stores the value's 100-ns ticks rather than the OA double, so its sub-millisecond part is kept. The
+    /// parameter has to say so — a DateTime value alone infers <see cref="DbType.DateTime"/> — because this
+    /// boundary cannot see which column the value is for.</para>
     /// </remarks>
-    private static object? Normalize(object? value) => value switch
+    private static object? Normalize(object? value, DbType dbType) => value switch
     {
         DBNull => null,
+        DateTime d when dbType == DbType.DateTime2 => d,
         DateTime d => Milliseconds(d),
         // DateTimeOffset is read back at offset zero, so store its UTC instant.
         DateTimeOffset dto => Milliseconds(dto.UtcDateTime),
-        TimeSpan t => OleEpoch + Milliseconds(t),
-        TimeOnly to => OleEpoch + Milliseconds(to.ToTimeSpan()),
+        TimeSpan t => Milliseconds(t),
+        TimeOnly to => TimeOnly.FromTimeSpan(Milliseconds(to.ToTimeSpan())),
         DateOnly d => d.ToDateTime(TimeOnly.MinValue),
         _ => value,
     };

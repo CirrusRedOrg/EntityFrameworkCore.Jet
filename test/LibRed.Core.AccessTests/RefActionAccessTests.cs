@@ -9,6 +9,7 @@ namespace LibRed.Core.Tests;
 /// A LibRed-written ON DELETE SET NULL relationship (grbit 0x2000) is byte-faithful: Access reads it and
 /// applies the SET NULL itself when it deletes the parent.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class RefActionAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

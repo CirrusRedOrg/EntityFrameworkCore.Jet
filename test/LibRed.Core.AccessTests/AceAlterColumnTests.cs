@@ -7,6 +7,7 @@ namespace LibRed.Core.Tests;
 
 // Byte-faithful: after LibRed widens a text column (ALTER COLUMN path, via AlterColumn), ACE reads the new max
 // length and enforces it — a value that fits the new max is accepted, one past it is rejected.
+[Collection(AceCollection.Name)]
 public class AceAlterColumnTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

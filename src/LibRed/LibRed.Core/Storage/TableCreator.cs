@@ -1,9 +1,11 @@
 using System.Buffers.Binary;
 using System.Text;
+using EntityFrameworkCore.Jet.Data;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
+using MapRetirement = ((int Row, int Page) Map, System.Collections.Generic.IReadOnlyList<(int Row, int Page)> Clear, System.Collections.Generic.IReadOnlyList<int> Pages);
 
 namespace LibRed.Storage;
 
@@ -91,6 +93,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // data and a 100-char index name breaks ACE's index enumeration. Only validate caller-supplied names.
         if (primaryKeyName is not null) JetName.Validate(primaryKeyName, "primary key name");
         foreach (RelationshipSpec r in relationships) JetName.Validate(r.Name, "foreign key name");
+        var relationshipNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (RelationshipSpec r in relationships)
+            if (!relationshipNames.Add(r.Name)) throw RelationshipNameTaken(r.Name);
+            else EnsureRelationshipNameFree(r.Name);
         foreach (UniqueIndexSpec u in uniqueConstraints) JetName.Validate(u.Name, "unique constraint name");
         foreach ((string checkName, _) in checkConstraints) JetName.Validate(checkName, "check constraint name");
 
@@ -104,6 +110,18 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         if (columns.Count > MaxColumnsPerTable)
             throw new InvalidOperationException(
                 $"Table '{name}' has {columns.Count} columns; Jet/ACE tables are limited to {MaxColumnsPerTable}.");
+
+        // Before the foreign keys' type match, as ACE checks it: an OLE column referencing a LONG key gets this.
+        RejectOleIndexColumns(
+            (primaryKey ?? []).Concat(uniqueConstraints.SelectMany(u => u.Columns))
+                .Concat(relationships.SelectMany(r => r.Columns.Select(c => c.Column))),
+            n => columns.FirstOrDefault(c => string.Equals(c.Name, n, StringComparison.OrdinalIgnoreCase))?.Type);
+
+        relationships = relationships.Select(fk => ResolvePrimaryKeyReference(fk, creatingTable: name)).ToList();
+        foreach (RelationshipSpec fk in relationships)
+            EnsureSameDataTypes(fk, ColumnOf(columns), string.Equals(fk.ReferencedTable, name, StringComparison.OrdinalIgnoreCase)
+                ? ColumnOf(columns)
+                : ColumnOf(_catalog.FindTable(fk.ReferencedTable)));
 
         JetFormatBase format = _channel.Format;
 
@@ -263,18 +281,19 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         WriteInt24(tdef, format.TdefFreePagesOffset + 1, usageMapPage);
         // A wide table's definition can exceed one page; write it split across continuation pages if needed.
         int defEnd = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefLengthOffset, 4));
-        WriteDefinition(tdefPage, tdef[..defEnd], []);
+        WriteDefinition(tdefPage, tdef[..defEnd], [], rewrite: false);
 
         // Per-column extended properties, in column order with DefaultValue before Required (matching ACE):
-        // a DEFAULT is a memo property; a NOT NULL column carries a boolean Required property (Access omits
-        // it for a nullable column, and — verified — for an AutoNumber, which is implicitly required).
+        // a DEFAULT is a memo property; a NOT NULL column carries a boolean Required property, and a nullable
+        // one none. An AutoNumber follows the same rule — ACE writes Required for COUNTER NOT NULL and not for
+        // a bare COUNTER (verified by reading its property blob back).
         var columnProps = new List<PropertyBlob.Property>();
         foreach (ColumnSpec col in columns)
         {
             var def = columnDefaults.FirstOrDefault(d => string.Equals(d.Column, col.Name, StringComparison.OrdinalIgnoreCase));
             if (def.DefaultSql is not null)
                 columnProps.Add(new PropertyBlob.Property(col.Name, PropertyBlob.DefaultValueProperty, def.DefaultSql));
-            if (!col.IsNullable && !col.IsAutoNumber)
+            if (!col.IsNullable)
                 columnProps.Add(PropertyBlob.Bool(col.Name, PropertyBlob.RequiredProperty, true));
             columnProps.AddRange(CalculatedProperties(col));
         }
@@ -338,6 +357,31 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int ParentPage, int Number, int ReferencedOrdinal, uint ChildBlockNumber, int ChildPage,
         byte UpdateAction, byte DeleteAction);
 
+    /// <summary>
+    /// ACE's "same data types" rule for a relationship, measured over every pairing of the column types: each child
+    /// column must have its parent column's storage type, whatever either one's length — <c>TEXT(5)</c>,
+    /// <c>TEXT(20)</c> and <c>CHAR(10)</c> all pair with one another, as do <c>DECIMAL</c>s of any precision and
+    /// scale and <c>BINARY</c> with <c>VARBINARY</c>. An AutoNumber is a Long on either side. Checked before
+    /// anything is written. A column that is not found is left to the check that reports it.
+    /// </summary>
+    private static void EnsureSameDataTypes(RelationshipSpec fk,
+        Func<string, JetDataType?> childColumn, Func<string, JetDataType?> parentColumn)
+    {
+        foreach ((string column, string referenced) in fk.Columns)
+        {
+            if (childColumn(column) is not { } child || parentColumn(referenced) is not { } parent) continue;
+            if (child != parent)
+                throw new InvalidOperationException(
+                    "Relationship must be on the same number of fields with the same data types. " +
+                    $"'{column}' ({child}) cannot reference '{fk.ReferencedTable}.{referenced}' ({parent}).");
+        }
+    }
+
+    private static Func<string, JetDataType?> ColumnOf(IReadOnlyList<ColumnSpec> columns) =>
+        name => columns.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase))?.Type;
+
+    private static Func<string, JetDataType?> ColumnOf(TableDef? table) => name => table?.FindColumn(name)?.Type;
+
     /// <summary>The data-block ordinal of the index over a self-reference's referenced columns, found
     /// among the indexes being created for this table (the table is not in the catalog yet).</summary>
     private static int SelfReferencedOrdinal(
@@ -384,10 +428,42 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         return maxNum + 1;
     }
 
+    /// <summary>A relationship's parent table, or ACE's error when it does not exist.</summary>
+    private TableDef ReferencedTableOf(RelationshipSpec fk) =>
+        _catalog.FindTable(fk.ReferencedTable)
+        ?? throw new InvalidOperationException(
+            $"Cannot find table or constraint: the referenced table '{fk.ReferencedTable}' does not exist.");
+
+    /// <summary>
+    /// Resolves <c>REFERENCES table</c> with no column list (<see cref="RelationshipSpec.ReferencesPrimaryKey"/>)
+    /// to the parent's primary key, pairing the child columns with the key's in order whatever either side's
+    /// columns are named — as ACE does. Any other relationship comes back unchanged.
+    /// </summary>
+    /// <remarks>
+    /// ACE refuses it when the parent has no primary key (a unique index does not stand in for one) and when the
+    /// columns differ in number (verified). A table referencing itself in its own CREATE TABLE
+    /// (<paramref name="creatingTable"/>) has no key in the catalog yet; the SQL parser pairs such a reference
+    /// with a key the statement declares earlier, so one still unpaired here has no key to reference.
+    /// </remarks>
+    private RelationshipSpec ResolvePrimaryKeyReference(RelationshipSpec fk, string? creatingTable)
+    {
+        if (!fk.ReferencesPrimaryKey) return fk;
+        bool selfInCreate = creatingTable is not null
+                            && string.Equals(fk.ReferencedTable, creatingTable, StringComparison.OrdinalIgnoreCase);
+        IndexDef primaryKey = (selfInCreate ? null : ReferencedTableOf(fk).Indexes.FirstOrDefault(i => i.IsPrimaryKey))
+            ?? throw new InvalidOperationException(
+                $"Cannot create relationship. Referenced table '{fk.ReferencedTable}' does not have a primary key.");
+        return fk with
+        {
+            Columns = RelationshipSpec.PairColumns(fk.ReferencedTable,
+                fk.Columns.Select(c => c.Column).ToList(), primaryKey.Columns.Select(c => c.Column.Name).ToList()),
+            ReferencesPrimaryKey = false,
+        };
+    }
+
     private (int Page, int ReferencedOrdinal, int NextIndexNumber) ResolveParent(RelationshipSpec fk, int childPage)
     {
-        TableDef parent = _catalog.FindTable(fk.ReferencedTable)
-            ?? throw new InvalidOperationException($"Referenced table '{fk.ReferencedTable}' was not found.");
+        TableDef parent = ReferencedTableOf(fk);
         if (parent.DefinitionPage == childPage)
             throw new InvalidOperationException($"Self-referencing foreign key '{fk.Name}' should have been handled inline.");
 
@@ -398,15 +474,28 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         return (parent.DefinitionPage, refIndex.RealIndexOrdinal, NextLogicalIndexNumber(parent.DefinitionPage));
     }
 
+    /// <summary>ACE refuses a relationship name another relationship already has (verified); a table or query may
+    /// share it. Checked before anything is written.</summary>
+    private void EnsureRelationshipNameFree(string name)
+    {
+        if (_catalog.Relationships.Any(r => string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase)))
+            throw RelationshipNameTaken(name);
+    }
+
+    private static SchemaObjectExistsException RelationshipNameTaken(string name) =>
+        new($"There is already a relationship named '{name}' in the current database.", name);
+
     /// <summary>
     /// Writes the <c>MSysRelationships</c> rows for one relationship — one row per column pair, with
     /// <c>ccolumn</c> = the pair count, <c>icolumn</c> = the 0-based pair index, and <c>grbit</c>
-    /// encoding enforce/cascade (verified against Access: an enforced no-cascade FK stores grbit 0).
+    /// encoding enforce/cascade (verified against Access: an enforced no-cascade FK stores grbit 0) — and the
+    /// relationship's own <c>MSysObjects</c> object, which ACE records for every relationship.
     /// </summary>
     private void AddRelationshipRows(string childTable, RelationshipSpec fk)
     {
         TableDef msys = _catalog.FindTable("MSysRelationships")
             ?? throw new InvalidOperationException("MSysRelationships catalog table was not found.");
+        new ViewCreator(_channel, _catalog).CreateRelationshipObject(fk.Name);
 
         int grbit = 0;
         if (!fk.IsEnforced) grbit |= RelationshipFlags.DontEnforce;
@@ -452,7 +541,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         RejectCalculatedIndexColumns(indexName, columns.Select(c => c.Column),
             n => table.Columns.FirstOrDefault(
                 c => c.IsCalculated && string.Equals(c.Name, n, StringComparison.OrdinalIgnoreCase))?.Name);
+        RejectOleIndexColumns(columns.Select(c => c.Column), n => table.FindColumn(n)?.Type);
         var slots = ResolveSlots(table, columns.Select(c => (c.Column, Ascending: !c.Descending)));
+        // A table has one primary key, and ACE refuses a second (verified).
+        if (isPrimary && table.Indexes.Any(i => i.IsPrimaryKey))
+            throw new InvalidOperationException($"Primary key already exists on table '{table.Name}'.");
         InsertIndex(table, indexName, slots,
             unique: isUnique || isPrimary, required: isPrimary || disallowNull, ignoreNulls,
             (num, ord) => BuildPlainInfoBlock(num, ord, isPrimary));
@@ -474,6 +567,17 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 throw new NotSupportedException(
                     $"Index '{indexName}' cannot include calculated column '{calculated}'. Access does not "
                     + "offer one for indexing, and an index over it makes the table refuse every insert.");
+    }
+
+    /// <summary>Refuses an index over an OLE column — a key, a unique constraint, a relationship's — before anything
+    /// is written, as ACE does on every route (verified: CREATE INDEX, PRIMARY KEY and UNIQUE both in CREATE TABLE and
+    /// added, a foreign key in either place, and ALTER COLUMN of an indexed column to OLE). An OLE value has no index
+    /// key, and without this the definition is accepted on an empty table and every later insert fails.</summary>
+    private static void RejectOleIndexColumns(IEnumerable<string> columnNames, Func<string, JetDataType?> typeOf)
+    {
+        foreach (string name in columnNames)
+            if (typeOf(name) == JetDataType.Ole)
+                throw new InvalidOperationException($"Invalid field definition '{name}' in definition of index or relationship.");
     }
 
     /// <summary>Resolves index column names to (columnId, ascending) slots against a table.</summary>
@@ -509,13 +613,13 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         (LibRed.IO.PageBuffer buf, IReadOnlyList<int> existingContinuations) = ReadDefinition(table.DefinitionPage);
         int existingRowCount = buf.ReadInt32(format.TdefRowCountOffset);
 
-        // A unique index over rows that already exist has to be rejected if those rows aren't unique — ACE
-        // refuses the DDL too. Done *here*, before a single byte of the TDEF moves, rather than during the
-        // back-fill: this path is not transactional, so a failure discovered mid-back-fill would leave the
-        // index committed to the TDEF and half-populated. Scanning first means a rejected CREATE INDEX
-        // leaves the file exactly as it was.
-        if (unique && existingRowCount != 0)
-            EnsureNoDuplicateKeys(table, indexName, slots);
+        // A unique index over rows that already exist has to be rejected if those rows aren't unique, and a
+        // required one if any row leaves a key column NULL — ACE refuses the DDL for both. Done *here*, before a
+        // single byte of the TDEF moves, rather than during the back-fill: this path is not transactional, so a
+        // failure discovered mid-back-fill would leave the index committed to the TDEF and half-populated.
+        // Scanning first means a rejected CREATE INDEX leaves the file exactly as it was.
+        if ((unique || required) && existingRowCount != 0)
+            EnsureExistingRowsFitIndex(table, indexName, slots, unique, required);
 
         int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);
         int logicalCount = buf.ReadInt32(format.TdefLogicalIndexCountOffset);
@@ -627,7 +731,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLogicalIndexCountOffset, 4), logicalCount + 1);
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLengthOffset, 4), newDefEnd);
 
-        WriteDefinition(table.DefinitionPage, def, existingContinuations);
+        WriteDefinition(table.DefinitionPage, def, existingContinuations, rewrite: true);
         _catalog.Invalidate();
 
         // Back-fill the new (empty) index B-tree with an entry per existing row, so the index is complete.
@@ -637,12 +741,14 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     }
 
     /// <summary>
-    /// Throws if the table's existing rows already hold a duplicate key for a would-be unique index. Purely a
-    /// read: it encodes each row's key and looks for a repeat, touching nothing on disk, so it is safe to call
-    /// before the index exists. Rows with a null in any key column are exempt — Jet's uniqueness is over the
-    /// non-null keys only, so several rows may be null (verified vs ACE; see the constraints page). That skip
-    /// is unconditional: a WITH IGNORE NULL index leaves null-keyed rows out of the B-tree altogether, so
-    /// either way they cannot collide.
+    /// Throws if the table's existing rows cannot go into a would-be index: a duplicate key for a unique one, or
+    /// a NULL in any key column for a required one — a primary key or WITH DISALLOW NULL, which ACE refuses with
+    /// "Index or primary key cannot contain a Null value" (verified; an ADD COLUMN … PRIMARY KEY on a table that
+    /// already holds rows is the usual way to get there). Purely a read, touching nothing on disk, so it is safe
+    /// to call before the index exists. For uniqueness, rows with a null in any key column are exempt — Jet's
+    /// uniqueness is over the non-null keys only, so several rows may be null (verified vs ACE; see the
+    /// constraints page); a WITH IGNORE NULL index leaves them out of the B-tree altogether, so either way they
+    /// cannot collide.
     /// </summary>
     /// <remarks>
     /// Comparison is on the encoded key, not the raw values, which is deliberate: the encoding is what the
@@ -650,8 +756,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// uniqueness domain, and it keeps this agreeing with the insert- and update-time checks, which compare
     /// the same way via <see cref="IndexWriter.KeyExists"/>.
     /// </remarks>
-    private void EnsureNoDuplicateKeys(
-        TableDef table, string indexName, IReadOnlyList<(int Id, bool Ascending)> slots)
+    private void EnsureExistingRowsFitIndex(
+        TableDef table, string indexName, IReadOnlyList<(int Id, bool Ascending)> slots, bool unique, bool required)
     {
         var keyColumns = slots
             .Select(s => (Column: table.Columns.First(c => c.ColumnId == s.Id), s.Ascending))
@@ -660,8 +766,14 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         var seen = new HashSet<string>();
         foreach (object?[] values in new Table(_channel, table).Rows())
         {
-            if (keyColumns.Any(k => values[k.Column.Index] is null)) continue;
-            if (!seen.Add(Convert.ToHexString(IndexKeyEncoder.Encode(keyColumns, values))))
+            if (keyColumns.Any(k => values[k.Column.Index] is null))
+            {
+                if (required)
+                    throw new InvalidOperationException(
+                        $"Index or primary key cannot contain a Null value: a row of '{table.Name}' has no value for index '{indexName}'.");
+                continue;
+            }
+            if (unique && !seen.Add(Convert.ToHexString(IndexKeyEncoder.Encode(keyColumns, values))))
                 throw new InvalidOperationException(
                     $"Cannot create unique index '{indexName}' on '{table.Name}': duplicate key values exist.");
         }
@@ -676,15 +788,27 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// replaced by the next entry. Sorting first lets each leaf be filled and written once.
     /// <para>Uniqueness moves with it: on sorted keys a duplicate is an adjacent pair, so the per-row
     /// <see cref="IndexWriter.KeyExists"/> descent is gone. The comparison is still on the encoded key, which
-    /// is Access's uniqueness domain (see <see cref="EnsureNoDuplicateKeys"/>).</para>
+    /// is Access's uniqueness domain (see <see cref="EnsureExistingRowsFitIndex"/>).</para>
+    /// <para>A built index's statistics are set as ACE sets them (verified, for CREATE INDEX, a foreign key's
+    /// backing index and an ALTER COLUMN's rebuild): the total entry count to the entries it now holds and the
+    /// unique entry count to its distinct keys — both from the rows present, not from any earlier history.</para>
     /// </remarks>
     private void BackfillIndex(string tableName, string indexName, bool ignoreNulls, bool validateUnique)
     {
         TableDef table = _catalog.FindTable(tableName)
             ?? throw new InvalidOperationException($"Table '{tableName}' was not found after adding the index.");
         IndexDef index = table.Indexes.First(ix => string.Equals(ix.Name, indexName, StringComparison.OrdinalIgnoreCase));
-        var keyColumnIds = index.Columns.Select(c => c.Column.Index).ToArray();
+        List<(byte[] Key, int Pointer, bool NullKey)> entries = IndexEntries(table, index, ignoreNulls);
 
+        new IndexWriter(_channel, table).BulkBuild(index, entries, validateUnique && index.IsUnique);
+        SetBuiltStatistics(table, index, entries);
+    }
+
+    /// <summary>The entries an index over the table's current rows holds: every live row's encoded key and row
+    /// pointer, less the rows an IGNORE NULL index leaves out.</summary>
+    private List<(byte[] Key, int Pointer, bool NullKey)> IndexEntries(TableDef table, IndexDef index, bool ignoreNulls)
+    {
+        var keyColumnIds = index.Columns.Select(c => c.Column.Index).ToArray();
         var entries = new List<(byte[] Key, int Pointer, bool NullKey)>();
         foreach ((RowId id, object?[] values) in new Table(_channel, table).Rows().WithIds())
         {
@@ -692,8 +816,36 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             if (ignoreNulls && hasNullKey) continue;
             entries.Add((IndexKeyEncoder.Encode(index.Columns, values), (id.Page << 8) | id.Row, hasNullKey));
         }
+        return entries;
+    }
 
-        new IndexWriter(_channel, table).BulkBuild(index, entries, validateUnique && index.IsUnique);
+    /// <summary>Sets a just-built index's statistics block as ACE sets it: total = the entries it holds, unique =
+    /// its distinct keys among them.</summary>
+    private void SetBuiltStatistics(TableDef table, IndexDef index, List<(byte[] Key, int Pointer, bool NullKey)> entries) =>
+        WriteIndexStatistics(table, index, entries.Count, entries.Select(e => Convert.ToHexString(e.Key)).Distinct().Count());
+
+    /// <summary>Every logical index's statistics — its real index's total and unique entry counts — by index name.
+    /// The blocks sit on the definition's first page.</summary>
+    private Dictionary<string, (int Total, int Unique)> IndexStatistics(TableDef table)
+    {
+        byte[] tdef = _channel.ReadPage(table.DefinitionPage).Span.ToArray();
+        var statistics = new Dictionary<string, (int Total, int Unique)>(StringComparer.OrdinalIgnoreCase);
+        foreach (IndexDef index in table.Indexes)
+        {
+            int at = _channel.Format.TdefRealIndexBlockOffset + index.RealIndexOrdinal * _channel.Format.RealIndexEntrySize;
+            statistics[index.Name] = (BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(at, 4)),
+                BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(at + 4, 4)));
+        }
+        return statistics;
+    }
+
+    private void WriteIndexStatistics(TableDef table, IndexDef index, int total, int unique)
+    {
+        byte[] tdef = _channel.ReadPage(table.DefinitionPage).Span.ToArray();
+        int at = _channel.Format.TdefRealIndexBlockOffset + index.RealIndexOrdinal * _channel.Format.RealIndexEntrySize;
+        BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(at, 4), total);
+        BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(at + 4, 4), unique);
+        _channel.WritePage(table.DefinitionPage, tdef);
     }
 
     /// <summary>Appends one empty inline usage-map record (row <paramref name="newRow"/>) to an existing
@@ -750,11 +902,16 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     public void AddForeignKey(string childTable, RelationshipSpec fk)
     {
         JetName.Validate(fk.Name, "foreign key name");
+        EnsureRelationshipNameFree(fk.Name);
         TableDef child = _catalog.FindTable(childTable)
             ?? throw new InvalidOperationException($"Table '{childTable}' was not found.");
         if (fk.NoIndex)
             throw new NotSupportedException("ALTER TABLE ADD FOREIGN KEY … NO INDEX is not supported yet.");
         if (fk.UpdateSetNull) throw UpdateSetNullNotImplemented();
+
+        RejectOleIndexColumns(fk.Columns.Select(c => c.Column), n => child.FindColumn(n)?.Type);
+        fk = ResolvePrimaryKeyReference(fk, creatingTable: null);
+        EnsureSameDataTypes(fk, ColumnOf(child), ColumnOf(_catalog.FindTable(fk.ReferencedTable)));
 
         byte upd = fk.CascadeUpdate ? CascadeAction : NoCascadeAction;
         byte del = fk.CascadeDelete ? CascadeAction : fk.DeleteSetNull ? SetNullAction : NoCascadeAction;
@@ -829,10 +986,17 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 WriteTdef(parent.DefinitionPage, parentParts);
             }
 
-            new PageAllocator(_channel).Free(fkIndex.RootPage);
+            new PageAllocator(_channel).Release(fkIndex.RootPage);
         }
 
         SoftDeleteRelationshipRows(name);
+        // Its MSysObjects object and permission rows go with it, as ACE removes them (verified). A relationship
+        // written before LibRed recorded the object has none.
+        if (FindObjectId(name, CatalogFormat.ObjectTypeRelationship) is { } objectId)
+        {
+            DeleteCatalogRows("MSysObjects", "Id", objectId);
+            DeleteCatalogRows("MSysACEs", "ObjectId", objectId);
+        }
         _catalog.Invalidate();
         return true;
     }
@@ -840,8 +1004,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <summary>
     /// Drops a table — <c>DROP TABLE table</c>. Removes the object's <c>MSysObjects</c> row and its
     /// <c>MSysACEs</c> permission rows (soft-delete, as ACE does), and frees the table's pages back to the
-    /// global free map so a later create reuses them (verified vs ACE): its index B-tree roots, its data
-    /// pages (owned-pages usage map), and the TDEF page. Returns false if the table doesn't exist.
+    /// global free map when the database closes (verified vs ACE): every page of its indexes, its data and
+    /// long-value pages, the TDEF page and its continuation pages, a reference-form map's bitmap pages, and any
+    /// usage-map holder left with no live record. Returns false if the table doesn't exist.
     ///
     /// A table that is the <em>child</em> (referencing) side of relationships can be dropped directly: ACE
     /// lets you drop the referencing table while the parent stays, so each such relationship is removed first
@@ -849,9 +1014,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// child cannot be dropped — drop the referencing table (or the relationship) first. EF drops FKs before
     /// tables, but database-first scaffolding cleanup drops child tables directly, which must work.
     /// </summary>
-    /// <remarks>Multi-page TDEFs, multi-level index trees (non-root pages), memo/OLE LVAL pages and dedicated
-    /// usage-map pages are not yet freed (they leak until Compact); the catalog removal is complete regardless,
-    /// so the table disappears and Access opens the file.</remarks>
     public bool DropTable(string tableName)
     {
         TableDef? table = _catalog.FindTable(tableName);
@@ -876,16 +1038,151 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         int tdefPage = table.DefinitionPage;
         var allocator = new PageAllocator(_channel);
+        var maps = new UsageMap(_channel, table);
+
+        // Collect before freeing anything: the pointers are read out of the TDEF, which this method frees.
+        var owned = new HashSet<int>();
+        // Through the chain reader: a wide table's definition spans continuation pages, and parsing only the
+        // first one throws on the declared length. (The map POINTERS below are at fixed offsets inside the
+        // first page, so those are read from it directly, as UsageMap does.)
+        var definition = new TableDefinitionPage();
+        definition.Read(_channel, tdefPage);
+
+        // The map RECORDS live as rows on owner-zero data pages, and each is retired in turn — its bits cleared
+        // first where ACE clears them, then its row reclaimed, which slides every record below it up the page.
+        // The order is ACE's and it shows on disk: a slide leaves a copy of the records it moved in the space
+        // they vacated, so retiring the same records in another order leaves different bytes behind. Measured
+        // by whole-file diff against ACE drops: each long-value column's owned then free map, bits cleared;
+        // then each index's owned map in index order, bits cleared; then the table's own owned map, bits
+        // cleared, and its free map, whose bits stay.
+        var retire = new List<MapRetirement>();
+
+        foreach (ColumnDef column in table.Columns)
+            QueueLongValueMaps(definition, column, maps, owned, retire);
+
+        // Each real index keeps its B-tree pages in its own owned map, whose (row, page) pointer sits in its data
+        // block. Freeing only the root strands every other page of a multi-level index, and leaving the map's
+        // record live keeps its holder from ever being freed.
+        foreach (byte[] block in ParseTdef(tdefPage).DataBlocks)
+        {
+            int at = IndexBlockFormat.UsageMapRowOffset;
+            (int Row, int Page) map = (block[at], block[at + 1] | block[at + 2] << 8 | block[at + 3] << 16);
+            if (map.Page == 0) continue;
+            List<int> pages = maps.PagesInMap(map.Row, map.Page).ToList();
+            owned.UnionWith(pages);
+            retire.Add((map, [map], pages));
+        }
         foreach (IndexDef index in table.Indexes.Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First()))
-            allocator.Free(index.RootPage);
-        foreach (int dataPage in new UsageMap(_channel, table).DataPages())
-            allocator.Free(dataPage);
-        allocator.Free(tdefPage);
+            owned.Add(index.RootPage);
+        List<int> dataPages = maps.DataPages().ToList();
+        owned.UnionWith(dataPages);
+        owned.Add(tdefPage);
+        // A wide table's definition continues on further pages. ACE frees them too, and leaves every byte of
+        // them alone — only the first page is marked released.
+        owned.UnionWith(TdefChainReader.Read(_channel, tdefPage).ContinuationPages);
+
+        PageBuffer tdef = _channel.ReadPage(tdefPage);
+        (int Row, int Page) dataOwned = (tdef.ReadByte(_channel.Format.TdefOwnedPagesOffset),
+                                         tdef.ReadInt24(_channel.Format.TdefOwnedPagesOffset + 1));
+        retire.Add((dataOwned, [dataOwned], dataPages));
+        retire.Add(((tdef.ReadByte(_channel.Format.TdefFreePagesOffset),
+                     tdef.ReadInt24(_channel.Format.TdefFreePagesOffset + 1)), [], []));
+
+        RetireMapRecords(retire, maps, owned);
+
+        // Access marks the released definition page itself: its type byte becomes 0x08 and nothing else on
+        // the page changes, so the old definition is still sitting there when Compact comes to reclaim it.
+        // Measured across an ACE DROP TABLE: exactly one byte of the 4,096 differs. Only the TDEF is marked —
+        // the data, long-value and map-holder pages ACE frees keep their 0x01.
+        byte[] released = _channel.ReadPage(tdefPage).Span.ToArray();
+        released[0] = (byte)PageType.ReleasedTableDefinition;
+        _channel.WritePage(tdefPage, released);
+
+        foreach (int page in owned)
+            allocator.Release(page);   // reusable only after this handle closes, as ACE holds them
 
         DeleteCatalogRows("MSysObjects", "Id", tdefPage);
         DeleteCatalogRows("MSysACEs", "ObjectId", tdefPage);
         _catalog.Invalidate();
         return true;
+    }
+
+    /// <summary>
+    /// Queues a long-value column's two usage-map records for <see cref="RetireMapRecords"/>, owned then free, and
+    /// adds the pages its owned map records to <paramref name="owned"/>. A Memo/OLE (or calculated long) column owns
+    /// its LVAL pages through a PER-COLUMN usage map, whose pointer sits in the TDEF keyed by column id. Those pages
+    /// are not in the table's data-page map, so freeing only the data pages leaves every long value stranded — and
+    /// for a memo-heavy table that is nearly the whole table. Measured against ACE: dropping a 60-row memo table
+    /// returned 123 pages through ACE and 2 through LibRed, the missing 121 being LVAL pages. Nothing is queued for
+    /// a column with no long-value maps.
+    /// </summary>
+    private static void QueueLongValueMaps(
+        TableDefinitionPage definition, ColumnDef column, UsageMap maps, HashSet<int> owned, List<MapRetirement> retire)
+    {
+        definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) map);
+        definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) columnFree);
+        if (map.Page != 0)
+        {
+            // Clear each page's bit on the way out, exactly as releasing a single value does: the record's
+            // bitmap bytes are zeroed before its row is retired. Except a page still in the free map, whose bit
+            // stays in both records — measured by whole-file diff of ACE drops: of an OLE column owning a chain,
+            // two full single-value pages and its current append page, every bit went but the append page's.
+            List<int> pages = maps.PagesInMap(map.Row, map.Page).ToList();
+            owned.UnionWith(pages);
+            HashSet<int> stillFree = columnFree.Page != 0 ? maps.PagesInMap(columnFree.Row, columnFree.Page).ToHashSet() : [];
+            retire.Add((map, columnFree.Page != 0 ? [map, columnFree] : [map], pages.Where(p => !stillFree.Contains(p)).ToList()));
+        }
+        if (columnFree.Page != 0) retire.Add((columnFree, [], []));
+    }
+
+    /// <summary>
+    /// Takes usage-map records off their pages the way ACE does, in the order given — tombstone the slot, slide the
+    /// rows below it up, return the bytes to the page's free count — rather than leaving dead maps behind. On a
+    /// shared holder that is the whole fix: the page survives and must not keep records for a map that no longer
+    /// exists. Each record's <c>Clear</c> maps first have its <c>Pages</c> cleared. Adds to <paramref name="owned"/>
+    /// the pages to release: a reference-form record's bitmap pages, and every holder left with no live row.
+    /// </summary>
+    private void RetireMapRecords(IEnumerable<MapRetirement> retire, UsageMap maps, HashSet<int> owned)
+    {
+        var usageMaps = new UsageMapWriter(_channel);
+        var holders = new List<int>();
+        var retired = new HashSet<(int Row, int Page)>();
+        foreach (((int Row, int Page) map, IReadOnlyList<(int Row, int Page)> clear, IReadOnlyList<int> pages) in retire)
+        {
+            if (map.Page <= 1 || map.Page >= _channel.PageCount || !retired.Add(map)) continue;
+            foreach ((int Row, int Page) cleared in clear)
+                foreach (int page in pages)
+                    usageMaps.SetBit(cleared.Row, cleared.Page, page, set: false);
+
+            // A reference-form record keeps its bitmap on dedicated pages. ACE zeroes each one's bitmap — even
+            // for the table's own owned map, whose bits an inline record keeps — leaves its header, and frees it.
+            foreach (int bitmapPage in maps.BitmapPagesOf(map.Row, map.Page))
+            {
+                byte[] bitmap = _channel.ReadPage(bitmapPage).Span.ToArray();
+                bitmap.AsSpan(4).Clear();
+                _channel.WritePage(bitmapPage, bitmap);
+                owned.Add(bitmapPage);
+            }
+
+            byte[] holderBytes = _channel.ReadPage(map.Page).Span.ToArray();
+            RowInserter.ReclaimRow(_channel.Format, holderBytes, map.Row);
+            _channel.WritePage(map.Page, holderBytes);
+            if (!holders.Contains(map.Page)) holders.Add(map.Page);
+        }
+
+        // ACE frees a holder once the dropped records were the only thing on it — measured: for a one-memo-column
+        // table ACE returned the long-value map's holder. A holder can carry records for several columns or tables
+        // as separate rows, so releasing one that still serves another map would hand away a live page: corruption
+        // rather than a leak. Hence the holder goes only when no live row is left on it.
+        foreach (int holderPage in holders)
+        {
+            var holder = new DataPage();
+            holder.Read(_channel.ReadPage(holderPage), _channel.Format);
+            bool live = false;
+            for (int row = 0; row < holder.RowCount && !live; row++)
+                live = !holder.Rows[row].IsDeleted && holder.Rows[row].Length > 0;
+            if (!live) owned.Add(holderPage);
+        }
     }
 
     /// <summary>
@@ -898,24 +1195,30 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// </summary>
     public bool DropQueryObject(string name)
     {
+        if (FindObjectId(name, StoredQueryFormat.ObjectTypeQuery) is not { } objId) return false;
+
+        DeleteCatalogRows("MSysObjects", "Id", objId);
+        DeleteCatalogRows("MSysQueries", "ObjectId", objId);
+        DeleteCatalogRows("MSysACEs", "ObjectId", objId);
+        _catalog.Invalidate();
+        return true;
+    }
+
+    /// <summary>The <c>MSysObjects</c> id of the object of <paramref name="type"/> named <paramref name="name"/>,
+    /// or null when there is none.</summary>
+    private int? FindObjectId(string name, short type)
+    {
         TableDef mo = _catalog.FindTable("MSysObjects")
             ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
         int idIdx = (mo.FindColumn("Id") ?? throw new InvalidOperationException("MSysObjects is missing 'Id'.")).Index;
         int nameIdx = (mo.FindColumn("Name") ?? throw new InvalidOperationException("MSysObjects is missing 'Name'.")).Index;
         int typeIdx = (mo.FindColumn("Type") ?? throw new InvalidOperationException("MSysObjects is missing 'Type'.")).Index;
 
-        int? objId = null;
         foreach (object?[] values in new Table(_channel, mo).Rows())
             if (string.Equals(values[nameIdx] as string, name, StringComparison.OrdinalIgnoreCase)
-                && Convert.ToInt16(values[typeIdx] ?? (short)0) == StoredQueryFormat.ObjectTypeQuery)
-            { objId = Convert.ToInt32(values[idIdx]); break; }
-        if (objId is null) return false;
-
-        DeleteCatalogRows("MSysObjects", "Id", objId.Value);
-        DeleteCatalogRows("MSysQueries", "ObjectId", objId.Value);
-        DeleteCatalogRows("MSysACEs", "ObjectId", objId.Value);
-        _catalog.Invalidate();
-        return true;
+                && Convert.ToInt16(values[typeIdx] ?? (short)0) == type)
+                return Convert.ToInt32(values[idIdx]);
+        return null;
     }
 
 
@@ -1256,7 +1559,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         RemoveTdefBlocks(parts, removeDataOrdinal: index.RealIndexOrdinal,
             removeLogical: b => NameOf(b.Name).Equals(indexName, StringComparison.OrdinalIgnoreCase));
         WriteTdef(table.DefinitionPage, parts);
-        new PageAllocator(_channel).Free(index.RootPage);
+        new PageAllocator(_channel).Release(index.RootPage);
         _catalog.Invalidate();
         return true;
     }
@@ -1442,7 +1745,42 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         if (props.Count > 0) SetColumnProperties(table.DefinitionPage, spec.Name, props);
 
         _catalog.Invalidate();
+        if (spec.IsAutoNumber) NumberExistingRows(tableName, spec);
         return true;
+    }
+
+    /// <summary>
+    /// Gives the rows already in a table values in an AutoNumber column just added to it, as ACE does rather than
+    /// leaving them NULL, and sets where the counter carries on (all verified).
+    /// </summary>
+    /// <remarks>
+    /// The existing rows are numbered 1, 2, 3 … in table order whatever the column's seed and increment. A counter
+    /// with the default seed 1 and increment 1 — however it was spelled — then continues after them: two rows take
+    /// 1 and 2, the next insert 3. Any other counter restarts at its own seed, even where that repeats a value the
+    /// rows were given: <c>COUNTER(2, 1)</c> over two rows goes on 2, 3, 4, and <c>COUNTER(1, 5)</c> 1, 6, 11. A
+    /// primary key over the new column has a value in every row either way.
+    /// </remarks>
+    private void NumberExistingRows(string tableName, ColumnSpec spec)
+    {
+        TableDef table = _catalog.FindTable(tableName)
+            ?? throw new InvalidOperationException($"Table '{tableName}' was not found after adding column '{spec.Name}'.");
+        ColumnDef column = table.FindColumn(spec.Name)!;
+        int increment = spec.Increment == 0 ? 1 : spec.Increment;
+
+        var rows = new Table(_channel, table).Rows().WithIds().ToList();
+        if (rows.Count > 0)
+        {
+            var writer = new RowInserter(_channel, table);
+            var changed = new HashSet<int> { column.Index };
+            int number = 0;
+            foreach ((RowId id, object?[] values) in rows)
+            {
+                values[column.Index] = ++number;
+                writer.Update(id, values, changed);
+            }
+        }
+
+        ReseedCounter(table, column, spec.Seed == 1 && increment == 1 ? rows.Count + 1 : spec.Seed, increment);
     }
 
     /// <summary>Inserts a long-value (memo/OLE) column's 10-byte §3.3.2 usage-map entry
@@ -1463,6 +1801,22 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         entry.CopyTo(result, at);
         Array.Copy(lval, at, result, at + 10, 2); // the 0xFFFF terminator
         parts.Lval = result;
+    }
+
+    /// <summary>Removes a long-value column's 10-byte §3.3.2 usage-map entry from the list, keeping the other
+    /// entries and the <c>0xFFFF</c> terminator. A no-op for a column without one.</summary>
+    private static void RemoveLongValueMapEntry(TdefParts parts, int columnId)
+    {
+        byte[] lval = parts.Lval;
+        for (int at = 0; at + 2 < lval.Length; at += 10)
+        {
+            if (BinaryPrimitives.ReadUInt16LittleEndian(lval.AsSpan(at, 2)) != columnId) continue;
+            var result = new byte[lval.Length - 10];
+            Array.Copy(lval, 0, result, 0, at);
+            Array.Copy(lval, at + 10, result, at, lval.Length - at - 10);
+            parts.Lval = result;
+            return;
+        }
     }
 
     /// <summary>Sets (replaces) a column's <c>DefaultValue</c> in the table's <c>MSysObjects.LvProp</c> blob —
@@ -1927,6 +2281,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // 1. Materialise all rows (values indexed by column position) before dropping the table.
         var rows = new Table(_channel, def).Rows().Select(r => (object?[])r.Clone()).ToList();
 
+        // Every index's statistics, here and on each table referencing this one: the rebuild re-inserts the rows and
+        // re-creates the indexes, which would recount them all, where ACE's ALTER leaves every index alone but the
+        // ones over the column it changes (verified, for Memo/OLE retypes as for the rest).
+        var statistics = new[] { tableName }.Concat(incoming.Select(r => r.Table)).Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(t => t, t => IndexStatistics(_catalog.FindTable(t)!), StringComparer.OrdinalIgnoreCase);
+
         // 2. Reconstruct the schema — column order preserved, the target re-typed. Every OTHER column keeps its
         //    original descriptor bytes (RawDescriptor passthrough), so fields LibRed doesn't model survive the
         //    rewrite (the faithful round-trip rule); the target builds fresh (RawDescriptor null). Column ids stay
@@ -1937,7 +2297,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         var specs = def.Columns.Select(c => c.Index == targetIndex
             ? newColumnSpec with { IsNullable = target.IsNullable, RawDescriptor = null }
             : new ColumnSpec(c.Name, c.Type, c.Length, c.IsFixedLength, c.IsAutoNumber, c.Precision, c.Scale,
-                c.IsNullable, c.Seed, c.Increment, RawDescriptor: c.RawDescriptor)).ToList();
+                c.IsNullable, c.Seed, c.Increment, RawDescriptor: c.RawDescriptor,
+                CalculatedExpression: c.CalculatedExpression, CalculatedResultType: c.CalculatedResultType)).ToList();
 
         IndexDef? pk = def.Indexes.FirstOrDefault(i => i.IsPrimaryKey);
         IReadOnlyList<string>? primaryKey = pk?.Columns.Select(c => c.Column.Name).ToList();
@@ -1954,7 +2315,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // 3. Pre-check: convert every target value in memory BEFORE touching disk. An unconvertible value
         //    (e.g. non-numeric text → INT) throws here, with nothing written — the caller sees a clean failure.
         foreach (object?[] row in rows)
-            row[targetIndex] = ConvertValue(row[targetIndex], newColumnSpec.Type);
+            row[targetIndex] = ConvertValue(row[targetIndex], newColumnSpec.Type, newColumnSpec.Name);
 
         // 4. Apply the rebuild atomically: wrap it in a page-level transaction so any failure that slips past the
         //    pre-check (a unique-index collision after narrowing, NOT NULL, an I/O or allocation error) rolls the
@@ -1982,7 +2343,17 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             _catalog.Invalidate();
 
             var dest = new Table(_channel, _catalog.FindTable(tableName)!);
-            foreach (object?[] row in rows) dest.Insert(row);
+            int[] calculatedColumns = dest.Definition.Columns
+                .Where(c => c.IsCalculated)
+                .Select(c => c.Index)
+                .ToArray();
+            foreach (object?[] row in rows)
+            {
+                // A calculated value is a cache, not caller-supplied data. Recompute it from its expression
+                // while rebuilding, as an ordinary insert does; reinserting the old cache is rejected.
+                foreach (int index in calculatedColumns) row[index] = null;
+                dest.Insert(row);
+            }
 
             // Restore each index AS IT WAS. IgnoreNulls and Required are read off the 0x2E flags word and are
             // right here on the IndexDef; hard-coding them false made an ALTER COLUMN on an unrelated column
@@ -2013,6 +2384,22 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 _catalog.Invalidate();
             }
 
+            // Put the statistics back as ACE leaves them: every index as it was, except one over the changed column,
+            // which ACE rebuilds — counted from the rows it now holds, the primary key too (which the re-insert
+            // counted as inserts).
+            foreach ((string name, Dictionary<string, (int Total, int Unique)> before) in statistics)
+            {
+                TableDef table = _catalog.FindTable(name)!;
+                foreach (IndexDef index in table.Indexes)
+                {
+                    if (string.Equals(name, tableName, oic)
+                        && index.Columns.Any(c => string.Equals(c.Column.Name, columnName, oic)))
+                        SetBuiltStatistics(table, index, IndexEntries(table, index, index.IgnoreNulls));
+                    else if (before.TryGetValue(index.Name, out (int Total, int Unique) kept))
+                        WriteIndexStatistics(table, index, kept.Total, kept.Unique);
+                }
+            }
+
             if (ownTransaction) _channel.CommitTransaction();
         }
         catch when (ownTransaction)
@@ -2021,30 +2408,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             _catalog.Invalidate(); // the in-memory catalog cache is stale after the pages are restored
             throw;
         }
-    }
-
-    /// <summary>The TDEF-page step of the in-place column type change: bump the <c>0x29</c> high-water and rewrite
-    /// ONLY the target descriptor (type, burned id, fixed-offset appended to the end of the fixed region with the
-    /// old slot left dead, length), leaving the TDEF page number and every other descriptor byte-identical to ACE.
-    /// This alone is not a self-consistent change — <see cref="AlterColumnTypeInPlace"/> wraps it with the row
-    /// re-lay and index rebuild; this entry point exists so a byte-diff test can isolate the TDEF page.</summary>
-    public void AlterColumnTypeInPlaceTdef(string tableName, string columnName, ColumnSpec newSpec, int? fixedEndOverride = null)
-    {
-        TableDef def = _catalog.FindTable(tableName)
-            ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
-        ColumnDef target = def.FindColumn(columnName)
-            ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
-        EnsureColumnIsNotInRelationship(def, target);
-        JetFormatBase format = _channel.Format;
-
-        TdefParts parts = ParseTdef(def.DefinitionPage);
-        // The fixed-region end must include dead slots, so callers with rows pass the row-derived length.
-        int fixedEnd = fixedEndOverride ?? def.Columns.Where(c => c.IsFixedLength && c.Type != JetDataType.Boolean)
-            .Select(c => c.FixedOffset + c.Length).DefaultIfEmpty(0).Max();
-
-        EditTargetDescriptor(parts, target, newSpec, fixedEnd, _collation, format);
-        WriteTdef(def.DefinitionPage, parts);
-        _catalog.Invalidate();
     }
 
     /// <summary>Applies ACE's in-place column retype to the target descriptor within <paramref name="parts"/>
@@ -2089,9 +2452,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         return maxCols;
     }
 
-    /// <summary>Full in-place column type change, byte-for-byte like ACE (currently: an all-fixed, non-boolean
-    /// table whose target stays fixed and is not indexed; falls back to <see cref="RewriteColumn"/> otherwise).
-    /// Edits the TDEF in place (<see cref="AlterColumnTypeInPlaceTdef"/>) and re-lays every row — the target's
+    /// <summary>Full in-place column type change, byte-for-byte like ACE for fixed and variable columns and
+    /// targets, fixed↔variable, and indexed targets; a Memo/OLE source or target falls back to
+    /// <see cref="RewriteColumn"/>. Edits the TDEF in place (<see cref="EditTargetDescriptor"/>) and re-lays every row — the target's
     /// OLD fixed slot is kept as dead space, its converted value appended at the new offset, count + null bitmap
     /// updated. Converts values in memory first (throws on bad data before any write); runs in a transaction.</summary>
     public void AlterColumnTypeInPlace(string tableName, string columnName, ColumnSpec newSpec)
@@ -2101,6 +2464,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         ColumnDef oldTarget = oldDef.FindColumn(columnName)
             ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
         EnsureColumnIsNotInRelationship(oldDef, oldTarget);
+        if (newSpec.Type == JetDataType.Ole && oldDef.Indexes.Any(i => i.Columns.Any(c => c.Column.ColumnId == oldTarget.ColumnId)))
+            RejectOleIndexColumns([oldTarget.Name], _ => JetDataType.Ole);
 
         // Also reached directly, not only through AlterColumn, so it carries the width limits itself.
         // The record-fits check needs the true fixed-region end, so it runs once that is measured, below.
@@ -2127,7 +2492,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         var rows = new Table(_channel, oldDef).Rows().WithIds()
             .Select(r => (r.Id, Raw: reader.ReadRow(r.Id), Values: (object?[])r.Values.Clone()))
             .ToList();
-        foreach (var r in rows) r.Values[oldTarget.Index] = ConvertValue(r.Values[oldTarget.Index], newSpec.Type);
+        foreach (var r in rows)
+            r.Values[oldTarget.Index] = ConvertValue(r.Values[oldTarget.Index], newSpec.Type, newSpec.Name);
 
         // The fixed-region length is authoritative from the existing rows (their var-data-start), NOT the live
         // column descriptors — those diverge once a high-offset column has been retyped to variable and left a
@@ -2202,7 +2568,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             foreach (var p in pending)
             {
                 BackfillIndex(tableName, p.Name, p.IgnoreNulls, validateUnique: true);
-                _allocator.Free(p.OldRoot);
+                _allocator.Release(p.OldRoot);
             }
 
             if (ownTx) _channel.CommitTransaction();
@@ -2291,7 +2657,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int newRow = RecycleOwnedMapRow(format, usageMapPage, oldUsageRow, newRoot);
 
         // Re-point the index-data block: the target's burned id in its column slot, the new root, the new
-        // usage-map row; bump the stats block (+0x00, observed 0→1 on ACE's rebuild).
+        // usage-map row. Its statistics are set by the backfill that follows, from the rows it then holds.
         for (int slot = 0; slot < IndexBlockFormat.MaxColumns; slot++)
         {
             int at = IndexBlockFormat.ColumnsOffset + slot * IndexBlockFormat.ColumnSlotSize;
@@ -2300,48 +2666,120 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         }
         block[IndexBlockFormat.UsageMapRowOffset] = (byte)newRow;
         BinaryPrimitives.WriteInt32LittleEndian(block.Slice(IndexBlockFormat.RootPageOffset, 4), newRoot);
-        Span<byte> stats = parts.Stats[index.RealIndexOrdinal];
-        BinaryPrimitives.WriteInt32LittleEndian(stats, BinaryPrimitives.ReadInt32LittleEndian(stats) + 1);
         return newRoot;
     }
 
-    /// <summary>Recycles an index's owned-pages usage-map row exactly the way ACE does on a rebuild: append a
-    /// fresh row and set the new root's bit (ACE's first write, at the appended slot), then MOVE that map into
-    /// the old row's freed slot and soft-delete the old row (a 0-length deleted+overflow tombstone) — leaving
-    /// the appended slot's bytes stale in free space, byte-for-byte as ACE does. Returns the new row number.</summary>
+    /// <summary>
+    /// Recycles an index's owned-pages usage-map row the way ACE does on a rebuild, in the two writes whose
+    /// combined result is observable on disk: <b>(1)</b> append a fresh row at the bottom of the holder page
+    /// and set the new root's bit — those bytes are then abandoned and stay as a stale copy; <b>(2)</b> lay
+    /// the page out again with the old row's record <b>reclaimed</b>: its slot becomes a 0-length
+    /// deleted+overflow tombstone at the preceding record's offset, every later row keeps its number while its
+    /// record slides up, and the fresh map takes the position freed at the end of the live region under the
+    /// appended row number. Returns that number — the only pointer the caller re-points, because no other
+    /// row's number changes and each one's data travels with it.
+    /// </summary>
+    /// <remarks>
+    /// Both halves are load-bearing and each was missed once. The stale copy decides a whole-file byte diff
+    /// against ACE on a single byte (the new root's bit, at offset 49 of the abandoned record) and is
+    /// invisible to free-space accounting, since it lies below the lowest live record inside the region free
+    /// space already covers. The compaction is invisible to slot offsets alone and shows up only when records
+    /// are identified by content — ACE's own page, before → after, with a long-value column's maps below the
+    /// index's:
+    /// <code>
+    /// before  row2 @3889 pages=[353]   row3 @3820 pages=[]   row4 @3751 pages=[]
+    /// after   row2 @3958 TOMBSTONE     row3 @3889 pages=[]   row4 @3820 pages=[]   row5 @3751 pages=[355]
+    ///         stale: @3731 = 0x08      (the abandoned append, at 3682)
+    /// </code>
+    /// The long-value maps slid up a record width and kept rows 3 and 4; only the index's pointer moved, to
+    /// the appended row 5. Writing step (1)'s record into the old row's slot instead — which produces the same
+    /// bytes whenever the recycled row happens to be the LAST one, the only case an ACE-built schema gives —
+    /// points a slot back up the page as soon as it is not, and no reader can walk that: a row's extent runs
+    /// to where the previous slot begins. <c>AlterColumnTypeInPlace</c> scans the table through this map
+    /// immediately afterwards, so the <c>ALTER</c> failed outright on any table that had gained a Memo or OLE
+    /// column after its index.
+    /// </remarks>
     private int RecycleOwnedMapRow(JetFormatBase format, int usageMapPage, int oldRow, int newRoot)
     {
-        const int MapLength = 1 + 4 + 64;
         int dir = format.DataRowDirectoryOffset;
-        int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(_channel.ReadPage(usageMapPage).Span.Slice(format.DataRowCountOffset, 2));
+        int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(
+            _channel.ReadPage(usageMapPage).Span.Slice(format.DataRowCountOffset, 2));
         int newRow = rowCount;
+        if (oldRow < 0 || oldRow >= rowCount)
+            throw new InvalidDataException(
+                $"Usage-map row {usageMapPage}:{oldRow} does not exist; the page has {rowCount} rows.");
 
-        // ACE's first write: append a fresh row and set the new root's bit (this copy is later left stale).
+        // (1) ACE's first write, kept verbatim: the appended row is where the new root's bit is set, and the
+        // bytes it leaves behind are part of the file ACE produces.
         AppendEmptyUsageMapRow(format, usageMapPage, newRow);
         new UsageMapWriter(_channel).SetBit(newRow, usageMapPage, newRoot, set: true);
 
-        // Then move that map into the old row's freed slot and turn the old row into a tombstone; the appended
-        // slot's bytes are left in place (stale, in free space) — matching ACE's leftover.
+        // (2) Re-lay the live records. Starting from the page as it stands keeps everything this does not
+        // write — the abandoned append included — exactly where ACE leaves it.
         byte[] page = _channel.ReadPage(usageMapPage).Span.ToArray();
-        int freshOffset = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dir + newRow * 2, 2)) & RowPointer.OffsetMask;
-        int oldOffset = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dir + oldRow * 2, 2)) & RowPointer.OffsetMask;
-        int aboveOffset = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dir + (oldRow - 1) * 2, 2)) & RowPointer.OffsetMask;
+        var holder = new DataPage();
+        holder.Read(_channel.ReadPage(usageMapPage), format);
 
-        Array.Copy(page, freshOffset, page, oldOffset, MapLength);                 // move the map into the old slot
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir + newRow * 2, 2), (ushort)oldOffset);
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir + oldRow * 2, 2),
-            (ushort)(aboveOffset | RowPointer.DeletedFlag | RowPointer.OverflowFlag)); // old row → 0-length tombstone
+        var records = new byte[rowCount + 1][];
+        var flags = new ushort[rowCount + 1];
+        for (int i = 0; i <= rowCount; i++)
+        {
+            records[i] = i == oldRow ? [] : page.AsSpan(holder.Rows[i].Offset, holder.Rows[i].Length).ToArray();
+            flags[i] = (ushort)((i == oldRow || holder.Rows[i].IsDeleted ? RowPointer.DeletedFlag : 0)
+                                | (i == oldRow || holder.Rows[i].HasOverflow ? RowPointer.OverflowFlag : 0));
+        }
+
+        int directoryEnd = dir + (rowCount + 1) * 2;
+        int offset = format.PageSize;
+        for (int i = 0; i <= rowCount; i++)
+        {
+            offset -= records[i].Length;                  // a 0-length tombstone lands on the previous start
+            if (offset < directoryEnd)
+                throw new InvalidOperationException(
+                    $"Usage-map page {usageMapPage} has no room to recycle row {oldRow}: {rowCount} rows already. "
+                    + "The new map belongs on a page of its own.");
+            records[i].CopyTo(page.AsSpan(offset));
+            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir + i * 2, 2),
+                (ushort)(flags[i] | (offset & RowPointer.OffsetMask)));
+        }
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
-            (ushort)(oldOffset - (dir + (rowCount + 1) * 2)));
+            (ushort)(offset - directoryEnd));
         _channel.WritePage(usageMapPage, page);
         return newRow;
     }
 
     /// <summary>Converts a stored value to the CLR type for a new column type (ALTER COLUMN). NULL stays NULL;
     /// an unconvertible value throws (as ACE's rewrite would).</summary>
-    private static object? ConvertValue(object? value, JetDataType type)
+    /// <remarks>Throwing is the intent; the type has to be actionable. The bare <c>Convert.To*</c> calls leaked
+    /// <see cref="InvalidCastException"/>/<see cref="FormatException"/>/<see cref="OverflowException"/>, none
+    /// naming the column and none distinguishable from a bug in the rewrite.</remarks>
+    private static object? ConvertValue(object? value, JetDataType type, string columnName)
     {
         if (value is null) return null;
+        try
+        {
+            return ConvertCore(value, type);
+        }
+        catch (Exception ex) when (ex is InvalidCastException or FormatException or OverflowException
+                                      or ArgumentException)
+        {
+            throw new InvalidOperationException(
+                $"Column '{columnName}' cannot be changed to {type}: the existing value "
+                + $"'{Describe(value)}' ({value.GetType().Name}) cannot be converted to it.", ex);
+        }
+    }
+
+    /// <summary>Bounded rendering for an error message, so a memo does not paste thousands of characters into
+    /// one.</summary>
+    private static string Describe(object value) => value switch
+    {
+        byte[] bytes => $"{bytes.Length} bytes",
+        string { Length: > 40 } text => $"{text[..40]}…",
+        _ => value.ToString() ?? "",
+    };
+
+    private static object? ConvertCore(object value, JetDataType type)
+    {
         var inv = System.Globalization.CultureInfo.InvariantCulture;
         return type switch
         {
@@ -2352,7 +2790,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             JetDataType.Int64 => Convert.ToInt64(value, inv),
             JetDataType.Single => Convert.ToSingle(value, inv),
             JetDataType.Double => Convert.ToDouble(value, inv),
-            JetDataType.Currency or JetDataType.FixedPoint => Convert.ToDecimal(value, inv),
+            JetDataType.Currency or JetDataType.FixedPoint => JetDecimalConverter.ToDecimal(value, inv),
             JetDataType.DateTime => value is DateTime d ? d : Convert.ToDateTime(value, inv),
             JetDataType.Text or JetDataType.Memo => Convert.ToString(value, inv),
             JetDataType.Guid => value is Guid g ? g : Guid.Parse(value.ToString()!),
@@ -2386,8 +2824,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <c>VariableColumnCount</c> (0x2B stays a high-water mark), or rewrite existing rows — survivors keep
     /// their stored variable index (§3.4) so old rows still decode (the dropped column's data becomes dead
     /// bytes). Returns false if the column doesn't exist. Multi-page TDEFs are handled. Throws for a column
-    /// that backs an index/key (drop that first) or a memo/OLE column (its long-value usage-map entry/pages
-    /// aren't handled yet).
+    /// that backs an index/key (drop that first).
+    /// <para>A memo/OLE column also owns long-value pages through its own usage maps, and ACE retires those as
+    /// DROP TABLE does (measured by whole-file diff): its §3.3.2 entry leaves the TDEF, its owned and free map
+    /// records are retired from their holder, and its owned pages go back to the global free map at close. The
+    /// pages themselves are left as they were, and the other long-value columns keep their entries and records.</para>
     /// </summary>
     public bool DropColumn(string tableName, string columnName)
     {
@@ -2423,13 +2864,24 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             throw new InvalidOperationException(
                 $"Cannot drop column '{columnName}': it is part of an index or key — drop the index/constraint first.");
 
-        if (col.Type is JetDataType.Memo or JetDataType.Ole)
-            throw new NotSupportedException(
-                $"DROP COLUMN '{columnName}': dropping a memo/OLE (long-value) column is not supported yet.");
+        // A long-value column's maps, read from the TDEF before it loses them.
+        var definition = new TableDefinitionPage();
+        definition.Read(_channel, table.DefinitionPage);
+        var maps = new UsageMap(_channel, table);
+        var owned = new HashSet<int>();
+        var retire = new List<MapRetirement>();
+        QueueLongValueMaps(definition, col, maps, owned, retire);
 
         TdefParts parts = ParseTdef(table.DefinitionPage); // stitches continuation pages for a multi-page TDEF
         RemoveColumnFromParts(parts, table.Columns.Count, col.Index, _channel.Format);
+        RemoveLongValueMapEntry(parts, col.ColumnId);
         WriteTdef(table.DefinitionPage, parts);
+
+        RetireMapRecords(retire, maps, owned);
+        var allocator = new PageAllocator(_channel);
+        foreach (int page in owned)
+            allocator.Release(page);   // reusable only after this handle closes, as ACE holds them
+
         RemoveColumnProperties(table.DefinitionPage, columnName); // drop its DefaultValue/Required from LvProp (ACE does)
         _catalog.Invalidate();
         return true;
@@ -2619,9 +3071,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLogicalIndexCountOffset, 4), parts.Logical.Count);
         BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLengthOffset, 4), defEnd);
 
-        // Write across the first page and continuation pages as needed (reusing the existing ones) — handles a
+        // Write across the first page and continuation pages as needed (fresh ones, the old released) — handles a
         // definition that shrinks to one page, stays multi-page, or grows past a page (e.g. ADD COLUMN).
-        WriteDefinition(tdefPage, def, parts.Continuations);
+        WriteDefinition(tdefPage, def, parts.Continuations, rewrite: true);
     }
 
     /// <summary>Marks a row deleted by setting the deleted flag (0x8000) on its slot-directory entry — a
@@ -2696,62 +3148,68 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// Writes a definition buffer across the first page and, if it overflows, continuation pages (each
     /// <c>[0x02][0x01][free:2][next:4]</c> then data). The first page carries the whole definition in its
     /// coordinate space; each continuation contributes <see cref="JetFormatBase.TdefContinuationHeaderSize"/>-offset data.
-    /// Existing continuation pages are reused before allocating new ones.
+    /// <para>Rewriting an existing definition (<paramref name="rewrite"/>) is done as ACE does it (verified by
+    /// whole-file diff, growing and shrinking): the first page is rewritten in place — alone, only the 8-byte
+    /// reserve past the new end is zeroed and older bytes beyond it are left — and continuation data always goes
+    /// to freshly allocated pages, while <paramref name="oldContinuations"/> are released untouched.</para>
     /// </summary>
-    private void WriteDefinition(int firstPage, byte[] def, IReadOnlyList<int> reusePages)
+    private void WriteDefinition(int firstPage, byte[] def, IReadOnlyList<int> oldContinuations, bool rewrite)
     {
         JetFormatBase format = _channel.Format;
         int ps = format.PageSize;
         int nextOffset = format.TdefNextPageOffset;
 
+        foreach (int old in oldContinuations)
+            _allocator.Release(old);   // reusable only after this handle closes, as ACE holds them
+
         if (def.Length + JetFormatBase.TdefContinuationHeaderSize <= ps)
         {
-            var only = new byte[ps];
+            byte[] only = rewrite ? _channel.ReadPage(firstPage).Span.ToArray() : new byte[ps];
             def.CopyTo(only, 0);
+            only.AsSpan(def.Length, JetFormatBase.TdefContinuationHeaderSize).Clear(); // the reserve
             BinaryPrimitives.WriteInt32LittleEndian(only.AsSpan(nextOffset, 4), 0);
             BinaryPrimitives.WriteUInt16LittleEndian(only.AsSpan(format.TdefFreeSpaceOffset, 2), (ushort)(ps - def.Length - JetFormatBase.TdefContinuationHeaderSize));
             _channel.WritePage(firstPage, only);
             return;
         }
 
-        // Plan the continuation chunks: each holds up to (ps - header) data; the last also leaves the reserve.
-        // Each continuation carries PageSize - 8 bytes of definition; the LAST one also leaves the 8-byte
-        // trailing reserve, so it can hold only PageSize - 16. A chunk sized for a middle page that then turns
-        // out to be the last leaves free space of -8, written as 0xFFF8 — an 8-byte window at every page
-        // boundary, reachable by ADD COLUMN growing a definition a few bytes at a time. When the remainder
-        // lands in that window, stop short and let a small tail chunk take the rest.
+        // The chain holds the definition and then its 8-byte trailing reserve, as ACE lays it out (verified): every
+        // page is filled before the next begins, and the reserve follows the last definition byte, spilling onto a
+        // page of its own when it does not fit — so a continuation can hold reserve bytes and no definition. A
+        // 4,090-byte definition fills page 1 with 4,090 bytes and six of the reserve, and its continuation holds the
+        // other two, free 4,086. Each page's free space is what it has left once both are placed.
         int maxMiddle = ps - JetFormatBase.TdefContinuationHeaderSize;
-        int maxLast = maxMiddle - JetFormatBase.TdefContinuationHeaderSize;
-        var chunks = new List<(int Offset, int Length)>();
-        for (int offset = ps; offset < def.Length;)
+        int stored = def.Length + JetFormatBase.TdefContinuationHeaderSize;
+        var chunks = new List<(int Offset, int Length, int Free)>();
+        for (int consumed = ps; consumed < stored;)
         {
-            int remaining = def.Length - offset;
-            int length = remaining <= maxLast ? remaining
-                : remaining > maxMiddle ? maxMiddle
-                : maxLast;
-            chunks.Add((offset, length));
-            offset += length;
+            int placed = Math.Min(maxMiddle, stored - consumed);
+            chunks.Add((consumed, Math.Clamp(def.Length - consumed, 0, placed), maxMiddle - placed));
+            consumed += placed;
         }
 
-        int reuse = 0;
-        int[] pageNumbers = chunks.Select(_ => reuse < reusePages.Count ? reusePages[reuse++] : _allocator.Allocate()).ToArray();
+        // ACE allocates the last continuation first (verified: from free pages 354.. a two-page continuation became
+        // first → 355 → 354, and from the end of a file first → n+1 → n).
+        var pageNumbers = new int[chunks.Count];
+        for (int i = chunks.Count - 1; i >= 0; i--)
+            pageNumbers[i] = _allocator.Allocate();
 
         var page1 = new byte[ps];
-        Array.Copy(def, 0, page1, 0, ps); // page 1 is completely full in a multi-page definition
+        Array.Copy(def, 0, page1, 0, Math.Min(ps, def.Length)); // page 1 is completely full in a multi-page definition
         BinaryPrimitives.WriteInt32LittleEndian(page1.AsSpan(nextOffset, 4), pageNumbers[0]);
         BinaryPrimitives.WriteUInt16LittleEndian(page1.AsSpan(format.TdefFreeSpaceOffset, 2), 0);
         _channel.WritePage(firstPage, page1);
 
         for (int i = 0; i < chunks.Count; i++)
         {
-            var (offset, length) = chunks[i];
+            var (offset, length, free) = chunks[i];
             var page = new byte[ps];
             page[0] = (byte)PageType.TableDefinition;
             page[1] = 0x01;
-            Array.Copy(def, offset, page, JetFormatBase.TdefContinuationHeaderSize, length);
+            if (length > 0) // a page holding only the reserve starts past the definition's end
+                Array.Copy(def, offset, page, JetFormatBase.TdefContinuationHeaderSize, length);
             int next = i + 1 < pageNumbers.Length ? pageNumbers[i + 1] : 0;
             BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(nextOffset, 4), next);
-            int free = next != 0 ? 0 : ps - JetFormatBase.TdefContinuationHeaderSize - length - JetFormatBase.TdefContinuationHeaderSize;
             BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefFreeSpaceOffset, 2), (ushort)free);
             _channel.WritePage(pageNumbers[i], page);
         }
@@ -2803,15 +3261,13 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <summary>
     /// Adds an incoming-relationship logical index-info block (§3.6) to a parent table's already-written
     /// TDEF: it reuses the parent's referenced-key data block (no new data block), links back to the
-    /// child's outgoing block, and grows the logical-index list by one (kept name-sorted). Single
-    /// definition page only (throws if the definition spans continuation pages).
+    /// child's outgoing block, and grows the logical-index list by one (kept name-sorted). The definition is
+    /// rewritten through <see cref="WriteDefinition"/>, so it may span or spill onto continuation pages.
     /// </summary>
     private void AddIncomingRelationshipBlock(IncomingRelationship inc)
     {
         JetFormatBase format = _channel.Format;
-        var buf = _channel.ReadPage(inc.ParentPage);
-        if (buf.ReadInt32(format.TdefNextPageOffset) != 0)
-            throw new NotSupportedException("Adding a relationship to a multi-page table definition is not supported yet.");
+        (LibRed.IO.PageBuffer buf, IReadOnlyList<int> existingContinuations) = ReadDefinition(inc.ParentPage);
 
         int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);        // 0x33 real data blocks
         int logicalCount = buf.ReadInt32(format.TdefLogicalIndexCountOffset); // 0x2F logical blocks
@@ -2853,20 +3309,17 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         nameBytes.Insert(k, EncodeName(newName));
 
         int newDefEnd = infoStart + blocks.Count * IndexBlockFormat.InfoBlockSize + nameBytes.Sum(n => n.Length) + lvalRegion.Length;
-        if (newDefEnd > format.PageSize - JetFormatBase.TdefContinuationHeaderSize)
-            throw new NotSupportedException("No room in the table definition for another relationship (needs a continuation page).");
 
-        var page = buf.Span.ToArray();
+        var def = new byte[newDefEnd];
+        buf.Span[..infoStart].CopyTo(def);
         int w = infoStart;
-        foreach (byte[] b in blocks) { b.CopyTo(page.AsSpan(w)); w += b.Length; }
-        foreach (byte[] n in nameBytes) { n.CopyTo(page.AsSpan(w)); w += n.Length; }
-        lvalRegion.CopyTo(page.AsSpan(w));
+        foreach (byte[] b in blocks) { b.CopyTo(def.AsSpan(w)); w += b.Length; }
+        foreach (byte[] n in nameBytes) { n.CopyTo(def.AsSpan(w)); w += n.Length; }
+        lvalRegion.CopyTo(def.AsSpan(w));
 
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefLogicalIndexCountOffset, 4), logicalCount + 1);
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefLengthOffset, 4), newDefEnd);
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefFreeSpaceOffset, 2),
-            (ushort)(format.PageSize - newDefEnd - JetFormatBase.TdefContinuationHeaderSize));
-        _channel.WritePage(inc.ParentPage, page);
+        BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLogicalIndexCountOffset, 4), logicalCount + 1);
+        BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLengthOffset, 4), newDefEnd);
+        WriteDefinition(inc.ParentPage, def, existingContinuations, rewrite: true);
     }
 
     private byte[] BuildIncomingInfoBlock(IncomingRelationship inc)

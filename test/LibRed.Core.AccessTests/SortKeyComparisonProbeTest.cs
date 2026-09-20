@@ -22,6 +22,7 @@ namespace LibRed.Core.Tests;
 //                 platform unless System.Globalization.UseNls is set, so it is NOT the Win32 sort key.
 //   4. LCMapStringEx(LCMAP_SORTKEY) - the Win32 NLS API Jet itself used, called directly so the comparison
 //                 does not depend on which globalization backend .NET happens to be using.
+[Collection(AceCollection.Name)]
 public class SortKeyComparisonProbeTest(ITestOutputHelper output)
 {
     private const uint LcmapSortkey = 0x00000400;

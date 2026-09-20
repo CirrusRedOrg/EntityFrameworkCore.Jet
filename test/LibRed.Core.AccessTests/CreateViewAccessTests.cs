@@ -5,6 +5,7 @@ using Xunit;
 
 namespace LibRed.Core.Tests;
 
+[Collection(AceCollection.Name)]
 public class CreateViewAccessTests
 {
     private static string CopyToTemp()

@@ -19,6 +19,7 @@ namespace LibRed.Core.Tests;
 //   2. Does the v1 scheme generalise beyond General? Romanian and Croatian are the only Latin-script orders
 //      Access offers in "- Legacy" / current pairs, so they are the cheapest test of whether a non-General
 //      order ever reaches sort-order version 1 and 2-byte NLS primaries.
+[Collection(AceCollection.Name)]
 public class LocaleFixtureCollationProbeTest(ITestOutputHelper output)
 {
     /// <summary>Everything in Data\ that is a fixture for something else. Anything else is treated as a

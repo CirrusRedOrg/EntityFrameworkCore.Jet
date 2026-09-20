@@ -39,14 +39,15 @@ public static class DatabaseCreator
         string id = isAccdb ? JetFormatBase.AceIdentifier : JetFormatBase.JetIdentifier;
         Encoding.ASCII.GetBytes(id).CopyTo(page, JetFormatBase.FormatIdentifierOffset); // 0x04, 15 bytes; 0x13 stays NUL
         page[JetFormatBase.VersionOffset] = version;                                     // 0x14
-        page[0x15] = (byte)(version == 0x03 ? 0x01 : 0x00);                              // 2010-format minor byte
+        page[JetFormatBase.MinorVersionOffset] = JetFormatBase.CreatedMinorVersion(version); // 0x15
 
         // --- Masked header (0x18..0x97): build the clear image, then XOR the fixed mask over it. ---
         int b = JetFormatBase.PageZeroHeaderMaskStart;
         Span<byte> clear = stackalloc byte[JetFormatBase.PageZeroHeaderMask.Length];
 
-        BinaryPrimitives.WriteInt32LittleEndian(clear[(0x18 - b)..], 0x00000100);        // 0x18 fixed constant
-        BinaryPrimitives.WriteInt32LittleEndian(clear[(0x1C - b)..], 0x00000101);        // 0x1C fixed constant
+        // 0x18/0x1C: [row][page] pointers to the global usage maps on page 1 — free pages (row 0), released pages (row 1).
+        BinaryPrimitives.WriteInt32LittleEndian(clear[(JetFormatBase.FreePagesMapPointerOffset - b)..], 0x00000100);     // free map: page 1, row 0
+        BinaryPrimitives.WriteInt32LittleEndian(clear[(JetFormatBase.ReleasedPagesMapPointerOffset - b)..], 0x00000101); // released map: page 1, row 1
         // 0x20..0x2C: system-catalog bootstrap pointers = MSysObjects/ACEs/Queries/Relationships pages.
         BinaryPrimitives.WriteInt32LittleEndian(clear[(0x20 - b)..], 2);
         BinaryPrimitives.WriteInt32LittleEndian(clear[(0x24 - b)..], 3);
@@ -252,6 +253,18 @@ public static class DatabaseCreator
     public static void CreateEmpty(string path, byte version = 0x02, Collation? collation = null)
     {
         Collation sortOrder = collation ?? Collation.GeneralLegacy;
+
+        // ACE 15 (0x04) can be read but never created: ACE REFUSES a file carrying the byte, an empty one
+        // included, and restamping 0x14 to 0x03 opens the identical bytes
+        // (Ace_refuses_the_0x04_version_byte_and_nothing_else_about_the_file). FromVersionByte still maps 0x04
+        // onto the 0x03 layout, so reading one stays supported; only writing it is refused.
+        if (version == (byte)JetVersion.Version15_2013)
+            throw new NotSupportedException(
+                $"Cannot create a database at {nameof(JetVersion.Version15_2013)} (version byte 0x04): the "
+                + "Access engine refuses to open a file stamped with it. Access 2013 writes the Access 2010 "
+                + $"format, so use {nameof(JetVersion.Version14_2010)} for a 2013-era database. Existing 0x04 "
+                + "files can still be opened for reading.");
+
         JetFormatBase format = JetFormatBase.FromVersionByte(version);
 
         // Jet 4 (0x01, the Access 2000 / 2002-2003 `.mdb`) and the ACCDB versions can both be created; the

@@ -12,6 +12,7 @@ namespace LibRed.Core.Tests;
 //    aggregates (DCount) too — all rejected as "Unknown function".
 //  - The 255-char cap is a DAO-API limit, NOT an engine/file-format limit: ACE accepts and applies a 300+ char
 //    default expression. LibRed writes such defaults to LvProp and they round-trip.
+[Collection(AceCollection.Name)]
 public class AceDefaultExpressionLimitsTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

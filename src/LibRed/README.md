@@ -14,7 +14,7 @@ LibRed reads and writes the file format directly.
 > the repo-root `CLAUDE.md`. Record only facts verified against real files or Access's own engine.
 >
 > **SQL surface:** [`docs/functions.md`](docs/functions.md) catalogs the supported VBA/Access functions
-> (usable in `SELECT`/`WHERE`/`ORDER BY`/`DEFAULT`/`CHECK`); [`docs/format/page-02c-default-values.md`](docs/format/page-02c-default-values.md)
+> and LibRed's extended ones (usable in `SELECT`/`WHERE`/`ORDER BY`/`DEFAULT`/`CHECK`); [`docs/format/page-02c-default-values.md`](docs/format/page-02c-default-values.md)
 > covers column `DEFAULT` semantics.
 
 ## Projects
@@ -98,7 +98,17 @@ Treat the number as of its date — an EF Core version bump moves it.
   round-trips**; AutoNumber generation and high-water tracking (including the two's-complement wrap past
   `int32`, which ACE does not treat as an error either); unique-index statistics; allocation through the
   global free-pages map; `MSysObjects` / `MSysACEs` catalog rows. `UPDATE`/`DELETE` write in place, relocate
-  rows that no longer fit, maintain every index, and reclaim LVAL pages.
+  rows that no longer fit, maintain every index, and reclaim LVAL pages. Freed pages go back to that map
+  when the database closes, as ACE holds them — only an `UPDATE`'s replaced long value is reusable at once.
+  `DROP TABLE` frees every page the table owns: data and long-value pages (each Memo/OLE column's hang off a
+  per-column usage map, and are most of a memo-heavy table), every page of every index, the TDEF and its
+  continuation pages, and a reference-form map's bitmap pages. It retires each map's records from their
+  holder page in ACE's order and frees the holder once no other map's row is left, marks the released TDEF
+  `0x08`, and at close sizes the released-pages map — growing it, moving its window or converting it to
+  reference form — as Access does. Whole-file diffs against ACE drops of the same tables — memo, indexed,
+  multi-page-index, 255-column and reference-map tables, and across sessions — are **byte-identical** apart
+  from page 0's commit slot and the catalog's own pages: MSysObjects' wall-clock dates, and index pages whose
+  entries match but which LibRed compacts harder after removing them (spec §10.4a).
 - **Encryption** — read *and* write, in every scheme the format has: `DatabaseEncryption` sets, changes and
   removes passwords for Agile, Office Standard AES-256 and RC4 (selectable key length and hash), and the
   legacy Jet 4 database password **byte-identically to Access**; `SetJetEncoding` writes legacy RC4 page
@@ -174,14 +184,33 @@ Treat the number as of its date — an EF Core version bump moves it.
   what extended mode generates against (see the EF Core section below):
   - `CROSS APPLY` / `OUTER APPLY` — a lateral join, with the right side re-evaluated per left row. ACE has
     no syntax for either.
-  - **Window functions** — `ROW_NUMBER()`, `RANK()` and `DENSE_RANK()` with
-    `OVER (PARTITION BY … ORDER BY …)`. `OVER` hangs off any function call, so adding another is a registry
-    entry rather than a grammar change.
+  - **Window functions** — `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, `NTILE(n)`, `PERCENT_RANK()`,
+    `CUME_DIST()`, `LAG`/`LEAD(x [, offset [, default]])`, and `FIRST_VALUE`, `LAST_VALUE`,
+    `NTH_VALUE(x, n) [FROM FIRST | FROM LAST]` and the aggregates (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`, Access's
+    `First`/`Last`, the statistical ones under their Access and standard names, the percentiles, and
+    `CORR`/`COVAR_*`/`REGR_*`, `LISTAGG`) with `OVER (PARTITION BY … ORDER BY … [frame])`; the one-argument
+    aggregates also take `DISTINCT`, and every aggregate `FILTER (WHERE …)`. Over a grouped query the windows
+    run over the groups `HAVING` keeps, so `RANK() OVER (ORDER BY SUM(x) DESC)` and `SUM(SUM(x)) OVER ()` rank
+    and total the groups. `LAG`, `LEAD` and the three value functions take
+    `RESPECT NULLS` or `IGNORE NULLS` before the `OVER`. The frame is the standard's: `ROWS`, `RANGE` or
+    `GROUPS`, `BETWEEN` any of `UNBOUNDED PRECEDING`, `n PRECEDING`, `CURRENT ROW`, `n FOLLOWING` and
+    `UNBOUNDED FOLLOWING`, with an optional `EXCLUDE CURRENT ROW | GROUP | TIES | NO OTHERS`. A `RANGE` offset
+    measures a number or date `ORDER BY` key (a date in days). Without a frame it is the default: with an ORDER BY
+    a running value to the current row and its peers, without one the whole partition. The words these clauses
+    add are not reserved, so a column named `Range` or `Current`, or a table named `Last`, still works
+    unbracketed. `OVER` hangs off any function call, so adding another function is a registry entry rather than
+    a grammar change.
+  - **Ordered-set aggregates** — `PERCENTILE_CONT(p)` and `PERCENTILE_DISC(p) WITHIN GROUP (ORDER BY x [DESC])`,
+    grouped or over a window. `PERCENTILE_CONT` interpolates between numbers or dates; `PERCENTILE_DISC` returns
+    one of the values, so it also takes text. `LISTAGG([DISTINCT] x [, 'separator']) WITHIN GROUP (ORDER BY …)`
+    joins the values as text.
+  - **`FILTER (WHERE …)`** on any aggregate, grouped or windowed: `COUNT(*) FILTER (WHERE Amount > 100)`.
   - `FULL [OUTER] JOIN` — ACE offers only inner/left/right, and its query designer cannot express a full one.
   - **`OFFSET … ROWS FETCH NEXT … ROWS ONLY`** paging, where the count may be any expression, not just a
     literal. Access has only `TOP n`, and only with a literal.
-  - **Standard scalar syntax** ACE lacks: `CASE`, `COALESCE`, `NULLIF`, and the `VALUES` table value
-    constructor standing in for a query.
+  - **Standard scalar syntax** ACE lacks: `CASE`, `COALESCE`, `NULLIF`, `GREATEST`/`LEAST` (NULL arguments
+    ignored, as SQL Server and PostgreSQL treat them — extended mode translates `Math.Max`/`Math.Min` to
+    them), and the `VALUES` table value constructor standing in for a query.
   - **Set operations in a subquery predicate** — `IN (… UNION …)`, `EXISTS (… EXCEPT …)`, and a scalar
     subquery over a set operation.
   - **`ORDER BY` bound to the query expression**, so it applies to a whole set operation rather than to its
@@ -215,9 +244,6 @@ Format-level detail on each on-disk gap lives in `docs/format/`.
   same blob, read by the same code, and *is* enforced.
 - **`AllowZeroLength` not modelled**, and column-level `CHECK` persistence is unprobed (its ACE storage
   differs from the table-level form).
-- **`DROP TABLE` leaks until Compact** — multi-page TDEFs, non-root index pages, LVAL pages, and dedicated
-  usage-map pages aren't freed; byte-faithful **child-in-relationship** `DROP TABLE` (ACE cascades the FK;
-  LibRed requires dropping the FK first).
 - **Jet 3** format; strict **DAO Compact & Repair** compatibility (checklist captured — only relevant if
   targeting DAO C&R rather than "ACE opens + queries").
 - **`CREATE TEMPORARY TABLE`** — parsed only to throw `NotSupportedException`.

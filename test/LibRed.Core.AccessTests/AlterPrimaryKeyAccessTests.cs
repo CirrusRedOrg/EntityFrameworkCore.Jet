@@ -8,6 +8,7 @@ namespace LibRed.Core.Tests;
 /// A multi-column primary key added to an (empty) table — the write path ALTER TABLE ADD CONSTRAINT
 /// PRIMARY KEY reuses (CreateIndex with isPrimary/isUnique). Access accepts it and enforces uniqueness.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class AlterPrimaryKeyAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

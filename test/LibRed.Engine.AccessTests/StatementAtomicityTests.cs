@@ -80,7 +80,7 @@ public class StatementAtomicityTests : TempDatabaseTest
                 var e = new QueryEngine(db);
                 e.ExecuteNonQuery(
                     "CREATE TABLE AtomicSplit (Id LONG PRIMARY KEY, Code TEXT(100), " +
-                    "CONSTRAINT CK_Last CHECK (Id < 900 OR Code NOT LIKE 'expanded-*'))");
+                    "CONSTRAINT CK_Last CHECK (Id < 900 OR Code NOT LIKE 'expanded-%'))");
                 e.ExecuteNonQuery("CREATE UNIQUE INDEX UX_AtomicSplit_Code ON AtomicSplit (Code)");
                 for (int i = 1; i <= 900; i++)
                     e.ExecuteNonQuery($"INSERT INTO AtomicSplit (Id, Code) VALUES ({i}, 'k{i}')");
@@ -100,7 +100,7 @@ public class StatementAtomicityTests : TempDatabaseTest
             Assert.Equal(before, File.ReadAllBytes(path));
             using var connection = AceTestDatabase.Open(path);
             AssertScalar(connection, "SELECT COUNT(*) FROM AtomicSplit", 900);
-            AssertScalar(connection, "SELECT COUNT(*) FROM AtomicSplit WHERE Code LIKE 'expanded-*'", 0);
+            AssertScalar(connection, "SELECT COUNT(*) FROM AtomicSplit WHERE Code LIKE 'expanded-%'", 0);
             AssertScalar(connection, "SELECT COUNT(*) FROM AtomicSplit WHERE Id = 900 AND Code = 'k900'", 1);
         }
         finally { TemporaryDatabase.Delete(path); }

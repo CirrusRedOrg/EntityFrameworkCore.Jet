@@ -1,4 +1,5 @@
 using LibRed.Catalog;
+using LibRed.Engine.Execution;
 using LibRed.Engine.Plan;
 using LibRed.Sql.Ast;
 
@@ -89,6 +90,12 @@ internal static class IndexSelection
             Expression? low = null, high = null;
             foreach (Expression conjunct in conjuncts)
             {
+                if (Between(conjunct, colName, alias, def) is { } range)
+                {
+                    low ??= range.Low;
+                    high ??= range.High;
+                    continue;
+                }
                 if (Bound(conjunct, colName, alias, def) is not { } b)
                     continue;
                 if (b.Op is BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual)
@@ -180,6 +187,33 @@ internal static class IndexSelection
         if (IsCol(cmp.Left) && !HasColumnRef(cmp.Right)) return (op, cmp.Right);
         if (IsCol(cmp.Right) && !HasColumnRef(cmp.Left)) return (Flip(op), cmp.Left);
         return null;
+    }
+
+    /// <summary>If <paramref name="conjunct"/> is <c>col BETWEEN a AND b</c> on column <paramref name="colName"/>, the
+    /// two bounds lowest first; else null.</summary>
+    /// <remarks>BETWEEN takes its bounds in either order, so which is the lower has to be known when planning. That
+    /// limits this to two literals of the same kind: numbers, texts or dates. A Null bound makes the whole test Null,
+    /// which a seek has no way to say, so it is left to the filter.</remarks>
+    private static (Expression Low, Expression High)? Between(Expression conjunct, string colName, string alias, TableDef def)
+    {
+        if (conjunct is not BetweenExpression { Negated: false } between
+            || Column(between.Value, alias, def) is not { } column
+            || !string.Equals(column.Column, colName, StringComparison.OrdinalIgnoreCase)
+            || between.Low is not LiteralExpression { Value: { } low }
+            || between.High is not LiteralExpression { Value: { } high })
+            return null;
+
+        bool sameKind = (low, high) switch
+        {
+            (bool, _) or (_, bool) => false,
+            (string, string) or (DateTime, DateTime) => true,
+            _ => ExpressionEvaluator.IsNumeric(low) && ExpressionEvaluator.IsNumeric(high),
+        };
+        if (!sameKind)
+            return null;
+        return ExpressionEvaluator.CompareForSort(low, high) <= 0
+            ? (between.Low, between.High)
+            : (between.High, between.Low);
     }
 
     private static BinaryOperator Flip(BinaryOperator op) => op switch
@@ -385,11 +419,7 @@ internal static class IndexSelection
         ColumnReference { Table: { } t } => aliases.Contains(t),
         ColumnReference => false, // unqualified — can't attribute it to the outer side safely
         LiteralExpression or ParameterExpression or SystemVariableExpression => true,
-        BinaryExpression b => ReferencesOnly(b.Left, aliases) && ReferencesOnly(b.Right, aliases),
-        UnaryExpression u => ReferencesOnly(u.Operand, aliases),
-        FunctionCall f => f.Arguments.All(a => ReferencesOnly(a, aliases)),
-        InListExpression il => ReferencesOnly(il.Value, aliases) && il.Items.All(a => ReferencesOnly(a, aliases)),
-        _ => false,
+        _ => e.Operands()?.All(a => ReferencesOnly(a, aliases)) ?? false,
     };
 
     /// <summary>The column reference if <paramref name="e"/> is a column of the given scan (its qualifier is
@@ -411,11 +441,7 @@ internal static class IndexSelection
         // Same reasoning, and the same reason to be explicit: this switch's default means "no column reference"
         // — i.e. usable as a seek bound — so an unlisted node fails towards a WRONG seek, not a missed one.
         WindowFunction => true,
-        BinaryExpression b => HasColumnRef(b.Left) || HasColumnRef(b.Right),
-        UnaryExpression u => HasColumnRef(u.Operand),
-        FunctionCall f => f.Arguments.Any(HasColumnRef),
-        InListExpression il => HasColumnRef(il.Value) || il.Items.Any(HasColumnRef),
-        _ => false, // literals, parameters, system vars
+        _ => e.Operands()?.Any(HasColumnRef) ?? false, // no operands: literals, parameters, system vars
     };
 
     /// <summary>The AND-conjuncts of a predicate; none at all for an absent one (a missing WHERE or HAVING).</summary>

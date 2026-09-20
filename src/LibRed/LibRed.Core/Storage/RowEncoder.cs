@@ -50,7 +50,11 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     /// the cached value exactly as it was: ACE recomputes only when a referenced column is written, so
     /// recomputing unconditionally would write bytes ACE would not have (§3.4a). Null on INSERT, where every
     /// calculated column is computed fresh.</param>
-    public byte[] Encode(object?[] values, IReadOnlyDictionary<int, byte[]>? preservedCalculated)
+    /// <param name="logicalValues">The row as its columns hold it, for the calculated columns to read, when
+    /// <paramref name="values"/> already carries long values as their on-disk descriptors. A memo's text is
+    /// what an expression reads, not the descriptor that points at it. Null when the two are the same.</param>
+    public byte[] Encode(object?[] values, IReadOnlyDictionary<int, byte[]>? preservedCalculated,
+        object?[]? logicalValues = null)
     {
         if (values.Length != _columns.Count)
             throw new ArgumentException($"Expected {_columns.Count} values, got {values.Length}.", nameof(values));
@@ -90,7 +94,7 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         {
             if (column.IsCalculated)
             {
-                varChunks[column.VariableIndex] = EncodeCalculated(column, values, preservedCalculated);
+                varChunks[column.VariableIndex] = EncodeCalculated(column, logicalValues ?? values, preservedCalculated);
                 continue;
             }
             object? v = values[column.Index];
@@ -145,6 +149,25 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
             + $"{actual} {(text ? "characters" : "bytes")} into a column declared to hold {declared}.");
     }
 
+    /// <summary>
+    /// Smallest fixed region ACE writes in a row that has no variable trailer. It is a <b>floor, not an
+    /// alignment</b>: measured against ACE, a region of 0 bytes (a table of only Booleans, which occupy none)
+    /// is padded to 2 and 1 byte (a lone <c>BYTE</c> column) to 2, while 3 stays 3 — a three-<c>BYTE</c> table's
+    /// row is 6 bytes, odd region and all. A row that carries a variable trailer is exempt: ACE leaves a
+    /// <c>TEXT</c>-only table's fixed region at 0.
+    /// </summary>
+    /// <remarks>
+    /// Matching it is not cosmetic. Without the pad an all-Boolean table of eight columns or fewer encodes to a
+    /// 3-byte record, and <b>ACE misreads that record</b> — every Boolean in it comes back False, whichever
+    /// engine created the table. Measured both ways round: ACE's own table filled by LibRed read False, and
+    /// LibRed's table filled by ACE read True, which is what pins the fault to the record rather than the TDEF.
+    /// The cliff is at 4 bytes — a 16-Boolean row (2-byte bitmap, so 4 bytes) reads back correctly — but ACE's
+    /// own writer never emits a record under 5, so the short form is simply a shape its reader has never met.
+    /// The TDEF's fixed-row length keeps the true, unpadded value: ACE stores 1 for a <c>BYTE</c> table while
+    /// writing 5-byte rows into it, so this rounding happens at row-write time and nowhere else.
+    /// </remarks>
+    private const int MinFixedRegion = 2;
+
     /// <summary>Assembles the on-disk row bytes from a prepared fixed region and the ordered variable chunks:
     /// <c>[count][fixed][var data][var-offset table][numVar]</c> (the variable section is omitted entirely when
     /// there are none) then <c>[null bitmap]</c>. The count and bitmap width are <c>maxColumnId + 1</c>; a
@@ -175,14 +198,18 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         for (int j = 0; j < numVar; j++) varDataLength += varChunks[j].Length;
         int varSectionLen = numVar > 0 ? varDataLength + (numVar + 1) * 2 + 2 : 0;
 
-        var row = new byte[countSize + fixedRegion.Length + varSectionLen + nullBitmapSize];
+        // ACE pads an all-fixed row's fixed region out to MinFixedRegion; a row with a variable trailer is
+        // left alone. The pad is zero bytes between the fixed values and the null bitmap.
+        int fixedLen = numVar > 0 ? fixedRegion.Length : Math.Max(fixedRegion.Length, MinFixedRegion);
+
+        var row = new byte[countSize + fixedLen + varSectionLen + nullBitmapSize];
         BinaryPrimitives.WriteUInt16LittleEndian(row, (ushort)count);
         fixedRegion.CopyTo(row.AsSpan(countSize));
 
         int bitmapPos;
         if (numVar > 0)
         {
-            int varDataStart = countSize + fixedRegion.Length;
+            int varDataStart = countSize + fixedLen;
             int pos = varDataStart;
             for (int j = 0; j < numVar; j++) { varChunks[j].CopyTo(row.AsSpan(pos)); pos += varChunks[j].Length; }
 
@@ -199,7 +226,7 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
             BinaryPrimitives.WriteUInt16LittleEndian(row.AsSpan(numVarPos, 2), (ushort)numVar);
             bitmapPos = numVarPos + 2;
         }
-        else bitmapPos = countSize + fixedRegion.Length;
+        else bitmapPos = countSize + fixedLen;
 
         var liveIds = new HashSet<int>();
         foreach (ColumnDef column in columns)

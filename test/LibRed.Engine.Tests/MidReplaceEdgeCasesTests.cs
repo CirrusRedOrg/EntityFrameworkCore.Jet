@@ -60,5 +60,5 @@ public class MidReplaceEdgeCasesTests : TempDatabaseTest
     [InlineData("Mid('abcdef', 3, -1)")]               // negative length → Invalid procedure call
     [InlineData("Replace('abcabc', 'b', 'X', 0)")]     // start < 1 → Invalid procedure call
     public void Error_cases(string expr)
-        => Assert.Throws<InvalidOperationException>(() => Eval(expr));
+        => Assert.Throws<ArgumentException>(() => Eval(expr));
 }

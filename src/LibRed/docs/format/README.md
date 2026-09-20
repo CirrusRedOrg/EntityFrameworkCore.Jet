@@ -2,12 +2,9 @@
 
 This is LibRed's own specification of the Microsoft Jet 4 / ACE (Access `.mdb` / `.accdb`)
 on-disk format. **Every offset and structure here has been verified byte-for-byte against
-real database files** (the Northwind ACE-2007 sample, a generated 200-column wide table,
-and a generated ~150 MB large table) and cross-checked against mdbtools (its `HACKING.md`)
-and Jackcess. Several structures are additionally verified from the **write** side: LibRed
-produces them and Access's own OLE DB engine reads the result back (a LibRed-inserted row is
-found by an Access indexed primary-key seek; encoded index keys match Access's stored bytes).
-Where something is assumed or unverified, it says so explicitly.
+real database files** and cross-checked against mdbtools (its `HACKING.md`). Several structures
+are additionally verified from the **write** side: LibRed produces them and Access's own OLE DB
+engine reads the result back. Where something is assumed or unverified, it says so explicitly.
 
 Unless noted, everything here describes **Jet 4 and ACE (12/14/16/17)**, which share one
 structural layout. **Jet 3** (Access 97) differs in many of these and is *not yet
@@ -39,6 +36,8 @@ Implemented by `src/LibRed/LibRed.Core/`. The canonical offsets live in
 | [page-02e-calculated-columns.md](page-02e-calculated-columns.md) | **Calculated column** *semantics* — the expression language ACE accepts, when the cached result is recomputed, and what DDL may do to one (engine behaviour; the descriptor and value envelope are in [page-02b](page-02b-columns.md)) |
 | [page-03-04-index-btree.md](page-03-04-index-btree.md) | Index B-tree pages (types `0x03` node / `0x04` leaf): header, entries, prefix compression, key encoding, splitting |
 | [page-05-usage-maps.md](page-05-usage-maps.md) | Per-table owned/free usage maps, `0x05` bitmap pages, and the global free-pages map (allocation) |
+| [page-08-released-tdef.md](page-08-released-tdef.md) | Released table-definition page (type `0x08`): what `DROP TABLE` leaves behind |
+| [page-09-released-long-value.md](page-09-released-long-value.md) | Released long-value page (type `0x09`): a packed LVAL page emptied of its values |
 | [long-values.md](long-values.md) | Memo / OLE long values, LVAL pages, and the per-column usage-map list |
 | [data-types.md](data-types.md) | Data-type codes and their decode, plus compressed Unicode |
 | [system-catalog.md](system-catalog.md) | `MSysObjects` / `MSysACEs` / `MSysQueries` / `MSysRelationships`, the `LvProp` property blob, views & procedures, relationships |
@@ -65,13 +64,19 @@ catalogued one level up in [`../functions.md`](../functions.md).
   | `0x03` | Index B-tree node (intermediate) | `IndexCursor` | [page-03-04](page-03-04-index-btree.md) |
   | `0x04` | Index B-tree leaf | `IndexCursor` | [page-03-04](page-03-04-index-btree.md) |
   | `0x05` | Page-usage bitmap | `UsageMap` | [page-05](page-05-usage-maps.md) |
+  | `0x08` | Released table definition (a dropped table's TDEF) | `PageType.ReleasedTableDefinition` | [page-08](page-08-released-tdef.md) |
+  | `0x09` | Released long-value page (emptied of its packed values) | `PageType.ReleasedLongValuePage` | [page-09](page-09-released-long-value.md) |
+
+  `0x08` and `0x09` mark pages that have been **given back**. Neither needs handling on read — allocation
+  selects on the global free map, not on this byte — but both are written, so a file LibRed produces carries
+  the same markers Access would.
 
 ---
 
 ## Section map
 
 Cross-references throughout use the original **§-numbers** from the single-file spec. This
-table says which file each section now lives in.
+table says which file each section lives in.
 
 | § | Section | File |
 | --- | --- | --- |
@@ -93,7 +98,8 @@ table says which file each section now lives in.
 | §7 | Compressed Unicode | [data-types.md](data-types.md) |
 | §8 | Long values (Memo / OLE) | [long-values.md](long-values.md) |
 | §9 | Usage maps | [page-05-usage-maps.md](page-05-usage-maps.md) |
-| §9.1 | Global free-pages map | [page-05-usage-maps.md](page-05-usage-maps.md) |
+| §9.1 | Global usage maps (free and released pages) | [page-05-usage-maps.md](page-05-usage-maps.md) |
+| — | Released pages (`0x08`, `0x09`) | [page-08](page-08-released-tdef.md) / [page-09](page-09-released-long-value.md) — no §-number |
 | §10 | Index B-tree pages | [page-03-04-index-btree.md](page-03-04-index-btree.md) |
 | §11 | System catalog | [system-catalog.md](system-catalog.md) |
 | §12 | Version differences | this README (below) |
@@ -121,12 +127,7 @@ with Jet 4/ACE defaults; a future `Jet3Format` overrides the ones that differ.
 
 ## Provenance
 
-Verified against: `Northwind.accdb` (ACE 2007), a generated 200-column ACCDB (multi-page TDEF),
-and a generated ~150 MB ACCDB (reference usage map). Cross-referenced with mdbtools
-(`HACKING.md`, and its `table.c` / `data.c` / `index.c`) and Jackcess (`TableImpl`, `ColumnImpl`,
-`IndexData`, `IndexCodes`) — consulted upstream, not vendored here. The LibRed test suite
-(`test/LibRed.Core.Tests/`) pins these structures, including whole-database golden dumps.
-Write-side structures (row insertion, order-preserving key encoding, leaf-entry layout) are
-additionally cross-checked against Access's own engine via OLE DB: insert the same row through
-LibRed and through Access, then confirm the row sets match and that Access seeks the
-LibRed-written index entry.
+Cross-referenced with mdbtools (`HACKING.md`, and its `table.c` / `data.c` / `index.c`) — consulted
+upstream, not vendored here. Write-side structures (row insertion, order-preserving key encoding, leaf-entry
+layout) are additionally verified against Access's own engine via OLE DB: Access reads LibRed-written rows
+and seeks LibRed-written index entries.

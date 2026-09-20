@@ -10,6 +10,7 @@ namespace LibRed.Core.Tests;
 /// Employees.EmployeeID). Both relationship ends live in the one table's TDEF; the backing index over the
 /// FK column is back-filled from the existing rows. Access reads and enforces the relationship.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class SelfReferencingForeignKeyAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

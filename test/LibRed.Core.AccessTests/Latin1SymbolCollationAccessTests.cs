@@ -9,6 +9,7 @@ namespace LibRed.Core.Tests;
 // refuse them outright ("collation weight is not implemented yet"), so a text column holding "£100" or "Café ©"
 // could not be indexed. ACE is the oracle here — it builds the index, LibRed re-encodes the same value and must
 // reproduce the stored bytes exactly.
+[Collection(AceCollection.Name)]
 public class Latin1SymbolCollationAccessTests
 {
     // Every printable Latin-1 character outside A–Z/a–z/0–9 and the ASCII punctuation LibRed already knew,

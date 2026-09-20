@@ -11,6 +11,7 @@ namespace LibRed.Core.Tests;
 // a front-end limitation only: ACE's expression *service*, used when reading a stored default, evaluates the
 // full expression. So a compound default that LibRed writes straight to LvProp (bypassing ACE's DDL parser) is
 // read and applied by ACE on insert. Verifies LibRed's SQL surface is a superset of ACE's DDL here.
+[Collection(AceCollection.Name)]
 public class AceCompoundDefaultTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

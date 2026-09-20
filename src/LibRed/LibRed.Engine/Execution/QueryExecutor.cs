@@ -4,8 +4,42 @@ using LibRed.Sql.Ast;
 
 namespace LibRed.Engine.Execution;
 
-/// <summary>A column produced by a plan node: an optional table-alias qualifier and a name.</summary>
-internal readonly record struct OutputColumn(string? Qualifier, string Name, Type? ClrType = null);
+/// <summary>A column produced by a plan node: an optional table-alias qualifier and a name. <paramref name="Currency"/>
+/// marks a Currency value, which shares <see cref="decimal"/> with Decimal but calculates differently, and
+/// <paramref name="Scale"/> a Decimal's places. <paramref name="Null"/> marks a column that is a bare <c>NULL</c>, which
+/// has no type of its own, unlike one whose type is merely unknown.</summary>
+internal readonly record struct OutputColumn(
+    string? Qualifier, string Name, Type? ClrType = null, bool Currency = false, int? Scale = null, bool Null = false)
+{
+    /// <summary>The output of a stored column.</summary>
+    public static OutputColumn Of(string? qualifier, LibRed.Catalog.ColumnDef column) =>
+        new(qualifier, column.Name, Schema.JetClrTypeMap.ToClrType(column.Type),
+            column.Type == LibRed.Catalog.JetDataType.Currency,
+            column.Type == LibRed.Catalog.JetDataType.FixedPoint ? column.Scale : null);
+
+    /// <summary>A computed column of <paramref name="type"/>, computed by <paramref name="expression"/>.</summary>
+    public static OutputColumn Computed(string name, Type? clrType, NumberType type, Expression expression) =>
+        new(null, name, clrType, type.Class == NumberClass.Currency,
+            type.Class == NumberClass.Decimal ? type.Places : null, expression is LiteralExpression { Value: null });
+
+    /// <summary>The column <paramref name="reference"/> names, or null when none or more than one does (execution
+    /// reports the ambiguous reference).</summary>
+    public static OutputColumn? Find(IReadOnlyList<OutputColumn> columns, ColumnReference reference)
+    {
+        OutputColumn? result = null;
+        foreach (OutputColumn column in columns)
+        {
+            if (!string.Equals(column.Name, reference.Column, StringComparison.OrdinalIgnoreCase)
+                || reference.Table is not null
+                && !string.Equals(column.Qualifier, reference.Table, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (result is not null) return null;
+            result = column;
+        }
+        return result;
+    }
+}
 
 /// <summary>
 /// Interprets a logical plan tree against the storage layer, producing a
@@ -453,8 +487,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             {
                 var table = _database.OpenTable(scan.Table);
                 string alias = scan.Alias ?? scan.Table;
-                var columns = table.Definition.Columns
-                    .Select(c => new OutputColumn(alias, c.Name, Schema.JetClrTypeMap.ToClrType(c.Type))).ToList();
+                var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, c)).ToList();
                 return (columns, table.Rows());
             }
 
@@ -462,8 +495,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             {
                 var table = _database.OpenTable(seek.Table);
                 string alias = seek.Alias ?? seek.Table;
-                var columns = table.Definition.Columns
-                    .Select(c => new OutputColumn(alias, c.Name, Schema.JetClrTypeMap.ToClrType(c.Type))).ToList();
+                var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, c)).ToList();
 
                 // Evaluate the key(s) in the outer scope (so an index-nested-loop join can key off the outer
                 // row); a single-table seek's key is a constant/parameter.
@@ -479,8 +511,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             {
                 var table = _database.OpenTable(range.Table);
                 string alias = range.Alias ?? range.Table;
-                var columns = table.Definition.Columns
-                    .Select(c => new OutputColumn(alias, c.Name, Schema.JetClrTypeMap.ToClrType(c.Type))).ToList();
+                var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, c)).ToList();
 
                 var evaluator = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session);
                 int col = range.Index.Columns[0].Column.Index;
@@ -497,7 +528,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case DerivedTableNode derived:
             {
                 var (inner, rows) = Execute(derived.Input, outer);
-                var columns = inner.Select(c => new OutputColumn(derived.Alias, c.Name, c.ClrType)).ToList();
+                var columns = inner.Select(c => c with { Qualifier = derived.Alias }).ToList();
                 return (columns, rows);
             }
 
@@ -546,7 +577,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 var projected = rows.Select(row =>
                 {
                     var eval = Eval(columns, row, outer);
-                    return plan.Select(p => p.InputIndex >= 0 ? row[p.InputIndex] : eval.Evaluate(p.Expr!)).ToArray();
+                    return plan.Select(p => p.InputIndex >= 0
+                        ? row[p.InputIndex]
+                        : ExpressionEvaluator.ToResultPlaces(
+                            ExpressionEvaluator.AsColumnType(eval.Evaluate(p.Expr!), p.ConvertTo, currency: false), p.Type)).ToArray();
                 });
 
                 return (schema.Columns, projected);
@@ -554,10 +588,15 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
             case SetOperationNode setOp:
             {
-                // Column names come from the left (leading) query, per SQL.
-                var (columns, leftRows) = Execute(setOp.Left, outer);
-                var (_, rightRows) = Execute(setOp.Right, outer);
-                return (columns, ExecuteSetOp(setOp.Operator, leftRows, rightRows));
+                // Column names come from the left (leading) query, per SQL; each column's type is the one both
+                // queries' values fit, and every value is converted to it before rows are compared.
+                var (leftColumns, leftRows) = Execute(setOp.Left, outer);
+                var (rightColumns, rightRows) = Execute(setOp.Right, outer);
+                if (leftColumns.Count != rightColumns.Count)
+                    return (leftColumns, ExecuteSetOp(setOp.Operator, leftRows, rightRows));
+                var columns = leftColumns.Zip(rightColumns, SetOperationColumn).ToList();
+                return (columns, ExecuteSetOp(setOp.Operator,
+                    ToColumnTypes(leftRows, leftColumns, columns), ToColumnTypes(rightRows, rightColumns, columns)));
             }
 
             case LimitNode limit:
@@ -634,6 +673,58 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
     }
 
+    /// <summary>
+    /// A set operation's column: the left query's, typed as ACE types it (verified vs ACE). A bare <c>NULL</c> takes
+    /// the other query's type. Numbers widen on <see cref="CommonNumericType"/>, a Boolean counting as an Integer
+    /// (-1); a GUID or binary value with anything else makes a binary column; any other mix — text, or a date with a
+    /// number or a Boolean — makes a text column. An unknown type on either side leaves the column untyped.
+    /// </summary>
+    private static OutputColumn SetOperationColumn(OutputColumn left, OutputColumn right)
+    {
+        if (right.Null)
+            return left;
+        if (left.Null)
+            return left with { ClrType = right.ClrType, Currency = right.Currency, Scale = right.Scale, Null = false };
+
+        // A Decimal column is Currency unless one side is a Decimal of its own, and keeps a scale both sides share.
+        bool leftDecimal = left.ClrType == typeof(decimal) && !left.Currency;
+        bool rightDecimal = right.ClrType == typeof(decimal) && !right.Currency;
+        Type? type = left.ClrType is not { } l || right.ClrType is not { } r ? null
+            : l == r ? l
+            : l == typeof(Guid) || r == typeof(Guid) || l == typeof(byte[]) || r == typeof(byte[]) ? typeof(byte[])
+            : CommonNumericType(AsInteger(l), AsInteger(r), currency: !leftDecimal && !rightDecimal) ?? typeof(string);
+        bool isDecimal = type == typeof(decimal);
+        return left with
+        {
+            ClrType = type,
+            Currency = isDecimal && !leftDecimal && !rightDecimal,
+            Scale = !isDecimal ? null
+                : leftDecimal && rightDecimal ? (left.Scale == right.Scale ? left.Scale : null)
+                : leftDecimal ? left.Scale : rightDecimal ? right.Scale : null,
+        };
+
+        static Type AsInteger(Type type) => type == typeof(bool) ? typeof(short) : type;
+    }
+
+    /// <summary>The rows with each value converted to its output column's type, where the query's own column had
+    /// another.</summary>
+    private static IEnumerable<object?[]> ToColumnTypes(
+        IEnumerable<object?[]> rows, IReadOnlyList<OutputColumn> from, IReadOnlyList<OutputColumn> to)
+    {
+        int[] changed = Enumerable.Range(0, to.Count)
+            .Where(i => to[i].ClrType is { } type && !from[i].Null && from[i].ClrType != type)
+            .ToArray();
+        if (changed.Length == 0)
+            return rows;
+        return rows.Select(row =>
+        {
+            var converted = (object?[])row.Clone();
+            foreach (int i in changed)
+                converted[i] = ExpressionEvaluator.AsColumnType(converted[i], to[i].ClrType, from[i].Currency);
+            return converted;
+        });
+    }
+
     private static IEnumerable<object?[]> ExecuteSetOp(SetOperator op, IEnumerable<object?[]> left, IEnumerable<object?[]> right)
     {
         switch (op)
@@ -684,9 +775,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// null for expressions whose result type depends on runtime coercion; the ADO layer can still fall back
     /// to a non-null runtime value in those cases without publishing misleading metadata for empty results.</summary>
     /// <summary>A ProjectNode's flattened output: the per-item plan (source input index, or an expression to
-    /// evaluate) and the resulting output columns. Structural — the same for every outer row.</summary>
+    /// evaluate, with the type its values are converted to, if any) and the resulting output columns.
+    /// Structural — the same for every outer row.</summary>
     private sealed record ProjectionSchema(
-        List<(OutputColumn Column, int InputIndex, Expression? Expr)> Plan, List<OutputColumn> Columns);
+        List<(OutputColumn Column, int InputIndex, Expression? Expr, NumberType Type, Type? ConvertTo)> Plan,
+        List<OutputColumn> Columns);
 
     /// <summary>Builds — or reuses — a ProjectNode's schema. Flattens the projection, expanding a qualified star
     /// (Table.*) into the input columns of that source (passed through by index); every other item is an
@@ -696,19 +789,21 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (_projectionSchemas.TryGetValue(project, out ProjectionSchema? cached))
             return cached;
 
-        var plan = new List<(OutputColumn Column, int InputIndex, Expression? Expr)>();
+        var plan = new List<(OutputColumn Column, int InputIndex, Expression? Expr, NumberType Type, Type? ConvertTo)>();
         foreach (SelectItem item in project.Projection)
         {
             if (item.Value is QualifiedStarExpression star)
             {
                 for (int ci = 0; ci < columns.Count; ci++)
                     if (string.Equals(columns[ci].Qualifier, star.Table, StringComparison.OrdinalIgnoreCase))
-                        plan.Add((columns[ci], ci, null));
+                        plan.Add((columns[ci], ci, null, default, null));
             }
             else
             {
                 string name = item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{plan.Count + 1}");
-                plan.Add((new OutputColumn(null, name, DeclaredType(item.Value, columns)), -1, item.Value));
+                NumberType type = ExpressionEvaluator.NumberTypeOf(item.Value, columns, e => DeclaredType(e, columns));
+                plan.Add((OutputColumn.Computed(name, DeclaredType(item.Value, columns), type, item.Value), -1, item.Value,
+                    type, ChoiceConversion(item.Value, columns)));
             }
         }
 
@@ -725,6 +820,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 return value.GetType();
             case LiteralExpression:
                 return null;
+            // A parameter is typed by the value bound to it, as a literal is by its own — so `d + @p` declares the
+            // date it returns rather than nothing, which left the reader to guess from the first row. The value is
+            // the one the engine sees: the ADO layer has already turned a TimeSpan or TimeOnly into a DateTime.
+            case ParameterExpression parameter:
+                return _parameters.TypeOf(parameter.Name);
             case ColumnReference column:
                 return DeclaredColumnType(column, columns)
                     ?? (column.Table is null && column.Column.Equals("Now", StringComparison.OrdinalIgnoreCase)
@@ -732,21 +832,27 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case SystemVariableExpression variable:
                 return variable.Name.Equals("ROWCOUNT", StringComparison.OrdinalIgnoreCase)
                     ? typeof(int) : _session?.LastIdentity?.GetType();
-            case ExistsExpression or InSubqueryExpression or InListExpression:
+            case ExistsExpression or InSubqueryExpression or InListExpression or BetweenExpression:
                 return typeof(bool);
             case UnaryExpression unary:
                 return unary.Operator is UnaryOperator.Not or UnaryOperator.IsNull or UnaryOperator.IsNotNull
-                    ? typeof(bool) : DeclaredType(unary.Operand, columns);
+                    ? typeof(bool) : DeclaredUnaryType(unary.Operator, DeclaredType(unary.Operand, columns));
             case BinaryExpression binary:
                 if (binary.Operator is BinaryOperator.Equal or BinaryOperator.NotEqual
                     or BinaryOperator.LessThan or BinaryOperator.LessThanOrEqual
                     or BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual
-                    or BinaryOperator.And or BinaryOperator.Or or BinaryOperator.Like or BinaryOperator.In)
+                    or BinaryOperator.And or BinaryOperator.Or or BinaryOperator.Xor or BinaryOperator.Eqv
+                    or BinaryOperator.Imp or BinaryOperator.Like or BinaryOperator.In)
                     return typeof(bool);
                 if (binary.Operator == BinaryOperator.Concat)
                     return typeof(string);
                 Type? left = DeclaredType(binary.Left, columns);
                 Type? right = DeclaredType(binary.Right, columns);
+                // A date plus or less a span is a date — ExpressionEvaluator.IsSpan, which the evaluator moves it by.
+                if (left == typeof(DateTime) && IsSpan(binary.Right)
+                    && binary.Operator is BinaryOperator.Add or BinaryOperator.Subtract
+                    || right == typeof(DateTime) && IsSpan(binary.Left) && binary.Operator == BinaryOperator.Add)
+                    return typeof(DateTime);
                 return DeclaredBinaryType(binary.Operator, left, right);
             case FunctionCall function:
                 return DeclaredFunctionType(function, columns);
@@ -762,7 +868,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// result_expressions and the optional else_result_expression". A branch whose own type is unknown
     /// contributes nothing rather than poisoning the answer, which is what makes a bare <c>NULL</c> arm
     /// harmless: a NULL literal has no type and the standard ignores it for precedence too. Numeric branches
-    /// widen along the same ladder as arithmetic, so <c>THEN 1 ELSE 2.5</c> declares decimal. A genuine mix
+    /// widen on <see cref="CommonNumericType"/>, so <c>THEN 1 ELSE 2.5</c> declares Double. A genuine mix
     /// (a string branch and a numeric one) declares nothing rather than guessing, leaving the column untyped
     /// exactly as it was before CASE was understood at all.
     /// </summary>
@@ -777,101 +883,185 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             yield return c.ElseResult;
     }
 
-    /// <summary>The single type a set of alternative expressions declares — shared by CASE and COALESCE,
-    /// which the standard defines in terms of CASE and gives the same precedence rule.</summary>
+    /// <summary>The single type a set of alternative expressions declares — shared by CASE, IIF, COALESCE,
+    /// GREATEST and LEAST, which the standard defines in terms of CASE or gives the same precedence rule.</summary>
+    /// <remarks>A number written with a decimal point counts as a Decimal here, as ACE reads it (NumberTypeOf), though
+    /// its value is held as a Double: EF writes a decimal zero as <c>0.0</c>, so its Sum-with-a-default shape
+    /// <c>IIF(SUM(x) IS NULL, 0.0, SUM(x))</c> would otherwise make every money sum a Double. A Double still wins
+    /// where one is present.</remarks>
     private Type? UnifiedType(IEnumerable<Expression> alternatives, IReadOnlyList<OutputColumn> columns)
     {
         Type? result = null;
+        bool currency = false;   // whether a Decimal result so far is a Currency
 
         foreach (Expression alternative in alternatives)
         {
-            Type? branchType = DeclaredType(alternative, columns);
+            Type? branchType = IsWrittenDecimal(alternative) ? typeof(decimal) : DeclaredType(alternative, columns);
             if (branchType is null)
                 continue;
+            bool branchCurrency = branchType == typeof(decimal)
+                && ExpressionEvaluator.NumberTypeOf(alternative, columns, e => DeclaredType(e, columns)).Class
+                    == NumberClass.Currency;
 
-            if (result is null)
+            if (result is null || result == branchType)
             {
+                currency = result is null ? branchCurrency : currency && branchCurrency;
                 result = branchType;
                 continue;
             }
 
-            if (result == branchType)
-                continue;
-
-            result = WidenNumeric(result, branchType);
+            bool decimalIsCurrency = result == typeof(decimal) ? currency : branchCurrency;
+            result = CommonNumericType(result, branchType, decimalIsCurrency);
             if (result is null)
                 return null;
+            currency = result == typeof(decimal) && decimalIsCurrency;
         }
 
         return result;
     }
 
-    /// <summary>The wider of two numeric types, on the same ladder <see cref="DeclaredBinaryType"/> uses for
-    /// arithmetic. Null when either side is not numeric, meaning the two cannot be reconciled.</summary>
-    private static Type? WidenNumeric(Type left, Type right)
+    /// <summary>Whether <paramref name="expression"/> is a number written with a decimal point, negated or not.</summary>
+    private static bool IsWrittenDecimal(Expression expression)
+    {
+        while (expression is UnaryExpression { Operator: UnaryOperator.Negate } negation)
+            expression = negation.Operand;
+        return expression is LiteralExpression { Written: decimal };
+    }
+
+    /// <summary>
+    /// The type an expression that picks one of several alternatives (<see cref="UnifiedType"/>) converts its value
+    /// to, so the value has the type the column declares; null when nothing is converted. Only when every
+    /// alternative's type is known is the declared type sure to hold each of them.
+    /// </summary>
+    private Type? ChoiceConversion(Expression expression, IReadOnlyList<OutputColumn> columns)
+    {
+        IEnumerable<Expression>? alternatives = expression switch
+        {
+            CaseExpression @case => CaseResults(@case),
+            FunctionCall function => function.Name.TrimEnd('$').ToUpperInvariant() switch
+            {
+                "IIF" when function.Arguments.Count == 3 => function.Arguments.Skip(1),
+                "COALESCE" or "GREATEST" or "LEAST" => function.Arguments,
+                _ => null,
+            },
+            _ => null,
+        };
+        if (alternatives is null
+            || alternatives.Any(a => a is not LiteralExpression { Value: null } && DeclaredType(a, columns) is null))
+            return null;
+        return DeclaredType(expression, columns);
+    }
+
+    /// <summary>
+    /// The type the values of two numeric types share (verified vs ACE, as it types a UNION): the wider whole
+    /// number of the two; a Single with a Byte or an Integer, and a Double for a Single with anything wider; a
+    /// Decimal (or Currency) with a whole number, and a Double with a Double. A Currency (<paramref name="currency"/>,
+    /// when the Decimal side is one) cannot hold a Large Number, so the two make a Double. A Decimal with a Single,
+    /// which was not measured, is a Double too. Null when either side is not a number, meaning the two cannot be
+    /// reconciled.
+    /// </summary>
+    private static Type? CommonNumericType(Type left, Type right, bool currency = false)
     {
         if (!IsNumeric(left) || !IsNumeric(right)) return null;
-        if (left == typeof(decimal) || right == typeof(decimal)) return typeof(decimal);
+        if (left == right) return left;
         if (left == typeof(double) || right == typeof(double)) return typeof(double);
-        if (left == typeof(float) || right == typeof(float)) return typeof(float);
-        if (IsInt64(left) || IsInt64(right)) return typeof(long);
-        return typeof(int);
+        int leftRank = WholeRank(left), rightRank = WholeRank(right);
+        if (left == typeof(decimal) || right == typeof(decimal))
+            return Math.Max(leftRank, rightRank) is var whole && whole < 0 || currency && whole > 2
+                ? typeof(double) : typeof(decimal);
+        if (left == typeof(float) || right == typeof(float))
+            return Math.Max(leftRank, rightRank) <= 1 ? typeof(float) : typeof(double);
+        return WholeTypes[Math.Max(leftRank, rightRank)];
     }
+
+    private static readonly Type[] WholeTypes = [typeof(byte), typeof(short), typeof(int), typeof(long)];
+
+    /// <summary>A whole number type's place in <see cref="WholeTypes"/> (the narrowest that holds it), or -1.</summary>
+    private static int WholeRank(Type type) =>
+        type == typeof(byte) ? 0
+        : type == typeof(sbyte) || type == typeof(short) ? 1
+        : type == typeof(ushort) || type == typeof(int) ? 2
+        : type == typeof(uint) || IsInt64(type) ? 3
+        : -1;
 
     private static bool IsNumeric(Type type)
         => type == typeof(byte) || type == typeof(sbyte) || type == typeof(short) || type == typeof(ushort)
             || type == typeof(int) || type == typeof(uint) || IsInt64(type)
             || type == typeof(float) || type == typeof(double) || type == typeof(decimal);
 
-    private static Type? DeclaredColumnType(ColumnReference reference, IReadOnlyList<OutputColumn> columns)
-    {
-        Type? result = null;
-        bool found = false;
-        foreach (OutputColumn column in columns)
-        {
-            if (!string.Equals(column.Name, reference.Column, StringComparison.OrdinalIgnoreCase)
-                || reference.Table is not null
-                && !string.Equals(column.Qualifier, reference.Table, StringComparison.OrdinalIgnoreCase))
-                continue;
+    private static Type? DeclaredColumnType(ColumnReference reference, IReadOnlyList<OutputColumn> columns) =>
+        OutputColumn.Find(columns, reference)?.ClrType;
 
-            if (found) return null; // execution will report the ambiguous reference
-            found = true;
-            result = column.ClrType;
-        }
-        return result;
-    }
+    /// <summary>The declared type of an aggregate (upper-case name) over an argument of <paramref name="argument"/> —
+    /// for an ordered-set aggregate, its WITHIN GROUP key — grouped or windowed. Keep in lock-step with
+    /// <see cref="RunningAggregate"/> and <see cref="Percentile"/>.</summary>
+    internal static Type? AggregateResultType(string name, Type? argument) => RunningAggregate.Canonical(name) switch
+    {
+        "LISTAGG" => typeof(string),
+        "PERCENTILE_CONT" or "PERCENTILE_DISC" => Percentile.ResultType(name, argument),
+        "COUNT" or "REGR_COUNT" => typeof(int),
+        var pair when RunningAggregate.IsPair(pair) => typeof(double),
+        "SUM" => argument == null ? null
+            : argument == typeof(decimal) || argument == typeof(float) || argument == typeof(long) ? argument
+            : argument == typeof(ulong) ? typeof(long)
+            : argument == typeof(double) || argument == typeof(string) || argument == typeof(DateTime) ? typeof(double)
+            : typeof(int),
+        "AVG" => argument == typeof(decimal) ? typeof(decimal) : typeof(double),
+        "VAR" or "VARP" or "STDEV" or "STDEVP" or "STDDEV" or "STDDEVP" => typeof(double),
+        _ => argument,   // MIN, MAX, FIRST and LAST keep the argument's type
+    };
 
     private Type? DeclaredFunctionType(FunctionCall function, IReadOnlyList<OutputColumn> columns)
     {
         string name = function.Name.TrimEnd('$').ToUpperInvariant();
-        Type? argument = function.Arguments.Count > 0 ? DeclaredType(function.Arguments[0], columns) : null;
+        Type? argument = function.Arguments.Count == 0 ? null
+            : DeclaredType(function.Arguments[function.WithinGroup is null ? 0 : ^1], columns);
+        if (QueryPlanner.IsAggregate(name))
+            return AggregateResultType(name, argument);
         return name switch
         {
-            "COUNT" => typeof(int),
-            "SUM" or "MIN" or "MAX" or "FIRST" or "LAST" => argument,
-            "AVG" => argument == typeof(decimal) ? typeof(decimal) : typeof(double),
             "CBOOL" or "ISDATE" => typeof(bool),
             "CBYTE" => typeof(byte),
             "CINT" => typeof(short),
             "CLNG" => typeof(int),
+            "CLNGLNG" => typeof(long),
             "CSNG" => typeof(float),
             "CDBL" => typeof(double),
             "CDEC" or "CCUR" => typeof(decimal),
+            // Round, Abs, Int and Fix keep their operand's type — ExpressionEvaluator.Round and Numeric1. Undeclared,
+            // a Round beside a whole number in IIF, CASE or COALESCE left the Integer to declare the column while
+            // the Round arm returned a Decimal.
+            "ROUND" or "ABS" => KeptNumberType(argument, typeof(double)),
+            "INT" or "FIX" or "FLOOR" or "CEILING" or "CEIL" => KeptNumberType(argument, typeof(DateTime)),
+            "SGN" or "SIGN" => typeof(int),
             "CSTR" or "FORMAT" or "LCASE" or "UCASE" or "TRIM" or "LTRIM" or "RTRIM"
                 or "LEFT" or "RIGHT" or "MID" or "REPLACE" or "STRING" or "SPACE" or "HEX"
                 or "OCT" or "WEEKDAYNAME" or "MONTHNAME" or "PARTITION" => typeof(string),
-            "LEN" or "INSTR" or "INSTRREV" or "ASC" or "ASCW" or "DATEPART" or "DATEDIFF"
+            // DateDiff's "ms", LibRed's own interval, counts in Int64 — a millisecond difference passes Int32 after
+            // 25 days — where every other interval is a Long Integer. Only a written interval says which: one read
+            // from a parameter or a column is declared as the Long Integer the rest give.
+            "DATEDIFF" => function.Arguments is [LiteralExpression { Value: string interval }, ..]
+                          && interval.Equals("ms", StringComparison.OrdinalIgnoreCase)
+                ? typeof(long)
+                : typeof(int),
+            "LEN" or "DATALENGTH" or "INSTR" or "INSTRREV" or "ASC" or "ASCW" or "DATEPART"
                 or "YEAR" or "MONTH" or "DAY" or "HOUR" or "MINUTE" or "SECOND" or "WEEKDAY" => typeof(int),
             "CDATE" or "NOW" or "DATE" or "TIME" or "DATEADD" or "DATESERIAL" or "TIMESERIAL"
                 or "DATEVALUE" or "TIMEVALUE" => typeof(DateTime),
             "SQR" or "SIN" or "COS" or "TAN" or "ATN" or "LOG" or "EXP" or "RND"
-                or "PMT" or "FV" or "PV" or "NPER" or "IPMT" or "PPMT" or "DDB" or "RATE" => typeof(double),
-            "IIF" when function.Arguments.Count == 3 => SameType(
-                DeclaredType(function.Arguments[1], columns), DeclaredType(function.Arguments[2], columns)),
+                or "SQRT" or "LN" or "LOG10" or "POWER" or "ASIN" or "ACOS" or "ATAN" or "ATAN2" or "SINH" or "COSH"
+                or "TANH" or "DEGREES" or "RADIANS" or "PI"
+                or "PMT" or "FV" or "PV" or "NPER" or "IPMT" or "PPMT" or "DDB" or "RATE" or "SLN" or "SYD" => typeof(double),
+            // IIF chooses between two values as CASE does, so it takes CASE's rule rather than ACE's own (which
+            // makes every whole number a Long and lets Currency beat Double).
+            "IIF" when function.Arguments.Count == 3 => UnifiedType(function.Arguments.Skip(1), columns),
             // The standard makes COALESCE shorthand for a CASE over its arguments, so it takes the same rule:
             // the highest-precedence type among them. Unified the same way, which also means a bare NULL
             // argument contributes no type rather than erasing the others.
             "COALESCE" => UnifiedType(function.Arguments, columns),
+            // GREATEST/LEAST return one of their arguments, so they declare the type the arguments unify to —
+            // SQL Server's "highest precedence type" rule, the same as COALESCE.
+            "GREATEST" or "LEAST" => UnifiedType(function.Arguments, columns),
             // NULLIF returns its first expression, or a NULL of that expression's type — so unlike COALESCE
             // it takes the first argument's type outright rather than unifying across both. The second
             // argument only ever participates in the comparison.
@@ -880,19 +1070,47 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         };
     }
 
-    private static Type? SameType(Type? left, Type? right) => left == right ? left : null;
+
+    private bool IsSpan(Expression expression) => ExpressionEvaluator.IsSpan(expression, _parameters.Duration);
+
+    /// <summary>The type Round, Abs, Int and Fix give over an operand of <paramref name="operand"/>: a Decimal, Double,
+    /// Single or Int64 as it is, a narrower integer or a Boolean as a Long Integer, text as a Double, and a date as
+    /// <paramref name="whenDate"/>. (Abs of the smallest Long Integer is the one value past a Long, and a Double.)</summary>
+    private static Type? KeptNumberType(Type? operand, Type whenDate) =>
+        operand == typeof(decimal) || operand == typeof(double) || operand == typeof(float) || operand == typeof(long)
+            ? operand
+        : operand == typeof(int) || operand == typeof(short) || operand == typeof(byte) || operand == typeof(bool)
+            ? typeof(int)
+        : operand == typeof(DateTime) ? whenDate
+        : operand == typeof(string) || operand == typeof(char) ? typeof(double)
+        : null;
 
     private static Type? DeclaredBinaryType(BinaryOperator op, Type? left, Type? right)
     {
         if (left is null || right is null)
             return null;
 
-        if (op == BinaryOperator.Add && (left == typeof(string) || right == typeof(string)))
+        // '+' concatenates only two texts (a GUID or binary value counts as text). Otherwise an arithmetic
+        // operator reads text as a Double. Keep in lock-step with ExpressionEvaluator.Add and NumericOperand.
+        if (op == BinaryOperator.Add && IsConcatText(left) && IsConcatText(right))
             return typeof(string);
+        if (op is BinaryOperator.Add or BinaryOperator.Subtract or BinaryOperator.Multiply or BinaryOperator.Divide
+            or BinaryOperator.IntDivide or BinaryOperator.Modulo or BinaryOperator.Power)
+        {
+            if (left == typeof(string)) left = typeof(double);
+            if (right == typeof(string)) right = typeof(double);
+        }
         if (op == BinaryOperator.Power)
             return typeof(double);
+        // Keep in lock-step with ExpressionEvaluator.Divide: a Single with only Singles, Integers or Booleans stays one.
         if (op == BinaryOperator.Divide)
-            return left == typeof(decimal) || right == typeof(decimal) ? typeof(decimal) : typeof(double);
+            return left == typeof(decimal) || right == typeof(decimal) ? typeof(decimal)
+                : (left == typeof(float) || right == typeof(float)) && IsSingleWidth(left) && IsSingleWidth(right) ? typeof(float)
+                : typeof(double);
+        // Keep in lock-step with ExpressionEvaluator.BitwiseOp: two 16-bit operands give an Integer.
+        if (op is BinaryOperator.BitAnd or BinaryOperator.BitOr or BinaryOperator.BitXor
+            && IsSixteenBits(left) && IsSixteenBits(right))
+            return typeof(short);
         if (op is BinaryOperator.Modulo or BinaryOperator.IntDivide
             or BinaryOperator.BitAnd or BinaryOperator.BitOr or BinaryOperator.BitXor)
             return IsInt64(left) || IsInt64(right) ? typeof(long) : typeof(int);
@@ -915,7 +1133,30 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         return typeof(int);
     }
 
+    /// <summary>The type of <c>-x</c> or <c>BNOT x</c>. Keep in lock-step with ExpressionEvaluator.Negate and BitNot:
+    /// negation reads text as a Double and widens an Integer, Byte or Boolean to a Long; BNOT gives an Integer from
+    /// an Integer or a Boolean, an Int64 from an Int64, and otherwise a Long.</summary>
+    private static Type? DeclaredUnaryType(UnaryOperator op, Type? operand)
+    {
+        if (operand is null)
+            return null;
+        if (op == UnaryOperator.BitNot)
+            return IsSixteenBits(operand) ? typeof(short) : IsInt64(operand) ? typeof(long) : typeof(int);
+        if (operand == typeof(string))
+            return typeof(double);
+        if (operand == typeof(short) || operand == typeof(byte) || operand == typeof(bool))
+            return typeof(int);
+        return IsInt64(operand) ? typeof(long) : operand;
+    }
+
     private static bool IsInt64(Type type) => type == typeof(long) || type == typeof(ulong);
+
+    /// <summary>A bitwise operand of 16 bits: an Integer or a Boolean (ExpressionEvaluator.BitOperand).</summary>
+    private static bool IsSixteenBits(Type? type) => type == typeof(short) || type == typeof(bool);
+
+    private static bool IsSingleWidth(Type type) => type == typeof(float) || type == typeof(short) || type == typeof(bool);
+
+    private static bool IsConcatText(Type type) => type == typeof(string) || type == typeof(Guid) || type == typeof(byte[]);
 
     /// <summary>The set of source-table qualifiers that supply the DISTINCTROW projection's output columns.
     /// An unqualified column is resolved to its source table via the input's columns.</summary>
@@ -940,11 +1181,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     {
         ColumnReference c => [(c.Table, c.Column)],
         QualifiedStarExpression qs => [(qs.Table, "*")],
-        BinaryExpression b => ColumnRefs(b.Left).Concat(ColumnRefs(b.Right)),
-        UnaryExpression u => ColumnRefs(u.Operand),
-        FunctionCall f => f.Arguments.SelectMany(ColumnRefs),
-        InListExpression il => ColumnRefs(il.Value).Concat(il.Items.SelectMany(ColumnRefs)),
-        _ => [],
+        _ => expression.Operands()?.SelectMany(ColumnRefs) ?? [],
     };
 
     /// <summary>
@@ -1011,8 +1248,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             var innerTable = _database.OpenTable(seek.Table);
             string innerAlias = seek.Alias ?? seek.Table;
             int innerWidth = innerTable.Definition.Columns.Count;
-            var seekColumns = innerTable.Definition.Columns
-                .Select(c => new OutputColumn(innerAlias, c.Name, Schema.JetClrTypeMap.ToClrType(c.Type))).ToList();
+            var seekColumns = innerTable.Definition.Columns.Select(c => OutputColumn.Of(innerAlias, c)).ToList();
             var joinColumns = leftColumns.Concat(seekColumns).ToList();
             int[] keyCols = seek.Index.Columns.Select(c => c.Column.Index).ToArray();
 
@@ -1402,12 +1638,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteWindow(WindowNode node, EvalScope? outer)
     {
         var (inColumns, inRowsEnum) = Execute(node.Input, outer);
-
-        var columns = inColumns.Concat(node.Outputs.Select(o => new OutputColumn(
-            null,
-            o.Name,
-            WindowFunctions.Lookup(o.Function.Name).ResultType(
-                o.Function.Arguments.Count > 0 ? DeclaredType(o.Function.Arguments[0], inColumns) : null)))).ToList();
+        var (types, columns) = WindowColumns(node.Outputs, inColumns);
 
         IEnumerable<object?[]> Rows()
         {
@@ -1416,8 +1647,18 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             for (int i = 0; i < rows.Count; i++)
                 values[i] = new object?[node.Outputs.Count];
 
+            // One scope/evaluator rebound per row, as the joins do: partition keys, sort keys and arguments are all
+            // evaluated once per row and a fresh pair each time is the dominant cost otherwise.
+            var scope = new EvalScope(inColumns, [], outer);
+            var eval = new ExpressionEvaluator(scope, this, parameters: _parameters, session: _session);
             for (int slot = 0; slot < node.Outputs.Count; slot++)
-                ComputeWindow(node.Outputs[slot].Function, rows, inColumns, outer, values, slot);
+            {
+                ComputeWindow(node.Outputs[slot].Function, rows.Count, i =>
+                {
+                    scope.Rebind(rows[i]);
+                    return eval;
+                }, inColumns, values, slot, types[slot]);
+            }
 
             for (int i = 0; i < rows.Count; i++)
                 yield return [.. rows[i], .. values[i]];
@@ -1426,29 +1667,71 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         return (columns, Rows());
     }
 
-    /// <summary>Computes one window function into <paramref name="slot"/> of every row's value array.</summary>
+    /// <summary>The declared type of each window's column, and <paramref name="inColumns"/> with those columns
+    /// appended. A windowed aggregate's column is typed as the grouped aggregate's, Currency and places included.</summary>
+    private (List<Type?> Types, List<OutputColumn> Columns) WindowColumns(
+        IReadOnlyList<WindowOutput> windows, IReadOnlyList<OutputColumn> inColumns)
+    {
+        var types = windows
+            .Select(o => WindowFunctions.Lookup(o.Function.Name).ResultType(new WindowTyping(this, o.Function.Arguments, inColumns)))
+            .ToList();
+        var columns = inColumns.Concat(windows.Select((o, i) => OutputColumn.Computed(
+            o.Name,
+            types[i],
+            QueryPlanner.IsAggregate(o.Function.Name)
+                ? ExpressionEvaluator.NumberTypeOf(
+                    new FunctionCall(o.Function.Name, o.Function.Arguments, WithinGroup: o.Function.WithinGroup),
+                    inColumns, e => DeclaredType(e, inColumns))
+                : default,
+            o.Function))).ToList();
+        return (types, columns);
+    }
+
+    /// <summary>A window function's view of its arguments' declared types.</summary>
+    private sealed class WindowTyping(QueryExecutor executor, IReadOnlyList<Expression> arguments, IReadOnlyList<OutputColumn> columns)
+        : IWindowTyping
+    {
+        public Type? ArgumentType(int argument) =>
+            argument < arguments.Count ? executor.DeclaredType(arguments[argument], columns) : null;
+
+        public Type? SharedType(params int[] indexes)
+        {
+            var present = indexes.Where(i => i < arguments.Count).Select(i => arguments[i]).ToList();
+            return present.Any(a => a is not LiteralExpression { Value: null } && executor.DeclaredType(a, columns) is null)
+                ? null
+                : executor.UnifiedType(present, columns);
+        }
+    }
+
+    /// <summary>Computes one window function into <paramref name="slot"/> of every row's value array, each value as
+    /// the <paramref name="declared"/> type the column has. The rows are <paramref name="count"/> input rows or, over
+    /// a grouped query, groups; <paramref name="evaluatorFor"/> gives the evaluator that sees the one at an index, and
+    /// <paramref name="columns"/> is their schema.</summary>
     private void ComputeWindow(
-        WindowFunction fn, List<object?[]> rows, IReadOnlyList<OutputColumn> columns, EvalScope? outer,
-        object?[][] values, int slot)
+        WindowFunction fn, int count, Func<int, ExpressionEvaluator> evaluatorFor, IReadOnlyList<OutputColumn> columns,
+        object?[][] values, int slot, Type? declared)
     {
         WindowFunctionDef def = WindowFunctions.Lookup(fn.Name);
         if (fn.Arguments.Count < def.MinArguments || fn.Arguments.Count > def.MaxArguments)
             throw new InvalidOperationException(
                 $"{fn.Name} takes {(def.MinArguments == def.MaxArguments ? $"{def.MinArguments}" : $"{def.MinArguments} to {def.MaxArguments}")} argument(s).");
-
-        // One scope/evaluator rebound per row, as the joins do: partition keys, sort keys and arguments are all
-        // evaluated once per row and a fresh pair each time is the dominant cost otherwise.
-        var scope = new EvalScope(columns, [], outer);
-        var eval = new ExpressionEvaluator(scope, this, parameters: _parameters, session: _session);
+        CheckOptions(fn, def);
+        WindowFrame? frame = fn.Over.Frame;
+        if (frame is not null)
+            CheckFrame(fn, frame);
 
         // Partition, preserving input order within each. A null partition key groups with other nulls exactly as
         // GROUP BY does, because this is the same key type.
         var partitions = new Dictionary<GroupKey, List<int>>();
-        var sortKeys = new object?[rows.Count][];
-        var arguments = new object?[rows.Count][];
-        for (int i = 0; i < rows.Count; i++)
+        var sortKeys = new object?[count][];
+        var arguments = new object?[count][];
+        // A frame's offsets, as each row evaluates them; the standard makes them constants, which is a special case.
+        var startOffsets = frame?.Start.Offset is null ? null : new object?[count];
+        var endOffsets = frame?.End.Offset is null ? null : new object?[count];
+        var included = fn.Filter is null ? null : new bool[count];
+        for (int i = 0; i < count; i++)
         {
-            scope.Rebind(rows[i]);
+            ExpressionEvaluator eval = evaluatorFor(i);
             var key = new object?[fn.Over.PartitionBy.Count];
             for (int k = 0; k < key.Length; k++)
                 key[k] = eval.Evaluate(fn.Over.PartitionBy[k]);
@@ -1464,8 +1747,23 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
             arguments[i] = fn.Arguments.Count == 0 ? [] : new object?[fn.Arguments.Count];
             for (int k = 0; k < fn.Arguments.Count; k++)
-                arguments[i][k] = eval.Evaluate(fn.Arguments[k]);
+                arguments[i][k] = fn.Arguments[k] is StarExpression ? null : eval.Evaluate(fn.Arguments[k]);
+            if (startOffsets is not null)
+                startOffsets[i] = eval.Evaluate(frame!.Start.Offset!);
+            if (endOffsets is not null)
+                endOffsets[i] = eval.Evaluate(frame!.End.Offset!);
+            if (included is not null)
+                included[i] = eval.IsTrue(fn.Filter!);
         }
+
+        bool star = fn.Arguments is [StarExpression];
+        var call = new WindowCall(
+            Star: star,
+            Currency: fn.Arguments is [var first] && !star && IsCurrency(first, columns),
+            Distinct: fn.Distinct,
+            IgnoreNulls: fn.IgnoreNulls == true,
+            FromLast: fn.FromLast == true,
+            WithinGroup: fn.WithinGroup);
 
         foreach (List<int> members in partitions.Values)
         {
@@ -1489,25 +1787,71 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 peerOrdinal[i] = samePeer ? peerOrdinal[i - 1] : peerOrdinal[i - 1] + 1;
             }
 
+            WindowFrameInput? frameInput = frame is null ? null : new WindowFrameInput(
+                frame,
+                startOffsets is null ? [] : members.Select(m => startOffsets[m]).ToList(),
+                endOffsets is null ? [] : members.Select(m => endOffsets[m]).ToList(),
+                frame.Unit == FrameUnit.Range && fn.Over.OrderBy.Count == 1 ? members.Select(m => sortKeys[m][0]).ToList() : null,
+                fn.Over.OrderBy is [{ Direction: SortDirection.Descending }]);
+
             var output = new object?[members.Count];
             def.Evaluate(
-                new WindowPartition(peerStart, peerOrdinal, members.Select(m => arguments[m]).ToList()), output);
+                new WindowPartition(peerStart, peerOrdinal, members.Select(m => arguments[m]).ToList(), call, frameInput,
+                    included is null ? null : members.Select(m => included[m]).ToList()),
+                output);
 
             // Scatter back to the input positions: the node emits rows in input order, not window order.
             for (int i = 0; i < members.Count; i++)
-                values[members[i]][slot] = output[i];
+                values[members[i]][slot] = ExpressionEvaluator.AsColumnType(output[i], declared, currency: false);
         }
+    }
+
+    /// <summary>What the call is written with has to be what the function takes (<see cref="WindowOptions"/>): a frame
+    /// clause, RESPECT/IGNORE NULLS, FROM FIRST/LAST, DISTINCT.</summary>
+    private static void CheckOptions(WindowFunction fn, WindowFunctionDef def)
+    {
+        void Require(bool written, WindowOptions option, string what)
+        {
+            if (written && !def.Options.HasFlag(option))
+                throw new InvalidOperationException($"{fn.Name} takes no {what}.");
+        }
+        Require(fn.Over.Frame is not null, WindowOptions.Frame, "window frame");
+        Require(fn.IgnoreNulls is not null, WindowOptions.NullTreatment, "RESPECT NULLS or IGNORE NULLS");
+        Require(fn.FromLast is not null, WindowOptions.FromLast, "FROM FIRST or FROM LAST");
+        Require(fn.Distinct, WindowOptions.Distinct, "DISTINCT");
+        Require(fn.Filter is not null, WindowOptions.Filter, "FILTER");
+    }
+
+    /// <summary>
+    /// The standard's rules for a frame clause that the window, not the syntax, decides: GROUPS counts peer groups,
+    /// so needs an ORDER BY; and a RANGE offset measures from one ORDER BY key, so needs exactly one.
+    /// </summary>
+    private static void CheckFrame(WindowFunction fn, WindowFrame frame)
+    {
+        if (frame.Unit == FrameUnit.Groups && fn.Over.OrderBy.Count == 0)
+            throw new InvalidOperationException("A GROUPS frame needs an ORDER BY in its window.");
+        if (frame.Unit == FrameUnit.Range && (frame.Start.Offset ?? frame.End.Offset) is not null && fn.Over.OrderBy.Count != 1)
+            throw new InvalidOperationException("A RANGE frame with an offset needs exactly one ORDER BY key in its window.");
     }
 
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteAggregate(AggregateNode node, EvalScope? outer)
     {
         var (inColumns, inRowsEnum) = Execute(node.Input, outer);
 
+        // Windows over the groups publish a column each, which the projection and ORDER BY read as any other.
+        IReadOnlyList<WindowOutput> windows = node.Windows ?? [];
+        var (windowTypes, columns) = WindowColumns(windows, inColumns);
+
+        var outTypes = node.Projection
+            .Select(item => ExpressionEvaluator.NumberTypeOf(item.Value, columns, e => DeclaredType(e, columns))).ToList();
         var outColumns = node.Projection
-            .Select((item, i) => new OutputColumn(null,
+            .Select((item, i) => OutputColumn.Computed(
                 item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{i + 1}"),
-                DeclaredType(item.Value, inColumns)))
+                DeclaredType(item.Value, columns),
+                outTypes[i],
+                item.Value))
             .ToList();
+        var conversions = node.Projection.Select(item => ChoiceConversion(item.Value, columns)).ToList();
 
         // A bare `SELECT COUNT(*)` wants the number of rows, not the rows. Everything below materialises the
         // whole input first — which for this shape is the entire cost, and pure waste: holding every decoded row
@@ -1519,16 +1863,15 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         var inRows = inRowsEnum.ToList();
         // Aggregates can appear in the projection, HAVING (e.g. HAVING COUNT(*) > 30) and ORDER BY
         // (e.g. ORDER BY COUNT(*)); precompute all of them per group so each instance resolves.
+        // A window's arguments and keys may hold aggregates too — RANK() OVER (ORDER BY SUM(x)).
         var aggregateCalls = node.Projection.SelectMany(i => Aggregates(i.Value))
             .Concat(node.Having is { } h ? Aggregates(h) : [])
             .Concat(node.OrderBy.SelectMany(k => Aggregates(k.Value)))
+            .Concat(windows.SelectMany(w => w.Function.Expressions().SelectMany(Aggregates)))
             .ToList();
 
-        // Each output row carries its ORDER BY key values AND its grouping-key values, evaluated in the same
-        // group scope as the projection, to sort the groups afterward: by ORDER BY if present, otherwise —
-        // matching Access, which returns GROUP BY results ascending by the grouping columns — by the group key
-        // (this also makes a TOP-1-over-a-GROUP-BY deterministic, as Access/SQL Server do).
-        var outRows = new List<(object?[] Row, object?[] SortKeys, object?[] GroupKeys)>();
+        // The groups HAVING keeps, each with the row that resolves its keys and its aggregates' values.
+        var groups = new List<(object?[] KeyRow, Dictionary<FunctionCall, object?> Values, ExpressionEvaluator Eval)>();
         foreach (List<object?[]> group in GroupRows(inRows, node.GroupBy, inColumns, outer))
         {
             var values = new Dictionary<FunctionCall, object?>(ReferenceComparer.Instance);
@@ -1551,8 +1894,32 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             // HAVING filters whole groups after aggregation.
             if (node.Having is not null && !eval.IsTrue(node.Having))
                 continue;
+            groups.Add((keyRow, values, eval));
+        }
 
-            object?[] row = node.Projection.Select(item => eval.Evaluate(item.Value)).ToArray();
+        // The windows see the groups as their rows, as the standard orders it: after HAVING, before the projection.
+        var windowValues = new object?[groups.Count][];
+        for (int i = 0; i < groups.Count; i++)
+            windowValues[i] = new object?[windows.Count];
+        for (int slot = 0; slot < windows.Count; slot++)
+            ComputeWindow(windows[slot].Function, groups.Count, i => groups[i].Eval, inColumns, windowValues, slot, windowTypes[slot]);
+
+        // Each output row carries its ORDER BY key values AND its grouping-key values, evaluated in the same
+        // group scope as the projection, to sort the groups afterward: by ORDER BY if present, otherwise —
+        // matching Access, which returns GROUP BY results ascending by the grouping columns — by the group key
+        // (this also makes a TOP-1-over-a-GROUP-BY deterministic, as Access/SQL Server do).
+        var outRows = new List<(object?[] Row, object?[] SortKeys, object?[] GroupKeys)>();
+        for (int g = 0; g < groups.Count; g++)
+        {
+            var (keyRow, values, eval) = groups[g];
+            if (windows.Count > 0)
+                eval = new ExpressionEvaluator(
+                    new EvalScope(columns, [.. keyRow, .. windowValues[g]], outer, values), this, _parameters, _session);
+
+            object?[] row = node.Projection
+                .Select((item, i) => ExpressionEvaluator.ToResultPlaces(
+                    ExpressionEvaluator.AsColumnType(eval.Evaluate(item.Value), conversions[i], currency: false), outTypes[i]))
+                .ToArray();
             object?[] sortKeys = node.OrderBy.Select(k => eval.Evaluate(k.Value)).ToArray();
             object?[] groupKeys = node.GroupBy.Select(k => eval.Evaluate(k)).ToArray();
             outRows.Add((row, sortKeys, groupKeys));
@@ -1591,7 +1958,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         node.GroupBy.Count == 0
         && node.Having is null
         && node.OrderBy.Count == 0
-        && node.Projection is [{ Value: FunctionCall { Distinct: false, Arguments: [StarExpression] } call }]
+        && node.Projection is [{ Value: FunctionCall { Distinct: false, Filter: null, Arguments: [StarExpression] } call }]
         && string.Equals(call.Name, "COUNT", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Counts a row sequence without retaining it. COUNT is an Access Long Integer, so the count is an
@@ -1643,14 +2010,13 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         ExpressionEvaluator.ValidateArity(name, call.Arguments.Count);
         Expression? arg = call.Arguments.Count > 0 ? call.Arguments[0] : null;
 
-        // COUNT is an Access Long Integer (32-bit) — EF reads it with GetInt32, so return int, not long.
-        if (name == "COUNT")
-        {
-            if (arg is StarExpression or null)
-                return group.Count; // COUNT(*) counts rows; DISTINCT is meaningless (and EF never emits it)
-            var counted = group.Select(r => Eval(columns, r, outer).Evaluate(arg)).Where(v => v is not null);
-            return call.Distinct ? DistinctValues(counted).Count : counted.Count();
-        }
+        // FILTER (WHERE …) narrows the group before anything else looks at it — COUNT(*) included.
+        if (call.Filter is { } filter)
+            group = group.Where(r => Eval(columns, r, outer).IsTrue(filter)).ToList();
+
+        // COUNT(*) counts rows; DISTINCT is meaningless there (and EF never emits it).
+        if (name == "COUNT" && arg is StarExpression or null)
+            return group.Count;
 
         // FIRST/LAST return the argument's value from the first/last row of the group in scan order — NOT
         // null-filtered (verified vs ACE: First over a leading NULL row returns NULL).
@@ -1659,59 +2025,59 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (name == "LAST")
             return group.Count == 0 ? null : Eval(columns, group[^1], outer).Evaluate(arg!);
 
-        var values = group.Select(r => Eval(columns, r, outer).Evaluate(arg!)).Where(v => v is not null).ToList();
-        // SUM(DISTINCT)/AVG(DISTINCT)/… aggregate the distinct set of the argument's values. MIN/MAX are
+        if (call.WithinGroup is { } directions)
+        {
+            if (group.Count == 0)
+                return null;
+            if (name == "LISTAGG")
+            {
+                IReadOnlyList<Expression> keys = call.WithinGroupKeys;
+                return ListAgg.Of(
+                    group.Select(r =>
+                    {
+                        ExpressionEvaluator e = Eval(columns, r, outer);
+                        return (e.Evaluate(call.Arguments[0]), keys.Select(k => e.Evaluate(k)).ToArray());
+                    }),
+                    call.Arguments.Count - keys.Count == 2 ? (string)((LiteralExpression)call.Arguments[1]).Value! : "",
+                    directions,
+                    call.Distinct);
+            }
+            // The fraction is the group's, so any row gives it; the standard makes it a constant.
+            return Percentile.Of(name,
+                group.Select(r => Eval(columns, r, outer).Evaluate(call.Arguments[1])),
+                Eval(columns, group[0], outer).Evaluate(call.Arguments[0]),
+                directions[0]);
+        }
+
+        // A binary set function reads a pair from each row; the standard gives it no DISTINCT.
+        if (RunningAggregate.IsPair(name))
+        {
+            if (call.Distinct)
+                throw new NotSupportedException($"{call.Name} takes no DISTINCT.");
+            var pair = new RunningAggregate(name, countRows: false, currency: false);
+            foreach (object?[] row in group)
+            {
+                ExpressionEvaluator rowEval = Eval(columns, row, outer);
+                pair.AddPair(rowEval.Evaluate(call.Arguments[0]), rowEval.Evaluate(call.Arguments[1]));
+            }
+            return pair.Result;
+        }
+
+        IEnumerable<object?> values = group.Select(r => Eval(columns, r, outer).Evaluate(arg!));
+        // COUNT(DISTINCT)/SUM(DISTINCT)/… aggregate the distinct set of the argument's values. MIN/MAX are
         // unaffected by dedup, but applying it uniformly keeps the one code path.
         if (call.Distinct)
-            values = DistinctValues(values);
-        if (values.Count == 0)
-            return null; // SUM/AVG/MIN/MAX of nothing is NULL (COUNT already returned above)
+            values = DistinctValues(values.Where(v => v is not null));
 
-        // Result types: SUM **preserves the input type** (int→int, long→long, decimal→decimal, …) so the EF
-        // provider (which emits a bare SUM and reads by the LINQ operand type) round-trips without a cast.
-        // AVG is Double unless the input is Currency/Decimal (matches Access and LINQ). MIN/MAX keep the
-        // column's own value and type.
-        var inv = System.Globalization.CultureInfo.InvariantCulture;
-        return name switch
-        {
-            "SUM" => SumPreservingType(values, inv),
-            "AVG" => values[0] is decimal ? values.Average(v => Convert.ToDecimal(v, inv)) : values.Average(v => Convert.ToDouble(v, inv)),
-            "MIN" => values.Aggregate((a, b) => ExpressionEvaluator.CompareForSort(a, b) <= 0 ? a : b),
-            "MAX" => values.Aggregate((a, b) => ExpressionEvaluator.CompareForSort(a, b) >= 0 ? a : b),
-            // Statistical aggregates. Sample forms (StDev/Var) divide by n-1 and are NULL for a single value;
-            // population forms (StDevP/VarP) divide by n. Verified vs ACE.
-            "VAR" or "STDEV" or "STDDEV" or "VARP" or "STDEVP" or "STDDEVP" => Statistic(name, values, inv),
-            _ => throw new NotSupportedException($"Aggregate {call.Name} is not supported."),
-        };
+        var aggregate = new RunningAggregate(name, countRows: false, currency: IsCurrency(arg!, columns));
+        foreach (object? value in values)
+            aggregate.Add(value);
+        return aggregate.Result;
     }
 
-    /// <summary>Access statistical aggregates over the non-null values (verified vs ACE). VAR/STDEV are the
-    /// **sample** forms (divide by n−1, NULL for a single value); VARP/STDEVP the **population** forms (divide by
-    /// n). STDEV/STDEVP are the square roots of VAR/VARP.</summary>
-    private static object? Statistic(string name, List<object?> values, System.Globalization.CultureInfo inv)
-    {
-        int n = values.Count;
-        double mean = values.Average(v => Convert.ToDouble(v, inv));
-        double sumSq = values.Sum(v => { double d = Convert.ToDouble(v, inv) - mean; return d * d; });
-        bool sample = !name.EndsWith("P", StringComparison.Ordinal);   // VAR/STDEV sample; VARP/STDEVP population
-        if (sample && n < 2) return null;                              // sample variance of one value is undefined
-        double variance = sumSq / (sample ? n - 1 : n);
-        bool stdev = name.Contains("DEV", StringComparison.Ordinal);
-        return stdev ? Math.Sqrt(variance) : variance;
-    }
-
-    /// <summary>SUM keeping the operand's numeric type (as LINQ's <c>Sum</c> overloads do): integer types
-    /// (byte/short/int) sum to Int32, Int64 to Int64, Single to Single, Double to Double, Decimal/Currency
-    /// to Decimal.</summary>
-    private static object SumPreservingType(List<object?> values, System.Globalization.CultureInfo inv) =>
-        values[0] switch
-        {
-            decimal => values.Sum(v => Convert.ToDecimal(v, inv)),
-            double => values.Sum(v => Convert.ToDouble(v, inv)),
-            float => (float)values.Sum(v => Convert.ToDouble(v, inv)),
-            long or ulong => values.Sum(v => Convert.ToInt64(v, inv)),
-            _ => values.Sum(v => Convert.ToInt32(v, inv)),
-        };
+    /// <summary>Whether an aggregate's argument is a Currency, which the statistical aggregates square exactly.</summary>
+    private bool IsCurrency(Expression argument, IReadOnlyList<OutputColumn> columns) =>
+        ExpressionEvaluator.NumberTypeOf(argument, columns, e => DeclaredType(e, columns)).Class == NumberClass.Currency;
 
     private static IEnumerable<FunctionCall> Aggregates(Expression e)
     {
@@ -1719,15 +2085,6 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         {
             case FunctionCall f when QueryPlanner.IsAggregate(f.Name):
                 yield return f;
-                break;
-            case FunctionCall f:
-                foreach (FunctionCall a in f.Arguments.SelectMany(Aggregates)) yield return a;
-                break;
-            case BinaryExpression b:
-                foreach (FunctionCall a in Aggregates(b.Left).Concat(Aggregates(b.Right))) yield return a;
-                break;
-            case UnaryExpression u:
-                foreach (FunctionCall a in Aggregates(u.Operand)) yield return a;
                 break;
             // Descend into subqueries: an aggregate over an *outer* column may appear there (a correlated
             // subquery). Its own aggregates come along too, but are skipped when they can't be computed in
@@ -1741,17 +2098,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case InSubqueryExpression i:
                 foreach (FunctionCall a in Aggregates(i.Value).Concat(AggregatesInSelect(i.Query))) yield return a;
                 break;
-            case InListExpression i:
-                foreach (FunctionCall a in Aggregates(i.Value).Concat(i.Items.SelectMany(Aggregates))) yield return a;
-                break;
-            // Both halves of every arm, and the ELSE. An aggregate in a CASE is computed for the group up
-            // front and handed to the evaluator by reference — the standard specifies the same order, that
-            // aggregates in a WHEN are evaluated before the CASE rather than by it. Conditions matter as much
+            // Operands include both halves of every CASE arm, and the ELSE. An aggregate in a CASE is computed for
+            // the group up front and handed to the evaluator by reference — the standard specifies the same order,
+            // that aggregates in a WHEN are evaluated before the CASE rather than by it. Conditions matter as much
             // as results: `HAVING CASE WHEN COUNT(*) > 1 THEN …` carries the aggregate in the condition.
-            case CaseExpression c:
-                foreach (FunctionCall a in c.WhenClauses
-                    .SelectMany(w => Aggregates(w.Condition).Concat(Aggregates(w.Result)))
-                    .Concat(c.ElseResult is { } e2 ? Aggregates(e2) : []))
+            default:
+                foreach (FunctionCall a in e.Operands()?.SelectMany(Aggregates) ?? [])
                     yield return a;
                 break;
         }
@@ -1778,7 +2130,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// <summary>Groups by structural equality of the key value tuple.</summary>
     // DISTINCT / GROUP BY / INTERSECT / EXCEPT key. String keys use Access text semantics — case-insensitive
     // and trailing-space-insensitive — so 'London' and 'LONDON ' group together as Access does.
-    private sealed class GroupKey(object?[] values) : IEquatable<GroupKey>
+    internal sealed class GroupKey(object?[] values) : IEquatable<GroupKey>
     {
         private readonly object?[] _values = values;
 

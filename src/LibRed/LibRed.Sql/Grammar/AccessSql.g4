@@ -4,11 +4,35 @@
 // derived-table subqueries, WHERE, ORDER BY, TOP. The parse tree is lowered into
 // LibRed.Sql.Ast by AstBuilder, so the rest of the engine never sees these generated types.
 //
-// Dialect notes (vs ANSI): '&' string concat; MOD / '\' operators; '*'/'?' LIKE wildcards;
-// TOP n (no OFFSET); #1/1/2020# date literals; [bracketed] and `backtick` identifiers;
-// booleans -1/0.
+// Dialect notes (vs ANSI): '&' string concat; MOD / '\' operators; TOP n (no OFFSET);
+// #1/1/2020# date literals; [bracketed] and `backtick` identifiers; booleans -1/0.
 
 grammar AccessSql;
+
+@lexer::members {
+    // Whether the input ahead is any number of dashes and then a number: a digit, or a point and a digit.
+    private bool DashesThenNumber()
+    {
+        int i = 1;
+        while (InputStream.LA(i) == '-')
+            i++;
+        int c = InputStream.LA(i);
+        return c is >= '0' and <= '9' || c == '.' && InputStream.LA(i + 1) is >= '0' and <= '9';
+    }
+}
+
+@parser::members {
+    // The precedence the generated parser gives a BETWEEN's upper bound: that of the comparisons, one above BETWEEN.
+    private const int BetweenBoundPrecedence = 13;
+
+    // ANTLR parses the middle operand of an alternative at precedence 0 and has no syntax to raise it, which lets a
+    // BETWEEN's lower bound swallow the AND that ends it: `x BETWEEN 1 AND 10 AND y = 2` would read as
+    // `x BETWEEN (1 AND 10) AND (y = 2)`. The lower bound is the only operand parsed while its BETWEEN has no lower
+    // bound yet, so it is given the upper bound's precedence here.
+    public override void EnterRecursionRule(ParserRuleContext localctx, int state, int ruleIndex, int precedence) =>
+        base.EnterRecursionRule(localctx, state, ruleIndex,
+            localctx.Parent is BetweenExprContext { lo: null } ? Math.Max(precedence, BetweenBoundPrecedence) : precedence);
+}
 
 // A single statement, optionally terminated by ';' (EF Core emits a trailing semicolon).
 statement : parametersClause? (ifThenStatement | createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | dropStatement | insertStatement | updateStatement | deleteStatement | transactionStatement | executeStatement | systemVariableSelect | queryExpression) SEMI? EOF ;
@@ -25,14 +49,16 @@ executeStatement : (EXECUTE | EXEC) name=identifier (expression (COMMA expressio
 // UPDATE table SET col = expr, … [WHERE criteria]. The WHERE criteria is an ordinary expression, the same
 // as a SELECT's; each SET value expression may reference the row's current column values.
 // UPDATE tableexpression SET col=expr, … [WHERE …]. The tableexpression is a table SOURCE (Access allows a
-// join here), and a SET target may be table-qualified (col or alias.col) to touch a specific joined table.
-updateStatement : UPDATE tableSource SET assignment (COMMA assignment)* whereClause? ;
+// join here) or, as in a FROM clause, a comma list of them (verified vs ACE: UPDATE a, b SET … is accepted), and a
+// SET target may be table-qualified (col or alias.col) to touch a specific joined table.
+updateStatement : UPDATE tableSource (COMMA tableSource)* SET assignment (COMMA assignment)* whereClause? ;
 assignment : target=columnRef EQ expression ;
 
 // DELETE [table.* | *] FROM tableexpression [WHERE …]. For a join, the `table.*` target selects which
 // table's rows to delete; a bare `*` (or no target) is only valid for a single table — a join without a
 // `table.*` target is ambiguous and rejected at execution (matching Access, which asks you to specify it).
-deleteStatement : DELETE (target=identifier DOT STAR | STAR)? FROM tableSource whereClause? ;
+// As in a FROM clause, the tableexpression may be a comma list of sources (verified vs ACE).
+deleteStatement : DELETE (target=identifier DOT STAR | STAR)? FROM tableSource (COMMA tableSource)* whereClause? ;
 
 // A FROM-less SELECT of system variables only — ACE allows `SELECT @@IDENTITY` / `SELECT @@ROWCOUNT`
 // (and a comma list of them) with no FROM clause. Listed before queryExpression so it is preferred; a
@@ -139,31 +165,41 @@ calculatedClause : AS LPAREN expression RPAREN ;
 
 // A second word handles two-word ANSI aliases like CHARACTER VARYING / BIT VARYING.
 // Up to three words to cover multi-word SQL type names: "char varying", "national character varying", etc.
-dataType : typeName=identifier extra=identifier? extra2=identifier? (LPAREN size=signedInteger (COMMA scale=signedInteger)? RPAREN)? ;
+// IDENTITY is reserved, as ACE reserves it, so it is named here as a type of its own: `Id IDENTITY(5, 2)`. After a
+// type it is a column constraint instead (see IdentityConstraint).
+dataType : (typeName=identifier | identityType=IDENTITY) extra=identifier? extra2=identifier? (LPAREN size=signedInteger (COMMA scale=signedInteger)? RPAREN)? ;
 
 // A possibly-negative integer — needed for a descending COUNTER(seed, increment) whose increment is negative.
 signedInteger : MINUS? INTEGER_LITERAL ;
 
 // Single-field constraints (after the column's data type). A CONSTRAINT name may prefix any of them.
+// PRIMARY KEY and UNIQUE take an optional CLUSTERED or NONCLUSTERED, in a column or table constraint alike, as
+// ACE's CONSTRAINT clause does. ACE stores nothing for either word — the file is byte-identical without it and
+// DAO reports Clustered = False — so it is parsed and dropped. ACE rejects it anywhere else: after FOREIGN KEY,
+// between PRIMARY and KEY, on a bare column, or in CREATE INDEX.
 columnConstraint
     : NOT NULL                                       # NotNullConstraint
     | NULL                                           # NullableConstraint
     | DEFAULT expression                             # DefaultConstraint
     | WITH (COMPRESSION | COMP)                       # CompressionConstraint
     | (CONSTRAINT cname=identifier)? CHECK LPAREN checkBody RPAREN  # CheckColumnConstraint
-    | (CONSTRAINT cname=identifier)? PRIMARY KEY     # PrimaryKeyConstraint
-    | (CONSTRAINT cname=identifier)? UNIQUE          # UniqueColumnConstraint
+    | (CONSTRAINT cname=identifier)? PRIMARY KEY clusteredOption?   # PrimaryKeyConstraint
+    | (CONSTRAINT cname=identifier)? UNIQUE clusteredOption?        # UniqueColumnConstraint
     | (CONSTRAINT cname=identifier)? REFERENCES refTable=identifier
         (LPAREN refColumns+=identifier (COMMA refColumns+=identifier)* RPAREN)?
         foreignKeyAction*                            # ColumnReferencesConstraint
+    // IDENTITY [(seed [, increment])] — ACE's AutoNumber attribute. It may follow only the type, NULL/NOT NULL or
+    // another IDENTITY, which the AST builder checks; it makes a Long column an AutoNumber and is ignored on any
+    // other type, both as ACE does.
+    | IDENTITY (LPAREN seed=signedInteger (COMMA increment=signedInteger)? RPAREN)?  # IdentityConstraint
     ;
 
 // EF Core emits named table constraints: CONSTRAINT `PK_x` PRIMARY KEY (`col`, ...) and
 // CONSTRAINT `FK_x` FOREIGN KEY (`col`, ...) REFERENCES `Parent` (`col`, ...) ON DELETE CASCADE.
 tableConstraint
-    : (CONSTRAINT name=identifier)? PRIMARY KEY
+    : (CONSTRAINT name=identifier)? PRIMARY KEY clusteredOption?
         LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN                        # PrimaryKeyTableConstraint
-    | (CONSTRAINT name=identifier)? UNIQUE
+    | (CONSTRAINT name=identifier)? UNIQUE clusteredOption?
         LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN                        # UniqueTableConstraint
     | (CONSTRAINT name=identifier)? FOREIGN KEY (noIndex=NO INDEX)?
         LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN
@@ -364,21 +400,39 @@ orderByClause : ORDER BY orderByItem (COMMA orderByItem)* ;
 orderByItem : expression (dir=(ASC | DESC))? ;
 
 expression
-    : NOT expression                                                        # NotExpr
-    | BNOT expression                                                       # BitNotExpr
-    | MINUS expression                                                      # NegateExpr
-    | left=expression CARET right=expression                                 # PowExpr
-    | left=expression op=(STAR | SLASH | MOD | BACKSLASH) right=expression   # MulDivExpr
-    | left=expression op=(PLUS | MINUS | AMP) right=expression               # AddConcatExpr
+    : left=expression CARET right=expression                                 # PowExpr
+    // Negation binds looser than '^' and tighter than '*' (VBA operator precedence), except that a minus written
+    // against a number is part of that number (see AstBuilder.SignedNumber). A unary plus sits with it and leaves its
+    // operand as it is, text included (verified vs ACE: +'abc' is 'abc').
+    | op=(MINUS | PLUS) expression                                          # NegateExpr
+    // '*' '/', then '\', then MOD, each its own level (VBA operator precedence; verified vs ACE: 7 \ 2 * 3 is 1,
+    // 5 MOD 3 * 2 is 5, 10 MOD 4 \ 2 is 0).
+    | left=expression op=(STAR | SLASH) right=expression                     # MulDivExpr
+    | left=expression op=BACKSLASH right=expression                           # IntDivExpr
+    | left=expression op=MOD right=expression                                 # ModExpr
+    | left=expression op=(PLUS | MINUS) right=expression                     # AddSubExpr
+    // '&' binds looser than '+'/'-' and tighter than the comparisons (VBA operator precedence; verified vs
+    // ACE: 1 & 2 + 3 is '15').
+    | left=expression op=AMP right=expression                                 # ConcatExpr
     | left=expression op=(EQ | NEQ | LT | LTE | GT | GTE) right=expression   # ComparisonExpr
+    // The lower bound is parsed at the upper bound's precedence (see EnterRecursionRule above), so the AND between
+    // them is never taken into it.
     | val=expression not=NOT? BETWEEN lo=expression AND hi=expression        # BetweenExpr
     | left=expression not=NOT? LIKE right=expression                        # LikeExpr
     | val=expression not=NOT? IN LPAREN sub=queryExpression RPAREN                            # InSubqueryExpr
     | val=expression not=NOT? IN LPAREN items+=expression (COMMA items+=expression)* RPAREN  # InExpr
     | operand=expression IS not=NOT? NULL                                   # IsNullExpr
-    | left=expression op=(BAND | BOR | BXOR) right=expression               # BitwiseExpr
-    | left=expression AND right=expression                                  # AndExpr
-    | left=expression OR right=expression                                   # OrExpr
+    // NOT binds looser than the comparisons and tighter than AND (VBA operator precedence; verified vs ACE:
+    // NOT 1 = 2 is True). BNOT sits with it, and each bitwise operator with its logical one, left to right
+    // (verified vs ACE: BNOT 1 + 1 is -3, NOT 0 BAND 1 is 1, 2 AND 1 BAND 3 is 3, 0 OR 0 BOR 4 is 4).
+    | op=(NOT | BNOT) expression                                            # NotExpr
+    | left=expression op=(AND | BAND) right=expression                      # AndExpr
+    | left=expression op=(OR | BOR) right=expression                        # OrExpr
+    // XOR, then EQV, then IMP, each looser than the one before (VBA operator precedence; verified vs ACE:
+    // TRUE XOR TRUE OR TRUE is False, FALSE IMP FALSE EQV FALSE is True).
+    | left=expression op=(XOR | BXOR) right=expression                      # XorExpr
+    | left=expression op=EQV right=expression                               # EqvExpr
+    | left=expression op=IMP right=expression                               # ImpExpr
     | primary                                                               # PrimaryExpr
     ;
 
@@ -416,17 +470,22 @@ caseWhen : WHEN condition=expression THEN result=expression ;
 // a new window function cost NO grammar at all: ROW_NUMBER, RANK, NTILE and friends already lex as IDENTIFIER
 // and reach here through `functionName`, and `SUM(x) OVER (…)` — an aggregate over a window — parses for free
 // as the same shape. Access has no window functions; this is a LibRed extension for extended mode.
+// WITHIN GROUP gives an ordered-set aggregate (PERCENTILE_CONT, PERCENTILE_DISC, LISTAGG) its ordering, and FILTER
+// an aggregate the rows it takes in. FROM FIRST/LAST and RESPECT/IGNORE NULLS sit between the call and OVER, where
+// the standard puts them, and only with an OVER: a lone `FROM Last` after a call is the FROM clause naming a table
+// called Last, which the lookahead to OVER tells apart.
 functionCall
     : name=functionName LPAREN (star=STAR | (distinct=DISTINCT? expression (COMMA expression)*))? RPAREN
-      (OVER windowSpecification)?
+      withinGroup? filterClause?
+      (nthRowFrom? nullTreatment? OVER windowSpecification)?
     ;
 // A function name is an identifier, or the LEFT/RIGHT/ASC keywords used as the Left()/Right()/Asc() functions —
 // unambiguous with LEFT/RIGHT JOIN and ORDER BY ... ASC because a function call is always followed by '(' and
 // never appears in the FROM/ORDER BY clause.
 // Keywords that are also function names have to be readmitted here or the lexer's keyword token wins and the
 // call stops parsing: Left/Right/Asc, and FIRST — which `offsetFetchClause` needs as a keyword for
-// `FETCH FIRST`, but which is also the Access aggregate First(). (LAST is not listed because nothing else
-// claims it as a keyword.)
+// `FETCH FIRST`, but which is also the Access aggregate First(). (LAST is not listed because it is a non-reserved
+// keyword, which `identifier` already admits.)
 // PARTITION is readmitted for the same reason: `PARTITION BY` makes it a keyword, but Access has a real VBA
 // Partition(number, start, stop, interval) function that LibRed implements and tests. A function call is always
 // followed by '(' and `PARTITION BY` never is, so the two never collide.
@@ -434,7 +493,7 @@ functionName : identifier | LEFT | RIGHT | ASC | FIRST | PARTITION ;
 
 columnRef : (qualifier=identifier DOT)? name=identifier ;
 
-identifier : IDENTIFIER | BRACKET_ID | BACKTICK_ID ;
+identifier : IDENTIFIER | BRACKET_ID | BACKTICK_ID | nonReservedKeyword ;
 
 literal
     : INTEGER_LITERAL   # IntLiteral
@@ -465,12 +524,49 @@ standaloneExpression : expression EOF ;
 // A window function's OVER (…). Both parts are optional here even though EF Core always emits both and the
 // standard's defaults differ (no PARTITION BY = one partition over the whole input; no ORDER BY = every row a
 // peer), because rejecting them in the grammar would report a parse error where a semantic one is clearer.
-// A frame clause (ROWS/RANGE BETWEEN …) goes before the RPAREN when something needs one — nothing emits one
-// today, and admitting it now would reserve five more keywords (RANGE, PRECEDING, FOLLOWING, UNBOUNDED,
-// CURRENT) to buy nothing. Kept after the existing parser rules so adding it does not renumber their ids.
+// Kept after the existing parser rules so adding it does not renumber their ids.
 windowSpecification
-    : LPAREN (PARTITION BY partition+=expression (COMMA partition+=expression)*)? orderByClause? RPAREN
+    : LPAREN (PARTITION BY partition+=expression (COMMA partition+=expression)*)? orderByClause? windowFrame? RPAREN
     ;
+
+// CLUSTERED / NONCLUSTERED after PRIMARY KEY or UNIQUE — accepted and ignored (see columnConstraint). Kept after
+// the existing parser rules so adding it does not renumber their ids.
+clusteredOption : CLUSTERED | NONCLUSTERED ;
+
+// A window frame, as the standard has it: the rows of the partition a frame-reading function (an aggregate,
+// FIRST_VALUE, …) sees from the current row. A lone bound is the frame's start, ending at the current row.
+//   ROWS | RANGE | GROUPS   [BETWEEN start AND end | start]   [EXCLUDE CURRENT ROW | GROUP | TIES | NO OTHERS]
+// UNBOUNDED is listed before the offset form so `UNBOUNDED PRECEDING` is the bound, not a column named Unbounded
+// (ANTLR settles an ambiguity on the lower alternative); bracket such a column to use it as an offset.
+windowFrame
+    : unit=(ROWS | RANGE | GROUPS) (BETWEEN start=frameBound AND end=frameBound | start=frameBound)
+      (EXCLUDE exclusion=frameExclusion)?
+    ;
+frameBound
+    : UNBOUNDED direction=(PRECEDING | FOLLOWING)
+    | CURRENT ROW
+    | offset=expression direction=(PRECEDING | FOLLOWING)
+    ;
+frameExclusion : CURRENT ROW | GROUP | TIES | NO OTHERS ;
+
+// The window clauses' words are keywords only there: each is also admitted as an identifier, so a column named
+// Range or Current keeps working unbracketed, as it does in ACE, which reserves none of them.
+nonReservedKeyword
+    : RANGE | GROUPS | UNBOUNDED | PRECEDING | FOLLOWING | CURRENT | EXCLUDE | TIES | OTHERS
+    | WITHIN | LAST | RESPECT | NULLS | FILTER
+    ;
+
+// An aggregate's FILTER: only the rows for which the condition is true go into it.
+filterClause : FILTER LPAREN WHERE condition=expression RPAREN ;
+
+// An ordered-set aggregate's ordering: PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY x).
+withinGroup : WITHIN GROUP LPAREN orderByClause RPAREN ;
+
+// NTH_VALUE's direction: counted from the frame's first row (the default) or its last.
+nthRowFrom : FROM edge=(FIRST | LAST) ;
+
+// Whether LAG, LEAD, FIRST_VALUE, LAST_VALUE and NTH_VALUE count the rows whose value is Null (the default) or skip them.
+nullTreatment : treatment=(RESPECT | IGNORE) NULLS ;
 
 // ---- Lexer ----
 
@@ -482,6 +578,9 @@ AS     : [Aa][Ss] ;
 AND    : [Aa][Nn][Dd] ;
 OR     : [Oo][Rr] ;
 NOT    : [Nn][Oo][Tt] ;
+XOR    : [Xx][Oo][Rr] ;
+EQV    : [Ee][Qq][Vv] ;
+IMP    : [Ii][Mm][Pp] ;
 BAND   : [Bb][Aa][Nn][Dd] ;
 BOR    : [Bb][Oo][Rr] ;
 BXOR   : [Bb][Xx][Oo][Rr] ;
@@ -557,6 +656,11 @@ SET        : [Ss][Ee][Tt] ;
 DEFAULT    : [Dd][Ee][Ff][Aa][Uu][Ll][Tt] ;
 NO         : [Nn][Oo] ;
 UNIQUE     : [Uu][Nn][Ii][Qq][Uu][Ee] ;
+// Reserved as ACE reserves them: neither may name a table, column or alias unbracketed.
+CLUSTERED    : [Cc][Ll][Uu][Ss][Tt][Ee][Rr][Ee][Dd] ;
+// Reserved as ACE reserves it. @@IDENTITY still lexes as one SYSVAR token, the longer match.
+IDENTITY     : [Ii][Dd][Ee][Nn][Tt][Ii][Tt][Yy] ;
+NONCLUSTERED : [Nn][Oo][Nn][Cc][Ll][Uu][Ss][Tt][Ee][Rr][Ee][Dd] ;
 INDEX      : [Ii][Nn][Dd][Ee][Xx] ;
 TEMPORARY  : [Tt][Ee][Mm][Pp][Oo][Rr][Aa][Rr][Yy] ;
 WITH       : [Ww][Ii][Tt][Hh] ;
@@ -575,6 +679,21 @@ DESC   : [Dd][Ee][Ss][Cc] ;
 TRUE   : [Tt][Rr][Uu][Ee] ;
 FALSE  : [Ff][Aa][Ll][Ss][Ee] ;
 NULL   : [Nn][Uu][Ll][Ll] ;
+// The window clauses' words — not reserved; see nonReservedKeyword.
+RANGE     : [Rr][Aa][Nn][Gg][Ee] ;
+GROUPS    : [Gg][Rr][Oo][Uu][Pp][Ss] ;
+UNBOUNDED : [Uu][Nn][Bb][Oo][Uu][Nn][Dd][Ee][Dd] ;
+PRECEDING : [Pp][Rr][Ee][Cc][Ee][Dd][Ii][Nn][Gg] ;
+FOLLOWING : [Ff][Oo][Ll][Ll][Oo][Ww][Ii][Nn][Gg] ;
+CURRENT   : [Cc][Uu][Rr][Rr][Ee][Nn][Tt] ;
+EXCLUDE   : [Ee][Xx][Cc][Ll][Uu][Dd][Ee] ;
+TIES      : [Tt][Ii][Ee][Ss] ;
+OTHERS    : [Oo][Tt][Hh][Ee][Rr][Ss] ;
+WITHIN    : [Ww][Ii][Tt][Hh][Ii][Nn] ;
+LAST      : [Ll][Aa][Ss][Tt] ;
+RESPECT   : [Rr][Ee][Ss][Pp][Ee][Cc][Tt] ;
+NULLS     : [Nn][Uu][Ll][Ll][Ss] ;
+FILTER    : [Ff][Ii][Ll][Tt][Ee][Rr] ;
 
 STAR     : '*' ;
 SLASH    : '/' ;
@@ -623,5 +742,7 @@ IDENTIFIER      : [A-Za-z_][A-Za-z_0-9]* '$'? ;
 
 WS      : [ \t\r\n]+ -> skip ;
 // SQL comments — EF Core query tags prepend a `-- tag` line comment to the statement; also block comments.
-LINE_COMMENT  : '--' ~[\r\n]* -> skip ;
+// '--' starts a comment unless nothing but more dashes stands between it and a number, so '--2' and '---2' are
+// repeated negation as in ACE (which has no comments at all), while '--Before' is a comment.
+LINE_COMMENT  : '--' {!DashesThenNumber()}? ~[\r\n]* -> skip ;
 BLOCK_COMMENT : '/*' .*? '*/' -> skip ;

@@ -14,6 +14,7 @@ namespace LibRed.Core.Tests;
 // what this measures.
 //
 // Both probes need ACE and are opt-in via LIBRED_ASTRAL=1.
+[Collection(AceCollection.Name)]
 public class AstralCollationProbeTest(ITestOutputHelper output)
 {
     /// <summary>

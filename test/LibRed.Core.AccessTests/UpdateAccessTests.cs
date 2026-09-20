@@ -10,6 +10,7 @@ namespace LibRed.Core.Tests;
 /// LibRed rewrites a row in place (row id preserved) and Access reads the updated values back — including a
 /// memo that grew onto an LVAL page and a variable-text column that grew the row (page repacked in place).
 /// </summary>
+[Collection(AceCollection.Name)]
 public class UpdateAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
@@ -160,6 +161,74 @@ public class UpdateAccessTests
             { c.CommandText = "SELECT COUNT(*) FROM T"; Assert.Equal(1, Convert.ToInt32(c.ExecuteScalar())); }
             using (var c = conn.CreateCommand())
             { c.CommandText = "SELECT M FROM T"; Assert.Equal(Big('g'), c.ExecuteScalar()); } // 'b'+5 = 'g'
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    [Fact]
+    public void Access_scans_every_value_after_repeated_mixed_long_value_replacement()
+    {
+        const int rowCount = 18, columns = 3, replacements = 240;
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "mixed-lval-churn-");
+        var expected = new Dictionary<int, string[]>();
+
+        static string Value(int row, int column, int generation)
+        {
+            int length = (row * 17 + column * 31 + generation * 13) % 4 switch
+            {
+                0 => 30,       // inline
+                1 => 350,      // packed LVAL
+                2 => 5_000,    // chained LVAL
+                _ => 20_000,   // multi-page chain
+            };
+            return $"r{row}-c{column}-g{generation}:" + new string((char)('a' + (row + column + generation) % 26), length);
+        }
+
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("LvalChurn",
+                [
+                    new("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                    new("M0", JetDataType.Memo, 0, IsFixedLength: false),
+                    new("M1", JetDataType.Memo, 0, IsFixedLength: false),
+                    new("M2", JetDataType.Memo, 0, IsFixedLength: false),
+                ], primaryKey: ["Id"]);
+                Table table = db.OpenTable("LvalChurn");
+                for (int row = 1; row <= rowCount; row++)
+                {
+                    string[] values = Enumerable.Range(0, columns).Select(column => Value(row, column, 0)).ToArray();
+                    expected.Add(row, values);
+                    table.Insert([row, .. values]);
+                }
+
+                var random = new Random(20260912);
+                for (int generation = 1; generation <= replacements; generation++)
+                {
+                    int row = random.Next(1, rowCount + 1), column = random.Next(columns);
+                    RowId id = table.Rows().WithIds()
+                        .Single(item => Convert.ToInt32(item.Values[0]) == row).Id;
+                    object?[] values = table.GetRow(id)!;
+                    string replacement = Value(row, column, generation);
+                    values[column + 1] = replacement;
+                    expected[row][column] = replacement;
+                    table.Update(id, values, new HashSet<int> { column + 1 });
+                }
+            }
+
+            using var connection = OpenOleDb(path);
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT Id, M0, M1, M2 FROM LvalChurn ORDER BY Id";
+            using OleDbDataReader reader = command.ExecuteReader();
+            for (int row = 1; row <= rowCount; row++)
+            {
+                Assert.True(reader.Read());
+                Assert.Equal(row, reader.GetInt32(0));
+                for (int column = 0; column < columns; column++)
+                    Assert.Equal(expected[row][column], reader.GetString(column + 1));
+            }
+            Assert.False(reader.Read());
         }
         finally { TemporaryDatabase.Delete(path); }
     }

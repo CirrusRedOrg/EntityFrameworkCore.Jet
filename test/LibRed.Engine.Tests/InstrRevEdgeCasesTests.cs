@@ -41,7 +41,10 @@ public class InstrRevEdgeCasesTests : TempDatabaseTest
     [Theory]
     [InlineData("InStrRev(Null, 'a')")]        // Data type mismatch
     [InlineData("InStrRev('abc', Null)")]      // Data type mismatch
-    [InlineData("InStrRev('abcabc', 'a', 0)")] // Invalid procedure call (start must be -1 or >= 1)
     public void InstrRev_error_cases(string expr)
         => Assert.Throws<InvalidOperationException>(() => Eval(expr));
+
+    [Fact]
+    public void InstrRev_start_of_zero_is_an_invalid_procedure_call() // start must be -1 or >= 1
+        => Assert.Throws<ArgumentException>(() => Eval("InStrRev('abcabc', 'a', 0)"));
 }

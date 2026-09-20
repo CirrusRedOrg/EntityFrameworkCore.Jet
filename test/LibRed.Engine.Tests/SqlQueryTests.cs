@@ -93,7 +93,7 @@ public class SqlQueryTests
         var rs = Query(
             "SELECT CustomerID, Region & '-' & City AS RegionCity " +
             "FROM Customers " +
-            "WHERE CustomerID LIKE 'A????' OR CustomerID LIKE 'B*' OR CustomerID = 'QUEDE' " +
+            "WHERE CustomerID LIKE 'A____' OR CustomerID LIKE 'B%' OR CustomerID = 'QUEDE' " +
             "ORDER BY CustomerID");
 
         Assert.Equal(["CustomerID", "RegionCity"], rs.ColumnNames);

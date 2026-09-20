@@ -10,6 +10,7 @@ namespace LibRed.Core.Tests;
 /// declared parameter as an <c>Attribute=2</c> MSysQueries row (Name1 = name, Flag = Jet type code, e.g.
 /// 8 = DateTime). Access runs it and honours the supplied parameter values.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class ProcedureParameterAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

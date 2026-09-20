@@ -9,30 +9,42 @@ statistics:
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 4 | Total entry count — **compact-time only** (see note): the row count in a *saved/compacted* file, but `0` in a live-edited one |
-| `0x04` | 4 | **Unique entry count** — distinct entries ever added; maintained live on every insert (see note) |
+| `0x00` | 4 | Total entry count — written only when the index is **built** or the file compacted (see note), not on insert |
+| `0x04` | 4 | **Unique entry count** — maintained live on insert, set when the index is built (see note) |
 | `0x08` | 4 | Reserved (zero observed) |
 
-**These two fields are maintained very differently — verified with an ACE
-insert/delete/insert sequence and against saved Northwind tables:**
+**These two fields are maintained very differently (verified vs ACE):**
 
-- **Total entry count (`+0`) is *not* maintained on insert.** Access leaves it `0` through live
-  inserts and only writes the row count on **compact/repair**. Saved Northwind tables read
-  `total == rowCount` (Categories 8, Orders 830, Order Details 2155) precisely because they were
-  compacted; a freshly SQL-inserted table reads `total == 0` while `rowCount` climbs. A writer
-  should therefore **leave `+0` at `0`** on insert (LibRed does), not set it to the row count —
-  doing so would falsely mark the file as compacted. One exception, measured: ACE's **index rebuild**
-  does bump `+0` (observed 0 → 1), and LibRed reproduces that in `TableCreator` — so "leave it at 0"
-  is a rule about the INSERT path, not about every writer.
-- **Unique entry count (`+4`) *is* maintained live and is cumulative** — Access increments it per
-  insert and **never decrements** it. Verified: after 3 inserts it is `3`; after deleting a row it
-  stays `3` (not decremented); after one more insert it is `4`. It equals the current
-  distinct-value count only with no deletions. A **unique** index gains one distinct key per row,
-  so a writer increments `+4` by one per insert per unique index (LibRed does this in
-  `RowInserter`). A **non-unique** index should advance `+4` only when the inserted key is
-  genuinely new — not yet handled (see the `TODO(non-unique-index-stats)` marker). This applies to
-  **most** indexes LibRed writes, not none: every FK backing index is non-unique, as is any
-  `CREATE INDEX` without `UNIQUE`. LibRed exposes `+4` as `IndexDef.UniqueEntryCount`.
+- **Total entry count (`+0`) is *not* maintained on insert.** Access leaves it unchanged through live
+  inserts, deletes and updates. It is written when the index is **built over the rows present** —
+  `CREATE INDEX` (unique or not), a foreign key's backing index, and the rebuild of an index whose column an
+  `ALTER COLUMN` changes — to the **number of entries the index then holds** (the rows, less those an
+  IGNORE NULL index leaves out); and on **compact/repair**, to the row count. So an index created on an
+  empty table and then filled by inserts reads `0`, while one created over six rows reads `6`. A writer must
+  **not** set it on insert: that would falsely mark the file as compacted.
+- **Unique entry count (`+4`) *is* maintained live and is cumulative** — Access advances it on
+  **INSERT only**, by one when the row brings a key the index **does not hold at that moment**, and **never
+  decrements** it. Verified: after 3 inserts into a unique index it is `3`; after deleting a row it stays
+  `3`; after one more insert it is `4`. It equals the current distinct-key count only with no deletions.
+  - A **unique** index gains a new key with every row, so it advances on every insert.
+  - A **non-unique** index advances only for a key not already in it. Keys are compared as index keys, so
+    collation-equal text (`'a'`, `'A'`) is one key; a **Null is a key** like any other (a second Null adds
+    nothing), except in an **IGNORE NULL** index, which does not hold it and so never counts it. A key whose
+    last row was deleted **counts again** when it returns. A multi-column index compares the whole tuple.
+  - An **UPDATE never advances it**, even one that gives a row a key no other row has.
+  - It is **one count per real index**: a relationship's logical index sharing a real index (a parent's
+    primary key) does not advance it a second time.
+  - **Building the index** — the same builds as `+0` above — sets it to the index's **distinct keys among
+    the rows present**, discarding any earlier history: after two deletions, rebuilding an index whose
+    cumulative count was `4` over rows holding `5, 6, 6, 8` gives `3`.
+  - **Nothing else changes either count**: `ADD`/`DROP COLUMN`, `DROP INDEX` (the other blocks keep their
+    values), and an `ALTER COLUMN` of a column no index covers all leave every block as it was. The same holds
+    for a retype to or from Memo/OLE: only an index over the changed column is rebuilt — a primary key
+    included — and a table referencing this one keeps its foreign-key index's counts.
+
+  LibRed maintains both this way — inserts in `RowInserter`, builds in `TableCreator`'s index back-fill, and
+  the Memo/OLE retype (which LibRed does by rebuilding the whole table) restores every other index's counts
+  afterwards — and exposes `+4` as `IndexDef.UniqueEntryCount`.
 
 
 ### 3.5 Index-data block (52 bytes)
@@ -45,21 +57,18 @@ insert/delete/insert sequence and against saved Northwind tables:**
 | `0x23` | 3 | Usage-map page |
 | `0x26` | 4 | **B-tree root page** |
 | `0x2A` | 4 | Unknown / reserved (zero observed). mdbtools places a 1-byte index-flags field at `+0x2A`, but ACE's effective flags are at `0x2E` and this is zero in every file checked |
-| `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls (`WITH IGNORE NULL` — null-keyed rows excluded from the index), `0x08` required (`WITH DISALLOW NULL` / part of a primary key), `0x80` always-set (Access 2000+). Verified vs ACE: a plain index is `0x0080`, `IGNORE NULL` `0x0082`, `DISALLOW NULL` `0x0088`, a PK `0x0089`. |
+| `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls (`WITH IGNORE NULL` — null-keyed rows excluded from the index), `0x08` required (`WITH DISALLOW NULL` / part of a primary key), `0x80` always-set (Access 2000+). Verified vs ACE: a plain index is `0x0080`, `IGNORE NULL` `0x0082`, `DISALLOW NULL` `0x0088`, a PK `0x0089`. There is **no clustered flag**: `CLUSTERED`/`NONCLUSTERED` after `PRIMARY KEY` or `UNIQUE` in a constraint is accepted and stores nothing (the file is byte-identical without it), and DAO's `Index.Clustered` reads `False` even on an index created with it set. |
 | `0x30` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 52-byte block |
 
-> **The 10-column cap must be enforced on the incremental path too** — the same lesson as the 32-index cap
-> below, and missed the same way. `TdefBuilder` rejects an over-wide index when a table is created with its
-> indexes, but `CREATE INDEX` and `ADD FOREIGN KEY` on an existing table go through
-> `TableCreator.InsertIndex`, which checked nothing: the block builder filled its ten slots and marked the
-> rest unused, so LibRed accepted an 11-column index and stored a 10-column one. ACE refuses outright —
-> *"Cannot have more than 10 fields in an index."*
+> **The 10-column cap must be enforced on the incremental path too**, as must the 32-index cap below.
+> `TdefBuilder` rejects an over-wide index when a table is created with its indexes, but `CREATE INDEX` and
+> `ADD FOREIGN KEY` on an existing table go through `TableCreator.InsertIndex`. A block builder that fills
+> its ten slots and marks the rest unused silently stores a 10-column index for an 11-column request. ACE
+> refuses outright — *"Cannot have more than 10 fields in an index."*
 >
-> That failure was quieter than the other overruns, and worse for it. Too many indexes yields a file Access
-> cannot open, and an over-long record yields a row it cannot read; this yielded a file ACE reads happily,
-> holding an index over different columns from the ones requested. It was inconsistent internally as well —
-> the duplicate-key scan validated against all eleven requested columns while the back-fill populated the
-> index from the ten the TDEF recorded (`IndexColumnCountAccessTests`).
+> That failure is quieter than the other overruns, and worse for it. Too many indexes yields a file Access
+> cannot open, and an over-long record yields a row it cannot read; a truncated index yields a file ACE
+> reads happily, holding an index over different columns from the ones requested.
 
 > **Unique (`0x01`) enforcement treats NULLs as distinct (verified vs ACE).** A `UNIQUE` index (that is
 > **not** `WITH IGNORE NULL`) rejects a duplicate **non-null** key but permits **multiple NULL** keys — two
@@ -70,6 +79,15 @@ insert/delete/insert sequence and against saved Northwind tables:**
 > TDEF is written, so a rejected statement leaves the file untouched. A `WITH IGNORE NULL` index
 > (`0x02`) additionally leaves null-keyed rows out of the B-tree entirely; a PK (`0x08` required) forbids
 > nulls, so the question doesn't arise.
+
+> **Required (`0x08`) and the primary key over existing rows (verified vs ACE).** A table has **one** primary
+> key: adding a second — by `ALTER TABLE … ADD CONSTRAINT … PRIMARY KEY` or `ADD COLUMN … PRIMARY KEY` — is
+> refused with *"Primary key already exists."* A required index (a primary key, by any of the three ways of
+> adding one, or `WITH DISALLOW NULL`) over rows that already exist is refused when a row has a NULL key —
+> *"Index or primary key cannot contain a Null value."* That is what an `ADD COLUMN … PRIMARY KEY` on a table
+> holding rows meets, since the new column is NULL on every old row; the exception is an AutoNumber column,
+> which numbers the old rows as it is added (§3.1) and so takes the key. A `WITH IGNORE NULL`
+> index is not required and is accepted over the same rows.
 
 A table has **at most 32 index-data blocks** (the `0x33` count, §3.1) — the Jet/ACE "32 indexes per
 table" limit, counting the indexes that back primary keys, unique constraints and the child side of
@@ -99,34 +117,24 @@ Because a data block must be named by a logical block, `0x33 ≤ 0x2F` always ho
 binding constraint and `0x33` derivable from it. It is also why the physical cap cannot be reached in
 isolation: 33 plain indexes push both counts to 33 together.
 
-> **Measured 2026-09-06 — a file LibRed wrote that Access cannot read.** Creating EF Core's
-> `ComplexNavigationsSharedType` model, `Level1` ended at **46 logical blocks against 31 data blocks, with
-> a continuation page**. ACE refuses to build the same model at all — *"There are too many indexes on table
-> 'Level1'. Delete some of the indexes on the table and try the operation again."*
+> **Overrunning the logical count writes a file Access cannot read.** ACE's own DDL refuses such a table —
+> *"There are too many indexes on table '…'. Delete some of the indexes on the table and try the operation
+> again."* A file written with one anyway makes Access log `-1206 Unrecognized database format` plus
+> `-1305 … could not find the object '…'` entries into `MSysCompactError`, and the table is absent from the
+> object list. Nothing in that failure names indexes or a limit.
 >
-> Opening the resulting file in Access logs `-1206 Unrecognized database format` plus fifteen
-> `-1305 … could not find the object 'Level1'` into `MSysCompactError`, and the table is absent from the
-> object list. Nothing in that failure names indexes or a limit. LibRed reads the same file back without
-> complaint.
->
-> **The boundary is exactly 32, isolated against ACE.** `Level1` carried two anomalies at once — the logical
-> count *and* the only multi-page TDEF in the file — so it could not settle which mattered. A pair of
-> minimal tables did (`IndexCountLimitAccessTests`): one primary key plus incoming relationships, one data
-> block, single page, differing only in the count.
+> **The boundary is exactly 32, on the logical count alone** (verified vs ACE: one primary key plus incoming
+> relationships, one data block, single page, differing only in the count):
 >
 > | `0x2F` | `0x33` | continuation | ACE |
 > | --- | --- | --- | --- |
 > | 32 | 1 | none | reads the table |
 > | 33 | 1 | none | refuses it |
 >
-> So the logical count alone does it, at exactly the same 32 as `0x33`, and the continuation page on
-> `Level1` was incidental. Note a logical count merely *exceeding* the data count is ordinary and harmless —
-> `InheritanceOne` in the same file sits at 13 against 5 and reads fine. Only the magnitude matters.
->
-> Two practical notes. `0x33` was **31** on `Level1`, one below the cap, so the read-side check on that
-> count came within a single index of catching this by luck rather than design. And both counts must be
-> validated on the **incremental** write paths, not only at create time: a table built one
-> `CREATE INDEX`/`ALTER TABLE` at a time never passes through the whole-table check.
+> A continuation page plays no part. A logical count merely *exceeding* the data count is ordinary and
+> harmless; only the magnitude matters. Both counts must be validated on the **incremental** write paths,
+> not only at create time: a table built one `CREATE INDEX`/`ALTER TABLE` at a time never passes through
+> the whole-table check.
 
 
 ### 3.6 Index-info block (28 bytes) — one per *logical* index
@@ -148,9 +156,8 @@ The index **name** read at the same ordinal applies to this logical index. To na
 physical (data-block) index, prefer a real index's name over a foreign-key relationship's
 (distinguished by `0x11` ≠ 0), and take `IsPrimaryKey` from the type byte `0x17`.
 
-> **Writing a relationship's logical blocks — verified by having ACE create a minimal `P1(Id PK)` /
-> `C1(Id PK, Pid FK→P1.Id)` pair and diffing.** The **child** (referencing) table gives its FK-column
-> index a *single* logical block that **is** the relationship: `index_num2` → the FK-column data
+> **Writing a relationship's logical blocks (verified byte-for-byte vs ACE).** The **child** (referencing)
+> table gives its FK-column index a *single* logical block that **is** the relationship: `index_num2` → the FK-column data
 > block, `0x0C = 0x02` (outgoing), `0x11` = parent page, `0x17 = 0x02`, name = the constraint name.
 > The **parent** (referenced) table gains an **extra** logical block beyond its data blocks:
 > `index_num2` → its referenced-key (PK) data block, `0x0C = 0x01` (incoming), `0x11` = child page,
@@ -162,9 +169,22 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > `DROP CONSTRAINT` the count sits below the max and a count-derived number collides with a live block —
 > leaving two blocks claiming the number each end's `0x0D` cross-link names.
 >
-> The parent key must be a **unique or primary** index over the referenced columns. Measured: over a plain
+> The parent key must be a **unique or primary** index over the referenced columns. Over a plain
 > non-unique index ACE refuses the relationship — *"No unique index found for the referenced field of the
 > primary table"* — while the same shape over a `PRIMARY KEY` succeeds.
+>
+> **Each child column must have its parent column's storage type** (verified vs ACE over every pairing of the
+> column types). Lengths do not matter: `TEXT(5)`, `TEXT(20)` and `CHAR(10)` pair with one another, `DECIMAL`s
+> of any precision and scale pair, and `BINARY` pairs with `VARBINARY`. An AutoNumber is a Long on either side.
+> Any other pairing is refused — *"Relationship must be on the same number of fields with the same data types."*
+> — as is a column count that differs between the two sides.
+>
+> **`REFERENCES table` with no column list references the parent's primary key** (verified vs ACE): the child
+> columns pair with the key's columns in order, whatever either side's columns are named, and
+> `MSysRelationships` records those key columns. The parent must have a primary key — a unique index does not
+> stand in for one — or the relationship is refused with *"Cannot create relationship. Referenced table '…'
+> does not have a primary key."* In a table referencing itself, `CREATE TABLE` resolves the reference against a
+> primary key declared **earlier** in the statement; with the key declared after the reference, it is refused.
 > Cascade `ON UPDATE`/`ON DELETE` set `0x15`/`0x16` to `0x01` on **both** ends' blocks.
 >
 > **Self-reference** (a table whose FK targets itself): both ends live in the **one** TDEF, each with
@@ -173,14 +193,13 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > incoming block is numbered after the data-block logical indexes (`index_num` = data-block count).
 > Verified byte-for-byte against an ACE-created self-reference.
 
-> **`index_num` (`0x04`) vs `index_num2` (`0x08`) — verified against Northwind.** `0x04` is the
+> **`index_num` (`0x04`) vs `index_num2` (`0x08`) (verified).** `0x04` is the
 > logical index's own unique number; `0x08` is the ordinal of the **real index-data block** (§3.5)
 > it maps to. They differ because **several logical indexes share one real block**: a relationship
 > (`0x11` ≠ 0) reuses the real index on *this table's* side of the foreign key rather than owning its
-> own. Confirmed on Orders (7 real / 13 logical): real block 3 = `OrderID` `PK_Orders` is referenced
-> both by its own PRIMARY logical block (`index_num2 = 3`) and by an **incoming** relationship
-> (`index_num2 = 3`, `fkTablePage` = Order Details), while the **outgoing** FK relationships map to
-> the child-column real indexes (CustomerID/EmployeeID/ShipVia). So `index_num2` points to the real
+> own. A referenced table's primary-key block is named both by its own PRIMARY logical block and by
+> each **incoming** relationship (same `index_num2`, `fkTablePage` = the child table), while its
+> **outgoing** FK relationships map to the child-column real indexes. So `index_num2` points to the real
 > index on this table's side — the child FK column for an outgoing FK, the referenced key (PK) for an
 > incoming one — which is exactly mdbtools' "index into index cols list". LibRed's reader keys off
 > `0x08` (its `DataNumber`) and does not use `0x04`.

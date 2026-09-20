@@ -55,10 +55,24 @@ public class DateDiffMillisecondTests : TempDatabaseTest
     public void Other_intervals_still_return_int(string interval)
         => Assert.IsType<int>(Eval(Fresh(), $"DATEDIFF('{interval}', #2020-01-01 00:00:00#, #2021-03-04 05:06:07#)"));
 
+    // The column is declared as the values are — what a reader's GetFieldType reports, and what EF reads with.
+    [Theory]
+    [InlineData("ms", typeof(long))]
+    [InlineData("MS", typeof(long))]
+    [InlineData("s", typeof(int))]
+    [InlineData("d", typeof(int))]
+    public void The_column_is_declared_as_its_values(string interval, Type expected)
+    {
+        var result = Fresh().ExecuteQuery(
+            $"SELECT DATEDIFF('{interval}', #2020-01-01 00:00:00#, #2020-01-02 00:00:00#) FROM `Shippers` WHERE `ShipperID` = 1");
+        Assert.Equal(expected, result.ColumnTypes[0]);
+        Assert.IsType(expected, result.Rows.Single()[0]);
+    }
+
     // Only the abbreviation is accepted, matching DatePart and the rest of the interval table. The full word
     // is what EF used to emit and what the Jet translators now no longer send.
     [Fact]
     public void The_full_word_is_not_an_interval()
-        => Assert.Throws<NotSupportedException>(
+        => Assert.Throws<ArgumentException>(
             () => Eval(Fresh(), "DATEDIFF('millisecond', #2020-01-01 00:00:00#, #2020-01-01 00:00:01#)"));
 }

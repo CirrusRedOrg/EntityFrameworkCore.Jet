@@ -122,15 +122,15 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             {
                 return method.Name switch
                 {
-                    // Arccos(X) = Atn(-X / Sqr(-X * X + 1)) + 2 * Atn(1)
+                    // Arccos(X) = 2 * Atn(-X / (Sqr(-X * X + 1) + 1)) + 2 * Atn(1)
                     nameof(Math.Acos) => _sqlExpressionFactory.Add(
                         _sqlExpressionFactory.Constant(Math.Atan(1) * 2),
-                        _sqlExpressionFactory.Function(
+                        _sqlExpressionFactory.Multiply(_sqlExpressionFactory.Function(
                             "ATN",
                             [
                                 _sqlExpressionFactory.Divide(
                                     _sqlExpressionFactory.Negate(arguments[0]),
-                                    Translate(
+                                    _sqlExpressionFactory.Add(Translate(
                                         null,
                                         method.DeclaringType == typeof(MathF)
                                             ? typeof(MathF).GetRuntimeMethod(nameof(MathF.Sqrt), [typeof(float)])!
@@ -147,20 +147,20 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                             )
                                         ],
                                         logger
-                                    )!
+                                    )!, _sqlExpressionFactory.Constant(1d))
                                 )
                             ],
                             true,
                             [true],
-                            method.ReturnType)),
+                            method.ReturnType), _sqlExpressionFactory.Constant(2d))),
 
-                    // Arcsin(X) = Atn(X / Sqr(-X * X + 1))
-                    nameof(Math.Asin) => _sqlExpressionFactory.Function(
+                    // Arcsin(X) = 2 * Atn(X / (Sqr(-X * X + 1) + 1))
+                    nameof(Math.Asin) => _sqlExpressionFactory.Multiply(_sqlExpressionFactory.Function(
                         "ATN",
                         [
                             _sqlExpressionFactory.Divide(
                                 arguments[0],
-                                Translate(
+                                _sqlExpressionFactory.Add(Translate(
                                     null,
                                     method.DeclaringType == typeof(MathF)
                                         ? typeof(MathF).GetRuntimeMethod(nameof(MathF.Sqrt), [typeof(float)])!
@@ -177,12 +177,12 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                         )
                                     ],
                                     logger
-                                )!
+                                )!, _sqlExpressionFactory.Constant(1d))
                             )
                         ],
                         true,
                         [true],
-                        method.ReturnType),
+                        method.ReturnType), _sqlExpressionFactory.Constant(2d)),
 
                     // Logn(x) = Log(x) / Log(n)
                     nameof(Math.Log10) => _sqlExpressionFactory.Divide(
@@ -196,10 +196,12 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         _sqlExpressionFactory.Function("LOG", [arguments[1]], true, [true], method.ReturnType)
                     ),
 
-                    nameof(Math.Floor) => CreateFix(arguments, method.ReturnType),
-                    nameof(Math.Ceiling) => CreateCeiling(arguments, method.ReturnType),
+                    nameof(Math.Floor) => CreateFloor(arguments[0], method.ReturnType),
+                    nameof(Math.Ceiling) => CreateCeiling(arguments[0], method.ReturnType),
 
-                    nameof(Math.Atan2) => _sqlExpressionFactory.Function(
+                    // Atan2(Y, X) = IIf(X = 0, Sgn(Y) * Pi / 2, Atn(Y / X) + IIf(X < 0, IIf(Y < 0, -Pi, Pi), 0))
+                    nameof(Math.Atan2) => _sqlExpressionFactory.Case([new CaseWhenClause(_sqlExpressionFactory.Equal(arguments[1], _sqlExpressionFactory.Constant(0d)), _sqlExpressionFactory.Multiply(_sqlExpressionFactory.Function("SGN", [arguments[0]], true, [true], method.ReturnType), _sqlExpressionFactory.Constant(Math.PI / 2)))],
+                        _sqlExpressionFactory.Add(_sqlExpressionFactory.Function(
                         "ATN",
                         [
                             _sqlExpressionFactory.Divide(
@@ -209,7 +211,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         ],
                         true,
                         [true],
-                        method.ReturnType),
+                        method.ReturnType), _sqlExpressionFactory.Case([new CaseWhenClause(_sqlExpressionFactory.LessThan(arguments[1], _sqlExpressionFactory.Constant(0d)), _sqlExpressionFactory.Case([new CaseWhenClause(_sqlExpressionFactory.LessThan(arguments[0], _sqlExpressionFactory.Constant(0d)), _sqlExpressionFactory.Constant(-Math.PI))], _sqlExpressionFactory.Constant(Math.PI)))], _sqlExpressionFactory.Constant(0d)))),
 
                     nameof(double.DegreesToRadians) => _sqlExpressionFactory.Multiply(arguments[0], _sqlExpressionFactory.Divide(_sqlExpressionFactory.Constant(Math.PI), _sqlExpressionFactory.Constant(180))),
 
@@ -274,40 +276,25 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             return null;
         }
 
-        private SqlExpression CreateCeiling(IReadOnlyList<SqlExpression> arguments, Type methodReturnType)
+        // Math.Floor rounds towards negative infinity, which is Access's INT - not FIX, which rounds towards zero
+        // (that is Math.Truncate) and so gave Floor(-1.5) as -1. Math.Ceiling is the mirror image, -INT(-x): the old
+        // IIF(FIX(x) = x, FIX(x), FIX(x) + 1) was one too high for any negative non-integer, and +1 for anything
+        // between -1 and 0. Verified against ACE and LibRed over -2.7, -1.5, -1, -0.5, 0, 1.5 and 2, Double and
+        // Currency; both keep the argument's type, and -INT(-x) keeps .NET's -0 for Math.Ceiling(-0.5).
+        private SqlExpression CreateFloor(SqlExpression argument, Type methodReturnType)
+            => CreateInt(argument, methodReturnType);
+
+        private SqlExpression CreateCeiling(SqlExpression argument, Type methodReturnType)
+            => _sqlExpressionFactory.Negate(CreateInt(_sqlExpressionFactory.Negate(argument), methodReturnType));
+
+        private SqlExpression CreateInt(SqlExpression argument, Type methodReturnType)
         {
-            SqlFunctionExpression fixExpression = (SqlFunctionExpression)CreateFix(arguments, methodReturnType);
-            var addoneexp = _sqlExpressionFactory.Add(fixExpression, _sqlExpressionFactory.Constant(1));
-            return _sqlExpressionFactory.Case(
-                [
-                    new CaseWhenClause(
-                        _sqlExpressionFactory.Equal(
-                            fixExpression,
-                            arguments[0]),
-                        fixExpression)
-                ],
-                addoneexp);
-        }
-
-        private SqlExpression CreateFix(IReadOnlyList<SqlExpression> arguments, Type methodReturnType)
-        {
-            var typeMapping = arguments.Count == 1
-                ? ExpressionExtensions.InferTypeMapping(arguments[0])
-                : ExpressionExtensions.InferTypeMapping(arguments[0], arguments[1]);
-
-            var newArguments = new SqlExpression[arguments.Count];
-            newArguments[0] = _sqlExpressionFactory.ApplyTypeMapping(arguments[0], typeMapping);
-
-            if (arguments.Count == 2)
-            {
-                newArguments[1] = _sqlExpressionFactory.ApplyTypeMapping(arguments[1], typeMapping);
-            }
-
+            var typeMapping = ExpressionExtensions.InferTypeMapping(argument);
             return _sqlExpressionFactory.Function(
-                "FIX",
-                newArguments,
+                "INT",
+                [_sqlExpressionFactory.ApplyTypeMapping(argument, typeMapping)],
                 nullable: true,
-                argumentsPropagateNullability: newArguments.Select(_ => true).ToArray(),
+                argumentsPropagateNullability: [true],
                 methodReturnType,
                 typeMapping);
         }

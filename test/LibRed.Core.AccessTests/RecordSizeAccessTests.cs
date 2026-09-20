@@ -16,6 +16,7 @@ namespace LibRed.Core.Tests;
 // throwing ArgumentOutOfRangeException out of the offset arithmetic.
 //
 // The 20-byte reserve between 4060 and what the page holds is measured, not explained.
+[Collection(AceCollection.Name)]
 public class RecordSizeAccessTests(ITestOutputHelper output) : TempDatabaseTest
 {
     /// <summary>Row overhead for a table of <paramref name="columns"/> TEXT columns plus a LONG key: the

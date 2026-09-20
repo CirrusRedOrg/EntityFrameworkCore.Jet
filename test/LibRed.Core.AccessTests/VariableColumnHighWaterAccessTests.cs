@@ -24,6 +24,7 @@ namespace LibRed.Core.Tests;
 // column's slot index is abandoned when the column is dropped and the next one goes above it; a fixed
 // column's byte offset is reused. Nothing about one half predicts the other, and having them side by side
 // is the point: it is why writing the variable section by position looked reasonable.
+[Collection(AceCollection.Name)]
 public class VariableColumnHighWaterAccessTests(ITestOutputHelper output)
 {
     // Drop a variable column from the MIDDLE. Dropping the last one would leave the high-water and the live

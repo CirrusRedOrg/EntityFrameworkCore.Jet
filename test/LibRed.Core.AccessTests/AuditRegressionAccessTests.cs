@@ -12,6 +12,7 @@ namespace LibRed.Core.Tests;
 // Regressions for the spec-vs-code audit. Each one is a defect that shipped, so each is pinned by the
 // smallest sequence that reproduced it rather than by a unit test of the fix — most of these were bugs
 // precisely because a single path looked correct in isolation and only diverged from its sibling.
+[Collection(AceCollection.Name)]
 public class AuditRegressionAccessTests(ITestOutputHelper output)
 {
     // ------------------------------------------------------------------ format version
@@ -46,32 +47,58 @@ public class AuditRegressionAccessTests(ITestOutputHelper output)
         finally { TemporaryDatabase.Delete(path); }
     }
 
-    // The counterpart: raising an ACCDB is fine, and ACE still opens the result. A 2010-format file carries
-    // 0x15 = 0x01, and the raise moves only 0x14 — a (0x05, 0x01) pair the spec had never observed, so this
-    // measures that ACE accepts it rather than assuming so.
-    [Fact]
-    public void Raising_a_2010_format_accdb_leaves_the_minor_byte_and_ACE_still_opens_it()
+    // The counterpart: raising an ACCDB. A 2010-format file carries 0x15 = 0x01, and the raise used to move
+    // only 0x14, leaving a (0x05, 0x01) pair ACE opens but never writes: ACE's own raise clears the minor. One
+    // base file, copied, so ACE's raise and LibRed's start from identical bytes and page 0 can be compared whole
+    // — everything but the commit-byte table (§2.2), which moves for any write.
+    [Theory]
+    [InlineData("BIGINT", JetVersion.Version16_2016, 0x05)]
+    [InlineData("DATETIME2", JetVersion.Version17_2019, 0x06)]
+    public void Raising_a_2010_format_accdb_rewrites_page_zero_as_ACE_does(
+        string typeName, JetVersion target, byte expectedVersion)
     {
-        string path = TemporaryDatabase.CreatePath("raise-accdb-");
+        Assert.SkipUnless(AceTestDatabase.SupportsColumnType(TestDatabases.NorthwindAccdb, typeName),
+            AceTestDatabase.UnsupportedColumnTypeReason(typeName));
+
+        string basePath = TemporaryDatabase.CreatePath("raise-base-");
+        string acePath = TemporaryDatabase.CreatePath("raise-ace-");
+        string libPath = TemporaryDatabase.CreatePath("raise-lib-");
         try
         {
-            DatabaseCreator.CreateEmpty(path, version: 0x03);
-            Assert.Equal(0x01, PageZero(path, 0x15));
+            DatabaseCreator.CreateEmpty(basePath, version: 0x03);
+            Assert.Equal(0x01, PageZero(basePath, JetFormatBase.MinorVersionOffset));
+            File.Copy(basePath, acePath, overwrite: true);
+            File.Copy(basePath, libPath, overwrite: true);
 
-            using (var db = JetDatabase.Open(path, readOnly: false))
-                Assert.True(db.EnsureFormatAtLeast(JetVersion.Version16_2016));
+            using (var connection = AceTestDatabase.Open(acePath))
+                Exec(connection, $"CREATE TABLE Raised (K {typeName})");
 
-            Assert.Equal(0x05, PageZero(path, 0x14));
-            Assert.Equal(0x01, PageZero(path, 0x15));   // untouched by the raise
+            using (var db = JetDatabase.Open(libPath, readOnly: false))
+                Assert.True(db.EnsureFormatAtLeast(target));
 
-            using var connection = AceTestDatabase.Open(path);
-            Exec(connection, "CREATE TABLE AfterRaise (K LONG, V TEXT(20))");
-            Exec(connection, "INSERT INTO AfterRaise (K, V) VALUES (1, 'ok')");
-            using var read = connection.CreateCommand();
-            read.CommandText = "SELECT V FROM AfterRaise WHERE K = 1";
-            Assert.Equal("ok", read.ExecuteScalar());
+            byte[] ace = PageZeroBytes(acePath), lib = PageZeroBytes(libPath);
+            Assert.Equal(expectedVersion, ace[JetFormatBase.VersionOffset]);
+            Assert.Equal(0x00, ace[JetFormatBase.MinorVersionOffset]);
+            var differences = Enumerable.Range(0, CommitByteTableStart)
+                .Where(i => ace[i] != lib[i])
+                .Select(i => $"0x{i:X3} ace={ace[i]:X2} lib={lib[i]:X2}")
+                .ToList();
+            Assert.True(differences.Count == 0, string.Join("; ", differences));
+
+            // And ACE works in the file LibRed raised.
+            using var reopened = AceTestDatabase.Open(libPath);
+            Exec(reopened, $"CREATE TABLE AfterRaise (K LONG, V {typeName})");
+            Exec(reopened, "INSERT INTO AfterRaise (K) VALUES (1)");
+            using var read = reopened.CreateCommand();
+            read.CommandText = "SELECT COUNT(*) FROM AfterRaise";
+            Assert.Equal(1, Convert.ToInt32(read.ExecuteScalar()));
         }
-        finally { TemporaryDatabase.Delete(path); }
+        finally
+        {
+            TemporaryDatabase.Delete(basePath);
+            TemporaryDatabase.Delete(acePath);
+            TemporaryDatabase.Delete(libPath);
+        }
     }
 
     // ------------------------------------------------------------------ foreign keys
@@ -353,10 +380,15 @@ public class AuditRegressionAccessTests(ITestOutputHelper output)
         t.Insert(values);
     }
 
-    private static byte PageZero(string path, int offset)
+    private static byte PageZero(string path, int offset) => PageZeroBytes(path)[offset];
+
+    /// <summary>Page 0 starts its user commit-byte table here; every write moves a slot in it.</summary>
+    private const int CommitByteTableStart = 0xE00;
+
+    private static byte[] PageZeroBytes(string path)
     {
         using var channel = PageChannel.Open(path, readOnly: true);
-        return channel.ReadPage(0).Span[offset];
+        return channel.ReadPage(0).Span.ToArray();
     }
 
     private static void Exec(OleDbConnection connection, string sql)

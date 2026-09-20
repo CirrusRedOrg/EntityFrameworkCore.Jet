@@ -10,6 +10,7 @@ namespace LibRed.Core.Tests;
 // keep their original column ids (a gap appears) and their original variable-table index. So a correct
 // reader must read the STORED variable index (descriptor 0x07), not derive it by ranking column ids —
 // otherwise a survivor after a dropped variable column decodes the wrong slot.
+[Collection(AceCollection.Name)]
 public class DropColumnAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

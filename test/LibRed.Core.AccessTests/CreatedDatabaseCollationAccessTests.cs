@@ -17,6 +17,7 @@ namespace LibRed.Core.Tests;
 // The bar is not that the file opens. It is that ACE will CREATE AN INDEX in it and write keys that match
 // LibRed's own — two engines agreeing on a shared index, which is the only check that catches a wrong key,
 // since a disagreement does not error, it just makes seeks miss rows.
+[Collection(AceCollection.Name)]
 public class CreatedDatabaseCollationAccessTests(ITestOutputHelper output)
 {
     /// <summary>Every collation LibRed claims to encode, found by asking rather than by keeping a list that

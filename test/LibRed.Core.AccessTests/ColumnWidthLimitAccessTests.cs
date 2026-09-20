@@ -15,6 +15,7 @@ namespace LibRed.Core.Tests;
 // fields (65535). ACE's real limit is the 4060-byte record cap applied to the widest row the declaration
 // permits, and a table over it makes the whole database unopenable - "Unrecognized database format", the
 // same damage as a 100-character rename. A plain CreateTable of 252 GUID columns did exactly that.
+[Collection(AceCollection.Name)]
 public class ColumnWidthLimitAccessTests : TempDatabaseTest
 {
     private static ColumnSpec Id => new("Id", JetDataType.Int32, 4, IsFixedLength: true);

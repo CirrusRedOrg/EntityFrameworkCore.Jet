@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Text;
+using EntityFrameworkCore.Jet.Data;
 using LibRed.Catalog;
 using LibRed.Formats;
 
@@ -256,7 +257,7 @@ public static class JetTypeCodec
             case JetDataType.DateTimeExtended: // ACE 17 DATETIME2
                 return EncodeExtendedDateTime(Convert.ToDateTime(value, c));
             case JetDataType.Currency:
-                return Bytes(8, b => BinaryPrimitives.WriteInt64LittleEndian(b, (long)decimal.Round(Convert.ToDecimal(value, c) * 10000m)));
+                return Bytes(8, b => BinaryPrimitives.WriteInt64LittleEndian(b, (long)decimal.Round(JetDecimalConverter.ToDecimal(value, c) * 10000m)));
             case JetDataType.Guid:
                 // Coerced, not cast: every other type here accepts what the caller has (AsText, AsBinary, ToOaDate,
         // Convert.To*), and TableCreator.ConvertValue already parses a string GUID on the ALTER path. A hard
@@ -272,9 +273,9 @@ public static class JetTypeCodec
             case JetDataType.Text:
                 return EncodeText(column, AsText(value, c));
             case JetDataType.Binary:
-                return EncodeBinary(column, AsBinary(value));
+                return EncodeBinary(column, AsBinary(column, value));
             case JetDataType.FixedPoint:
-                return EncodeNumeric(Convert.ToDecimal(value, c), column.Scale);
+                return EncodeNumeric(column, JetDecimalConverter.ToDecimal(value, c));
 
             // Long values (memo/OLE): store the payload inline after the 12-byte descriptor (memo
             // text as UTF-16LE, OLE as raw bytes). LongValueReader reads this back via the inline
@@ -289,7 +290,7 @@ public static class JetTypeCodec
                     TryCompressText(column, memo, requireCapableFlag: false) ?? Encoding.Unicode.GetBytes(memo));
             }
             case JetDataType.Ole:
-                return EncodeInlineLongValue(AsBinary(value));
+                return EncodeInlineLongValue(AsBinary(column, value));
 
             default:
                 throw new NotSupportedException($"Encoding {column.Type} is not supported yet.");
@@ -407,6 +408,15 @@ public static class JetTypeCodec
         return padded;
     }
 
+    /// <summary>10^<paramref name="exponent"/>, for exponents up to <see cref="MaxNumericPrecision"/>
+    /// (10^28 is inside decimal's range; 10^29 is not).</summary>
+    private static decimal Pow10(byte exponent)
+    {
+        decimal result = 1m;
+        for (int i = 0; i < exponent; i++) result *= 10m;
+        return result;
+    }
+
     private static byte[] Bytes(int length, Action<Span<byte>> write)
     {
         var b = new byte[length];
@@ -427,11 +437,16 @@ public static class JetTypeCodec
     /// literal: Access has no digitless <c>0x</c> (it rejects it), which is why
     /// <c>JetByteArrayTypeMapping</c> emits <c>''</c> for an empty array.
     /// </remarks>
-    private static byte[] AsBinary(object value) => value switch
+    /// <remarks>The fallback names the column rather than hard-casting: a cast raised
+    /// <see cref="InvalidCastException"/>, which names nothing and is indistinguishable from a bug in the
+    /// writer. Same fix as the GUID case above.</remarks>
+    private static byte[] AsBinary(ColumnDef column, object value) => value switch
     {
         byte[] bytes => bytes,
         string text => Encoding.Unicode.GetBytes(text),
-        _ => (byte[])value,
+        _ => throw new NotSupportedException(
+            $"Cannot store {value.GetType().Name} in {column.Type} column '{column.Name}': a binary column "
+            + "takes a byte array, or a string (stored as its UTF-16LE bytes)."),
     };
 
     /// <summary>The OLE-automation epoch (1899-12-30), which is also Jet's zero date and the base for
@@ -469,11 +484,32 @@ public static class JetTypeCodec
     }
 
     /// <summary>Inverse of <see cref="DecodeNumeric"/>: 17 bytes, sign + 128-bit magnitude (top word 0).</summary>
-    private static byte[] EncodeNumeric(decimal value, byte scale)
+    /// <summary>The largest precision Jet/ACE accepts on a NUMERIC/DECIMAL column.</summary>
+    internal const byte MaxNumericPrecision = 28;
+
+    private static byte[] EncodeNumeric(ColumnDef column, decimal value)
     {
+        byte scale = column.Scale;
+
+        // ACE refuses a value wider than the declared precision, on every write path including an ALTER that
+        // narrows the column. The 17-byte payload cannot enforce it — a 20-digit value fits DECIMAL(18,4) as
+        // comfortably as a 2-digit one. Tested before scaling, which also stops an out-of-range input
+        // overflowing the multiply below and reporting OverflowException instead of this.
+        if (column.Precision is >= 1 and <= MaxNumericPrecision && scale <= column.Precision
+            && Math.Abs(value) >= Pow10((byte)(column.Precision - scale)))
+            throw new InvalidOperationException(
+                $"Value {value} does not fit column '{column.Name}', declared "
+                + $"DECIMAL({column.Precision},{column.Scale}): it holds at most {column.Precision - scale} "
+                + $"digits before the decimal point. Access refuses such a value rather than storing it.");
+
         decimal factor = 1m;
         for (int i = 0; i < scale; i++) factor *= 10m;
-        decimal magnitude = decimal.Truncate(decimal.Round(Math.Abs(value) * factor, 0));
+
+        // Truncate toward zero: ACE coerces excess scale rather than refusing it, and truncation matches it in
+        // every measured case (1.23456 → 1.2345, 1.99999 → 1.9999, -1.23455 → -1.2345). Was decimal.Round(…, 0)
+        // — ToEven — which differed silently, each engine reading its own answer back happily.
+        // IndexKeyEncoder.EncodeFixedPoint must quantise identically or keys stop matching their rows.
+        decimal magnitude = decimal.Truncate(Math.Abs(value) * factor);
 
         int[] bits = decimal.GetBits(magnitude); // [lo, mid, hi, flags]; magnitude has scale 0
         var result = new byte[17];

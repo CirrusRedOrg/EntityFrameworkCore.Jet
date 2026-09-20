@@ -15,6 +15,15 @@ public abstract class JetFormatBase
     /// <summary>Offset of the one-byte format version marker within page 0.</summary>
     public const int VersionOffset = 0x14;
 
+    /// <summary>Offset of the one-byte minor version that follows the version byte.</summary>
+    public const int MinorVersionOffset = 0x15;
+
+    /// <summary>The minor byte ACE writes when it CREATES a database of <paramref name="version"/>: <c>0x01</c>
+    /// for the 2010 format (<c>0x03</c>), <c>0x00</c> for every other. A version raise writes <c>0x00</c>
+    /// whatever the target, so a 2007 file raised to <c>0x03</c> does not carry the <c>0x01</c> a created one
+    /// does.</summary>
+    public static byte CreatedMinorVersion(byte version) => (byte)(version == 0x03 ? 0x01 : 0x00);
+
     /// <summary>Offset of the cleartext ASCII engine-version string ("4.0", NUL-terminated) — past the masked
     /// header window, so readable directly. Present on both Jet 4 (<c>.mdb</c>) and ACE (<c>.accdb</c>), which
     /// are both the Jet-4.0 engine. Used to confirm an unknown version byte is still a 4.0-family database
@@ -49,6 +58,15 @@ public abstract class JetFormatBase
 
     /// <summary>Start offset of the obfuscated page-0 header region (also the mask's first byte).</summary>
     public const int PageZeroHeaderMaskStart = 0x18;
+
+    /// <summary>Offset of the 4-byte <c>[row:1][page:3]</c> pointer to the global free-pages usage map — the
+    /// map every allocation takes a page from. Page 1 row 0 in every file ACE writes, but ACE follows the
+    /// pointer, row included, so a reader must too (docs/format/page-05-usage-maps.md §9.1).</summary>
+    public const int FreePagesMapPointerOffset = 0x18;
+
+    /// <summary>Offset of the 4-byte <c>[row:1][page:3]</c> pointer to the global released-pages usage map:
+    /// pages released but not yet reusable, which ACE never allocates. Page 1 row 1 in every file ACE writes.</summary>
+    public const int ReleasedPagesMapPointerOffset = 0x1C;
 
     /// <summary>Offset of the 4-byte page number of the <c>MSysObjects</c> TDEF — the catalog root, the
     /// bootstrap pointer that lets the engine find the system catalog before it can read any table. It is
@@ -247,6 +265,16 @@ public abstract class JetFormatBase
 
     /// <summary>Offset of the 4-byte owning-table TDEF page (or the "LVAL" marker on long-value pages).</summary>
     public virtual int DataOwnerOffset => 0x04;
+
+    /// <summary>
+    /// Offset of the 4-byte <b>chain stamp</b> on a data page. Zero on every page but the <b>first</b> of a
+    /// multi-page long-value chain, where it must equal the pointing descriptor's own stamp or ACE refuses to
+    /// materialise the value — see <c>docs/format/long-values.md</c>. Jet 3 has the row count at this offset
+    /// instead (which is why Jet 4's row count sits four bytes later), so a Jet 3 file has nowhere to put one;
+    /// <c>Jet3Format</c> does not override the data-page offsets today, and this is one of the things it will
+    /// have to when Jet 3 writing is built out.
+    /// </summary>
+    public virtual int DataChainStampOffset => 0x08;
 
     /// <summary>Offset of the 2-byte row count on a data page.</summary>
     public virtual int DataRowCountOffset => 0x0C;

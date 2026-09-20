@@ -7,6 +7,7 @@ namespace LibRed.Core.Tests;
 /// Access bitwise operators (BAND / BOR / BXOR infix, BNOT prefix) — the same operator syntax runs in both
 /// LibRed's engine and ACE and yields the same results.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class BitwiseOperatorAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

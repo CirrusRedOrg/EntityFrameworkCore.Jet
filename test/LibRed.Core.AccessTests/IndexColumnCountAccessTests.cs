@@ -18,6 +18,7 @@ namespace LibRed.Core.Tests;
 // different columns from the ones requested. It was also internally inconsistent: EnsureNoDuplicateKeys
 // validated using all eleven requested columns while BackfillIndex populated the index from the ten the
 // TDEF actually recorded.
+[Collection(AceCollection.Name)]
 public class IndexColumnCountAccessTests : TempDatabaseTest
 {
     private const int Columns = 12;

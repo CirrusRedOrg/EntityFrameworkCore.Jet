@@ -98,19 +98,29 @@ public class LvalReclamationTests
             }
             afterInserts = new FileInfo(path).Length;
 
-            using (var db = JetDatabase.Open(path, readOnly: false))
+            // A deleted row's memo pages are held until the connection closes, as ACE holds them: the first
+            // session's churn grows the file, and the second reuses what the first released at close. Measured
+            // against ACE with the same loop: +209 pages, then +0.
+            void Churn()
             {
+                using var db = JetDatabase.Open(path, readOnly: false);
                 var e = new QueryEngine(db);
                 for (int i = 0; i < 20; i++)
                 {
-                    e.ExecuteNonQuery("DELETE FROM T");                                    // frees the memo pages
-                    e.ExecuteNonQuery($"INSERT INTO T (M) VALUES ('{Big((char)('b' + i % 20))}')"); // reuses them
+                    e.ExecuteNonQuery("DELETE FROM T");                                    // releases the memo pages
+                    e.ExecuteNonQuery($"INSERT INTO T (M) VALUES ('{Big((char)('b' + i % 20))}')");
                 }
             }
-            long afterChurn = new FileInfo(path).Length;
 
-            Assert.True(afterChurn - afterInserts < 150_000,
-                $"file grew {afterChurn - afterInserts} bytes over 20 delete+insert cycles — deleted memo pages not reclaimed?");
+            Churn();
+            long afterFirstChurn = new FileInfo(path).Length;
+            Assert.True(afterFirstChurn - afterInserts > 10 * 20_000,
+                $"file grew only {afterFirstChurn - afterInserts} bytes over 20 delete+insert cycles in one session — deleted memo pages reused before close?");
+
+            Churn();
+            long afterSecondChurn = new FileInfo(path).Length;
+            Assert.True(afterSecondChurn - afterFirstChurn < 150_000,
+                $"file grew {afterSecondChurn - afterFirstChurn} bytes over a second session's churn — memo pages not released at close?");
         }
         finally { TemporaryDatabase.Delete(path); }
     }

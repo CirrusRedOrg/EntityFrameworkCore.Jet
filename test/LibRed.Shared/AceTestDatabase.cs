@@ -16,6 +16,9 @@ internal static class AceTestDatabase
         ArgumentException.ThrowIfNullOrEmpty(path);
         if (attempts < 1) throw new ArgumentOutOfRangeException(nameof(attempts));
 
+        // A test that drove DAO first may have left its temporaries to the finalizer; see ReleaseAbandonedComObjects.
+        ReleaseAbandonedComObjects();
+
         Exception? last = null;
         for (int attempt = 0; attempt < attempts; attempt++)
         {
@@ -53,6 +56,47 @@ internal static class AceTestDatabase
         }
 
         throw new InvalidOperationException("No Microsoft ACE OLE DB provider could open the test database.", last);
+    }
+
+    /// <summary>
+    /// Releases every COM object — DAO's or the ACE OLE DB provider's — that code so far has abandoned to the
+    /// finalizer, and returns only once that is done.
+    /// </summary>
+    /// <remarks>
+    /// <para>ACE faults when two threads are inside it at once (see AceCollection), and serialising the tests
+    /// does not stop that on its own. DAO is apartment-threaded, so an engine created from a test's thread lives
+    /// on a COM-created thread of its own, and the probes release none of what they create. Each Workspace,
+    /// Database, TableDef and Field is torn down when the finalizer gets to it — inside ACE, on that COM thread,
+    /// at whatever moment a GC happens to run, which is usually in the middle of a later test that is itself
+    /// inside ACE. An OLE DB object left undisposed does the same the other way round, from the finalizer thread
+    /// into a later DAO call.</para>
+    /// <para>What that looks like: <c>RPC_E_SERVERFAULT</c> out of a DAO call, then the next ACE test hanging
+    /// until the blame collector kills the host — in a different test from run to run, because it depends on
+    /// when the GC runs, and seen on CI's runners only. Doing the teardown here, at points where no test is
+    /// inside ACE, is what takes it off that timing.</para>
+    /// </remarks>
+    public static void ReleaseAbandonedComObjects()
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        // Finalizing an RCW can free what kept another one alive; the second pass collects those.
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+    }
+
+    /// <summary>A DAO <c>DBEngine</c>, from the newest version registered in this bitness; null when there is none.
+    /// Releases whatever the test has abandoned first (see <see cref="ReleaseAbandonedComObjects"/>).</summary>
+    public static object? CreateDaoEngine()
+    {
+        ReleaseAbandonedComObjects();
+        foreach (int version in new[] { 170, 160, 150, 140, 130, 120 })
+        {
+            Type? type = Type.GetTypeFromProgID($"DAO.DBEngine.{version}");
+            if (type is null) continue;
+            try { return Activator.CreateInstance(type); }
+            catch (Exception) { /* registered but not instantiable in this bitness */ }
+        }
+        return null;
     }
 
     private static readonly Dictionary<string, bool> ColumnTypeSupport = [];

@@ -37,6 +37,38 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
     /// being appended to, so it is the map to consult when looking for somewhere to put a new row.</summary>
     public IEnumerable<int> FreeDataPages() => PagesAt(_channel.Format.TdefFreePagesOffset);
 
+    /// <summary>The pages recorded by the usage map at an explicit <paramref name="mapPage"/>:<paramref
+    /// name="mapRow"/> pointer, rather than one of the TDEF's two fixed-offset maps. A long-value column's
+    /// owned and free maps are reached this way — their pointers sit in the TDEF keyed by column id, so the
+    /// pages holding a table's Memo/OLE content are invisible to <see cref="DataPages"/>.</summary>
+    public IEnumerable<int> PagesInMap(int mapRow, int mapPage) => ReadMapAt(mapRow, mapPage);
+
+    /// <summary>The dedicated bitmap pages (type 0x05) a reference-form map record at the pointer names, each
+    /// validated; none for an inline record.</summary>
+    public IReadOnlyList<int> BitmapPagesOf(int mapRow, int mapPage)
+    {
+        if (mapPage <= 1 || mapPage >= _channel.PageCount)
+            throw new InvalidDataException(
+                $"Usage-map pointer names page {mapPage}, outside the file's 2..{_channel.PageCount - 1} range.");
+        var holder = new DataPage();
+        holder.Read(_channel.ReadPage(mapPage), _channel.Format);
+        if (mapRow < 0 || mapRow >= holder.RowCount)
+            throw new InvalidDataException($"Usage-map row {mapPage}:{mapRow} does not exist.");
+        ReadOnlySpan<byte> map = holder.GetRow(mapRow);
+        if (map.Length == 0 || map[0] != MapTypeReference) return [];
+
+        ValidateReferenceRecord(map);
+        var pages = new List<int>();
+        for (int e = 0; e < ReferenceMapSlots; e++)
+        {
+            int bitmapPage = BinaryPrimitives.ReadInt32LittleEndian(map.Slice(1 + e * 4, 4));
+            if (bitmapPage == 0) continue;
+            _ = ReadBitmapPage(bitmapPage);
+            pages.Add(bitmapPage);
+        }
+        return pages;
+    }
+
     /// <summary>The highest-numbered data page the table owns, or -1 when it owns none.</summary>
     /// <remarks>
     /// Scans the bitmap backwards rather than enumerating <see cref="DataPages"/> and taking the maximum:
@@ -106,11 +138,14 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
     /// the TDEF. Both maps share the same pointer shape and record format.</summary>
     private IEnumerable<int> PagesAt(int pointerOffset)
     {
-        JetFormatBase format = _channel.Format;
-
         PageBuffer tdef = _channel.ReadPage(_table.DefinitionPage);
-        int mapRow = tdef.ReadByte(pointerOffset);
-        int mapPage = tdef.ReadInt24(pointerOffset + 1);
+        return ReadMapAt(tdef.ReadByte(pointerOffset), tdef.ReadInt24(pointerOffset + 1));
+    }
+
+    /// <summary>Reads the usage-map record at a (row, page) pointer. Shared by the TDEF's own two maps and by
+    /// the per-column long-value maps, which differ only in where the pointer is stored.</summary>
+    private List<int> ReadMapAt(int mapRow, int mapPage)
+    {
         // Both halves of the pointer come out of the TDEF, so both are corruption when wrong. Unchecked, the
         // page number reached the channel as an out-of-range read and the row number reached GetRow as an
         // index; the long-value map's equivalent pointer is validated the same way in RowInserter.MapPages.
@@ -119,7 +154,9 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
                 $"Usage-map pointer names page {mapPage}, outside the file's 2..{_channel.PageCount - 1} range.");
 
         var holder = new DataPage();
-        holder.Read(_channel.ReadPage(mapPage), format);
+        holder.Read(_channel.ReadPage(mapPage), _channel.Format);
+        if (mapRow < 0 || mapRow >= holder.RowCount)
+            throw new InvalidDataException($"Usage-map row {mapPage}:{mapRow} does not exist.");
         ReadOnlySpan<byte> map = holder.GetRow(mapRow);
 
         if (map.Length == 0)
@@ -190,10 +227,10 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
     /// in RowInserter already range-checks; this is the same check.</summary>
     private void AppendSetBits(List<int> pages, ReadOnlySpan<byte> bitmap, int basePage)
     {
-        // Read the bound ONCE. Outside a transaction PageChannel.PageCount is a file-length syscall (inside one
-        // it is a cached field), and this loop runs per set bit on every insert — so testing it per bit made a
-        // non-transactional insert ~1.9x slower while leaving the transactional path untouched, which is what
-        // made the cost so easy to miss. Nothing in the loop writes, so the count cannot move under it.
+        // Read the bound ONCE: this loop runs per set bit on every insert. PageChannel.PageCount used to be a
+        // file-length syscall outside a transaction, which made a per-bit test cost a non-transactional insert
+        // ~1.9x; it is a cached field now, but one read is still all the loop needs. Nothing in the loop writes,
+        // so the count cannot move under it.
         int pageCount = _channel.PageCount;
 
         for (int i = 0; i < bitmap.Length; i++)

@@ -10,6 +10,7 @@ namespace LibRed.Core.Tests;
 /// <c>Attribute=3</c> flag row (Flag bit 0x10, Name1 = the count) and each ORDER BY key as an
 /// <c>Attribute=0x0B</c> row (Expression = the column, Name1 = "d" for descending). Access runs it.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class OrderByProcedureAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

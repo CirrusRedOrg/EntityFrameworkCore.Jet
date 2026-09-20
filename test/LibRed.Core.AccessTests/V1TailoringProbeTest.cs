@@ -17,6 +17,7 @@ namespace LibRed.Core.Tests;
 // locales follow. This measures the departures rather than assuming either way.
 //
 // Opt-in via LIBRED_V1_TAILORING=1.
+[Collection(AceCollection.Name)]
 public class V1TailoringProbeTest(ITestOutputHelper output)
 {
     /// <summary>

@@ -16,6 +16,7 @@ namespace LibRed.Core.Tests;
 //
 // So the samples here are all CONTEXT: the same mark after a letter, after another mark, after itself, and
 // with nothing at all in front of it. A per-character test cannot fail on this bug, which is the whole point.
+[Collection(AceCollection.Name)]
 public class ArabicShaddaCollationAccessTests
 {
     private const char Shadda = (char)0x0651;

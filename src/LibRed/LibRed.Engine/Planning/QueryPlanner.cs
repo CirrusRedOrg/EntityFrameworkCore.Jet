@@ -25,7 +25,7 @@ public sealed class QueryPlanner
         // rows in the wrong order (measured against ACE).
         SetOperationStatement set => PageAndSort(
             new SetOperationNode(PlanStatement(set.Left), PlanStatement(set.Right), set.Operator),
-            set.OrderBy ?? [], set.Top, set.Offset),
+            OrderByPositions(set.OrderBy ?? [], _ => null), set.Top, set.Offset),
         ValuesStatement values => new ValuesNode(values.Rows),
         _ => throw new NotImplementedException(
             $"Planning for {statement.GetType().Name} is not yet implemented."),
@@ -53,6 +53,18 @@ public sealed class QueryPlanner
         // applied over the source columns (before projection) so it can reference them.
         PlanNode node = PlanFrom(select.From);
 
+        // The sort runs on the source rows, below the projection, so a position becomes the projected expression
+        // it names; only a SELECT * sorts rows that are already its output.
+        if (select.OrderBy.Count > 0)
+        {
+            SelectStatement written = select;
+            select = select with
+            {
+                OrderBy = OrderByPositions(written.OrderBy,
+                    written.IsSelectStar ? _ => null : position => ProjectedAt(written, position)),
+            };
+        }
+
         if (select.Where is not null)
             node = PushPredicates(node, select.Where);
 
@@ -63,25 +75,21 @@ public sealed class QueryPlanner
         var windows = new List<WindowOutput>();
         select = ExtractWindows(select, windows);
 
+        // A window whose arguments or keys hold an aggregate — RANK() OVER (ORDER BY SUM(x)) — makes the query
+        // grouped by itself, as an aggregate in the projection does.
         bool aggregate = select.GroupBy.Count > 0 || select.Having is not null
-            || select.Projection.Any(i => HasAggregate(i.Value));
+            || select.Projection.Any(i => HasAggregate(i.Value))
+            || windows.Any(w => w.Function.Expressions().Any(HasAggregate));
 
-        if (windows.Count > 0)
-        {
-            if (aggregate)
-                // AggregateNode owns the projection, HAVING and ORDER BY and collapses rows, so a window over
-                // grouped output would need its projection split across the two nodes. EF Core always puts such
-                // a window in its own derived table, so nothing needs this yet — refuse loudly rather than hand
-                // the call to AggregateNode, whose per-group evaluation swallows the resulting error.
-                throw new NotSupportedException(
-                    "A window function over a grouped query (GROUP BY / HAVING / an aggregate projection) is not supported.");
+        // Over a grouped query the windows run over the groups, after HAVING and before the projection and ORDER BY
+        // — the standard's order — so the aggregate node computes them itself.
+        if (windows.Count > 0 && !aggregate)
             node = new WindowNode(node, windows);
-        }
 
         if (aggregate)
             // The aggregate node owns ORDER BY: its keys are evaluated in the group scope (so they can
             // reference grouping expressions / aggregates), not over the already-projected output.
-            node = new AggregateNode(node, select.GroupBy, select.Projection, select.Having, select.OrderBy);
+            node = new AggregateNode(node, select.GroupBy, select.Projection, select.Having, select.OrderBy, windows);
         else if (select.OrderBy.Count > 0)
             node = PushSort(node, select.OrderBy);
 
@@ -117,6 +125,39 @@ public sealed class QueryPlanner
         }
 
         return node;
+    }
+
+    /// <summary>
+    /// ORDER BY items that are a whole number written as such name the output column at that position (verified vs
+    /// ACE, as SQL-92 has it: ORDER BY 2 DESC sorts by the second column, and so does (2)); any other constant —
+    /// 1.5, '2', 1 + 1 — is left as a constant. A position below 1 names nothing and is an error, as is one past the
+    /// last column. <paramref name="projected"/> gives the expression at a position, or null where the rows sorted
+    /// are the output itself and the position is read from them.
+    /// </summary>
+    private static IReadOnlyList<OrderByItem> OrderByPositions(
+        IReadOnlyList<OrderByItem> orderBy, Func<int, Expression?> projected) =>
+        orderBy.Select(item => item.Value is LiteralExpression { Value: int or long or short or byte } literal
+            ? item with
+            {
+                Value = Convert.ToInt32(literal.Value, System.Globalization.CultureInfo.InvariantCulture) is var position
+                        && position >= 1
+                    ? projected(position) ?? new OutputColumnPosition(position)
+                    : throw NoSuchPosition(literal.Value!),
+            }
+            : item).ToList();
+
+    private static InvalidOperationException NoSuchPosition(object position) =>
+        new($"'{position}' is not a valid field name or expression: ORDER BY {position} names no output column.");
+
+    /// <summary>The projected expression at a 1-based position. A <c>table.*</c> before it would need the table's
+    /// columns counted, which the planner cannot, and is refused.</summary>
+    private static Expression ProjectedAt(SelectStatement select, int position)
+    {
+        if (position > select.Projection.Count)
+            throw NoSuchPosition(position);
+        if (select.Projection.Take(position).Any(item => item.Value is StarExpression or QualifiedStarExpression))
+            throw new NotSupportedException($"ORDER BY {position} after a table.* in the projection is not supported.");
+        return select.Projection[position - 1].Value;
     }
 
     /// <summary>
@@ -175,24 +216,23 @@ public sealed class QueryPlanner
 
     /// <summary>The aggregate function names recognised by the planner/executor. Includes the Access statistical
     /// aggregates StDev/StDevP (sample/population standard deviation) and Var/VarP (sample/population variance);
-    /// the "StdDev"/"StdDevP" spellings are accepted as aliases.</summary>
+    /// the "StdDev"/"StdDevP" spellings are accepted as aliases. Beyond Access, a LibRed extension: the standard's
+    /// names for the statistics, its binary set functions (CORR, COVAR_*, REGR_*) — all of them
+    /// <see cref="Execution.RunningAggregate"/>'s — and its ordered-set aggregates PERCENTILE_CONT, PERCENTILE_DISC
+    /// and LISTAGG.</summary>
     internal static bool IsAggregate(string name) =>
-        name.ToUpperInvariant() is "COUNT" or "SUM" or "AVG" or "MIN" or "MAX" or "FIRST" or "LAST"
-            or "STDEV" or "STDEVP" or "STDDEV" or "STDDEVP" or "VAR" or "VARP";
+        name.ToUpperInvariant() is var upper
+        && (upper is "FIRST" or "LAST" or "PERCENTILE_CONT" or "PERCENTILE_DISC" or "LISTAGG"
+            || Execution.RunningAggregate.Supports(upper));
 
     internal static bool HasAggregate(Expression e) => e switch
     {
         FunctionCall f when IsAggregate(f.Name) => true,
-        FunctionCall f => f.Arguments.Any(HasAggregate),
-        BinaryExpression b => HasAggregate(b.Left) || HasAggregate(b.Right),
-        UnaryExpression u => HasAggregate(u.Operand),
-        // An aggregate inside a CASE has to be found here so it is computed per group and handed to the
-        // evaluator, rather than being reached during evaluation when no group scope can resolve it. The
-        // standard says the same: aggregates in a WHEN are evaluated before the CASE, not by it. Conditions
-        // count as well as results — HAVING CASE WHEN COUNT(*) > 1 … puts the aggregate in the condition.
-        CaseExpression c => c.WhenClauses.Any(w => HasAggregate(w.Condition) || HasAggregate(w.Result))
-            || (c.ElseResult is not null && HasAggregate(c.ElseResult)),
-        _ => false,
+        // Operands include a CASE's: an aggregate inside a CASE has to be found here so it is computed per group
+        // and handed to the evaluator, rather than being reached during evaluation when no group scope can
+        // resolve it. The standard says the same: aggregates in a WHEN are evaluated before the CASE, not by it.
+        // Conditions count as well as results — HAVING CASE WHEN COUNT(*) > 1 … puts the aggregate in the condition.
+        _ => e.Operands()?.Any(HasAggregate) ?? false,
     };
 
     /// <summary>
@@ -222,48 +262,19 @@ public sealed class QueryPlanner
     private static bool HasWindow(Expression e) => e switch
     {
         WindowFunction => true,
-        FunctionCall f => f.Arguments.Any(HasWindow),
-        BinaryExpression b => HasWindow(b.Left) || HasWindow(b.Right),
-        UnaryExpression u => HasWindow(u.Operand),
-        CaseExpression c => c.WhenClauses.Any(w => HasWindow(w.Condition) || HasWindow(w.Result))
-            || (c.ElseResult is not null && HasWindow(c.ElseResult)),
-        InListExpression il => HasWindow(il.Value) || il.Items.Any(HasWindow),
-        _ => false,
+        _ => e.Operands()?.Any(HasWindow) ?? false,
     };
 
     private static Expression LiftWindows(Expression e, List<WindowOutput> windows)
     {
-        switch (e)
-        {
-            case WindowFunction w:
-                // A name no identifier can spell: IDENTIFIER allows '$' only as a trailing character, so this
-                // cannot collide with a real column and be silently shadowed.
-                string name = $"$window{windows.Count}";
-                windows.Add(new WindowOutput(name, w));
-                return new ColumnReference(null, name);
-            case FunctionCall f:
-                return f with { Arguments = f.Arguments.Select(a => LiftWindows(a, windows)).ToList() };
-            case BinaryExpression b:
-                return b with { Left = LiftWindows(b.Left, windows), Right = LiftWindows(b.Right, windows) };
-            case UnaryExpression u:
-                return u with { Operand = LiftWindows(u.Operand, windows) };
-            case CaseExpression c:
-                return c with
-                {
-                    WhenClauses = c.WhenClauses
-                        .Select(w => w with { Condition = LiftWindows(w.Condition, windows), Result = LiftWindows(w.Result, windows) })
-                        .ToList(),
-                    ElseResult = c.ElseResult is null ? null : LiftWindows(c.ElseResult, windows),
-                };
-            case InListExpression il:
-                return il with
-                {
-                    Value = LiftWindows(il.Value, windows),
-                    Items = il.Items.Select(i => LiftWindows(i, windows)).ToList(),
-                };
-            default:
-                return e;
-        }
+        if (e is not WindowFunction w)
+            return e.MapOperands(o => LiftWindows(o, windows));
+
+        // A name no identifier can spell: IDENTIFIER allows '$' only as a trailing character, so this cannot
+        // collide with a real column and be silently shadowed.
+        string name = $"$window{windows.Count}";
+        windows.Add(new WindowOutput(name, w));
+        return new ColumnReference(null, name);
     }
 
     private static PlanNode PlanFrom(TableReference? from) => from switch
@@ -382,11 +393,8 @@ public sealed class QueryPlanner
             ColumnReference { Table: { } t } => Add(acc, t),
             ColumnReference => false, // unqualified — can't determine its table
             LiteralExpression or ParameterExpression or SystemVariableExpression => true,
-            BinaryExpression b => Collect(b.Left, acc) && Collect(b.Right, acc),
-            UnaryExpression u => Collect(u.Operand, acc),
-            FunctionCall f => f.Arguments.All(a => Collect(a, acc)),
-            InListExpression il => Collect(il.Value, acc) && il.Items.All(a => Collect(a, acc)),
-            _ => false, // subqueries (scalar/EXISTS/IN), qualified star, etc. — don't push
+            // Anything without operands — subqueries (scalar/EXISTS/IN), qualified star, etc. — isn't pushed.
+            _ => e.Operands()?.All(a => Collect(a, acc)) ?? false,
         };
         static bool Add(HashSet<string> acc, string t) { acc.Add(t); return true; }
     }

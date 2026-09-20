@@ -17,6 +17,7 @@ namespace LibRed.Core.Tests;
 // is not evidence of a small tailoring. This measures Thai text rather than Thai characters.
 //
 // Opt-in via LIBRED_THAI=1.
+[Collection(AceCollection.Name)]
 public class ThaiReorderProbeTest(ITestOutputHelper output)
 {
     [Fact]

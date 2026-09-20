@@ -12,6 +12,7 @@ namespace LibRed.Core.Tests;
 // guard came along for free. EF 11 elides the redundant conversion, so MID now receives a NULL length directly
 // and ACE errors (the GearsOfWar Null_semantics_..._optional_navigation_complex failures). Guarding has to move
 // to the functions themselves, so this establishes which arguments actually need it.
+[Collection(AceCollection.Name)]
 public class AceNullArgumentRegressionTests(ITestOutputHelper output)
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

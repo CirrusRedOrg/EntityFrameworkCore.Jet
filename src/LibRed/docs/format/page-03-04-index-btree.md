@@ -12,13 +12,13 @@
 | `0x01` | 1 | Flags (observed constant `0x01` — verified) |
 | `0x02` | 2 | Free space |
 | `0x04` | 4 | Owning table TDEF page |
-| `0x08` | 4 | **The 4-byte field Jet4 inserted** right after the owner — purpose unknown, **`0` observed** on every ACE- and LibRed-written index page (Jackcess has no constant for it either). Inserting it here is what pushes prev/next/tail/compress down by 4 vs Jet3 (see the Jet3→Jet4 note under `0x1B`). |
-| `0x0C` | 4 | **Previous leaf page** (`0` on the first/leftmost leaf), little-endian. **Verified against ACE:** on an ACE-built split index the higher-key leaf's `0x0C` points back at the lower-key leaf. (An earlier draft mis-placed prev/next at `0x08`/`0x0C` — wrong by 4 bytes; the real insertion is at `0x08`.) |
+| `0x08` | 4 | **The 4-byte field Jet4 inserted** right after the owner — purpose unknown, **`0` observed** on every ACE- and LibRed-written index page. Inserting it here is what pushes prev/next/tail/compress down by 4 vs Jet3 (see the Jet3→Jet4 note under `0x1B`). |
+| `0x0C` | 4 | **Previous leaf page** (`0` on the first/leftmost leaf), little-endian. **Verified against ACE:** on an ACE-built split index the higher-key leaf's `0x0C` points back at the lower-key leaf. |
 | `0x10` | 4 | **Next leaf page** (`0` on the last/rightmost leaf), little-endian. **Verified against ACE — and load-bearing:** Access's full-table `COUNT(*)`/scan descends to the leftmost leaf and walks this forward chain. If it is wrong (e.g. `next` written at `0x0C`), Access stops after the first leaf and **silently sees only those rows** — a data-loss/corruption hazard, since it then treats the rest of the table's space as free. LibRed maintains `0x0C`/`0x10` across splits (§10.5). (This is **Jet3's `0x0C` next-pointer shifted +4**; the child-tail that mdbtools lists at `0x10` is the *Jet3* tail position — in Jet4 it too shifted to `0x14`.) |
-| `0x14` | 4 | **Child-tail** page (node pages: the rightmost child, referenced by no entry). For Jet4/ACE this offset is **definitive — byte-for-byte verified** (the tail pointer reads correctly here and drives correct multi-level traversal). This is **Jet3's `0x10` tail shifted +4** by the `0x08` insertion, which is exactly why mdbtools (Jet3) documents the tail at `0x10`. |
+| `0x14` | 4 | **Child-tail** page (node pages: the rightmost child, referenced by no entry). **Verified** for Jet4/ACE: the tail pointer read here drives correct multi-level traversal. This is **Jet3's `0x10` tail shifted +4** by the `0x08` insertion, which is exactly why mdbtools (Jet3) documents the tail at `0x10`. |
 | `0x18` | 2 | Compressed-byte count (shared key prefix length, §10.3). Jet3's `0x14`, shifted +4. |
-| `0x1A` | 1 | The **1-byte field Jet4 inserted** just before the bitmask. ACE writes `0` on leaves and `1` on the root of a two-level split index, consistent with a **B-tree level/height** — but **only `0` and `1` have been observed** (no 3-level tree was built against ACE, so `2`+ is a guess). **Required only for leaves (verified):** writing `0x01` on a *leaf* makes ACE fail to open the whole database (`"could not find the object 'Databases'"`). **Node value is cosmetic (verified):** an isolation test — correct leaf-chain offsets but node `0x1A=0` *and* nodes prefix-compressed — still gave ACE the right `COUNT`/`SUM` at 700 and 1500 rows, so Access reads a node's tail child regardless. **Jackcess likewise has no offset constant for `0x1A`** (it tells leaf from node by the page-type byte at `0x00`). LibRed still writes the height to match ACE byte-for-byte, but the only hard requirements are the leaf-chain offsets and a *leaf's* `0x1A=0`. |
-| `0x1B` | … | Entry-position bitmask. mdbtools **version-labels** this: bitmask at `0x16` (Jet3) / **`0x1B` (Jet4)** — confirming our offset. The `+5` Jet3→Jet4 shift is **fully decomposed**: a **4-byte field inserted at `0x08`** (right after the owner) plus the **1-byte B-tree level at `0x1A`** = `+5`. Everything between — prev/next leaf, child-tail, compressed count — is Jet3's field shifted by 4, with the level accounting for the final `+1`. No unexplained bytes remain in this header. **Corroborated by Jackcess**, whose `JetFormat` constants give (Jet3 → Jet4): prev `8`→`12`, next `12`→`16`, child-tail `16`→`20`, compressed-count `20`→`24`, entry-mask `22`→`27` — i.e. `0x08`/`0x0C`/`0x10`/`0x14`/`0x16` each `+4`, and the mask an extra `+1`. Two independent implementations now agree on the shift; the `0x08` insertion is the only thing that produces it. (The *positions* are ACE-verified and Jackcess-corroborated; a real Jet3 index page would still be the final confirmation that these are the exact bytes Jet3 lacked — notably Jackcess has no constant for the `0x08` field or `0x1A` either.) |
+| `0x1A` | 1 | The **1-byte field Jet4 inserted** just before the bitmask. ACE writes `0` on leaves and `1` on the root of a two-level split index, consistent with a **B-tree level/height** — but **only `0` and `1` have been observed** (no 3-level tree was built against ACE, so `2`+ is a guess). **Required only for leaves (verified):** writing `0x01` on a *leaf* makes ACE fail to open the whole database (`"could not find the object 'Databases'"`). **Node value is cosmetic (verified):** with correct leaf-chain offsets, nodes written with `0x1A=0` *and* prefix-compressed still give ACE the right `COUNT`/`SUM`, so Access reads a node's tail child regardless; leaf vs node is told by the page-type byte at `0x00`. LibRed still writes the height to match ACE byte-for-byte, but the only hard requirements are the leaf-chain offsets and a *leaf's* `0x1A=0`. |
+| `0x1B` | … | Entry-position bitmask. mdbtools **version-labels** this: bitmask at `0x16` (Jet3) / **`0x1B` (Jet4)**. The `+5` Jet3→Jet4 shift is **fully decomposed**: a **4-byte field inserted at `0x08`** (right after the owner) plus the **1-byte B-tree level at `0x1A`** = `+5`. Everything between is Jet3's field shifted by 4 (Jet3 → Jet4): prev `0x08`→`0x0C`, next `0x0C`→`0x10`, child-tail `0x10`→`0x14`, compressed count `0x14`→`0x18`, and the mask `0x16`→`0x1B`, the level accounting for its extra `+1`. No unexplained bytes remain in this header. (The Jet4 *positions* are ACE-verified; that these are exactly the bytes Jet3 lacks is not yet confirmed against a real Jet3 index page.) |
 | `0x1E0` | — | Start of entry data |
 
 ### 10.2 Entries
@@ -45,7 +45,7 @@ Each entry ends with a **4-byte big-endian** trailing pointer:
 > role; this avoids relying on an earlier descent check if the file changed between reads. Violations
 > are reported as `InvalidDataException`.
 
-> **How the insert path revalidates.** A leaf rewrite no longer re-reads and re-decodes the page the descent
+> **How the insert path revalidates.** A leaf rewrite does not re-read and re-decode the page the descent
 > just decoded; it takes that parse from the channel's parsed-page cache and copies the entry list before
 > mutating it (the cached object is shared with every other reader of the file, so it must never be written
 > through). The guarantee is unchanged: a cached parse survives only while the bytes behind it are untouched —
@@ -54,11 +54,9 @@ Each entry ends with a **4-byte big-endian** trailing pointer:
 > checked before it is mutated. The copy is shallow by design: an entry is an immutable struct referencing its
 > key, so copying the list shares the key arrays and costs one array of structs rather than one array per entry.
 >
-> A consequence worth knowing when reading write benchmarks: because an overlay page is never served from the
-> cache, this saves nothing for a page already written inside the current transaction. Inserts outside a
-> transaction, or early in one, gain the most; a long transaction rewriting the same leaf repeatedly gains
-> nothing (measured: a raw insert went 234.6 µs → 164.5 µs, while the same insert inside a transaction did not
-> move).
+> Because an overlay page is never served from the cache, this saves nothing for a page already written inside
+> the current transaction. Inserts outside a transaction, or early in one, gain the most; a long transaction
+> rewriting the same leaf repeatedly gains nothing.
 
 ### 10.3 Prefix compression
 
@@ -66,9 +64,8 @@ Entries on a page share a leading prefix of `compressedByteCount` (`0x18`) bytes
 stored in full; its first `compressedByteCount` bytes are the shared prefix, which every subsequent entry
 omits. Reconstruct: `fullEntry = prefix ++ stored`.
 
-> **The prefix covers the entry whole — it can reach into the trailer.** An earlier revision of this section
-> claimed "the trailing pointer is never compressed, so reading row pointers needs none of this". That is
-> **wrong**, and it made LibRed reject pages ACE had written. When many rows share a key they are also
+> **The prefix covers the entry whole — it can reach into the trailer.** A reader that assumes the trailing
+> pointer is never compressed rejects pages ACE writes. When many rows share a key they are also
 > consecutive on one data page, so the trailer's leading bytes are common too and ACE compresses them away.
 > A leaf holding 500 rows all keyed `"same"`:
 >
@@ -83,26 +80,25 @@ omits. Reconstruct: `fullEntry = prefix ++ stored`.
 > leaving two stored bytes per entry. So **size limits apply to the reconstructed entry, never to what is
 > stored** — a stored entry may be shorter than the 4-byte trailer, and the key may be empty. Take both the
 > key and the trailer from the reconstruction. Likewise `compressedByteCount` is bounded by the first
-> entry's **whole** length, not by its key. (`DuplicateIndexKeyProbeTest`; the old reading refused any index
-> with ~500+ equal keys, which is ordinary for a non-unique index.)
+> entry's **whole** length, not by its key. A reader that bounds it by the key refuses any index with ~500 or
+> more equal keys, which is ordinary for a non-unique index.
 
 > **Compression is optional on leaves.** A `compressedByteCount` of 0 (every entry stored in full)
 > is a valid *leaf* that Access reads without complaint — verified by rewriting a leaf uncompressed
 > and re-seeking it. **On node (`0x03`) pages, ACE writes them uncompressed (`0x18 = 0`)**, and
-> LibRed matches that. *Verified cosmetic:* compressing a node does **not** break Access — an isolation test
-> (correct leaf-chain offsets, but nodes compressed and `0x1A=0`) still gave the right `COUNT`/`SUM`.
-> The earlier "compression breaks tail descent" idea was a misattribution to the leaf-chain bug (§10.1).
-> LibRed writes nodes uncompressed only to stay byte-faithful with ACE, not because it's required.
+> LibRed matches that. *Verified cosmetic:* compressing a node does **not** break Access — with correct
+> leaf-chain offsets, nodes compressed and `0x1A=0` still give the right `COUNT`/`SUM`. A broken tail descent
+> points at the leaf-chain offsets (§10.1), not at node compression. LibRed writes nodes uncompressed only to
+> stay byte-faithful with ACE, not because it's required.
 >
 > **A leaf with ≤ 1 entry writes `0x18 = 0`.** Prefix compression describes a prefix *shared across
 > entries*, so with zero or one entry there is nothing to share — ACE writes `compressedByteCount = 0`,
-> not the sole key's whole length. (LibRed had a bug writing the full length there via
-> `CommonPrefixLength(key, key)`; now `entries.Count ≤ 1 ⇒ 0`. Verified vs ACE on an index whose fresh
-> root leaf holds a single key, e.g. the rebuild in §3.8.)
+> not the sole key's whole length (which is what a naive `CommonPrefixLength(key, key)` gives). Verified vs
+> ACE on a fresh root leaf holding a single key (e.g. the rebuild in §3.8).
 >
 > **A leaf is compressed only when it fills, and split only when compressing is not enough.** The prefix is
 > not a property recomputed on every write; it is applied once, in place, at the moment the page can no
-> longer take the next entry. Watching a sequential load one batch at a time shows the cycle twice:
+> longer take the next entry. A sequential load runs the cycle twice:
 >
 > | after | page | prefix | entries | free |
 > | ---: | --- | ---: | ---: | ---: |
@@ -124,11 +120,9 @@ omits. Reconstruct: `fullEntry = prefix ++ stored`.
 > still in its uncompressed phase. Descending and random loads read `3, 3, 3, 3`, because a middle split
 > computes the prefix for both halves as it writes them.
 >
-> Two wrong readings preceded this, both from end state rather than transitions. "LibRed compresses where
-> ACE does not" came from a single leaf that had never filled. "ACE recomputes on split and keeps the value
-> while appending" was implemented and falsified: pages then fill uncompressed and split without ever being
-> compressed, giving 4 leaves and 11,820 bytes against ACE's 3 and 11,334. `IndexSplitPackingAccessTests`
-> asserts the result. (The transition probe that produced the measurement was not kept.)
+> End state alone misleads: a leaf that has never filled is uncompressed under ACE too. And recomputing the
+> prefix on split while keeping it on append is wrong — pages then fill uncompressed and split without ever
+> being compressed, giving 4 leaves and 11,820 bytes against ACE's 3 and 11,334.
 
 ### 10.4 Key encoding (order-preserving)
 
@@ -158,9 +152,7 @@ Then the value, transformed:
 - **Integers** (Int16/Int32) and **Currency** (int64): big-endian, with the **sign bit of
   the first byte flipped**. Descending additionally inverts all bytes. (Decode reverses this.)
 - **Byte**: the raw byte, with **no** sign flip — Jet's `BYTE` is unsigned, so flipping would sort 128–255
-  before 0–127. Verified against ACE over 0, 1, 127, 128, 200 and 255 on an indexed `BYTE` column: LibRed's
-  keys match ACE's exactly. (This entry previously listed Byte alongside Int16/Int32 as sign-flipped, which
-  was wrong.)
+  before 0–127. Verified against ACE on an indexed `BYTE` column, values either side of 128.
 - **Single / Double / DateTime** (IEEE): if non-negative, flip the first bit; if negative,
   invert all bytes (ascending). Decode: first byte's top bit set ⇒ was positive (un-flip);
   else ⇒ was negative (invert all). DateTime is the resulting double via the OLE epoch.
@@ -171,14 +163,18 @@ Then the value, transformed:
   order therefore equals numeric order: negatives (`0x00`) precede non-negatives (`0xFF`), and
   complementing makes a larger magnitude sort earlier among the negatives. **Zero encodes as
   positive.** Descending inverts all bytes as usual. Verified byte-for-byte vs ACE, ascending and
-  descending (`DecimalKeyEncodingTests`); e.g. at scale 4, `1.0` → `7F FF 00…002710` (10000) and
+  descending; e.g. at scale 4, `1.0` → `7F FF 00…002710` (10000) and
   `-1.0` → `7F 00 FF…FFD8EF` (`~10000`).
 - **Boolean:** no flag byte — a single constant: ascending `0x00` = true, `0xFF` = false
   (true sorts first).
 - **Memo (Long Text)** is **indexable** in Access (`CREATE INDEX` on a memo column succeeds — only
-  `OLE Object` is rejected, *"Invalid field definition … in definition of index or relationship"*).
+  `OLE Object` is rejected, *"Invalid field definition … in definition of index or relationship"*). ACE
+  refuses an OLE column on **every** route into an index: `CREATE INDEX`, a `PRIMARY KEY` or `UNIQUE`
+  constraint in `CREATE TABLE` or added by `ALTER TABLE`, a foreign key in either place (before its type
+  match is checked), and `ALTER COLUMN` of an indexed column to OLE. It refuses up front and leaves nothing
+  behind — no table from a refused `CREATE TABLE`, the column and its index unchanged after a refused `ALTER`.
   Its key is the **ordinary Text collation key over the value's first 255 characters** — verified
-  byte-for-byte vs ACE (`MemoKeyEncodingTests`): a 256- or 300-character memo yields exactly the key of
+  byte-for-byte vs ACE: a 256- or 300-character memo yields exactly the key of
   its 255-character prefix, so two memos differing only past character 255 share a key (fine for a
   non-unique index). Index keys are therefore encoded from the **logical** row values, before memo/OLE
   values are materialised into their `LongValueDescriptor`s.
@@ -195,49 +191,43 @@ Then the value, transformed:
 > | soft hyphen | inline record, code `0x83` | wholly ignorable, no record |
 >
 > **v0 is the NT4-era NLS order, renumbered into one byte.** v1 could be *identified* because its primaries
-> are the NLS `(SM, AW)` pair verbatim; v0's are a Jet-specific compaction, which is why its table had to be
-> measured character by character instead. But the compaction turns out to be **order-preserving**, so the
-> table is explained rather than merely recorded. Sorting every character by the primary in the
+> are the NLS `(SM, AW)` pair verbatim; v0's are a Jet-specific compaction, so its table is measured
+> character by character instead. But the compaction is **order-preserving** against the primaries of the
 > **Windows NT 4.0 – Server 2003** table (the generation contemporary with Jet 3.5/Access 97 and Jet 4/Access
-> 2000) and checking v0's bytes come out non-decreasing gives **507 of 510** strictly-ordered pairs kept, and
-> **947 of 955** NT4 ties still tying (`SortOrderProvenanceProbeTest`, needs `LIBRED_NT4_TABLE`). By block:
+> 2000): v0's bytes keep nearly every NT4 strict ordering and nearly every NT4 tie. By block:
 >
 > | | agreement |
 > |---|---|
 > | Cyrillic, Greek, Hebrew, both Latin extensions, punctuation, currency, letterlike, number forms, spacing modifiers, fullwidth | **100%** — every block, every pair |
-> | Latin-1 + ASCII | 51/52; the single exception is `U+0651`, whose `FF FF` is not a primary at all — see the shadda rule below |
-> | Arabic | 149/151 — the only script where Jet genuinely renumbered against NLS |
+> | Latin-1 + ASCII | all but one pair; the single exception is `U+0651`, whose `FF FF` is not a primary at all — see the shadda rule below |
+> | Arabic | all but two pairs — the only script where Jet genuinely renumbered against NLS |
 >
 > So the `+2` stride, the gaps that became language-letter insertion slots, and the `0x79` page for
 > non-Latin scripts are all one decision: **compact the NT4 primary order into a byte, leaving room**.
-> Jet also *narrowed* it — of the 552 characters v0 treats as ignorable, 464 (84%) are unweighted in the NT4
-> table too, but the remaining 88 are weighted by NLS and dropped by Jet, which is an editorial choice of its
-> own and not something a published table would have told us.
+> Jet also *narrowed* it — most characters v0 treats as ignorable are unweighted in the NT4 table too, but
+> about one in six is weighted by NLS and dropped by Jet, an editorial choice of Jet's own.
 >
-> v1's table is **very nearly** the Windows Server 2008 sorting weight table, frozen — identified by
-> reconstructing measured ACE v1 keys from every published Windows table (Server 2008 scores 25/25;
-> Win7/2008R2 24/25, Vista 23/25, Win8+ 22/25, NT4-2003 18/25, the discriminators being `1` = `13 25` vs
-> `13 26`, its DW `2` vs `3`, and `½` = `13 24 214` vs `13 17 2`). Access 2010 shipped with the then-current
-> weights and froze them when Windows 7/8 moved them — the "major NLS version, re-index everything" event
-> described in [MS-UCODEREF] and *Handling Sorting in Your Applications*.
+> v1's table is **very nearly** the Windows Server 2008 sorting weight table, frozen. The discriminators
+> against neighbouring Windows tables include `1` = `13 25` vs `13 26`, its DW `2` vs `3`, and `½` =
+> `13 24 214` vs `13 17 2`. Access 2010 shipped with the then-current weights and froze them when Windows 7/8
+> moved them — the "major NLS version, re-index everything" event described in [MS-UCODEREF] and *Handling
+> Sorting in Your Applications*.
 >
-> **"Very nearly" is load-bearing.** Those 25 discriminators were all Latin and symbols, and a full-BMP sweep
-> shows the published file is not what ACE carries everywhere: it is right about 57,793 characters and wrong
-> about 501, plus 5,082 that ACE treats as wholly ignorable and the published file has no entry for at all.
-> The disagreements are concentrated in scripts added or reweighted after Server 2008 — ACE gives Balinese
-> and Canadian syllabics *Latin* weights — and in the Arabic harakat and several ligature blocks. Rather
-> than guess at which NLS revision ACE really carries, the differences are **measured and embedded**
-> (`SortKeyTableV1Overrides.bin`, 2.0 KB, written by `SortKeyTableV1OverrideGeneratorTest` with
-> `LIBRED_GENERATE_V1=1`) — the same answer v0 needed, at 3% of the size, because v1 is right about the rest.
+> **"Very nearly" is load-bearing.** Across the BMP the published file is not what ACE carries everywhere: it
+> is wrong about 501 characters, plus 5,082 that ACE treats as wholly ignorable and the published file has no
+> entry for at all. The disagreements are concentrated in scripts added or reweighted after Server 2008 — ACE
+> gives Balinese and Canadian syllabics *Latin* weights — and in the Arabic harakat and several ligature
+> blocks. LibRed therefore embeds the differences as **measured overrides** (`SortKeyTableV1Overrides.bin`,
+> 2.0 KB) on top of the published table.
 >
 > An override records the primary and secondary bytes **raw**, not as `(SM, AW, DW)` weights, because that
 > reading assumes every primary is a two-byte pair carrying one secondary and ACE breaks it both ways: the
 > Arabic harakat have a secondary and *no primary* (`U+064C` is `7F 01 56 00`), and the Lao vowel signs take
 > a **one-byte** primary (`U+0EB0` is `7F 41 01 0A 00`). A primary byte can even *be* `0x01`: `U+0385`,
 > `U+1B3B` and `U+FC25` weigh `07 53 01`, and `U+FC33` and `U+FCC2` weigh `29 0B 01`, so the section
-> delimiter is the **last** `0x01` in a key, not the first. Splitting at the first made those five look like
-> a key with an extra section bolted on; measuring them in combination (`aX`, `Xa`, `XaX`) showed they are
-> ordinary two-weight expansions.
+> delimiter is the **last** `0x01` in a key, not the first. Splitting at the first makes those five look like
+> a key with an extra section bolted on; in combination (`aX`, `Xa`, `XaX`) they are ordinary two-weight
+> expansions.
 >
 > This also explains the framing generally: **script member 6 is the word-sort class**, and the apostrophe's
 > `0x80` and hyphen's `0x82` inline codes are simply their Alphabetic Weights — so the inline record is
@@ -251,15 +241,13 @@ Then the value, transformed:
 > the two weights.
 >
 > The two readings agree below `0x100` and diverge above it, and the offset `0x07 + 4 x position` passes
-> `0xFF` at position 62. So a hyphen at character 63 is `81 03`, at 200 `83 27`, at 250 `83 EF` — measured
-> against ACE across positions 10 to 250 under both orders.
+> `0xFF` at position 62. So a hyphen at character 63 is `81 03`, at 200 `83 27`, at 250 `83 EF` — verified
+> against ACE under both orders.
 >
-> Worth stating loudly, because it is invisible to the obvious tests. Every single character encodes
-> correctly, every short string encodes correctly, and the field only overflows past character 62 — so
-> reading `0x80` as a marker and truncating the position looked right everywhere anyone had looked, and
-> silently produced a wrong key for any longer value containing an apostrophe or hyphen. A hyphenated name in
-> a 255-character column is enough. The lesson is to measure COMBINATIONS and not only characters: a
-> per-character sweep can be exhaustive — all 63,422 of them — and still miss a whole class of bug.
+> Reading `0x80` as a marker byte and truncating the position gives the right key for every single character
+> and every short string — the field only overflows past character 62 — and a silently wrong key for any
+> longer value containing an apostrophe or hyphen. A hyphenated name in a 255-character column is enough, and
+> no per-character sweep can show it.
 >
 > **French is the diacritic section written BACKWARDS — no tailored letter at all.** The same pseudocode has
 > an `IsReverseDW` flag whose rule is: drop the run of default diacritics from the **left** rather than the
@@ -272,13 +260,11 @@ Then the value, transformed:
 > | `côté` | `02 12 02 0E` | `12 02 0E` | `01 0E 02 12 00` |
 >
 > So French orders by the LAST accent — `cote < côte < coté < côté`, where General gives
-> `cote < coté < côte < côté`. LibRed matches ACE across all of Latin-1 and Latin Extended-A with accents
-> doubled and tripled per string, 1,289 values, zero differences.
+> `cote < coté < côte < côté`. LibRed matches ACE across Latin-1 and Latin Extended-A with accents doubled and
+> tripled per string.
 >
-> It sat in the "unclassified, secondary-section tailoring" bucket for a long time, and the reason is worth
-> keeping: a word with ONE accent encodes identically under both orders, and the sample set that measured
-> every locale against General contained no two-accent word. The rule was invisible to the measurement, not
-> absent from it — the same shape of blind spot as the inline position field above.
+> A word with ONE accent encodes identically under French and General, so only a multi-accent word shows the
+> difference — the same shape of blind spot as the inline position field above.
 >
 > **And the `01 01 01` before a word-sort record is three SECTION SEPARATORS, not an introducer.** The same
 > pseudocode gives the full frame as
@@ -287,41 +273,37 @@ Then the value, transformed:
 > primaries  01  diacritics  01  case-weights  01  extra-weights  01  special-weights  00
 > ```
 >
-> Access emits that frame with the **case-weight section empty**, which is the mechanism behind something
-> long known here empirically: case and character width fold because width lives in bit 0 of the Case Weight,
-> and Access simply never writes that section. So the run of three is end-of-diacritics, an empty case
-> section, an empty extra section — and it shortens to `FF 01` when a kana section fills the extra slot.
+> Access emits that frame with the **case-weight section empty**, which is why case and character width fold:
+> width lives in bit 0 of the Case Weight, and Access never writes that section. So the run of three is
+> end-of-diacritics, an empty case section, an empty extra section — and it shortens to `FF 01` when a kana section fills the extra slot.
 > `MIN_DW = 2` in the same source is the `0x02` default secondary whose trailing run gets trimmed.
 >
 > Three more things that source settles, or usefully fails to:
 >
-> - **The contraction limit corroborates v0's provenance independently.** It supports only 2- and
->   3-character contractions on NT4 through Server 2003, and 4- to 8-character ones from Vista. Every v0
->   tailoring here tops out at three (Hungarian `ggy`) — arrived at by measurement, and matching the
->   generation the weight-table comparison already identified. Two unrelated routes to the same date.
+> - **The contraction limit corroborates v0's provenance.** It supports only 2- and 3-character
+>   contractions on NT4 through Server 2003, and 4- to 8-character ones from Vista. Every v0 tailoring tops
+>   out at three (Hungarian `ggy`), matching the generation the weight-table comparison identifies.
 > - **The `FD FF` Han primary is NOT the Windows 7 three-byte weight.** That feature emits `SM PW DW` —
 >   *three* bytes, with the diacritic moved into the primary and omitted from its own section — and arrived
->   in Windows 7 / Server 2008 R2, *after* the table Access froze. Ours is four bytes and is the older
+>   in Windows 7 / Server 2008 R2, *after* the table Access froze. ACE's is four bytes and is the older
 >   extension-marker shape, alongside `SCRIPT_MEMBER_EXT_A` / `PRIMARY_WEIGHT_EXT_A`. Consistent with the
 >   freeze; the measured bytes stand.
 > - **Access PACKS the East Asia extra weights where Windows does not.** The specification gives one byte per
 >   character per group (`W6`, `W7`, trailing `0xE4` trimmed, `0xFF` between). Access instead packs the kana
->   flags three to a byte — measured across all thirty combinations up to four kana. So the kana section is a
->   compacted variant of the documented structure rather than the structure itself.
+>   flags three to a byte (below). So the kana section is a compacted variant of the documented structure
+>   rather than the structure itself.
 >
-> **Nothing in that source covers the 510-byte cap, truncation or the checksum below.** A useful negative:
-> those are Jet/ACE inventions with no Windows counterpart, which is why they had to be measured.
+> **Nothing in that source covers the 510-byte cap, truncation or the checksum below.** Those are Jet/ACE
+> inventions with no Windows counterpart.
 >
 > LibRed encodes both: `JetTextCollation` (v0, a measured table) and `JetTextCollationV1` (v1, the published
 > table plus the measured overrides — see `tools/sortkey-table/generate.ps1`), sharing `JetKanaSection`.
-> **Both now cover the whole Basic Multilingual Plane**: 63,422 characters each, every key byte-for-byte
-> what ACE stores, nothing refused and nothing left unhandled (`Probe_full_bmp_coverage`, needs
-> `LIBRED_FULL_BMP`). Other locales are **not** refused under v1: the six orders with a version-1 table are
-> tailored, and every other LANGID falls back to General v1 (see §10.4's collation list).
+> **Both cover the whole Basic Multilingual Plane**: every key byte-for-byte what ACE stores, nothing refused
+> and nothing left unhandled. Other locales are **not** refused under v1: the six orders with a version-1
+> table are tailored, and every other LANGID falls back to General v1 (see §10.4's collation list).
 >
-> **Above the BMP** the two orders disagree completely, measured over all of planes 1 and 2 and sampled across
-> all sixteen. **v0 ignores astral characters entirely** — every one gets the empty key `7F 01 00`, so under
-> General Legacy an astral character is invisible to the index. **v1 weighs both surrogate halves**, each
+> **Above the BMP** the two orders disagree completely. **v0 ignores astral characters entirely** — every one
+> gets the empty key `7F 01 00`, so under General Legacy an astral character is invisible to the index. **v1 weighs both surrogate halves**, each
 > looked up in the table like any other character: `U+10000` is `7F B002 B4F8 01 3F 3F 00`, the high surrogate
 > `D800` weighing `B002` and the low `DC00` weighing `B4F8`.
 >
@@ -330,83 +312,9 @@ Then the value, transformed:
 > the same. So planes 1 and 2 are fully distinguished, while planes 3 to 16 collapse onto **1,024 keys** and
 > any two code points there congruent mod `0x400` share one.
 >
-> The only change v1 needed was to treat an **unweighted surrogate as ignorable rather than an error**. The
-> tempting reading of the plane-3 samples — "the high surrogate contributes nothing" — is wrong, and skipping
-> every high surrogate breaks all 131,068 characters of planes 1 and 2. `AstralCollationProbeTest`, needs
-> `LIBRED_ASTRAL=1` (or `LIBRED_ASTRAL_FULL=1` for a whole plane).
-
-### 10.5 The 510-byte index entry limit
-
-**ACE stores an index entry of at most 510 bytes as built.** At exactly 510 it comes back byte-for-byte; a
-value that would need 511 comes back as 510: the first **508** bytes kept, and the rest replaced by a
-two-byte **checksum over the bytes that were dropped**. That is why two long values sharing a 508-byte
-prefix still sort apart instead of colliding.
-
-#### The checksum
-
-A 16-bit fold over the **discarded run** — every byte from offset 508 to the end of the untruncated key —
-stored big-endian in the last two bytes. Each byte is XORed into the **high** half and the state is then
-folded; the fold happens *between* bytes, so the last byte of the run contributes its XOR and nothing else:
-
-```
-crc = 0
-for each byte b of the discarded run:
-    crc ^= b << 8
-    if b is not the last:  crc = (crc >> 8) ^ T[crc & 0xFF]
-```
-
-with no initial value and no final XOR. The step table is
-
-```
-T[1<<i] = 0580 0F80 1B80 3380 6380 C380 8381 0383      (i = 0..7)
-```
-
-Note the framing rather than the polynomial is the unusual part: a standard reflected CRC updates as
-`crc = (crc >> 8) ^ T[(crc ^ b) & 0xFF]`, passing the byte **through** the table. Sweeping all 65,536
-polynomials in five conventional framings found nothing, which is what pointed at the framing.
-
-The table is not a guess either. The function is **affine over GF(2)** — three tails differing in one byte
-give `L(0xA3) = CA03`, `L(0x13) = 6980`, `L(0xB0) = A383`, and `CA03 ^ 6980 = A383` exactly — and
-**shift-invariant** across 173 observations, so a byte at distance *d* from the end contributes `S^(d-1)` of
-itself whatever the message length. That makes the eight rows above solvable by Gaussian elimination over the
-measured contributions, and the solution predicts all 657 of them.
-
-Equivalently, and how `JetIndexKeyChecksum` implements it: fold every byte but the last in the form
-`crc = (crc >> 8) ^ T[crc & 0xFF] ^ b`, then XOR the last byte's `b << 8` into the result. The two are the
-same function — verified over 12,800 random inputs at every length from 1 to 64 bytes.
-
-**The discarded run is 3 bytes at minimum** (truncation triggers only above 510, and the run is
-`length − 508`), and the rule is keyed to the run's *last byte*, not to a fixed offset in the key: measured
-over runs of 3 through 13 bytes, from keys of 511 to 521 bytes.
-
-Verified against ACE for Latin, accented and Han text under both sort orders; for composite keys ending in
-`LONG`, `CURRENCY` and `DOUBLE`; and for keys whose dropped bytes contain an inline **word-sort record** —
-ACE does not reposition that record when truncating, so it reconstructs exactly (measured at eight positions
-for each of the hyphen and apostrophe). **Nothing is refused**; every key past the cap is truncated the way
-ACE truncates it.
-
-> The "fold between bytes" framing matters, and is easy to get wrong in a way no all-text test can catch.
-> Writing the loop as "fold every byte except the last" — reading the skipped byte as the text terminator —
-> gives the identical answer whenever that byte is `0x00`, which it always is when the key ends in text. The
-> two readings part company the moment the last key column is numeric. See
-> [`docs/design/index-key-checksum.md`](../design/index-key-checksum.md) for how that was found and what it
-> cost.
-
-The cap is on the **whole entry, not per column**: two 200-character text columns weigh about 404 bytes of
-key each, comfortably under the cap individually, and ACE stores their combined entry hashed at 510.
-
-Because it limits **weights** rather than characters, the text it buys depends on collation and script — and
-this is the practical cost of General over General Legacy, invisible in the schema:
-
-| | bytes per character | characters indexed in full |
-|---|---|---|
-| v0, Latin | 1 primary | **255** — the column limit is reached first |
-| v0, accented / CJK | 2 | **254** |
-| v1, Latin | 2 primary | **253** |
-| v1, accented | 3 | **169** |
-| v1, Han | 4 (`FD FF AW DW`) | **127** | Tests: `GeneralV1CollationTests` (keys
-> measured from ACE) and `GeneralV1CollationAccessTests` (live oracle, plus ACE seeking an index LibRed
-> wrote in a v1 database).
+> So a v1 encoder treats an **unweighted surrogate as ignorable rather than an error**. The tempting reading
+> of planes 3 and up — "the high surrogate contributes nothing" — is wrong: skipping every high surrogate
+> breaks every character of planes 1 and 2.
 
 - **Text:** Jet's "General" collation. The key is the start flag, then one or two
   **primary-weight** bytes per character, then a `01 00` terminator. Weights are **case-folded**
@@ -414,35 +322,33 @@ this is the practical cost of General over General Legacy, invisible in the sche
   space weighs `0x07`. Most characters weigh one byte; `^ _ \` { | } ~` weigh two (sharing the
   `0x2B` page). The weight table is a fixed lookup (A=`4A`, B=`4C`, C=`4D`, …, digits step by two
   from `0x36`), **verified byte-for-byte against the ACE engine** over printable ASCII and
-  implemented by `JetTextCollation` — so LibRed can now *write* ASCII text index keys (e.g. a
+  implemented by `JetTextCollation` — so LibRed can *write* ASCII text index keys (e.g. a
   string primary key). Decoding remains lossy (case is discarded — that is why a text primary key
   treats `'A'` and `'a'` as duplicates).
 
   **Twenty characters are "ignorable"** (so `O'Brien` sorts next to `OBrien`): they add **no
   primary weight**, but each appends an inline record to a trailing section.
 
-  > Sixty across the BMP — twenty hand-verified below, and forty more measured into the resource (CJK and
-  > fullwidth punctuation, further dashes and quotation forms).
+  > Sixty across the BMP — the twenty below, and forty more in the embedded table (CJK and fullwidth
+  > punctuation, further dashes and quotation forms).
   >
-  > The hand-verified set and their codes, measured alone and inside a word so the position arithmetic is
-  > confirmed rather than assumed: apostrophe `0x80`, hyphen `0x82`, soft hyphen `0x83`, `U+2010` `0x84`, `U+2011`
-  > `0x85`, `U+2027` `0x86`, `U+2043` `0x87`, `U+2012` `0x88`, `U+2013` `0x89`, `U+2014` `0x8B`, `U+2015`
-  > `0x8C`, and the Arabic harakat `U+064B`–`U+0650` and `U+0652` running `0xA0`–`0xA6`. **The fullwidth
-  > apostrophe and hyphen share their ASCII counterparts' codes exactly** (`U+FF07` = `0x80`, `U+FF0D` =
-  > `0x82`) — the one place fullwidth really does collapse onto ASCII, unlike the letters. `0x8A` is unused
-  > by anything in the swept range. After the primary's
-  `0x01` end marker, if any ignorable char is present the key adds `01 01 01` once, then per
-  ignorable char four bytes `80 <pos> 06 <code>`, then the final `00`. `<pos> = 0x07 + 4 × (count
+  > The twenty and their codes, verified alone and inside a word: apostrophe `0x80`, hyphen `0x82`, soft
+  > hyphen `0x83`, `U+2010` `0x84`, `U+2011` `0x85`, `U+2027` `0x86`, `U+2043` `0x87`, `U+2012` `0x88`,
+  > `U+2013` `0x89`, `U+2014` `0x8B`, `U+2015` `0x8C`, and the Arabic harakat `U+064B`–`U+0650` and `U+0652`
+  > running `0xA0`–`0xA6`. **The fullwidth apostrophe and hyphen share their ASCII counterparts' codes
+  > exactly** (`U+FF07` = `0x80`, `U+FF0D` = `0x82`) — the one place fullwidth really does collapse onto
+  > ASCII, unlike the letters. `0x8A` is unused by any measured character.
+
+  After the primary's `0x01` end marker, if any ignorable char is present the key adds `01 01 01` once,
+  then per ignorable char four bytes `80 <pos> 06 <code>`, then the final `00`. `<pos> = 0x07 + 4 × (count
   of **primary weights** emitted before it)` and `<code>` is `0x80` for apostrophe / `0x82` for
   hyphen — verified against ACE (e.g. `ANNE-MARIE` → `… 80 17 06 82 …`, the hyphen at position 4;
   `Aß-B` → `7F 4A 6B 6B 4C 01 01 01 01 80 13 06 82 00`, hyphen at position **3** because ß expands to
   two weights `S`+`S`).
 
-  > **Weights, not bytes — an earlier revision said bytes and LibRed implemented that.** The two agree for
-  > everything Latin, which is why it stood so long. A two-byte weight settles it: `£-` puts the hyphen at
-  > `0x0B` (`0x07 + 4×1`) although `£` is `34 A7`, and `©`, `½`, `Ω`, `б` all behave the same, while `£A-`
-  > is `0x0F`. So both the secondary section and this one index by weight. Guarded by the `£-`/`Ω'A` family
-  > in `LocaleCollationAccessTests` — the older samples were Latin-only and could not see it.
+  > **Weights, not bytes.** The two agree for everything Latin, so only a two-byte weight tells them apart:
+  > `£-` puts the hyphen at `0x0B` (`0x07 + 4×1`) although `£` is `34 A7`, and `©`, `½`, `Ω`, `б` all behave
+  > the same, while `£A-` is `0x0F`. So both the secondary section and this one index by weight.
 
   > **Why those two characters specifically:** this is Windows' documented **word sort**, the default for
   > the NLS sorting functions — *"all punctuation marks and other nonalphanumeric characters, except for the
@@ -468,15 +374,12 @@ this is the practical cost of General over General Legacy, invisible in the sche
   | `U+0651 U+0645` | `7F FFFF 79C6 01 08 00` | nothing precedes: `FF FF`, and **no secondary slot** — one secondary for two primaries |
 
   So `FF FF` is what a shadda weighs only when there is nothing to double, which is the one form a
-  per-character sweep can present it in — and the reason the table recorded `FF FF` as its primary and the
-  provenance check above counted it an anomaly. Same shape as the kana prolonged sound mark: a mark whose
-  weight is a function of its neighbour cannot be tabulated per character, and a single-character sweep
-  cannot discover it. Measured across ten shadda shapes against ACE
-  (`CollationSurveyProbeTests` batch 06, whose self-check is the assertion).
+  per-character table can hold for it — and why it appears as an anomaly against NLS above. Same shape as
+  the kana prolonged sound mark: a mark whose weight is a function of its neighbour cannot be tabulated per
+  character. Verified against ACE.
 
   **Latin-1 punctuation and symbols** weigh two bytes, in groups that mirror the Win32 NLS primary order
-  in ACE's own compacted numbering — harvested from ACE's stored keys character by character
-  (`Latin1SymbolCollationAccessTests`):
+  in ACE's own compacted numbering — measured from ACE's stored keys character by character:
   `¡ ¦ ¨ ¯ ´ ¸ ¿` = `2B 10`…`2B 16` (continuing the `^_\`{|}~` group);
   `± « » × ÷` = `33 04/05/07/09/0A`; `¢ £ ¤ ¥ § © ¬ ® ° µ ¶ ·` = `34 A6`…`34 B1`;
   `¼ ½ ¾` = `37 12/16/1A`. The **ordinal indicators** `ª`/`º` are not symbols at all: they take their base
@@ -492,11 +395,10 @@ this is the practical cost of General over General Legacy, invisible in the sche
   > weight. So full-width forms, half-width katakana, and case all collapse for free. ACE does **not**
   > pre-map with `LCMAP_HALFWIDTH`: `U+3000` (ideographic space) keeps its own key `7F 07 01 00` rather than
   > becoming a space and being dropped by the trailing-space trim, which is what a width pre-mapping would
-  > produce. Ligatures need no special handling either — NLS itself expands `ﬁ` to `f` + `i`. (Probed in
-  > `SortKeyComparisonProbeTest`.)
+  > produce. Ligatures need no special handling either — NLS itself expands `ﬁ` to `f` + `i`.
 
   **The long s `ſ` (U+017F) is a letter of its own**, not a fold onto `s`: it takes the two-byte primary
-  `6C 06` — the S–T gap — in **every** v0 order measured, General included (`LocaleCollationAccessTests`).
+  `6C 06` — the S–T gap — in **every** v0 order measured, General included.
   Uppercasing it invariantly gives `S`, so it has to be matched on the original character or the
   distinction is lost.
 
@@ -510,20 +412,17 @@ this is the practical cost of General over General Legacy, invisible in the sche
   > The weights are in an embedded resource (`SortKeyTableV0.bin`, 74 KB): 63,105 of them, 19,186 ignorable,
   > plus 40 word-sort ignorables and 276 kana — far past anything hand-maintainable. Most of v1's table can
   > be embedded from a published Microsoft file; v0's cannot at all, since its primaries are a Jet compaction
-  > rather than the NLS weights, so **ACE itself is the source**: `SortKeyTableV0GeneratorTest` inserts every
-  > code point into an indexed text column, reads the stored keys back and writes the resource
-  > (`LIBRED_GENERATE_V0=1`). Non-Latin scripts nearly all live on the same **two-byte `0x79` page** the
-  > locale tailorings use for letters sorting after Z.
+  > rather than the NLS weights, so **ACE itself is the source**: the table is ACE's stored key for every code
+  > point in an indexed text column. Non-Latin scripts nearly all live on the same **two-byte `0x79` page**
+  > the locale tailorings use for letters sorting after Z.
   >
-  > Both generators must run with the resource they are about to replace **suppressed**
-  > (`JetTextCollationV1Overrides.Suppressed`), and v1's shows why plainly: it records where the encoder
-  > *disagrees* with ACE, so measuring an encoder that already consults it would find no disagreements and
-  > write an empty file. Suppressing from the outset also means a generator never has to be able to *read*
-  > the resource it replaces, so it bootstraps from a stale or absent one.
+  > Regenerating either table must run with the resource being replaced **suppressed**
+  > (`JetTextCollationV1Overrides.Suppressed`): v1's records where the encoder *disagrees* with ACE, so an
+  > encoder that already consults it finds no disagreements and writes an empty file.
   >
-  > Two things that only a full sweep would show. **ACE weighs every CJK ideograph and the entire private-use
-  > area** — `U+5000`–`8FFF`, `B000`–`CFFF` and `E000`–`EFFF` are 4,096 for 4,096, none of it ignorable. And
-  > across all 65,536 code points **ACE refused exactly one**.
+  > **ACE weighs every CJK ideograph and the entire private-use area** — `U+5000`–`8FFF`, `B000`–`CFFF` and
+  > `E000`–`EFFF` are 4,096 for 4,096, none of it ignorable. And across all 65,536 code points **ACE refuses
+  > exactly one**.
   >
   > **Kana are their own mechanism.** A kana takes the two-byte primary `7F <sound>`, and the key gains a
   > section of its own — so a single kana changes the shape of the whole key:
@@ -542,7 +441,7 @@ this is the practical cost of General over General Legacy, invisible in the sche
   > **The small/normal flags are bit-packed.** Trailing normal forms are dropped, then what remains goes
   > three per byte, two bits each, most significant first, under a `10` marker in the byte's top two bits —
   > `11` normal, `10` small, `00` padding. One small kana is `A0`, "normal small" is `B8`, four kana take two
-  > bytes with the marker repeated. Verified over all 30 combinations up to four kana.
+  > bytes with the marker repeated. Verified for every combination up to four kana.
   >
   > Two rules that only appear in multi-character strings. The **halfwidth voicing marks `U+FF9E`/`U+FF9F`
   > are combining** — measured alone they look ignorable, but ACE folds them into the preceding kana's
@@ -580,7 +479,7 @@ this is the practical cost of General over General Legacy, invisible in the sche
   >
   > What `02 80 FF 80` denotes is still not established; it never varies, so it is emitted as a literal.
   >
-  > Three categories emerged that the Latin-1 range never showed:
+  > Three categories that the Latin-1 range does not show:
   > - **Ignorable** — ACE stores *nothing at all* (key `7F 01 00`): no primary, not even a secondary slot.
   >   Romanian's comma-below `ș`/`ț` are in this class, which is why they appear to "keep General's weights":
   >   General has none for them. Ignorability held in every order measured.
@@ -588,16 +487,15 @@ this is the practical cost of General over General Legacy, invisible in the sche
   >   Hebrew's niqqud, the Cyrillic combining marks and three Greek ones work this way.
   > - **Locale-dependent expansion** — `Ǆ` is `D`+`Ž` (two weights, the caron on the second: `7F 4F 78 01 02
   >   14 00`), and `Ǣ` is `Æ` with a macron whose letters differ per locale — Icelandic gives it its own `Æ`
-  >   at `79 04`. These are **refused** rather than approximated, since one weight where ACE uses two is
-  >   silently wrong in any string with a later accent.
+  >   at `79 04`. One weight where ACE uses two is silently wrong in any string with a later accent, so these
+  >   are encoded by decomposition (below), never approximated.
   >
-  > **Locales share the block tables**, because measuring all 21 against General showed the departures are
-  > tiny: **27 entries in total across every locale**, and most add only one or two over the entire extended
-  > range (Croatian eleven, the outlier). Each is listed in that locale's tailoring, which is consulted
-  > first — Lithuanian retailors fullwidth `Ｙ`, Ukrainian moves `ь`, Swedish puts wynn on `v` because it
-  > makes `w` a variant of `v`. Estonian, by contrast, leaves fullwidth `Ｖ` on General's weight, so these
-  > really are per-locale facts rather than a rule. `LocaleCollationAccessTests` asserts the whole range for
-  > every order, so a missed departure fails the build rather than writing a silently wrong key.
+  > **Locales share the block tables**, because the departures from General are tiny: **27 entries in total
+  > across every locale**, and most add only one or two over the entire extended range (Croatian eleven, the
+  > outlier). Each is listed in that locale's tailoring, which is consulted first — Lithuanian retailors
+  > fullwidth `Ｙ`, Ukrainian moves `ь`, Swedish puts wynn on `v` because it makes `w` a variant of `v`.
+  > Estonian, by contrast, leaves fullwidth `Ｖ` on General's weight, so these really are per-locale facts
+  > rather than a rule.
   >
   > **A ligature character weighs as its decomposition**, one component at a time — there is no ligature
   > mechanism in the format at all. `Ǆ` encodes exactly as the string `DŽ` (`7F 4F 78 01 02 14 00`), `Ǉ` as
@@ -611,11 +509,11 @@ this is the practical cost of General over General Legacy, invisible in the sche
   > do not decompose: Icelandic's `Ǣ` is its own `Æ` plus a secondary, and Croatian's `Ǆ` is its single-letter
   > `dž`. The components do take the locale's letters, though — Slovenian's `Ǆ` is `D` plus *Slovenian's* `ž`.
   >
-  > **Coverage is complete: all 2,147 characters ACE encodes, for every one of the 23 orders, with zero
-  > mismatches.** Nothing in the swept range is refused and nothing disagrees with ACE.
+  > **Coverage is complete over that range: every character ACE encodes, for every order listed below.**
+  > Nothing in it is refused and nothing disagrees with ACE.
 
   **Diacritic secondary weights**, each depending only on the mark and not the base letter — derived from
-  ACE by `TailoringGeneratorProbeTest`: acute `0x0E`, grave `0x0F`, **dot above `0x10`**, circumflex `0x12`,
+  ACE: acute `0x0E`, grave `0x0F`, **dot above `0x10`**, circumflex `0x12`,
   diaeresis `0x13`, **caron `0x14`**, **breve `0x15`**, **macron `0x17`**, tilde `0x19`, ring `0x1A`,
   **ogonek `0x1B`**, cedilla `0x1C`, **double acute `0x1D`**. Atomic letters that do not decompose carry one
   directly: `Ø`→`O`+`0x21`, `Ð`→`D`+`0x68`, **stroke** `Đ`→`D`+`0x1E`, `Ħ`→`H`+`0x1E`, `Ł`→`L`+`0x1F`,
@@ -632,10 +530,9 @@ this is the practical cost of General over General Legacy, invisible in the sche
 
   > **The secondary section has one entry per primary *weight*, not per primary *byte*.** A weight may be
   > one byte or two, and a two-byte weight still takes a single slot — Norwegian `ö` is
-  > `7F 79 06 01 13 00`: two primary bytes, one secondary. This only becomes visible once two-byte primaries
-  > and accents appear together, which is why it surfaced with the locale tailorings
-  > (`Ångström` in Norwegian, where `å` and `ö` are both two-byte). The **inline** apostrophe/hyphen section
-  > below counts weights as well, so both sections index the same way. An expansion is several *weights*
+  > `7F 79 06 01 13 00`: two primary bytes, one secondary. This is visible only where two-byte primaries and
+  > accents appear together (`Ångström` in Norwegian, where `å` and `ö` are both two-byte). The **inline**
+  > apostrophe/hyphen section below counts weights as well, so both sections index the same way. An expansion is several *weights*
   > (`ß`→`SS` is two one-byte weights), so it takes two slots.
 
   The section is emitted only when some character is accented: after the primary's `0x01` end marker it
@@ -644,7 +541,7 @@ this is the practical cost of General over General Legacy, invisible in the sche
   `7F 60 51 75 59 4D 64 07 4F 1C 53 1C 01 02 0E 00` (é = primary `0x51` = E, secondary `0x0E`), and
   `Montréal` (é at position 5) → `… 01 02 02 02 02 02 0E 00`. LibRed decomposes via Unicode NFD (base
   letter + combining mark) plus the small atomic table above; `JetTextCollation` reproduces these keys
-  **byte-for-byte vs ACE** (México/Montréal/München/São Paulo/Résumé and single accents).
+  **byte-for-byte vs ACE**.
 
   **Descending** text keys are the **bitwise inverse of the ascending key, with a `0x00`
   appended** — verified against ACE (e.g. ascending `A` = `7F 4A 01 00` → descending
@@ -652,30 +549,28 @@ this is the practical cost of General over General Legacy, invisible in the sche
   the fixed-type keys.
 
   **Locale-specific orders.** A database can be created with a sort order other than General; Access exposes
-  them as the "New Database Sort Order" list. Verified against **29 Access-authored fixtures — every non-CJK
-  entry in that list**, in `Data/`, each diffed against General v0 by having ACE encode the same 193 samples
-  and reading the stored keys back (`LocaleFixtureCollationProbeTest`, plus `DaoLocaleCollationProbeTest` for
-  orders only DAO can name):
+  them as the "New Database Sort Order" list. Verified against ACE for **every non-CJK entry in that list**,
+  each compared against General v0 (plus orders only DAO can name):
 
   - The stored value is a **true LCID**, not a small enum — Spanish Traditional is `1034` (`0x040A`) and
     Spanish **Modern** is `3082` (`0x0C0A`). DAO's `CollatingOrderEnum` lists only `dbSortSpanish = 1034`;
-    the Modern order postdates it and has no DAO name. Both files are **sort-order version `0`**, so the
+    the Modern order postdates it and has no DAO name. Both are **sort-order version `0`**, so the
     version is **orthogonal to the locale** — though in practice few locales have both generations. Access's
     "New Database Sort Order" list names a legacy order separately (`General - Legacy`, `Romanian - Legacy`,
     `Croatian - Legacy`, `Japanese - Legacy`), and **neither Spanish order has a `- Legacy` twin**: a second
     generation exists only where the Windows tailoring actually changed.
 
-  - **Version 1 is not a General-only thing.** Five of the fixtures stamp version `1` — Bosnian, Croatian,
+  - **Version 1 is not a General-only thing.** Five orders in the list stamp version `1` — Bosnian, Croatian,
     Indic, Romanian, Serbian — and all encode with **2-byte NLS primaries** exactly as General v1 does
-    (`a` = `7F 0E 02 01 00`, `c` = `7F 0E 0A 01 00`, `d` = `7F 0E 1A 01 00`). Every one of 193 samples differs
-    from General v0, because the whole key shape changes rather than individual letters moving. Croatian and
+    (`a` = `7F 0E 02 01 00`, `c` = `7F 0E 0A 01 00`, `d` = `7F 0E 1A 01 00`). Every key differs from
+    General v0, because the whole key shape changes rather than individual letters moving. Croatian and
     Romanian are the ones Access offers in both generations, and their `- Legacy` twins are ordinary v0 files
     with the same LANGID; Bosnian, Indic and Serbian have no legacy twin at all.
 
   - **The whole four-byte field is one 32-bit LCID** (§3.4). Several entries in Access's list are Windows
     *alternate sort orders*, which live in the LCID's high word and share their LANGID with the base locale:
 
-    | fixture | raw `0x6E`..`0x71` | LANGID | sort id | version | LCID |
+    | order | raw `0x6E`..`0x71` | LANGID | sort id | version | LCID |
     |---|---|---|---|---|---|
     | `German Phone Book` | `07 04 01 00` | 1031 | `01` | 0 | `0x00010407` |
     | `Hungarian Technical` | `0E 04 01 00` | 1038 | `01` | 0 | `0x0001040E` |
@@ -684,7 +579,7 @@ this is the practical cost of General over General Legacy, invisible in the sche
     | `Croatian` / `Croatian - Legacy` | `1A 04 00 01` / `1A 04 00 00` | 1050 | `00` | 1 / 0 | `0x0000041A` |
 
     Hungarian and Hungarian Technical differ **only** in the sort id, so an implementation that reads the
-    LANGID alone cannot tell them apart — LibRed could not, until these fixtures.
+    LANGID alone cannot tell them apart.
 
   - **German Phone Book is an expansion, not an insertion**: `ä` = `7F 4A 51 01 00`, i.e. primaries `a` + `e`
     (General has `7F 4A 01 13 00`, `a` + umlaut secondary); likewise `ö` → `o`+`e` and `ü` → `u`+`e`. It uses
@@ -711,10 +606,9 @@ this is the practical cost of General over General Legacy, invisible in the sche
     `ą` `06` — and three in `0x4E` (`ç` `02`, `ć` `03`, `č` `04`). Estonian's `0x6C` holds `š` `06`, `z` `07`,
     `ž` `08`, in exactly Estonian alphabet order. Swedish/Finnish and Norwegian/Danish both stack their three
     extra vowels after Z: `å` `05` / `ä` `07` / `ö` `08` for Swedish, `æ` `04` / `ø` `06` / `å` `09` for
-    Norwegian — each language's own order. (An earlier revision here said cross-locale disagreement ruled a
-    sub-position out. It does not: it only ruled out a *fixed marker*. The values are per-locale ordinals.)
-    How a specific value is chosen is still unknown — they are ordered but not dense, and Latvian uses `0x12`
-    for `ķ` and `0x0C` for `ņ`.
+    Norwegian — each language's own order. The second byte is a per-locale ordinal, not a fixed marker, which
+    is why locales disagree on it. How a specific value is chosen is still unknown — they are ordered but not
+    dense, and Latvian uses `0x12` for `ķ` and `0x0C` for `ņ`.
 
   - **The after-Z letters use the `0x79` page**, which is where General already keeps Greek and Cyrillic:
     Czech `ž` = `79 05`, Polish `ż` = `79 04`, Icelandic `þ` `03` / `æ` `04` / `ö` `05`. Same two-byte
@@ -755,11 +649,11 @@ this is the practical cost of General over General Legacy, invisible in the sche
 
   - **Every order is General plus a small tailoring** — including the version-1 ones. Compared against the
     General order of **its own version** (the v1 baseline is a database LibRed creates with
-    `Collation.General`, which ACE then encodes into), no order departs in more than 47 of 193 samples, and
-    a version-1 order is *not* a wholesale reweighting — it only looked like one against a v0 baseline,
-    because the key shape changes. `LocaleFixtureCollationProbeTest` reports both.
+    `Collation.General`, which ACE then encodes into), no order departs in more than 47 of 193 sample
+    values, and a version-1 order is *not* a wholesale reweighting — it only looks like one against a v0
+    baseline, because the key shape changes.
 
-    | departure | orders |
+    | departure (of 193) | orders |
     |---|---|
     | 47 | Hungarian Technical |
     | 14–16 | Bosnian, Croatian, Croatian Legacy, Estonian, Serbian (16), Slovak (15), Czech, Hungarian (14) |
@@ -770,24 +664,21 @@ this is the practical cost of General over General Legacy, invisible in the sche
     Croatian, Bosnian and Serbian depart in the same 16 as Croatian Legacy — the same letter set tailored in
     both generations, so a locale's *character list* is version-independent even though its weights are not.
 
-    Two caveats on reading this as effort. 193 samples are a sample, not an alphabet: `0 differ` means
-    *indistinguishable over these*, and a real implementation needs a fuller sweep per locale. And **French
-    is under-measured** — its one difference is in the *secondary section*, consistent with French ordering
-    accents from the end of the word, which single-character samples cannot exercise.
+    A sample is not an alphabet: `0` means *indistinguishable over these values*, not identical. French's
+    single departure is in the *secondary section*, consistent with its reversed diacritic section (above).
 
   - **Some orders are recorded but unimplemented — including one Access itself lists.** `Arabic` (1025),
     `Greek` (1032), `Hebrew` (1037), `Dutch` (1043) and `Cyrillic` (1049) are created happily by DAO, land on
     page 0 with the right LCID, get stamped onto the columns ACE itself creates, and ACE opens and runs DDL
-    against them — yet the keys are **byte-identical to General across 57 samples**, chosen to include what a
-    tailoring would actually move (Greek tonos and final sigma, Cyrillic `ё`/`й`/`ь`/`ъ`, Hebrew final forms,
-    Arabic hamza forms, the `ĳ` ligature). Access's list offers none of those five. But `Georgian Modern`
-    **is** in the list, carries sort id `0x01`, and is likewise indistinguishable from General over 193
-    samples — so appearing in the UI does not imply an implementation, and the sort id can be recorded for an
-    order that does nothing.
+    against them — yet the keys are **byte-identical to General**, including for what a tailoring would
+    actually move (Greek tonos and final sigma, Cyrillic `ё`/`й`/`ь`/`ъ`, Hebrew final forms, Arabic hamza
+    forms, the `ĳ` ligature). Access's list offers none of those five. But `Georgian Modern` **is** in the
+    list, carries sort id `0x01`, and is likewise indistinguishable from General — so appearing in the UI does
+    not imply an implementation, and the sort id can be recorded for an order that does nothing.
 
-  - **DAO can author a locale order**, even though it cannot author a sort-order *version*
-    (`DaoDatabaseCreationProbeTest`). A DAO-created `LANGID=0x040A` database reproduces the Access-authored
-    `SpanishTraditional.accdb` keys byte-for-byte, so locale fixtures need no manual Access step.
+  - **DAO can author a locale order**, even though it cannot author a sort-order *version*: a DAO-created
+    `LANGID=0x040A` database produces the same keys, byte-for-byte, as an Access-authored Spanish Traditional
+    one.
   - `ñ` is a **letter in both Spanish orders** and an accented `n` in General — so **Modern = General plus
     that one letter**, and **Traditional = Modern plus the two digraphs**. Every other sample encodes
     byte-identically across all three orders.
@@ -795,11 +686,11 @@ this is the practical cost of General over General Legacy, invisible in the sche
     expansions above. `chico` is `7F 4E 04 59 4D 64 01 00` — five characters, four primaries. Case folds as
     usual, so `ch`, `Ch` and `CH` share a key.
 
-  **LibRed implements the tailorings whose every difference is a single character** — `JetLocaleTailoring`,
-  a per-locale `char` → primaries override consulted ahead of the General tables, looked up by the *original*
-  character before the uppercased one (which is what lets Turkish disagree with invariant casing, where `I`
-  is the dotless letter). Implemented and asserted byte-for-byte against ACE over 345 values — the whole of
-  printable ASCII, Latin-1 and Latin Extended-A, plus words (`LocaleCollationAccessTests`):
+  **LibRed implements the tailorings below** — `JetLocaleTailoring`, a per-locale override from a character
+  or a character sequence (digraph, contraction) to primaries, matched longest-first ahead of the General
+  tables and looked up by the *original* character before the uppercased one (which is what lets Turkish disagree with invariant casing, where `I`
+  is the dotless letter). Verified byte-for-byte against ACE over printable ASCII, Latin-1 and Latin
+  Extended-A, plus words:
 
   | order | tailoring |
   |---|---|
@@ -829,11 +720,10 @@ this is the practical cost of General over General Legacy, invisible in the sche
   An **empty** tailoring is meaningful and different from none: it says the order was measured to need no
   change, so the order can be encoded rather than refused.
 
-  **One order can wear several LCIDs.** 49 further orders needed no tailoring of their own, because their
-  keys are byte-identical to one already listed — measured LibRed-against-ACE over the whole survey sample
-  set, so the encoder was already emitting the right bytes and only the dictionary key was missing. They live
-  in `JetLocaleTailoring.Aliases`, which points each at the entry already built **by reference**, so the
-  weights exist once and two LCIDs cannot drift apart:
+  **One order can wear several LCIDs.** Further orders need no tailoring of their own, because their keys are
+  byte-identical, verified against ACE, to one already listed. They live in `JetLocaleTailoring.Aliases`,
+  which points each at the entry already built **by reference**, so the weights exist once and two LCIDs
+  cannot drift apart:
 
   | is | LCIDs |
   |---|---|
@@ -845,19 +735,18 @@ this is the practical cost of General over General Legacy, invisible in the sche
   | its own language's order | the neutral `cs` `hr` `hu` `is` `pl` `ro` `sk` `sl` `et` `lv` `lt` `vi` `th` `tr` `uk` `mk` |
 
   > **Mexico is the warning against reasoning from names.** It takes Spanish *Traditional* while seventeen of
-  > its siblings take *Modern* and three take neither; the sweep ranks Modern as the nearest miss at 14
-  > departures, so the sample set genuinely discriminated rather than picking between two plausible parents.
+  > its siblings take *Modern* and three take neither; Modern is 14 departures away from it, not a near tie.
 
   > **Danish 1030 vs Norwegian 1044 is not a typo.** DAO's own `dbSortNorwDan` constant is 1030, while the
   > order Access calls "Norwegian/Danish" — and which LibRed's `Norwegian` member names — is 1044. The two
-  > LCIDs carry the same order; the sweep says so directly rather than by reasoning from the names.
+  > LCIDs carry the same order, measured rather than inferred from the names.
 
   > **"Technical" is not a variant of the digraph order.** Hungarian Technical tailors plain `g` to `56 03`,
   > so its `gy` is that tailored `g` followed by an ordinary `y` — not a contraction. It is the largest
   > single-character tailoring measured and contains no multi-character entry.
 
-  > **A single-character sweep cannot find a digraph.** Vietnamese looked like a single-character order until
-  > `Ångström` came out three weights short: `ng` and `tr` each weigh as one letter. Its set is
+  > **A single-character sweep cannot find a digraph.** Vietnamese looks like a single-character order until a
+  > word contains one: `ng` and `tr` each weigh as one letter (`Ångström` is three weights short). Its set is
   > `ch gi kh ng nh ph qu th tr` — and note `gh` and `ngh` are *not* letters, they fall out of greedy
   > matching as `g`+`h` and `ng`+`h`, which is exactly what ACE stores.
 
@@ -867,24 +756,22 @@ this is the practical cost of General over General Legacy, invisible in the sche
   with ACE about where rows sort. Widening it is therefore always a matter of adding a measurement, never of
   adding a fallback.
 
-  **The 325 orders with no tailoring at all.** Every other locale DAO will create — Bulgarian, Russian,
+  **The orders with no tailoring at all.** Every other locale DAO will create — Bulgarian, Russian,
   Greek, Hebrew, Arabic, the Indic scripts, Khmer, Yi, all fourteen Arabic and thirteen English
-  sublanguages, all eight Sami, and 280 more — was measured to produce index keys **byte-identical to
-  General v0**, over its own script's whole Unicode block plus a 626-value Latin baseline. They carry no
+  sublanguages, all eight Sami, and the rest — produces index keys **byte-identical to General v0**,
+  verified over its own script's whole Unicode block plus a Latin baseline. They carry no
   weights and are admitted by `JetLocaleTailoring.GeneralV0`, a set of orders rather than a dictionary of
   tailorings, since the fact recorded is about the order and not about anything it does.
 
-  > **The reachable set is far wider than Access's dropdown, in two directions nobody expects.** DAO takes a
-  > raw LANGID, so the sweep is over every LANGID Windows defines a culture for — 409 of them, of which 406
-  > create.
+  > **The reachable set is far wider than Access's dropdown, in two unexpected directions.** DAO takes a raw
+  > LANGID, and all but three of the LANGIDs Windows defines a culture for create.
   >
   > **Neutral LANGIDs are real orders.** `0x0001`–`0x0091`, and the script-neutral `0x64xx`–`0x7Cxx` forms,
   > are all accepted and stored verbatim as collating orders `1`–`145` and `25626`–`31847` — numbers no
   > locale picker will ever show. Each resolves to *its language's own order*, not to General: `cs` (5) is
   > Czech, `hr` (26) is Croatian, `th` (30) is Thai. The opposite of what "neutral" suggests.
   >
-  > **Sublanguages do not inherit.** This is the finding that makes the sweep worth its cost. **Spanish
-  > splits three ways**: `es` and es-MX take Traditional, seventeen Latin-American locales take Modern, and
+  > **Sublanguages do not inherit.** **Spanish splits three ways**: `es` and es-MX take Traditional, seventeen Latin-American locales take Modern, and
   > es-US, es-419 and es-CU take no tailoring at all. **French splits two ways**: fr-CH, fr-LU and fr-MC take
   > the French order, while fr-CD, fr-SN, fr-CI, fr-ML, fr-MA, fr-HT, fr-CM, fr-RE and fr-029 are plain
   > General. Same language, same script, opposite answers — and no rule derivable from the names predicts it.
@@ -896,35 +783,26 @@ this is the practical cost of General over General Legacy, invisible in the sche
   > Georgian is the live counterexample on the second axis — `1079` at sort id 0 is in the set, `1079` at
   > sort id 1 is Georgian Modern with a tailoring of its own.
 
-  What remains: **Irish 1084**, the one order the survey could not measure at all — Jet accepts it, but not
-  in a process that has loaded the ACE OLE DB provider, so no ACE keys could be obtained to compare; and the
-  **CJK** orders, deliberately out of scope. Three orders — Serbian Latin 2074, Bosnian Latin 5146 and Hindi
-  1081 — are unreachable at version 0 by construction: Jet refuses them with *"Incorrect collating
+  What remains: **Irish 1084**, unmeasured — Jet accepts it, but not in a process that has loaded the ACE
+  OLE DB provider, so its ACE keys are unknown; and the **CJK** orders, deliberately out of scope. Three
+  orders — Serbian Latin 2074, Bosnian Latin 5146 and Hindi 1081 — are unreachable at version 0 by construction: Jet refuses them with *"Incorrect collating
   sequence."*, and they are exactly the three already implemented at version 1.
 
-  > **Everything above is checked by creation, not just by the survey.** `CreatedDatabaseCollationAccessTests`
-  > enumerates `CollatingOrder` and takes every combination `IsIndexKeyEncodable` accepts — **405** of them
-  > (399 at version 0 plus the six orders with a version-1 table) —
-  > has LibRed synthesise a database in that order, then has ACE open it, build an index and write keys, and
-  > requires the two engines' keys to match byte for byte. So a wrong LCID in the set does not pass quietly:
-  > ACE would index with whatever order that LCID really names, and the keys would part company.
+  > **Everything above is verified by creation too.** For every combination `IsIndexKeyEncodable` accepts —
+  > every accepted order at version 0 plus the six orders with a version-1 table — a database LibRed
+  > synthesises in that order, indexed by ACE, holds keys matching LibRed's byte for byte. A wrong LCID
+  > cannot pass quietly: ACE indexes with whatever order that LCID really names.
 
-  *Not yet handled:* **Irish 1084**, the one order the survey could not measure, and the **CJK** orders,
-  deliberately out of scope. **Six** version-1 collations are implemented — General v1, Indic v1, Romanian v1,
-  and Croatian / Bosnian / Serbian v1 sharing one table — and the version-1 surface is now swept: those six
-  are the only non-CJK orders that differ from General v1, so the rest are covered by falling back to it.
-  Measuring v1 needed an authoring route other than DAO, which writes version 0 for every LANGID it accepts.
-
-  > This paragraph said "characters outside ASCII + the accented Latin-1 set; every locale other than
-  > General" for a long time after both had been done — it was written when they were true and never
-  > revisited, while the sections above it grew to a whole-BMP table and hundreds of locales. A "not yet"
-  > list is the first thing in a spec to rot, and the only defence is to treat it as a claim needing the
-  > same evidence as any other.
+  *Not yet handled:* **Irish 1084** and the **CJK** orders (above). **Six** version-1 collations are
+  implemented — General v1, Indic v1, Romanian v1, and Croatian / Bosnian / Serbian v1 sharing one table —
+  and those six are the only non-CJK orders that differ from General v1, so the rest are covered by falling
+  back to it. DAO writes version 0 for every LANGID it accepts, so a v1 database needs another authoring
+  route.
 - **GUID:** the start flag `0x7F`, then the 16 GUID bytes in **canonical string order** (i.e.
   `guid.ToString("N")` bytes — **not** the mixed-endian `.ToByteArray()` storage layout), split into two
   8-byte halves by a constant `0x09` marker, and terminated by `0x08` — a fixed **19-byte** key. Data
   bytes equal to `0x08`/`0x09` need no escaping (every field is at a fixed offset). Verified byte-for-byte
-  against ACE (zeros, all-`FF`, sequential, and random GUIDs); ACE also opens a LibRed-written GUID-PK
+  against ACE; ACE also opens a LibRed-written GUID-PK
   table and seeks a row by its key. Encoded/decoded by `IndexKeyEncoder`/`IndexKeyDecoder`. Example:
   `01020304-0506-0708-090a-0b0c0d0e0f10` → `7F 0102030405060708 09 090A0B0C0D0E0F10 08`.
   **Descending** inverts every byte of the ascending key **except the `0x09` field marker** (kept constant
@@ -940,14 +818,104 @@ this is the practical cost of General over General Legacy, invisible in the sche
   a **control byte**: `0x09` when a further chunk follows (a full 8-byte chunk with more data to come),
   otherwise the **real-byte count of this final chunk** (`0x01…0x08`; `0x08` for a full final chunk).
   The count `≤ 8 < 0x09`, so control values never collide. This is exactly the
-  GUID chunking generalised to any length: a 16-byte value is two chunks (`… 09 … 08`), and the old
-  fixed 4-byte MSysQueries.Order case is the single-chunk form `7F <4B> 00000000 04`. The trailing
+  GUID chunking generalised to any length: a 16-byte value is two chunks (`… 09 … 08`), and the fixed
+  4-byte MSysQueries.Order key is the single-chunk form `7F <4B> 00000000 04`. The trailing
   length-terminator makes shorter values sort before longer ones that share a prefix (correct binary
   prefix order). **Descending** inverts every byte **except the `0x09` continuation markers** (mirrors
-  GUID): flag → `0x80`, data bytes and the terminator inverted, markers unchanged. Verified byte-for-byte
-  against ACE's `EverythingIsBytes` fixture (3/4/5/8/16-byte keys, single- and multi-chunk) by
-  re-encoding each stored key's row value; descending has no ACE fixture and is extrapolated from the
-  verified GUID descending (ordering-tested for internal consistency). `IndexKeyEncoder.EncodeBinaryChunked`.
+  GUID): flag → `0x80`, data bytes and the terminator inverted, markers unchanged. Ascending is verified
+  byte-for-byte against ACE-written keys (single- and multi-chunk); descending is **unverified** against ACE,
+  extrapolated from the verified GUID descending. `IndexKeyEncoder.EncodeBinaryChunked`.
+
+### 10.4a Entry removal — LibRed compacts a leaf harder than ACE does
+
+Removing entries leaves the two engines with **identical index content and byte-different pages**. LibRed
+rewrites the leaf without the removed entries; ACE returns less of their space.
+
+> After the same `DROP TABLE`, the catalog index roots it touches hold the *same entries in the same order*
+> under both engines, while their free-space fields diverge:
+>
+> | index root | before | ACE | LibRed |
+> |---|---|---|---|
+> | `MSysObjects.ParentIdName` | 3,046 | 3,064 | 3,136 |
+> | `MSysObjects.Id` | 3,436 | 3,445 | 3,463 |
+> | `MSysACEs.ObjectId` | 3,256 | 3,274 | 3,311 |
+>
+> Since the surviving entries then sit at different offsets, the pages differ widely despite agreeing on
+> every entry. This is index maintenance, not a drop artefact — any `DELETE` removing entries does it.
+
+**Not currently treated as a defect.** The logical content matches, and ACE goes on writing into these very
+indexes in a LibRed-compacted file — after a LibRed drop it inserts rows, allocates pages and adds catalog
+entries normally. Packing tighter is also the conservative direction. What is *not* established is why ACE
+leaves the space; if a scenario ever turns up that requires matching it byte for byte, this is the knob, and
+matching would mean deliberately compacting **less**.
+
+### 10.4b The 510-byte index entry limit
+
+**ACE stores an index entry of at most 510 bytes as built.** At exactly 510 it comes back byte-for-byte; a
+value that would need 511 comes back as 510: the first **508** bytes kept, and the rest replaced by a
+two-byte **checksum over the bytes that were dropped**. That is why two long values sharing a 508-byte
+prefix still sort apart instead of colliding.
+
+#### The checksum
+
+A 16-bit fold over the **discarded run** — every byte from offset 508 to the end of the untruncated key —
+stored big-endian in the last two bytes. Each byte is XORed into the **high** half and the state is then
+folded; the fold happens *between* bytes, so the last byte of the run contributes its XOR and nothing else:
+
+```
+crc = 0
+for each byte b of the discarded run:
+    crc ^= b << 8
+    if b is not the last:  crc = (crc >> 8) ^ T[crc & 0xFF]
+```
+
+with no initial value and no final XOR. The step table is
+
+```
+T[1<<i] = 0580 0F80 1B80 3380 6380 C380 8381 0383      (i = 0..7)
+```
+
+Note the framing rather than the polynomial is the unusual part: a standard reflected CRC updates as
+`crc = (crc >> 8) ^ T[(crc ^ b) & 0xFF]`, passing the byte **through** the table; no conventional CRC
+framing reproduces it.
+
+The function is **affine over GF(2)** — tails differing in one byte give `L(0xA3) = CA03`, `L(0x13) = 6980`,
+`L(0xB0) = A383`, and `CA03 ^ 6980 = A383` exactly — and **shift-invariant**, so a byte at distance *d* from
+the end contributes `S^(d-1)` of itself whatever the message length. The eight table rows above follow from
+those contributions.
+
+Equivalently, and how `JetIndexKeyChecksum` implements it: fold every byte but the last in the form
+`crc = (crc >> 8) ^ T[crc & 0xFF] ^ b`, then XOR the last byte's `b << 8` into the result. The two are the
+same function.
+
+**The discarded run is 3 bytes at minimum** (truncation triggers only above 510, and the run is
+`length − 508`), and the rule is keyed to the run's *last byte*, not to a fixed offset in the key (verified
+for runs of 3 through 13 bytes).
+
+Verified against ACE for Latin, accented and Han text under both sort orders; for composite keys ending in
+`LONG`, `CURRENCY` and `DOUBLE`; and for keys whose dropped bytes contain an inline **word-sort record** —
+ACE does not reposition that record when truncating, so it reconstructs exactly. **Nothing is refused**;
+every key past the cap is truncated the way ACE truncates it.
+
+> The "fold between bytes" framing matters, and is easy to get wrong in a way no all-text test can catch.
+> Writing the loop as "fold every byte except the last" — reading the skipped byte as the text terminator —
+> gives the identical answer whenever that byte is `0x00`, which it always is when the key ends in text. The
+> two readings part company the moment the last key column is numeric. See
+> [`docs/design/index-key-checksum.md`](../design/index-key-checksum.md).
+
+The cap is on the **whole entry, not per column**: two 200-character text columns weigh about 404 bytes of
+key each, comfortably under the cap individually, and ACE stores their combined entry hashed at 510.
+
+Because it limits **weights** rather than characters, the text it buys depends on collation and script — and
+this is the practical cost of General over General Legacy, invisible in the schema:
+
+| | bytes per character | characters indexed in full |
+|---|---|---|
+| v0, Latin | 1 primary | **255** — the column limit is reached first |
+| v0, accented / CJK | 2 | **254** |
+| v1, Latin | 2 primary | **253** |
+| v1, accented | 3 | **169** |
+| v1, Han | 4 (`FD FF AW DW`) | **127** |
 
 ### 10.5 Insertion and splitting
 
@@ -956,11 +924,10 @@ separator is the **maximum key of its child subtree**, stored as a full leaf key
 4-byte row pointer), so descend into the first child whose separator `≥` the new full key, else the
 child-tail (`0x14`). Slot the new entry into the target leaf in key order and rewrite the page.
 
-When a page would overflow, **split** it (LibRed's `IndexWriter`). Verified by inserting 1500 keys —
-past one leaf — and reading every one back in order through a now multi-level tree, **and against ACE**:
-Access opens the file and an indexed point seek (`WHERE Id = 1234`), an indexed range (`Id BETWEEN 300
-AND 309`), a full `COUNT(*)`, a non-indexed scan (`T LIKE 'r%'`) and `SUM(Id)` all return the correct
-result — i.e. every row is reachable both by the tree and by the leaf-chain scan Access uses.
+When a page would overflow, **split** it (LibRed's `IndexWriter`). Verified **against ACE** on a
+multi-level tree LibRed wrote: Access's indexed point seek, indexed range, full `COUNT(*)`, non-indexed scan
+and `SUM` all return the correct result — i.e. every row is reachable both by the tree and by the leaf-chain
+scan Access uses.
 
 The split mechanics:
 
@@ -978,28 +945,24 @@ The split mechanics:
   its child becomes the left node's child-tail, and the old tail stays the right node's tail.
 - **Right-edge split.** When the incoming key is the highest on the page, both engines leave that page full
   and start a new one holding the new entry alone, instead of halving it: nothing sorts below a maximum key,
-  so a middle split there strands half a page for ever. LibRed split down the middle unconditionally until
-  this was measured, and so spent about 1.8x the leaves on a sequential load — the ordinary case, since
-  AutoNumber and identity keys ascend by construction. Measured on 1500 rows through both engines (leaf free
-  space, sorted):
+  so a middle split there strands half a page for ever. A writer that always splits down the middle spends
+  about 1.8x the leaves on a sequential load — the ordinary case, since AutoNumber and identity keys ascend by
+  construction. Leaf count and free space (sorted) after 1500 rows:
 
-  | inserted | ACE | LibRed before | LibRed now |
+  | inserted | ACE | middle split only | with right-edge split (LibRed) |
   | --- | --- | --- | --- |
   | ascending | 3 leaves — `1, 1, 952` | 4 — `31, 1807, 1807, 1807` | 3 — `1, 1, 1837` |
   | descending | 4 — `31, 1807, 1807, 1807` | 4 — `49, 1801, 1801, 1801` | unchanged |
   | random | 4 — `1267, 1369, 1405, 1411` | 4 — `1291, 1357, 1387, 1417` | unchanged |
 
   The rule is **right-edge only**: descending inserts get an ordinary middle split from ACE too, and on
-  random keys both settle near two-thirds full — the classic B-tree equilibrium. Those two workloads are
-  what make the special case free: its condition cannot fire when the new key is not the page maximum, so
-  the general behaviour is untouched. They also showed LibRed's middle split already matched ACE's, which is
-  why this was an added case rather than a change to the split machinery.
+  random keys both settle near two-thirds full — the classic B-tree equilibrium. Its condition cannot fire
+  when the new key is not the page maximum, so the general behaviour is untouched.
 
-  It also appears to cost nothing on the workload it is supposed to: the obvious objection — that a page
-  packed to capacity must split as soon as anything lands in its range — did not show up in a gapped load
-  backfilled ascending (ACE 5 leaves `1, 1, 1, 7, 55` against LibRed's then-6), because an ascending
-  backfill keeps meeting the right edge of a subtree. A *random* backfill into pre-packed pages has not been
-  measured. `IndexSplitPackingAccessTests`.
+  The obvious objection — that a page packed to capacity must split as soon as anything lands in its range —
+  does not show up in a gapped load backfilled ascending (ACE: 5 leaves, `1, 1, 1, 7, 55`), because an
+  ascending backfill keeps meeting the right edge of a subtree. A *random* backfill into pre-packed pages is
+  unmeasured.
 - **Propagation:** the promoted separator `[key → left page]` is inserted into the parent, whose
   pointer to the just-split page is repointed to the new right page; if the parent overflows it
   splits in turn, up to the root.
@@ -1014,16 +977,15 @@ The split mechanics:
 > [page-05 §9](page-05-usage-maps.md), which owns that rule.
 
 
-> **Indexable types — coverage vs ACE (§10.4).** `IndexKeyEncoder` now encodes **every type ACE lets you
+> **Indexable types — coverage vs ACE (§10.4).** `IndexKeyEncoder` encodes **every type ACE lets you
 > index**, all byte-verified: Boolean, Byte, Int16, Int32, Currency, Single, Double, DateTime, Text, GUID,
 > Binary, FixedPoint, Memo (its first 255 chars), **`Int64`/BIGINT** (`0x13`) and
 > **`DateTimeExtended`/DATETIME2** (`0x14`). ACE correctly **refuses** to index `OLE` (`0x0B`) and `Complex`
 > (`0x12`).
 >
-> `Int64`/BIGINT keys exactly as Currency does — an int64, sign bit flipped, big-endian — which had long been
-> the guess on record and is now measured across `0`, `±1`, `±42` and both extremes, ascending and descending
-> (`BigIntKeyEncodingTests`). Note its **variable-length storage does not change this**: the key dispatch is on
-> the column's type, not on where the row keeps the bytes. `IndexKeyDecoder` decodes it too, unlike DATETIME2 —
+> `Int64`/BIGINT keys exactly as Currency does — an int64, sign bit flipped, big-endian — verified against ACE
+> including both extremes, ascending and descending. Note its **variable-length storage does not change
+> this**: the key dispatch is on the column's type, not on where the row keeps the bytes. `IndexKeyDecoder` decodes it too, unlike DATETIME2 —
 > it is a plain fixed-width numeric key.
 >
 > `DateTimeExtended` is **not** a fixed-width numeric key. ACE runs its whole 42-byte stored value through the
@@ -1031,6 +993,6 @@ The split mechanics:
 > real-byte count — instead of folding it to a number the way `DateTime` folds to its OA double. That works
 > because the stored encoding is already order-preserving (both fields zero-padded to 19 digits), and it means
 > the value's trailing NUL is part of the key ([data-types](data-types.md)). Descending inverts every byte
-> except the `0x09` markers, exactly as for Binary. Verified both directions in `DateTime2KeyEncodingTests`.
+> except the `0x09` markers, exactly as for Binary. Verified against ACE in both directions.
 > `IndexKeyDecoder` does not decode it, for the same reason it does not decode Binary or Text: the chunked
 > form stops the in-place walk, and the caller falls back to reading the row.

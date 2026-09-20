@@ -12,6 +12,7 @@ namespace LibRed.Core.Tests;
 /// real-world databases that was 221 of 592 stored queries. These author each shape through DAO, exactly as
 /// the Access UI does, and check LibRed classifies and rebuilds it.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class StoredQueryKindAccessTests
 {
     [Fact]
@@ -163,13 +164,7 @@ public class StoredQueryKindAccessTests
     /// skipped) where DAO is not registered.</summary>
     private static bool Author(string path, params (string Name, string Sql)[] queries)
     {
-        object? engine = null;
-        foreach (int n in new[] { 170, 160, 150, 140, 130, 120 })
-        {
-            Type? type = Type.GetTypeFromProgID($"DAO.DBEngine.{n}");
-            if (type is null) continue;
-            try { engine = Activator.CreateInstance(type); break; } catch (Exception) { }
-        }
+        object? engine = AceTestDatabase.CreateDaoEngine();
         if (engine is null) return false;
 
         object database = Invoke(engine, "OpenDatabase", path, false, false, "")!;

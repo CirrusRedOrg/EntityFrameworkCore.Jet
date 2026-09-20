@@ -11,6 +11,7 @@ namespace LibRed.Core.Tests;
 // Proven against ACE with three names whose first-appearance order (Required, DefaultValue, CheckConstraints)
 // is deliberately not alphabetical (which would be CheckConstraints, DefaultValue, Required). Guards against a
 // future "tidy-up" that sorts the pool in PropertyBlob.Write (which uses Distinct() = first appearance).
+[Collection(AceCollection.Name)]
 public class PropertyNamePoolOrderTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

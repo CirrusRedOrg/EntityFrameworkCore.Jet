@@ -7,6 +7,7 @@ namespace LibRed.Core.Tests;
 // DROP VIEW / DROP PROCEDURE removes a type-5 query object's MSysObjects + MSysQueries + MSysACEs rows
 // (verified vs ACE, which also treats the two statements interchangeably). After a LibRed drop, ACE opens
 // the file, no longer sees the object, and still runs the surviving views.
+[Collection(AceCollection.Name)]
 public class DropViewAccessTests
 {
     private static OleDbConnection Open(string path) => AceTestDatabase.Open(path);

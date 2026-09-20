@@ -65,6 +65,14 @@ public sealed class LongValueWriter(PageChannel channel)
         var pages = new int[chunkCount];
         for (int i = 0; i < chunkCount; i++) pages[i] = _allocator.Allocate();
 
+        // The chain stamp goes in two places and must match in both: here on the first chunk page and in the
+        // descriptor below. It is a version tag on the CHAIN, minted per write of it, so a reader arriving
+        // through a descriptor can tell that the pages it is about to follow are the ones that descriptor was
+        // written against and not a later value's. Only the entry page carries it — every chunk after that is
+        // reached from a page already validated. ACE uses GetTickCount(); the value is arbitrary and only the
+        // agreement is checked, so matching its choice keeps our pages the shape Access produces.
+        uint stamp = (uint)Environment.TickCount;
+
         for (int i = 0; i < chunkCount; i++)
         {
             int start = i * MaxChunkData;
@@ -77,10 +85,11 @@ public sealed class LongValueWriter(PageChannel channel)
             row[2] = (byte)(nextPage >> 8);
             row[3] = (byte)(nextPage >> 16);
             payload.AsSpan(start, len).CopyTo(row.AsSpan(4));
-            WriteChunkPage(pages[i], row);
+            WriteChunkPage(pages[i], row, i == 0 ? stamp : 0);
         }
 
-        return new LongValueResult(Descriptor(payload.Length, LongValueFormat.FlagChained, pages[0]), pages, FreePage: 0);
+        return new LongValueResult(
+            Descriptor(payload.Length, LongValueFormat.FlagChained, pages[0], stamp: stamp), pages, FreePage: 0);
     }
 
     /// <summary>Allocates a fresh LVAL page, writes <paramref name="row"/> as its row 0, and returns the
@@ -148,14 +157,17 @@ public sealed class LongValueWriter(PageChannel channel)
     public static byte[] SinglePageDescriptor(int length, int page, int row) =>
         Descriptor(length, LongValueFormat.FlagSinglePage, page, row);
 
-    /// <summary>Writes one row (<paramref name="row"/>) to a fresh LVAL data page, packed from the page end.</summary>
-    private void WriteChunkPage(int pageNumber, byte[] row)
+    /// <summary>Writes one row (<paramref name="row"/>) to a fresh LVAL data page, packed from the page end.
+    /// <paramref name="stamp"/> is the chain stamp for the first page of a chain, and zero everywhere else —
+    /// which is what ACE writes on a single-page value and on every chunk after the first.</summary>
+    private void WriteChunkPage(int pageNumber, byte[] row, uint stamp = 0)
     {
         JetFormatBase format = _channel.Format;
         var page = new byte[format.PageSize];
         page[0] = (byte)PageType.DataPage;
         page[1] = 0x01; // page flags (observed constant)
         BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(format.DataOwnerOffset, 4), LongValueFormat.LvalMarker);
+        BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(format.DataChainStampOffset, 4), stamp);
 
         int offset = format.PageSize - row.Length;
         row.CopyTo(page.AsSpan(offset));
@@ -166,8 +178,10 @@ public sealed class LongValueWriter(PageChannel channel)
         _channel.WritePage(pageNumber, page);
     }
 
-    /// <summary>Builds the 12-byte descriptor: 4-byte length with storage flags, row/page, reserved.</summary>
-    private static byte[] Descriptor(int length, byte flag, int firstPage, int row = 0)
+    /// <summary>Builds the 12-byte descriptor: 4-byte length with storage flags, row/page, chain stamp. The
+    /// stamp is non-zero only on the chained form, where it repeats the first chain page's own — ACE leaves it
+    /// zero on the inline and single-page forms, and checks it on neither.</summary>
+    private static byte[] Descriptor(int length, byte flag, int firstPage, int row = 0, uint stamp = 0)
     {
         LongValueFormat.ValidateLength(length);
         var d = new byte[12];
@@ -176,6 +190,7 @@ public sealed class LongValueWriter(PageChannel channel)
         d[5] = (byte)firstPage;
         d[6] = (byte)(firstPage >> 8);
         d[7] = (byte)(firstPage >> 16);
+        BinaryPrimitives.WriteUInt32LittleEndian(d.AsSpan(LongValueFormat.ChainStampOffset, 4), stamp);
         return d;
     }
 }

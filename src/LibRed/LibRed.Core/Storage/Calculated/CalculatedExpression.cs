@@ -458,16 +458,18 @@ internal static class CalculatedExpression
                 tokens.Add(new Token(TokenKind.Bracketed, text[(i + 1)..end]));
                 i = end + 1;
             }
-            else if (c == '"')
+            else if (c is '"' or '\'')
             {
+                // Text in either quote, a doubled quote standing for itself (verified vs ACE through DAO:
+                // [A] & 'it''s' & [B] is accepted, stored as written, and gives the same values as "it's").
                 var value = new System.Text.StringBuilder();
                 i++;
                 while (true)
                 {
                     if (i >= text.Length) throw new CalculatedExpressionException("Unterminated string in expression.");
-                    if (text[i] == '"')
+                    if (text[i] == c)
                     {
-                        if (i + 1 < text.Length && text[i + 1] == '"') { value.Append('"'); i += 2; continue; }
+                        if (i + 1 < text.Length && text[i + 1] == c) { value.Append(c); i += 2; continue; }
                         i++;
                         break;
                     }

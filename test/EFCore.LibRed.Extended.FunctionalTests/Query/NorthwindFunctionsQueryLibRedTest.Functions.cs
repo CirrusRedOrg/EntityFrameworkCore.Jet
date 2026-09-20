@@ -111,7 +111,7 @@ WHERE `o`.`OrderID` < 10300
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE CDBL(LEN(`c`.`CustomerID`))^2.0 = 25.0
+WHERE POWER(CDBL(LEN(`c`.`CustomerID`)), 2.0) = 25.0
 """);
         }
 

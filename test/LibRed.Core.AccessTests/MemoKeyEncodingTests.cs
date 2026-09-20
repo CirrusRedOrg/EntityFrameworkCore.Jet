@@ -9,6 +9,7 @@ namespace LibRed.Core.Tests;
 // Byte-faithful: a Memo (Long Text) column IS indexable in Access, and its index key is the ordinary text
 // collation key over only the value's first 255 characters. Verified against keys Access itself wrote,
 // ascending and descending, including truncation and an "ignorable" character (apostrophe).
+[Collection(AceCollection.Name)]
 public class MemoKeyEncodingTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

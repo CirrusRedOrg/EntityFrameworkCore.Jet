@@ -21,6 +21,7 @@ namespace LibRed.Core.Tests;
 //      +2 almost everywhere, leaving 0x4E between C and D, 0x5F between L and M, and 0x63 between N and O.
 //      Gaps are the norm rather than a Spanish reservation, so landing on exactly those three would be a
 //      real result: it would make the compacted v0 table's gaps insertion slots for language letters.
+[Collection(AceCollection.Name)]
 public class SpanishCollationProbeTest(ITestOutputHelper output)
 {
     // Single letters and digraphs read the weights directly; the words show the ordering they produce.

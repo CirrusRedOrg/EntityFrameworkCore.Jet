@@ -24,6 +24,7 @@ namespace LibRed.Core.Tests;
 //
 // Output is written to the test log; the assertions pin only what has actually been observed, so a future ACE
 // change (or a wrong assumption on our side) is noticed rather than silently absorbed.
+[Collection(AceCollection.Name)]
 public class AceVbaConversionRegressionTests(ITestOutputHelper output)
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

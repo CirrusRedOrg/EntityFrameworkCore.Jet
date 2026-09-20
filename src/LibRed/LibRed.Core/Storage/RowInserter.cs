@@ -19,6 +19,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     private readonly UsageMapWriter _usageMaps = new(channel);
     private readonly TableDef _table = table;
 
+    private bool HasCalculatedColumns => _table.Columns.Any(c => c.IsCalculated);
+
     /// <summary>Encodes and writes <paramref name="values"/> (aligned to column Index) into the table.</summary>
     public void Insert(object?[] values) => Insert(values, updateIndexes: true);
 
@@ -43,14 +45,16 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // Index keys are encoded from the *logical* values. MaterializeLongValues replaces a memo/OLE value
         // with its on-disk LongValueDescriptor, and a Memo column IS indexable (its key is the collation key
         // of the first 255 characters), so snapshot the values first and key the index off that snapshot.
-        object?[] keyValues = updateIndexes ? (object?[])values.Clone() : values;
+        // A calculated column reads the same logical values, so the snapshot serves it too.
+        bool calculated = HasCalculatedColumns;
+        object?[] keyValues = updateIndexes || calculated ? (object?[])values.Clone() : values;
         MaterializeLongValues(values);
 
         // Encode first: the fixed-region length is pinned by any existing row (to match Access),
         // or derived from the columns for a just-created empty table.
         var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format),
             _table.VariableColumnCount, SpillCalculated);
-        byte[] record = encoder.Encode(values);
+        byte[] record = encoder.Encode(values, null, calculated ? keyValues : null);
 
         EnsureRecordFits(format, record);
 
@@ -75,7 +79,9 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
         _channel.WritePage(pageNumber, page);
 
-        UpdateTdefCounters(format, values, generatedAutoNumbers);
+        // Asked before the row's own entries go in, so an index "already has" a key only through another row.
+        HashSet<int> newKeys = updateIndexes ? IndexesGainingANewKey(keyValues) : [];
+        UpdateTdefCounters(format, values, generatedAutoNumbers, newKeys);
         if (updateIndexes)
             UpdateIndexes(keyValues, new RowId(pageNumber, rowCount));
     }
@@ -93,6 +99,10 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         JetFormatBase format = _channel.Format;
         RejectExplicitCalculatedValues(values, changedColumns);
 
+        // The row as its columns hold it, for a recomputed calculated column to read: the loop below swaps an
+        // unchanged memo's text for its on-disk descriptor, and MaterializeLongValues the changed ones.
+        object?[]? logicalValues = HasCalculatedColumns ? (object?[])values.Clone() : null;
+
         // Long-value (memo/OLE) columns: keep an unchanged column's on-disk descriptor verbatim (so it is not
         // needlessly re-materialised onto fresh LVAL pages), and free a changed column's old chained pages.
         byte[] oldRow = ReadRowBytes(id);
@@ -103,7 +113,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         {
             if (column.Type is not (JetDataType.Memo or JetDataType.Ole)) continue;
             if (!oldDescriptors.TryGetValue(column.Index, out byte[]? oldDescriptor)) continue; // old value was null
-            if (changedColumns.Contains(column.Index)) FreeLongValue(column, oldDescriptor);
+            if (changedColumns.Contains(column.Index)) FreeLongValue(column, oldDescriptor, releaseAtClose: false);
             else values[column.Index] = new LongValueDescriptor(oldDescriptor);
         }
 
@@ -131,7 +141,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (preservedCalculated?.ContainsKey(column.Index) == true) continue;
             if (oldCalculated.TryGetValue(column.Index, out byte[]? stale)
                 && stale.Length >= LongValueFormat.DescriptorSize)
-                FreeLongValue(column, stale);
+                FreeLongValue(column, stale, releaseAtClose: false);
         }
 
         MaterializeLongValues(values);
@@ -142,7 +152,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // Order Details), which without the guard would overflow `new byte[len]`.
         var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format),
             _table.VariableColumnCount, SpillCalculated);
-        byte[] record = encoder.Encode(values, preservedCalculated);
+        byte[] record = encoder.Encode(values, preservedCalculated, logicalValues);
 
         // Here as well as on the insert path, and before the in-place rewrite rather than beside the
         // page-search: a row that grows past the cap but still fits its current page is rewritten where it
@@ -254,12 +264,12 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     {
         JetFormatBase format = _channel.Format;
 
-        // Free the deleted row's chained long-value pages.
+        // Free the deleted row's chained long-value pages — held until close, as ACE holds them.
         var oldDescriptors = new RowDecoder(_table.Columns, format).LongValueRaw(ReadRowBytes(id));
         foreach (ColumnDef column in _table.Columns)
             if ((column.Type is JetDataType.Memo or JetDataType.Ole || column.HasLongValueMap)
                 && oldDescriptors.TryGetValue(column.Index, out byte[]? d))
-                FreeLongValue(column, d);
+                FreeLongValue(column, d, releaseAtClose: true);
 
         byte[] page = ArrayPool<byte>.Shared.Rent(format.PageSize);
         try
@@ -350,7 +360,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// <c>0FED 0FDA CFDA</c>, with free space rising by 19 in each case.
     /// </para>
     /// </summary>
-    private static void ReclaimRow(JetFormatBase format, byte[] page, int row)
+    internal static void ReclaimRow(JetFormatBase format, byte[] page, int row)
     {
         int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
         int Offset(int i) => BinaryPrimitives.ReadUInt16LittleEndian(
@@ -438,7 +448,12 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// Inline (0x80) values have no pages; single-page (0x40) values share a page with others, so reclaiming
     /// their row is deferred (they are left in place — a small, shared-page leak).
     /// </summary>
-    private void FreeLongValue(ColumnDef column, byte[] descriptor)
+    /// <remarks>
+    /// Measured against ACE on one connection: the pages of a value an UPDATE replaces are set in the global
+    /// free map at once, while a DELETE's are not reusable until the connection closes
+    /// (<paramref name="releaseAtClose"/>, see <see cref="PageAllocator.Release"/>).
+    /// </remarks>
+    private void FreeLongValue(ColumnDef column, byte[] descriptor, bool releaseAtClose)
     {
         // The descriptor comes off the row's variable chunk, so its width is whatever the offset table said.
         // LongValueReader requires the full 12 bytes before reading any field; reclaiming has to agree, or a
@@ -452,13 +467,21 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         byte flags = (byte)(descriptor[3] & LongValueFormat.FlagMask);
         if (flags is not (LongValueFormat.FlagInline or LongValueFormat.FlagSinglePage or LongValueFormat.FlagChained))
             throw new InvalidDataException($"Long-value descriptor has unknown flags 0x{flags:X2}.");
-        // Inline (0x80) has no pages; single-page (0x40) shares its page with other values — neither is
-        // reclaimed here. Only a chained value owns pages outright.
-        if (flags != LongValueFormat.FlagChained) return;
+        // Inline (0x80) keeps its payload in the row, so there is nothing to give back.
+        if (flags == LongValueFormat.FlagInline) return;
 
         TableDefinitionPage definition = ReadDefinition();
         definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) owned);
         definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) free);
+
+        // A single-page (0x40) value shares its page with other values, so the page goes back only once the
+        // last of them is gone — until then just its own row is retired.
+        if (flags == LongValueFormat.FlagSinglePage)
+        {
+            ReleasePackedValue(column, descriptor[5] | (descriptor[6] << 8) | (descriptor[7] << 16),
+                descriptor[4], owned, free, releaseAtClose);
+            return;
+        }
         var allocator = new PageAllocator(_channel);
         var reader = new LongValueReader(_channel);
         _ = reader.ResolveWithPages(descriptor, out IReadOnlyList<int> pages);
@@ -474,23 +497,86 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // one per statement); a direct Core caller without one gets no more than any other multi-page write.
         foreach (int page in pages)
         {
-            allocator.Free(page);
+            if (releaseAtClose) allocator.Release(page);
+            else allocator.Free(page);
             _usageMaps.SetBit(owned.Row, owned.Page, page, set: false);
             _usageMaps.SetBit(free.Row, free.Page, page, set: false);
         }
     }
 
-    /// <summary>The raw bytes of slot <paramref name="slot"/> on a data page (walks the packed rows).</summary>
-    private static byte[] SlotBytes(byte[] page, JetFormatBase format, int slot)
+    /// <summary>
+    /// Retires one value from a shared (single-page form) long-value page: its row becomes a <b>0-length
+    /// deleted+overflow tombstone</b> and the page is re-laid, the surviving records packing from the page end
+    /// in slot order so the freed space is reclaimed. When nothing live is left the page is given back — its
+    /// type byte set to <see cref="PageType.ReleasedLongValuePage"/>, its bit cleared from the column's owned
+    /// and free maps, and the page returned to the global allocator.
+    /// </summary>
+    /// <remarks>
+    /// Measured against ACE, deleting 4 of 12 rows whose 400-character memos shared one page, then all 12:
+    /// <code>
+    /// start   0x01 n=5 free=72   [3296,2496,1696,896,96]
+    /// 4 gone  0x01 n=5 free=3272 [4096DO,4096DO,4096DO,4096DO,3296]   the survivor slid to the top
+    /// all     0x09 n=5 free=4072 [4096DO x5]
+    /// </code>
+    /// This is where page type <c>0x09</c> comes from — an emptied packed long-value page, which the spec had
+    /// recorded as a released page of unidentified origin (page-09). Chained values are unaffected: they own
+    /// their pages outright and are freed below, leaving them at <c>0x01</c>, which is why no experiment that
+    /// used a memo large enough to chain ever produced one.
+    /// </remarks>
+    private void ReleasePackedValue(ColumnDef column, int pageNumber, int row,
+        (int Row, int Page) owned, (int Row, int Page) free, bool releaseAtClose)
     {
-        int prevEnd = format.PageSize;
-        for (int i = 0; i <= slot; i++)
+        JetFormatBase format = _channel.Format;
+        if (pageNumber <= 0 || pageNumber >= _channel.PageCount)
+            throw new InvalidDataException($"Long-value page pointer {pageNumber} is outside the file.");
+
+        byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
+        var holder = new DataPage();
+        holder.Read(new PageBuffer(page, pageNumber), format);
+        if (!holder.IsLongValuePage)
+            throw new InvalidDataException($"Long-value pointer {pageNumber}:{row} targets a non-LVAL data page.");
+        if (row < 0 || row >= holder.RowCount)
+            throw new InvalidDataException(
+                $"Long-value row pointer {pageNumber}:{row} is outside the page's 0..{holder.RowCount - 1} range.");
+        if (holder.Rows[row].IsDeleted) return;   // already retired; freeing twice must not double-count
+
+        int dir = format.DataRowDirectoryOffset;
+        var records = new byte[holder.RowCount][];
+        var flags = new ushort[holder.RowCount];
+        for (int i = 0; i < holder.RowCount; i++)
         {
-            int offset = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2)) & RowPointer.OffsetMask;
-            if (i == slot) return page.AsSpan(offset, prevEnd - offset).ToArray();
-            prevEnd = offset;
+            bool dead = i == row || holder.Rows[i].IsDeleted;
+            records[i] = dead ? [] : page.AsSpan(holder.Rows[i].Offset, holder.Rows[i].Length).ToArray();
+            flags[i] = (ushort)((dead ? RowPointer.DeletedFlag : 0)
+                                | (dead || holder.Rows[i].HasOverflow ? RowPointer.OverflowFlag : 0));
         }
-        throw new ArgumentOutOfRangeException(nameof(slot));
+
+        int offset = format.PageSize;
+        for (int i = 0; i < holder.RowCount; i++)
+        {
+            offset -= records[i].Length;       // a 0-length tombstone lands on the page end, as ACE writes it
+            records[i].CopyTo(page.AsSpan(offset));
+            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir + i * 2, 2),
+                (ushort)(flags[i] | (offset & RowPointer.OffsetMask)));
+        }
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
+            (ushort)(offset - (dir + holder.RowCount * 2)));
+
+        bool emptied = records.All(r => r.Length == 0);
+        if (emptied) page[0] = (byte)PageType.ReleasedLongValuePage;
+        _channel.WritePage(pageNumber, page);
+
+        // A page that survives has room again, so it goes back into the column's free-pages map — the same
+        // map TryAppend consults when looking for somewhere to pack the next small value.
+        if (!emptied)
+        {
+            _usageMaps.SetBit(free.Row, free.Page, pageNumber, set: true);
+            return;
+        }
+        _usageMaps.SetBit(owned.Row, owned.Page, pageNumber, set: false);
+        _usageMaps.SetBit(free.Row, free.Page, pageNumber, set: false);
+        if (releaseAtClose) new PageAllocator(_channel).Release(pageNumber);
+        else new PageAllocator(_channel).Free(pageNumber);
     }
 
     /// <summary>Rejects the insert if a UNIQUE or PRIMARY index would gain a duplicate key. A row with a
@@ -528,6 +614,27 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (index.IgnoreNulls && HasNullKey(index, values)) continue;
             writer.AddEntry(index, values, rowId);
         }
+    }
+
+    /// <summary>
+    /// The root pages of the non-unique indexes the row brings a key they do not hold yet — the ones whose
+    /// unique-entry count advances (verified vs ACE: a key equal to one already in the index, collation included,
+    /// adds nothing; a key whose last row was deleted counts again; a Null key counts like any other, except in an
+    /// IGNORE NULL index, which does not hold it). A unique index always gains a new key, so it is not asked.
+    /// </summary>
+    private HashSet<int> IndexesGainingANewKey(object?[] values)
+    {
+        var gaining = new HashSet<int>();
+        IndexWriter? writer = null;
+        foreach (IndexDef index in _table.Indexes
+            .Where(i => !i.IsUnique && i.RootPage > 0)
+            .GroupBy(i => i.RootPage).Select(g => g.First()))
+        {
+            if (index.IgnoreNulls && HasNullKey(index, values)) continue;
+            writer ??= new IndexWriter(_channel, _table);
+            if (!writer.KeyExists(index, values)) gaining.Add(index.RootPage);
+        }
+        return gaining;
     }
 
     private static bool HasNullKey(IndexDef index, object?[] values) =>
@@ -861,8 +968,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
     private void AppendMapBits(List<int> result, ReadOnlySpan<byte> bitmap, int startPage)
     {
-        // Bound read once, for the reason UsageMap.AppendSetBits records: outside a transaction PageCount is a
-        // file-length syscall, and a per-bit test costs real time on a hot path. Nothing here writes.
+        // Bound read once, as UsageMap.AppendSetBits does: the loop runs per bit on a hot path. Nothing here writes.
         int pageCount = _channel.PageCount;
 
         for (int i = 0; i < bitmap.Length; i++)
@@ -943,14 +1049,15 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// to pick the *next* id = this + increment; leaving it stale makes Access reissue an existing id and
     /// reject the insert as a duplicate primary key.)</item>
     /// <item>Per-index **unique-entry count** (`0x3F + ordinal×12`, `+4`) — incremented by one for
-    /// each **unique** index (a unique index gets a distinct key per row). This is the cumulative
-    /// count Access advances on every insert and never decrements. The sibling **total-entry count**
-    /// (`+0`) is deliberately left untouched: Access does **not** maintain it live — it stays `0`
-    /// through inserts and is only written (to the row count) on compact/repair (verified: a live
-    /// ACE-inserted table reads total `0` while saved Northwind tables read total = row count).</item>
+    /// each **unique** index (a unique index gets a distinct key per row) and each non-unique index in
+    /// <paramref name="newKeys"/> (the row brings a key it does not hold yet). Access advances it on insert only,
+    /// once per real index, and never decrements it. The sibling **total-entry count**
+    /// (`+0`) is deliberately left untouched: Access does **not** maintain it live — it is written only
+    /// when the index is built (to its entries, in <c>TableCreator</c>'s back-fill) or the file compacted
+    /// (verified: an index created on an empty table reads total `0` through any number of inserts).</item>
     /// </list>
     /// </summary>
-    private void UpdateTdefCounters(JetFormatBase format, object?[] values, bool[]? generatedAutoNumbers)
+    private void UpdateTdefCounters(JetFormatBase format, object?[] values, bool[]? generatedAutoNumbers, IReadOnlySet<int> newKeys)
     {
         byte[] tdef = _channel.ReadPageShared(_table.DefinitionPage).Span.ToArray();
 
@@ -994,14 +1101,10 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             column.Seed = unchecked(newHighWater + column.Increment);
         }
 
-        // TODO(non-unique-index-stats): a non-unique index's unique-entry count must advance only
-        // when the inserted key is genuinely new (Access's cumulative-distinct semantics), which
-        // needs a probe of the existing keys. Only unique indexes advance it today — and LibRed does
-        // create non-unique ones (every FK backing index is one, and CREATE INDEX without UNIQUE),
-        // so this gap applies to the majority of indexes written, not to none of them.
-        foreach (IndexDef index in _table.Indexes)
+        // One count per real index, so a relationship's logical index sharing a real one does not advance it twice.
+        foreach (IndexDef index in _table.Indexes.GroupBy(i => i.RealIndexOrdinal).Select(g => g.First()))
         {
-            if (!index.IsUnique) continue;
+            if (!index.IsUnique && !newKeys.Contains(index.RootPage)) continue;
             if (index.IgnoreNulls && HasNullKey(index, values)) continue; // row was excluded from the index
             int statsUnique = format.TdefRealIndexBlockOffset + index.RealIndexOrdinal * format.RealIndexEntrySize + 4;
             int unique = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(statsUnique, 4));

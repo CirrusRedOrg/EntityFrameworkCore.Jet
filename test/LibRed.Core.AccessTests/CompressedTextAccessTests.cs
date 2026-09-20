@@ -15,6 +15,7 @@ namespace LibRed.Core.Tests;
 // to a chained value; and it applies only when the column is declared WITH COMPRESSION, every character
 // fits one byte, and it actually saves space (the 2-byte FF FE marker means 1- and 2-character values stay
 // UTF-16, and compression starts at 3).
+[Collection(AceCollection.Name)]
 public class CompressedTextAccessTests : TempDatabaseTest
 {
     [Theory]

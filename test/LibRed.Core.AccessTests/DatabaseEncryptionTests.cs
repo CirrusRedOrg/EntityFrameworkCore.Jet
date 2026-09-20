@@ -6,6 +6,7 @@ using Xunit;
 
 namespace LibRed.Core.Tests;
 
+[Collection(AceCollection.Name)]
 public class DatabaseEncryptionTests
 {
     // Resolve against the test assembly's output (where the csproj copies Data\*.accdb), not a hardcoded

@@ -7,6 +7,7 @@ namespace LibRed.Core.Tests;
 
 // Byte-faithful: a LibRed-written Switch() default is read and applied by ACE (which has the VBA Switch
 // function), confirming LibRed's Switch matches ACE.
+[Collection(AceCollection.Name)]
 public class AceSwitchDefaultTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

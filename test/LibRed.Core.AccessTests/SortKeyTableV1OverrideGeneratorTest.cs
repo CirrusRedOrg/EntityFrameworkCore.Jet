@@ -19,6 +19,7 @@ namespace LibRed.Core.Tests;
 // weight ACE implies wherever they differ. That is the same answer v0 needed, at 1% of the size.
 //
 // Opt-in via LIBRED_GENERATE_V1=1: it inserts ~63,000 rows through ACE and rewrites a checked-in binary.
+[Collection(AceCollection.Name)]
 public class SortKeyTableV1OverrideGeneratorTest(ITestOutputHelper output)
 {
     private const string ResourcePath = "src/LibRed/LibRed.Core/Resources/SortKeyTableV1Overrides.bin";

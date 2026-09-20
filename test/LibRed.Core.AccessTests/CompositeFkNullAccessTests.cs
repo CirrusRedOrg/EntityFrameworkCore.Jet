@@ -6,6 +6,7 @@ namespace LibRed.Core.Tests;
 // Ground truth for LibRed's composite-FK enforcement: ACE applies MATCH FULL — a partial null in a composite
 // foreign key (one column null, the other not) is rejected, only all-null or a fully-matching key is allowed.
 // (SQL Server's MATCH SIMPLE would skip the check when any column is null; ACE does not.)
+[Collection(AceCollection.Name)]
 public class CompositeFkNullAccessTests
 {
     private static OleDbConnection Open(string path) => AceTestDatabase.Open(path);

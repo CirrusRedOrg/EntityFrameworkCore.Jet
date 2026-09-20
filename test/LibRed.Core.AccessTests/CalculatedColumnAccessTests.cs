@@ -15,6 +15,7 @@ namespace LibRed.Core.Tests;
 // LibRed cannot create a calculated column (Access SQL has no syntax for one), so DAO's object model is
 // the author here — the same path Access's UI uses. Each column gets its own table because ACE validates
 // the expression when the TableDef is appended, and one rejected expression would take the rest with it.
+[Collection(AceCollection.Name)]
 public class CalculatedColumnAccessTests(ITestOutputHelper output)
 {
     private const int UseJet = 2;
@@ -518,6 +519,60 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // The raise a calculated column forces lands ON the 2010 format, whose created files carry minor byte 0x01
+    // -- yet ACE's raise writes 0x00 there. One 2007 base, copied, so ACE's raise and LibRed's start from
+    // identical bytes and page 0 can be compared whole -- everything but the commit-byte table from 0xE00,
+    // which moves for any write.
+    [Fact]
+    public void A_calculated_column_raises_page_zero_as_ACE_does()
+    {
+        object? engine = CreateDbEngine();
+        Assert.SkipWhen(engine is null, "DAO is unavailable in this process; it authors the fixture.");
+
+        string basePath = TemporaryDatabase.CreatePath("calc-raise-base-");
+        string acePath = TemporaryDatabase.CreatePath("calc-raise-ace-");
+        string libPath = TemporaryDatabase.CreatePath("calc-raise-lib-");
+        try
+        {
+            DatabaseCreator.CreateEmpty(basePath);
+            File.Copy(basePath, acePath, overwrite: true);
+            File.Copy(basePath, libPath, overwrite: true);
+
+            object workspace = Invoke(engine!, "CreateWorkspace", "", "admin", "", UseJet)!;
+            object database = Invoke(workspace, "OpenDatabase", acePath)!;
+            AppendCalculatedTable(database, "CLong", DbLong, 0, "[Qty]*2");
+            Invoke(database, "Close");
+
+            using (var db = JetDatabase.Open(libPath, readOnly: false))
+                db.CreateTable("T_CLong", [
+                    new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                    new ColumnSpec("Qty", JetDataType.Int32, 4, IsFixedLength: true),
+                    ColumnSpec.Calculated("CLong", JetDataType.Int32, "[Qty]*2"),
+                ]);
+
+            byte[] ace = PageZero(acePath), lib = PageZero(libPath);
+            output.WriteLine($"ACE: version 0x{ace[0x14]:X2} minor 0x{ace[0x15]:X2}");
+            output.WriteLine($"lib: version 0x{lib[0x14]:X2} minor 0x{lib[0x15]:X2}");
+            var differences = Enumerable.Range(0, 0xE00)
+                .Where(i => ace[i] != lib[i])
+                .Select(i => $"0x{i:X3} ace={ace[i]:X2} lib={lib[i]:X2}")
+                .ToList();
+            Assert.True(differences.Count == 0, string.Join("; ", differences));
+        }
+        finally
+        {
+            TemporaryDatabase.Delete(basePath);
+            TemporaryDatabase.Delete(acePath);
+            TemporaryDatabase.Delete(libPath);
+        }
+    }
+
+    private static byte[] PageZero(string path)
+    {
+        using var channel = LibRed.IO.PageChannel.Open(path, readOnly: true);
+        return channel.ReadPage(0).Span.ToArray();
+    }
+
     // Validation is mandatory, not a courtesy: an expression ACE rejects produces a column it refuses to read
     // at all, so LibRed must never author one. These are the four refusal shapes ACE has.
     [Theory]
@@ -879,17 +934,7 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
         _ => $"{value} ({value.GetType().Name})",
     };
 
-    private static object? CreateDbEngine()
-    {
-        foreach (int n in new[] { 170, 160, 150, 140, 130, 120 })
-        {
-            Type? type = Type.GetTypeFromProgID($"DAO.DBEngine.{n}");
-            if (type is null) continue;
-            try { return Activator.CreateInstance(type); }
-            catch (Exception) { /* registered but not instantiable in this bitness */ }
-        }
-        return null;
-    }
+    private static object? CreateDbEngine() => AceTestDatabase.CreateDaoEngine();
 
     // What ACE writes for a conversion over Null. CDbl does NOT propagate Null the way every other function
     // here does -- the VBA conversions raise on it -- so ACE is caching an error state rather than a value,
@@ -1518,6 +1563,39 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
                 operation(db);
                 output.WriteLine($"  {label} applied");
             }
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // A Memo/OLE retype takes the full RewriteColumn path rather than the in-place descriptor edit.
+    // That rebuild must carry the calculated column's LvProp entries as well as its descriptor: the
+    // descriptor's calculated flag alone is not sufficient for ACE to know the cached payload's type.
+    [Fact]
+    public void Access_reads_a_calculated_column_after_an_unrelated_full_column_rewrite()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "calc-rewrite-");
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("CalcRewrite",
+                [
+                    new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                    new ColumnSpec("Qty", JetDataType.Int32, 4, IsFixedLength: true),
+                    ColumnSpec.Calculated("TwiceQty", JetDataType.Int32, "[Qty] * 2"),
+                    new ColumnSpec("Notes", JetDataType.Memo, 0, IsFixedLength: false),
+                ], primaryKey: ["Id"]);
+                db.OpenTable("CalcRewrite").Insert([1, 7, null, "before rewrite"]);
+
+                // Memo -> Text cannot be an in-place edit, so it exercises RewriteColumn.
+                db.AlterColumn("CalcRewrite", "Notes",
+                    new ColumnSpec("Notes", JetDataType.Text, 200, IsFixedLength: false));
+            }
+
+            using var connection = AceTestDatabase.Open(path);
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT TwiceQty FROM CalcRewrite WHERE Id = 1";
+            Assert.Equal(14, Convert.ToInt32(command.ExecuteScalar()));
         }
         finally { TemporaryDatabase.Delete(path); }
     }

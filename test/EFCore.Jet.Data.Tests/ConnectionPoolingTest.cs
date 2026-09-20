@@ -1,5 +1,6 @@
 using System;
 using System.Data.OleDb;
+using System.Reflection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace EntityFrameworkCore.Jet.Data.Tests
@@ -376,6 +377,40 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             Assert.Throws<InvalidOperationException>(() => connection.GetSchema());
+        }
+
+        [TestMethod]
+        public void Pooled_Inner_Connection_Is_Reused_After_Close()
+        {
+            // Open() rebuilds the connection string (here, the "Jet OLEDB:" key comes back lower-cased), so the
+            // pool must be keyed by the rebuilt string on both sides. Otherwise every Open() creates a new native
+            // connection while the pool keeps all the old ones open, and Jet 4.0 fails once 64 are held.
+            var innerConnectionProperty = typeof(JetConnection).GetProperty(
+                "InnerConnection",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory) +
+                                   ";Jet OLEDB:Database Locking Mode=1";
+
+            JetConfiguration.UseConnectionPooling = true;
+            try
+            {
+                using var connection = new JetConnection(connectionString, Helpers.DataAccessProviderFactory);
+
+                connection.Open();
+                var firstInnerConnection = innerConnectionProperty.GetValue(connection);
+                connection.Close();
+
+                connection.Open();
+                var secondInnerConnection = innerConnectionProperty.GetValue(connection);
+                connection.Close();
+
+                Assert.AreSame(firstInnerConnection, secondInnerConnection);
+            }
+            finally
+            {
+                JetConfiguration.UseConnectionPooling = false;
+                JetConnection.ClearAllPools();
+            }
         }
 
         [TestMethod]

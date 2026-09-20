@@ -11,6 +11,7 @@ namespace LibRed.Core.Tests;
 /// node), Access opens the file and resolves indexed point seeks, an indexed range, a full table scan,
 /// and a leaf-chain <c>COUNT(*)</c>/<c>SUM</c> — all reaching every row.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class IndexSplitAccessTests
 {
     private const int N = 1200; // well past one leaf, so the PK B-tree splits and the root grows a level

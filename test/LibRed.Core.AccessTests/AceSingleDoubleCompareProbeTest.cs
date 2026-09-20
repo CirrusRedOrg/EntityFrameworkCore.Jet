@@ -9,6 +9,7 @@ namespace LibRed.Core.Tests;
 // "compare in single precision when a float is involved" rule matches ACE for the column-vs-column case, or
 // whether a column-type-aware fix is needed. Reports counts; the assertions just pin what we observed so a
 // future ACE change is noticed.
+[Collection(AceCollection.Name)]
 public class AceSingleDoubleCompareRegressionTests(ITestOutputHelper output)
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

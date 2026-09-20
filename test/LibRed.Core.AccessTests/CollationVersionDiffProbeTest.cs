@@ -14,6 +14,7 @@ namespace LibRed.Core.Tests;
 //
 // The v1 database comes from LIBRED_V1_PROBE — Access itself must create it (Access.Application
 // .NewCurrentDatabase honours the "New Database Sort Order" option; DAO ignores it and always writes v0).
+[Collection(AceCollection.Name)]
 public class CollationVersionDiffProbeTest(ITestOutputHelper output)
 {
     private static readonly string[] Samples =

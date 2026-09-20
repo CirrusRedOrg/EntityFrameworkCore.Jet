@@ -12,6 +12,7 @@ namespace LibRed.Core.Tests;
 /// row; an append (INSERT … VALUES) query stores the target table (Attribute=1/Flag 3) plus one
 /// <c>Attribute=6</c>/Flag 0x8000 row per column. Access recognises and runs both.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class ActionQueryProcedureAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

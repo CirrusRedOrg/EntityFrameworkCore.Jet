@@ -50,5 +50,5 @@ public class StrCompStrConvTests : TempDatabaseTest
 
     [Fact]
     public void StrConv_mode_4_is_rejected() // narrow->wide errors in the JES
-        => Assert.Throws<InvalidOperationException>(() => Eval("StrConv('hello', 4)"));
+        => Assert.Throws<ArgumentException>(() => Eval("StrConv('hello', 4)"));
 }

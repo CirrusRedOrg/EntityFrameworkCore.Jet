@@ -133,17 +133,19 @@ public class WindowFunctionTests : TempDatabaseTest
     public void An_unknown_window_function_is_reported_by_name()
     {
         var ex = Assert.ThrowsAny<Exception>(() => Seeded().ExecuteQuery(
-            "SELECT NTILE(4) OVER (ORDER BY `Id`) AS `r` FROM `W`"));
+            "SELECT RATIO_TO_REPORT(`Id`) OVER (ORDER BY `Id`) AS `r` FROM `W`"));
 
-        Assert.Contains("NTILE", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("RATIO_TO_REPORT", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void A_window_over_a_grouped_query_is_refused()
-        // Not supported rather than silently wrong: AggregateNode owns the projection and collapses rows, so
-        // the window would have to be computed above it. Nothing EF Core emits needs this.
-        => Assert.ThrowsAny<NotSupportedException>(() => Seeded().ExecuteQuery(
-            "SELECT COUNT(*) AS `c`, ROW_NUMBER() OVER (ORDER BY `G`) AS `r` FROM `W` GROUP BY `G`"));
+    public void A_window_over_a_grouped_query_numbers_the_groups()
+        // The groups are the window's rows: NULL (2 rows), 'a' (2) and 'b' (3), numbered in G order — Nulls first.
+        => Assert.Equal(
+            "2:1 2:2 3:3",
+            string.Join(" ", Seeded().ExecuteQuery(
+                    "SELECT COUNT(*) AS `c`, ROW_NUMBER() OVER (ORDER BY `G`) AS `r` FROM `W` GROUP BY `G`")
+                .Rows.Select(r => $"{r[0]}:{r[1]}")));
 
     [Fact]
     public void Index_selection_still_reaches_below_the_window()

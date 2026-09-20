@@ -7,6 +7,7 @@ namespace LibRed.Core.Tests;
 
 // Byte-faithful check: a LibRed-written DATETIME column with a NOW() default is read by Access, which opens the
 // file without repair and applies the default itself on a bare insert (a current timestamp).
+[Collection(AceCollection.Name)]
 public class DateTimeDefaultAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

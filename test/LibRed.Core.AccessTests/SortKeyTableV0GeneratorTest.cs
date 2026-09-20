@@ -17,6 +17,7 @@ namespace LibRed.Core.Tests;
 // hand-written tables in JetTextCollation and the compact per-block strings can hold, hence a resource.
 //
 // Opt-in via LIBRED_GENERATE_V0=1: it inserts ~63,000 rows through ACE and rewrites a checked-in binary.
+[Collection(AceCollection.Name)]
 public class SortKeyTableV0GeneratorTest(ITestOutputHelper output)
 {
     private const string ResourcePath = "src/LibRed/LibRed.Core/Resources/SortKeyTableV0.bin";

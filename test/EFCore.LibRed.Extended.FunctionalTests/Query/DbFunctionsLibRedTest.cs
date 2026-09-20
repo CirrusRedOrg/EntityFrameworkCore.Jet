@@ -150,10 +150,7 @@ WHERE `c`.`Region` IS NULL
                 """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE CASE
-    WHEN `o`.`OrderID` < 10251 THEN `o`.`OrderID`
-    ELSE 10251
-END = 10251
+WHERE LEAST(`o`.`OrderID`, 10251) = 10251
 """);
         }
 
@@ -165,10 +162,7 @@ END = 10251
                 """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE CASE
-    WHEN `o`.`OrderID` > 10251 THEN `o`.`OrderID`
-    ELSE 10251
-END = 10251
+WHERE GREATEST(`o`.`OrderID`, 10251) = 10251
 """);
         }
 
@@ -180,10 +174,7 @@ END = 10251
                 """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE CASE
-    WHEN `o`.`OrderID` < 10251 THEN `o`.`OrderID`
-    ELSE 10251
-END = 10251
+WHERE LEAST(`o`.`OrderID`, 10251) = 10251
 """);
         }
 
@@ -195,10 +186,7 @@ END = 10251
                 """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE CASE
-    WHEN `o`.`OrderID` > 10251 THEN `o`.`OrderID`
-    ELSE 10251
-END = 10251
+WHERE GREATEST(`o`.`OrderID`, 10251) = 10251
 """);
         }
 

@@ -10,26 +10,44 @@
 | `0x01` | 1 | Flags (observed constant `0x01`; the same byte appears on TDEF and index pages — verified) |
 | `0x02` | 2 | Free space |
 | `0x04` | 4 | Owning table's TDEF page — **or** the ASCII marker `LVAL` (`0x4C41564C`) for long-value pages |
-| `0x08` | 4 | Jet4-only; purpose unknown — **zero** on every page observed (data, usage-map, LVAL). Jet3 has the row count here instead (which is why Jet4's row count sits 4 bytes later). LibRed writes zero. |
-| `0x0C` | 2 | Row count on this page. **Capped at 256 in practice, whatever the free space** — see the slot-count limit below. |
+| `0x08` | 4 | Jet4-only. **Zero on every page except the FIRST page of a multi-page long-value chain**, where it carries a stamp that must equal the pointing descriptor's own `0x08` — see [long-values](long-values.md). Jet3 has the row count here instead (which is why Jet4's row count sits 4 bytes later). LibRed writes it and checks it. |
+| `0x0C` | 2 | Row count on this page. **ACE writes at most 255, whatever the free space** — see the slot-count limit below. |
 | `0x0E` | 2×N | Row slot directory: one 2-byte entry per row |
 
-> **A data page holds at most 256 rows — a limit the free space does not express.** An index entry addresses a
+> **A data page holds at most 255 rows — a limit the free space does not express.** An index entry addresses a
 > row as `page << 8 | row` ([page-03-04-index-btree.md](page-03-04-index-btree.md) §10.2), so the slot number
 > occupies exactly one byte and slots `0..255` are all that can ever be named. The field at `0x0C` is two bytes
 > wide and the page has room for far more, so nothing in the page format stops a writer going past it.
 >
 > Only narrow rows get there: 256 rows fit a 4 KB page once each is under about 14 bytes, which in practice
-> means an all-fixed-column table of a few small columns. LibRed did exactly that and packed 314 rows onto a
-> page — the rows wrote and scanned back correctly (a scan walks slots directly and never forms a pointer), but
-> **every row past slot 255 was unaddressable by any index**, and its index entry aliased a different row on
-> another page. A silent wrong answer on every indexed read, with no error anywhere. `RowInserter`'s page
-> placer now refuses a page at `RowPointer.MaxRowsPerPage` instead of trusting free space alone; the guard is
-> `IndexBuildOrderingTests`.
+> means an all-fixed-column table of a few small columns. A writer that trusts free space alone will then
+> overfill the page, and the rows still scan back through a slot-walking reader, since a scan never forms a
+> pointer — which makes it look harmless. It is not: every row past slot 255 is **unaddressable by any
+> index**, its entry aliasing a different row on another page, and **ACE cannot read those rows at all**.
+> `RowInserter`'s page placer refuses a page at `RowPointer.MaxRowsPerPage` instead of trusting free space
+> alone.
 >
-> The pointer layout is ACE-verified, so the 256-slot ceiling follows from it. What is **not** measured is what
-> ACE itself does on reaching it — whether it caps at 256 or lower, and whether it leaves the page in the
-> free-pages map. LibRed's choice of 256 is the maximum the pointer allows, not an observation of ACE.
+> > **ACE reads the full 16-bit count and then caps at 256 slots.** Pages of 400 / 400 / 100 rows read back
+> > through ACE as **612** rows, exactly 256 + 256 + 100; a reader taking only the low byte would see
+> > `0x90` = 144 and return 388, so the high byte is genuinely parsed — the rows beyond slot 255 are simply
+> > dropped, with no error. Overfilling a page loses data to Access on a plain table scan, not merely on an
+> > indexed read.
+>
+> **ACE's own ceiling is 255, one below what the pointer allows** (measured): ACE fills a page to exactly
+> 255 rows and then starts another. It is not a space limit; a full page of single-`BYTE`-column rows still
+> has **2,297 of its 4,096 bytes free**. ACE also **removes the page from the table's free-pages map** on
+> reaching the cap, treating it exactly as it treats a full page — only a partial page stays in the map. So
+> a reader must not infer remaining room from free space, and must not infer it from free-map membership
+> either.
+>
+> **The row count really is two bytes, though nothing ACE writes proves it.** ACE never sets the high byte
+> at `0x0D` — its own counts never exceed 255 — so ACE-written files alone cannot distinguish a two-byte
+> field from a one-byte one. ACE nevertheless reads it as two bytes: pages holding **256** rows read back
+> correctly (600 rows across three pages), where a one-byte reader would see `0x00` for those pages and
+> report 88.
+>
+> LibRed's `RowPointer.MaxRowsPerPage` is therefore **255**, matching ACE rather than the pointer's maximum,
+> so every page it writes is a shape Access also produces.
 
 Row slot entry: lower 13 bits (`& 0x1FFF`) = the row's byte offset in the page; `0x8000` =
 deleted, `0x4000` = overflow/lookup pointer (not an inline row). Rows are packed from the end
@@ -42,7 +60,7 @@ the *later slots* — an ordering the delete path below depends on.
 ACE closes the gap rather than leaving the row in place: the rows below it slide up, their slot offsets
 follow, and the emptied slot becomes a **zero-length tombstone flagged deleted + overflow (`0xC000`) whose
 offset is the row's former end**. Slot *indices* never move, which is what keeps index entries and row ids
-valid. Measured on three 19-byte rows, deleting each position in turn — free space rises by 19 every time:
+valid. Three 19-byte rows, deleting each position in turn — free space rises by 19 every time:
 
 | deleted | directory after |
 | --- | --- |
@@ -51,9 +69,9 @@ valid. Measured on three 19-byte rows, deleting each position in turn — free s
 | last | `0FED 0FDA CFDA` — nothing below to move |
 
 Pointing the tombstone at the former end rather than at the page end is what preserves the non-increasing
-order, which is what makes it zero-length: its offset equals the preceding slot's. LibRed used to only set
-the deleted flag and leave the row where it was, so the space was never reclaimed — about 21 bytes per
-delete, permanently. `DeletedRowSpaceAccessTests`.
+order, which is what makes it zero-length: its offset equals the preceding slot's. A writer that only sets
+the deleted flag and leaves the row where it was never reclaims the space: every delete loses the row's
+bytes for good.
 
 The **slot directory** is not reclaimed by either engine: a tombstoned slot is never reused, so a page that
 has seen thirteen rows carries thirteen slots whatever is live. Only the row bytes come back.
@@ -63,7 +81,7 @@ forward pointer rather than the row, and the row itself sits on another page fla
 below). Deleting it reclaims the target first and then the pointer: ACE brings the target's page back to a
 bare `4080` free and returns the pointer's four bytes to the source page. Reclaiming only the pointer
 strands the moved row for ever — for a row that relocated because it grew, that is the whole widened row,
-hundreds of bytes against the pointer's four. `RelocatedRowDeleteAccessTests`.
+hundreds of bytes against the pointer's four.
 
 > **A record is capped at 4060 bytes**, counting everything in the row itself — the leading count, fixed
 > data, variable data, the offset table and the null bitmap — but not the payload of a Memo/OLE column,
@@ -73,21 +91,20 @@ hundreds of bytes against the pointer's four. `RelocatedRowDeleteAccessTests`.
 > **The cap is ACE's, not the page's.** A page holds 4080 (4096 less the 14-byte header and a 2-byte slot),
 > and the 20-byte reserve below that is measured, not explained. It is also not derived from the row's
 > shape: three tables whose overhead differs by 23 bytes — 9, 12 and 20 text columns — all stop at the same
-> 4060 (`RecordSizeAccessTests`).
+> 4060.
 >
 > It is **the same 4060 under page-level and row-level locking** (`Jet OLEDB:Database Locking Mode` 0 and 1),
 > which is what it must be — a limit that moved with the connection would make a file written by one client
 > unreadable by another opening it differently. That independence is also what lets LibRed, which has no
 > locking mode at all, enforce one constant for every caller.
 >
-> *Unverified lead, recorded because the evidence is suggestive rather than because it is established:* the
-> 20 bytes may be space the engine always keeps for row-lock bookkeeping, whether or not the connection uses
-> it. Two things point that way. Row-level locking arrived in Jet 4, the same generation as this reserve.
-> And the **class** of error is wrong for corruption: a malformed row reads as "Unrecognized database
-> format" or a decode failure, whereas this one reports a concurrent edit — so ACE parsed the row and then
-> its multi-user layer objected, meaning something is *interpreting* those bytes rather than merely running
-> past them. Nothing here tests it; the mode-independence above is equally consistent with the reserve being
-> something else.
+> *Unverified:* the 20 bytes may be space the engine always keeps for row-lock bookkeeping, whether or not
+> the connection uses it. Two things point that way. Row-level locking arrived in Jet 4, the same generation
+> as this reserve. And the **class** of error is wrong for corruption: a malformed row reads as
+> "Unrecognized database format" or a decode failure, whereas this one reports a concurrent edit — so ACE
+> parsed the row and then its multi-user layer objected, meaning something is *interpreting* those bytes
+> rather than merely running past them. The mode-independence above is equally consistent with the reserve
+> being something else.
 >
 > **Writing into the 4061–4080 band is worse than writing past it.** It fits the page, so nothing fails at
 > write time, and ACE then cannot materialise the row — it reports *"you and another user are attempting to
@@ -109,18 +126,18 @@ A live slot with `0x4000` set **begins with** a 4-byte little-endian forward poi
 the same table. Its target slot has `0x8000` (deleted/hidden) set and `0x4000` clear: ordinary scans
 skip the hidden physical row, while the original row id and its index entries continue to resolve
 through the live source slot. A zero-length slot with both flags set is a tombstone, not a relocation
-source. These shapes are verified by LibRed-created files opened by Access and Access-relocated files
-read by LibRed.
+source. These shapes are verified in both directions: Access opens LibRed's relocations and LibRed reads
+Access's.
 
 **The slot is normally exactly 4 bytes wide, but not always.** When ACE relocates a row through
-ordinary DML it trims the slot down to the pointer, and LibRed does the same. Measured across **317
-relocations with no exception**, covering ACE on x64, the **ACE 2010 runtime on x86**, and LibRed's
-own writer, under: growing and shrinking text, repeated re-relocation of the same rows, page
-fragmentation by interleaved deletes and re-inserts, and an OLE column going from NULL to a value.
+ordinary DML it trims the slot down to the pointer, and LibRed does the same. Measured **with no
+exception** on ACE x64, the **ACE 2010 runtime on x86**, and LibRed's own writer, under: growing and
+shrinking text, repeated re-relocation of the same rows, page fragmentation by interleaved deletes and
+re-inserts, and an OLE column going from NULL to a value.
 
-Longer slots exist in the wild all the same. In the Northwind ACCDB, `MSysAccessStorage` carries live
-overflow slots of 45–63 bytes. Their content is the row **as it was before it moved**, with only the
-leading 4 bytes replaced by the pointer:
+Longer slots exist in real files all the same — e.g. live overflow slots of 45–63 bytes in
+`MSysAccessStorage`. Their content is the row **as it was before it moved**, with only the leading 4 bytes
+replaced by the pointer:
 
 - discount those 4 bytes and every field lands exactly where the row format puts it — the pointer
   covers the 2-byte column count plus the first 2 bytes of the first column, leaving the remaining
@@ -128,14 +145,13 @@ leading 4 bytes replaced by the pointer:
 - the remnant's `Id` / `ParentId` / `Type` / `Name` equal those of the row it forwards to;
 - the remnant's null bitmap differs from its target's in exactly one bit, the OLE column `Lv` —
   NULL in the remnant, set in the target — which is what grew the row and forced the move;
-- every remnant is shorter than its target (55→89, 55→89, 63→87, 63→75, 45→57, 57→71, 53→65).
+- every remnant is shorter than its target.
 
 So the slot kept the previous row's width and was stamped with the pointer rather than trimmed.
-**What writes them is not known**, and is deliberately not asserted here. No write path reproduces
-the shape — not the OLE-column transition the bytes themselves record, and not an older engine
-(ACE 2010 trims exactly as the current one does). What has *not* been exercised is Access's own
-maintenance of its system tables, which is not reachable through SQL DML. Readers must therefore
-take the pointer from the leading 4 bytes and ignore any remainder rather than requiring a width.
+**What writes them is not known.** SQL DML does not produce the shape on either ACE version — not even
+the OLE-column transition the bytes themselves record; Access's own maintenance of its system tables,
+which is not reachable through SQL DML, is unexamined. Readers must therefore take the pointer from the
+leading 4 bytes and ignore any remainder rather than requiring a width.
 
 LibRed follows relocations through one shared resolver used by scans, index seeks, and raw-row
 mutation helpers. It validates that the source begins with a 4-byte pointer, plus the in-file page
@@ -154,23 +170,45 @@ malformed pointers fail with `InvalidDataException`.
 ```
 
 - **The variable section (offset table + `numVarCols` field) is OMITTED entirely when the table has no
-  variable columns.** An all-fixed row is just `[colCount][fixed][nullBitmap]` — verified vs ACE
-  (`AceModifyByteDiffProbe.Diff_libred_vs_ace_all_fixed_row_bytes`): `T(A,B,C LONG)` + row `(11,22,33)` is
-  **15 bytes** `03 00 | 0B000000 16000000 21000000 | 07`, not 19. The fixed-region length is recovered from the
-  schema (column offsets), so the row needs no var-data-start pointer. (A reader keyed on fixed offsets +
+  variable columns.** An all-fixed row is just `[colCount][fixed][nullBitmap]` — verified vs ACE:
+  `T(A,B,C LONG)` + row `(11,22,33)` is **15 bytes** `03 00 | 0B000000 16000000 21000000 | 07`, not 19. The
+  fixed-region length is recovered from the schema (column offsets), so the row needs no var-data-start pointer. (A reader keyed on fixed offsets +
   null bitmap decodes both forms; a *writer* must omit the section to be byte-faithful.)
+
+- **An all-fixed row's fixed region is padded out to a minimum of 2 bytes**, so the shortest record ACE writes
+  is 5: `[colCount:2][fixed:2][nullBitmap:1]`. It is a **floor, not an alignment** — `T(A,B,C BYTE)` keeps its
+  odd 3-byte region (record 6) — and a row with a **variable trailer is exempt**: a `TEXT`-only table's region
+  stays 0 and a `BYTE`+`TEXT` one stays 1. Only regions of 0 or 1 are touched, and the pad is zero bytes
+  between the fixed values and the null bitmap. Booleans occupy no fixed bytes (below), so a table of nothing
+  but Booleans is the shape with a 0-byte region. Verified vs ACE:
+
+  | table | natural | ACE | record |
+  |---|---|---|---|
+  | `A YESNO` | 3 | **5** | `01 00 \| 00 00 \| 01` |
+  | `A BYTE` | 4 | **5** | `01 00 \| 01 00 \| 01` |
+  | `A BYTE, B BYTE` | 5 | 5 | `02 00 \| 01 02 \| 03` |
+  | `A BYTE, B BYTE, C BYTE` | 6 | 6 | `03 00 \| 01 02 03 \| 07` |
+  | 9 × `YESNO` | 4 | **6** | `09 00 \| 00 00 \| FF 01` |
+  | `A TEXT(10)` | 13 | 13 | region 0, unpadded |
+
+  The nine-Boolean row is what distinguishes the rule from a flat minimum *record* length: a 5-byte floor on
+  the record would leave it at 5, and ACE writes 6. **The TDEF keeps the true, unpadded fixed-row length** —
+  ACE stores 1 for a one-`BYTE` table while writing 5-byte rows into it — so this rounding happens at
+  row-write time and is not recoverable from the definition.
+  - Matching it is **not cosmetic**. Below 4 bytes **ACE misreads the record**: an all-Boolean table of ≤8
+    columns encodes to 3 bytes without the pad, and ACE then reports every Boolean in it **False**, whichever
+    engine created the table — the fault is in the record, not the TDEF. A 4-byte record reads back correctly (16 Booleans, 2-byte bitmap), so the reader's cliff is one byte below what
+    ACE's writer guarantees. **Why** the floor is 2 rather than 1 is not established.
 
 - **`colCount` is `max(column id) + 1`, not the live column count** — the two coincide only while ids are
   contiguous (a fresh table, or after ADD COLUMN, which keeps ids contiguous). They **diverge** once ids have a
   gap — a burned id from a type-change ALTER, or a DROP COLUMN gap — and then `colCount` (and therefore the null
-  bitmap width) is driven by the **highest id**, leaving bit positions for the dead ids. Verified vs ACE
-  (`AceModifyByteDiffProbe`): after `ALTER COLUMN B DOUBLE` burns B's id 1→3 in a 3-column table, the row's
-  `colCount` field is **4** and the null bitmap is `0x0F` (the dead id 1's bit is set present). A writer that
+  bitmap width) is driven by the **highest id**, leaving bit positions for the dead ids. Verified vs ACE:
+  after `ALTER COLUMN B DOUBLE` burns B's id 1→3 in a 3-column table, the row's `colCount` field is **4** and the null bitmap is `0x0F` (the dead id 1's bit is set present). A writer that
   sizes these by the live count writes a bit ACE can't find for any id ≥ live count → ACE reads that column null.
   - It is the **highest live id**, though, and *not* the TDEF's `0x29` id high-water — those differ when the
     highest-id column is dropped, and rows written afterwards then legitimately carry a *shorter* count and a
-    narrower bitmap than the rows before them. ACE reads across the change
-    (`VariableColumnHighWaterAccessTests`).
+    narrower bitmap than the rows before them. ACE reads across the change.
 - **Null bitmap** is indexed by **column id**; a **set bit = the value is present** (non-null).
 - **Fixed** column value is at `rowStart + 2 + fixedOffset`, `length` bytes.
   - A **fixed-length text** column (`CHAR`/`NCHAR`, not `TEXT`/`VARCHAR`) fills its whole `length`: the value is
@@ -190,18 +228,16 @@ malformed pointers fail with `InvalidDataException`.
     index by variable index, so the row is written and read back happily by nothing at all. `0x2B` is the
     authority even where it exceeds `max(index) + 1` over the live columns: a row one slot short makes the
     `ALTER COLUMN` re-lay (§3.8) append the retyped column past the end of the row, and **ACE then rejects
-    the file** with *"A column Id is incorrect."* (`VariableColumnHighWaterAccessTests`.)
+    the file** with *"A column Id is incorrect."*
   - A variable **text**/**binary** value must **fit its column's declared width**. Where a fixed column pads or
     truncates, ACE **rejects** an over-long variable one — six characters into a `TEXT(5)`, six bytes into a
     `VARBINARY(5)`, both *"The field is too small to accept the amount of data you attempted to add"* (verified
-    vs ACE, `ColumnLengthAccessTests`). The bound is the descriptor's `length`, in **bytes** for both, so
-    `TEXT(5)` is 10. `Memo`/`OLE` are exempt — their inline form is a long-value descriptor whose size is
+    vs ACE). The bound is the descriptor's `length`, in **bytes** for both, so `TEXT(5)` is 10. `Memo`/`OLE` are exempt — their inline form is a long-value descriptor whose size is
     unrelated to `length`.
 - **Booleans** carry **no data** — the value *is* the null-bitmap bit (set = true). Boolean
   columns are never null, and they occupy **no fixed-region bytes**: their descriptor's fixed
-  offset is 0 and the fixed offsets of other columns skip over them. (Verified: Northwind's
-  `Products.Discontinued` is `fixed@0` even though it follows several fixed columns. A writer
-  must therefore *not* advance the fixed offset for a Boolean column.) On **write**, the value
+  offset is 0 and the fixed offsets of other columns skip over them. (Verified: a Boolean that
+  follows several fixed columns is still `fixed@0`. A writer must therefore *not* advance the fixed offset for a Boolean column.) On **write**, the value
   reaches the encoder as a bool *or* a number (a `bit` column is commonly inserted as `1`/`-1`/`0`
   or defaulted from `"0"`), so LibRed coerces it with Access truthiness — **any non-zero number (or
   bool true) sets the bit**, `0`/false clears it. Verified: Access reads LibRed-written bits back
@@ -212,9 +248,8 @@ malformed pointers fail with `InvalidDataException`.
 > **Row-reader guardrails.** LibRed bounds the null bitmap and optional variable trailer before reading
 > them. The offset table must fit the row, entry 0 (the variable-data end) must not pass the table start,
 > and its end-first offsets must remain within the row and be non-increasing. LibRed permits unused bytes
-> between entry 0 and the table itself; this preserves existing schema-evolved rows in the functional corpus,
-> but the reason those rows retain the gap has not yet been verified against Access. A requested variable slot
-> must exist. Fixed values must fit the derived fixed region, and fixed-width scalar codecs require the
+> between entry 0 and the table itself, which schema-evolved rows can carry; why those rows retain the gap
+> has not been verified against Access. A requested variable slot must exist. Fixed values must fit the derived fixed region, and fixed-width scalar codecs require the
 > exact widths in §6. A column id beyond an older row's stored `colCount` is absent/null—this preserves
 > ADD COLUMN behavior—and the variable trailer is considered present only when the stored row count
 > covers a currently known variable column. This also preserves the verified all-fixed form that omits

@@ -1,6 +1,6 @@
 # The index-key truncation checksum
 
-*Working note, not spec. The verified layout lives in `docs/format/page-03-04-index-btree.md` §10.4; this is
+*Working note, not spec. The verified layout lives in `docs/format/page-03-04-index-btree.md` §10.4b; this is
 how it was arrived at, kept because the reasoning is worth more than the one line it produced.*
 
 **Status: settled.** Every question this note was opened with has an answer. Nothing here is outstanding.

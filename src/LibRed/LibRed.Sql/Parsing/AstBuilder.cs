@@ -85,7 +85,7 @@ internal sealed class AstBuilder
 
     private static DeleteStatement BuildDelete(DeleteStatementContext ctx) =>
         new(OptionalIdentifier(ctx.target),
-            BuildTableSource(ctx.tableSource()),
+            BuildTableSources(ctx.tableSource()),
             ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null);
 
     private static UpdateStatement BuildUpdate(UpdateStatementContext ctx)
@@ -95,7 +95,7 @@ internal sealed class AstBuilder
                 OptionalIdentifier(a.target.qualifier), Identifier(a.target.name), BuildExpression(a.expression())))
             .ToList();
         Expression? where = ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null;
-        return new UpdateStatement(BuildTableSource(ctx.tableSource()), assignments, where);
+        return new UpdateStatement(BuildTableSources(ctx.tableSource()), assignments, where);
     }
 
     private static SystemVariableSelectStatement BuildSystemVariableSelect(SystemVariableSelectContext ctx)
@@ -122,24 +122,24 @@ internal sealed class AstBuilder
         // The PRIMARY KEY constraint's name, from whichever form declared it (column- or table-level).
         string? primaryKeyName = null;
 
+        // Where each foreign key and the primary key sit in the statement's text, for a self-reference below.
+        var foreignKeyTokens = new List<int>();
+        int primaryKeyToken = int.MaxValue;
+
         // Column-level UNIQUE and REFERENCES (the single-field forms) apply to the column they follow.
         foreach (ColumnDefinitionContext cd in ctx.columnDefinition())
         {
-            string columnName = Identifier(cd.name);
-            foreach (ColumnConstraintContext cc in cd.columnConstraint())
+            ColumnKeys keys = ColumnKeysOf(cd);
+            foreach (PrimaryKeyConstraintContext p in keys.PrimaryKeys)
             {
-                switch (cc)
-                {
-                    case PrimaryKeyConstraintContext p when p.cname is not null:
-                        primaryKeyName = Identifier(p.cname);
-                        break;
-                    case UniqueColumnConstraintContext u:
-                        uniques.Add(new UniqueConstraint(u.cname is null ? null : Identifier(u.cname), [columnName]));
-                        break;
-                    case ColumnReferencesConstraintContext r:
-                        foreignKeys.Add(BuildColumnReferences(r, columnName));
-                        break;
-                }
+                if (p.cname is not null) primaryKeyName = Identifier(p.cname);
+                primaryKeyToken = Math.Min(primaryKeyToken, p.Start.TokenIndex);
+            }
+            uniques.AddRange(keys.Uniques);
+            foreach ((ForeignKeyConstraint fk, int token) in keys.References)
+            {
+                foreignKeys.Add(fk);
+                foreignKeyTokens.Add(token);
             }
         }
 
@@ -150,12 +150,14 @@ internal sealed class AstBuilder
                 case PrimaryKeyTableConstraintContext pk:
                     primaryKey.AddRange(pk._columns.Select(Identifier));
                     if (pk.name is not null) primaryKeyName = Identifier(pk.name);
+                    primaryKeyToken = Math.Min(primaryKeyToken, pk.Start.TokenIndex);
                     break;
                 case UniqueTableConstraintContext uq:
                     uniques.Add(new UniqueConstraint(uq.name is null ? null : Identifier(uq.name), uq._columns.Select(Identifier).ToList()));
                     break;
                 case ForeignKeyTableConstraintContext fk:
                     foreignKeys.Add(BuildForeignKey(fk));
+                    foreignKeyTokens.Add(fk.Start.TokenIndex);
                     break;
                 case CheckTableConstraintContext ck:
                     checks.Add(new CheckConstraint(
@@ -164,7 +166,22 @@ internal sealed class AstBuilder
             }
         }
 
-        return new CreateTableStatement(Identifier(ctx.table), columns, primaryKey, foreignKeys, uniques, checks, primaryKeyName);
+        // REFERENCES with no column list names the parent's primary key. For a table referencing itself that is
+        // the key this statement declares, but only if it is declared earlier in the text: ACE resolves each
+        // reference as it reaches it, so against a key declared after it there is none yet (verified — ACE then
+        // reports that the table has no primary key). Resolved here, where the text order is known; a reference
+        // left without columns is refused when the statement runs.
+        string table = Identifier(ctx.table);
+        for (int i = 0; i < foreignKeys.Count; i++)
+        {
+            ForeignKeyConstraint fk = foreignKeys[i];
+            if (fk.ReferencedColumns.Count == 0
+                && string.Equals(fk.ReferencedTable, table, StringComparison.OrdinalIgnoreCase)
+                && primaryKeyToken < foreignKeyTokens[i])
+                foreignKeys[i] = fk with { ReferencedColumns = primaryKey.ToList() };
+        }
+
+        return new CreateTableStatement(table, columns, primaryKey, foreignKeys, uniques, checks, primaryKeyName);
     }
 
     /// <summary>The verbatim source text of a parse context (preserving spacing), via the input stream —
@@ -179,14 +196,15 @@ internal sealed class AstBuilder
     {
         AlterTableAction action = ctx.alterTableAction() switch
         {
-            AddColumnActionContext a => new AddColumnAction(BuildColumnDefinition(a.columnDefinition())),
+            AddColumnActionContext a => BuildAddColumn(a.columnDefinition()),
             AddConstraintActionContext a => BuildAddConstraint(a.tableConstraint()),
             AlterColumnActionContext a => new AlterColumnAction(
                 Identifier(a.field), TypeName(a.dataType()), Size(a.dataType()), Scale(a.dataType()),
                 a.columnConstraint().OfType<DefaultConstraintContext>().FirstOrDefault()?.expression().GetText(),
                 // NOT NULL → true, NULL → false, neither → null (leave the column's nullability unchanged).
                 a.columnConstraint().OfType<NotNullConstraintContext>().Any() ? true
-                    : a.columnConstraint().OfType<NullableConstraintContext>().Any() ? false : null),
+                    : a.columnConstraint().OfType<NullableConstraintContext>().Any() ? false : null,
+                IdentityOf(a.columnConstraint())),
             AlterColumnSetDefaultActionContext a => new AlterColumnSetDefaultAction(
                 Identifier(a.field), OriginalText(a.expression())),
             AlterColumnDropDefaultActionContext a => new AlterColumnDropDefaultAction(Identifier(a.field)),
@@ -198,6 +216,38 @@ internal sealed class AstBuilder
             _ => throw new SqlParseException("Unsupported ALTER TABLE action."),
         };
         return new AlterTableStatement(Identifier(ctx.table), action);
+    }
+
+    /// <summary>ADD COLUMN with the constraints its column carries: they apply to the new column, as in CREATE
+    /// TABLE.</summary>
+    private static AddColumnAction BuildAddColumn(ColumnDefinitionContext ctx)
+    {
+        ColumnKeys keys = ColumnKeysOf(ctx);
+        return new AddColumnAction(
+            BuildColumnDefinition(ctx),
+            keys.References.FirstOrDefault().Constraint,
+            keys.Uniques.FirstOrDefault(),
+            keys.PrimaryKeys.FirstOrDefault()?.cname is { } name ? Identifier(name) : null);
+    }
+
+    /// <summary>The keys a column's own constraints declare, for CREATE TABLE and ADD COLUMN alike: its PRIMARY KEY
+    /// constraints, a unique constraint per UNIQUE, and a foreign key per REFERENCES with where each sits in the
+    /// statement's text.</summary>
+    private readonly record struct ColumnKeys(
+        List<PrimaryKeyConstraintContext> PrimaryKeys,
+        List<UniqueConstraint> Uniques,
+        List<(ForeignKeyConstraint Constraint, int Token)> References);
+
+    private static ColumnKeys ColumnKeysOf(ColumnDefinitionContext column)
+    {
+        string name = Identifier(column.name);
+        ColumnConstraintContext[] constraints = column.columnConstraint();
+        return new ColumnKeys(
+            constraints.OfType<PrimaryKeyConstraintContext>().ToList(),
+            constraints.OfType<UniqueColumnConstraintContext>()
+                .Select(u => new UniqueConstraint(u.cname is null ? null : Identifier(u.cname), [name])).ToList(),
+            constraints.OfType<ColumnReferencesConstraintContext>()
+                .Select(r => (BuildColumnReferences(r, name), r.Start.TokenIndex)).ToList());
     }
 
     private static AlterTableAction BuildAddConstraint(TableConstraintContext tc) => tc switch
@@ -212,8 +262,11 @@ internal sealed class AstBuilder
         _ => throw new SqlParseException("Unsupported ALTER TABLE ADD CONSTRAINT."),
     };
 
-    private static int? Size(DataTypeContext type) => type.size is { } s ? int.Parse(s.GetText(), CultureInfo.InvariantCulture) : null;
-    private static int? Scale(DataTypeContext type) => type.scale is { } s ? int.Parse(s.GetText(), CultureInfo.InvariantCulture) : null;
+    private static int? Size(DataTypeContext type) => SignedInteger(type.size);
+    private static int? Scale(DataTypeContext type) => SignedInteger(type.scale);
+
+    private static int? SignedInteger(SignedIntegerContext? value) =>
+        value is null ? null : int.Parse(value.GetText(), CultureInfo.InvariantCulture);
 
     private static ForeignKeyConstraint BuildForeignKey(ForeignKeyTableConstraintContext ctx)
     {
@@ -273,8 +326,8 @@ internal sealed class AstBuilder
     private static ColumnDefinition BuildColumnDefinition(ColumnDefinitionContext ctx)
     {
         DataTypeContext type = ctx.dataType();
-        int? size = type.size is { } s ? int.Parse(s.GetText(), CultureInfo.InvariantCulture) : null;
-        int? scale = type.scale is { } sc ? int.Parse(sc.GetText(), CultureInfo.InvariantCulture) : null;
+        int? size = Size(type);
+        int? scale = Scale(type);
 
         string typeName = TypeName(type);
 
@@ -291,7 +344,35 @@ internal sealed class AstBuilder
 
         return new ColumnDefinition(
             Identifier(ctx.name), typeName, size, scale, notNull, primaryKey, defaultSql, compressed,
-            calculated);
+            calculated, IdentityOf(ctx.columnConstraint()));
+    }
+
+    /// <summary>A column's IDENTITY attribute — the last one written, when there are several — or null. ACE takes
+    /// it only straight after the type, NULL/NOT NULL or another IDENTITY: after DEFAULT, PRIMARY KEY or any
+    /// other constraint it is a syntax error there (verified), so it is one here too.</summary>
+    private static IdentityAttribute? IdentityOf(IEnumerable<ColumnConstraintContext> constraints)
+    {
+        IdentityAttribute? identity = null;
+        bool afterOtherConstraint = false;
+        foreach (ColumnConstraintContext constraint in constraints)
+        {
+            switch (constraint)
+            {
+                case IdentityConstraintContext id:
+                    if (afterOtherConstraint)
+                        throw new SqlParseException(
+                            "Syntax error in field definition: IDENTITY must come before DEFAULT, PRIMARY KEY and the " +
+                            "column's other constraints.");
+                    identity = new IdentityAttribute(SignedInteger(id.seed), SignedInteger(id.increment));
+                    break;
+                case NotNullConstraintContext or NullableConstraintContext:
+                    break;
+                default:
+                    afterOtherConstraint = true;
+                    break;
+            }
+        }
+        return identity;
     }
 
     private static SqlStatement BuildCreateIndex(CreateIndexStatementContext ctx)
@@ -392,9 +473,9 @@ internal sealed class AstBuilder
     /// <summary>The declared type name of a data type — up to three words (e.g. "national character varying")
     /// joined by single spaces.</summary>
     private static string TypeName(DataTypeContext type) => string.Join(' ',
-        new[] { type.typeName, type.extra, type.extra2 }
-            .Where(t => t is not null)
-            .Select(Identifier));
+        new[] { type.identityType is null ? null : "IDENTITY" }
+            .Concat(new[] { type.typeName, type.extra, type.extra2 }.Where(t => t is not null).Select(Identifier))
+            .Where(t => t is not null));
 
     // ---- PARAMETERS-clause lowering: unqualified references to a declared parameter become parameters ----
 
@@ -444,26 +525,30 @@ internal sealed class AstBuilder
     private static Expression LowerExpr(Expression e, HashSet<string> names) => e switch
     {
         ColumnReference { Table: null, Column: var c } when names.Contains(c) => new ParameterExpression(c),
-        BinaryExpression b => b with { Left = LowerExpr(b.Left, names), Right = LowerExpr(b.Right, names) },
-        UnaryExpression u => u with { Operand = LowerExpr(u.Operand, names) },
-        FunctionCall f => f with { Arguments = f.Arguments.Select(a => LowerExpr(a, names)).ToList() },
         // A window function lowers like any other call — arguments AND the OVER clause, since a PARAMETERS name
         // can appear in a PARTITION BY or ORDER BY expression just as readily as in an argument.
         WindowFunction w => w with
         {
             Arguments = w.Arguments.Select(a => LowerExpr(a, names)).ToList(),
+            Filter = w.Filter is null ? null : LowerExpr(w.Filter, names),
             Over = w.Over with
             {
                 PartitionBy = w.Over.PartitionBy.Select(p => LowerExpr(p, names)).ToList(),
                 OrderBy = w.Over.OrderBy.Select(o => o with { Value = LowerExpr(o.Value, names) }).ToList(),
+                Frame = w.Over.Frame is { } frame
+                    ? frame with { Start = LowerBound(frame.Start, names), End = LowerBound(frame.End, names) }
+                    : null,
             },
         },
         // LowerParameters, not LowerSelect: a subquery may be a set operation or a table value constructor.
         ScalarSubquery s => new ScalarSubquery(LowerParameters(s.Query, names)),
         ExistsExpression x => new ExistsExpression(LowerParameters(x.Query, names)),
         InSubqueryExpression i => i with { Value = LowerExpr(i.Value, names), Query = LowerParameters(i.Query, names) },
-        _ => e,
+        _ => e.MapOperands(o => LowerExpr(o, names)),
     };
+
+    private static FrameBound LowerBound(FrameBound bound, HashSet<string> names) =>
+        bound.Offset is null ? bound : bound with { Offset = LowerExpr(bound.Offset, names) };
 
     /// <summary>Decomposes a view's "simple SELECT" into the columns/tables/joins/where Access stores as
     /// MSysQueries rows. Rejects anything Access itself rejects in a view (UNION, GROUP BY/aggregates,
@@ -550,13 +635,13 @@ internal sealed class AstBuilder
         var qualifiers = new List<string>();
         void Walk(Expression e)
         {
-            switch (e)
+            if (e is ColumnReference { Table: { } q })
             {
-                case ColumnReference { Table: { } q } when !qualifiers.Contains(q): qualifiers.Add(q); break;
-                case BinaryExpression b: Walk(b.Left); Walk(b.Right); break;
-                case UnaryExpression u: Walk(u.Operand); break;
-                case FunctionCall f: foreach (Expression a in f.Arguments) Walk(a); break;
+                if (!qualifiers.Contains(q)) qualifiers.Add(q);
+                return;
             }
+            foreach (Expression operand in e.Operands() ?? [])
+                Walk(operand);
         }
         Walk(BuildExpression(condition));
         return (qualifiers.ElementAtOrDefault(0) ?? "", qualifiers.ElementAtOrDefault(1) ?? "");
@@ -797,11 +882,13 @@ internal sealed class AstBuilder
         _ => throw new SqlParseException($"Unsupported select item: {ctx.GetText()}"),
     };
 
-    private static TableReference BuildFrom(FromClauseContext ctx)
+    private static TableReference BuildFrom(FromClauseContext ctx) => BuildTableSources(ctx.tableSource());
+
+    /// <summary>A comma list of table sources, which is an implicit cross join (no ON).</summary>
+    private static TableReference BuildTableSources(TableSourceContext[] sources)
     {
-        TableReference table = BuildTableSource(ctx.tableSource(0));
-        // Comma between sources is an implicit cross join (no ON).
-        foreach (TableSourceContext src in ctx.tableSource().Skip(1))
+        TableReference table = BuildTableSource(sources[0]);
+        foreach (TableSourceContext src in sources.Skip(1))
             table = new JoinTable(table, BuildTableSource(src), JoinKind.Cross, null);
         return table;
     }
@@ -853,12 +940,20 @@ internal sealed class AstBuilder
 
     internal static Expression BuildExpression(ExpressionContext ctx) => ctx switch
     {
-        NotExprContext n => new UnaryExpression(UnaryOperator.Not, BuildExpression(n.expression())),
-        BitNotExprContext n => new UnaryExpression(UnaryOperator.BitNot, BuildExpression(n.expression())),
-        NegateExprContext n => new UnaryExpression(UnaryOperator.Negate, BuildExpression(n.expression())),
-        PowExprContext p => new BinaryExpression(BinaryOperator.Power, BuildExpression(p.left), BuildExpression(p.right)),
+        NotExprContext n => new UnaryExpression(
+            n.op.Type == BNOT ? UnaryOperator.BitNot : UnaryOperator.Not, BuildExpression(n.expression())),
+        // A unary plus leaves its operand as it is.
+        NegateExprContext n => n.op.Type == PLUS
+            ? BuildExpression(n.expression())
+            : SignedNumber(n) is { } signed
+                ? PowerChain(signed.Number, signed.Exponents)
+                : new UnaryExpression(UnaryOperator.Negate, BuildExpression(n.expression())),
+        PowExprContext p => BuildPower(p),
         MulDivExprContext m => Binary(m.op, m.left, m.right),
-        AddConcatExprContext a => Binary(a.op, a.left, a.right),
+        IntDivExprContext d => Binary(d.op, d.left, d.right),
+        ModExprContext m => Binary(m.op, m.left, m.right),
+        AddSubExprContext a => Binary(a.op, a.left, a.right),
+        ConcatExprContext c => Binary(c.op, c.left, c.right),
         ComparisonExprContext c => Binary(c.op, c.left, c.right),
         BetweenExprContext b => BuildBetween(b),
         InExprContext i => BuildIn(i),
@@ -868,9 +963,11 @@ internal sealed class AstBuilder
             ? new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))
             : new UnaryExpression(UnaryOperator.Not, new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))),
         IsNullExprContext n => new UnaryExpression(n.not is null ? UnaryOperator.IsNull : UnaryOperator.IsNotNull, BuildExpression(n.operand)),
-        BitwiseExprContext b => Binary(b.op, b.left, b.right),
-        AndExprContext a => new BinaryExpression(BinaryOperator.And, BuildExpression(a.left), BuildExpression(a.right)),
-        OrExprContext o => new BinaryExpression(BinaryOperator.Or, BuildExpression(o.left), BuildExpression(o.right)),
+        AndExprContext a => Binary(a.op, a.left, a.right),
+        OrExprContext o => Binary(o.op, o.left, o.right),
+        XorExprContext x => Binary(x.op, x.left, x.right),
+        EqvExprContext e => Binary(e.op, e.left, e.right),
+        ImpExprContext i => Binary(i.op, i.left, i.right),
         PrimaryExprContext p => BuildPrimary(p.primary()),
         _ => throw new SqlParseException($"Unsupported expression: {ctx.GetText()}"),
     };
@@ -910,19 +1007,107 @@ internal sealed class AstBuilder
 
     private static Expression BuildFunctionCall(FunctionCallContext ctx)
     {
-        IReadOnlyList<Expression> args = ctx.star is not null
+        string name = FunctionName(ctx.name);
+        List<Expression> args = ctx.star is not null
             ? [new StarExpression()]
             : ctx.expression().Select(BuildExpression).ToList();
+        IReadOnlyList<SortDirection>? withinGroup = BuildWithinGroup(ctx, name, args);
+        Expression? filter = ctx.filterClause() is { } f ? BuildExpression(f.condition) : null;
+
         // An OVER clause turns the same call into a window function, which is a different kind of node rather
         // than a FunctionCall carrying a spec — see WindowFunction for why the distinction has to be in the type.
-        return ctx.windowSpecification() is { } over
-            ? new WindowFunction(FunctionName(ctx.name), args, BuildWindowSpec(over))
-            : new FunctionCall(FunctionName(ctx.name), args, Distinct: ctx.distinct is not null);
+        if (ctx.windowSpecification() is { } over)
+        {
+            return new WindowFunction(name, args, BuildWindowSpec(over),
+                Distinct: ctx.distinct is not null,
+                IgnoreNulls: ctx.nullTreatment() is { } nulls ? nulls.treatment.Type == IGNORE : null,
+                FromLast: ctx.nthRowFrom() is { } from ? from.edge.Type == LAST : null,
+                WithinGroup: withinGroup,
+                Filter: filter);
+        }
+        return new FunctionCall(name, args, Distinct: ctx.distinct is not null, WithinGroup: withinGroup, Filter: filter);
+    }
+
+    /// <summary>
+    /// An ordered-set aggregate's WITHIN GROUP: its ORDER BY keys, appended to <paramref name="args"/>, and their
+    /// directions. The syntax belongs to those aggregates alone, and they cannot go without it. A percentile takes
+    /// one argument, the fraction, no DISTINCT and one key; LISTAGG takes the value and optionally a separator, which
+    /// the standard makes a string literal, and any number of keys.
+    /// </summary>
+    private static IReadOnlyList<SortDirection>? BuildWithinGroup(FunctionCallContext ctx, string name, List<Expression> args)
+    {
+        bool orderedSet = FunctionCall.IsOrderedSetAggregate(name);
+        if (ctx.withinGroup() is not { } within)
+        {
+            return orderedSet
+                ? throw new SqlParseException($"{name} needs WITHIN GROUP (ORDER BY …).")
+                : null;
+        }
+        if (!orderedSet)
+            throw new SqlParseException($"{name} takes no WITHIN GROUP.");
+        if (ctx.star is not null)
+            throw new SqlParseException($"{name} takes no *.");
+
+        var keys = within.orderByClause().orderByItem().Select(BuildOrderByItem).ToList();
+        if (name.Equals("LISTAGG", StringComparison.OrdinalIgnoreCase))
+        {
+            if (args.Count is not (1 or 2) || args is [_, not LiteralExpression { Value: string }])
+                throw new SqlParseException("LISTAGG takes a value and, optionally, a separator written as a string.");
+        }
+        else if (ctx.distinct is not null || args.Count != 1 || keys.Count != 1)
+            throw new SqlParseException($"{name} takes one argument, the fraction, no DISTINCT, and orders by one key.");
+
+        args.AddRange(keys.Select(k => k.Value));
+        return keys.Select(k => k.Direction).ToList();
     }
 
     private static WindowSpec BuildWindowSpec(WindowSpecificationContext ctx) =>
         new(ctx._partition.Select(BuildExpression).ToList(),
-            ctx.orderByClause() is { } o ? o.orderByItem().Select(BuildOrderByItem).ToList() : []);
+            ctx.orderByClause() is { } o ? o.orderByItem().Select(BuildOrderByItem).ToList() : [],
+            ctx.windowFrame() is { } frame ? BuildWindowFrame(frame) : null);
+
+    /// <summary>
+    /// A frame clause, held to the standard's syntax rules: the start is not UNBOUNDED FOLLOWING, the end is not
+    /// UNBOUNDED PRECEDING, and the start does not come after the end in window order — so <c>CURRENT ROW AND 1
+    /// PRECEDING</c> is refused, and a lone <c>n FOLLOWING</c>, which ends at the current row, is too.
+    /// </summary>
+    private static WindowFrame BuildWindowFrame(WindowFrameContext ctx)
+    {
+        FrameBound start = BuildFrameBound(ctx.start);
+        FrameBound end = ctx.end is null ? new FrameBound(FrameBoundKind.CurrentRow) : BuildFrameBound(ctx.end);
+        if (start.Kind == FrameBoundKind.UnboundedFollowing)
+            throw new SqlParseException("A window frame cannot start at UNBOUNDED FOLLOWING.");
+        if (end.Kind == FrameBoundKind.UnboundedPreceding)
+            throw new SqlParseException("A window frame cannot end at UNBOUNDED PRECEDING.");
+        if (start.Kind > end.Kind)
+            throw new SqlParseException("A window frame cannot start after it ends.");
+
+        FrameUnit unit = ctx.unit.Type switch
+        {
+            ROWS => FrameUnit.Rows,
+            RANGE => FrameUnit.Range,
+            _ => FrameUnit.Groups,
+        };
+        FrameExclusion exclusion = ctx.exclusion switch
+        {
+            null => FrameExclusion.NoOthers,
+            { } e when e.CURRENT() is not null => FrameExclusion.CurrentRow,
+            { } e when e.GROUP() is not null => FrameExclusion.Group,
+            { } e when e.TIES() is not null => FrameExclusion.Ties,
+            _ => FrameExclusion.NoOthers, // NO OTHERS
+        };
+        return new WindowFrame(unit, start, end, exclusion);
+    }
+
+    private static FrameBound BuildFrameBound(FrameBoundContext ctx)
+    {
+        if (ctx.CURRENT() is not null)
+            return new FrameBound(FrameBoundKind.CurrentRow);
+        bool preceding = ctx.direction.Type == PRECEDING;
+        return ctx.UNBOUNDED() is not null
+            ? new FrameBound(preceding ? FrameBoundKind.UnboundedPreceding : FrameBoundKind.UnboundedFollowing)
+            : new FrameBound(preceding ? FrameBoundKind.Preceding : FrameBoundKind.Following, BuildExpression(ctx.offset));
+    }
 
     /// <summary>A function name: an identifier, or the LEFT/RIGHT keyword tokens as Left()/Right().</summary>
     private static string FunctionName(FunctionNameContext ctx) =>
@@ -931,8 +1116,6 @@ internal sealed class AstBuilder
     private static Expression BuildColumn(ColumnRefContext ctx) =>
         new ColumnReference(OptionalIdentifier(ctx.qualifier), Identifier(ctx.name));
 
-    /// <summary>Lowers <c>x [NOT] BETWEEN lo AND hi</c> to <c>(x &gt;= lo AND x &lt;= hi)</c> (negated for NOT),
-    /// so no dedicated node is needed and the evaluator handles it via the comparison operators.</summary>
     /// <summary><c>x IN (a, b, …)</c> becomes a flat <see cref="InListExpression"/> evaluated iteratively — NOT a
     /// deep <c>(x = a) OR (x = b) OR …</c> tree, which recurses once per item and overflows the stack when EF Core
     /// inlines a "huge number of values" Contains (thousands of constants). The evaluator reproduces the same
@@ -944,24 +1127,74 @@ internal sealed class AstBuilder
         return new InListExpression(value, items, ctx.not is not null);
     }
 
-    private static Expression BuildBetween(BetweenExprContext ctx)
-    {
-        Expression value = BuildExpression(ctx.val), lo = BuildExpression(ctx.lo), hi = BuildExpression(ctx.hi);
-        Expression range = new BinaryExpression(BinaryOperator.And,
-            new BinaryExpression(BinaryOperator.GreaterThanOrEqual, value, lo),
-            new BinaryExpression(BinaryOperator.LessThanOrEqual, value, hi));
-        return ctx.not is null ? range : new UnaryExpression(UnaryOperator.Not, range);
-    }
+    private static Expression BuildBetween(BetweenExprContext ctx) =>
+        new BetweenExpression(BuildExpression(ctx.val), BuildExpression(ctx.lo), BuildExpression(ctx.hi), ctx.not is not null);
 
     /// <summary>Parses an Access <c>#…#</c> date literal (e.g. <c>#1/1/1997#</c>, month/day/year) to a
-    /// <see cref="DateTime"/>.</summary>
-    private static DateTime ParseDate(string text) =>
-        DateTime.Parse(text.Trim('#'), CultureInfo.InvariantCulture);
+    /// <see cref="DateTime"/>. A time without a date is on 1899-12-30, day zero (verified vs ACE: #13:45:30# is
+    /// 1899-12-30 13:45:30), not on today.</summary>
+    private static DateTime ParseDate(string text)
+    {
+        DateTime value = DateTime.Parse(text.Trim('#'), CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault);
+        return value.Date == DateTime.MinValue ? new DateTime(1899, 12, 30).Add(value.TimeOfDay) : value;
+    }
+
+    /// <summary>The exact value of a number written without an exponent; none for 1E5 or 1.5E2, or past a Decimal.</summary>
+    private static decimal? WrittenDecimal(string text) =>
+        text.IndexOfAny(['E', 'e']) < 0
+        && decimal.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal value)
+            ? value : null;
+
+    /// <summary>
+    /// A minus written directly against a number that begins with a digit is part of that number, which is then a single
+    /// operand binding tighter than <c>^</c> (verified vs ACE: <c>-2 ^ 2</c> is 4 and <c>2 ^ -2 ^ 2</c> is 0.0625, while
+    /// <c>- 2 ^ 2</c>, <c>-(2) ^ 2</c> and <c>-.5 ^ 2</c> are -4, -4 and -0.25). The parser gives the minus the powers
+    /// that follow, so this returns the signed number and the exponents to apply to it in turn, or null when the minus
+    /// is an ordinary negation.
+    /// </summary>
+    private static (LiteralExpression Number, List<ExpressionContext> Exponents)? SignedNumber(NegateExprContext negation)
+    {
+        if (negation.op.Type != MINUS)
+            return null;
+
+        var exponents = new List<ExpressionContext>();
+        ExpressionContext leftmost = negation.expression();
+        while (leftmost is PowExprContext power)
+        {
+            exponents.Insert(0, power.right);
+            leftmost = power.left;
+        }
+        if (leftmost is not PrimaryExprContext primary || primary.primary() is not LiteralPrimaryContext literalPrimary)
+            return null;
+
+        LiteralContext literal = literalPrimary.literal();
+        string text = literal.GetText();
+        if (literal is not (IntLiteralContext or NumberLiteralContext)
+            || literal.Start.StartIndex != negation.op.StopIndex + 1
+            || !char.IsDigit(text[0]))
+            return null;
+
+        return (BuildNumber("-" + text, literal is IntLiteralContext ? INTEGER_LITERAL : NUMBER_LITERAL), exponents);
+    }
+
+    private static Expression PowerChain(Expression @base, IEnumerable<ExpressionContext> exponents) =>
+        exponents.Aggregate(@base, (result, exponent) =>
+            new BinaryExpression(BinaryOperator.Power, result, BuildExpression(exponent)));
+
+    private static Expression BuildPower(PowExprContext power) =>
+        power.right is NegateExprContext negation && SignedNumber(negation) is { } signed
+            ? PowerChain(new BinaryExpression(BinaryOperator.Power, BuildExpression(power.left), signed.Number), signed.Exponents)
+            : new BinaryExpression(BinaryOperator.Power, BuildExpression(power.left), BuildExpression(power.right));
+
+    /// <summary>A number literal, with the sign when a minus is written against it.</summary>
+    private static LiteralExpression BuildNumber(string text, int tokenType) => tokenType == INTEGER_LITERAL
+        ? new LiteralExpression(ParseInteger(text))
+        : new LiteralExpression(double.Parse(text, CultureInfo.InvariantCulture), WrittenDecimal(text));
 
     private static Expression BuildLiteral(LiteralContext ctx) => ctx switch
     {
-        IntLiteralContext i => new LiteralExpression(ParseInteger(i.GetText())),
-        NumberLiteralContext n => new LiteralExpression(double.Parse(n.GetText(), CultureInfo.InvariantCulture)),
+        IntLiteralContext i => BuildNumber(i.GetText(), INTEGER_LITERAL),
+        NumberLiteralContext n => BuildNumber(n.GetText(), NUMBER_LITERAL),
         HexLiteralContext h => new LiteralExpression(ParseHexBytes(h.GetText())),
         StringLiteralContext s => new LiteralExpression(Unquote(s.GetText())),
         DateLiteralContext d => new LiteralExpression(ParseDate(d.GetText())),
@@ -990,6 +1223,11 @@ internal sealed class AstBuilder
         MOD => BinaryOperator.Modulo,
         BACKSLASH => BinaryOperator.IntDivide,
         AMP => BinaryOperator.Concat,
+        AND => BinaryOperator.And,
+        OR => BinaryOperator.Or,
+        XOR => BinaryOperator.Xor,
+        EQV => BinaryOperator.Eqv,
+        IMP => BinaryOperator.Imp,
         BAND => BinaryOperator.BitAnd,
         BOR => BinaryOperator.BitOr,
         BXOR => BinaryOperator.BitXor,

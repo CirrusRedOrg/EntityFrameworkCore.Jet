@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 EntityFrameworkCore.Jet is an EF Core provider for Microsoft Jet/ACE databases (Microsoft Access `.mdb`/`.accdb` files). The **Jet** provider runs **Windows only** and bridges EF Core to the Access database engine via either ODBC or OLE DB. Alongside it, **LibRed** (also in this repo, on `master`) is a from-scratch managed engine that reads/writes the file format directly and is **cross-platform** — see the LibRed section below.
 
-Current version: `11.0.0-alpha.1` (`Version.props`) targeting EF Core 11 and `net11.0`; `global.json` pins the 11.0.100 RC1 SDK with `rollForward: latestFeature`. The test projects use **xunit v3**.
+Current version: `11.0.0-alpha.3` (`Version.props`) targeting EF Core 11 and `net11.0`; `global.json` pins the 11.0.100 RC1 SDK with `rollForward: latestFeature`. The test projects use **xunit v3**.
 
 ### Which layer am I touching?
 
@@ -223,7 +223,9 @@ contract.
 > underneath us. It did: dotnet/runtime#130566 (.NET 11 preview 7) dropped `Convert.ToDecimal`'s 15-significant-digit
 > rounding, which came from OA's own `VarDecFromR8` and had been stable since the 1990s. That turned
 > `SUM(ROUND(UnitPrice, 2))` into `58.600000000000001421085471520`. The fix was to own it:
-> `src/EFCore.Jet.Data/JetDecimalConverter.cs`. **When a long-stable conversion suddenly misbehaves with no code
+> `src/Shared/Data/JetDecimalConverter.cs` (compiled into both EFCore.Jet.Data and LibRed.Core; every LibRed
+> assembly uses the Core copy, and any double/float that can reach a decimal goes through its `ToDecimal`, never
+> `Convert.ToDecimal` or a cast). **When a long-stable conversion suddenly misbehaves with no code
 > change on our side, suspect the runtime's OA-era compatibility behaviour before suspecting the provider.**
 
 ## LibRed — Native Managed Engine

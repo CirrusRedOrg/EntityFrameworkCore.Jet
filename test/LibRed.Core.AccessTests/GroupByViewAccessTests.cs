@@ -9,6 +9,7 @@ namespace LibRed.Core.Tests;
 /// A "totals" (GROUP BY) view — Northwind's "Order Subtotals". Access stores each GROUP BY column as an
 /// <c>Attribute=9</c> row; aggregate output columns are ordinary <c>Attribute=6</c> rows. Access runs it.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class GroupByViewAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

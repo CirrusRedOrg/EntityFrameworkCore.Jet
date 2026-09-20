@@ -64,6 +64,13 @@ internal sealed class EvalScope(
 
     internal static string Describe(ColumnReference r) => r.Table is null ? r.Column : $"{r.Table}.{r.Column}";
 
+    /// <summary>The current row's value at a 1-based column position.</summary>
+    public object? At(int position) =>
+        position >= 1 && position <= row.Length
+            ? row[position - 1]
+            : throw new InvalidOperationException(
+                $"'{position}' is not a valid field name or expression: ORDER BY {position} names no output column.");
+
     /// <summary>Every table alias visible in this scope and its enclosing scopes — so index selection on a
     /// correlated subquery knows which column references belong to the outer query (and are seekable constants).</summary>
     public IEnumerable<string> VisibleAliases()

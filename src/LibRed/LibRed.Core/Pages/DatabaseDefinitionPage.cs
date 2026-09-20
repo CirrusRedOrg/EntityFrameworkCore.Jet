@@ -47,6 +47,14 @@ public sealed class DatabaseDefinitionPage : Page
     /// pointer at <see cref="Formats.JetFormatBase.CatalogRootPointerOffset"/>. 2 in every observed file.</summary>
     public int CatalogRootPage { get; internal set; }
 
+    /// <summary>Where the global free-pages usage map lives, from the <c>[row:1][page:3]</c> pointer at
+    /// <see cref="Formats.JetFormatBase.FreePagesMapPointerOffset"/>. Page 1 row 0 in every file ACE writes.</summary>
+    public (int Row, int Page) FreePagesMap { get; internal set; }
+
+    /// <summary>Where the global released-pages usage map lives, from the <c>[row:1][page:3]</c> pointer at
+    /// <see cref="Formats.JetFormatBase.ReleasedPagesMapPointerOffset"/>. Page 1 row 1 in every file ACE writes.</summary>
+    public (int Row, int Page) ReleasedPagesMap { get; internal set; }
+
     public DateTime DatabaseCreationDate { get; internal set; }
 
     public override void Read(PageBuffer buffer, Formats.JetFormatBase format)
@@ -67,6 +75,8 @@ public sealed class DatabaseDefinitionPage : Page
         DefaultCollationSortId = clear[Formats.JetFormatBase.CollationSortIdOffset - b];
         DefaultCollationVersion = clear[Formats.JetFormatBase.CollationVersionOffset - b];
         CatalogRootPage = BinaryPrimitives.ReadInt32LittleEndian(clear.Slice(Formats.JetFormatBase.CatalogRootPointerOffset - b, 4));
+        FreePagesMap = ReadMapPointer(buffer.Span, Formats.JetFormatBase.FreePagesMapPointerOffset);
+        ReleasedPagesMap = ReadMapPointer(buffer.Span, Formats.JetFormatBase.ReleasedPagesMapPointerOffset);
         // An OLE Automation date, so it is decoded by the OA function rather than by hand: the two disagree
         // below the epoch, where OA keeps the time fraction positive (-1.25 is 1899-12-29 06:00, not
         // 1899-12-28 18:00). And the value comes straight off page 0, so a NaN, an infinity or anything past
@@ -77,6 +87,18 @@ public sealed class DatabaseDefinitionPage : Page
             throw new InvalidDataException(
                 $"Page 0's creation date ({days}) is not a valid OLE Automation date.");
         DatabaseCreationDate = DateTime.FromOADate(days);
+    }
+
+    /// <summary>Decodes one of page 0's global usage-map pointers: a masked little-endian word whose low byte is
+    /// the record's row and whose upper three bytes are its page.</summary>
+    internal static (int Row, int Page) ReadMapPointer(ReadOnlySpan<byte> page, int offset)
+    {
+        ReadOnlySpan<byte> mask = Formats.JetFormatBase.PageZeroHeaderMask;
+        int start = Formats.JetFormatBase.PageZeroHeaderMaskStart;
+        uint value = 0;
+        for (int i = 0; i < 4; i++)
+            value |= (uint)(page[offset + i] ^ mask[offset - start + i]) << (8 * i);
+        return ((int)(value & 0xFF), (int)(value >> 8));
     }
 
     /// <summary>XOR-de-obfuscates the page-0 header region into <paramref name="clear"/>, whose length

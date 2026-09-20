@@ -10,6 +10,7 @@ namespace LibRed.Core.Tests;
 /// sorts the accented letter with its base letter's primary weight and records the accent in a secondary
 /// section. Verified by inserting through LibRed and having Access find the row through the City index.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class AccentCollationAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

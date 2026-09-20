@@ -25,13 +25,17 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
     private const int QueryOwnerAcm = 0xF00FE;  // 983294
     private const int QueryAdminAcm = 0xFFEFF;  // 1048319
 
+    // A relationship object's MSysACEs rows (verified vs ACE): owner 0xF00FE as a query's, admin 0xFFFFF.
+    private const int RelationshipOwnerAcm = 0xF00FE;  // 983294
+    private const int RelationshipAdminAcm = 0xFFFFF;  // 1048575
+
 
     private readonly PageChannel _channel = channel;
     private readonly JetCatalog _catalog = catalog;
 
     public void Create(string name, ViewSpec spec)
     {
-        int objectId = AllocateObject(name, ViewFlags);
+        int objectId = AllocateQueryObject(name, ViewFlags);
         AddQueryRows(objectId, spec);
     }
 
@@ -39,45 +43,66 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
     public void CreateAction(string name, ActionQuerySpec spec)
     {
         int flags = spec.Kind == ActionQueryKind.DataDefinition ? DataDefinitionFlags : AppendFlags;
-        int objectId = AllocateObject(name, flags);
+        int objectId = AllocateQueryObject(name, flags);
         AddActionRows(objectId, spec);
     }
 
-    /// <summary>Reserves the next free query object id, checks the name is unique, and writes the MSysObjects
-    /// row with the given <paramref name="flags"/> (which distinguish view / append / data-definition).</summary>
-    private int AllocateObject(string name, int flags)
+    /// <summary>
+    /// Records a relationship as ACE does (verified): a type-8 <c>MSysObjects</c> object in the Relationships
+    /// container, named after it, flags 0, with the next high-bit id — the sequence queries draw from, so the two
+    /// interleave, and a dropped one's id is taken again — and its two <c>MSysACEs</c> rows. Refuses a name
+    /// another relationship has, as ACE does; a table or query may share it.
+    /// </summary>
+    public void CreateRelationshipObject(string name) =>
+        AllocateObject(name, CatalogFormat.ObjectTypeRelationship, CatalogFormat.RelationshipContainerParentId, flags: 0,
+            RelationshipOwnerAcm, RelationshipAdminAcm);
+
+    private int AllocateQueryObject(string name, int flags) =>
+        AllocateObject(name, StoredQueryFormat.ObjectTypeQuery, CatalogFormat.ObjectContainerParentId, flags,
+            QueryOwnerAcm, QueryAdminAcm);
+
+    /// <summary>Reserves the next free high-bit object id, checks the name is free, and writes
+    /// the MSysObjects row and its two MSysACEs rows. For a query the <paramref name="flags"/> distinguish view /
+    /// append / data-definition.</summary>
+    private int AllocateObject(string name, short type, int parentId, int flags, int ownerAcm, int adminAcm)
     {
         TableDef msysObjects = _catalog.FindTable("MSysObjects")
             ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
         int idIndex = ColumnIndex(msysObjects, "Id");
         int nameIndex = ColumnIndex(msysObjects, "Name");
+        int parentIndex = ColumnIndex(msysObjects, "ParentId");
 
-        // A query's name must be unique among all objects (it also cannot equal an existing table name);
-        // find the next free negative id (queries increment from 0x80000000) in one scan.
+        // A query's name must be unique among all objects (it also cannot equal an existing table name); a
+        // relationship's only among the relationships, as ACE has it. Find the next free negative id (they
+        // increment from 0x80000000) in the same scan.
+        bool relationship = parentId == CatalogFormat.RelationshipContainerParentId;
         int nextId = unchecked((int)0x80000000);
         foreach (object?[] row in new Table(_channel, msysObjects).Rows())
         {
-            if (string.Equals(row[nameIndex] as string, name, StringComparison.OrdinalIgnoreCase))
-                throw new SchemaObjectExistsException($"An object named '{name}' already exists.", name);
+            if ((!relationship || row[parentIndex] is int parent && parent == parentId)
+                && string.Equals(row[nameIndex] as string, name, StringComparison.OrdinalIgnoreCase))
+                throw new SchemaObjectExistsException(relationship
+                    ? $"There is already a relationship named '{name}' in the current database."
+                    : $"An object named '{name}' already exists.", name);
             if (row[idIndex] is int id && id < 0 && id >= nextId) nextId = id + 1;
         }
 
-        AddObjectRow(msysObjects, name, nextId, flags);
-        AddPermissionRows(nextId);
+        AddObjectRow(msysObjects, name, nextId, type, parentId, flags);
+        AddPermissionRows(nextId, ownerAcm, adminAcm);
         return nextId;
     }
 
     /// <summary>
-    /// Adds the two MSysACEs permission rows Access writes for a new query/view object — owner (0x690C) at
-    /// ACM 0xF00FE and admin/users (0x680C) at ACM 0xFFEFF — maintaining the ObjectId index so Access's
-    /// security check finds them. Without these Access warns about permissions when opening the query.
+    /// Adds the two MSysACEs permission rows Access writes for a new query/view or relationship object — owner
+    /// (0x690C) and admin/users (0x680C) — maintaining the ObjectId index so Access's security check finds them.
+    /// Without these Access warns about permissions when opening a query.
     /// </summary>
-    private void AddPermissionRows(int objectId)
+    private void AddPermissionRows(int objectId, int ownerAcm, int adminAcm)
     {
         TableDef msysAces = _catalog.FindTable("MSysACEs")
             ?? throw new InvalidOperationException("MSysACEs catalog table was not found.");
 
-        foreach ((byte[] sid, int acm) in new[] { (DefaultOwner, QueryOwnerAcm), (AdminSid, QueryAdminAcm) })
+        foreach ((byte[] sid, int acm) in new[] { (DefaultOwner, ownerAcm), (AdminSid, adminAcm) })
         {
             var values = new object?[msysAces.Columns.Count];
             SetByName(msysAces, values, "ACM", acm);
@@ -88,13 +113,13 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         }
     }
 
-    private void AddObjectRow(TableDef msysObjects, string name, int objectId, int flags)
+    private void AddObjectRow(TableDef msysObjects, string name, int objectId, short type, int parentId, int flags)
     {
         DateTime now = DateTime.Now;
         var values = new object?[msysObjects.Columns.Count];
         SetByName(msysObjects, values, "Id", objectId);
-        SetByName(msysObjects, values, "ParentId", CatalogFormat.ObjectContainerParentId);
-        SetByName(msysObjects, values, "Type", StoredQueryFormat.ObjectTypeQuery);
+        SetByName(msysObjects, values, "ParentId", parentId);
+        SetByName(msysObjects, values, "Type", type);
         SetByName(msysObjects, values, "Name", name);
         SetByName(msysObjects, values, "Flags", flags);
         SetByName(msysObjects, values, "Owner", DefaultOwner);

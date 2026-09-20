@@ -28,11 +28,15 @@ internal static class TdefChainReader
                 $"TDEF page {firstPage} declares length {definitionLength}; supported validated range is " +
                 $"{format.TdefRealIndexBlockOffset} through {MaxDefinitionLength} bytes.");
 
+        // The chain holds the definition AND its 8-byte trailing reserve, which follows the last definition byte
+        // and spills onto a page of its own when it does not fit — so a continuation page can carry no definition
+        // bytes at all (verified vs ACE: a 4,090-byte definition has a continuation holding two reserve bytes).
         int pageSize = format.PageSize;
         int bodySize = pageSize - JetFormatBase.TdefContinuationHeaderSize;
-        int continuationCount = definitionLength <= pageSize
+        int stored = definitionLength + JetFormatBase.TdefContinuationHeaderSize;
+        int continuationCount = stored <= pageSize
             ? 0
-            : (definitionLength - pageSize + bodySize - 1) / bodySize;
+            : (stored - pageSize + bodySize - 1) / bodySize;
 
         int next = first.ReadInt32(format.TdefNextPageOffset);
         var continuationPages = new List<int>(continuationCount);

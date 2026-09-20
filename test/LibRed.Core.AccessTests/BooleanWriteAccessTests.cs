@@ -9,6 +9,7 @@ namespace LibRed.Core.Tests;
 /// (set = true); LibRed coerces the inserted value (1/-1/0/TRUE/FALSE) with Access truthiness. Access reads
 /// the bits back correctly and a bare-boolean predicate returns the right rows.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class BooleanWriteAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

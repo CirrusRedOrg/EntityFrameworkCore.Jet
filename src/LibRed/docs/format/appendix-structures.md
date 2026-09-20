@@ -1,7 +1,7 @@
 # Appendix — on-disk structures (quick reference)
 
 Field-layout tables for every on-disk structure, with **no prose** — a fast lookup. Each
-structure links to the file with the verified detail (edge cases, write rules, provenance).
+structure links to the file with the verified detail (edge cases, write rules).
 All integers little-endian unless noted; offsets are hex, relative to the structure's start.
 
 ---
@@ -16,6 +16,8 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 | `0x03` | Index B-tree node |
 | `0x04` | Index B-tree leaf |
 | `0x05` | Page-usage bitmap |
+| `0x08` | Released table definition — a dropped table's TDEF, otherwise unchanged |
+| `0x09` | Released long-value page — a packed LVAL page emptied of its values |
 
 ---
 
@@ -27,17 +29,18 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 | `0x01` | 3 | Unknown (observed `01 00 00`, constant) |
 | `0x04` | 15 | Format id ASCII: `Standard Jet DB` (`0x00`/`0x01`) / `Jet System DB` (`0x01`) / `Standard ACE DB` (`0x02`+) |
 | `0x13` | 1 | NUL terminator of the id string |
-| `0x14` | 1 | Version byte (`0x00` Jet3, `0x01` Jet4, `0x02` ACE12, `0x03` ACE14, `0x04` ACE15/2013 reserved-unemitted, `0x05` ACE16, `0x06` ACE17) |
-| `0x15` | 1 | Version minor/update byte (`0x01` on ACE14/Access 2010, else `0x00`) |
+| `0x14` | 1 | Version byte (`0x00` Jet3, `0x01` Jet4, `0x02` ACE12, `0x03` ACE14, `0x04` ACE15/2013 never emitted and refused by ACE, `0x05` ACE16, `0x06` ACE17) |
+| `0x15` | 1 | Version minor byte (`0x01` on a file created as ACE14/Access 2010, else `0x00`; a version raise writes `0x00`) |
 | `0x16` | 2 | Unknown (zero) |
 | `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with the fixed 128-byte mask; the `0x18`–`0x72` fields below are offsets into it (Jet3 masks 126) |
-| `0x18`, `0x1C` | 4+4 | Fixed constants `0x00000100` / `0x00000101` |
+| `0x18` | 4 | Global free-pages map pointer `[row:1][page:3]` (`0x00000100` = page 1 row 0) |
+| `0x1C` | 4 | Global released-pages map pointer `[row:1][page:3]` (`0x00000101` = page 1 row 1) |
 | `0x20`–`0x2C` | 4×4 | Catalog bootstrap pointers — `MSysObjects`/`MSysACEs`/`MSysQueries`/`MSysRelationships` TDEF pages (`2`/`3`/`4`/`5`); `0x20` = catalog root |
 | `0x30`–`0x3B` | 12 | Reserved (zero) |
 | `0x3C` | 2 | ANSI code page (LE; `0x04E4` = 1252) |
 | `0x3E` | 4 | Database/encryption key (`0` = not encrypted) |
 | `0x42` | 40 | Password (Jet4; Jet3 = 20) — also XOR `(int)creationDate` |
-| `0x6A` | 4 | Fixed constant `0x000011A6` |
+| `0x6A` | 4 | Creating engine's build number (`0x000011A6` = 4518 on everything ACE writes; Jet 4 files carry their `msjet40.dll` build) |
 | `0x6E` | 4 | Collation, a 32-bit LCID with the version in its top byte: LANGID (2, LE), sort id at `0x70`, sort-order version at `0x71` (`0` legacy table, `1` Access-2010) |
 | `0x72` | 8 | Creation timestamp — OLE `double` (days from 1899-12-30) |
 | `0x98` | 4 | Fixed constant `0x00000654` (past the masked window) |
@@ -58,7 +61,7 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 | `0x01` | 1 | Flags (`0x01`) |
 | `0x02` | 2 | Free space |
 | `0x04` | 4 | Owning TDEF page — or ASCII `LVAL` (`0x4C41564C`) for long-value pages |
-| `0x08` | 4 | Jet4-only, zero observed |
+| `0x08` | 4 | Jet4-only; zero except on the **first page of a long-value chain**, where it is the chain stamp matching the pointing descriptor's `0x08` |
 | `0x0C` | 2 | Row count |
 | `0x0E` | 2×N | Row-slot directory |
 
@@ -68,7 +71,7 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 ```
 [colCount:2 = maxColumnId+1] [fixed data] [var data] [varOffsetTable:(numVar+1)×2] [numVar:2] [nullBitmap:ceil(colCount/8)]
 ```
-Variable section (`varOffsetTable`+`numVar`) omitted when the table has no variable columns. Null bitmap keyed by column id (set = present); dead ids' bits set. Booleans carry no data (the bit *is* the value).
+Variable section (`varOffsetTable`+`numVar`) omitted when the table has no variable columns. Null bitmap keyed by column id (set = present); dead ids' bits set. Booleans carry no data (the bit *is* the value). With the variable section omitted, `fixed data` is padded to a **minimum of 2 bytes** (a floor, not an alignment — an odd 3-byte region stays 3), making 5 the shortest record; ACE misreads anything shorter.
 
 ---
 
@@ -113,8 +116,8 @@ Variable section (`varOffsetTable`+`numVar`) omitted when the table has no varia
 | `0x05` | 2 | Column id |
 | `0x07` | 2 | Variable-table index — on a **fixed** column the running count of preceding variable columns, **NOT `0`**; on a variable column its own slot index, which follows the `0x2B` high-water ([page-02b §3.4](page-02b-columns.md)) |
 | `0x09` | 2 | Column number — a second copy of the id `0x05` on a **user** table, but **`0`** on the tables the engine writes for itself; unchanged by an `ALTER COLUMN` that burns a new id at `0x05` ([page-02b §3.4](page-02b-columns.md)) |
-| `0x0B` | 1 | Precision (Decimal) — else locale low byte `0x09` |
-| `0x0C` | 1 | Scale (Decimal) — else locale high byte `0x04` |
+| `0x0B` | 1 | Precision (Decimal) — else collation LANGID low byte (`0x09` en-US) |
+| `0x0C` | 1 | Scale (Decimal) — else collation LANGID high byte (`0x04` en-US) |
 | `0x0D` | 1 | Collation sort id — the LCID's high word (`0x01` = an alternate sort order, e.g. Hungarian Technical) |
 | `0x0E` | 1 | Sort-order version (`0` legacy table, `1` Access-2010) |
 | `0x0F` | 1 | Flags: `0x01` fixed, `0x02` updatable, `0x04` auto-number, `0x40` auto-number GUID, `0x80` hyperlink |
@@ -131,10 +134,11 @@ Nullability is **not** in the descriptor — it's the `Required` property in `Lv
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 16 | Reserved (zero) |
+| `0x00` | 4 | VBA error number, little-endian — `0` for a value or Null; an error envelope is 38 bytes |
+| `0x04` | 12 | Reserved (zero in every row observed) |
 | `0x10` | 4 | Payload length, little-endian |
 | `0x14` | *n* | Payload — the value in its ordinary encoding |
-| `0x14`+*n* | 3 | Padding (zero) |
+| `0x14`+*n* | 3 | Padding (zero in every row observed) |
 
 The descriptor's type at `0x00` is a **promoted storage type**; the payload length says the real one
 (Int16+1 = Boolean, Int32+1 = Byte, Int32+2 = Int16, Double+4 = Single). Length `0` means Null, and the
@@ -189,7 +193,7 @@ descriptor.
 | `0x00` | 4 | Little-endian word: length in bits 0–29; flags in bits 30–31 (`0x80000000` inline, `0x40000000` single LVAL page, `0x00000000` chain) |
 | `0x04` | 1 | Row |
 | `0x05` | 3 | Page |
-| `0x08` | 4 | Reserved |
+| `0x08` | 4 | **Chain stamp**, chained form only (zero on inline and single-page): must equal the first chain page's header `0x08`, or ACE refuses the record. ACE stamps `GetTickCount()`; the value is arbitrary, the agreement is not. LibRed stamps both and verifies them on read |
 
 **Per-long-value-column usage-map list entry (10 bytes; list ends at `col_num == 0xFFFF`):**
 
@@ -206,7 +210,8 @@ descriptor.
 **Inline (type `0x00`):** `[0x00][startPage:4][bitmap…]` — bit `i` ⇒ page `startPage+i` owned.
 **Reference (type `0x01`, 69 bytes):** `[0x01][17 × 4-byte bitmap-page pointers]`.
 **Bitmap page (type `0x05`):** header `[0x05][0x01][0][0]`, bitmap from offset 4.
-Global free-pages map: **page 1, row 0**, inline or reference — set bit = **free** (opposite of a table map).
+Global maps, located by page 0: free pages at `0x18` (page 1 row 0 as ACE writes it) — set bit = **free**
+(opposite of a table map); released pages at `0x1C` (page 1 row 1) — set bit = freed, not reusable until close.
 
 ---
 
@@ -261,7 +266,7 @@ Global free-pages map: **page 1, row 0**, inline or reference — set bit = **fr
 
 ## Limits
 
-Three distinct kinds (the useful mental model): **structural** — the byte layout can't represent more, so
+Three distinct kinds: **structural** — the byte layout can't represent more, so
 guard in the serializer; **engine constant** — a fixed-size buffer in ACE's reader (the format holds more),
 so guard with a validator; **query-engine** — ACE's SQL-engine limits that LibRed deliberately exceeds.
 
@@ -285,12 +290,12 @@ exists to beat and are deliberately **not** guarded.
 
 The limits above are all stated where they bind. These are not: a field in **one** structure fixes a ceiling
 that a writer of a **different** structure has to respect, and nothing in the second structure's layout says
-so. Both bugs found in this class were silent — the write succeeds, the read succeeds, and the wrong row
-comes back — so the table records how each ceiling is actually held, not merely that it exists.
+so. Crossing one is silent — the write succeeds, the read succeeds, and the wrong row comes back — so the
+table records how each ceiling is actually held, not merely that it exists.
 
 | Narrow field | Ceiling it imposes | How it is held |
 | --- | --- | --- |
-| Index leaf entry addresses a row as `page << 8 \| row` — 1 byte of slot | **256 rows per data page**, though the row count at `0x0C` is 2 bytes and a 4 KB page fits far more | **Enforced.** `FindPageWithRoom` refuses a page at `RowPointer.MaxRowsPerPage`, covering both the insert path and `WriteHiddenRow` (a relocation target is named by the same pointer). Was a live bug: narrow all-fixed rows reached 314 per page, and every slot past 255 aliased another row |
+| Index leaf entry addresses a row as `page << 8 \| row` — 1 byte of slot | **255 rows per data page**: the pointer allows 256 but **ACE writes at most 255**, not for space (a filled page keeps ~2,297 of 4,096 bytes free) and it drops the page from the free-pages map on reaching it | **Enforced at ACE's 255.** `FindPageWithRoom` refuses a page at `RowPointer.MaxRowsPerPage`, covering both the insert path and `WriteHiddenRow` (a relocation target is named by the same pointer). Overfilling costs more than indexed reads — ACE parses the full 16-bit count but caps at 256 slots, so it silently cannot see the rest of the page's rows |
 | Long-value descriptor names its row in 1 byte (`d[4]`) | **256 rows per LVAL page** | **Enforced** in `TryAppend`. Unreachable in practice — a payload ≤ 64 bytes inlines, and the free-map drop at `MinLvalRow` caps a page near 108 rows even for the smallest thing that can arrive (a 33-character memo compressed to 35 bytes; compression is applied *after* the inline test, so the floor is below the 65 bytes the inline limit suggests) |
 | Page numbers are 3 bytes in the TDEF usage-map pointer, the long-value descriptor (`d[5..7]`) and an LVAL chunk's next-pointer | **page < 2²⁴** (16,777,216) | **Safe with 32× headroom**, because `PageChannel.WritePage` enforces the 2 GiB file limit at 524,288 pages. The 24-bit fields are never the binding constraint |
 | Usage-map pointer names its record row in 1 byte | **256 records per usage-map page** | **Safe by a louder guard.** A record is 69 bytes, so `AppendEmptyUsageMapRow`'s space check admits 57 and refuses the 58th — 4.5× tighter than the byte — and it throws rather than truncating |
@@ -298,5 +303,5 @@ comes back — so the table records how each ceiling is actually held, not merel
 | Index page entry mask spans `0x1B`–`0x1E0` (453 bytes = 3,624 bits) | one bit per byte of entry data, which starts at `0x1E0` | **Exact fit, not slack**: entry data tops out at `4096 − 0x1E0` = 3,616 bytes, so the highest bit lands in the mask's last byte. `EntryDataOffset` is evidently chosen for this |
 | Row slot offset is 13 bits (`0x1FFF` = 8,191) | offsets within a 4 KB page | Safe by 2×; the mask exists for the two flag bits above it |
 
-The pattern worth carrying: **a ceiling is only safe if something refuses to cross it, or if a tighter guard
-fires first and says so.** "The arithmetic doesn't reach it" is the state both live bugs were in.
+The rule: **a ceiling is only safe if something refuses to cross it, or if a tighter guard fires first and
+says so.** "The arithmetic doesn't reach it" is not a guard.

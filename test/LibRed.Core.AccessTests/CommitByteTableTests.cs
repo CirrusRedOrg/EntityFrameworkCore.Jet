@@ -12,6 +12,7 @@ namespace LibRed.Core.Tests;
 //
 // ONE connection for the whole sequence — ACE heap-corrupts under connection churn (0xC0000374) and takes the
 // test process with it.
+[Collection(AceCollection.Name)]
 public class CommitByteTableTests
 {
     private const int Slot1 = 0xE02;   // 0xE00 is slot 0 (exclusive mode); slot 1 is the first shared user
@@ -120,16 +121,7 @@ public class CommitByteTableTests
         }
     }
 
-    private static object? DaoEngine()
-    {
-        foreach (int n in new[] { 170, 160, 150, 140, 130, 120 })
-        {
-            Type? type = Type.GetTypeFromProgID($"DAO.DBEngine.{n}");
-            if (type is null) continue;
-            try { return Activator.CreateInstance(type); } catch (Exception) { }
-        }
-        return null;
-    }
+    private static object? DaoEngine() => AceTestDatabase.CreateDaoEngine();
 
     private static object? Invoke(object target, string member, params object?[] args) =>
         target.GetType().InvokeMember(member, System.Reflection.BindingFlags.InvokeMethod, null, target, args);

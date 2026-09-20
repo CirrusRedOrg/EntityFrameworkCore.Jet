@@ -10,11 +10,12 @@ namespace LibRed.Core.Tests;
 // DAO-created ACE 12 baseline; the only other byte either arm touched was the opening user's commit slot, which
 // moves for any write at all. See docs/format/page-00-database.md.
 //
-// Requires DAO and the ACE OLE DB provider; skips when DAO is absent, as the other ACE probes do. ACE
+// Starts from a Northwind copy, which is already the ACE 12 format (version byte 0x02); no DAO. ACE
 // heap-corrupts (0xC0000374) under connection churn in this shape, reproducibly, and takes the test process
 // with it - so each phase uses ONE connection for all of its statements. A connection is only reopened where
 // the file has to be closed in between.
-public class AceDateTime2UpgradeTests(ITestOutputHelper output)
+[Collection(AceCollection.Name)]
+public class AceDateTime2UpgradeTests
 {
     // The guard for the half of the finding LibRed would come to depend on: that the byte is SUFFICIENT, not
     // merely necessary. If a future ACE wanted a companion flag, LibRed would be silently writing files Access
@@ -23,7 +24,7 @@ public class AceDateTime2UpgradeTests(ITestOutputHelper output)
     [Fact]
     public void Writing_the_version_byte_is_a_complete_upgrade_to_datetime2()
     {
-        if (!TryCreateAce12Database("dt2-upgrade-", out string path)) return;
+        string path = CopyAce12Database("dt2-upgrade-");
         try
         {
             Assert.Equal(0x02, VersionByte(path));
@@ -94,7 +95,7 @@ public class AceDateTime2UpgradeTests(ITestOutputHelper output)
             ("#2020-02-29 00:00:00#", new DateTime(2020, 2, 29)),
         ];
 
-        if (!TryCreateAce12Database("dt2-decode-", out string path)) return;
+        string path = CopyAce12Database("dt2-decode-");
         try
         {
             SetVersionByte(path, 0x06);
@@ -119,9 +120,9 @@ public class AceDateTime2UpgradeTests(ITestOutputHelper output)
         finally { TemporaryDatabase.Delete(path); }
     }
 
-    /// <summary>Creates an ACE 12 (version byte <c>0x02</c>) database through DAO — the format LibRed itself
-    /// creates. Returns false, having reported it, when DAO is not installed.</summary>
-    private bool TryCreateAce12Database(string prefix, out string path)
+    /// <summary>A Northwind copy: an ACE 12 (version byte <c>0x02</c>) database, the format LibRed itself creates,
+    /// that already holds data.</summary>
+    private static string CopyAce12Database(string prefix)
     {
         // Both tests here have ACE itself create or read a DATETIME2 column, which an ACE below 17 cannot do
         // at all — CI installs the 2016 redistributable. Skip rather than fail: a machine without the type
@@ -130,24 +131,7 @@ public class AceDateTime2UpgradeTests(ITestOutputHelper output)
             AceTestDatabase.SupportsColumnType(TestDatabases.NorthwindAccdb, "DATETIME2"),
             AceTestDatabase.UnsupportedColumnTypeReason("DATETIME2"));
 
-        path = "";
-        object? engine = null;
-        foreach (int n in new[] { 170, 160, 150, 140, 130, 120 })
-        {
-            Type? type = Type.GetTypeFromProgID($"DAO.DBEngine.{n}");
-            if (type is null) continue;
-            try { engine = Activator.CreateInstance(type); break; } catch (Exception) { }
-        }
-        if (engine is null) { output.WriteLine("DAO unavailable - skipped."); return false; }
-
-        path = TemporaryDatabase.CreatePath(prefix);
-        File.Delete(path);   // DAO creates the file itself and refuses an existing one
-
-        // 128 == dbVersion120, the ACE 12 / Access 2007 format.
-        object workspace = Invoke(engine, "CreateWorkspace", "", "admin", "", 2)!;
-        object database = Invoke(workspace, "CreateDatabase", path, ";LANGID=0x0409;CP=1252;COUNTRY=0", 128)!;
-        Invoke(database, "Close");
-        return true;
+        return TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, prefix);
     }
 
     private static void Execute(DbConnection connection, string sql)
@@ -178,7 +162,4 @@ public class AceDateTime2UpgradeTests(ITestOutputHelper output)
         stream.Seek(0x14, SeekOrigin.Begin);
         stream.WriteByte(version);
     }
-
-    private static object? Invoke(object target, string member, params object?[] args) =>
-        target.GetType().InvokeMember(member, System.Reflection.BindingFlags.InvokeMethod, null, target, args);
 }

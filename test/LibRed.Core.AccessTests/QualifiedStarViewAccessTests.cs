@@ -9,6 +9,7 @@ namespace LibRed.Core.Tests;
 /// Access runs a LibRed-created view whose projection uses a table-qualified star (<c>Products.*</c>),
 /// stored as the column's verbatim Expression — the shape of Northwind's "Alphabetical list of products".
 /// </summary>
+[Collection(AceCollection.Name)]
 public class QualifiedStarViewAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

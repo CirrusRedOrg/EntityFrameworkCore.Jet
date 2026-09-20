@@ -11,6 +11,7 @@ namespace LibRed.Core.Tests;
 // own malformed bytes back consistently) but fatal to Access. So the checks below are deliberately made
 // *through ACE*: it resolves the new names, honours the carried-over DEFAULT, and still enforces the
 // relationship whose by-name references were repointed.
+[Collection(AceCollection.Name)]
 public class AceRenameTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

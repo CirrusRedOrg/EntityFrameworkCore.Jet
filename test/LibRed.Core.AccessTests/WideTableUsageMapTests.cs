@@ -26,6 +26,7 @@ namespace LibRed.Core.Tests;
 /// Access must be able to read the result — that is what makes the layout byte-faithful rather than
 /// merely self-consistent.
 /// </remarks>
+[Collection(AceCollection.Name)]
 public class WideTableUsageMapTests
 {
     private const int Columns = 255;

@@ -9,6 +9,7 @@ namespace LibRed.Core.Tests;
 /// A view column can carry an alias, stored in the MSysQueries column row's Name1 (as Access does, e.g.
 /// Invoices' <c>Customers.CompanyName AS CustomerName</c>). Access resolves the aliased output column.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class ColumnAliasViewAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

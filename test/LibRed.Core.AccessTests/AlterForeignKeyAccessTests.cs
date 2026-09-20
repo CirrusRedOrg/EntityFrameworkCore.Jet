@@ -10,6 +10,7 @@ namespace LibRed.Core.Tests;
 /// child backing index, the parent's incoming relationship block and the MSysRelationships rows; Access
 /// reads the relationship and enforces referential integrity.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class AlterForeignKeyAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

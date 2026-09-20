@@ -107,6 +107,127 @@ public class LibRedCommandTests
     }
 
     [Fact]
+    public void A_DateTime2_parameter_keeps_its_ticks()
+    {
+        // A DATETIME2 column stores 100-ns ticks, not the OA double, so a parameter that says DbType.DateTime2 is
+        // passed through whole - as SqlClient passes one - and the same value typed DateTime is still truncated.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-dt2-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+
+            using (var create = conn.CreateCommand())
+            { create.CommandText = "CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `D` DATETIME2)"; create.ExecuteNonQuery(); }
+
+            var subMs = new DateTime(2020, 1, 2, 3, 4, 5, 678).AddTicks(4567);
+            foreach ((int id, DbType type) in new[] { (1, DbType.DateTime2), (2, DbType.DateTime) })
+            {
+                using var ins = conn.CreateCommand();
+                ins.CommandText = "INSERT INTO `T` (`Id`, `D`) VALUES (@id, @d)";
+                var i = ins.CreateParameter(); i.ParameterName = "@id"; i.Value = id; ins.Parameters.Add(i);
+                var p = ins.CreateParameter(); p.ParameterName = "@d"; p.Value = subMs; p.DbType = type; ins.Parameters.Add(p);
+                Assert.Equal(1, ins.ExecuteNonQuery());
+            }
+
+            using (var sel = conn.CreateCommand())
+            {
+                sel.CommandText = "SELECT `D` FROM `T` ORDER BY `Id`";
+                using var reader = sel.ExecuteReader();
+                Assert.True(reader.Read());
+                Assert.Equal(subMs, reader.GetDateTime(0));
+                Assert.True(reader.Read());
+                Assert.Equal(subMs.AddTicks(-4567), reader.GetDateTime(0));
+            }
+
+            // Matched exactly: each parameter finds its own row and only that one.
+            foreach ((DbType type, int expected) in new[] { (DbType.DateTime2, 1), (DbType.DateTime, 2) })
+            {
+                using var q = conn.CreateCommand();
+                q.CommandText = "SELECT SUM(`Id`) FROM `T` WHERE `D` = @d";
+                var p = q.CreateParameter(); p.ParameterName = "@d"; p.Value = subMs; p.DbType = type; q.Parameters.Add(p);
+                Assert.Equal(expected, Convert.ToInt32(q.ExecuteScalar()));
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void A_date_plus_a_time_parameter_is_declared_a_date_whatever_the_first_row_holds()
+    {
+        // The time becomes a date on the OLE epoch at this boundary, and the engine types the parameter by that
+        // value — so GetFieldType says DateTime even when the first row's date is Null.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-ts-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+            foreach (string sql in new[]
+            {
+                "CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `D` DATETIME)",
+                "INSERT INTO `T` (`Id`, `D`) VALUES (1, NULL)",
+                "INSERT INTO `T` (`Id`, `D`) VALUES (2, #2020-01-02 12:00:00#)",
+            })
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = sql;
+                cmd.ExecuteNonQuery();
+            }
+
+            using var q = conn.CreateCommand();
+            q.CommandText = "SELECT `D` + @ts FROM `T` ORDER BY `Id`";
+            var p = q.CreateParameter(); p.ParameterName = "@ts"; p.Value = TimeSpan.FromHours(6); q.Parameters.Add(p);
+            using var reader = q.ExecuteReader();
+            Assert.Equal(typeof(DateTime), reader.GetFieldType(0));
+            Assert.True(reader.Read());
+            Assert.True(reader.IsDBNull(0));
+            Assert.True(reader.Read());
+            Assert.Equal(new DateTime(2020, 1, 2, 18, 0, 0), reader.GetDateTime(0));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void A_date_less_a_time_parameter_is_a_date()
+    {
+        // A DbType.Time TimeSpan beside a date is a span: less an hour is a date an hour earlier, not the day count a
+        // date less a date is — in both arms of a UNION ALL, as the report that found it had it.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-tsminus-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+            foreach (string sql in new[]
+            {
+                "CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `D` DATETIME)",
+                "INSERT INTO `T` (`Id`, `D`) VALUES (1, #2020-02-29 17:55:00#)",
+            })
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = sql;
+                cmd.ExecuteNonQuery();
+            }
+
+            using var q = conn.CreateCommand();
+            q.CommandText = "SELECT [t].[D] - @ts FROM [T] [t] UNION ALL SELECT [t_1].[D] - @ts FROM [T] [t_1]";
+            var p = q.CreateParameter();
+            p.ParameterName = "@ts"; p.DbType = DbType.Time; p.Value = TimeSpan.FromHours(1);
+            q.Parameters.Add(p);
+            using var reader = q.ExecuteReader();
+            Assert.Equal(typeof(DateTime), reader.GetFieldType(0));
+            for (int i = 0; i < 2; i++)
+            {
+                Assert.True(reader.Read());
+                Assert.Equal(new DateTime(2020, 2, 29, 16, 55, 0), reader.GetDateTime(0));
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void CreateDatabase_creates_a_native_usable_file()
     {
         // Native, DAO/ADOX-free creation through the ADO surface: create the file, then CREATE/INSERT/SELECT.

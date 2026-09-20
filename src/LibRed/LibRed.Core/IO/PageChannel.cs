@@ -47,6 +47,14 @@ public sealed class PageChannel : IDisposable
     private bool _schemaDirty;
     private int _txPageCount;
 
+    // Pages freed by this handle that are held until it closes, as ACE holds them (page-05 §9.1): `_releasing` is
+    // what the open transaction has staged, `_released` what has committed. A commit moves the one into the other,
+    // a rollback discards the staged pages, and a savepoint rollback truncates them to the savepoint's count.
+    private readonly List<int> _releasing = [];
+    private readonly List<int> _released = [];
+    // Whether anything this channel wrote has been published, so a close knows the session changed the file.
+    private bool _published;
+
     private PageChannel(FileStream stream, JetFormatBase format, bool readOnly, string path, IPageCodec? codec, ILockManager? locks)
     {
         _stream = stream;
@@ -58,10 +66,32 @@ public sealed class PageChannel : IDisposable
         _ownsLocks = locks is null;
         _locks = locks ?? MonitorLockManager.Acquire(path);
         _cache = PageCache.Acquire(path, format.PageSize);
+        _cache.InitFileLength(stream.Length);
     }
 
     /// <summary>Whether a transaction is currently open on this channel.</summary>
     public bool InTransaction => _active is not null;
+
+    /// <summary>Whether this channel was opened read-only, so it can never write a page.</summary>
+    internal bool IsReadOnly => _readOnly;
+
+    /// <summary>Holds a freed page until this channel closes. Inside a transaction the page is staged with it —
+    /// released only if the transaction commits; outside one it is committed at once.</summary>
+    internal void ReleaseAtClose(int page)
+    {
+        if (_readOnly)
+            throw new InvalidOperationException("This channel was opened read-only.");
+        (_active is not null ? _releasing : _released).Add(page);
+    }
+
+    /// <summary>The committed pages held for release at close, in the order they were freed.</summary>
+    internal IReadOnlyList<int> PagesReleasedAtClose => _released;
+
+    /// <summary>Forgets the held pages once they have been returned to the global free map.</summary>
+    internal void ClearPagesReleasedAtClose() => _released.Clear();
+
+    /// <summary>Whether this channel has published a page write since it opened.</summary>
+    internal bool HasPublishedWrites => _published;
 
     /// <summary>
     /// The resolved on-disk format. Settable only by <see cref="RaiseFormatVersion"/> and its rollback
@@ -81,8 +111,9 @@ public sealed class PageChannel : IDisposable
     public int PageSize => Format.PageSize;
 
     /// <summary>Number of pages currently in the file — or, inside a transaction, the logical count including
-    /// pages the overlay has allocated but not yet written to disk.</summary>
-    public int PageCount => _active is not null ? _txPageCount : (int)(_stream.Length / PageSize);
+    /// pages the overlay has allocated but not yet written to disk. Read from the shared cache's record of the
+    /// file's length rather than the stream, so it costs no syscall.</summary>
+    public int PageCount => _active is not null ? _txPageCount : (int)(_cache.FileLength / PageSize);
 
     /// <summary>
     /// Opens a database file, sniffs its Jet/ACE version from page 0 and resolves the
@@ -321,14 +352,18 @@ public sealed class PageChannel : IDisposable
             }
 
             long offset = (long)pageNumber * PageSize;
-            if (offset > _stream.Length)
+            long length = _cache.FileLength;
+            if (offset > length)
                 _stream.SetLength(offset); // zero-fills the gap up to this page
             _stream.Seek(offset, SeekOrigin.Begin);
             _stream.Write(toDisk);
+            if (offset + PageSize > length)
+                _cache.SetFileLength(offset + PageSize);
 
             // Write through: the pool now holds the just-written (plaintext) image, so a subsequent read (this
             // channel or any other on the file) sees it without touching disk.
             _cache.Store(pageNumber, source[..PageSize]);
+            _published = true;
         }
         finally { _locks?.ExitExclusive(pageNumber); }
     }
@@ -362,6 +397,7 @@ public sealed class PageChannel : IDisposable
             throw new InvalidOperationException("A transaction is already in progress.");
         _overlay.Clear();
         _commitBaselines.Clear();
+        _releasing.Clear();
         _schemaDirty = false;
         _txPageCount = PageCount; // committed count at start (PageCount is still file-based while _active is null)
         return _active = new Transaction(_txPageCount);
@@ -369,10 +405,10 @@ public sealed class PageChannel : IDisposable
 
     /// <summary>Commits the current transaction: publishes every buffered overlay page to disk and the shared
     /// cache — making the writes visible to other channels for the first time — in ascending page order so the
-    /// file grows monotonically. No-op if no transaction is open. <paramref name="flush"/> forces the OS buffers
-    /// to disk (durability) — used by an explicit user commit; an implicit per-statement autocommit passes false,
-    /// matching the pre-transaction behaviour of flushing only on <see cref="Dispose"/> rather than fsyncing
-    /// every statement.</summary>
+    /// file grows monotonically. No-op if no transaction is open. <paramref name="flush"/> hands the stream's
+    /// buffer to the OS before returning — used by an explicit user commit, which ACE writes synchronously; an
+    /// implicit per-statement autocommit passes false. Neither forces the OS cache to disk: ACE never calls
+    /// FlushFileBuffers, on commit or on close, so LibRed doesn't either.</summary>
     public void CommitTransaction(bool flush = true)
     {
         if (_active is null) return;
@@ -422,6 +458,7 @@ public sealed class PageChannel : IDisposable
                             // A null baseline is a transaction-allocated tail page. Validation proved no other
                             // writer had claimed it, and the publish gate excludes one while we truncate it again.
                             _stream.SetLength((long)page * PageSize);
+                            _cache.SetFileLength((long)page * PageSize);
                             _cache.Remove(page);
                         }
                     }
@@ -441,11 +478,13 @@ public sealed class PageChannel : IDisposable
             _active = null;
             _overlay.Clear();
             _commitBaselines.Clear();
+            _released.AddRange(_releasing);
+            _releasing.Clear();
             if (_schemaDirty) _cache.MarkSchemaChanged();
             _schemaDirty = false;
         });
 
-        if (flush) _stream.Flush(flushToDisk: true);
+        if (flush) _stream.Flush(flushToDisk: false);
     }
 
     /// <summary>
@@ -457,21 +496,23 @@ public sealed class PageChannel : IDisposable
         if (_active is null) return;
         _overlay.Clear();
         _commitBaselines.Clear();
+        _releasing.Clear();   // a rolled-back free frees nothing
         _schemaDirty = false;
         _active = null;
         ResyncFormatVersion();   // a discarded format raise must not stay raised in memory
     }
 
     /// <summary>
-    /// Raises the file's format version byte (page 0, <c>0x14</c>) to <paramref name="version"/>, in place, and
-    /// swaps <see cref="Format"/> to match. Returns false — writing nothing — when the file already meets it,
+    /// Raises the file's format version byte (page 0, <c>0x14</c>) to <paramref name="version"/>, in place,
+    /// clears the minor byte at <c>0x15</c> as ACE's own raise does — to <c>0x00</c> whatever the target, even
+    /// <c>0x03</c>, whose created files carry <c>0x01</c> — and swaps <see cref="Format"/> to match. Returns false — writing nothing — when the file already meets it,
     /// so callers can call this unconditionally.
     /// </summary>
     /// <remarks>
     /// The write goes through <see cref="WritePage"/> rather than to the stream, so it joins the calling
     /// statement's transaction overlay: the upgrade commits with the DDL that needed it, or is discarded with
     /// it. Page 0 is never page-encrypted, so the write is byte-transparent even on an encrypted file.
-    /// Only the version byte moves. The ACE format classes above 0x02 override nothing but
+    /// Only those two bytes move. The ACE format classes above 0x02 override nothing but
     /// <see cref="JetFormatBase.Version"/> — same page size, same offsets — so the swap changes what the
     /// database reports about itself and nothing about how it is parsed.
     /// </remarks>
@@ -490,6 +531,7 @@ public sealed class PageChannel : IDisposable
                 "The statement needs a data type this format cannot store.");
 
         page0[JetFormatBase.VersionOffset] = version;
+        page0[JetFormatBase.MinorVersionOffset] = 0x00;
         WritePage(0, page0);
         Format = JetFormatBase.FromVersionByte(version);
         return true;
@@ -510,7 +552,7 @@ public sealed class PageChannel : IDisposable
     {
         if (_active is null)
             throw new InvalidOperationException("No transaction is in progress.");
-        return _active.Save(_txPageCount);
+        return _active.Save(_txPageCount, _releasing.Count);
     }
 
     /// <summary>Rolls the transaction back to <paramref name="savepoint"/>: undoes every write made since it was
@@ -519,8 +561,10 @@ public sealed class PageChannel : IDisposable
     {
         if (_active is null)
             throw new InvalidOperationException("No transaction is in progress.");
+        int releaseCount = _active.ReleaseCountAt(savepoint);
         var (before, pageCount) = _active.TakeForRollbackTo(savepoint);
         RestoreOverlay(before, pageCount);
+        _releasing.RemoveRange(releaseCount, _releasing.Count - releaseCount);
     }
 
     /// <summary>Releases <paramref name="savepoint"/>, merging its changes into the enclosing scope. Only the
@@ -551,7 +595,7 @@ public sealed class PageChannel : IDisposable
 
     private byte[]? ReadCommittedPageOrNull(int pageNumber)
     {
-        int committedPageCount = (int)(_stream.Length / PageSize);
+        int committedPageCount = (int)(_cache.FileLength / PageSize);
         if (pageNumber < 0 || pageNumber >= committedPageCount) return null;
 
         var buffer = new byte[PageSize];
@@ -598,7 +642,7 @@ public sealed class PageChannel : IDisposable
 
     public void Dispose()
     {
-        if (!_readOnly) _stream.Flush(flushToDisk: true);
+        if (!_readOnly) _stream.Flush(flushToDisk: false);
         _stream.Dispose();
         PageCache.Release(_path); // last channel on this file drops the shared pool
         if (_ownsLocks) MonitorLockManager.Release(_path); // and the shared lock manager

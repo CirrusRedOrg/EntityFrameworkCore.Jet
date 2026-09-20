@@ -58,10 +58,10 @@ public class BitwiseAndDateFunctionTests
         Assert.Null(Scalar("NULL BAND 3"));           // NULL-propagating
     }
 
-    // Bitwise on a byte/short operand promotes to Int32 (as C# does — matching the EF/LINQ contract, not
-    // ACE's inconsistent narrowing); the value is still correct.
+    // Bitwise on Integers (16 bits) gives an Integer, as ACE does; a Byte is read as a Long, so anything with a Byte
+    // gives a Long.
     [Fact]
-    public void Bitwise_on_byte_or_short_promotes_to_int()
+    public void Bitwise_on_integers_gives_an_integer_and_on_bytes_a_long()
     {
         string path = Fresh();
         try
@@ -71,14 +71,13 @@ public class BitwiseAndDateFunctionTests
             e.ExecuteNonQuery("CREATE TABLE Bits (B BYTE, B2 BYTE, S SMALLINT, S2 SMALLINT)");
             e.ExecuteNonQuery("INSERT INTO Bits (B, B2, S, S2) VALUES (5, 3, 6, 3)");
 
-            // Mixed narrow+int, and both-operands-narrow (byte&byte, short&short) — all promote to Int32.
             var r = e.ExecuteQuery("SELECT B BAND 3, BNOT B, S BAND 3, BNOT S, B BAND B2, S BAND S2 FROM Bits").Rows.First();
-            Assert.Equal(1, r[0]); Assert.IsType<int>(r[0]);   // 5 & 3
-            Assert.Equal(-6, r[1]); Assert.IsType<int>(r[1]);  // ~5 (promoted, not 250)
-            Assert.Equal(2, r[2]); Assert.IsType<int>(r[2]);   // 6 & 3
-            Assert.Equal(-7, r[3]); Assert.IsType<int>(r[3]);  // ~6
-            Assert.Equal(1, r[4]); Assert.IsType<int>(r[4]);   // byte 5 & byte 3
-            Assert.Equal(2, r[5]); Assert.IsType<int>(r[5]);   // short 6 & short 3
+            Assert.Equal(1, r[0]); Assert.IsType<int>(r[0]);     // 5 & 3
+            Assert.Equal(-6, r[1]); Assert.IsType<int>(r[1]);    // ~5 (a Long, not 250)
+            Assert.Equal(2, r[2]); Assert.IsType<int>(r[2]);     // 6 & 3 (3 is a Long)
+            Assert.Equal((short)-7, r[3]);                       // ~6
+            Assert.Equal(1, r[4]); Assert.IsType<int>(r[4]);     // byte 5 & byte 3
+            Assert.Equal((short)2, r[5]);                        // short 6 & short 3
         }
         finally { TemporaryDatabase.Delete(path); }
     }

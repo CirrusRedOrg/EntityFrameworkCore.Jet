@@ -15,6 +15,7 @@ namespace LibRed.Core.Tests;
 //
 // Scope: this is the SQL-created column. A column Access's designer creates with Unicode Compression set
 // to Yes carries the flag, and LibRed reads that form back (the all-compressed case) but never writes it.
+[Collection(AceCollection.Name)]
 public class LongTextStorageAccessTests(ITestOutputHelper output) : TempDatabaseTest
 {
     [Theory]
@@ -146,9 +147,56 @@ public class LongTextStorageAccessTests(ITestOutputHelper output) : TempDatabase
         Assert.Equal(flag, raw[3] & 0xC0);
     }
 
-    /// <summary>The raw long-value descriptor ACE wrote into the row for one column.</summary>
-    private static byte[] RawDescriptor(PageChannel channel, Catalog.TableDef definition, int columnId)
+    // A memo steps two bytes at a time, so the theory above can only ever bracket the single-page edge:
+    // 3816 stays, 3818 chains, and 3817 was never asked. An OLE column takes any byte length, which closes
+    // it -- and the same instrument pins the inline edge exactly. Both rows live in ACE's own table, so the
+    // definition is out of the picture and the two engines' choices can be compared directly. Swept whole
+    // (1..100 and 3700..3899, every size): these four are where the answer changes.
+    [Theory]
+    [InlineData(64, 0x80)]      // the last inline value
+    [InlineData(65, 0x40)]      // the first to take a page
+    [InlineData(3816, 0x40)]    // the last that stays on one page
+    [InlineData(3817, 0x00)]    // the first chained -- the byte the memo theory cannot reach
+    public void Ace_and_libred_pick_the_same_storage_form_at_the_exact_byte_edges(int bytes, int flag)
     {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "ole-edge-");
+        using (OleDbConnection connection = AceTestDatabase.Open(path))
+        {
+            using (OleDbCommand ddl = connection.CreateCommand())
+            {
+                ddl.CommandText = "CREATE TABLE OleEdge (Id LONG, O OLEOBJECT)";
+                ddl.ExecuteNonQuery();
+            }
+            using OleDbCommand insert = connection.CreateCommand();
+            insert.CommandText = "INSERT INTO OleEdge (Id, O) VALUES (1, ?)";
+            insert.Parameters.Add("o", OleDbType.LongVarBinary, bytes).Value = new byte[bytes];
+            insert.ExecuteNonQuery();
+        }
+
+        using (var database = JetDatabase.Open(path, readOnly: false))
+            database.OpenTable("OleEdge").Insert([2, new byte[bytes]]);
+
+        using var read = JetDatabase.Open(path);
+        var definition = read.Catalog.FindTable("OleEdge")!;
+        int columnId = definition.Columns.Single(c => c.Name == "O").ColumnId;
+        using var channel = PageChannel.Open(path, readOnly: true);
+        List<byte[]> descriptors = RawDescriptors(channel, definition, columnId);
+
+        Assert.Equal(2, descriptors.Count);
+        output.WriteLine($"{bytes} bytes: ACE 0x{descriptors[0][3] & 0xC0:X2}, LibRed 0x{descriptors[1][3] & 0xC0:X2}");
+        Assert.Equal(flag, descriptors[0][3] & 0xC0);   // ACE wrote first
+        Assert.Equal(flag, descriptors[1][3] & 0xC0);
+    }
+
+    /// <summary>The raw long-value descriptor ACE wrote into the row for one column.</summary>
+    private static byte[] RawDescriptor(PageChannel channel, Catalog.TableDef definition, int columnId) =>
+        RawDescriptors(channel, definition, columnId).FirstOrDefault()
+        ?? throw new InvalidOperationException($"No long-value descriptor found for column id {columnId}.");
+
+    /// <summary>Every row's long-value descriptor for one column, in row order.</summary>
+    private static List<byte[]> RawDescriptors(PageChannel channel, Catalog.TableDef definition, int columnId)
+    {
+        var found = new List<byte[]>();
         var decoder = new RowDecoder(definition.Columns, channel.Format);
         foreach (int number in new UsageMap(channel, definition).DataPages())
         {
@@ -159,9 +207,9 @@ public class LongTextStorageAccessTests(ITestOutputHelper output) : TempDatabase
                 if (page.Rows[row].IsDeleted) continue;
                 foreach (var descriptor in decoder.LongValueRaw(page.GetRow(row)))
                     if (descriptor.Key == columnId)
-                        return descriptor.Value[..12];
+                        found.Add(descriptor.Value[..12]);
             }
         }
-        throw new InvalidOperationException($"No long-value descriptor found for column id {columnId}.");
+        return found;
     }
 }

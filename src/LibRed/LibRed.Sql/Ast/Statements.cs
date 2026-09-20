@@ -135,7 +135,15 @@ public sealed record ColumnDefinition(
     /// <summary>A calculated column's expression, from the LibRed-only <c>AS (…)</c> clause, kept as source
     /// text because that text is what goes on disk and what the engine re-evaluates. Null for an ordinary
     /// column.</summary>
-    string? Calculated = null);
+    string? Calculated = null,
+    /// <summary>A trailing <c>IDENTITY [(seed [, increment])]</c> attribute, or null when the column has none.
+    /// The last one written wins when several are.</summary>
+    IdentityAttribute? Identity = null);
+
+/// <summary>ACE's <c>IDENTITY [(seed [, increment])]</c> column attribute. It makes a Long column an AutoNumber
+/// counting from its seed by its increment — each 1 when omitted, replacing any the type declared — and is
+/// ignored on every other type.</summary>
+public sealed record IdentityAttribute(int? Seed, int? Increment);
 
 /// <summary>Referential action for a foreign key's ON DELETE / ON UPDATE clause. Jet records only
 /// enforce + cascade-update + cascade-delete, so NoAction/SetNull/SetDefault collapse to "no cascade".</summary>
@@ -143,7 +151,8 @@ public enum ReferentialAction { NoAction, Cascade, SetNull, SetDefault }
 
 /// <summary>A FOREIGN KEY constraint (table-level, or a column-level REFERENCES): the child columns,
 /// the referenced (parent) table and its columns, the ON DELETE / ON UPDATE actions, and whether the
-/// FOREIGN KEY NO INDEX modifier was given (suppresses the backing index).</summary>
+/// FOREIGN KEY NO INDEX modifier was given (suppresses the backing index). An empty
+/// <see cref="ReferencedColumns"/> means <c>REFERENCES table</c> with no column list: the parent's primary key.</summary>
 public sealed record ForeignKeyConstraint(
     string? Name,
     IReadOnlyList<string> Columns,
@@ -254,8 +263,14 @@ public sealed record CreateActionProcedureStatement(
 /// <summary>One action of an ALTER TABLE statement (Access allows exactly one per statement).</summary>
 public abstract record AlterTableAction;
 
-/// <summary>ADD [COLUMN] field type … — add a new column (with its inline constraints).</summary>
-public sealed record AddColumnAction(ColumnDefinition Column) : AlterTableAction;
+/// <summary>ADD [COLUMN] field type … — add a new column with its inline constraints: a PRIMARY KEY
+/// (<see cref="ColumnDefinition.PrimaryKey"/>, named <see cref="PrimaryKeyName"/> when a CONSTRAINT name was given),
+/// a <see cref="Unique"/> constraint and a column-level <see cref="References"/>, each null when absent.</summary>
+public sealed record AddColumnAction(
+    ColumnDefinition Column,
+    ForeignKeyConstraint? References = null,
+    UniqueConstraint? Unique = null,
+    string? PrimaryKeyName = null) : AlterTableAction;
 
 /// <summary>ADD CONSTRAINT … FOREIGN KEY … — add a foreign key.</summary>
 public sealed record AddForeignKeyAction(ForeignKeyConstraint ForeignKey) : AlterTableAction;
@@ -272,7 +287,8 @@ public sealed record AddCheckAction(CheckConstraint Check) : AlterTableAction;
 /// <summary>ALTER COLUMN field type[(size[,scale])] [NOT NULL|NULL] [DEFAULT expr] — change a column's data
 /// type, and optionally its nullability (<see cref="NotNull"/>: true = NOT NULL, false = NULL, null = leave
 /// as-is) and default.</summary>
-public sealed record AlterColumnAction(string Field, string TypeName, int? Size, int? Scale, string? Default = null, bool? NotNull = null) : AlterTableAction;
+public sealed record AlterColumnAction(string Field, string TypeName, int? Size, int? Scale, string? Default = null, bool? NotNull = null,
+    IdentityAttribute? Identity = null) : AlterTableAction;
 
 /// <summary>ALTER COLUMN field SET DEFAULT expr — set (replace) a column's default, without retyping it.</summary>
 public sealed record AlterColumnSetDefaultAction(string Field, string Default) : AlterTableAction;

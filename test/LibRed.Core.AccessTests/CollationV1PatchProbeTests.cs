@@ -32,6 +32,7 @@ namespace LibRed.Core.Tests;
 //
 // This found Romanian v1, which nothing else could have. What is left is the instrument and the control:
 // the surveys it drove are done, and their results are recorded in page-03-04 §10.4 and page-02b §3.4.
+[Collection(AceCollection.Name)]
 public class CollationV1PatchProbeTests(ITestOutputHelper output)
 {
     private static readonly Collation GeneralV1 = Collation.General;

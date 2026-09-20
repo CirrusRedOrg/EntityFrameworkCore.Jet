@@ -251,8 +251,8 @@ internal sealed partial class ExpressionEvaluator(
             "LCASE" => Convert1(f, v => ConcatText(v).ToLowerInvariant()),
             "UCASE" => Convert1(f, v => ConcatText(v).ToUpperInvariant()),
             "TRIM" => Convert1(f, v => ConcatText(v).Trim(TrimmedSpaces)),
-            "LTRIM" => Convert1(f, v => ConcatText(v).TrimStart(TrimmedSpaces)),
-            "RTRIM" => Convert1(f, v => ConcatText(v).TrimEnd(TrimmedSpaces)),
+            "LTRIM" => Trim(f, static (s, chars) => s.TrimStart(chars)),
+            "RTRIM" => Trim(f, static (s, chars) => s.TrimEnd(chars)),
             "LEFT" => StringInt(f, static (s, n) => n <= 0 ? "" : n >= s.Length ? s : s[..n]),
             "RIGHT" => StringInt(f, static (s, n) => n <= 0 ? "" : n >= s.Length ? s : s[^n..]),
             "MID" => Mid(f),
@@ -413,7 +413,7 @@ internal sealed partial class ExpressionEvaluator(
                 or "TAN" or "ATN"
                 or "FLOOR" or "CEILING" or "CEIL" or "SIGN" or "SQRT" or "LN" or "LOG10" or "ASIN" or "ACOS"
                 or "ATAN" or "SINH" or "COSH" or "TANH" or "DEGREES" or "RADIANS"
-                or "LEN" or "LCASE" or "UCASE" or "TRIM" or "LTRIM" or "RTRIM" or "SPACE"
+                or "LEN" or "LCASE" or "UCASE" or "TRIM" or "SPACE"
                 or "STRREVERSE" or "STR" or "VAL" or "CHR" or "ASC" or "HEX" or "OCT"
                 or "DATEVALUE" or "TIMEVALUE" or "YEAR" or "MONTH" or "DAY" or "HOUR" or "MINUTE"
                 or "SECOND" or "ISDATE" or "ISNULL" or "ISNUMERIC" or "ISERROR" or "TYPENAME" or "VARTYPE"
@@ -445,6 +445,8 @@ internal sealed partial class ExpressionEvaluator(
             "RGB" => (3, 3),
             "ROUND" => (1, 2),
             "LOG" => (1, 2),
+            // Access takes one argument; the second, a set of characters to strip, is SQL Server 2022's.
+            "LTRIM" or "RTRIM" => (1, 2),
             "POWER" or "ATAN2" => (2, 2),
             "PI" => (0, 0),
             "RND" => (0, 1),
@@ -1414,6 +1416,23 @@ internal sealed partial class ExpressionEvaluator(
             decimal rounded = decimal.Round(exact, places, MidpointRounding.ToEven);
             return rounded == exact ? original : back(rounded);
         }
+    }
+
+    /// <summary>
+    /// <c>LTrim</c> / <c>RTrim</c>. With one argument they are Access's, stripping <see cref="TrimmedSpaces"/>.
+    /// With two they are SQL Server 2022's: every leading (or trailing) character that appears anywhere in the
+    /// second argument is removed, so the second argument is a SET of characters and not a substring — a
+    /// LibRed extension, since ACE takes only the one argument. Either argument Null gives Null, and an empty
+    /// set of characters strips nothing.
+    /// </summary>
+    private object? Trim(FunctionCall f, Func<string, char[], string> trim)
+    {
+        object? value = Evaluate(f.Arguments[0]);
+        if (value is null) return null;
+        if (f.Arguments.Count == 1) return trim(ConcatText(value), TrimmedSpaces);
+
+        object? characters = Evaluate(f.Arguments[1]);
+        return characters is null ? null : trim(ConcatText(value), ConcatText(characters).ToCharArray());
     }
 
     /// <summary>Applies a conversion to a single argument, propagating NULL.</summary>

@@ -18,11 +18,14 @@ public class FunctionArityAccessTests
     [
         .. Unary("CBool", "CByte", "CInt", "CLng", "CSng", "CDbl", "CCur", "CStr", "CDate", "CVar",
             "Abs", "Sgn", "Int", "Fix", "Sqr", "Exp", "Sin", "Cos", "Tan", "Atn",
-            "Len", "LCase", "UCase", "Trim", "LTrim", "RTrim", "Space", "StrReverse", "Str", "Val",
+            "Len", "LCase", "UCase", "Trim", "Space", "StrReverse", "Str", "Val",
             "Chr", "Asc", "Hex", "Oct"),
         new("Round", 1, 2, "1", "0", "0"), new("Rnd", 0, 1, "1", "1"), new("Timer", 0, 0, "1"),
         // ACE's Log takes one argument; LibRed's also takes the standard's base as a second (docs/functions.md).
         new("Log", 1, 2, "1", "1", "1"),
+        // Likewise LTrim/RTrim: one argument in ACE, and a second — SQL Server 2022's set of characters to
+        // strip — in LibRed.
+        new("LTrim", 1, 2, "'abc'", "'a'", "0"), new("RTrim", 1, 2, "'abc'", "'c'", "0"),
         new("Left", 2, 2, "'abc'", "1", "0"), new("Right", 2, 2, "'abc'", "1", "0"),
         new("Mid", 2, 3, "'abc'", "1", "1", "0"),
         new("InStr", 2, 4, "1", "'abc'", "'b'", "0", "0"),

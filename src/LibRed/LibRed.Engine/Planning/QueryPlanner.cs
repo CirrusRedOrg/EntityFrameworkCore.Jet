@@ -222,7 +222,7 @@ public sealed class QueryPlanner
     /// and LISTAGG.</summary>
     internal static bool IsAggregate(string name) =>
         name.ToUpperInvariant() is var upper
-        && (upper is "FIRST" or "LAST" or "PERCENTILE_CONT" or "PERCENTILE_DISC" or "LISTAGG"
+        && (upper is "FIRST" or "LAST" or "PERCENTILE_CONT" or "PERCENTILE_DISC" or "LISTAGG" or "STRING_AGG"
             || Execution.RunningAggregate.Supports(upper));
 
     internal static bool HasAggregate(Expression e) => e switch

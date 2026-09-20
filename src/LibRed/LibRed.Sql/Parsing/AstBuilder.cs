@@ -1120,20 +1120,29 @@ internal sealed class AstBuilder
     /// </summary>
     private static IReadOnlyList<SortDirection>? BuildWithinGroup(FunctionCallContext ctx, string name, List<Expression> args)
     {
-        bool orderedSet = FunctionCall.IsOrderedSetAggregate(name);
+        bool stringAgg = name.Equals("STRING_AGG", StringComparison.OrdinalIgnoreCase);
         if (ctx.withinGroup() is not { } within)
         {
-            return orderedSet
+            // STRING_AGG's order is optional — without it the values list as the rows arrive — but its
+            // separator is not, which is the other way round from LISTAGG.
+            if (stringAgg)
+            {
+                ValidateStringAgg(ctx, args);
+                return null;
+            }
+            return FunctionCall.IsOrderedSetAggregate(name)
                 ? throw new SqlParseException($"{name} needs WITHIN GROUP (ORDER BY …).")
                 : null;
         }
-        if (!orderedSet)
+        if (!FunctionCall.AcceptsWithinGroup(name))
             throw new SqlParseException($"{name} takes no WITHIN GROUP.");
         if (ctx.star is not null)
             throw new SqlParseException($"{name} takes no *.");
 
         var keys = within.orderByClause().orderByItem().Select(BuildOrderByItem).ToList();
-        if (name.Equals("LISTAGG", StringComparison.OrdinalIgnoreCase))
+        if (stringAgg)
+            ValidateStringAgg(ctx, args);
+        else if (name.Equals("LISTAGG", StringComparison.OrdinalIgnoreCase))
         {
             if (args.Count is not (1 or 2) || args is [_, not LiteralExpression { Value: string }])
                 throw new SqlParseException("LISTAGG takes a value and, optionally, a separator written as a string.");
@@ -1143,6 +1152,17 @@ internal sealed class AstBuilder
 
         args.AddRange(keys.Select(k => k.Value));
         return keys.Select(k => k.Direction).ToList();
+    }
+
+    /// <summary>SQL Server's <c>STRING_AGG(expression, separator)</c>: both arguments, no <c>*</c>, and the
+    /// separator written as a string, which is what makes it the one value the whole group shares.</summary>
+    private static void ValidateStringAgg(FunctionCallContext ctx, List<Expression> args)
+    {
+        if (ctx.star is not null)
+            throw new SqlParseException("STRING_AGG takes no *.");
+        if (args.Count != 2 || args[1] is not LiteralExpression { Value: string })
+            throw new SqlParseException(
+                "STRING_AGG takes a value and a separator written as a string.");
     }
 
     private static WindowSpec BuildWindowSpec(WindowSpecificationContext ctx) =>

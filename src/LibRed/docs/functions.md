@@ -86,6 +86,10 @@ procedure call, and a result past a Double an overflow.
 `StrReverse` `StrComp` `StrConv` `Str` `Val` `Chr` `Asc` `Hex` `Oct`
 
 - `Trim`/`LTrim`/`RTrim` strip the space and the ideographic space U+3000 — nothing else.
+- **`LTrim(x, characters)` / `RTrim(x, characters)`** (a LibRed extension, SQL Server 2022's): the second
+  argument is a **set** of characters, not a substring — every leading (or trailing) character that appears
+  anywhere in it is removed, stopping at the first that does not. An empty set strips nothing; either argument
+  Null gives Null. ACE takes only the one argument, and `Trim` takes only the one here too.
 - `Asc` and `Chr` work in the system ANSI code page (`Chr` takes 0–255).
 - A value that is not text is read as `CStr` writes it.
 
@@ -257,6 +261,10 @@ Server counts a `bit`. A Long.
 - **`LISTAGG([DISTINCT] x [, 'separator']) WITHIN GROUP (ORDER BY k [DESC], …)`** — the non-Null values as text
   (each written as `&` writes it) in that order, joined by the separator: a string literal, as the standard has
   it, and none when left out. Null when there are no values.
+- **`STRING_AGG([DISTINCT] x, 'separator') [WITHIN GROUP (ORDER BY k [DESC], …)]`** — SQL Server's spelling of
+  the same aggregate, and it computes the same thing. The two differ only in what each insists on: `LISTAGG`
+  needs the `WITHIN GROUP` and lets the separator go, `STRING_AGG` needs the separator and lets the order go.
+  Without a `WITHIN GROUP` the values list in the order the rows arrive — over a window, in window order.
 - **`FILTER (WHERE condition)`** — every aggregate, Access's included, takes it after the call (and after `WITHIN
   GROUP`): only the rows the condition is true for go in, so `COUNT(*) FILTER (WHERE x > 1)` counts those rows,
   and a group none of whose rows pass has what an empty group has.

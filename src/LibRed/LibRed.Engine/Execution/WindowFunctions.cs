@@ -101,6 +101,10 @@ internal static class WindowFunctions
         ["PERCENTILE_DISC"] = PercentileOf("PERCENTILE_DISC"),
         ["LISTAGG"] = new(2, int.MaxValue, static _ => typeof(string), ListAggOf,
             WindowOptions.Frame | WindowOptions.Distinct | WindowOptions.Filter),
+        // SQL Server's spelling of the same aggregate, whose WITHIN GROUP is optional — so over a window it
+        // can arrive with just the value and the separator.
+        ["STRING_AGG"] = new(2, int.MaxValue, static _ => typeof(string), ListAggOf,
+            WindowOptions.Frame | WindowOptions.Distinct | WindowOptions.Filter),
 
         // Access's own First and Last, over the frame rather than the group: the same rows as FIRST_VALUE and
         // LAST_VALUE, as the grouped forms take the group's first and last row.
@@ -228,7 +232,8 @@ internal static class WindowFunctions
     /// </summary>
     private static void ListAggOf(WindowPartition p, object?[] o)
     {
-        IReadOnlyList<Sql.Ast.SortDirection> directions = p.Call.WithinGroup!;
+        // STRING_AGG may have no WITHIN GROUP at all, and then lists in window order with no keys of its own.
+        IReadOnlyList<Sql.Ast.SortDirection> directions = p.Call.WithinGroup ?? [];
         int keys = directions.Count;
         string separator = p.ArgumentCount - keys == 2 && o.Length > 0 ? (string)p.Argument(0, 1)! : "";
         FrameRows previous = default;

@@ -1069,7 +1069,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// <see cref="RunningAggregate"/> and <see cref="Percentile"/>.</summary>
     internal static Type? AggregateResultType(string name, Type? argument) => RunningAggregate.Canonical(name) switch
     {
-        "LISTAGG" => typeof(string),
+        "LISTAGG" or "STRING_AGG" => typeof(string),
         "PERCENTILE_CONT" or "PERCENTILE_DISC" => Percentile.ResultType(name, argument),
         "COUNT" or "REGR_COUNT" => typeof(int),
         var pair when RunningAggregate.IsPair(pair) => typeof(double),
@@ -2109,23 +2109,29 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (name == "LAST")
             return group.Count == 0 ? null : Eval(columns, group[^1], outer).Evaluate(arg!);
 
+        // A list aggregate, ordered or not: STRING_AGG may go without its WITHIN GROUP, in which case the
+        // values list in the order the rows arrive (no keys, no directions — the sort is stable).
+        if (FunctionCall.IsListAggregate(name))
+        {
+            if (group.Count == 0)
+                return null;
+            IReadOnlyList<SortDirection> order = call.WithinGroup ?? [];
+            IReadOnlyList<Expression> keys = call.WithinGroupKeys;
+            return ListAgg.Of(
+                group.Select(r =>
+                {
+                    ExpressionEvaluator e = Eval(columns, r, outer);
+                    return (e.Evaluate(call.Arguments[0]), keys.Select(k => e.Evaluate(k)).ToArray());
+                }),
+                call.Arguments.Count - keys.Count == 2 ? (string)((LiteralExpression)call.Arguments[1]).Value! : "",
+                order,
+                call.Distinct);
+        }
+
         if (call.WithinGroup is { } directions)
         {
             if (group.Count == 0)
                 return null;
-            if (name == "LISTAGG")
-            {
-                IReadOnlyList<Expression> keys = call.WithinGroupKeys;
-                return ListAgg.Of(
-                    group.Select(r =>
-                    {
-                        ExpressionEvaluator e = Eval(columns, r, outer);
-                        return (e.Evaluate(call.Arguments[0]), keys.Select(k => e.Evaluate(k)).ToArray());
-                    }),
-                    call.Arguments.Count - keys.Count == 2 ? (string)((LiteralExpression)call.Arguments[1]).Value! : "",
-                    directions,
-                    call.Distinct);
-            }
             // The fraction is the group's, so any row gives it; the standard makes it a constant.
             return Percentile.Of(name,
                 group.Select(r => Eval(columns, r, outer).Evaluate(call.Arguments[1])),

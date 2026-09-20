@@ -63,6 +63,20 @@ public sealed record FunctionCall(
         || name.Equals("PERCENTILE_DISC", StringComparison.OrdinalIgnoreCase)
         || name.Equals("LISTAGG", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Whether <paramref name="name"/> is a list aggregate — the standard's <c>LISTAGG</c> or SQL
+    /// Server's <c>STRING_AGG</c>, which compute the same thing and differ only in what they require: LISTAGG
+    /// needs its WITHIN GROUP and lets the separator go, STRING_AGG needs the separator and lets the order
+    /// go.</summary>
+    public static bool IsListAggregate(string name) =>
+        name.Equals("LISTAGG", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("STRING_AGG", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Whether <paramref name="name"/> accepts WITHIN GROUP — the ordered-set aggregates, which
+    /// require it, and <c>STRING_AGG</c>, for which it is optional (unordered, the values list in the order
+    /// the rows arrive).</summary>
+    public static bool AcceptsWithinGroup(string name) =>
+        IsOrderedSetAggregate(name) || name.Equals("STRING_AGG", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>The WITHIN GROUP keys: the last arguments, one per direction.</summary>
     public IReadOnlyList<Expression> WithinGroupKeys =>
         WithinGroup is null ? [] : Arguments.Skip(Arguments.Count - WithinGroup.Count).ToList();

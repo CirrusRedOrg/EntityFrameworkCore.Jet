@@ -129,6 +129,12 @@ LVAL pages are data pages (type `0x01`) whose owner field (`0x04`) is the ASCII 
 > engine opens one per statement, so a failed reclamation rolls back with the statement. A direct
 > `LibRed.Core` caller that opens none gets the same non-atomic behaviour as any other multi-page write.
 
+> **How aggressively the engine reclaims is a setting, and its default differs by engine.** Jet's
+> `RecycleLVs` (the OLE DB property `Jet OLEDB:Recycle Long-Valued Pages`) controls whether freed LVAL pages
+> are reclaimed aggressively; it ships as **1 on ACE** (both 14 and 16) and **0 on Jet 4.0**. So the same
+> delete can leave different free/owned-map state behind depending on which engine wrote the file — worth
+> pinning before treating an ACE-vs-Jet4 reclamation difference as a format one.
+
 ### 3.3.2 Column usage-map list (trailing the index names)
 
 After the index names (in the TDEF body, §3.3) comes a list of per-**long-value-column** (memo/OLE)

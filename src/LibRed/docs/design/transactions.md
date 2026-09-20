@@ -193,17 +193,45 @@ interface ILockManager : IDisposable
     — which is our compatibility target, *not* SQL Server's "unqualified ROLLBACK unwinds
     all levels". A named `SAVE`/`ROLLBACK TRANSACTION <name>` addresses a specific frame.
   No new mechanism is needed: nesting is the Phase-1 savepoint stack, driven by the controller.
-- **Durability:** commit flushes dirty pages then clears the commit-byte; a crash before
+- **Durability:** commit writes dirty pages out (to the OS, as ACE does — §5) then clears
+  the commit-byte; a crash before
   the clear leaves the Jet "suspect" signal (later, with `JetLockManager`) → repair path.
   With the self-consistent manager, recovery is process-local (no cross-process crash
   interop claimed yet).
 
 ## 5. Flush / commit ordering (matching Jet, staying ACE-safe)
 
-On commit, in order: (1) write all dirty data/index/LVAL/usage-map pages; (2) fsync;
-(3) write the page-0 header/commit-state update; (4) fsync; (5) clear commit-byte /
-release locks. Never leave a header pointing at pages that aren't durable. No structure
-is written that Access cannot parse — the commit-byte table and lock offsets are the only
+**What ACE does (measured: ACE 16 over OLE DB, Process Monitor).** ACE never forces the OS
+cache to disk — no `FlushFileBuffers` on a statement, on an explicit `COMMIT`, or at close —
+and it opens the file without write-through. Its durability is the OS file cache plus the
+commit-byte protocol, nothing more. What its settings change is only *when* the write
+reaches the OS:
+
+| Setting (registry default) | Effect |
+| --- | --- |
+| `ImplicitCommitSync` = **no** | A lone statement's writes are issued *after* the statement returns — deferred, and flushed to the OS when the next statement starts or the timeout fires |
+| `UserCommitSync` = **yes** | An explicit `BEGIN…COMMIT` writes its pages inside `COMMIT`, before it returns |
+| `FlushTransactionTimeout` = **500 ms** | How long a deferred write waits; overrides `SharedAsyncDelay` (50) and `ExclusiveAsyncDelay` (2000) |
+| `PageTimeout` = **5000 ms** | How long another user's cached pages may stay stale |
+
+Two orderings hold in every mode, and they are the ones that matter for concurrency:
+
+- **Pages reach the OS before the lock is released.** A page's `.laccdb` lock is released
+  only after that page's `WriteFile`, never before. Cross-connection visibility therefore
+  rests on the write reaching the OS — which every handle on the machine reads through —
+  not on it reaching the disk.
+- **The commit-slot write brackets the batch**: the connection's own slot at `0xE02` is
+  written immediately before the first page and again after the last
+  ([page-00 §2.2](../format/page-00-database.md)). An explicit transaction writes nothing
+  at all until its commit.
+- File growth is a 1-byte write at the last byte of the new page, then the page itself.
+
+**What LibRed does.** The same, deliberately: a commit publishes every overlay page to the
+OS under the publish lock, and neither a commit nor a close forces them to disk. An
+autocommit statement writes its pages immediately rather than deferring them — stricter
+than ACE's default, and the deferral is what the engine-settings work would add. Never
+leave a header pointing at pages the OS has not been given. No structure is written that
+Access cannot parse — the commit-byte table and lock offsets are the only
 concurrency-visible state, exactly as Jet uses them.
 
 ## 6. Phased implementation plan

@@ -291,6 +291,13 @@ Four properties follow:
   seven-statement sequence is 722 → 729, exactly +7. The same five inserts with and without a
   `CREATE INDEX` differ by one.
 
+**The slot write brackets every batch of page writes (verified).** A connection's writes reach the file as:
+a 2-byte write to *its own* slot, then the data/index/usage-map pages, then a second 2-byte write to that same
+slot. This holds for a lone statement, for an explicit transaction's commit, and for the final writes at close,
+and it is the on-disk half of the mid-write signal above: the file carries the "this user is writing" state for
+exactly as long as the pages are in flight. (The two values written are not themselves captured — only the
+order and the 2-byte extent at the slot's offset.)
+
 **Reopening does not reset it; compacting does.** The counter carries straight across a close and reopen
 (`…DA` before, `…DA` after). A DAO `CompactDatabase` writes a whole new file and its slot 1 starts at **256**,
 the idle value, then counts normally from there (744 → 256 → 260 after five inserts).

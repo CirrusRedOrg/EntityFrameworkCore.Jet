@@ -129,7 +129,16 @@ public sealed class LibRedDataReader : DbDataReader, IDbColumnSchemaGenerator
             : ordinal < _current.Length && _current[ordinal] is { } value ? value.GetType() : typeof(object);
     }
 
-    public override string GetDataTypeName(int ordinal) => GetFieldType(ordinal).Name;
+    /// <summary>
+    /// The provider's name for the column's type — <c>VarChar</c>, <c>Char</c>, <c>Long</c>, <c>Currency</c> —
+    /// the same name <see cref="GetColumnSchema"/>, <see cref="GetSchemaTable"/> and the <c>DataTypes</c>
+    /// metadata collection give it, so one type has one name across the whole surface. (ACE's OLE DB provider
+    /// answers this with the OLE DB spelling, <c>DBTYPE_WVARCHAR</c>; its own schema rowsets use these names,
+    /// and matching them is what keeps this provider self-consistent.) A result with nothing described behind
+    /// it — a system-variable select, say — falls back to the CLR type's name.
+    /// </summary>
+    public override string GetDataTypeName(int ordinal) =>
+        _result.Columns[ordinal].TypeName is { Length: > 0 } name ? name : GetFieldType(ordinal).Name;
 
     /// <summary>The result's columns as <see cref="DbColumn"/>s: each column's type, and for one read straight
     /// from a table the stored column behind it — its table, its own name, and whether it is a key, unique,

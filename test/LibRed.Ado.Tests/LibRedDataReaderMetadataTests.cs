@@ -22,8 +22,45 @@ public class LibRedDataReaderMetadataTests
         Assert.False(reader.HasRows);
         Assert.Equal(typeof(int), reader.GetFieldType(0));
         Assert.Equal(typeof(string), reader.GetFieldType(1));
+        // The provider's name for the type, not the CLR type's: one type, one name across GetDataTypeName,
+        // the column schema and the DataTypes collection. ProductName is Text(40), a variable-length column.
+        Assert.Equal("Long", reader.GetDataTypeName(0));
+        Assert.Equal("VarChar", reader.GetDataTypeName(1));
+    }
+
+    [Fact]
+    public void GetDataTypeName_is_the_name_the_column_schema_gives()
+    {
+        using var connection = new LibRedConnection($"Data Source={Northwind}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        // A fixed-width text column, a variable one, a number, a date, a currency and a computed column —
+        // the fixed and variable text are the pair that used to read alike.
+        command.CommandText =
+            "SELECT Orders.CustomerID, Customers.CompanyName, Orders.OrderID, Orders.OrderDate, " +
+            "Orders.Freight, Orders.Freight * 2 AS Doubled FROM Orders INNER JOIN Customers " +
+            "ON Orders.CustomerID = Customers.CustomerID";
+
+        using DbDataReader reader = command.ExecuteReader();
+        Assert.Equal(
+            ["Char", "VarChar", "Long", "DateTime", "Currency", "Currency"],
+            Enumerable.Range(0, reader.FieldCount).Select(reader.GetDataTypeName));
+        Assert.Equal(
+            reader.GetColumnSchema().Select(c => c.DataTypeName),
+            Enumerable.Range(0, reader.FieldCount).Select(reader.GetDataTypeName));
+    }
+
+    [Fact]
+    public void A_result_with_nothing_described_behind_it_falls_back_to_the_clr_name()
+    {
+        // @@IDENTITY is session state rather than a column, so there is no stored type to name.
+        using var connection = new LibRedConnection($"Data Source={Northwind}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT @@ROWCOUNT AS `Rows`";
+
+        using var reader = command.ExecuteReader();
         Assert.Equal(nameof(Int32), reader.GetDataTypeName(0));
-        Assert.Equal(nameof(String), reader.GetDataTypeName(1));
     }
 
     [Fact]
@@ -49,7 +86,7 @@ public class LibRedDataReaderMetadataTests
                 using var reader = command.ExecuteReader();
                 Assert.True(reader.HasRows);
                 Assert.Equal(typeof(string), reader.GetFieldType(0));
-                Assert.Equal(nameof(String), reader.GetDataTypeName(0));
+                Assert.Equal("VarChar", reader.GetDataTypeName(0));
                 Assert.True(reader.Read());
                 Assert.True(reader.IsDBNull(0));
                 Assert.True(reader.Read());

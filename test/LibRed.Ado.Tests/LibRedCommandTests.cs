@@ -1,4 +1,5 @@
 using System.Data;
+using System.Data.Common;
 using LibRed.Data;
 using Xunit;
 
@@ -573,8 +574,136 @@ public class LibRedCommandTests
     [InlineData("SELECT ';'", 1)]                                  // semicolon inside a string literal
     [InlineData("SELECT `a;b` FROM T; SELECT 2", 2)]              // semicolon inside a backtick identifier
     [InlineData("SELECT [a;b] FROM T", 1)]                        // semicolon inside a bracket identifier
+    [InlineData("PARAMETERS [p] TEXT; SELECT * FROM T WHERE C = [p]", 1)] // the clause belongs to its query
+    [InlineData("PARAMETERS [p] TEXT; SELECT 1; SELECT 2", 2)]
     public void SplitStatements_splits_only_on_top_level_semicolons(string sql, int expected) =>
         Assert.Equal(expected, LibRedCommand.SplitStatements(sql).Count());
+
+    [Fact]
+    public void SchemaOnly_returns_the_columns_and_no_rows()
+    {
+        using var conn = OpenConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT OrderID, CustomerID FROM Orders ORDER BY OrderID";
+
+        using var reader = cmd.ExecuteReader(CommandBehavior.SchemaOnly);
+        Assert.Equal(2, reader.FieldCount);
+        Assert.False(reader.HasRows);
+        Assert.False(reader.Read());
+        Assert.Equal(-1, reader.RecordsAffected);
+
+        // The schema is the one the query would have returned, stored column and all.
+        var columns = reader.GetColumnSchema();
+        Assert.Equal(["OrderID", "CustomerID"], columns.Select(c => c.ColumnName));
+        Assert.Equal("Orders", columns[0].BaseTableName);
+        Assert.True(columns[0].IsKey);
+    }
+
+    [Fact]
+    public void SchemaOnly_describes_a_stored_procedure_without_running_it()
+    {
+        // No parameter value is supplied: a shape never depended on one, so describing must not ask for it.
+        using var conn = OpenConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandType = CommandType.StoredProcedure;
+        cmd.CommandText = "CustOrdersOrders";
+
+        using var reader = cmd.ExecuteReader(CommandBehavior.SchemaOnly);
+        Assert.Equal(
+            ["OrderID", "OrderDate", "RequiredDate", "ShippedDate"],
+            reader.GetColumnSchema().Select(c => c.ColumnName));
+        Assert.False(reader.Read());
+    }
+
+    [Fact]
+    public void SingleRow_stops_after_the_first_row()
+    {
+        using var conn = OpenConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT OrderID FROM Orders";
+
+        using var reader = cmd.ExecuteReader(CommandBehavior.SingleRow);
+        Assert.True(reader.HasRows);
+        Assert.True(reader.Read());
+        Assert.False(reader.Read()); // the rest of the 830 are never read
+    }
+
+    [Fact]
+    public void CloseConnection_closes_the_connection_with_the_reader()
+    {
+        var conn = OpenConnection();
+        try
+        {
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT OrderID FROM Orders";
+                using var reader = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+                Assert.True(reader.Read());
+                Assert.Equal(ConnectionState.Open, conn.State);
+            }
+
+            Assert.Equal(ConnectionState.Closed, conn.State);
+        }
+        finally { conn.Dispose(); }
+    }
+
+    [Fact]
+    public void A_reader_without_CloseConnection_leaves_the_connection_open()
+    {
+        using var conn = OpenConnection();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT OrderID FROM Orders";
+            using var reader = cmd.ExecuteReader();
+            Assert.True(reader.Read());
+        }
+
+        Assert.Equal(ConnectionState.Open, conn.State);
+    }
+
+    [Fact]
+    public void SchemaOnly_does_not_run_a_statement_that_writes()
+    {
+        // Measured against ACE: an INSERT executed under SchemaOnly leaves its table untouched.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-schemaonly-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+
+            int before = Shippers(conn);
+            using (var write = conn.CreateCommand())
+            {
+                write.CommandText =
+                    "INSERT INTO Shippers (CompanyName) VALUES ('SchemaOnly'); SELECT @@IDENTITY AS `Id`";
+                using var reader = write.ExecuteReader(CommandBehavior.SchemaOnly);
+                // The batch describes as its last statement, which is the SELECT.
+                Assert.Equal("Id", Assert.Single(reader.GetColumnSchema()).ColumnName);
+                Assert.False(reader.Read());
+            }
+
+            Assert.Equal(before, Shippers(conn));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+
+        static int Shippers(LibRedConnection conn)
+        {
+            using var count = conn.CreateCommand();
+            count.CommandText = "SELECT COUNT(*) FROM Shippers";
+            return Convert.ToInt32(count.ExecuteScalar());
+        }
+    }
+
+    [Fact]
+    public void SplitStatements_keeps_a_PARAMETERS_clause_with_its_query()
+    {
+        // Access ends the clause with a semicolon, so splitting there hands the parser a fragment that is
+        // not a statement — which is how every stored parameterized query reads back.
+        Assert.Equal(
+            "PARAMETERS [p] TEXT; SELECT * FROM T WHERE C = [p]",
+            Assert.Single(LibRedCommand.SplitStatements("PARAMETERS [p] TEXT; SELECT * FROM T WHERE C = [p]")));
+    }
 
     [Fact]
     public void Rolled_back_transaction_undoes_its_writes()

@@ -77,6 +77,52 @@ public sealed class QueryEngine
             : executor.ExecuteQuery(PlanWithIndexes(bound));
     }
 
+    /// <summary>
+    /// The shape <paramref name="sql"/> would return, without running it — what ADO's
+    /// <c>CommandBehavior.SchemaOnly</c> asks for. A query is parsed, bound and planned, and its columns come
+    /// back with no rows: planning is what knows the shape, and rows are lazy, so nothing is ever read. A
+    /// statement that writes is <em>not</em> executed and describes as nothing (measured: ACE leaves an
+    /// INSERT's table untouched under SchemaOnly), and a stored procedure describes as the query it holds
+    /// rather than running it.
+    /// </summary>
+    public ResultSet Describe(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
+    {
+        if (_parser.IsStatementless(sql)) return ResultSet.Empty;
+
+        SqlStatement parsed = _parser.ParseStatement(sql);
+        // The shared scope always: describing reads the catalog and writes nothing, whatever the statement
+        // would have done had it run.
+        return _database.ReadConsistent(() => DescribeCore(parsed, parameters));
+    }
+
+    private ResultSet DescribeCore(SqlStatement parsed, IReadOnlyDictionary<string, object?>? parameters)
+    {
+        if (parsed is ExecuteStatement exec)
+        {
+            // A stored SELECT describes as its own (parameterized) text; a stored action query would have
+            // written, so it describes as nothing. Its arguments are never evaluated — values cannot change
+            // a shape.
+            if (_database.Catalog.Views.TryGetValue(exec.Procedure, out string? viewSql))
+                return DescribeCore(_parser.ParseStatement(viewSql), parameters);
+            if (_database.Catalog.ActionQueries.ContainsKey(exec.Procedure)) return ResultSet.Empty;
+            throw new InvalidOperationException($"No stored procedure or query named '{exec.Procedure}'.");
+        }
+
+        // Everything that writes — DML, DDL, a make-table SELECT, transaction control — returns no rows and
+        // does not run.
+        if (parsed is not (SelectStatement { Into: null } or SetOperationStatement or SystemVariableSelectStatement))
+            return ResultSet.Empty;
+
+        BoundStatement bound = _binder.Bind(ViewExpander.Expand(parsed, _database.Catalog.Views, _parser));
+        var executor = new QueryExecutor(_database, parameters, _session, describing: true);
+        ResultSet shape = bound.Statement is SystemVariableSelectStatement sysSelect
+            ? executor.ExecuteSystemVariableSelect(sysSelect)
+            : executor.ExecuteQuery(PlanWithIndexes(bound));
+
+        // Its rows are lazy and so far untouched; dropping them is what guarantees they stay that way.
+        return new ResultSet(shape.ColumnNames, [], shape.ColumnTypes, () => shape.Columns);
+    }
+
     public int ExecuteNonQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
         => Execute(sql, parameters).RecordsAffected;
 
@@ -243,8 +289,8 @@ public sealed class QueryEngine
         var executor = new QueryExecutor(_database, parameters, _session);
         var evaluator = new ExpressionEvaluator(new EvalScope([], [], null), executor, bag, _session);
 
-        IReadOnlyList<string> paramNames = catalog.QueryParameters.TryGetValue(exec.Procedure, out var ns)
-            ? ns : [];
+        IReadOnlyList<string> paramNames = catalog.QueryParameters.TryGetValue(exec.Procedure, out var declared)
+            ? declared.Select(p => p.Name).ToList() : [];
 
         // Access EXEC arguments take three shapes (EF emits all of them):
         //   procParam = value  → a NAMED argument (bind the proc's named parameter to the value)

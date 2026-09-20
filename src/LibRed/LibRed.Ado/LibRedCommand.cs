@@ -48,11 +48,16 @@ public sealed class LibRedCommand : DbCommand
 
     protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
     {
+        // SchemaOnly asks what the command WOULD return: the reader carries the columns and no rows, and
+        // nothing runs — not the INSERT in a batch, and not the stored procedure a name stands for.
+        if (behavior.HasFlag(CommandBehavior.SchemaOnly))
+            return new LibRedDataReader(DescribeBatch(), recordsAffected: -1, behavior, Connection);
+
         // Route through Execute so the reader path also handles DML/DDL: EF Core runs inserts through
         // ExecuteReader and inspects RecordsAffected. A query yields rows (RecordsAffected -1); an
         // INSERT/CREATE runs and yields an empty result carrying its rows-affected count.
         Engine.CommandResult result = ExecuteBatch();
-        return new LibRedDataReader(result.Rows, result.RecordsAffected);
+        return new LibRedDataReader(result.Rows, result.RecordsAffected, behavior, Connection);
     }
 
     /// <summary>
@@ -70,7 +75,7 @@ public sealed class LibRedCommand : DbCommand
         IReadOnlyDictionary<string, object?> parameters = BuildParameters();
 
         Engine.CommandResult? last = null;
-        foreach (string statement in SplitStatements(CommandText))
+        foreach (string statement in SplitStatements(StatementText()))
         {
             // A fragment holding no statement (only comments) is skipped rather than run: it must not become
             // the batch's last result, or `INSERT …; -- done` would report the comment's zero rows instead of
@@ -105,14 +110,65 @@ public sealed class LibRedCommand : DbCommand
     }
 
     /// <summary>
+    /// The shape the command's batch would return, running none of it. As in <see cref="ExecuteBatch"/> the
+    /// batch's result is its <em>last</em> statement's — and since nothing runs, that is the only one worth
+    /// describing.
+    /// </summary>
+    private Engine.Execution.ResultSet DescribeBatch()
+    {
+        ValidateTransaction();
+        Engine.QueryEngine engine = RequireEngine();
+
+        string? last = SplitStatements(StatementText()).LastOrDefault(s => !engine.IsStatementless(s));
+        return last is null
+            ? Engine.Execution.ResultSet.Empty
+            : engine.Describe(last, BuildParameters());
+    }
+
+    /// <summary>
+    /// The SQL this command runs, which for the two non-text command types is built from the name in
+    /// <see cref="CommandText"/>: a stored procedure — an Access stored query — is executed by name with each
+    /// of the command's parameters bound to the procedure's parameter of the same name, and a table is read
+    /// whole. A name is bracket-quoted, so one containing spaces works as it does in Access.
+    /// </summary>
+    private string StatementText() => CommandType switch
+    {
+        CommandType.Text => CommandText,
+        CommandType.TableDirect => $"SELECT * FROM {Quote(CommandText)}",
+        CommandType.StoredProcedure => BuildExecute(),
+        _ => throw new NotSupportedException($"CommandType.{CommandType} is not supported."),
+    };
+
+    /// <summary>An <c>EXECUTE</c> for the named stored query, naming each parameter so the order the caller
+    /// added them in does not matter. A procedure taking none runs bare.</summary>
+    private string BuildExecute()
+    {
+        var arguments = _parameters.Cast<LibRedParameter>()
+            .Where(p => p.Direction is ParameterDirection.Input or ParameterDirection.InputOutput)
+            .Select(p => $"{Quote(p.ParameterName.TrimStart('@'))} = @{p.ParameterName.TrimStart('@')}")
+            .ToList();
+
+        return arguments.Count == 0
+            ? $"EXECUTE {Quote(CommandText)}"
+            : $"EXECUTE {Quote(CommandText)} {string.Join(", ", arguments)}";
+    }
+
+    private static string Quote(string name) => $"[{name.Trim().Trim('[', ']')}]";
+
+    /// <summary>
     /// Splits a batch on top-level <c>;</c> separators, ignoring semicolons inside string literals
     /// (<c>'…'</c> / <c>"…"</c>) and quoted identifiers (<c>[…]</c> / <c>`…`</c>). Blank statements
     /// (e.g. a trailing <c>;</c>) are dropped. The single-statement common case returns one item.
+    /// <para>An Access <c>PARAMETERS …;</c> clause is <em>not</em> a statement of its own: its semicolon
+    /// ends the clause, and the query it declares for follows. Such a fragment is carried onto the next one
+    /// so the pair reaches the engine as the one statement it is — the form every stored parameterized
+    /// query reads back as.</para>
     /// </summary>
     public static IEnumerable<string> SplitStatements(string sql)
     {
         int start = 0;
         char quote = '\0'; // the closing delimiter we're inside, or '\0' at top level
+        string prefix = string.Empty; // a PARAMETERS clause awaiting its query
         for (int i = 0; i < sql.Length; i++)
         {
             char c = sql[i];
@@ -125,14 +181,25 @@ public sealed class LibRedCommand : DbCommand
             else if (c == ';')
             {
                 string part = sql[start..i].Trim();
-                if (part.Length > 0) yield return part;
+                if (part.Length > 0)
+                {
+                    if (IsParametersClause(part)) prefix += part + "; ";
+                    else { yield return prefix + part; prefix = string.Empty; }
+                }
                 start = i + 1;
             }
         }
 
         string tail = sql[start..].Trim();
-        if (tail.Length > 0) yield return tail;
+        // A clause with nothing after it is yielded as-is, so the engine reports it rather than the batch
+        // silently running nothing.
+        if (tail.Length > 0) yield return prefix + tail;
+        else if (prefix.Length > 0) yield return prefix.TrimEnd(' ', ';');
     }
+
+    private static bool IsParametersClause(string statement) =>
+        statement.StartsWith("PARAMETERS", StringComparison.OrdinalIgnoreCase)
+        && (statement.Length == "PARAMETERS".Length || char.IsWhiteSpace(statement["PARAMETERS".Length]));
 
     private Engine.QueryEngine RequireEngine() =>
         Connection?.Engine ?? throw new InvalidOperationException("Connection is not open.");

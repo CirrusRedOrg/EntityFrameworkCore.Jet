@@ -119,7 +119,7 @@ public class ActionQueryProcedureAccessTests
             }
 
             using var db = JetDatabase.Open(path);
-            Assert.Equal(["pTitle", "pCountry"], db.Catalog.QueryParameters["UpdateByCountry"]);
+            Assert.Equal(["pTitle", "pCountry"], db.Catalog.QueryParameters["UpdateByCountry"].Select(p => p.Name));
             StoredActionQuery query = db.Catalog.ActionQueries["UpdateByCountry"];
             Assert.Null(query.Sql);
             Assert.Contains("UPDATE", query.UnsupportedReason!, StringComparison.OrdinalIgnoreCase);

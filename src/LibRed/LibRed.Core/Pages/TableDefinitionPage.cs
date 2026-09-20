@@ -40,6 +40,11 @@ public sealed class TableDefinitionPage : Page
     private readonly List<IndexDef> _indexes = [];
     public IReadOnlyList<IndexDef> Indexes => _indexes;
 
+    private readonly List<LogicalIndexDef> _logicalIndexes = [];
+    /// <summary>Every logical index, in the order the TDEF lists them — including the relationship names that
+    /// share a real index with a named one, which <see cref="Indexes"/> keeps only one of.</summary>
+    public IReadOnlyList<LogicalIndexDef> LogicalIndexes => _logicalIndexes;
+
     private readonly Dictionary<int, (int Row, int Page)> _longValueOwnedMaps = [];
     /// <summary>Per long-value (memo/OLE) column id → its owned-pages usage-map pointer (record row +
     /// page), from the §3.3.2 list after the index names. Used to record a newly allocated LVAL page.</summary>
@@ -236,24 +241,29 @@ public sealed class TableDefinitionPage : Page
     private int ResolveIndexNames(PageBuffer buffer, int infoStart)
     {
         int logicalCount = LogicalIndexCount; // 0x2F — the logical-index (slot) count
-        var info = new (int DataNumber, bool IsRelationship, byte Type)[logicalCount];
+        var info = new (int DataNumber, bool IsRelationship, byte Type, byte FkType)[logicalCount];
         for (int i = 0; i < logicalCount; i++)
         {
             int block = infoStart + i * IndexBlockFormat.InfoBlockSize;
             info[i] = (
                 buffer.ReadInt32(block + IndexBlockFormat.InfoDataNumberOffset),
                 buffer.ReadInt32(block + IndexBlockFormat.InfoFkTablePageOffset) != 0,
-                buffer.ReadByte(block + IndexBlockFormat.InfoTypeOffset));
+                buffer.ReadByte(block + IndexBlockFormat.InfoTypeOffset),
+                buffer.ReadByte(block + IndexBlockFormat.InfoFkTypeOffset));
         }
 
         int namePos = infoStart + logicalCount * IndexBlockFormat.InfoBlockSize;
         var priority = new int[_indexes.Count];
+        _logicalIndexes.Clear();
         for (int i = 0; i < logicalCount; i++)
         {
             (string name, namePos) = ReadName(buffer, namePos, $"logical index {i}");
 
-            (int dataNumber, bool isRelationship, byte type) = info[i];
+            (int dataNumber, bool isRelationship, byte type, byte fkType) = info[i];
             if (dataNumber < 0 || dataNumber >= _indexes.Count) continue;
+
+            _logicalIndexes.Add(new LogicalIndexDef(name, dataNumber, isRelationship,
+                !isRelationship && type == IndexBlockFormat.TypePrimary, fkType));
 
             // Prefer a real index name over a relationship's; prefer the primary among real ones.
             int p = isRelationship ? 1 : type == IndexBlockFormat.TypePrimary ? 3 : 2;

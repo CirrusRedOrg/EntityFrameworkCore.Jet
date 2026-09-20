@@ -18,6 +18,15 @@
   > creating the model's tables. Real user tables carry `Flags = 0x00000000`, so excluding the
   > system/hidden bits never drops a genuine table.
 
+  > **The same bits name the object kind in a schema rowset** (verified against ACE's `Tables`, which
+  > classifies every object by `Flags` rather than by name): the system bit (`0x80000000`) makes it a
+  > **`SYSTEM TABLE`** — the engine's own catalog, `MSysObjects` / `MSysQueries` / `MSysRelationships` /
+  > `MSysACEs` / `MSysComplexColumns`; the hidden bit (`0x08`) without it makes an **`ACCESS TABLE`** —
+  > Access's application tables, the nav-pane group and `MSysResources`; anything carrying `0x00030000`
+  > is **not listed at all** (the `MSysComplexType_*` tables, `Flags 0x80030000`); everything else is a
+  > **`TABLE`**, which is why `MSysAccessStorage` (`Flags = 0`) appears among the user tables despite its
+  > name. Stored queries are listed in the same rowset as **`VIEW`**.
+
   **Writing a table object** (verified against Access-written rows). A complete user-table row sets:
   `Id` = TDEF page; `ParentId` = `0x0F000001` (the database's "Tables" container, constant);
   `Type` = `1`; `Name`; `Flags` = `0`; `Owner` = a 2-byte binary SID (`0x69 0x0C` for a
@@ -319,6 +328,15 @@
   > runs in Access and honours supplied parameter values. **Read-back:** LibRed reconstructs a parameterized
   > query with a leading `PARAMETERS name Type, …;` clause (the `0x02` rows) and lowers body references to a
   > declared name into engine parameters, so LibRed's own engine executes the stored procedure when values are supplied.
+  >
+  > **A declared name wins over a column of the same name — and a `@` prefix does not distinguish them.**
+  > Measured against ACE 12 on Northwind: *every* unqualified occurrence of a declared parameter name is the
+  > parameter, whether written bare or as `@name`, even where the query's own table has a column by that name.
+  > Only a table-qualified reference is read as the column. Northwind's own `CustOrdersOrders` — declared
+  > `CustomerID Text(5)`, body `WHERE CustomerID = @CustomerID` — is therefore a tautology in ACE and returns
+  > all 830 orders for any supplied value; a body written `Orders.CustomerID = [CustomerID]` returns the 6 that
+  > match. LibRed reproduces all four combinations exactly, so the "obvious" fix of resolving the left-hand
+  > name to the column would be a divergence, not a repair.
   >
   > **Complex-column system tables (ACE 12+ only).** Access 2007 introduced multi-value and attachment
   > columns, and with them `MSysComplexColumns` (the registry) plus nine `MSysComplexType_*` flat storage

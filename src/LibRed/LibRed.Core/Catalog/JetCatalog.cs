@@ -36,7 +36,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
     private List<ForeignKey>? _relationships;
     private Dictionary<string, string>? _views;
     private Dictionary<string, StoredActionQuery>? _actionQueries;
-    private Dictionary<string, IReadOnlyList<string>>? _queryParameters;
+    private Dictionary<string, IReadOnlyList<StoredQueryParameter>>? _queryParameters;
     private long _seenSchemaGeneration = channel.SchemaGeneration;
 
     /// <summary>All tables in the database (user and system).</summary>
@@ -54,7 +54,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
     /// <summary>A stored query's declared parameter names in declaration order (its <c>Attribute=2</c> rows).
     /// Used to bind an <c>EXECUTE proc a, b</c>'s positional arguments to the procedure's named parameters.
     /// Empty for a query with no parameters.</summary>
-    public IReadOnlyDictionary<string, IReadOnlyList<string>> QueryParameters { get { EnsureFresh(); EnsureStoredQueries(); return _queryParameters!; } }
+    public IReadOnlyDictionary<string, IReadOnlyList<StoredQueryParameter>> QueryParameters { get { EnsureFresh(); EnsureStoredQueries(); return _queryParameters!; } }
 
     /// <summary>Drops the cached catalog so a freshly created table is picked up on next read.</summary>
     public void Invalidate(bool markChanged = true)
@@ -120,6 +120,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
                             || name.StartsWith('#');
 
             TableDef definition = ReadTableDefinition(definitionPage, name, isSystem);
+            definition.ObjectFlags = flags;
             // Attach column DefaultValue and table CHECK properties from the extended-properties (LvProp) blob.
             if (row[lvpropIndex] is byte[] { Length: > 0 } blob)
             {
@@ -199,7 +200,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
         if (_views is not null) return;
         _views = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         _actionQueries = new Dictionary<string, StoredActionQuery>(StringComparer.OrdinalIgnoreCase);
-        _queryParameters = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        _queryParameters = new Dictionary<string, IReadOnlyList<StoredQueryParameter>>(StringComparer.OrdinalIgnoreCase);
 
         TableDef? mqDef = FindTable("MSysQueries");
         TableDef? objDef = FindTable("MSysObjects");
@@ -235,11 +236,16 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
                 _views[name] = sql;
 
             // The declared parameters (Attribute=2 rows), in declaration order, for EXECUTE positional binding.
-            var paramNames = rows.Where(r => r[attr] is byte b && b == StoredQueryFormat.AttrParameter)
+            // Each row's Flag is the parameter's Jet type code (0 for Access's untyped parameter).
+            var parameters = rows.Where(r => r[attr] is byte b && b == StoredQueryFormat.AttrParameter)
                 .OrderBy(r => r[order] is byte[] ob && ob.Length >= 4
                     ? System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(ob) : 0)
-                .Select(r => r[n1] as string).Where(s => s is not null).Select(s => s!).ToList();
-            if (paramNames.Count > 0) _queryParameters[name] = paramNames;
+                .Where(r => r[n1] is string)
+                .Select(r => new StoredQueryParameter(
+                    (string)r[n1]!,
+                    r[flag] is short f and not 0 ? (JetDataType)(byte)f : null))
+                .ToList();
+            if (parameters.Count > 0) _queryParameters[name] = parameters;
         }
     }
 
@@ -444,6 +450,8 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
             DefinitionPage = definitionPage,
             Columns = tdef.Columns,
             Indexes = tdef.Indexes,
+            LogicalIndexes = tdef.LogicalIndexes,
+            RowCount = tdef.RowCount,
             VariableColumnCount = tdef.VariableColumnCount,
             ComplexAutoNumber = tdef.ComplexAutoNumber,
             IsSystem = isSystem,

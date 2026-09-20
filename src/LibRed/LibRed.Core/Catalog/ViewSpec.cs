@@ -53,6 +53,11 @@ public sealed record ActionQuerySpec(
 /// explains why executing it throws.</summary>
 public sealed record StoredActionQuery(string? Sql, string? UnsupportedReason);
 
+/// <summary>A parameter a stored query declares, in declaration order. <paramref name="Type"/> is the Jet type
+/// Access recorded for it, or null for its untyped parameter — the one Access renders as the keyword
+/// <c>Value</c>.</summary>
+public sealed record StoredQueryParameter(string Name, JetDataType? Type);
+
 /// <summary>
 /// A view's decomposed "simple SELECT" — the columns, source tables, joins and WHERE (all verbatim text) —
 /// that Access stores as MSysQueries rows. Aggregates / GROUP BY / HAVING / ORDER BY are not permitted.

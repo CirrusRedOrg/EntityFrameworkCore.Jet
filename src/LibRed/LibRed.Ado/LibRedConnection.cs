@@ -239,6 +239,23 @@ public sealed class LibRedConnection : DbConnection
         OnStateChange(new StateChangeEventArgs(ConnectionState.Open, ConnectionState.Closed));
     }
 
+    /// <summary>The names of the metadata collections this provider serves.</summary>
+    public override DataTable GetSchema() => GetSchema(LibRedSchema.MetaDataCollections, null);
+
+    /// <inheritdoc cref="GetSchema()"/>
+    public override DataTable GetSchema(string collectionName) => GetSchema(collectionName, null);
+
+    /// <summary>A metadata collection, filtered by <paramref name="restrictionValues"/>. The collections match
+    /// the ones ACE's OLE DB provider serves, column for column, so code written against that provider reads
+    /// the same metadata here. A restriction naming a catalog or schema matches everything: a Jet file holds
+    /// one nameless catalog and no schemas.</summary>
+    public override DataTable GetSchema(string collectionName, string?[]? restrictionValues)
+    {
+        if (_database is null || _state != ConnectionState.Open)
+            throw new InvalidOperationException("The connection must be open to read schema metadata.");
+        return LibRedSchema.Get(collectionName, restrictionValues, _database);
+    }
+
     public override void ChangeDatabase(string databaseName) =>
         throw new NotSupportedException("A Jet/ACE connection maps to a single file.");
 

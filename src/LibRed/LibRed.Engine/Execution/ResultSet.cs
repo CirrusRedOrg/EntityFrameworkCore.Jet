@@ -7,10 +7,14 @@ namespace LibRed.Engine.Execution;
 /// </summary>
 public sealed class ResultSet
 {
+    private readonly Func<IReadOnlyList<ResultColumn>>? _describe;
+    private IReadOnlyList<ResultColumn>? _columns;
+
     public ResultSet(
         IReadOnlyList<string> columnNames,
         IEnumerable<object?[]> rows,
-        IReadOnlyList<Type>? columnTypes = null)
+        IReadOnlyList<Type>? columnTypes = null,
+        Func<IReadOnlyList<ResultColumn>>? describe = null)
     {
         if (columnTypes is not null && columnTypes.Count != columnNames.Count)
             throw new ArgumentException("The number of column types must match the number of column names.", nameof(columnTypes));
@@ -18,7 +22,15 @@ public sealed class ResultSet
         ColumnNames = columnNames;
         Rows = rows;
         ColumnTypes = columnTypes ?? Enumerable.Repeat(typeof(object), columnNames.Count).ToArray();
+        _describe = describe;
     }
+
+    /// <summary>Everything known about each output column — the stored column behind it where there is one,
+    /// with its declared type and constraints. Described on demand, not per query: only a caller asking for
+    /// schema (<c>GetSchemaTable</c>, <c>GetColumnSchema</c>) pays for it.</summary>
+    public IReadOnlyList<ResultColumn> Columns =>
+        _columns ??= _describe?.Invoke()
+        ?? ColumnNames.Select((name, i) => new ResultColumn(name, ColumnTypes[i])).ToList();
 
     public IReadOnlyList<string> ColumnNames { get; }
 
@@ -31,3 +43,30 @@ public sealed class ResultSet
 
     public static ResultSet Empty { get; } = new([], [], []);
 }
+
+/// <summary>
+/// What is known about one column of a result: its name and CLR type always, and — where the value comes
+/// straight from a stored column rather than being computed — that column's table, name, declared type and
+/// the constraints on it. The ADO layer turns these into <c>GetSchemaTable</c> rows and <c>DbColumn</c>s.
+/// </summary>
+/// <param name="BaseTableName">The table the value is read from, or null when nothing stored stands behind it.</param>
+/// <param name="BaseColumnName">Its name in that table, which an alias in the query does not change.</param>
+/// <param name="ProviderType">The OLE DB type code, as the schema collections report it.</param>
+/// <param name="TypeName">The provider's name for the type, as the DataTypes collection spells it.</param>
+public sealed record ResultColumn(
+    string Name,
+    Type ClrType,
+    string? BaseTableName = null,
+    string? BaseColumnName = null,
+    bool AllowNull = true,
+    bool IsExpression = false,
+    bool IsAutoIncrement = false,
+    bool IsKey = false,
+    bool IsUnique = false,
+    bool IsLong = false,
+    bool IsReadOnly = false,
+    int? Size = null,
+    int? Precision = null,
+    int? Scale = null,
+    int ProviderType = 0,
+    string TypeName = "");

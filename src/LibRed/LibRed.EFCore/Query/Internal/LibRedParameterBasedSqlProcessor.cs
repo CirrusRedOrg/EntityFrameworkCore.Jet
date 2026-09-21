@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using EntityFrameworkCore.Jet.Query.Internal;
-using EntityFrameworkCore.Jet.Utilities;
 using EntityFrameworkCore.LibRed.Infrastructure;
 
 namespace EntityFrameworkCore.LibRed.Query.Internal;
@@ -65,9 +64,9 @@ public class LibRedParameterBasedSqlProcessor(
     }
 
     /// <inheritdoc />
-    protected override Expression ProcessSqlNullability(Expression selectExpression, ParametersCacheDecorator Decorator)
+    protected override Expression ProcessSqlNullability(Expression queryExpression, ParametersCacheDecorator decorator)
     {
         return new JetSqlNullabilityProcessor(Dependencies, Parameters).Process(
-            selectExpression, Decorator);
+            queryExpression, decorator);
     }
 }

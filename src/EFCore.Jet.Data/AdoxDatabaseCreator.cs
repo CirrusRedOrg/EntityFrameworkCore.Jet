@@ -1,5 +1,9 @@
-using System;
 using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
+using System;
+
+// The enums nested below are ADO type-library enums transcribed name-for-name and value-for-value, so a
+// caller can match them against the library's own documentation. CA1711 objects to their "Enum" suffix.
+#pragma warning disable CA1711
 
 namespace EntityFrameworkCore.Jet.Data
 {
@@ -17,11 +21,11 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 throw new ArgumentOutOfRangeException(nameof(databasePassword));
             }
-            
+
             var filePath = JetStoreDatabaseHandling.ExpandFileName(JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(fileNameOrConnectionString));
-            
+
             if (version == DatabaseVersion.NewestSupported &&
-                string.Equals(System.IO.Path.GetExtension(filePath), ".mdb"))
+                string.Equals(System.IO.Path.GetExtension(filePath), ".mdb", StringComparison.OrdinalIgnoreCase))
             {
                 version = DatabaseVersion.Version40;
             }
@@ -29,17 +33,17 @@ namespace EntityFrameworkCore.Jet.Data
             try
             {
                 using dynamic catalog = new ComObject("ADOX.Catalog");
-                
+
                 // ADOX is an ADO eXtension and ADO is build on top of OLE DB.
                 var connectionString = GetConnectionString(filePath, version, collatingOrder, databasePassword);
                 using var connection = catalog.Create(connectionString);
             }
             catch (Exception e)
             {
-                throw new Exception($"Cannot create database \"{filePath}\" using DAO.", e);
+                throw new InvalidOperationException($"Cannot create database \"{filePath}\" using ADOX.", e);
             }
         }
-        
+
         private static string GetConnectionString(string filePath, DatabaseVersion version, CollatingOrder collatingOrder, string? databasePassword)
         {
             var connectionString = JetConnection.GetConnectionString(filePath, DataAccessProviderType.OleDb);
@@ -72,7 +76,7 @@ namespace EntityFrameworkCore.Jet.Data
 
             return connectionString;
         }
-        
+
         [Flags]
         protected enum CommandTypeEnum
         {
@@ -84,7 +88,7 @@ namespace EntityFrameworkCore.Jet.Data
             adCmdFile = 0x00000100,
             adCmdTableDirect = 0x00000200,
         }
-        
+
         [Flags]
         protected enum ExecuteOptionEnum
         {

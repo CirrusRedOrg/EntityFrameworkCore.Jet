@@ -1,8 +1,8 @@
-using System.Buffers.Binary;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
+using System.Buffers.Binary;
 
 namespace LibRed.Storage;
 
@@ -325,6 +325,13 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     /// Splits the (leaf or node) page at <paramref name="level"/> into two, writes both, then promotes a
     /// separator into the parent — splitting parents in turn, or growing a new root at the top.
     /// </summary>
+    /// <param name="index">The index whose tree is being split.</param>
+    /// <param name="path">The pages from the root down to the one being split, one per level.</param>
+    /// <param name="level">Which entry of <paramref name="path"/> is the page to split.</param>
+    /// <param name="entries">That page's entries, in key order, including the one just inserted.</param>
+    /// <param name="type">Leaf or node — what the two halves are written as.</param>
+    /// <param name="prev">The split page's left sibling, for the leaf chain.</param>
+    /// <param name="next">Its right sibling.</param>
     /// <param name="splitAt">How many entries stay on the left page; negative for the default half. Only a
     /// leaf split sets it, to keep a page full when the new entry is its maximum (see InsertIntoLeaf).</param>
     private void SplitAndPropagate(IndexDef index, List<int> path, int level, List<Entry> entries,
@@ -434,6 +441,12 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     /// both matching what Access writes. (An isolation test showed neither is strictly required — Access reads
     /// a node with <c>0x1A=0</c> and compressed just fine; they are kept purely for byte-faithfulness. The one
     /// hard requirement is a <b>leaf's</b> <c>0x1A=0</c> and the leaf-chain offsets at <c>0x0C</c>/<c>0x10</c>.)</summary>
+    /// <param name="type">Leaf or node.</param>
+    /// <param name="prev">The page's left sibling, written into the leaf chain.</param>
+    /// <param name="next">Its right sibling.</param>
+    /// <param name="tail">The page's trailing pointer — a node's rightmost child.</param>
+    /// <param name="level">A node's height above the leaves; 0 on a leaf.</param>
+    /// <param name="entries">The entries to write, in key order.</param>
     /// <param name="prefix">The shared-prefix length to store the entries at. Null computes the largest
     /// available, which is what a split writes. It must not exceed what the entries actually share.</param>
     private byte[]? Build(PageType type, int prev, int next, int tail, int level, List<Entry> entries,
@@ -626,6 +639,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     /// Fills an <b>empty</b> index from <paramref name="entries"/> by writing each page once, instead of
     /// inserting the entries one at a time and rewriting a whole leaf per entry.
     /// </summary>
+    /// <param name="index">The empty index to fill.</param>
     /// <param name="entries">(key, row pointer) pairs with a <c>NullKey</c> marker; any order. Sorted here.</param>
     /// <param name="rejectDuplicates">Enforce uniqueness — adjacent equal keys after the sort, null keys exempt
     /// (Jet's uniqueness is over the non-null keys only).</param>

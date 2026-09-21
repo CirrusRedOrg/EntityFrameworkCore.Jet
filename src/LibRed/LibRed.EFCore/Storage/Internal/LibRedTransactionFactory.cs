@@ -1,8 +1,3 @@
-using System.Data.Common;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Storage;
-
 namespace EntityFrameworkCore.LibRed.Storage.Internal;
 
 /// <summary>

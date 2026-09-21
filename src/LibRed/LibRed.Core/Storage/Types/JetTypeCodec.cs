@@ -1,8 +1,8 @@
-using System.Buffers.Binary;
-using System.Text;
 using EntityFrameworkCore.Jet.Data;
 using LibRed.Catalog;
 using LibRed.Formats;
+using System.Buffers.Binary;
+using System.Text;
 
 namespace LibRed.Storage.Types;
 
@@ -209,7 +209,8 @@ public static class JetTypeCodec
     }
 
     /// <summary>
-    /// Encodes a non-null CLR value to its on-disk bytes — the inverse of <see cref="Decode"/>.
+    /// Encodes a non-null CLR value to its on-disk bytes — the inverse of
+    /// <see cref="Decode(ColumnDef, ReadOnlySpan{byte})"/>.
     /// Boolean is not handled here (its value lives in the null bitmap). Text is written as UTF-16LE, or
     /// compressed (§7) when <see cref="TryCompressText"/> says ACE would. A memo/OLE value small enough to
     /// inline is written as an <b>inline</b> long value (see <see cref="EncodeInlineLongValue"/>); a larger
@@ -260,16 +261,16 @@ public static class JetTypeCodec
                 return Bytes(8, b => BinaryPrimitives.WriteInt64LittleEndian(b, (long)decimal.Round(JetDecimalConverter.ToDecimal(value, c) * 10000m)));
             case JetDataType.Guid:
                 // Coerced, not cast: every other type here accepts what the caller has (AsText, AsBinary, ToOaDate,
-        // Convert.To*), and TableCreator.ConvertValue already parses a string GUID on the ALTER path. A hard
-        // cast turned a string reaching a GUID column into an InvalidCastException with no column named.
-        return (value switch
-        {
-            Guid g => g,
-            byte[] b when b.Length == 16 => new Guid(b),
-            string s when Guid.TryParse(s, out Guid parsed) => parsed,
-            _ => throw new NotSupportedException(
-                $"Cannot store {value.GetType().Name} in GUID column '{column.Name}'."),
-        }).ToByteArray();
+                // Convert.To*), and TableCreator.ConvertValue already parses a string GUID on the ALTER path. A hard
+                // cast turned a string reaching a GUID column into an InvalidCastException with no column named.
+                return (value switch
+                {
+                    Guid g => g,
+                    byte[] b when b.Length == 16 => new Guid(b),
+                    string s when Guid.TryParse(s, out Guid parsed) => parsed,
+                    _ => throw new NotSupportedException(
+                        $"Cannot store {value.GetType().Name} in GUID column '{column.Name}'."),
+                }).ToByteArray();
             case JetDataType.Text:
                 return EncodeText(column, AsText(value, c));
             case JetDataType.Binary:
@@ -281,14 +282,14 @@ public static class JetTypeCodec
             // text as UTF-16LE, OLE as raw bytes). LongValueReader reads this back via the inline
             // flag. Chained LVAL pages for values too large to inline are not written yet.
             case JetDataType.Memo:
-            {
-                // An inline memo compresses whether or not the column was declared WITH COMPRESSION — the
-                // capable flag gates single-page values, not inline ones (see TryCompressText). Only values
-                // the caller has already decided to inline reach here, so no storage-form test is needed.
-                string memo = AsText(value, c);
-                return EncodeInlineLongValue(
-                    TryCompressText(column, memo, requireCapableFlag: false) ?? Encoding.Unicode.GetBytes(memo));
-            }
+                {
+                    // An inline memo compresses whether or not the column was declared WITH COMPRESSION — the
+                    // capable flag gates single-page values, not inline ones (see TryCompressText). Only values
+                    // the caller has already decided to inline reach here, so no storage-form test is needed.
+                    string memo = AsText(value, c);
+                    return EncodeInlineLongValue(
+                        TryCompressText(column, memo, requireCapableFlag: false) ?? Encoding.Unicode.GetBytes(memo));
+                }
             case JetDataType.Ole:
                 return EncodeInlineLongValue(AsBinary(column, value));
 

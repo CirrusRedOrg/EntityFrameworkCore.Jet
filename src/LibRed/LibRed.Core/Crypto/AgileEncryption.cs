@@ -86,13 +86,13 @@ public sealed class AgileEncryption : IPageCodec
             RequireLength(keyDataSalt, 16, "keyData saltValue");
             RequireLength(pwdSalt, 16, "encryptedKey saltValue");
 
-        // Cross-check the descriptor's declared sizes against reality: the salt bytes must be saltSize long, the
-        // hash must match hashSize, and both elements must name the same hash. A disagreement means a malformed or
-        // misparsed descriptor — fail here with a clear message rather than deep in the KDF.
+            // Cross-check the descriptor's declared sizes against reality: the salt bytes must be saltSize long, the
+            // hash must match hashSize, and both elements must name the same hash. A disagreement means a malformed or
+            // misparsed descriptor — fail here with a clear message rather than deep in the KDF.
             VerifyDeclaredSizes(keyData, hash, keyDataSalt.Length);
             VerifyDeclaredSizes(encKey, hash, pwdSalt.Length);
 
-        // H_spin = Hash(salt ‖ UTF16LE(password)), then spinCount iterations of Hash(LE32(i) ‖ H).
+            // H_spin = Hash(salt ‖ UTF16LE(password)), then spinCount iterations of Hash(LE32(i) ‖ H).
             byte[] hspin = Hash(hash, pwdSalt, Encoding.Unicode.GetBytes(password));
             Span<byte> iter = stackalloc byte[4];
             for (int i = 0; i < spinCount; i++)
@@ -103,7 +103,7 @@ public sealed class AgileEncryption : IPageCodec
 
             byte[] DeriveKey(byte[] blockKey) => Fit(Hash(hash, hspin, blockKey), keyBytes);
 
-        // Verify the password before trusting anything: SHA(verifierInput) must equal verifierValue.
+            // Verify the password before trusting anything: SHA(verifierInput) must equal verifierValue.
             byte[] encryptedVerifierInput = B64(encKey, "encryptedVerifierHashInput");
             byte[] encryptedVerifierValue = B64(encKey, "encryptedVerifierHashValue");
             byte[] encryptedKeyValue = B64(encKey, "encryptedKeyValue");
@@ -321,6 +321,9 @@ public sealed class AgileEncryption : IPageCodec
     private static byte[] Hash(HashKind kind, params byte[][] parts)
     {
         byte[] all = parts.Length == 1 ? parts[0] : Concat(parts);
+        // CA5350: the agile descriptor names its own hash, and SHA-1 is what Access writes for many files;
+        // reading them back means using it. Scoped to the dispatch that honours the descriptor.
+#pragma warning disable CA5350
         return kind switch
         {
             HashKind.Sha1 => SHA1.HashData(all),
@@ -329,6 +332,7 @@ public sealed class AgileEncryption : IPageCodec
             HashKind.Sha512 => SHA512.HashData(all),
             _ => throw new NotSupportedException()
         };
+#pragma warning restore CA5350
     }
 
     private static byte[] Concat(params byte[][] parts)

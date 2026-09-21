@@ -127,6 +127,9 @@ public sealed record WindowFrame(FrameUnit Unit, FrameBound Start, FrameBound En
 /// AggregateNode. As a sibling record it falls through to "not an aggregate", which is correct — a window
 /// function returns one value per ROW, not per group, whatever its name.
 /// </remarks>
+/// <param name="Name">The function's name, as written.</param>
+/// <param name="Arguments">Its arguments, with an ordered-set aggregate's WITHIN GROUP keys last.</param>
+/// <param name="Over">The window: its PARTITION BY, ORDER BY and frame.</param>
 /// <param name="Distinct">A windowed aggregate over the distinct values of its argument in each frame.</param>
 /// <param name="IgnoreNulls">IGNORE NULLS (true) or RESPECT NULLS (false); null when neither is written.</param>
 /// <param name="FromLast">FROM LAST (true) or FROM FIRST (false); null when neither is written.</param>

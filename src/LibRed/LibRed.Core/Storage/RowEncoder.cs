@@ -1,7 +1,7 @@
-using System.Buffers.Binary;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.Storage.Types;
+using System.Buffers.Binary;
 
 namespace LibRed.Storage;
 
@@ -24,7 +24,13 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     Func<ColumnDef, byte[], byte[]>? spillCalculated = null)
 {
     private readonly IReadOnlyList<ColumnDef> _columns = columns;
+
+    // Nothing in the row layout varies by format across the Jet 4 family, so this is unread today. It stays
+    // because Jet 3 rows differ (1-byte column counts, no variable-length offset widening), and the encoder
+    // will have to branch on it when that format is implemented.
+#pragma warning disable CA1823, IDE0052 // Deliberately unread; see above.
     private readonly JetFormatBase _format = format;
+#pragma warning restore CA1823, IDE0052
 
     // How an oversized calculated result reaches an LVAL page, returning the in-row descriptor. A calculated
     // column is the one value the encoder DERIVES rather than receives, so it cannot have been materialised
@@ -45,6 +51,7 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     public byte[] Encode(object?[] values) => Encode(values, null);
 
     /// <summary>Encodes a row, recomputing its calculated columns.</summary>
+    /// <param name="values">The row's values, one per column in table order.</param>
     /// <param name="preservedCalculated">Envelopes to carry over verbatim, keyed by
     /// <see cref="ColumnDef.Index"/>. An UPDATE that touches nothing a calculated column reads must leave
     /// the cached value exactly as it was: ACE recomputes only when a referenced column is written, so
@@ -172,10 +179,10 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     /// <c>[count][fixed][var data][var-offset table][numVar]</c> (the variable section is omitted entirely when
     /// there are none) then <c>[null bitmap]</c>. The count and bitmap width are <c>maxColumnId + 1</c>; a
     /// column's bit is set when present (Boolean = its truthy value), and dead ids (gaps below the max, from a
-    /// burned/dropped id) are set present too — all verified vs ACE (§5). Shared by <see cref="Encode"/> and
+    /// burned/dropped id) are set present too — all verified vs ACE (§5). Shared by <c>Encode</c> and
     /// the ALTER COLUMN row re-lay so the two can never drift.</summary>
     /// <remarks>
-    /// The declared-width check runs HERE rather than in <see cref="Encode"/>. It used to sit above this call,
+    /// The declared-width check runs HERE rather than in <c>Encode</c>. It used to sit above this call,
     /// which meant the ALTER COLUMN re-lay — the other caller — never got it, and a narrowing retype could
     /// write rows Access refuses. A guard that both paths must pass through belongs on the shared path.
     /// </remarks>

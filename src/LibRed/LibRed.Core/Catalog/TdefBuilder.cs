@@ -1,7 +1,7 @@
-using System.Buffers.Binary;
-using System.Text;
 using LibRed.Formats;
 using LibRed.Pages;
+using System.Buffers.Binary;
+using System.Text;
 
 namespace LibRed.Catalog;
 
@@ -105,7 +105,6 @@ public static class TdefBuilder
     // TDEF header offsets + the record marker / continuation-header size live on JetFormatBase (shared,
     // version-aware); the column-descriptor sub-offsets Access needs but the reader ignores are below.
     private const int ColumnRecordMarkerOffset = 0x01; // 0x0659
-    private const int ColumnNumber2Offset = 0x09;      // duplicate column id
 
     // Index-data and index-info block layout + flags are shared with the reader via IndexBlockFormat / IndexFlags.
     private const int MaxIndexesPerTable = 32; // Jet/ACE limit, counting keys- and relationship-backing indexes
@@ -367,7 +366,7 @@ public static class TdefBuilder
 
     private static int DefinitionSize(
         JetFormatBase format,
-        IReadOnlyList<ColumnDef> columns,
+        List<ColumnDef> columns,
         IReadOnlyList<IndexSpec> indexes,
         IReadOnlyList<LogicalIndexSpec> logical,
         IReadOnlyList<LongValueColumnSpec> longValueColumns)

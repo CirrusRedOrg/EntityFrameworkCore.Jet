@@ -9,7 +9,11 @@ namespace LibRed.Data;
 /// <c>DataAccessProviderType</c>/ODBC/OLE DB and throw for any other builder type), this reads
 /// and writes the "Data Source" key directly - no provider-type gate to fall into.
 /// </summary>
+// CA1010 asks for ICollection<T>; the non-generic ICollection comes from DbConnectionStringBuilder, which
+// every ADO.NET provider inherits as-is.
+#pragma warning disable CA1010
 public class LibRedConnectionStringBuilder : DbConnectionStringBuilder
+#pragma warning restore CA1010
 {
     /// <summary>
     /// Reads "Data Source", "DataSource", or "DBQ" (whichever is present - matches

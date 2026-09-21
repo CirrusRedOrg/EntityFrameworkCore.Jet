@@ -2,6 +2,10 @@ using LibRed.Catalog;
 
 namespace LibRed.Formats
 {
+    // CA1707 (no underscores in identifiers): each member names the format version AND the Access release it
+    // shipped with — Version16_2016 — which is how the spec, the probes and the ACE documentation all refer
+    // to them. Scoped to this enum so the rule keeps working everywhere else.
+#pragma warning disable CA1707
     public enum JetVersion
     {
         Version3 = 0x0,
@@ -12,6 +16,7 @@ namespace LibRed.Formats
         Version16_2016 = 0x5,
         Version17_2019 = 0x6,
     }
+#pragma warning restore CA1707
 
     /// <summary>
     /// Which format version a column type needs in order to exist on disk at all.

@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             {
                 var oldTableName = match.Groups["OldTableName"].Value;
                 var newTableName = match.Groups["NewTableName"].Value;
-                
+
                 RenameTable(connection, oldTableName, newTableName);
 
                 return true;
@@ -34,9 +34,9 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                 var tableName = match.Groups["TableName"].Value;
                 var oldColumnName = match.Groups["OldColumnName"].Value;
                 var newColumnName = match.Groups["NewColumnName"].Value;
-                
+
                 RenameColumn(connection, tableName, oldColumnName, newColumnName);
-                
+
                 return true;
             }
 
@@ -45,7 +45,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 
         private static string GetIdentifierPattern(string key)
             => $@"(?:`(?<{key}>.*?)`|\[(?<{key}>.*?)\]|(?<{key}>\S*))";
-        
+
         private static void RenameTable(JetConnection connection, string oldTableName, string newTableName)
         {
             using var schemaProvider = SchemaProvider.CreateInstance(connection.SchemaProviderType, connection, false);

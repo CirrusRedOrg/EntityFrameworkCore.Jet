@@ -1,4 +1,3 @@
-using System;
 using System.Data;
 
 namespace EntityFrameworkCore.Jet.Data
@@ -24,12 +23,12 @@ namespace EntityFrameworkCore.Jet.Data
         {
             return $"Cannot call method \"{methodName}\" in this connection state. Current connection state is {state}";
         }
-        
+
 
         public static string CannotCallJetProviderFactoryMethodOnSingletonInstance(string methodName)
             => $"""The method "{methodName}" can not be called on a singleton instance of JetProviderFactory. This method can only be called on a JetProviderFactory object retrieved from the JetConnnection.JetProviderFactory property.""";
 
-        
+
         public static string MethodUnsupportedByJet(string methodName)
         {
             return $"\"{methodName}\" is not supported by Jet";

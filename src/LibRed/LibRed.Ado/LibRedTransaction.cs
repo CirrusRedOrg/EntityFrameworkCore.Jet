@@ -1,13 +1,13 @@
+using LibRed.IO;
 using System.Data;
 using System.Data.Common;
-using LibRed.IO;
 
 namespace LibRed.Data;
 
 /// <summary>
 /// A database transaction over LibRed's deferred-write page overlay. Writes are buffered in the overlay
 /// rather than going to disk, so <see cref="Commit"/> is what makes them visible at all, and
-/// <see cref="Rollback"/> simply discards the overlay — there is nothing on disk to restore. An uncommitted
+/// <see cref="Rollback()"/> simply discards the overlay — there is nothing on disk to restore. An uncommitted
 /// transaction that is disposed rolls back, which is what gives EF Core's shared-database tests their
 /// per-test isolation.
 /// </summary>
@@ -18,7 +18,11 @@ public sealed class LibRedTransaction : DbTransaction
 
     // Named savepoints opened in this transaction (EF names them for nested SaveChanges). Maps the name to the
     // engine's savepoint handle.
+    // The comparer is explicit because savepoint names are matched case-sensitively, which IDE0028's
+    // collection expression would leave to the default.
+#pragma warning disable IDE0028
     private readonly Dictionary<string, Savepoint> _savepoints = new(StringComparer.Ordinal);
+#pragma warning restore IDE0028
 
     internal LibRedTransaction(LibRedConnection connection, IsolationLevel isolationLevel, int openedAtDepth)
     {

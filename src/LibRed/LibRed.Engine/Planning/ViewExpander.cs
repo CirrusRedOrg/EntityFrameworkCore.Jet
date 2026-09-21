@@ -19,20 +19,24 @@ namespace LibRed.Engine.Planning;
 /// </remarks>
 internal static class ViewExpander
 {
+    // IDE0028's only fix here is `[]`, which would silently drop the comparer and let a view expand
+    // itself recursively when the cycle guard's names differ only by case.
+#pragma warning disable IDE0028
     public static SqlStatement Expand(SqlStatement statement, IReadOnlyDictionary<string, string> views, ISqlParser parser) =>
         views.Count == 0 ? statement : Rewrite(statement, views, parser, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+#pragma warning restore IDE0028
 
     private static SqlStatement Rewrite(
         SqlStatement statement, IReadOnlyDictionary<string, string> views, ISqlParser parser, HashSet<string> active) => statement switch
-    {
-        SelectStatement s => RewriteSelect(s, views, parser, active),
-        SetOperationStatement so => so with
         {
-            Left = Rewrite(so.Left, views, parser, active),
-            Right = Rewrite(so.Right, views, parser, active),
-        },
-        _ => statement,
-    };
+            SelectStatement s => RewriteSelect(s, views, parser, active),
+            SetOperationStatement so => so with
+            {
+                Left = Rewrite(so.Left, views, parser, active),
+                Right = Rewrite(so.Right, views, parser, active),
+            },
+            _ => statement,
+        };
 
     private static SelectStatement RewriteSelect(
         SelectStatement select, IReadOnlyDictionary<string, string> views, ISqlParser parser, HashSet<string> active)
@@ -53,35 +57,35 @@ internal static class ViewExpander
     /// the operator/function tree; leaf expressions are returned unchanged.</summary>
     private static Expression RewriteExpression(
         Expression expr, IReadOnlyDictionary<string, string> views, ISqlParser parser, HashSet<string> active) => expr switch
-    {
-        // Rewrite, not RewriteSelect: a subquery may be a set operation, whose arms each need view expansion.
-        ScalarSubquery s => new ScalarSubquery(Rewrite(s.Query, views, parser, active)),
-        ExistsExpression x => new ExistsExpression(Rewrite(x.Query, views, parser, active)),
-        InSubqueryExpression i => i with
         {
-            Value = RewriteExpression(i.Value, views, parser, active),
-            Query = Rewrite(i.Query, views, parser, active),
-        },
-        _ => expr.MapOperands(o => RewriteExpression(o, views, parser, active)),
-    };
+            // Rewrite, not RewriteSelect: a subquery may be a set operation, whose arms each need view expansion.
+            ScalarSubquery s => new ScalarSubquery(Rewrite(s.Query, views, parser, active)),
+            ExistsExpression x => new ExistsExpression(Rewrite(x.Query, views, parser, active)),
+            InSubqueryExpression i => i with
+            {
+                Value = RewriteExpression(i.Value, views, parser, active),
+                Query = Rewrite(i.Query, views, parser, active),
+            },
+            _ => expr.MapOperands(o => RewriteExpression(o, views, parser, active)),
+        };
 
     private static TableReference RewriteSource(
         TableReference source, IReadOnlyDictionary<string, string> views, ISqlParser parser, HashSet<string> active) => source switch
-    {
-        NamedTable n when views.TryGetValue(n.Name, out string? sql) => ExpandView(n, sql, views, parser, active),
-        JoinTable j => j with
         {
-            Left = RewriteSource(j.Left, views, parser, active),
-            Right = RewriteSource(j.Right, views, parser, active),
-        },
-        SubqueryTable sq => sq with { Query = Rewrite(sq.Query, views, parser, active) },
-        _ => source,
-    };
+            NamedTable n when views.TryGetValue(n.Name, out string? sql) => ExpandView(n, sql, views, parser, active),
+            JoinTable j => j with
+            {
+                Left = RewriteSource(j.Left, views, parser, active),
+                Right = RewriteSource(j.Right, views, parser, active),
+            },
+            SubqueryTable sq => sq with { Query = Rewrite(sq.Query, views, parser, active) },
+            _ => source,
+        };
 
     /// <summary>Expands one view reference into a derived table, refusing a definition that reaches itself.
     /// The name is removed again on the way out, so two sibling references to the same view are fine — only a
     /// reference reached from INSIDE that view's own expansion is a cycle.</summary>
-    private static TableReference ExpandView(
+    private static SubqueryTable ExpandView(
         NamedTable table, string sql, IReadOnlyDictionary<string, string> views, ISqlParser parser, HashSet<string> active)
     {
         if (!active.Add(table.Name))

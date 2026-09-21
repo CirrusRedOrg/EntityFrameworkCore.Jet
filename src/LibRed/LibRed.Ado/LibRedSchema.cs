@@ -1,7 +1,7 @@
-using System.Data;
-using System.Data.Common;
 using LibRed.Engine.Schema;
 using LibRed.Sql;
+using System.Data;
+using System.Data.Common;
 
 namespace LibRed.Data;
 
@@ -28,10 +28,21 @@ internal static class LibRedSchema
     /// catalog, schema, table and column; a table one fewer.</summary>
     private static readonly Dictionary<string, int> IdentifierParts = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["Tables"] = 3, ["Columns"] = 4, ["Indexes"] = 4, ["Views"] = 3, ["Procedures"] = 3,
-        ["ForeignKeys"] = 3, ["PrimaryKeys"] = 3, ["TableConstraints"] = 3, ["KeyColumnUsage"] = 4,
-        ["ConstraintColumnUsage"] = 4, ["ReferentialConstraints"] = 3, ["CheckConstraints"] = 3,
-        ["Statistics"] = 3, ["ProcedureParameters"] = 4, ["ViewColumns"] = 4,
+        ["Tables"] = 3,
+        ["Columns"] = 4,
+        ["Indexes"] = 4,
+        ["Views"] = 3,
+        ["Procedures"] = 3,
+        ["ForeignKeys"] = 3,
+        ["PrimaryKeys"] = 3,
+        ["TableConstraints"] = 3,
+        ["KeyColumnUsage"] = 4,
+        ["ConstraintColumnUsage"] = 4,
+        ["ReferentialConstraints"] = 3,
+        ["CheckConstraints"] = 3,
+        ["Statistics"] = 3,
+        ["ProcedureParameters"] = 4,
+        ["ViewColumns"] = 4,
     };
 
     /// <summary>Each collection's restrictions, in ACE's order — note that Indexes takes the table name last,

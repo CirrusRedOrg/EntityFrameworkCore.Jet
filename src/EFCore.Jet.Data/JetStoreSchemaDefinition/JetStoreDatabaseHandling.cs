@@ -1,8 +1,6 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
@@ -92,7 +90,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             //
             // CREATE DATABASE:
             //
-            
+
             match = _regExParseCreateDatabaseCommand.Match(commandText);
             if (match.Success)
             {
@@ -101,8 +99,8 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 
                 if (string.IsNullOrWhiteSpace(fileName))
                     throw new InvalidOperationException("CREATE DATABASE statement is missing database file name.");
-                
-                JetConnection.CreateDatabase(fileName, databasePassword: databasePassword, dataAccessProviderType:JetConnection.GetDataAccessProviderType(((JetConnection)command.Connection)?.DataAccessProviderFactory));
+
+                JetConnection.CreateDatabase(fileName, databasePassword: databasePassword, dataAccessProviderType: JetConnection.GetDataAccessProviderType(((JetConnection)command.Connection)?.DataAccessProviderFactory));
                 return true;
             }
 
@@ -110,22 +108,22 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             if (match.Success)
             {
                 var fileName = match.Groups["filename"].Value;
-                
+
                 if (string.IsNullOrWhiteSpace(fileName))
                     throw new InvalidOperationException("CREATE DATABASE statement is missing database file name or connection string.");
-                
+
                 JetConnection.CreateDatabase(fileName, dataAccessProviderType: JetConnection.GetDataAccessProviderType(((JetConnection)command.Connection)?.DataAccessProviderFactory));
                 return true;
             }
-            
+
             match = _regExParseObsoleteCreateDatabaseCommandFromConnection.Match(commandText);
             if (match.Success)
             {
                 var connectionString = ExtractFileNameFromConnectionString(match.Groups["connectionString"].Value);
-                
+
                 if (string.IsNullOrWhiteSpace(connectionString))
                     throw new InvalidOperationException("CREATE DATABASE statement is missing database file name or connection string.");
-                
+
                 JetConnection.CreateDatabase(connectionString);
                 return true;
             }
@@ -133,7 +131,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             //
             // DROP DATABASE:
             //
-            
+
             match = _regExParseDropDatabaseCommand.Match(commandText);
             if (match.Success)
             {
@@ -169,8 +167,8 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                 JetConnection.DropDatabase(connectionString);
                 return true;
             }
-            
-            throw new Exception($"\"{commandText}\" is not a valid database command.");
+
+            throw new InvalidOperationException($"\"{commandText}\" is not a valid database command.");
         }
 
         public static string ExtractFileNameFromConnectionString(string? connectionString)
@@ -204,17 +202,17 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                !fileName.ToCharArray()
                    .Intersect(Path.GetInvalidPathChars())
                    .Any();
-        
+
         public static bool HasProvider(string connectionString)
             => _regExHasProvider.IsMatch(connectionString);
-        
+
         public static void DeleteFile(string fileName)
         {
             JetConnection.ClearAllPools();
 
             fileName = ExpandFileName(fileName);
             ValidateDatabaseFileExtension(fileName);
-            
+
             var directoryPath = Path.GetDirectoryName(fileName) ?? string.Empty;
             var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
             var extension = Path.GetExtension(fileName);
@@ -232,7 +230,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             {
                 File.Delete(Path.Combine(directoryPath, fileNameWithoutExtension + ".laccdb"));
             }
-            
+
             if (string.IsNullOrEmpty(extension) ||
                 string.Equals(extension, ".mdb", StringComparison.OrdinalIgnoreCase) ||
                 !string.Equals(extension, ".accdb", StringComparison.OrdinalIgnoreCase))
@@ -257,8 +255,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 
         public static string ExpandFileName(string? fileName)
         {
-            if (fileName == null)
-                throw new ArgumentNullException(nameof(fileName));
+            ArgumentNullException.ThrowIfNull(fileName);
 
             if (fileName.StartsWith("|DataDirectory|", StringComparison.OrdinalIgnoreCase))
             {

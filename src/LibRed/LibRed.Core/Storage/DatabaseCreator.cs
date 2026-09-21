@@ -1,8 +1,9 @@
-using System.Buffers.Binary;
-using System.Text;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.Pages;
+using System.Buffers.Binary;
+using System.Globalization;
+using System.Text;
 
 namespace LibRed.Storage;
 
@@ -23,8 +24,8 @@ public static class DatabaseCreator
     /// <param name="version">Format version byte (e.g. 0x02 = ACE 12 / Access 2007).</param>
     /// <param name="isAccdb">true for the ACCDB identifier, false for the MDB (Jet) identifier.</param>
     /// <param name="codePage">ANSI code page (1252 for en-US).</param>
-    /// <param name="collationLcid">Default collation LCID (1033 = en-US).</param>
-    /// <param name="collationVersion">Sort-order version (0 = General Legacy, 1 = General).</param>
+    /// <param name="collation">The database's default collation — its LCID and sort-order version
+    /// (1033 / version 0 is General Legacy en-US).</param>
     /// <param name="creationDays">Creation timestamp as an OLE-automation date (days since 1899-12-30), passed
     /// as the raw double so the exact millisecond-precise bit pattern is preserved — the page-0 SID mask is bound
     /// to those exact bits (see <see cref="SeedCreationDateBits"/>).</param>
@@ -236,6 +237,8 @@ public static class DatabaseCreator
     /// commit-byte table is seeded here, and Access adds the system tables it wants (MSysAccessStorage, the
     /// navigation-pane objects) itself — hand-creating those was tried and made things worse.
     /// </summary>
+    /// <param name="path">Where the new file is written.</param>
+    /// <param name="version">The format version byte to create it at.</param>
     /// <param name="collation">
     /// The database's default text collating order, written to page 0 and inherited by every column created
     /// in it. Defaults to General-Legacy (LCID 1033, version 0), which is what the engine writes; pass
@@ -344,11 +347,11 @@ public static class DatabaseCreator
         Ace(tablesC, SidCreator, 0x0F00FE, inherit: true); Ace(tablesC, SidUsers, 0x060001); Ace(tablesC, SidAdmin, 0x0FFEFF, inherit: true);
         Ace(databasesC, SidUsers, 0x060000);
         Ace(relationshipsC, SidCreator, 0x0F00FE, inherit: true); Ace(relationshipsC, SidUsers, 0x060001); Ace(relationshipsC, SidAdmin, 0x0FFFFF, inherit: true);
-        Ace(0x10000000, SidUsers, 0x06000E);    Ace(0x10000000, SidAdmin, 0x00000E);   // MSysDb
-        Ace(objPage, SidUsers, 0x060000);       Ace(objPage, SidAdmin, 0x000014);   // MSysObjects
+        Ace(0x10000000, SidUsers, 0x06000E); Ace(0x10000000, SidAdmin, 0x00000E);   // MSysDb
+        Ace(objPage, SidUsers, 0x060000); Ace(objPage, SidAdmin, 0x000014);   // MSysObjects
         Ace(acesPage, SidUsers, 0x060000);                                          // MSysACEs (Users only)
-        Ace(queriesPage, SidUsers, 0x060000);   Ace(queriesPage, SidAdmin, 0x000014); // MSysQueries
-        Ace(relPage, SidUsers, 0x0E0000);       Ace(relPage, SidAdmin, 0x000014);   // MSysRelationships
+        Ace(queriesPage, SidUsers, 0x060000); Ace(queriesPage, SidAdmin, 0x000014); // MSysQueries
+        Ace(relPage, SidUsers, 0x0E0000); Ace(relPage, SidAdmin, 0x000014);   // MSysRelationships
 
         // The system tables carry the indexes Access uses to navigate the catalog. ParentIdName is the first
         // real index, Id (the PK) second — matching real files.
@@ -423,7 +426,8 @@ public static class DatabaseCreator
 
         foreach ((RowId rowId, object?[] values) in msysObjects.Rows().WithIds())
         {
-            if (values[idIndex] is not { } id || Convert.ToInt32(id) != definition.DefinitionPage) continue;
+            if (values[idIndex] is not { } id
+                || Convert.ToInt32(id, CultureInfo.InvariantCulture) != definition.DefinitionPage) continue;
             values[flagsIndex] = flags;
             values[ownerIndex] = SidEngine;
             msysObjects.Update(rowId, values, new HashSet<int> { flagsIndex, ownerIndex });

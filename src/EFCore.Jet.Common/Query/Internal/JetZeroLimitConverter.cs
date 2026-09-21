@@ -1,4 +1,3 @@
-using EntityFrameworkCore.Jet.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.Internal;
@@ -52,9 +51,9 @@ public class JetZeroLimitConverter : ExpressionVisitor
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    protected override Expression VisitExtension(Expression extensionExpression)
+    protected override Expression VisitExtension(Expression node)
     {
-        if (extensionExpression is SelectExpression selectExpression)
+        if (node is SelectExpression selectExpression)
         {
             if (IsZero(selectExpression.Limit))
             {
@@ -85,6 +84,6 @@ public class JetZeroLimitConverter : ExpressionVisitor
             }
         }
 
-        return base.VisitExtension(extensionExpression);
+        return base.VisitExtension(node);
     }
 }

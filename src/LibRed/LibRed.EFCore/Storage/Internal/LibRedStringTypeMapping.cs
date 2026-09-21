@@ -1,7 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System.Data;
 using Microsoft.EntityFrameworkCore.Storage.Json;
+using System.Data;
 
 namespace EntityFrameworkCore.LibRed.Storage.Internal
 {
@@ -24,7 +24,7 @@ namespace EntityFrameworkCore.LibRed.Storage.Internal
         /// </summary>
         public LibRedStringTypeMapping(
             string? storeType = null,
-            bool unicode = true ,
+            bool unicode = true,
             int? size = null,
             bool fixedLength = false,
             StoreTypePostfix? storeTypePostfix = null,
@@ -32,7 +32,7 @@ namespace EntityFrameworkCore.LibRed.Storage.Internal
             bool useKeyComparison = false)
             : this(
                 new RelationalTypeMappingParameters(
-                    new CoreTypeMappingParameters(typeof(string), comparer: useKeyComparison ? CaseInsensitiveValueComparer : null, keyComparer:useKeyComparison ? CaseInsensitiveValueComparer : null, jsonValueReaderWriter: JsonStringReaderWriter.Instance),
+                    new CoreTypeMappingParameters(typeof(string), comparer: useKeyComparison ? CaseInsensitiveValueComparer : null, keyComparer: useKeyComparison ? CaseInsensitiveValueComparer : null, jsonValueReaderWriter: JsonStringReaderWriter.Instance),
                     storeType ?? GetStoreName(fixedLength),
                     storeTypePostfix ?? StoreTypePostfix.Size,
                     (fixedLength

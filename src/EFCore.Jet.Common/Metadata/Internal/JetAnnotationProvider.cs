@@ -1,5 +1,5 @@
-using System.Globalization;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using System.Globalization;
 
 namespace EntityFrameworkCore.Jet.Metadata.Internal
 {
@@ -96,7 +96,7 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
             else
             {
                 if (column is JsonColumn) yield break;
-                property = column.PropertyMappings.First().Property;
+                property = column.PropertyMappings[0].Property;
                 if (property.DeclaringType is IEntityType entityType)
                 {
                     // Only return auto increment for integer single column primary key

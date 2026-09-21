@@ -24,7 +24,7 @@ public sealed class AntlrSqlParser : ISqlParser
         parser.RemoveErrorListeners();
         parser.AddErrorListener(errors);
 
-        return new AstBuilder().Build(parser.statement());
+        return AstBuilder.Build(parser.statement());
     }
 
     public bool IsStatementless(string sql)

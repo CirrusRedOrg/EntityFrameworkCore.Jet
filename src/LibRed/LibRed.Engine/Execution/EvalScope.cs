@@ -95,9 +95,10 @@ internal sealed class EvalScope(
     }
 }
 
-/// <summary>Executes a subquery, correlating it to <paramref name="outerScope"/>.</summary>
+/// <summary>Executes a subquery, correlating it to an enclosing query's scope.</summary>
 internal interface IScalarSubqueryRunner
 {
+    /// <summary>The subquery's single value, correlated to <paramref name="outerScope"/>.</summary>
     object? ExecuteScalar(SqlStatement query, EvalScope outerScope);
 
     /// <summary>True when the (possibly correlated) subquery returns at least one row.</summary>

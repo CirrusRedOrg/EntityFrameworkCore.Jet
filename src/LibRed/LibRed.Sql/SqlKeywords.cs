@@ -16,7 +16,7 @@ public static class SqlKeywords
     /// <summary>Every keyword, upper-case and sorted.</summary>
     public static IReadOnlyList<string> Reserved => All.Value;
 
-    private static IReadOnlyList<string> Collect()
+    private static List<string> Collect()
     {
         var vocabulary = AccessSqlLexer.DefaultVocabulary;
         var words = new List<string>();

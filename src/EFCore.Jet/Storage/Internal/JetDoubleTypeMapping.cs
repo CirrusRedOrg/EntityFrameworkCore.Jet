@@ -38,7 +38,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             //    double.MinValue renders as -1.7976931348623157E+308, which ACE accepts.
             // ("R" was unreliable on .NET Framework — hence the old G17 advice — but has been
             //  shortest-round-trippable since .NET Core 3.0.)
-            var doubleValue = Convert.ToDouble(value);
+            var doubleValue = Convert.ToDouble(value, CultureInfo.InvariantCulture);
             var literal = doubleValue.ToString("R", CultureInfo.InvariantCulture);
 
             return !literal.Contains('E')

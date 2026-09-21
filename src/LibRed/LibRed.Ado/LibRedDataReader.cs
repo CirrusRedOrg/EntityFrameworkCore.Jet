@@ -1,13 +1,18 @@
+using LibRed.Engine.Execution;
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Data;
 using System.Data.Common;
-using LibRed.Engine.Execution;
+using System.Globalization;
 
 namespace LibRed.Data;
 
 /// <summary>Forward-only reader projecting an engine <see cref="ResultSet"/> as ADO.NET rows.</summary>
+// CA1010 asks for IEnumerable<T>; the non-generic IEnumerable comes from DbDataReader, which every ADO.NET
+// provider inherits as-is, and a generic enumerator over a forward-only reader has no meaning.
+#pragma warning disable CA1010
 public sealed class LibRedDataReader : DbDataReader, IDbColumnSchemaGenerator
+#pragma warning restore CA1010
 {
     private readonly ResultSet _result;
     private readonly IEnumerator<object?[]> _rows;
@@ -19,6 +24,7 @@ public sealed class LibRedDataReader : DbDataReader, IDbColumnSchemaGenerator
     private bool _hadRows;
     private bool _closed;
 
+    /// <param name="result">The rows and column metadata the engine produced.</param>
     /// <param name="recordsAffected">Rows affected for a DML command; -1 for a query (ADO convention).</param>
     /// <param name="behavior">
     /// The behavior the command was executed with. Two of its flags reach the reader: <c>SingleRow</c> caps the
@@ -78,7 +84,11 @@ public sealed class LibRedDataReader : DbDataReader, IDbColumnSchemaGenerator
         for (int i = 0; i < _result.ColumnNames.Count; i++)
             if (string.Equals(_result.ColumnNames[i], name, StringComparison.OrdinalIgnoreCase))
                 return i;
+        // CA2201 objects to IndexOutOfRangeException, but it is what DbDataReader.GetOrdinal is documented to
+        // throw for a name that is not a column, and callers (EF among them) catch exactly that.
+#pragma warning disable CA2201
         throw new IndexOutOfRangeException(name);
+#pragma warning restore CA2201
     }
 
     public override object GetValue(int ordinal) => _current[ordinal] ?? DBNull.Value;
@@ -193,7 +203,7 @@ public sealed class LibRedDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override bool GetBoolean(int ordinal)
     {
         var value = GetValue(ordinal);
-        if (value is short) return Convert.ToBoolean(value);
+        if (value is short) return Convert.ToBoolean(value, CultureInfo.InvariantCulture);
         return (bool)value;
     }
     public override byte GetByte(int ordinal) => (byte)GetValue(ordinal);
@@ -216,7 +226,7 @@ public sealed class LibRedDataReader : DbDataReader, IDbColumnSchemaGenerator
 
         try
         {
-            return Convert.ToInt64(result);
+            return Convert.ToInt64(result, CultureInfo.InvariantCulture);
         }
         catch (Exception)
         {

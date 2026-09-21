@@ -8,6 +8,9 @@ namespace EntityFrameworkCore.Jet.Diagnostics.Internal
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
+    // CA1051 wants properties, but a LoggingDefinitions class is a cache of lazily-built event definitions that
+    // the logger extensions assign into by field; EF Core's own SqlServerLoggingDefinitions is written the same way.
+#pragma warning disable CA1051
     public class JetLoggingDefinitions : RelationalLoggingDefinitions
     {
         /// <summary>
@@ -162,4 +165,5 @@ namespace EntityFrameworkCore.Jet.Diagnostics.Internal
         /// </summary>
         public EventDefinitionBase? LogConflictingValueGenerationStrategies;
     }
+#pragma warning restore CA1051
 }

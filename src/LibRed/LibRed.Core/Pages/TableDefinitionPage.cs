@@ -1,7 +1,7 @@
-using System.Text;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.IO;
+using System.Text;
 
 namespace LibRed.Pages;
 

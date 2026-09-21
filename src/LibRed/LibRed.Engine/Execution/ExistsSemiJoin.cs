@@ -1,6 +1,5 @@
 using EntityFrameworkCore.Jet.Data;
 using LibRed.Catalog;
-using LibRed.Engine.Plan;
 using LibRed.Engine.Planning;
 using LibRed.Sql.Ast;
 
@@ -216,6 +215,8 @@ internal sealed class ExistsSemiJoin
     ///     column yielded a null for this row — the caller needs both to reproduce SQL's three-valued <c>IN</c>,
     ///     where "no match" and "no match but a null was seen" differ (FALSE against UNKNOWN).
     /// </summary>
+    /// <param name="executor">The executor the probe's own rows are read through.</param>
+    /// <param name="outerEval">The evaluator for the outer row, used to build this row's key.</param>
     /// <param name="value">
     ///     The already-evaluated left side. The caller has evaluated it to check for null before reaching here, so
     ///     re-evaluating it would only repeat that work.

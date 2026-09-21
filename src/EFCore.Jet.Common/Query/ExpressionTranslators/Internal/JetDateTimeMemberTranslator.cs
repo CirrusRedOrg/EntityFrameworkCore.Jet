@@ -28,7 +28,11 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             };
 
         private readonly JetSqlExpressionFactory _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
+        // Unread: every member this translator handles maps to a DatePart call whose type the factory settles.
+        // The dependency stays because it is the signature the member-translator provider constructs this with.
+#pragma warning disable IDE0052
         private readonly IRelationalTypeMappingSource _typeMappingSource = typeMappingSource;
+#pragma warning restore IDE0052
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used

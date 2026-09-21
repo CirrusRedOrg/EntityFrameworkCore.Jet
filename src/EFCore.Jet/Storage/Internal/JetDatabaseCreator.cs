@@ -85,13 +85,13 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             // Alternative:
             // var dataSource = _relationalConnection.DbConnection.DataSource;
 
-            var connection = (JetConnection) relationalConnection.DbConnection;
+            var connection = (JetConnection)relationalConnection.DbConnection;
             var fileNameOrConnectionString = connection.ConnectionString;
             var connectionString = JetConnection.GetConnectionString(fileNameOrConnectionString, connection.DataAccessProviderFactory);
 
             var csb = (connection.JetFactory?.CreateConnectionStringBuilder()) ?? throw new InvalidOperationException("Failed to create connection string builder.");
             csb.ConnectionString = connectionString;
-            
+
             var dataSource = csb.GetDataSource();
             var databasePassword = csb.GetDatabasePassword();
 
@@ -150,6 +150,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         // Clear connection pool for the database connection since after the 'create database' call, a previously
         // invalid connection may now be valid.
         private void ClearPool()
-            => JetConnection.ClearPool((JetConnection) relationalConnection.DbConnection);
+            => JetConnection.ClearPool((JetConnection)relationalConnection.DbConnection);
     }
 }

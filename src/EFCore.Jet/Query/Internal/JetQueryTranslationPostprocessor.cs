@@ -1,12 +1,7 @@
-using System.Diagnostics.CodeAnalysis;
-using EntityFrameworkCore.Jet.Internal;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-
 namespace EntityFrameworkCore.Jet.Query.Internal
 {
     public class JetQueryTranslationPostprocessor : RelationalQueryTranslationPostprocessor
     {
-        private readonly IRelationalTypeMappingSource _relationalTypeMappingSource;
         private readonly JetLiftOrderByPostprocessor _liftOrderByPostprocessor;
         private readonly JetSkipTakePostprocessor _skipTakePostprocessor;
 
@@ -17,7 +12,6 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             IRelationalTypeMappingSource relationalTypeMappingSource)
             : base(dependencies, relationalDependencies, queryCompilationContext)
         {
-            _relationalTypeMappingSource = relationalTypeMappingSource;
             _liftOrderByPostprocessor = new JetLiftOrderByPostprocessor(relationalTypeMappingSource, relationalDependencies.SqlExpressionFactory, queryCompilationContext.SqlAliasManager);
             _skipTakePostprocessor = new JetSkipTakePostprocessor(relationalTypeMappingSource,
                 relationalDependencies.SqlExpressionFactory, ((RelationalQueryCompilationContext)QueryCompilationContext).QuerySplittingBehavior);

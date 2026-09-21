@@ -1,10 +1,11 @@
-using System.Buffers;
-using System.Buffers.Binary;
-using System.Text;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
+using System.Buffers;
+using System.Buffers.Binary;
+using System.Globalization;
+using System.Text;
 
 namespace LibRed.Storage;
 
@@ -640,8 +641,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     private static bool HasNullKey(IndexDef index, object?[] values) =>
         index.Columns.Any(c => values[c.Column.Index] is null or DBNull);
 
-    /// <summary>Finds a data page with room for a row of <paramref name="needed"/> bytes, growing the table
-    /// if none has.</summary>
+    /// <summary>Finds a data page with room for a row of the needed size, growing the table if none has.</summary>
     /// <remarks>
     /// Consults the <i>free</i>-pages map, not the owned-pages map. The two agree only while a table is
     /// small: once a page fills, Access clears its free bit (see <see cref="AllocateDataPage"/>), so the free
@@ -836,8 +836,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     }
 
     // A page is dropped from the free-pages map once it cannot hold the smallest long value (a 65-byte
-    // payload — anything up to 64 inlines — plus its 2-byte row-directory entry).
-    private const int MaxLvalRowSize = 4076; // one LVAL page row (Jackcess MAX_LONG_VALUE_ROW_SIZE, Jet4)
+    // payload — anything up to 64 inlines — plus its 2-byte row-directory entry). The largest such row is
+    // 4076 bytes on a Jet 4 page (Jackcess MAX_LONG_VALUE_ROW_SIZE), which nothing here needs to name.
     private const int MinLvalRow = 65 + 2;
 
     /// <summary>Rejects a caller-supplied value for a calculated column, as ACE does — it refuses both an
@@ -921,7 +921,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     }
 
     /// <summary>Reads every page marked in a validated inline or reference usage map.</summary>
-    private IReadOnlyList<int> MapPages(int mapRow, int mapPage)
+    private List<int> MapPages(int mapRow, int mapPage)
     {
         if (mapPage <= 1 || mapPage >= _channel.PageCount)
             throw new InvalidDataException($"Long-value usage-map page {mapPage} is outside the physical file.");
@@ -1057,7 +1057,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// (verified: an index created on an empty table reads total `0` through any number of inserts).</item>
     /// </list>
     /// </summary>
-    private void UpdateTdefCounters(JetFormatBase format, object?[] values, bool[]? generatedAutoNumbers, IReadOnlySet<int> newKeys)
+    private void UpdateTdefCounters(JetFormatBase format, object?[] values, bool[]? generatedAutoNumbers, HashSet<int> newKeys)
     {
         byte[] tdef = _channel.ReadPageShared(_table.DefinitionPage).Span.ToArray();
 
@@ -1071,7 +1071,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             // a UI-authored Random AutoNumber reads last-value 0). Advancing it would be meaningless (random ids
             // don't form a monotone sequence) and diverge from Access's on-disk state.
             if (column.IsRandomAutoNumber) continue;
-            int assigned = Convert.ToInt32(value);
+            int assigned = Convert.ToInt32(value, CultureInfo.InvariantCulture);
             int highWater = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefLastAutoNumberOffset, 4));
             // An id this insert *generated* always becomes the new high-water: it came from 0x14 + increment,
             // so it is by construction the next value in the sequence. That includes the wrap past

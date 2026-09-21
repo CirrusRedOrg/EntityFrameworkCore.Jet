@@ -7,7 +7,7 @@ namespace LibRed.Data;
 /// <summary>ADO.NET command that runs SQL through the LibRed engine.</summary>
 public sealed class LibRedCommand : DbCommand
 {
-    private readonly LibRedParameterCollection _parameters = new();
+    private readonly LibRedParameterCollection _parameters = [];
 
     private string _commandText = string.Empty;
 
@@ -220,7 +220,7 @@ public sealed class LibRedCommand : DbCommand
     /// <summary>Snapshots the command's parameters as a name→value map for the engine, clipping each to its
     /// declared size (see <see cref="LibRedParameter.EffectiveValue"/>) and translating <see cref="DBNull"/> to
     /// a SQL null.</summary>
-    private IReadOnlyDictionary<string, object?> BuildParameters()
+    private Dictionary<string, object?> BuildParameters()
     {
         var map = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         foreach (LibRedParameter parameter in _parameters.Cast<LibRedParameter>())

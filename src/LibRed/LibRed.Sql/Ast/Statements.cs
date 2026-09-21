@@ -100,6 +100,8 @@ public sealed record ValuesStatement(IReadOnlyList<IReadOnlyList<Expression>> Ro
 /// <summary>
 /// An INSERT — Access's two append-query forms.
 /// </summary>
+/// <param name="Table">The table the rows are appended to.</param>
+/// <param name="Columns">The target columns, in the order the values are given; empty for DEFAULT VALUES.</param>
 /// <param name="Rows">
 /// The <b>single-record</b> form's values, <c>INSERT INTO t (…) VALUES (…)</c>. Empty when
 /// <paramref name="Source"/> is set.
@@ -138,12 +140,13 @@ public sealed record ColumnDefinition(
     string? Calculated = null,
     /// <summary>A trailing <c>IDENTITY [(seed [, increment])]</c> attribute, or null when the column has none.
     /// The last one written wins when several are.</summary>
-    IdentityAttribute? Identity = null);
+    IdentitySpec? Identity = null);
 
 /// <summary>ACE's <c>IDENTITY [(seed [, increment])]</c> column attribute. It makes a Long column an AutoNumber
 /// counting from its seed by its increment — each 1 when omitted, replacing any the type declared — and is
-/// ignored on every other type.</summary>
-public sealed record IdentityAttribute(int? Seed, int? Increment);
+/// ignored on every other type. (Named for the SQL clause, not for <see cref="System.Attribute"/>, which is
+/// why it is not spelled with that suffix.)</summary>
+public sealed record IdentitySpec(int? Seed, int? Increment);
 
 /// <summary>Referential action for a foreign key's ON DELETE / ON UPDATE clause. Jet records only
 /// enforce + cascade-update + cascade-delete, so NoAction/SetNull/SetDefault collapse to "no cascade".</summary>
@@ -300,7 +303,7 @@ public sealed record AddCheckAction(CheckConstraint Check) : AlterTableAction;
 /// type, and optionally its nullability (<see cref="NotNull"/>: true = NOT NULL, false = NULL, null = leave
 /// as-is) and default.</summary>
 public sealed record AlterColumnAction(string Field, string TypeName, int? Size, int? Scale, string? Default = null, bool? NotNull = null,
-    IdentityAttribute? Identity = null) : AlterTableAction;
+    IdentitySpec? Identity = null) : AlterTableAction;
 
 /// <summary>ALTER COLUMN field SET DEFAULT expr — set (replace) a column's default, without retyping it.</summary>
 public sealed record AlterColumnSetDefaultAction(string Field, string Default) : AlterTableAction;

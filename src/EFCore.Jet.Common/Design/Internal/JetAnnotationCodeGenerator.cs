@@ -35,7 +35,7 @@ namespace EntityFrameworkCore.Jet.Design.Internal
             // CHECK: Jet default schema handling.
             if (annotation.Name == RelationalAnnotationNames.DefaultSchema)
             {
-                return string.Equals(null, (string?)annotation.Value);
+                return string.Equals(null, (string?)annotation.Value, StringComparison.Ordinal);
             }
 
             return annotation.Name == JetAnnotationNames.ValueGenerationStrategy

@@ -8,6 +8,10 @@
     <NoWarn>$(NoWarn);CS1574;CS1587;CS1591;EF1001;NU1903</NoWarn>
     <!--<CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)..\rulesets\EFCore.ruleset</CodeAnalysisRuleSet>-->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Code analysis and code-style analysis, for the shipping code only. The test projects import the
+         repo-root props instead, so they stay on the SDK's default rule set. -->
+    <AnalysisMode>Recommended</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
   <PropertyGroup>

@@ -1,5 +1,5 @@
-using System.Globalization;
 using LibRed.Sql.Ast;
+using System.Globalization;
 
 namespace LibRed.Engine.Execution;
 
@@ -91,6 +91,9 @@ internal readonly record struct FrameRows(int Start, int End, int ExcludeStart =
 /// RANK constant over an unordered window.
 /// </summary>
 /// <remarks>Positions are indexes into the partition's own window order, not into the input.</remarks>
+/// <param name="peerStart">Per row, the position the row's peer group starts at.</param>
+/// <param name="peerOrdinal">Per row, the zero-based ordinal of the row's peer group within the partition.</param>
+/// <param name="arguments">Per row, the already-evaluated arguments of the window call.</param>
 /// <param name="call">How the call is written; null for a plain one.</param>
 /// <param name="frame">The frame clause; null for the default frame.</param>
 /// <param name="included">Which rows an aggregate's FILTER lets in; null when it has none.</param>
@@ -306,8 +309,7 @@ internal sealed class WindowPartition(
 
     /// <summary>A RANGE key as a number: a date as its serial, as dates sort; text and other kinds are a type
     /// mismatch.</summary>
-    private static object RangeNumber(object key) => key is string or char or Guid or byte[]
-        ? throw new InvalidCastException("Type mismatch: a RANGE offset needs a number or date to order by.")
+    private static object RangeNumber(object key) => key is string or char or Guid or byte[]? throw new InvalidCastException("Type mismatch: a RANGE offset needs a number or date to order by.")
         : ExpressionEvaluator.ConversionNumber(key);
 
     /// <summary>A RANGE offset: a number of the key's units — days, for a date — Null and negative refused.</summary>

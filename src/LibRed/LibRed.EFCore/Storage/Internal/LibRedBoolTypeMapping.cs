@@ -4,7 +4,7 @@ namespace EntityFrameworkCore.LibRed.Storage.Internal
 {
     public class LibRedBoolTypeMapping : BoolTypeMapping
     {
-        public static new LibRedBoolTypeMapping Default { get; }  = new("smallint");
+        public static new LibRedBoolTypeMapping Default { get; } = new("smallint");
 
         public LibRedBoolTypeMapping(
             string storeType,

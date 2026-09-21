@@ -37,8 +37,12 @@ internal enum WindowOptions
     Filter = 16,
 }
 
+/// <param name="MinArguments">The fewest arguments the call may carry.</param>
+/// <param name="MaxArguments">The most it may carry.</param>
 /// <param name="ResultType">The declared CLR type of the result — the window counterpart of
 /// QueryExecutor.DeclaredFunctionType. The values a function returns are converted to it.</param>
+/// <param name="Evaluate">Produces the function's value for each row of a partition.</param>
+/// <param name="Options">The clauses the call accepts beyond its arguments (IGNORE NULLS, DISTINCT, …).</param>
 internal sealed record WindowFunctionDef(
     int MinArguments, int MaxArguments, Func<IWindowTyping, Type?> ResultType, WindowEvaluator Evaluate,
     WindowOptions Options = WindowOptions.None);

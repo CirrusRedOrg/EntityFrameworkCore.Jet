@@ -4,10 +4,8 @@ using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.Jet.Metadata;
 using EntityFrameworkCore.Jet.Metadata.Internal;
 using EntityFrameworkCore.Jet.Migrations.Operations;
-using EntityFrameworkCore.Jet.Storage.Internal;
 using EntityFrameworkCore.Jet.Update.Internal;
 using EntityFrameworkCore.Jet.Utilities;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using System.Text;
 
 // ReSharper disable once CheckNamespace
@@ -830,7 +828,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
             var columnType = GetColumnType(schema, table, name, operation, model);
             //int has no size - ignore
-            if (columnType != null && columnType.StartsWith("int("))
+            if (columnType != null && columnType.StartsWith("int(", StringComparison.Ordinal))
             {
                 columnType = "int";
             }
@@ -846,7 +844,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
         protected override string GetColumnType(
             string? schema,
-            string table,
+            string tableName,
             string name,
             ColumnOperation operation,
             IModel? model)
@@ -867,7 +865,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 storeType = "integer";
             }
 
-            storeType ??= base.GetColumnType(schema, table, name, operation, model);
+            storeType ??= base.GetColumnType(schema, tableName, name, operation, model);
 
             if (string.Equals(storeType, "counter", StringComparison.OrdinalIgnoreCase) &&
                 operation[JetAnnotationNames.Identity] is string identity &&
@@ -887,7 +885,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 return storeType;
             }
 
-            var fullTableName = schema != null ? $"{schema}.{table}" : table;
+            var fullTableName = schema != null ? $"{schema}.{tableName}" : tableName;
             throw new InvalidOperationException(
                 RelationalStrings.UnsupportedTypeForColumn(fullTableName, name, operation.ClrType?.Name ?? "unknown"));
         }

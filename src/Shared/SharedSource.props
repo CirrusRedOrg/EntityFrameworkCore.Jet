@@ -1,0 +1,23 @@
+<Project>
+
+  <!--
+    The shared source files in this folder, and the implicit usings they need.
+
+    They are compiled into five projects — EFCore.Jet.Common, EFCore.Jet, EFCore.Jet.Odbc,
+    EFCore.Jet.OleDb and LibRed.EFCore — which used to declare their own, differing <Using> lists. A
+    directive that was redundant in one project was therefore load-bearing in another, and IDE0005 is
+    evaluated per project: `dotnet format` on one of them would delete a using the others still needed.
+    Declaring the set once, next to the files that depend on it, keeps the five in step.
+
+    Only what src/Shared/*.cs needs goes here. A project's own namespaces stay in its own csproj.
+  -->
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)*.cs" />
+
+    <Using Include="System.Diagnostics" />
+    <Using Include="System.Diagnostics.CodeAnalysis" />
+    <Using Include="System.Linq.Expressions" />
+    <Using Include="System.Reflection" />
+  </ItemGroup>
+
+</Project>

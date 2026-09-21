@@ -1,6 +1,5 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using EntityFrameworkCore.Jet.Data;
 using System.Data.Odbc;
 using EntityFrameworkCore.Jet.Infrastructure;
@@ -15,7 +14,7 @@ namespace Microsoft.EntityFrameworkCore
     public static class JetOdbcDbContextOptionsBuilderExtensions
     {
         #region Connection String
-        
+
         /// <summary>
         ///     Configures the context to connect to a Microsoft Jet database using ODBC.
         /// </summary>
@@ -48,9 +47,9 @@ namespace Microsoft.EntityFrameworkCore
             => optionsBuilder.UseJet(fileNameOrConnectionString, DataAccessProviderType.Odbc, jetOptionsAction);
 
         #endregion
-        
+
         #region Connection
-        
+
         /// <summary>
         ///     Configures the context to connect to a Microsoft Jet database using ODBC.
         /// </summary>
@@ -96,7 +95,7 @@ namespace Microsoft.EntityFrameworkCore
 
             return optionsBuilder.UseJet(connection, jetOptionsAction);
         }
-        
+
         #endregion
     }
 }

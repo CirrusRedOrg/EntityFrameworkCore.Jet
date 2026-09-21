@@ -6,12 +6,12 @@ using System.Threading.Tasks;
 
 namespace EntityFrameworkCore.Jet.Data
 {
-    internal class JetTransaction : DbTransaction
+    internal sealed class JetTransaction : DbTransaction
     {
         private JetConnection _connection;
         private bool _disposed;
 
-        internal virtual DbTransaction WrappedTransaction { get; }
+        internal DbTransaction WrappedTransaction { get; }
 
         public JetTransaction(JetConnection connection, IsolationLevel isolationLevel)
         {
@@ -22,9 +22,8 @@ namespace EntityFrameworkCore.Jet.Data
 
         public override void Commit()
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(JetTransaction));
-            
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
             LogHelper.ShowCommandHeader("--- Commit");
             WrappedTransaction.Commit();
 
@@ -39,9 +38,8 @@ namespace EntityFrameworkCore.Jet.Data
 
         public override void Rollback()
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(JetTransaction));
-            
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
             LogHelper.ShowCommandHeader("^^^ Rollback");
             WrappedTransaction.Rollback();
 
@@ -78,25 +76,22 @@ namespace EntityFrameworkCore.Jet.Data
 
         public override Task CommitAsync(CancellationToken cancellationToken = new())
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(JetTransaction));
-            
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
             return base.CommitAsync(cancellationToken);
         }
 
         public override ValueTask DisposeAsync()
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(JetTransaction));
-            
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
             return base.DisposeAsync();
         }
 
         public override Task RollbackAsync(CancellationToken cancellationToken = new())
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(JetTransaction));
-            
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
             return base.RollbackAsync(cancellationToken);
         }
     }

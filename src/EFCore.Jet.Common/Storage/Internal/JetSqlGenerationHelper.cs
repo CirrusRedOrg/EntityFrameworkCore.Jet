@@ -1,7 +1,8 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System.Text;
 using EntityFrameworkCore.Jet.Utilities;
+using System.Globalization;
+using System.Text;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
@@ -43,7 +44,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             identifier = identifier
                 .Replace(".", "#")
                 .Replace("`", "``");
-            
+
             builder.Append(identifier);
         }
 
@@ -86,7 +87,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             if (identifier.Length <= 64)
                 return identifier;
 
-            return identifier[..56] + identifier.ToLowerInvariant().GetHashCode().ToString("X8");
+            return identifier[..56]
+                + identifier.ToLowerInvariant().GetHashCode().ToString("X8", CultureInfo.InvariantCulture);
         }
 
         public override string GenerateCreateSavepointStatement(string name)

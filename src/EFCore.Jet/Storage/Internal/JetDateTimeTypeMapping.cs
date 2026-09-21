@@ -3,7 +3,6 @@
 using System.Data;
 using System.Globalization;
 using System.Text;
-using EntityFrameworkCore.Jet.Infrastructure.Internal;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {

@@ -56,6 +56,10 @@ internal static class JetTextCollationTableV0
     /// identically. Voicing is an ordinary secondary — <c>03</c> dakuten, <c>04</c> handakuten — though a few
     /// characters carry other values. Small forms are recorded in the kana section instead of the
     /// primary.</summary>
+    /// <param name="c">The character to look up.</param>
+    /// <param name="sound">Its sound index, the second byte of the primary.</param>
+    /// <param name="secondary">Its voicing secondary.</param>
+    /// <param name="small">Whether it is a small form.</param>
     /// <param name="vowel">The sound a following prolonged mark takes: <c>ー</c> lengthens the preceding
     /// kana's VOWEL, not its sound, so <c>がー</c> is <c>7F 0A</c> then <c>7F 02</c> — "ga" lengthened by
     /// "a". Zero where it could not be measured, in which case a following <c>ー</c> must be refused.</param>

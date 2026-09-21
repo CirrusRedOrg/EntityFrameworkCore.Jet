@@ -98,7 +98,7 @@ public class JetDateOnlyMethodTranslator(ISqlExpressionFactory sqlExpressionFact
                     instance.TypeMapping);
             }
         }
-            
+
 
         if (method.DeclaringType == typeof(DateOnly)
             && method.Name == nameof(DateOnly.FromDateTime)

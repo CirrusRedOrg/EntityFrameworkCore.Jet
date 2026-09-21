@@ -1,7 +1,7 @@
-using System.Buffers.Binary;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.IO;
+using System.Buffers.Binary;
 
 namespace LibRed.Storage;
 

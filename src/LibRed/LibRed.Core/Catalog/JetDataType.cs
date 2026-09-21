@@ -8,6 +8,10 @@ namespace LibRed.Catalog;
 /// them a single unrecognised column made the entire database unopenable, because the catalog reads every
 /// table's definition — the same shape of failure a long-value guard once caused (page-02b §3.4a).</para>
 /// </summary>
+// CA1720 (identifier contains type name) reads Int16/Int32/Single/Double/Guid as accidental Hungarian. They
+// are not: each member is named for the CLR type that code stores, which is how the format spec, the probes
+// and every table in docs/format refer to them. Scoped to this enum so the rule keeps working everywhere else.
+#pragma warning disable CA1720
 public enum JetDataType : byte
 {
     Boolean = 0x01,
@@ -44,3 +48,4 @@ public enum JetDataType : byte
     Int64 = 0x13,      // ACE 16 (Access 2016, version byte 0x05): BIGINT (Large Number)
     DateTimeExtended = 0x14, // ACE 17 (Access 2019+, version byte 0x06): DATETIME2 (Date/Time Extended)
 }
+#pragma warning restore CA1720

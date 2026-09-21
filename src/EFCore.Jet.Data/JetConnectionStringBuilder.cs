@@ -3,7 +3,11 @@ using System.Data.Common;
 
 namespace EntityFrameworkCore.Jet.Data
 {
+    // CA1010 asks for ICollection<T>; the non-generic ICollection comes from DbConnectionStringBuilder, which
+    // every ADO.NET provider inherits as-is.
+#pragma warning disable CA1010
     public class JetConnectionStringBuilder : DbConnectionStringBuilder
+#pragma warning restore CA1010
     {
         private readonly DbConnectionStringBuilder _innerBuilder;
 

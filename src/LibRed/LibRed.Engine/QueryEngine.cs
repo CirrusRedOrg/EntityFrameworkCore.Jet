@@ -1,9 +1,9 @@
 using LibRed.Catalog;
-using LibRed.IO;
 using LibRed.Engine.Execution;
 using LibRed.Engine.Plan;
 using LibRed.Engine.Planning;
 using LibRed.Engine.Schema;
+using LibRed.IO;
 using LibRed.Sql.Ast;
 using LibRed.Sql.Binding;
 using LibRed.Sql.Parsing;
@@ -19,7 +19,6 @@ public sealed class QueryEngine
     private readonly JetDatabase _database;
     private readonly ISqlParser _parser;
     private readonly Binder _binder;
-    private readonly QueryPlanner _planner = new();
     private readonly SessionState _session = new();
 
     public QueryEngine(JetDatabase database, ISqlParser? parser = null)
@@ -267,7 +266,7 @@ public sealed class QueryEngine
     /// <summary>Plans a bound statement, then applies index selection (turning scans into index seeks where a
     /// predicate allows).</summary>
     private PlanNode PlanWithIndexes(BoundStatement bound) =>
-        IndexSelection.Apply(_planner.Plan(bound), _database.Catalog);
+        IndexSelection.Apply(QueryPlanner.Plan(bound), _database.Catalog);
 
     /// <summary>The optimised plan for a query — exposed for tests to assert the chosen access path/strategy
     /// (e.g. that an unindexed equi-join becomes a hash join).</summary>
@@ -289,7 +288,7 @@ public sealed class QueryEngine
         var executor = new QueryExecutor(_database, parameters, _session);
         var evaluator = new ExpressionEvaluator(new EvalScope([], [], null), executor, bag, _session);
 
-        IReadOnlyList<string> paramNames = catalog.QueryParameters.TryGetValue(exec.Procedure, out var declared)
+        List<string> paramNames = catalog.QueryParameters.TryGetValue(exec.Procedure, out var declared)
             ? declared.Select(p => p.Name).ToList() : [];
 
         // Access EXEC arguments take three shapes (EF emits all of them):
@@ -327,7 +326,10 @@ public sealed class QueryEngine
             if (positional.Count != paramNames.Count)
                 throw new InvalidOperationException(
                     $"Procedure '{exec.Procedure}' declares {paramNames.Count} parameter(s) but was executed with {positional.Count} argument(s).");
+            // IDE0028's only fix here is `[]`, which would silently drop the comparer.
+#pragma warning disable IDE0028
             args = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+#pragma warning restore IDE0028
             for (int i = 0; i < paramNames.Count; i++) args[paramNames[i]] = positional[i];
         }
 

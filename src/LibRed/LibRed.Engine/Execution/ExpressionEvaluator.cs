@@ -1,9 +1,9 @@
-using System.Globalization;
-using System.Text;
-using System.Text.RegularExpressions;
 using EntityFrameworkCore.Jet.Data;
 using LibRed.Sql.Ast;
 using LibRed.Storage;
+using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace LibRed.Engine.Execution;
 
@@ -102,7 +102,7 @@ internal sealed partial class ExpressionEvaluator(
 
     /// <summary><c>x [NOT] IN (subquery)</c> with SQL three-valued semantics: NULL if x is null or (no match
     /// and the subquery yields a null), otherwise the membership result (negated for NOT IN).</summary>
-    private object? EvaluateInSubquery(InSubqueryExpression inq)
+    private bool? EvaluateInSubquery(InSubqueryExpression inq)
     {
         object? val = Evaluate(inq.Value);
         if (val is null) return null;
@@ -699,12 +699,11 @@ internal sealed partial class ExpressionEvaluator(
     /// one is an invalid procedure call); a number is a character code in the ANSI code page, taken modulo 256 (verified
     /// vs ACE: String(3, 321) is 'AAA', String(3, True) 'ÿÿÿ').
     /// </summary>
-    private object? StringOf(FunctionCall f)
+    private string? StringOf(FunctionCall f)
     {
         if (CountArgument(f, 0) is not { } count || Evaluate(f.Arguments[1]) is not { } charValue)
             return null;
-        char ch = charValue is string or Guid or byte[]
-            ? FirstCharacter(charValue)[0]
+        char ch = charValue is string or Guid or byte[]? FirstCharacter(charValue)[0]
             : AnsiCharacter(AsLong(charValue) & 0xFF);
         return new string(ch, count);
     }
@@ -714,7 +713,7 @@ internal sealed partial class ExpressionEvaluator(
     /// one the database sort order, with trailing spaces breaking a tie (verified vs ACE: StrComp('ß', 'ss') is 0,
     /// StrComp('a-b', 'ab') 1, StrComp('a', 'a ') -1).
     /// </summary>
-    private object? StrComp(FunctionCall f)
+    private int? StrComp(FunctionCall f)
     {
         object? a = Evaluate(f.Arguments[0]);
         object? b = Evaluate(f.Arguments[1]);
@@ -736,7 +735,7 @@ internal sealed partial class ExpressionEvaluator(
     /// effective start position; <c>start</c>=0 (or &lt;-1) → "Invalid procedure call", and one past the end of
     /// string1 gives 0; and — unlike <c>InStr</c> — a NULL string raises "Data type mismatch" rather than propagating
     /// NULL.</summary>
-    private object? InstrRev(FunctionCall f)
+    private int? InstrRev(FunctionCall f)
     {
         object? s1v = Evaluate(f.Arguments[0]);
         object? s2v = Evaluate(f.Arguments[1]);
@@ -908,7 +907,7 @@ internal sealed partial class ExpressionEvaluator(
     /// locale, is an invalid procedure call even then. ACE keeps an odd trailing byte from 128 inside an expression
     /// (<c>LenB(StrConv("abc", 128))</c> is 3); LibRed text has no odd bytes, so it drops it.
     /// </summary>
-    private object? StrConv(FunctionCall f)
+    private string? StrConv(FunctionCall f)
     {
         object? sv = Evaluate(f.Arguments[0]);
         if (Evaluate(f.Arguments[1]) is not { } modeV)
@@ -963,7 +962,7 @@ internal sealed partial class ExpressionEvaluator(
 
     /// <summary>Access <c>MonthName(month, [abbreviate])</c>: the English month name, abbreviated when asked. A month
     /// outside 1-12 is an invalid procedure call (verified vs ACE, True included).</summary>
-    private object? MonthNameOf(FunctionCall f)
+    private string? MonthNameOf(FunctionCall f)
     {
         if (Evaluate(f.Arguments[0]) is not { } month || Abbreviate(f) is not { } abbreviate)
             return null;
@@ -977,7 +976,7 @@ internal sealed partial class ExpressionEvaluator(
     /// 1-based position <c>weekday</c> in a week starting on <c>firstdayofweek</c>, which defaults to the system's
     /// first day (verified vs ACE: WeekdayName(1) is Monday under en-AU). A weekday outside 1-7 is an invalid
     /// procedure call.</summary>
-    private object? WeekdayNameOf(FunctionCall f)
+    private string? WeekdayNameOf(FunctionCall f)
     {
         if (Evaluate(f.Arguments[0]) is not { } weekday || Abbreviate(f) is not { } abbreviate
             || FirstDayOfWeek(f, 2, absent: 0) is not { } first)
@@ -994,7 +993,7 @@ internal sealed partial class ExpressionEvaluator(
     /// lower = <c>stop+1</c>, upper blank; otherwise the interval bucket (verified vs ACE). The arguments are read as
     /// the conversion functions read them (a date as its serial); a negative start, a stop not after the start or an
     /// interval below 1 is an invalid procedure call. NULL-propagating.</summary>
-    private object? PartitionOf(FunctionCall f)
+    private string? PartitionOf(FunctionCall f)
     {
         object?[] args = f.Arguments.Select(Evaluate).ToArray();
         if (args.Any(a => a is null)) return null;
@@ -1059,11 +1058,11 @@ internal sealed partial class ExpressionEvaluator(
     /// <summary>The result of a byte-slice function: a **byte[]** when the input was binary (so a further byte
     /// function like <c>ASCB(RIGHTB(x,1))</c> can read the raw byte — the mechanism EFCore.Jet's ByteArrayLength
     /// relies on), or the decoded string (dropping a trailing odd byte) when the input was text.</summary>
-    private static object ByteResult(object input, byte[] slice) => input is byte[] ? slice : FromBytes(slice);
+    private static object ByteResult(object input, byte[] slice) => input is byte[]? slice : FromBytes(slice);
 
     /// <summary>VBA <c>InStrB([start,] string1, string2)</c>: the 1-based **byte** position of string2's bytes in
     /// string1's bytes (0 if not found). NULL-propagating.</summary>
-    private object? InstrB(FunctionCall f)
+    private int? InstrB(FunctionCall f)
     {
         int argc = f.Arguments.Count;
         object? s1v = Evaluate(f.Arguments[argc >= 3 ? 1 : 0]);
@@ -1166,7 +1165,7 @@ internal sealed partial class ExpressionEvaluator(
     /// <para>The algorithms and the order of their arithmetic are the VBA runtime's, as Microsoft.VisualBasic's
     /// Financial module carries them; the order decides the last digit.</para>
     /// </summary>
-    private object? Financial(FunctionCall f, Func<double[], double> compute)
+    private double? Financial(FunctionCall f, Func<double[], double> compute)
     {
         var arguments = new double[6];
         for (int i = 0; i < f.Arguments.Count; i++)
@@ -1425,7 +1424,7 @@ internal sealed partial class ExpressionEvaluator(
     /// LibRed extension, since ACE takes only the one argument. Either argument Null gives Null, and an empty
     /// set of characters strips nothing.
     /// </summary>
-    private object? Trim(FunctionCall f, Func<string, char[], string> trim)
+    private string? Trim(FunctionCall f, Func<string, char[], string> trim)
     {
         object? value = Evaluate(f.Arguments[0]);
         if (value is null) return null;
@@ -1498,7 +1497,7 @@ internal sealed partial class ExpressionEvaluator(
 
     /// <summary>Left and Right: the text's first or last characters. A Null length raises "Data type mismatch" as
     /// ACE does, and a negative one is an invalid procedure call.</summary>
-    private object? StringInt(FunctionCall f, Func<string, int, string> op)
+    private string? StringInt(FunctionCall f, Func<string, int, string> op)
     {
         object? s = Evaluate(f.Arguments[0]);
         if (s is null) return null;
@@ -1510,7 +1509,7 @@ internal sealed partial class ExpressionEvaluator(
 
     /// <summary>Access MID(string, start[, length]) — a 1-based substring; length omitted means to the end. A start
     /// below 1 or a negative length is an invalid procedure call.</summary>
-    private object? Mid(FunctionCall f)
+    private string? Mid(FunctionCall f)
     {
         object? sv = Evaluate(f.Arguments[0]);
         if (sv is null || CountArgument(f, 1, least: 1) is not { } start
@@ -1525,7 +1524,7 @@ internal sealed partial class ExpressionEvaluator(
     /// <summary>Access INSTR([start,] string1, string2[, compare]) — the 1-based position of string2 in string1, 0 if
     /// it is not there. An empty string2 is found at start, wherever that is, unless string1 is empty; a start below 1
     /// is an invalid procedure call.</summary>
-    private object? Instr(FunctionCall f)
+    private int? Instr(FunctionCall f)
     {
         int argc = f.Arguments.Count;
         // 2 args: (s1, s2); 3+: (start, s1, s2[, compare]).
@@ -1547,7 +1546,7 @@ internal sealed partial class ExpressionEvaluator(
 
     /// <summary>Access REPLACE(string, find, replace[, start[, count[, compare]]]) — the text from start on, with
     /// find replaced at most count times (all when count is -1). A start below 1 is an invalid procedure call.</summary>
-    private object? Replace(FunctionCall f)
+    private string? Replace(FunctionCall f)
     {
         object? sv = Evaluate(f.Arguments[0]), findv = Evaluate(f.Arguments[1]), replv = Evaluate(f.Arguments[2]);
         // ACE raises "Data type mismatch" here (unlike InStr, which propagates NULL), but LibRed propagates
@@ -1606,7 +1605,7 @@ internal sealed partial class ExpressionEvaluator(
     /// function of a number too large to reduce — is an invalid procedure call, and a result past a Double an
     /// overflow (verified vs ACE).
     /// </summary>
-    private object? UnaryDouble(FunctionCall f, Func<double, double> op)
+    private double? UnaryDouble(FunctionCall f, Func<double, double> op)
     {
         if (Evaluate(f.Arguments[0]) is not { } value)
             return null;
@@ -1621,7 +1620,7 @@ internal sealed partial class ExpressionEvaluator(
     /// A function of two Doubles, read as <see cref="UnaryDouble"/> reads one; NULL-propagating. A result that is not
     /// a number is an invalid procedure call, and a result past a Double an overflow.
     /// </summary>
-    private object? BinaryDouble(FunctionCall f, Func<double, double, double> op)
+    private double? BinaryDouble(FunctionCall f, Func<double, double, double> op)
     {
         if (Evaluate(f.Arguments[0]) is not { } left || Evaluate(f.Arguments[1]) is not { } right)
             return null;
@@ -1638,7 +1637,7 @@ internal sealed partial class ExpressionEvaluator(
 
     /// <summary>Access <c>DatePart(interval, date, [firstdayofweek], [firstweekofyear])</c>: a component of a date.
     /// "ms", "mcs" and "ns" are LibRed extensions.</summary>
-    private object? DatePart(FunctionCall f)
+    private int? DatePart(FunctionCall f)
     {
         if (Evaluate(f.Arguments[0]) is not { } interval || Evaluate(f.Arguments[1]) is not { } date
             || FirstDayOfWeek(f, 2) is not { } first || FirstWeekOfYear(f, 3) is not { } rule)
@@ -1804,7 +1803,7 @@ internal sealed partial class ExpressionEvaluator(
 
     /// <summary>DateSerial and TimeSerial: a date or time from three Integer parts, read as CInt reads them (verified vs
     /// ACE: 32768 is an overflow). Parts out of their range carry into the next.</summary>
-    private object? DateParts(FunctionCall f, Func<int, int, int, DateTime> build)
+    private DateTime? DateParts(FunctionCall f, Func<int, int, int, DateTime> build)
     {
         if (Evaluate(f.Arguments[0]) is not { } a || Evaluate(f.Arguments[1]) is not { } b || Evaluate(f.Arguments[2]) is not { } c)
             return null;
@@ -1850,7 +1849,7 @@ internal sealed partial class ExpressionEvaluator(
     /// step keeps the day where the month has it and takes the month's last day otherwise, and a result outside
     /// 100-9999 is an invalid procedure call. "ms" is a LibRed extension.
     /// </summary>
-    private object? DateAdd(FunctionCall f)
+    private DateTime? DateAdd(FunctionCall f)
     {
         if (Evaluate(f.Arguments[0]) is not { } interval || Evaluate(f.Arguments[1]) is not { } number
             || Evaluate(f.Arguments[2]) is not { } date)
@@ -2120,16 +2119,16 @@ internal sealed partial class ExpressionEvaluator(
                     ? checked(sum.Operator == BinaryOperator.Add ? a + b : a - b)
                     : null;
             case BinaryExpression product:
-            {
-                bool spanOnLeft = product.Operator == BinaryOperator.Divide || IsSpan(product.Left, parameters!.Duration);
-                if (SpanOf(spanOnLeft ? product.Left : product.Right) is not { } span
-                    || Evaluate(spanOnLeft ? product.Right : product.Left) is not { } by)
-                    return null;
-                double factor = Dbl(ConversionNumber(by));
-                if (product.Operator == BinaryOperator.Divide)
-                    factor = factor != 0 ? 1 / factor : throw new DivideByZeroException("Division by zero.");
-                return TimeSpan.FromTicks(checked((long)Math.Round(span.Ticks * factor)));
-            }
+                {
+                    bool spanOnLeft = product.Operator == BinaryOperator.Divide || IsSpan(product.Left, parameters!.Duration);
+                    if (SpanOf(spanOnLeft ? product.Left : product.Right) is not { } span
+                        || Evaluate(spanOnLeft ? product.Right : product.Left) is not { } by)
+                        return null;
+                    double factor = Dbl(ConversionNumber(by));
+                    if (product.Operator == BinaryOperator.Divide)
+                        factor = factor != 0 ? 1 / factor : throw new DivideByZeroException("Division by zero.");
+                    return TimeSpan.FromTicks(checked((long)Math.Round(span.Ticks * factor)));
+                }
             case FunctionCall call when call.Name.Equals("IIF", StringComparison.OrdinalIgnoreCase):
                 return Evaluate(call.Arguments[0]) is { } condition && IifCondition(condition)
                     ? SpanOf(call.Arguments[1])
@@ -2329,10 +2328,10 @@ internal sealed partial class ExpressionEvaluator(
         switch (expression)
         {
             case LiteralExpression { Written: decimal written }:
-            {
-                int places = (written / 1.0000000000000000000000000000m).Scale;   // trailing zeros dropped
-                return places == 0 ? new(NumberClass.Whole) : new(NumberClass.Decimal, places);
-            }
+                {
+                    int places = (written / 1.0000000000000000000000000000m).Scale;   // trailing zeros dropped
+                    return places == 0 ? new(NumberClass.Whole) : new(NumberClass.Decimal, places);
+                }
             case LiteralExpression literal:
                 return literal.Value switch
                 {
@@ -2769,6 +2768,9 @@ internal sealed partial class ExpressionEvaluator(
     /// each operand into a Long first, so a Double, Decimal or Currency past one overflows even where the answer
     /// would not — <c>1E12 MOD 7</c>, whose remainder is below 7. Here that is 1, and a quotient past a Long is still
     /// an overflow, since the column's type is settled before any value is seen. A LibRed extension.</remarks>
+    // CA1859 reads the two branches below as one `long`. They are not: the Int32 branch is boxed as an Int32
+    // on purpose, and narrowing the return type would widen it back — see the remark above.
+#pragma warning disable CA1859
     private static object IntegerOp(object left, object right, char op)
     {
         left = Serial(left);
@@ -2778,6 +2780,7 @@ internal sealed partial class ExpressionEvaluator(
         // Each branch boxed on its own: a bare `? result : (int)result` is a long, and would widen the Int32 back.
         return left is long or ulong || right is long or ulong ? (object)result : checked((int)result);
     }
+#pragma warning restore CA1859
 
     /// <summary>VBA <c>CBool</c> (verified vs ACE): "True" and "False" as written, otherwise whether the value
     /// read as a number (<see cref="ConversionNumber"/>) is non-zero, so 0.5, '$5' and a date are True.</summary>
@@ -2894,9 +2897,13 @@ internal sealed partial class ExpressionEvaluator(
     /// trailing spaces ignored, an accented letter beside its base letter but not equal to it (verified vs ACE:
     /// <c>'é' &lt; 'f'</c>, <c>'café' ≠ 'cafe'</c>), <c>'ß' = 'ss'</c>, and a hyphen weighed after the letters. A
     /// character that order does not cover compares case-insensitively.</summary>
+    // The linguistic comparison is the point: ordinal (CA1309) would put 'é' after 'z' and make 'ß' ≠ 'ss',
+    // neither of which is what ACE does.
+#pragma warning disable CA1309
     private static int CompareText(string a, string b) =>
         JetTextComparer.Compare(a, b)
         ?? Math.Sign(string.Compare(a.TrimEnd(' '), b.TrimEnd(' '), StringComparison.InvariantCultureIgnoreCase));
+#pragma warning restore CA1309
 
     /// <summary>Orders two values for SORT (nulls first), using the same coercion as comparisons.</summary>
     public static int CompareForSort(object? a, object? b) => (a, b) switch

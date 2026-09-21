@@ -1,7 +1,7 @@
+using LibRed.Formats;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
-using LibRed.Formats;
 
 namespace LibRed.Crypto;
 

@@ -8,9 +8,9 @@ namespace LibRed.Engine.Planning;
 /// Turns a bound statement into a logical <see cref="PlanNode"/> tree. Index
 /// selection and other optimisations are applied as rewrites over the tree.
 /// </summary>
-public sealed class QueryPlanner
+public static class QueryPlanner
 {
-    public PlanNode Plan(BoundStatement bound)
+    public static PlanNode Plan(BoundStatement bound)
     {
         return PlanStatement(bound.Statement);
     }
@@ -35,7 +35,7 @@ public sealed class QueryPlanner
     /// paging for the same reason <see cref="BoundSort"/> does — only that many rows can survive it — except
     /// under OFFSET, where the skipped rows must be produced before they can be discarded.</summary>
     private static PlanNode PageAndSort(
-        PlanNode node, IReadOnlyList<OrderByItem> orderBy, Expression? top, Expression? offset)
+        PlanNode node, List<OrderByItem> orderBy, Expression? top, Expression? offset)
     {
         if (orderBy.Count > 0)
         {
@@ -134,7 +134,7 @@ public sealed class QueryPlanner
     /// last column. <paramref name="projected"/> gives the expression at a position, or null where the rows sorted
     /// are the output itself and the position is read from them.
     /// </summary>
-    private static IReadOnlyList<OrderByItem> OrderByPositions(
+    private static List<OrderByItem> OrderByPositions(
         IReadOnlyList<OrderByItem> orderBy, Func<int, Expression?> projected) =>
         orderBy.Select(item => item.Value is LiteralExpression { Value: int or long or short or byte } literal
             ? item with
@@ -192,6 +192,8 @@ public sealed class QueryPlanner
     ///         sound for LEFT and CROSS, which never drop one — a refinement, not done here.)
     ///     </para>
     /// </remarks>
+    // Not a SortNode as CA1859 reads it: pushing through a join returns the join.
+#pragma warning disable CA1859
     private static PlanNode PushSort(PlanNode node, IReadOnlyList<OrderByItem> keys)
     {
         if (node is JoinNode { Kind: JoinKind.Inner or JoinKind.Left or JoinKind.Cross } j
@@ -202,6 +204,7 @@ public sealed class QueryPlanner
 
         return new SortNode(node, keys);
     }
+#pragma warning restore CA1859
 
     /// <summary>
     ///     Attaches a row bound to the sort at the top of <paramref name="node" />, descending through the
@@ -351,6 +354,9 @@ public sealed class QueryPlanner
 
     /// <summary>The table aliases (or names) exposed by a plan subtree — a scan's alias/name, or the union
     /// over a join. A derived table exposes only its own alias (its inner columns are already projected).</summary>
+    // Aliases compare case-insensitively, and IDE0028's only fix for these arms is a collection expression,
+    // which would drop the comparer.
+#pragma warning disable IDE0028
     internal static HashSet<string> SubtreeAliases(PlanNode node) => node switch
     {
         ScanNode s => new(StringComparer.OrdinalIgnoreCase) { s.Alias ?? s.Table },
@@ -379,6 +385,7 @@ public sealed class QueryPlanner
         IndexScanNode s => new(StringComparer.OrdinalIgnoreCase) { s.Table },
         _ => new(StringComparer.OrdinalIgnoreCase),
     };
+#pragma warning restore IDE0028
 
     /// <summary>The set of table qualifiers an expression's column references use, or <see langword="null"/>
     /// if it can't be safely placed — an unqualified column (ambiguous) or a subquery (references an inner

@@ -48,9 +48,9 @@ public class JetDateTimeRangeConverter(ISqlExpressionFactory sqlExpressionFactor
     }
 
     /// <inheritdoc />
-    protected override Expression VisitExtension(Expression extensionExpression)
+    protected override Expression VisitExtension(Expression node)
     {
-        if (extensionExpression is SqlBinaryExpression
+        if (node is SqlBinaryExpression
             {
                 OperatorType: ExpressionType.GreaterThan
                 or ExpressionType.GreaterThanOrEqual
@@ -68,7 +68,7 @@ public class JetDateTimeRangeConverter(ISqlExpressionFactory sqlExpressionFactor
             }
         }
 
-        return base.VisitExtension(extensionExpression);
+        return base.VisitExtension(node);
     }
 
     /// <summary>Swaps an operand that is the CLR minimum DateTime for Jet's minimum.</summary>

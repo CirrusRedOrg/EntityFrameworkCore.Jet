@@ -43,7 +43,7 @@ public class JetOnDeleteConvention(
         return ProcessSkipNavigations(foreignKey.GetReferencingSkipNavigations()) ?? deleteBehavior;
     }
 
-    private DeleteBehavior? ProcessSkipNavigations(IEnumerable<IConventionSkipNavigation> skipNavigations)
+    private static DeleteBehavior? ProcessSkipNavigations(IEnumerable<IConventionSkipNavigation> skipNavigations)
     {
         var skipNavigation = skipNavigations
             .FirstOrDefault(

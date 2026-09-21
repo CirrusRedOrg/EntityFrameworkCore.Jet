@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.Jet.Data
             };
 
         public abstract void Dispose();
-        
+
         public abstract DataTable GetTables();
         public abstract DataTable GetColumns();
         public abstract DataTable GetIndexes();

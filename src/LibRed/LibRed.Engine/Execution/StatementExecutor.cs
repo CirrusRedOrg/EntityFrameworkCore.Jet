@@ -428,7 +428,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     /// <summary>The declared parameters of a stored query as the rows that hold them: each name with the Jet
     /// type code its declared Access type maps to. An action query declares them exactly as a SELECT does.</summary>
-    private IReadOnlyList<ViewParameterSpec>? BuildParameterSpecs(IReadOnlyList<ProcedureParameter>? parameters) =>
+    private List<ViewParameterSpec>? BuildParameterSpecs(IReadOnlyList<ProcedureParameter>? parameters) =>
         parameters is null or { Count: 0 }
             ? null
             : parameters
@@ -848,7 +848,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// <summary>Writes a new row: every column not in <paramref name="provided"/> takes its default (an explicit
     /// NULL is left as NULL), the row is checked as any insert is, and it is written. Returns its AutoNumber value,
     /// if it has one.</summary>
-    private object? InsertNewRow(string tableName, Table table, RowDefaults defaults, object?[] values, IReadOnlySet<int> provided)
+    private object? InsertNewRow(string tableName, Table table, RowDefaults defaults, object?[] values, HashSet<int> provided)
     {
         var evaluator = new ExpressionEvaluator(new EvalScope([], [], null), _scalarRunner, parameters: _parameters);
         foreach (var (index, expression) in defaults.Columns)
@@ -971,13 +971,17 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// combined evaluation scope), and its rows. A physical table exposes <see cref="Table"/> (rows have real
     /// <see cref="RowId"/>s and can be a SET/DELETE target); a derived table (a subquery in the source) has
     /// <see cref="Table"/> null and its already-materialised <see cref="DerivedRows"/> (never a target).</summary>
+    /// <param name="Alias">The name the source is reached by in the statement.</param>
+    /// <param name="Table">The physical table, or null for a derived one.</param>
+    /// <param name="Columns">Its columns, alias-qualified.</param>
+    /// <param name="DerivedRows">A derived table's already-materialised rows; null for a physical table.</param>
     /// <param name="Lateral">The plan of a LATERAL source — an APPLY's right side — which is re-executed once
     /// per outer row instead of being materialised, because it may correlate to the rows joined before it.</param>
     /// <remarks>A writable derived table is one source table per table it reads, in a run: the first carries the
     /// joined rows the derived query chose (<see cref="Combos"/>, <see cref="ComboWidth"/> tables wide) and the rest
     /// are <see cref="InCombo"/>, filled from them. <see cref="CacheKey"/> tells a table's rows apart from another
     /// table's under the same alias.</remarks>
-    private sealed record SourceTable(string Alias, Table? Table, IReadOnlyList<OutputColumn> Columns,
+    private sealed record SourceTable(string Alias, Table? Table, List<OutputColumn> Columns,
         IReadOnlyList<object?[]>? DerivedRows, Plan.PlanNode? Lateral = null)
     {
         public IReadOnlyList<(RowId Id, object?[] Values)[]>? Combos { get; init; }

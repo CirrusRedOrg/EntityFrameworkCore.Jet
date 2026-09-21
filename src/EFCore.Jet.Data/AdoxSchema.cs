@@ -1,9 +1,14 @@
+using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
-using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using System.Diagnostics;
+
+// The enums nested below are ADO/ADOX type-library enums (RuleEnum, DataTypeEnum, …) transcribed
+// name-for-name and value-for-value, so a caller can match them against the library's own documentation.
+// CA1711 objects to the "Enum" suffix those names carry.
+#pragma warning disable CA1711
 
 namespace EntityFrameworkCore.Jet.Data
 {
@@ -599,7 +604,7 @@ namespace EntityFrameworkCore.Jet.Data
                 }
                 catch (Exception e)
                 {
-                    throw new Exception($"Cannot create dual table '{JetConnection.DefaultDualTableName}' using ADOX.", e);
+                    throw new InvalidOperationException($"Cannot create dual table '{JetConnection.DefaultDualTableName}' using ADOX.", e);
                 }
             }
         }
@@ -620,7 +625,7 @@ namespace EntityFrameworkCore.Jet.Data
             catch (Exception e)
             {
                 // TODO: Try interating over the collections instead of using Item["Name"].
-                throw new Exception($"Cannot rename table '{oldTableName}' to '{newTableName}'.", e);
+                throw new InvalidOperationException($"Cannot rename table '{oldTableName}' to '{newTableName}'.", e);
             }
         }
 
@@ -644,7 +649,7 @@ namespace EntityFrameworkCore.Jet.Data
             catch (Exception e)
             {
                 // TODO: Try interating over the collections instead of using Item["Name"].
-                throw new Exception($"Cannot rename column '{oldColumnName}' to '{newColumnName}' of table '{tableName}'.", e);
+                throw new InvalidOperationException($"Cannot rename column '{oldColumnName}' to '{newColumnName}' of table '{tableName}'.", e);
             }
         }
 
@@ -720,7 +725,7 @@ namespace EntityFrameworkCore.Jet.Data
                 case DataTypeEnum.adPropVariant:
                 case DataTypeEnum.adVarNumeric:
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(dataType), $"Could not map a data type of '{Enum.GetName(typeof(DataTypeEnum), dataType)}'.");
+                    throw new ArgumentOutOfRangeException(nameof(dataType), $"Could not map a data type of '{Enum.GetName(dataType)}'.");
             }
         }
 
@@ -783,6 +788,7 @@ namespace EntityFrameworkCore.Jet.Data
         {
             _connection.Dispose();
             _catalog.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         protected enum RuleEnum

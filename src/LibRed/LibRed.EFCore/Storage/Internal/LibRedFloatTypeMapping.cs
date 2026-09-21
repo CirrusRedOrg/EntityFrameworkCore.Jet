@@ -42,6 +42,6 @@ namespace EntityFrameworkCore.LibRed.Storage.Internal
             //    G15, G7 rounds the extremes *down*, so it never yields an out-of-range literal.)
             //  - "R" is the shortest string that parses back exactly: 0.1f/85.55f stay clean, and
             //    float.MaxValue renders as 3.4028235E+38.
-            => Convert.ToSingle(value).ToString("R", CultureInfo.InvariantCulture);
+            => Convert.ToSingle(value, CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture);
     }
 }

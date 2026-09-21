@@ -1,7 +1,7 @@
+using LibRed.Engine;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
-using LibRed.Engine;
 
 namespace LibRed.Data;
 
@@ -79,7 +79,7 @@ public sealed class LibRedConnection : DbConnection
     internal LibRed.IO.Savepoint CreateSavepoint() =>
         (_database ?? throw new InvalidOperationException("The connection is not open.")).CreateSavepoint();
 
-    /// <summary>Rolls the active transaction back to a savepoint (called by <see cref="LibRedTransaction.Rollback"/>).</summary>
+    /// <summary>Rolls the active transaction back to a savepoint (called by <see cref="LibRedTransaction.Rollback(string)"/>).</summary>
     internal void RollbackToSavepoint(LibRed.IO.Savepoint savepoint) => _database?.RollbackToSavepoint(savepoint);
 
     /// <summary>Releases a savepoint in the active transaction (called by <see cref="LibRedTransaction.Release"/>).</summary>
@@ -125,6 +125,7 @@ public sealed class LibRedConnection : DbConnection
     /// Produces an <c>.accdb</c> that LibRed reads and writes fully; the remaining Access-compatibility
     /// system tables are still being filled in.
     /// </remarks>
+    /// <param name="connectionString">Names the file to create, in the same form a connection uses.</param>
     /// <param name="collation">The database's default text collating order, written to page 0 and inherited
     /// by every column created in it. Defaults to General-Legacy (the order the engine writes); pass
     /// <see cref="Catalog.Collation.General"/> for the "General" order Access 2010+ offers.</param>
@@ -313,7 +314,9 @@ public sealed class LibRedConnection : DbConnection
     }
 
     private static string? TryGetString(DbConnectionStringBuilder builder, string key) =>
-        builder.TryGetValue(key, out object? value) ? Convert.ToString(value) : null;
+        builder.TryGetValue(key, out object? value)
+            ? Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture)
+            : null;
 
     /// <summary>
     /// Resolves to a full path and defaults to a ".accdb" extension - matches EFCore.Jet.Data's

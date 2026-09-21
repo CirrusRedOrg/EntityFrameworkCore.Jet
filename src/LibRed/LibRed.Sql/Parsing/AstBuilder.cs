@@ -8,9 +8,9 @@ namespace LibRed.Sql.Parsing;
 /// Lowers an ANTLR parse tree into the engine's <see cref="SqlNode"/> AST, so nothing
 /// downstream depends on the generated grammar types.
 /// </summary>
-internal sealed class AstBuilder
+internal static class AstBuilder
 {
-    public SqlStatement Build(StatementContext ctx)
+    public static SqlStatement Build(StatementContext ctx)
     {
         SqlStatement statement = BuildBody(ctx);
 
@@ -27,7 +27,7 @@ internal sealed class AstBuilder
         return statement;
     }
 
-    private SqlStatement BuildBody(StatementContext ctx)
+    private static SqlStatement BuildBody(StatementContext ctx)
     {
         if (ctx.ifThenStatement() is { } ifThen) return BuildIfThen(ifThen);
         if (ctx.createTableStatement() is { } create) return BuildCreateTable(create);
@@ -53,10 +53,10 @@ internal sealed class AstBuilder
         _ => throw new NotSupportedException($"Unsupported transaction statement: {ctx.GetText()}"),
     };
 
-    private SqlStatement BuildIfThen(IfThenStatementContext ctx) =>
+    private static IfThenStatement BuildIfThen(IfThenStatementContext ctx) =>
         new IfThenStatement(ctx.not is not null, BuildQueryExpression(ctx.queryExpression()), BuildThenBody(ctx.thenBody()));
 
-    private SqlStatement BuildThenBody(ThenBodyContext ctx)
+    private static SqlStatement BuildThenBody(ThenBodyContext ctx)
     {
         if (ctx.createTableStatement() is { } create) return BuildCreateTable(create);
         if (ctx.createIndexStatement() is { } createIndex) return BuildCreateIndex(createIndex);
@@ -71,7 +71,7 @@ internal sealed class AstBuilder
         return BuildQueryExpression(ctx.queryExpression());
     }
 
-    private ExecuteStatement BuildExecute(ExecuteStatementContext ctx) =>
+    private static ExecuteStatement BuildExecute(ExecuteStatementContext ctx) =>
         new(Identifier(ctx.name), ctx.expression().Select(BuildExpression).ToList());
 
     private static SqlStatement BuildDrop(DropStatementContext ctx) => ctx switch
@@ -106,7 +106,7 @@ internal sealed class AstBuilder
         return new SystemVariableSelectStatement(items);
     }
 
-    private static SqlStatement BuildCreateTable(CreateTableStatementContext ctx)
+    private static CreateTableStatement BuildCreateTable(CreateTableStatementContext ctx)
     {
         if (ctx.temp is not null)
             throw new NotSupportedException("CREATE TEMPORARY TABLE is not supported.");
@@ -192,7 +192,7 @@ internal sealed class AstBuilder
             ? ctx.GetText()
             : ctx.Start.InputStream.GetText(Antlr4.Runtime.Misc.Interval.Of(ctx.Start.StartIndex, ctx.Stop.StopIndex));
 
-    private static SqlStatement BuildAlterTable(AlterTableStatementContext ctx)
+    private static AlterTableStatement BuildAlterTable(AlterTableStatementContext ctx)
     {
         AlterTableAction action = ctx.alterTableAction() switch
         {
@@ -350,9 +350,9 @@ internal sealed class AstBuilder
     /// <summary>A column's IDENTITY attribute — the last one written, when there are several — or null. ACE takes
     /// it only straight after the type, NULL/NOT NULL or another IDENTITY: after DEFAULT, PRIMARY KEY or any
     /// other constraint it is a syntax error there (verified), so it is one here too.</summary>
-    private static IdentityAttribute? IdentityOf(IEnumerable<ColumnConstraintContext> constraints)
+    private static IdentitySpec? IdentityOf(IEnumerable<ColumnConstraintContext> constraints)
     {
-        IdentityAttribute? identity = null;
+        IdentitySpec? identity = null;
         bool afterOtherConstraint = false;
         foreach (ColumnConstraintContext constraint in constraints)
         {
@@ -363,7 +363,7 @@ internal sealed class AstBuilder
                         throw new SqlParseException(
                             "Syntax error in field definition: IDENTITY must come before DEFAULT, PRIMARY KEY and the " +
                             "column's other constraints.");
-                    identity = new IdentityAttribute(SignedInteger(id.seed), SignedInteger(id.increment));
+                    identity = new IdentitySpec(SignedInteger(id.seed), SignedInteger(id.increment));
                     break;
                 case NotNullConstraintContext or NullableConstraintContext:
                     break;
@@ -375,7 +375,7 @@ internal sealed class AstBuilder
         return identity;
     }
 
-    private static SqlStatement BuildCreateIndex(CreateIndexStatementContext ctx)
+    private static CreateIndexStatement BuildCreateIndex(CreateIndexStatementContext ctx)
     {
         var columns = ctx.indexColumn()
             .Select(ic => (Identifier(ic.col), Descending: ic.dir is { } d && d.Type == DESC))
@@ -391,7 +391,7 @@ internal sealed class AstBuilder
             Identifier(ctx.name), Identifier(ctx.table), ctx.unique is not null, columns, withOption);
     }
 
-    private static SqlStatement BuildCreateView(CreateViewStatementContext ctx)
+    private static CreateViewStatement BuildCreateView(CreateViewStatementContext ctx)
     {
         var columns = ctx._columns.Select(Identifier).ToList();
         ViewDefinition definition = BuildViewDefinition(ctx.query);
@@ -443,7 +443,7 @@ internal sealed class AstBuilder
             ? Identifier(into)
             : null;
 
-    private static SqlStatement BuildAppendProcedure(
+    private static CreateActionProcedureStatement BuildAppendProcedure(
         string name, InsertStatementContext insert, IReadOnlyList<ProcedureParameter> parameters)
     {
         var columns = insert._columns;
@@ -497,7 +497,7 @@ internal sealed class AstBuilder
     /// <summary>An UPDATE body: its sources and WHERE are stored exactly as a view's are, and each SET
     /// assignment becomes a column row naming its target (qualified, over a join) and holding the new
     /// value's verbatim text.</summary>
-    private static SqlStatement BuildUpdateProcedure(
+    private static CreateActionProcedureStatement BuildUpdateProcedure(
         string name, UpdateStatementContext update, IReadOnlyList<ProcedureParameter> parameters)
     {
         var assignments = update.assignment()
@@ -510,7 +510,7 @@ internal sealed class AstBuilder
 
     /// <summary>A DELETE body: its sources and WHERE, plus the <c>table.*</c> target when the statement names
     /// one — which Access stores verbatim, and omits entirely for a bare <c>DELETE FROM</c>.</summary>
-    private static SqlStatement BuildDeleteProcedure(
+    private static CreateActionProcedureStatement BuildDeleteProcedure(
         string name, DeleteStatementContext delete, IReadOnlyList<ProcedureParameter> parameters)
     {
         string? target = delete.target is { } t ? $"{Identifier(t)}.*" : null;
@@ -769,7 +769,7 @@ internal sealed class AstBuilder
         _ => ViewJoinKind.Inner,
     };
 
-    private static SqlStatement BuildInsert(InsertStatementContext ctx)
+    private static InsertStatement BuildInsert(InsertStatementContext ctx)
     {
         string table = Identifier(ctx.table);
         if (ctx.DEFAULT() is not null)
@@ -802,9 +802,9 @@ internal sealed class AstBuilder
         // The ordering and paging of the WHOLE expression — the grammar admits them here and nowhere else, so
         // there is nothing to disentangle: a leading TOP sits on its operand's own querySpecification, a FETCH
         // sits here, and the two can no longer be mistaken for each other.
-        var orderBy = ctx.orderByClause() is { } ob
+        List<OrderByItem> orderBy = ctx.orderByClause() is { } ob
             ? ob.orderByItem().Select(BuildOrderByItem).ToList()
-            : (IReadOnlyList<OrderByItem>)[];
+            : [];
         Expression? top = null, offset = null;
         if (ctx.offsetFetchClause() is { } paging)
         {
@@ -879,7 +879,7 @@ internal sealed class AstBuilder
     /// <summary>A table value constructor used as a query. Every row must be the same width, and DEFAULT is
     /// rejected: it means "the column's default", which only has a meaning when there is a target column —
     /// so the standard allows it in an INSERT alone.</summary>
-    private static SqlStatement BuildValuesQuery(ValuesTermContext ctx)
+    private static ValuesStatement BuildValuesQuery(ValuesTermContext ctx)
     {
         var rows = new List<IReadOnlyList<Expression>>();
         foreach (RowValuesContext row in ctx.rowValues())
@@ -1074,7 +1074,7 @@ internal sealed class AstBuilder
     /// searched form here by turning each arm into <c>operand = value</c>, so evaluation only ever sees one
     /// shape. The operand is re-emitted per arm, which is what the standard's own definition implies and
     /// matches how the Jet generator expands a CASE into IIFs.</summary>
-    private static Expression BuildCase(CaseExpressionContext ctx)
+    private static CaseExpression BuildCase(CaseExpressionContext ctx)
     {
         Expression? operand = ctx.operand is null ? null : BuildExpression(ctx.operand);
 
@@ -1118,7 +1118,7 @@ internal sealed class AstBuilder
     /// one argument, the fraction, no DISTINCT and one key; LISTAGG takes the value and optionally a separator, which
     /// the standard makes a string literal, and any number of keys.
     /// </summary>
-    private static IReadOnlyList<SortDirection>? BuildWithinGroup(FunctionCallContext ctx, string name, List<Expression> args)
+    private static List<SortDirection>? BuildWithinGroup(FunctionCallContext ctx, string name, List<Expression> args)
     {
         bool stringAgg = name.Equals("STRING_AGG", StringComparison.OrdinalIgnoreCase);
         if (ctx.withinGroup() is not { } within)
@@ -1217,21 +1217,21 @@ internal sealed class AstBuilder
     private static string FunctionName(FunctionNameContext ctx) =>
         ctx.identifier() is { } id ? Identifier(id) : ctx.GetText();
 
-    private static Expression BuildColumn(ColumnRefContext ctx) =>
+    private static ColumnReference BuildColumn(ColumnRefContext ctx) =>
         new ColumnReference(OptionalIdentifier(ctx.qualifier), Identifier(ctx.name));
 
     /// <summary><c>x IN (a, b, …)</c> becomes a flat <see cref="InListExpression"/> evaluated iteratively — NOT a
     /// deep <c>(x = a) OR (x = b) OR …</c> tree, which recurses once per item and overflows the stack when EF Core
     /// inlines a "huge number of values" Contains (thousands of constants). The evaluator reproduces the same
     /// OR/=/NOT three-valued semantics in a loop.</summary>
-    private static Expression BuildIn(InExprContext ctx)
+    private static InListExpression BuildIn(InExprContext ctx)
     {
         Expression value = BuildExpression(ctx.val);
         var items = ctx._items.Select(BuildExpression).ToList();
         return new InListExpression(value, items, ctx.not is not null);
     }
 
-    private static Expression BuildBetween(BetweenExprContext ctx) =>
+    private static BetweenExpression BuildBetween(BetweenExprContext ctx) =>
         new BetweenExpression(BuildExpression(ctx.val), BuildExpression(ctx.lo), BuildExpression(ctx.hi), ctx.not is not null);
 
     /// <summary>Parses an Access <c>#…#</c> date literal (e.g. <c>#1/1/1997#</c>, month/day/year) to a
@@ -1295,7 +1295,7 @@ internal sealed class AstBuilder
         ? new LiteralExpression(ParseInteger(text))
         : new LiteralExpression(double.Parse(text, CultureInfo.InvariantCulture), WrittenDecimal(text));
 
-    private static Expression BuildLiteral(LiteralContext ctx) => ctx switch
+    private static LiteralExpression BuildLiteral(LiteralContext ctx) => ctx switch
     {
         IntLiteralContext i => BuildNumber(i.GetText(), INTEGER_LITERAL),
         NumberLiteralContext n => BuildNumber(n.GetText(), NUMBER_LITERAL),

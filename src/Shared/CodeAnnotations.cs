@@ -1,7 +1,5 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-
 namespace JetBrains.Annotations
 {
     [AttributeUsage(
@@ -88,6 +86,9 @@ namespace JetBrains.Annotations
     }
 
     [Flags]
+    // Default is deliberately an alias for Itself, as ReSharper's own annotations declare it; CA1069 reads the
+    // two as duplicates.
+#pragma warning disable CA1069
     internal enum ImplicitUseTargetFlags
     {
         Default = Itself,
@@ -95,4 +96,5 @@ namespace JetBrains.Annotations
         Members = 2,
         WithMembers = Itself | Members
     }
+#pragma warning restore CA1069
 }

@@ -37,7 +37,7 @@ namespace EntityFrameworkCore.Jet.Query
                 ExpressionType.Coalesce,
                 sqlExpression,
                 Constant(
-                    null,typeof(string),
+                    null, typeof(string),
                     RelationalTypeMapping.NullMapping),
                 typeMapping);
 

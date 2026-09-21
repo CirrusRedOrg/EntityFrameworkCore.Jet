@@ -19,14 +19,14 @@ namespace EntityFrameworkCore.Jet.Data
             // DAO lacks seed and increment values for auto increment columns and needs a costly workaround to get the
             // numeric scale of decimal columns.
             // ADOX lacks ordinal position information and has very unreliable nullable information.
-            
+
             var dataTable = _adoxSchema.Value.GetColumns();
             var ordinalPositionsAndNullables = _daoSchema.Value.GetOrdinalPositionsAndNullables();
 
             foreach (DataRow row in dataTable.Rows)
             {
-                var tableName = (string) row["TABLE_NAME"];
-                var columnName = (string) row["COLUMN_NAME"];
+                var tableName = (string)row["TABLE_NAME"];
+                var columnName = (string)row["COLUMN_NAME"];
 
                 if (ordinalPositionsAndNullables.TryGetValue((tableName, columnName), out var ordinalPositionAndNullable))
                 {
@@ -34,7 +34,7 @@ namespace EntityFrameworkCore.Jet.Data
                     row["IS_NULLABLE"] = ordinalPositionAndNullable.Nullable;
                 }
             }
-            
+
             dataTable.AcceptChanges();
             return dataTable;
         }
@@ -73,7 +73,7 @@ namespace EntityFrameworkCore.Jet.Data
 
         public override DataTable GetCheckConstraints()
             => _adoxSchema.Value.GetCheckConstraints(); // DAO does not support CHECK CONSTRAINTs, but ADOX does
-        
+
         public override void RenameTable(string oldTableName, string newTableName)
             => _adoxSchema.Value.RenameTable(oldTableName, newTableName); // either ADOX or DAO is fine
 
@@ -91,6 +91,8 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 _adoxSchema.Value.Dispose();
             }
+
+            GC.SuppressFinalize(this);
         }
     }
 }

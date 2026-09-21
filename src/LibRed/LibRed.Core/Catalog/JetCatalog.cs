@@ -2,6 +2,7 @@ using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
 using LibRed.Storage;
+using System.Globalization;
 
 namespace LibRed.Catalog;
 
@@ -198,9 +199,9 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
     private void EnsureStoredQueries()
     {
         if (_views is not null) return;
-        _views = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        _actionQueries = new Dictionary<string, StoredActionQuery>(StringComparer.OrdinalIgnoreCase);
-        _queryParameters = new Dictionary<string, IReadOnlyList<StoredQueryParameter>>(StringComparer.OrdinalIgnoreCase);
+        _views = [with(StringComparer.OrdinalIgnoreCase)];
+        _actionQueries = [with(StringComparer.OrdinalIgnoreCase)];
+        _queryParameters = [with(StringComparer.OrdinalIgnoreCase)];
 
         TableDef? mqDef = FindTable("MSysQueries");
         TableDef? objDef = FindTable("MSysObjects");
@@ -286,63 +287,63 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
         switch (kind)
         {
             case StoredQueryFormat.ActionAppend:
-            {
-                string target = Quote(action[n1] as string ?? "");
-                // A literal-value column (Flag 0x8000) is an INSERT … VALUES; a Flag-0 one reads its value
-                // from the query's own FROM source, which makes it an INSERT … SELECT. Both name the target
-                // column in Name2 and hold the value's text in Expression.
-                if (columns.Count == 0)
-                    return new StoredActionQuery(null, "An append query with no columns is not executed by LibRed.");
+                {
+                    string target = Quote(action[n1] as string ?? "");
+                    // A literal-value column (Flag 0x8000) is an INSERT … VALUES; a Flag-0 one reads its value
+                    // from the query's own FROM source, which makes it an INSERT … SELECT. Both name the target
+                    // column in Name2 and hold the value's text in Expression.
+                    if (columns.Count == 0)
+                        return new StoredActionQuery(null, "An append query with no columns is not executed by LibRed.");
 
-                string targetColumns = string.Join(", ", columns.Select(r => Quote(r[n2] as string ?? "")));
-                string values = string.Join(", ", columns.Select(r => r[expr] as string ?? "NULL"));
+                    string targetColumns = string.Join(", ", columns.Select(r => Quote(r[n2] as string ?? "")));
+                    string values = string.Join(", ", columns.Select(r => r[expr] as string ?? "NULL"));
 
-                if (columns.All(r => r[flag] is short cf && cf == StoredQueryFormat.AppendValueFlag))
-                    return source is null
-                        ? new StoredActionQuery($"{declared}INSERT INTO {target} ({targetColumns}) VALUES ({values})", null)
-                        : new StoredActionQuery(null, "An append query cannot take both literal values and a source.");
+                    if (columns.All(r => r[flag] is short cf && cf == StoredQueryFormat.AppendValueFlag))
+                        return source is null
+                            ? new StoredActionQuery($"{declared}INSERT INTO {target} ({targetColumns}) VALUES ({values})", null)
+                            : new StoredActionQuery(null, "An append query cannot take both literal values and a source.");
 
-                return source is { } appendSource
-                    ? new StoredActionQuery(
-                        $"{declared}INSERT INTO {target} ({targetColumns}) SELECT {values} FROM {appendSource.From}{Where()}", null)
-                    : new StoredActionQuery(null, "An append query with no values and no source is not executed by LibRed.");
-            }
+                    return source is { } appendSource
+                        ? new StoredActionQuery(
+                            $"{declared}INSERT INTO {target} ({targetColumns}) SELECT {values} FROM {appendSource.From}{Where()}", null)
+                        : new StoredActionQuery(null, "An append query with no values and no source is not executed by LibRed.");
+                }
 
             case StoredQueryFormat.ActionUpdate when source is { } updateSource:
-            {
-                // One column row per assignment: Name2 is the target column — qualified when the update runs
-                // over a join — and Expression is the new value.
-                if (columns.Count == 0)
-                    return new StoredActionQuery(null, "An update query with no assignments is not executed by LibRed.");
-                string assignments = string.Join(", ",
-                    columns.Select(r => $"{Qualified(r[n2] as string ?? "")} = {r[expr] as string ?? "NULL"}"));
-                return new StoredActionQuery($"{declared}UPDATE {updateSource.From} SET {assignments}{Where()}", null);
-            }
+                {
+                    // One column row per assignment: Name2 is the target column — qualified when the update runs
+                    // over a join — and Expression is the new value.
+                    if (columns.Count == 0)
+                        return new StoredActionQuery(null, "An update query with no assignments is not executed by LibRed.");
+                    string assignments = string.Join(", ",
+                        columns.Select(r => $"{Qualified(r[n2] as string ?? "")} = {r[expr] as string ?? "NULL"}"));
+                    return new StoredActionQuery($"{declared}UPDATE {updateSource.From} SET {assignments}{Where()}", null);
+                }
 
             case StoredQueryFormat.ActionDelete when source is { } deleteSource:
-            {
-                // Access writes `DELETE <table>.* FROM …` when the query names the table's columns and
-                // `DELETE * FROM …` when it doesn't; the column row holds that `<table>.*` verbatim.
-                string what = columns.Count > 0 ? columns[0][expr] as string ?? "*" : "*";
-                return new StoredActionQuery($"{declared}DELETE {what} FROM {deleteSource.From}{Where()}", null);
-            }
+                {
+                    // Access writes `DELETE <table>.* FROM …` when the query names the table's columns and
+                    // `DELETE * FROM …` when it doesn't; the column row holds that `<table>.*` verbatim.
+                    string what = columns.Count > 0 ? columns[0][expr] as string ?? "*" : "*";
+                    return new StoredActionQuery($"{declared}DELETE {what} FROM {deleteSource.From}{Where()}", null);
+                }
 
             case StoredQueryFormat.ActionMakeTable when source is { } intoSource:
-            {
-                // The target is on the action row; a target in ANOTHER database file (Name2) is a shape
-                // LibRed has no statement for.
-                if (action[n2] is string external && external.Length > 0)
-                    return new StoredActionQuery(null, $"A make-table query writing into '{external}' is not executed by LibRed.");
+                {
+                    // The target is on the action row; a target in ANOTHER database file (Name2) is a shape
+                    // LibRed has no statement for.
+                    if (action[n2] is string external && external.Length > 0)
+                        return new StoredActionQuery(null, $"A make-table query writing into '{external}' is not executed by LibRed.");
 
-                string selected = columns.Count == 0
-                    ? "*"
-                    : string.Join(", ", columns.Select(r =>
-                        (r[n1] as string) is { } alias ? $"{r[expr] as string} AS {Quote(alias)}" : r[expr] as string ?? ""));
-                var groupBy = OfAttr(StoredQueryFormat.AttrGroupBy).Select(r => r[expr] as string ?? "").ToList();
-                string grouping = groupBy.Count > 0 ? $" GROUP BY {string.Join(", ", groupBy)}" : "";
-                return new StoredActionQuery(
-                    $"{declared}SELECT {selected} INTO {Quote(action[n1] as string ?? "")} FROM {intoSource.From}{Where()}{grouping}", null);
-            }
+                    string selected = columns.Count == 0
+                        ? "*"
+                        : string.Join(", ", columns.Select(r =>
+                            (r[n1] as string) is { } alias ? $"{r[expr] as string} AS {Quote(alias)}" : r[expr] as string ?? ""));
+                    var groupBy = OfAttr(StoredQueryFormat.AttrGroupBy).Select(r => r[expr] as string ?? "").ToList();
+                    string grouping = groupBy.Count > 0 ? $" GROUP BY {string.Join(", ", groupBy)}" : "";
+                    return new StoredActionQuery(
+                        $"{declared}SELECT {selected} INTO {Quote(action[n1] as string ?? "")} FROM {intoSource.From}{Where()}{grouping}", null);
+                }
         }
 
         // Everything else is stored but not executed. Name the kind: "not supported" that doesn't say what it
@@ -415,7 +416,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
 
                 short kind = !leftIn && j.Kind is 2 or 3 ? (short)(j.Kind == 2 ? 3 : 2) : j.Kind; // flip on reversed order
                 string kw = kind switch { 2 => "LEFT", 3 => "RIGHT", _ => "INNER" };
-                from.Append($" {kw} JOIN {Render(tables[ti])} ON {j.Cond}");
+                from.Append(CultureInfo.InvariantCulture, $" {kw} JOIN {Render(tables[ti])} ON {j.Cond}");
                 used.Add(newKey);
                 pending.RemoveAt(i);
                 progress = true;
@@ -424,7 +425,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
         }
         // Any tables the joins didn't reach are comma (cross) joins.
         foreach (var t in tables.Where(t => !used.Contains(Key(t))))
-            from.Append($", {Render(t)}");
+            from.Append(CultureInfo.InvariantCulture, $", {Render(t)}");
 
         // Joins whose two tables were both already in scope become extra WHERE conditions (a cyclic graph).
         return (from.ToString(), pending.Select(j => j.Cond).ToList());

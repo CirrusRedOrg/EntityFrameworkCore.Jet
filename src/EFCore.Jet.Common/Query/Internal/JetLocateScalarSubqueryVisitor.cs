@@ -14,8 +14,8 @@ public class JetLocateScalarSubqueryVisitor : ExpressionVisitor
     // Every one of those nodes is an Expression with NodeType Extension, so the dispatch is reproduced here and
     // the per-node methods below are unchanged. Anything unrecognised falls through to the base, which visits
     // the node's children — the same default the removed base class applied.
-    protected override Expression VisitExtension(Expression extensionExpression)
-        => extensionExpression switch
+    protected override Expression VisitExtension(Expression node)
+        => node switch
         {
             AtTimeZoneExpression e => VisitAtTimeZone(e),
             CaseExpression e => VisitCase(e),
@@ -53,11 +53,8 @@ public class JetLocateScalarSubqueryVisitor : ExpressionVisitor
             UnionExpression e => VisitUnion(e),
             UpdateExpression e => VisitUpdate(e),
             ValuesExpression e => VisitValues(e),
-            _ => base.VisitExtension(extensionExpression),
+            _ => base.VisitExtension(node),
         };
-
-    private readonly IRelationalTypeMappingSource _typeMappingSource;
-    private readonly ISqlExpressionFactory _sqlExpressionFactory;
 
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -69,7 +66,10 @@ public class JetLocateScalarSubqueryVisitor : ExpressionVisitor
         IRelationalTypeMappingSource typeMappingSource,
         ISqlExpressionFactory sqlExpressionFactory)
     {
-        (_typeMappingSource, _sqlExpressionFactory) = (typeMappingSource, sqlExpressionFactory);
+        // Neither dependency is needed to locate a scalar subquery; both stay on the signature because that is
+        // what the postprocessor constructs this with.
+        _ = typeMappingSource;
+        _ = sqlExpressionFactory;
     }
 
     protected virtual Expression VisitAtTimeZone(AtTimeZoneExpression atTimeZoneExpression)
@@ -120,7 +120,7 @@ public class JetLocateScalarSubqueryVisitor : ExpressionVisitor
 
     protected virtual Expression VisitDelete(DeleteExpression deleteExpression)
     {
-        return deleteExpression.Update(deleteExpression.Table,(SelectExpression)Visit(deleteExpression.SelectExpression));
+        return deleteExpression.Update(deleteExpression.Table, (SelectExpression)Visit(deleteExpression.SelectExpression));
     }
 
     protected virtual Expression VisitDistinct(DistinctExpression distinctExpression)

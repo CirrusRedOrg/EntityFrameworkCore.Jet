@@ -30,7 +30,6 @@ public class PipelineBenchmarks
     private QueryEngine _engine = null!;
     private ISqlParser _parser = null!;
     private Binder _binder = null!;
-    private readonly QueryPlanner _planner = new();
 
     private SqlStatement _ast = null!;
     private PlanNode _plan = null!;
@@ -56,7 +55,7 @@ public class PipelineBenchmarks
         _binder = new Binder(new CatalogSchemaProvider(_database.Catalog));
 
         _ast = _parser.ParseStatement(Case.Sql);
-        _plan = IndexSelection.Apply(_planner.Plan(_binder.Bind(_ast)), _database.Catalog);
+        _plan = IndexSelection.Apply(QueryPlanner.Plan(_binder.Bind(_ast)), _database.Catalog);
 
         Consume.Drain(_engine.ExecuteQuery(Case.Sql));
     }
@@ -72,7 +71,7 @@ public class PipelineBenchmarks
     /// <summary>AST → bound → plan → access paths chosen. Also data-independent, but it is where index
     /// selection lives, so this is the number that moves when the optimiser changes.</summary>
     [Benchmark]
-    public object BindAndPlan() => IndexSelection.Apply(_planner.Plan(_binder.Bind(_ast)), _database.Catalog);
+    public object BindAndPlan() => IndexSelection.Apply(QueryPlanner.Plan(_binder.Bind(_ast)), _database.Catalog);
 
     /// <summary>Executing an already-built plan and draining the rows: the part that scales with the data,
     /// and the only part a prepared-statement cache would leave behind.</summary>

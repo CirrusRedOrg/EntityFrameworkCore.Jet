@@ -149,32 +149,76 @@ internal static class JetTextCollation
     private static readonly Dictionary<char, byte[]> Symbols = new()
     {
         [' '] = [0x07],
-        ['!'] = [0x09], ['"'] = [0x0A], ['#'] = [0x0C], ['$'] = [0x0E], ['%'] = [0x10],
-        ['&'] = [0x12], ['('] = [0x14], [')'] = [0x16], ['*'] = [0x18], [','] = [0x1A],
-        ['.'] = [0x1C], ['/'] = [0x1E], [':'] = [0x20], [';'] = [0x22], ['?'] = [0x24],
-        ['@'] = [0x26], ['['] = [0x27], ['\\'] = [0x29], [']'] = [0x2A], ['+'] = [0x2C],
-        ['<'] = [0x2E], ['='] = [0x30], ['>'] = [0x32],
-        ['^'] = [0x2B, 0x02], ['_'] = [0x2B, 0x03], ['`'] = [0x2B, 0x07],
-        ['{'] = [0x2B, 0x09], ['|'] = [0x2B, 0x0B], ['}'] = [0x2B, 0x0D], ['~'] = [0x2B, 0x0F],
+        ['!'] = [0x09],
+        ['"'] = [0x0A],
+        ['#'] = [0x0C],
+        ['$'] = [0x0E],
+        ['%'] = [0x10],
+        ['&'] = [0x12],
+        ['('] = [0x14],
+        [')'] = [0x16],
+        ['*'] = [0x18],
+        [','] = [0x1A],
+        ['.'] = [0x1C],
+        ['/'] = [0x1E],
+        [':'] = [0x20],
+        [';'] = [0x22],
+        ['?'] = [0x24],
+        ['@'] = [0x26],
+        ['['] = [0x27],
+        ['\\'] = [0x29],
+        [']'] = [0x2A],
+        ['+'] = [0x2C],
+        ['<'] = [0x2E],
+        ['='] = [0x30],
+        ['>'] = [0x32],
+        ['^'] = [0x2B, 0x02],
+        ['_'] = [0x2B, 0x03],
+        ['`'] = [0x2B, 0x07],
+        ['{'] = [0x2B, 0x09],
+        ['|'] = [0x2B, 0x0B],
+        ['}'] = [0x2B, 0x0D],
+        ['~'] = [0x2B, 0x0F],
 
         // Latin-1 punctuation and symbols, harvested from ACE's own index keys (see
         // SortKeyComparisonProbeTest). Each group mirrors the order of the corresponding Win32 NLS primaries
         // in ACE's compacted one-byte-per-group numbering:
         //   0x2B  continues the ^_`{|}~ group          NLS 0x0751..0x0757
-        ['¡'] = [0x2B, 0x10], ['¦'] = [0x2B, 0x11], ['¨'] = [0x2B, 0x12], ['¯'] = [0x2B, 0x13],
-        ['´'] = [0x2B, 0x14], ['¸'] = [0x2B, 0x15], ['¿'] = [0x2B, 0x16],
+        ['¡'] = [0x2B, 0x10],
+        ['¦'] = [0x2B, 0x11],
+        ['¨'] = [0x2B, 0x12],
+        ['¯'] = [0x2B, 0x13],
+        ['´'] = [0x2B, 0x14],
+        ['¸'] = [0x2B, 0x15],
+        ['¿'] = [0x2B, 0x16],
         //   0x33  mathematical                          NLS 0x0817..0x081D (both skip the same slots)
-        ['±'] = [0x33, 0x04], ['«'] = [0x33, 0x05], ['»'] = [0x33, 0x07],
-        ['×'] = [0x33, 0x09], ['÷'] = [0x33, 0x0A],
+        ['±'] = [0x33, 0x04],
+        ['«'] = [0x33, 0x05],
+        ['»'] = [0x33, 0x07],
+        ['×'] = [0x33, 0x09],
+        ['÷'] = [0x33, 0x0A],
         //   0x34  currency then symbols — ACE runs two NLS groups (0x0797.. and 0x0A06..) into one
-        ['¢'] = [0x34, 0xA6], ['£'] = [0x34, 0xA7], ['¤'] = [0x34, 0xA8], ['¥'] = [0x34, 0xA9],
-        ['§'] = [0x34, 0xAA], ['©'] = [0x34, 0xAB], ['¬'] = [0x34, 0xAC], ['®'] = [0x34, 0xAD],
-        ['°'] = [0x34, 0xAE], ['µ'] = [0x34, 0xAF], ['¶'] = [0x34, 0xB0], ['·'] = [0x34, 0xB1],
+        ['¢'] = [0x34, 0xA6],
+        ['£'] = [0x34, 0xA7],
+        ['¤'] = [0x34, 0xA8],
+        ['¥'] = [0x34, 0xA9],
+        ['§'] = [0x34, 0xAA],
+        ['©'] = [0x34, 0xAB],
+        ['¬'] = [0x34, 0xAC],
+        ['®'] = [0x34, 0xAD],
+        ['°'] = [0x34, 0xAE],
+        ['µ'] = [0x34, 0xAF],
+        ['¶'] = [0x34, 0xB0],
+        ['·'] = [0x34, 0xB1],
         //   0x37  fractions                             NLS 0x0D0D/0x0D11/0x0D15 (step 4 in both)
-        ['¼'] = [0x37, 0x12], ['½'] = [0x37, 0x16], ['¾'] = [0x37, 0x1A],
+        ['¼'] = [0x37, 0x12],
+        ['½'] = [0x37, 0x16],
+        ['¾'] = [0x37, 0x1A],
         // Superscript digits take the *same* primary as their base digit and no distinguishing secondary, so
         // ACE sorts (and compares) '¹' equal to '1'. Verified: both encode to 7F 38 01 00.
-        ['¹'] = [0x38], ['²'] = [0x3A], ['³'] = [0x3C],
+        ['¹'] = [0x38],
+        ['²'] = [0x3A],
+        ['³'] = [0x3C],
     };
 
     /// <summary>
@@ -212,11 +256,16 @@ internal static class JetTextCollation
     /// codes, and the terminator). Trailing spaces are dropped. Returns false if any character is
     /// not yet supported.
     /// </summary>
+    /// <param name="value">The text to encode.</param>
+    /// <param name="output">The key body is appended to this.</param>
     /// <param name="tailoring">Per-character overrides for a locale order other than General; null for
     /// General itself. See <see cref="JetLocaleTailoring"/>.</param>
     public static bool TryEncode(string value, List<byte> output, LocaleTailoring? tailoring = null) =>
         TryEncode(value, output, tailoring, out _);
 
+    /// <param name="value">The text to encode.</param>
+    /// <param name="output">The key body is appended to this.</param>
+    /// <param name="tailoring">Per-character overrides for a locale order other than General; null for General.</param>
     /// <param name="hasWordSortRecord">
     /// Whether the key carries an inline word-sort section. The caller needs this to decide whether an
     /// over-long entry may be truncated: the checksum that replaces the dropped bytes is unverified when
@@ -288,7 +337,7 @@ internal static class JetTextCollation
             // lengthen, and it stays the ordinary FF FF primary the table already holds.
             if (c is (char)0x30FC or (char)0xFF70 && kanaVowel != 0 && kanaWeight == secondaries.Count - 1)
             {
-                AddWeight([JetKanaSection.KanaPage,kanaVowel], DefaultSecondary);
+                AddWeight([JetKanaSection.KanaPage, kanaVowel], DefaultSecondary);
                 kana.Add(kanaSmall);
                 prolonged.Add(true);
                 kanaWeight = secondaries.Count - 1;
@@ -298,7 +347,7 @@ internal static class JetTextCollation
             if (JetTextCollationTableV0.TryGetKana(c, out byte sound, out byte voicing, out bool small,
                                                   out byte vowel))
             {
-                AddWeight([JetKanaSection.KanaPage,sound], voicing);
+                AddWeight([JetKanaSection.KanaPage, sound], voicing);
                 kana.Add(small);
                 prolonged.Add(false);
                 kanaWeight = secondaries.Count - 1;

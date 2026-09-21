@@ -1,14 +1,14 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System.Data;
 using EntityFrameworkCore.Jet.Data;
-using System.Globalization;
-using System.Text.RegularExpressions;
 using EntityFrameworkCore.Jet.Infrastructure;
 using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.Jet.Metadata.Internal;
-using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using EntityFrameworkCore.Jet.Utilities;
+using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
+using System.Data;
+using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 {
@@ -18,18 +18,6 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
     /// </summary>
     public class JetDatabaseModelFactory : DatabaseModelFactory
     {
-        private static string ObjectKey(string name)
-            => "`" + name + "`";
-
-        private static string TableKey(DatabaseTable table)
-            => TableKey(table.Name);
-
-        private static string TableKey(String tableName)
-            => ObjectKey(tableName);
-
-        private static string ColumnKey(DatabaseTable table, string columnName)
-            => TableKey(table) + "." + ObjectKey(columnName);
-
         private static readonly List<string> _tablePatterns =
         [
             @"(?<=^`).*(?=`$)",
@@ -124,15 +112,15 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                 var tableNames = databaseModel.Tables.Select(t => t.Name).ToList();
                 if (tableNames.Contains("MSysAccessStorage") || _msysNames.Contains("MSysAccessStorage"))
                 {
-                    JetDualTable.DetectedName ="MSysAccessStorage";
+                    JetDualTable.DetectedName = "MSysAccessStorage";
                 }
                 else if (tableNames.Contains("MSysRelationships") || _msysNames.Contains("MSysRelationships"))
                 {
-                    JetDualTable.DetectedName ="MSysRelationships";
+                    JetDualTable.DetectedName = "MSysRelationships";
                 }
                 else if (tableNames.Contains("#Dual"))
                 {
-                    JetDualTable.DetectedName ="#Dual";
+                    JetDualTable.DetectedName = "#Dual";
                 }
 
                 return databaseModel;
@@ -160,7 +148,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             return tableName;
         }
 
-        private IReadOnlyList<DatabaseTable> GetTables(
+        private List<DatabaseTable> GetTables(
             DbConnection connection,
             DatabaseModel databaseModel,
             Func<string, string, bool>? filter)
@@ -217,7 +205,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             while (reader.Read())
             {
                 var tableName = reader.GetValueOrDefault<string>("TABLE_NAME");
-                var table = tables.FirstOrDefault(t => string.Equals(t.Name, tableName)) ??
+                var table = tables.FirstOrDefault(t => string.Equals(t.Name, tableName, StringComparison.Ordinal)) ??
                             tables.FirstOrDefault(t => string.Equals(t.Name, tableName, StringComparison.OrdinalIgnoreCase));
                 if (table != null)
                 {
@@ -316,7 +304,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             {
                 try
                 {
-                    return Convert.ChangeType(defaultValueSql, type);
+                    return Convert.ChangeType(defaultValueSql, type, CultureInfo.InvariantCulture);
                 }
                 catch
                 {
@@ -389,7 +377,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             return null;
         }
 
-        private string GetStoreType(string dataTypeName, int precision, int scale, int maxLength)
+        private static string GetStoreType(string dataTypeName, int precision, int scale, int maxLength)
         {
             if (precision > 0 &&
                 (string.Equals(dataTypeName, "decimal", StringComparison.OrdinalIgnoreCase) ||
@@ -437,7 +425,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                 var nullable = indexRow.GetValueOrDefault<bool>("IS_NULLABLE");
                 var ignoresNulls = indexRow.GetValueOrDefault<bool>("IGNORES_NULLS");
 
-                var table = tables.FirstOrDefault(t => string.Equals(t.Name, tableName)) ??
+                var table = tables.FirstOrDefault(t => string.Equals(t.Name, tableName, StringComparison.Ordinal)) ??
                             tables.FirstOrDefault(t => string.Equals(t.Name, tableName, StringComparison.OrdinalIgnoreCase));
                 if (table != null)
                 {
@@ -580,7 +568,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                 var enforced = relationRow.GetValueOrDefault<bool>("IS_ENFORCED", true);
                 var inherited = relationRow.GetValueOrDefault<bool>("IS_INHERITED", true);
 
-                var referencingTable = tables.FirstOrDefault(t => string.Equals(t.Name, referencingTableName)) ??
+                var referencingTable = tables.FirstOrDefault(t => string.Equals(t.Name, referencingTableName, StringComparison.Ordinal)) ??
                             tables.FirstOrDefault(t => string.Equals(t.Name, referencingTableName, StringComparison.OrdinalIgnoreCase));
                 if (referencingTable != null)
                 {
@@ -593,7 +581,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                             principalTableName!,
                             onDelete!);
 
-                        var principalTable = tables.FirstOrDefault(t => string.Equals(t.Name, principalTableName)) ??
+                        var principalTable = tables.FirstOrDefault(t => string.Equals(t.Name, principalTableName, StringComparison.Ordinal)) ??
                                              tables.FirstOrDefault(t => string.Equals(t.Name, principalTableName, StringComparison.OrdinalIgnoreCase));
                         if (principalTable == null)
                         {

@@ -3,7 +3,7 @@ using System.Data.Common;
 
 namespace EntityFrameworkCore.Jet.Data.ConnectionPooling
 {
-    class ConnectionSet(string connectionString) : IDisposable
+    sealed class ConnectionSet(string connectionString) : IDisposable
     {
         public string ConnectionString { get; } = connectionString;
 
@@ -12,7 +12,7 @@ namespace EntityFrameworkCore.Jet.Data.ConnectionPooling
 
         public void AddConnection(DbConnection connection)
         {
-            lock(_connections)
+            lock (_connections)
             {
                 if (ConnectionCount == _connections.Length)
                 {

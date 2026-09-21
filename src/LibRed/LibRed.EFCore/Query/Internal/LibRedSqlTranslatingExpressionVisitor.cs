@@ -1,9 +1,8 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using System.Text;
 using EntityFrameworkCore.Jet;
 using EntityFrameworkCore.Jet.Internal;
+using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+using System.Globalization;
+using System.Text;
 using ExpressionExtensions = Microsoft.EntityFrameworkCore.Query.ExpressionExtensions;
 
 namespace EntityFrameworkCore.LibRed.Query.Internal;
@@ -191,12 +190,12 @@ public class LibRedSqlTranslatingExpressionVisitor(
 
     protected override Expression VisitExtension(Expression extensionExpression)
     {
-        var result =  base.VisitExtension(extensionExpression);
+        var result = base.VisitExtension(extensionExpression);
         if (extensionExpression is ShapedQueryExpression shapedQueryExpression)
         {
             var shaperExpression = shapedQueryExpression.ShaperExpression;
             if (shapedQueryExpression.ResultCardinality == ResultCardinality.SingleOrDefault
-                && !shaperExpression.Type.IsNullableType() && result is SqlFunctionExpression { Name: "COALESCE"} sqlFunctionExpression)
+                && !shaperExpression.Type.IsNullableType() && result is SqlFunctionExpression { Name: "COALESCE" } sqlFunctionExpression)
             {
                 if (sqlFunctionExpression.Arguments?[1] is SqlConstantExpression { Value: DateTime { Ticks: 0 } })
                 {
@@ -301,7 +300,7 @@ public class LibRedSqlTranslatingExpressionVisitor(
                         // IsLikeWildChar) and send a simple LIKE
                         translation = patternConstant.Value switch
                         {
-                            null => _sqlExpressionFactory.Like(translatedInstance, _sqlExpressionFactory.Constant(null,typeof(string), stringTypeMapping)),
+                            null => _sqlExpressionFactory.Like(translatedInstance, _sqlExpressionFactory.Constant(null, typeof(string), stringTypeMapping)),
 
                             // In .NET, all strings start with/end with/contain the empty string, but SQL LIKE return false for empty patterns.
                             // Return % which always matches instead.

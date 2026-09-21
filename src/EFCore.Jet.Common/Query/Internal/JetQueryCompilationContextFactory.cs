@@ -1,5 +1,3 @@
-using EntityFrameworkCore.Jet.Storage.Internal;
-
 namespace EntityFrameworkCore.Jet.Query.Internal;
 
 /// <summary>

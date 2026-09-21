@@ -14,7 +14,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             DataAccessProviderType dataAccessProviderType;
 
             var exceptionFullName = ex.GetType().FullName;
-            
+
             if (exceptionFullName == "System.Data.OleDb.OleDbException")
                 dataAccessProviderType = DataAccessProviderType.OleDb;
             else if (exceptionFullName == "System.Data.Odbc.OdbcException")

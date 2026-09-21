@@ -32,16 +32,16 @@ namespace EntityFrameworkCore.Jet.Data
                 _integerNullValue = value;
             }
         }
-        
-        public static DataAccessProviderType DefaultDataAccessProviderType { get; set; } = DataAccessProviderType.Odbc; 
-        
+
+        public static DataAccessProviderType DefaultDataAccessProviderType { get; set; } = DataAccessProviderType.Odbc;
+
         /// <summary>
         /// Gets or sets a value indicating whether show SQL statements.
         /// </summary>
         /// <value>
         ///   <c>true</c> to show SQL statements; otherwise, <c>false</c>.
         /// </value>
-        public static bool ShowSqlStatements { get; set; } = false;
+        public static bool ShowSqlStatements { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether the connection pooling should be used
@@ -49,7 +49,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <value>
         /// <c>true</c> to use the connection pooling; otherwise, <c>false</c>.
         /// </value>
-        public static bool UseConnectionPooling { get; set; } = false;
+        public static bool UseConnectionPooling { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether to return a default value for the column
@@ -58,6 +58,6 @@ namespace EntityFrameworkCore.Jet.Data
         /// <value>
         /// <c>true</c> to return a default value; otherwise, <c>false</c>.
         /// </value>
-        public static bool UseDefaultValueOnDBNullConversionError { get; set; } = false;
+        public static bool UseDefaultValueOnDBNullConversionError { get; set; }
     }
 }

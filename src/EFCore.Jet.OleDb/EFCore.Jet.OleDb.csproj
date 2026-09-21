@@ -10,9 +10,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 	</PropertyGroup>
 
-	<ItemGroup>
-		<Compile Include="..\Shared\*.cs" />
-	</ItemGroup>
+	<Import Project="..\Shared\SharedSource.props" />
 
 	<ItemGroup>
 		<ProjectReference Include="..\EFCore.Jet\EFCore.Jet.csproj" PrivateAssets="contentfiles;build" />
@@ -33,8 +31,6 @@
 
 	<ItemGroup>
 		<Using Include="Microsoft.EntityFrameworkCore.Diagnostics" />
-		<Using Include="System.Diagnostics" />
-	  <Using Include="System.Diagnostics.CodeAnalysis" />
 	</ItemGroup>
 
 	<ItemGroup>

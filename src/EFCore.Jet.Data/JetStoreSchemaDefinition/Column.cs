@@ -1,8 +1,6 @@
-using System;
-
 namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 {
-    class Column
+    sealed class Column
     {
         public string Name { get; set; }
         public string Type { get; set; }
@@ -11,7 +9,9 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 
         public override string ToString()
         {
-            return string.Format("{0} {2}({3}) {1}", Name, Nullable ? "Null" : "NotNull", Type, MaxLength);
+            return string.Format(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "{0} {2}({3}) {1}", Name, Nullable ? "Null" : "NotNull", Type, MaxLength);
         }
     }
 }

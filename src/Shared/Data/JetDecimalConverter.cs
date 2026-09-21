@@ -1,4 +1,9 @@
+// IDE0005 cannot be answered once for this file: it is LINKED into both EFCore.Jet.Data and LibRed.Core, and
+// only the latter has ImplicitUsings — `using System;` is load-bearing in the former. The rule is reporting
+// the project, not the file.
+#pragma warning disable IDE0005
 using System;
+#pragma warning restore IDE0005
 using System.Runtime.CompilerServices;
 
 namespace EntityFrameworkCore.Jet.Data
@@ -57,7 +62,6 @@ namespace EntityFrameworkCore.Jet.Data
             };
 
         private const int DecScaleMax = 28;
-        private const int ScaleShift = 16;
 
         private static ReadOnlySpan<uint> UInt32Powers10 =>
         [

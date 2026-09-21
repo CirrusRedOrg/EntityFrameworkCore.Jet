@@ -49,7 +49,7 @@ public class JetQueryTranslationPreprocessor(
             => method == QueryableMethods.LongCountWithoutPredicate
                 || method == QueryableMethods.LongCountWithPredicate;
 
-        private static Expression MakeAnyCall(MethodCallExpression longCountCall)
+        private static MethodCallExpression MakeAnyCall(MethodCallExpression longCountCall)
         {
             var elementType = longCountCall.Method.GetGenericArguments()[0];
             var anyMethod = longCountCall.Arguments.Count == 2

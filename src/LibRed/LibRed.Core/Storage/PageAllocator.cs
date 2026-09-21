@@ -1,7 +1,7 @@
-using System.Buffers.Binary;
-using System.Numerics;
 using LibRed.IO;
 using LibRed.Pages;
+using System.Buffers.Binary;
+using System.Numerics;
 
 namespace LibRed.Storage;
 
@@ -151,7 +151,7 @@ public sealed class PageAllocator(PageChannel channel)
     }
 
     /// <summary>The pages set in the global released-pages map, inline or reference form.</summary>
-    private IEnumerable<int> ReleasedMapPages(MapRecord released)
+    private List<int> ReleasedMapPages(MapRecord released)
     {
         ReadOnlySpan<byte> record = released.Record;
         var pages = new List<int>();

@@ -49,8 +49,20 @@ public sealed class ResultSet
 /// straight from a stored column rather than being computed — that column's table, name, declared type and
 /// the constraints on it. The ADO layer turns these into <c>GetSchemaTable</c> rows and <c>DbColumn</c>s.
 /// </summary>
+/// <param name="Name">The column's name in the result, which an alias in the query does change.</param>
+/// <param name="ClrType">The CLR type of the column's values.</param>
 /// <param name="BaseTableName">The table the value is read from, or null when nothing stored stands behind it.</param>
 /// <param name="BaseColumnName">Its name in that table, which an alias in the query does not change.</param>
+/// <param name="AllowNull">Whether the column can hold a null.</param>
+/// <param name="IsExpression">Whether the value is computed rather than read from a stored column.</param>
+/// <param name="IsAutoIncrement">Whether the stored column behind it is an AutoNumber.</param>
+/// <param name="IsKey">Whether it is part of the table's primary key.</param>
+/// <param name="IsUnique">Whether a unique index covers it on its own.</param>
+/// <param name="IsLong">Whether it is a long value (Memo or OLE Object), stored off-row.</param>
+/// <param name="IsReadOnly">Whether the result cannot be written back through.</param>
+/// <param name="Size">The declared length, for a sized text or binary column.</param>
+/// <param name="Precision">The declared precision, for a Decimal column.</param>
+/// <param name="Scale">The declared scale, for a Decimal column.</param>
 /// <param name="ProviderType">The OLE DB type code, as the schema collections report it.</param>
 /// <param name="TypeName">The provider's name for the type, as the DataTypes collection spells it.</param>
 public sealed record ResultColumn(

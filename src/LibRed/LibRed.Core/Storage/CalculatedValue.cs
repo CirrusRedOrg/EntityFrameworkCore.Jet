@@ -1,5 +1,5 @@
-using System.Buffers.Binary;
 using LibRed.Catalog;
+using System.Buffers.Binary;
 
 namespace LibRed.Storage;
 
@@ -118,12 +118,12 @@ internal static class CalculatedValue
             case JetDataType.Boolean:
                 return [Convert.ToBoolean(value, culture) ? (byte)0xFF : (byte)0x00];
             case JetDataType.Text:
-            {
-                string text = Convert.ToString(value, culture) ?? "";
-                byte[] utf16 = System.Text.Encoding.Unicode.GetBytes(text);
-                if (column.HasLongValueMap) return utf16;        // a calculated Memo: never compressed
-                return Types.JetTypeCodec.TryCompressText(column, text, requireCapableFlag: false) ?? utf16;
-            }
+                {
+                    string text = Convert.ToString(value, culture) ?? "";
+                    byte[] utf16 = System.Text.Encoding.Unicode.GetBytes(text);
+                    if (column.HasLongValueMap) return utf16;        // a calculated Memo: never compressed
+                    return Types.JetTypeCodec.TryCompressText(column, text, requireCapableFlag: false) ?? utf16;
+                }
             default:
                 return Types.JetTypeCodec.Encode(column, type, value);
         }

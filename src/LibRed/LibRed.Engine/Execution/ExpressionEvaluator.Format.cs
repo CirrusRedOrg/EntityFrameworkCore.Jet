@@ -1,6 +1,6 @@
+using LibRed.Sql.Ast;
 using System.Globalization;
 using System.Text;
-using LibRed.Sql.Ast;
 
 namespace LibRed.Engine.Execution;
 
@@ -33,7 +33,7 @@ internal sealed partial class ExpressionEvaluator
     /// date formats. A Null value is empty text, or the format's Null section. A Null format or setting gives Null
     /// where ACE raises an error.
     /// </summary>
-    private object? FormatValue(FunctionCall f)
+    private string? FormatValue(FunctionCall f)
     {
         object? value = Evaluate(f.Arguments[0]);
         string format = "";
@@ -736,7 +736,7 @@ internal sealed partial class ExpressionEvaluator
     /// setting), and anything else is an invalid procedure call. A Null value is empty text; a Null setting gives Null
     /// where ACE raises a type mismatch.
     /// </summary>
-    private object? FormatStyled(FunctionCall f, NumberStyle style)
+    private string? FormatStyled(FunctionCall f, NumberStyle style)
     {
         int[] settings = [-1, -2, -2, -2];
         for (int i = 1; i < f.Arguments.Count; i++)
@@ -829,7 +829,7 @@ internal sealed partial class ExpressionEvaluator
     /// date, 3 the long time and 4 the 24-hour hh:mm time. A format outside 0-4 is an invalid procedure call even for
     /// a Null date, which is empty text. The date is read as CDate reads it.
     /// </summary>
-    private object? FormatDateTime(FunctionCall f)
+    private string? FormatDateTime(FunctionCall f)
     {
         if (Optional(f, 1, 0, v => Setting(v, 0, 4)) is not { } format)
             return null;

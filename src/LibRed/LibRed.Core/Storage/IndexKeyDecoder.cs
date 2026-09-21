@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using LibRed.Catalog;
 using LibRed.Formats;
 

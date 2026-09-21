@@ -42,8 +42,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             {
                 var amountToAdd = arguments[0];
 
-                if (!datePart.Equals("yyyy")
-                    && !datePart.Equals("m")
+                if (!datePart.Equals("yyyy", StringComparison.Ordinal)
+                    && !datePart.Equals("m", StringComparison.Ordinal)
                     && amountToAdd is SqlConstantExpression constantExpression
                     && constantExpression.Value is double doubleValue
                     && (doubleValue >= int.MaxValue
@@ -97,7 +97,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             return null;
         }
 
-        private List<ColumnExpression> ExtractColumnExpressions(SqlBinaryExpression binaryexp)
+        private static List<ColumnExpression> ExtractColumnExpressions(SqlBinaryExpression binaryexp)
         {
             List<ColumnExpression> result = [];
             if (binaryexp.Left is SqlBinaryExpression left)
@@ -120,7 +120,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
             return result;
         }
-        private List<ColumnExpression> ExtractColumnExpressions(SqlUnaryExpression unaryexp)
+        private static List<ColumnExpression> ExtractColumnExpressions(SqlUnaryExpression unaryexp)
         {
             List<ColumnExpression> result = [];
             if (unaryexp.Operand is SqlBinaryExpression left)

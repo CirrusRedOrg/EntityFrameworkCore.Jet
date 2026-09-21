@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.Internal;
@@ -13,7 +12,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal;
 public class JetLiftOrderByPostprocessor(IRelationalTypeMappingSource typeMappingSource,
     ISqlExpressionFactory sqlExpressionFactory,
     SqlAliasManager sqlAliasManager)
-    : ExpressionVisitor 
+    : ExpressionVisitor
 {
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -32,10 +31,10 @@ public class JetLiftOrderByPostprocessor(IRelationalTypeMappingSource typeMappin
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    [return: NotNullIfNotNull(nameof(expression))]
-    public override Expression? Visit(Expression? expression)
+    [return: NotNullIfNotNull(nameof(node))]
+    public override Expression? Visit(Expression? node)
     {
-        switch (expression)
+        switch (node)
         {
             case ShapedQueryExpression shapedQueryExpression:
                 return shapedQueryExpression.Update(
@@ -50,7 +49,7 @@ public class JetLiftOrderByPostprocessor(IRelationalTypeMappingSource typeMappin
                     relationalSplitCollectionShaperExpression.ChildIdentifier, (SelectExpression)newSelect, newInner);
                 return relationalSplitCollectionShaperExpression;
             case UpdateExpression or DeleteExpression:
-                return expression;
+                return node;
             case SelectExpression selectExpression:
                 {
                     Dictionary<int, (int? indexcol, OrderingExpression? orderexp, bool ascend, bool rewrite, bool referstocurouter)> columnsToRewrite = [];
@@ -90,9 +89,9 @@ public class JetLiftOrderByPostprocessor(IRelationalTypeMappingSource typeMappin
                         }
                     }
 
-                    if (columnsToRewrite.Count == 0 || columnsToRewrite.All(p => p.Value.rewrite == false))
+                    if (columnsToRewrite.Count == 0 || columnsToRewrite.All(p => !p.Value.rewrite))
                     {
-                        return base.Visit(expression);
+                        return base.Visit(node);
                     }
 
                     // A lift IS happening: ClearOrdering below wipes every ordering and we re-append only what's
@@ -163,12 +162,12 @@ public class JetLiftOrderByPostprocessor(IRelationalTypeMappingSource typeMappin
                     return result;
                 }
             case RelationalGroupByShaperExpression relationalGroupByShaperExpression:
-            {
-                return base.VisitExtension(relationalGroupByShaperExpression);
-            }
+                {
+                    return base.VisitExtension(relationalGroupByShaperExpression);
+                }
         }
 
-        return base.Visit(expression);
+        return base.Visit(node);
     }
 
     private SelectExpression AddAliasManager(SelectExpression selectExpression)

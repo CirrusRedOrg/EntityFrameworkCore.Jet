@@ -29,7 +29,9 @@ public class LibRedMethodCallTranslatorProvider : RelationalMethodCallTranslator
                 new JetConvertTranslator(sqlExpressionFactory),
                 new JetDateDiffFunctionsTranslator(sqlExpressionFactory),
                 new JetDateOnlyMethodTranslator(sqlExpressionFactory),
-                new JetDateTimeMethodTranslator(sqlExpressionFactory),
+                options.SqlMode == LibRedSqlMode.Compatible
+                    ? new JetDateTimeMethodTranslator(sqlExpressionFactory)
+                    : new LibRedDateTimeMethodTranslator(sqlExpressionFactory),
                 new JetIsDateFunctionTranslator(sqlExpressionFactory),
                 options.SqlMode == LibRedSqlMode.Compatible
                     ? new JetMathTranslator(sqlExpressionFactory)

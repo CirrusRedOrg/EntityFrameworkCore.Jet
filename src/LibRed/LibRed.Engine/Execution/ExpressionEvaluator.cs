@@ -265,6 +265,7 @@ internal sealed partial class ExpressionEvaluator(
             // rounds to the second, so Second(0.00001) is 0 here and 1 in ACE.
             "DATEADD" => DateAdd(f),
             "DATEDIFF" => DateDiff(f),
+            "DATEDIFF_BIG" => DateDiffBig(f),
             "DATESERIAL" => DateParts(f, DateSerial),
             "TIMESERIAL" => DateParts(f, static (h, m, s) => OaDate((h * 3600 + m * 60 + s) / 86400.0)),
             "NOW" => DateTime.Now,
@@ -436,7 +437,7 @@ internal sealed partial class ExpressionEvaluator(
 
             "NOW" or "DATE" or "TIME" or "TIMER" or "GENUNIQUEID" or "GENGUID" => (0, 0),
             "DATEADD" => (3, 3),
-            "DATEDIFF" => (3, 5),
+            "DATEDIFF" or "DATEDIFF_BIG" => (3, 5),
             "DATEPART" => (2, 4),
             "DATESERIAL" or "TIMESERIAL" => (3, 3),
             "WEEKDAY" or "MONTHNAME" => (1, 2),
@@ -1875,29 +1876,17 @@ internal sealed partial class ExpressionEvaluator(
     /// <summary>
     /// Access <c>DateDiff(interval, date1, date2, [firstdayofweek], [firstweekofyear])</c> (verified vs ACE): the
     /// number of interval boundaries from date1 to date2, as a Long Integer. "w" is whole weeks of days, "ww" counts
-    /// the weeks' first days, and "h", "n" and "s" count hour, minute and second boundaries; a count past a Long
-    /// Integer is an overflow. The first day of the week matters only to "ww", and the first week of the year to none.
+    /// the weeks' first days, and "h", "n" and "s" count hour, minute and second boundaries. The first day of the
+    /// week matters only to "ww", and the first week of the year to none.
+    /// <para>A count past a Long Integer is Null</para>
     /// </summary>
-    private object? DateDiff(FunctionCall f)
+    private int? DateDiff(FunctionCall f)
     {
         if (Evaluate(f.Arguments[0]) is not { } intervalV || Evaluate(f.Arguments[1]) is not { } d1V
             || Evaluate(f.Arguments[2]) is not { } d2V)
             return null;
         DateTime d1 = ToDate(d1V), d2 = ToDate(d2V);
         string interval = ConcatText(intervalV).ToLowerInvariant();
-
-        // "ms" is a LibRed extension — ACE's interval list stops at "s". It is available because LibRed stores
-        // the full OA double rather than truncating to whole seconds as ACE does, and it is exact: .NET's OA
-        // conversion quantises to whole milliseconds, so nothing below a millisecond survived storage anyway
-        // (measured: 12:34:56.123 round-trips with zero tick loss, .1234560 comes back as .123).
-        //
-        // Handled before the switch, and as Int64 rather than the Long Integer every other interval returns: a
-        // millisecond difference overflows Int32 after 25 days, and ToUnixTimeMilliseconds spans decades. A
-        // long arm inside the switch would widen every other interval's result type along with it.
-        if (interval == "ms")
-        {
-            return (long)(d2 - d1).TotalMilliseconds;
-        }
 
         if (interval == "ww")
         {
@@ -1913,14 +1902,52 @@ internal sealed partial class ExpressionEvaluator(
             "m" => (d2.Year - d1.Year) * 12 + d2.Month - d1.Month,
             "y" or "d" => (d2.Date - d1.Date).Days,
             "w" => (d2.Date - d1.Date).Days / 7,
-            "h" => Boundaries(TimeSpan.TicksPerHour),
-            "n" => Boundaries(TimeSpan.TicksPerMinute),
-            "s" => Boundaries(TimeSpan.TicksPerSecond),
-            // "ms" is handled above, as Int64.
+            // Hours cannot pass a Long Integer between any two dates Access represents. Minutes and seconds
+            // can, and a count that does is Null — what ACE's result column gives, measured over OLE DB.
+            "h" => (int)(d2.Ticks / TimeSpan.TicksPerHour - d1.Ticks / TimeSpan.TicksPerHour),
+            "n" => d2.Ticks / TimeSpan.TicksPerMinute - d1.Ticks / TimeSpan.TicksPerMinute
+                is >= int.MinValue and <= int.MaxValue and var minutes ? (int)minutes : null,
+            "s" => d2.Ticks / TimeSpan.TicksPerSecond - d1.Ticks / TimeSpan.TicksPerSecond
+                is >= int.MinValue and <= int.MaxValue and var seconds ? (int)seconds : null,
+            "ms" => (long)(d2 - d1).TotalMilliseconds
+                is >= int.MinValue and <= int.MaxValue and var milliseconds ? (int)milliseconds : null,
             _ => throw UnknownInterval(intervalV),
         };
+    }
 
-        int Boundaries(long unit) => checked((int)(d2.Ticks / unit - d1.Ticks / unit));
+    /// <summary>
+    /// <c>DateDiff_Big(interval, date1, date2, [firstdayofweek], [firstweekofyear])</c> — the same
+    /// boundaries <see cref="DateDiff"/> counts, over the same interval table, counted into an <b>Int64</b>. A
+    /// LibRed extension: ACE has no such function, and the Jet-dialect generator never emits it.
+    /// </summary>
+    private long? DateDiffBig(FunctionCall f)
+    {
+        if (Evaluate(f.Arguments[0]) is not { } intervalV || Evaluate(f.Arguments[1]) is not { } d1V
+            || Evaluate(f.Arguments[2]) is not { } d2V)
+            return null;
+        DateTime d1 = ToDate(d1V), d2 = ToDate(d2V);
+        string interval = ConcatText(intervalV).ToLowerInvariant();
+
+        if (interval == "ww")
+        {
+            if (FirstDayOfWeek(f, 3) is not { } first)
+                return null;
+            return (long)((d2.Date.AddDays(-DaysIntoWeek(d2, first)) - d1.Date.AddDays(-DaysIntoWeek(d1, first))).Days / 7);
+        }
+
+        return interval switch
+        {
+            "yyyy" => (long)(d2.Year - d1.Year),
+            "q" => (long)((d2.Year - d1.Year) * 4 + (d2.Month - 1) / 3 - (d1.Month - 1) / 3),
+            "m" => (long)((d2.Year - d1.Year) * 12 + d2.Month - d1.Month),
+            "y" or "d" => (long)(d2.Date - d1.Date).Days,
+            "w" => (long)((d2.Date - d1.Date).Days / 7),
+            "h" => d2.Ticks / TimeSpan.TicksPerHour - d1.Ticks / TimeSpan.TicksPerHour,
+            "n" => d2.Ticks / TimeSpan.TicksPerMinute - d1.Ticks / TimeSpan.TicksPerMinute,
+            "s" => d2.Ticks / TimeSpan.TicksPerSecond - d1.Ticks / TimeSpan.TicksPerSecond,
+            "ms" => (long)(d2 - d1).TotalMilliseconds,
+            _ => throw UnknownInterval(intervalV),
+        };
     }
 
     // Access truthiness: a filter/logical context treats any non-zero number as true (so a boolean stored

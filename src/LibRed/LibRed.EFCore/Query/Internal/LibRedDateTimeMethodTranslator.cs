@@ -1,12 +1,13 @@
+using EntityFrameworkCore.Jet.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
-namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
+namespace EntityFrameworkCore.LibRed.Query.Internal
 {
     /// <summary>
     ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public class JetDateTimeMethodTranslator(ISqlExpressionFactory sqlExpressionFactory) : IMethodCallTranslator
+    public class LibRedDateTimeMethodTranslator(ISqlExpressionFactory sqlExpressionFactory) : IMethodCallTranslator
     {
         private readonly JetSqlExpressionFactory _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
@@ -81,7 +82,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             if (_methodInfoDateDiffMapping.TryGetValue(method, out var timePart))
             {
                 return _sqlExpressionFactory.Function(
-                    "DATEDIFF",
+                    "DATEDIFF_BIG",
                     [
                         new SqlConstantExpression(timePart, null),
                         _sqlExpressionFactory.Constant(DateTimeOffset.UnixEpoch, instance!.TypeMapping),

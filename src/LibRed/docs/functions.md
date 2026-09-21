@@ -96,7 +96,7 @@ procedure call, and a result past a Double an overflow.
 ### Date and time
 
 - **Current** — `Now` `Date` `Time` `Timer`
-- **Arithmetic** — `DateAdd` `DateDiff` `DatePart` `DateSerial` `TimeSerial`
+- **Arithmetic** — `DateAdd` `DateDiff` `DateDiff_Big` `DatePart` `DateSerial` `TimeSerial`
 - **Parsing** — `DateValue` `TimeValue`
 - **Parts** — `Year` `Month` `Day` `Hour` `Minute` `Second` `Weekday` (Sunday = 1)
 - **Names** — `MonthName` `WeekdayName`
@@ -235,7 +235,8 @@ syntax, not a function).
 
 - **`DatePart`** also takes `"ms"`, `"mcs"` and `"ns"`: the millisecond, microsecond and nanosecond of the time.
 - **`DateAdd`** also takes `"ms"`.
-- **`DateDiff`** also takes `"ms"`, counting in **Int64** — a millisecond difference passes Int32 after 25 days.
+- **`DateDiff`** also takes `"ms"` — Returns an Int32
+- **`DateDiff_Big(interval, date1, date2, …)`**, Returns an Int64
 
 ACE's interval list stops at `"s"`.
 

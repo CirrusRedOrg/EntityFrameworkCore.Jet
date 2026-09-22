@@ -252,10 +252,25 @@ public class DateFunctionTests(DateFunctionTests.Database database)
     [Theory]
     [InlineData("DATESERIAL(2020, 1, 32768)")]
     [InlineData("TIMESERIAL(0, 0, 32768)")]
-    [InlineData("DATEDIFF('s', #0100-01-01#, #9999-12-31#)")]
-    [InlineData("DATEDIFF('n', #0100-01-01#, #9999-12-31#)")]
     public void Values_past_their_type_overflow(string expression) =>
         Assert.Throws<OverflowException>(() => Scalar(expression));
+
+    // DATEDIFF counts into a Long Integer and gives Null for a span that will not fit — what ACE's result
+    // column gives, measured over OLE DB, rather than an error. Minutes and seconds are the intervals that
+    // can pass it; DATEDIFF_BIG is the one that counts the same span in an Int64.
+    [Theory]
+    [InlineData("DATEDIFF('s', #0100-01-01#, #9999-12-31#)")]
+    [InlineData("DATEDIFF('n', #0100-01-01#, #9999-12-31#)")]
+    [InlineData("DATEDIFF('ms', #0100-01-01#, #9999-12-31#)")]
+    public void A_count_past_a_long_integer_is_null(string expression) =>
+        Assert.Null(Scalar(expression));
+
+    [Theory]
+    [InlineData("DATEDIFF_BIG('s', #0100-01-01#, #9999-12-31#)")]
+    [InlineData("DATEDIFF_BIG('n', #0100-01-01#, #9999-12-31#)")]
+    [InlineData("DATEDIFF_BIG('ms', #0100-01-01#, #9999-12-31#)")]
+    public void DateDiff_Big_counts_the_same_span(string expression) =>
+        Assert.IsType<long>(Scalar(expression));
 
     [Theory]
     [InlineData("DATEVALUE(43832.5)")]

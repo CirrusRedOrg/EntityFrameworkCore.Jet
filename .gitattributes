@@ -4,6 +4,20 @@
 * text=auto
 
 ###############################################################################
+# C# sources check out CRLF on every platform.
+#
+# .editorconfig pins end_of_line = crlf for [*.cs] and [*.{cs,vb}], and
+# EnforceCodeStyleInBuild makes IDE0055 a build error in src. Under `text=auto`
+# alone the working tree takes the platform's ending, so a Linux or macOS
+# checkout gets LF and every line then violates that rule while Windows builds
+# clean. Pinning the checkout here keeps the one setting that decides this in
+# agreement with the one that enforces it. The index is unaffected — it stores
+# LF either way.
+###############################################################################
+*.cs text eol=crlf
+*.vb text eol=crlf
+
+###############################################################################
 # Set default behavior for command prompt diff.
 #
 # This is need for earlier builds of msysgit that does not have it on by

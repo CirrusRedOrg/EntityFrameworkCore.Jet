@@ -4,6 +4,14 @@ namespace LibRed.Engine.Execution;
 /// The <c>LIKE</c> match with ANSI-92 wildcards, the set EF Core emits over both OLE DB and ODBC (verified vs ACE).
 /// </summary>
 /// <remarks>
+/// <para><b>The wildcard set belongs to the connection, not to the database file</b> — measured over ACE
+/// across nine combinations. OLE DB is ANSI-92 for ad-hoc SQL and for saved queries alike; ODBC is too once
+/// <c>ExtendedAnsiSQL=1</c> is set, which <c>JetConnection</c> sets on every ODBC connection it makes. Only a
+/// bare ODBC connection — one this repo never opens — reads a saved query's pattern as ANSI-89. The
+/// <c>MSysDb</c> property <c>ANSI Query Mode</c> changes none of it: it is an Access application setting the
+/// engine does not consult, so there is one wildcard set here, not two. Access's own saved queries are full
+/// of <c>*</c> patterns, which makes the opposite look true; it isn't, and this is the expensive way to find
+/// out. See <c>system-catalog.md</c>.</para>
 /// <list type="bullet">
 /// <item><c>%</c> matches any run and <c>_</c> any one character. <c>*</c>, <c>?</c> and <c>#</c> are plain
 /// characters.</item>

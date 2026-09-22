@@ -85,8 +85,10 @@ public sealed record StoredQueryParameter(
     string Name, JetDataType? Type, int? Size = null, int? Precision = null, int? Scale = null);
 
 /// <summary>
-/// A view's decomposed "simple SELECT" — the columns, source tables, joins and WHERE (all verbatim text) —
-/// that Access stores as MSysQueries rows. Aggregates / GROUP BY / HAVING / ORDER BY are not permitted.
+/// A view's decomposed "simple SELECT" — the columns, source tables, joins, WHERE, GROUP BY, HAVING and
+/// ORDER BY (all verbatim text) — that Access stores as MSysQueries rows. <paramref name="GroupBy"/> and
+/// <paramref name="Having"/> together are what Access calls a "totals" query: the aggregate output columns
+/// are ordinary column rows, and only the grouping keys and the group filter get rows of their own.
 /// </summary>
 public sealed record ViewSpec(
     bool Distinct,
@@ -95,6 +97,7 @@ public sealed record ViewSpec(
     IReadOnlyList<ViewJoinSpec> Joins,
     string? Where,
     IReadOnlyList<string>? GroupBy = null,
+    string? Having = null,
     IReadOnlyList<ViewParameterSpec>? Parameters = null,
     IReadOnlyList<ViewOrderBySpec>? OrderBy = null,
     int? Top = null);

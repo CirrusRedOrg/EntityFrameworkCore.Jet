@@ -712,6 +712,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             j.Condition, j.LeftAlias, j.RightAlias)).ToList(),
         d.Where,
         d.GroupBy,
+        d.Having,
         Parameters: null,
         OrderBy: d.OrderBy.Select(o => new ViewOrderBySpec(o.Expression, o.Descending)).ToList(),
         Top: d.Top);

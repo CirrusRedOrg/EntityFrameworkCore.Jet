@@ -288,6 +288,9 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         AddJoinAndWhereRows(mq, objectId, spec);
         for (int i = 0; i < (spec.GroupBy?.Count ?? 0); i++)
             Row(mq, objectId, StoredQueryFormat.AttrGroupBy, order: i + 1, flag: 0, expression: spec.GroupBy![i]);
+        // The group filter carries no flag of its own, exactly as the WHERE row doesn't.
+        if (spec.Having is { } having)
+            Row(mq, objectId, StoredQueryFormat.AttrHaving, order: 1, expression: having);
         for (int i = 0; i < (spec.OrderBy?.Count ?? 0); i++)
             Row(mq, objectId, StoredQueryFormat.AttrOrderBy, order: i + 1, expression: spec.OrderBy![i].Expression,
                 name1: spec.OrderBy[i].Descending ? "d" : null);

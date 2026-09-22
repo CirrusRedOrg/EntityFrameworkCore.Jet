@@ -215,9 +215,10 @@ public sealed record ViewColumn(string Expression, string? Alias);
 /// MSysQueries <c>Attribute=0x0B</c> row — Expression = the sort column, Name1 = "d" for descending).</summary>
 public sealed record ViewOrderBy(string Expression, bool Descending);
 
-/// <summary>A view's decomposed SELECT (columns/tables/joins/where/group-by, all as verbatim text), which
-/// Access stores as MSysQueries rows. A GROUP BY makes it a "totals" query (aggregate columns are ordinary
-/// column rows; the group-by columns are separate rows). HAVING and ORDER BY are not stored yet.</summary>
+/// <summary>A view's decomposed SELECT (columns/tables/joins/where/group-by/having, all as verbatim text),
+/// which Access stores as MSysQueries rows. A GROUP BY makes it a "totals" query (aggregate columns are
+/// ordinary column rows; the group-by columns are separate rows), and <paramref name="Having"/> is that
+/// query's own filter over the groups, stored as its own <c>Attribute=0x0A</c> row.</summary>
 public sealed record ViewDefinition(
     bool Distinct,
     IReadOnlyList<ViewColumn> Columns,
@@ -225,6 +226,7 @@ public sealed record ViewDefinition(
     IReadOnlyList<ViewJoin> Joins,
     string? Where,
     IReadOnlyList<string> GroupBy,
+    string? Having,
     IReadOnlyList<ViewOrderBy> OrderBy,
     int? Top);
 

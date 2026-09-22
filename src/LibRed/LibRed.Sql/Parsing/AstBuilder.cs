@@ -530,7 +530,7 @@ internal static class AstBuilder
         return new ViewDefinition(
             Distinct: false, Columns: [], tables, joins,
             where is null ? null : OriginalText(where.expression()),
-            GroupBy: [], OrderBy: [], Top: null);
+            GroupBy: [], Having: null, OrderBy: [], Top: null);
     }
 
     /// <summary>A declared parameter's name, with any leading <c>@</c> stripped — Access stores the bare
@@ -632,9 +632,9 @@ internal static class AstBuilder
     private static FrameBound LowerBound(FrameBound bound, HashSet<string> names) =>
         bound.Offset is null ? bound : bound with { Offset = LowerExpr(bound.Offset, names) };
 
-    /// <summary>Decomposes a view's "simple SELECT" into the columns/tables/joins/where Access stores as
-    /// MSysQueries rows. Rejects anything Access itself rejects in a view (UNION, GROUP BY/aggregates,
-    /// HAVING, ORDER BY) or that we can't decompose (a derived-table/subquery source).</summary>
+    /// <summary>Decomposes a view's "simple SELECT" into the columns/tables/joins/where/group-by/having
+    /// Access stores as MSysQueries rows. Rejects what we can't decompose into them: a UNION (which Access
+    /// stores as segment rows instead) and a parenthesised query.</summary>
     private static ViewDefinition BuildViewDefinition(QueryExpressionContext ctx)
     {
         if (ctx.setOperator().Length > 0)
@@ -643,10 +643,10 @@ internal static class AstBuilder
             throw new NotSupportedException("A parenthesised query is not a valid (simple) view.");
 
         QuerySpecificationContext select = term.querySpecification();
-        if (select.havingClause() is not null)
-            throw new NotSupportedException("A view with HAVING is not stored yet.");
         var groupBy = select.groupByClause() is { } g
             ? g.expression().Select(OriginalText).ToList() : (IReadOnlyList<string>)[];
+        // The group filter of a "totals" query, stored verbatim in its own row alongside the GROUP BY ones.
+        string? having = select.havingClause() is { } h ? OriginalText(h.expression()) : null;
         // The view's ORDER BY comes off the query expression, not the SELECT: it orders the view's result.
         var orderBy = ctx.orderByClause() is { } ob
             ? ob.orderByItem().Select(i => new ViewOrderBy(OriginalText(i.expression()), i.dir?.Type == DESC)).ToList()
@@ -673,7 +673,7 @@ internal static class AstBuilder
             CollectSources(ts, tables, joins);
 
         string? where = select.whereClause() is { } w ? OriginalText(w.expression()) : null;
-        return new ViewDefinition(select.predicate?.DISTINCT() is not null, columns, tables, joins, where, groupBy, orderBy, top);
+        return new ViewDefinition(select.predicate?.DISTINCT() is not null, columns, tables, joins, where, groupBy, having, orderBy, top);
     }
 
     private static void CollectSources(TableSourceContext ts, List<ViewSource> tables, List<ViewJoin> joins)
@@ -1217,8 +1217,22 @@ internal static class AstBuilder
     private static string FunctionName(FunctionNameContext ctx) =>
         ctx.identifier() is { } id ? Identifier(id) : ctx.GetText();
 
-    private static ColumnReference BuildColumn(ColumnRefContext ctx) =>
-        new ColumnReference(OptionalIdentifier(ctx.qualifier), Identifier(ctx.name));
+    /// <summary>
+    /// A column reference. Access's own query designer writes a qualified column as ONE delimited name —
+    /// <c>[Order Details.UnitPrice]</c> rather than <c>[Order Details].[UnitPrice]</c> — and resolves it as
+    /// table.column, so a saved query read back out of MSysQueries arrives in that form. A period cannot
+    /// appear in an Access object name, which is what makes the split unambiguous: a dot inside the
+    /// delimiters is always the qualifier. An undelimited <c>a.b</c> never reaches here as one name — the
+    /// grammar has already split it — so this only ever rewrites what was bracketed or backticked.
+    /// </summary>
+    private static ColumnReference BuildColumn(ColumnRefContext ctx)
+    {
+        string? qualifier = OptionalIdentifier(ctx.qualifier);
+        string name = Identifier(ctx.name);
+        if (qualifier is null && name.IndexOf('.', StringComparison.Ordinal) is var dot && dot > 0 && dot < name.Length - 1)
+            return new ColumnReference(name[..dot], name[(dot + 1)..]);
+        return new ColumnReference(qualifier, name);
+    }
 
     /// <summary><c>x IN (a, b, …)</c> becomes a flat <see cref="InListExpression"/> evaluated iteratively — NOT a
     /// deep <c>(x = a) OR (x = b) OR …</c> tree, which recurses once per item and overflows the stack when EF Core

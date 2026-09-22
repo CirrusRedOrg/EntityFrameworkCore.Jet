@@ -87,6 +87,31 @@
   > one place the value matters is [data-types.md](data-types.md), where it says which files carry the
   > unmodelled `0x11` column.
   >
+  > **`ANSI Query Mode`** — an `MSysDb` property, empty owner, `dataType` `0x04` (Int32), holding a 4-byte
+  > little-endian `0` or `1`. It is the per-database half of Access's *Object Designers → SQL Server
+  > Compatible Syntax (ANSI 92)* option: `0` = ANSI-89, `1` = ANSI-92. (The *"Default for new databases"*
+  > checkbox beside it is an application setting and appears nowhere in any file; it only decides what Access
+  > stamps into the next database it creates.) The two modes name the `LIKE` wildcard sets — ANSI-89 `*` `?`
+  > `#`, ANSI-92 `%` `_`. **Verified** across 38 files: 33 carry `0`, 5 carry `1`.
+  >
+  > **The engine does not consult it.** Measured over ACE in nine combinations: the property set to absent,
+  > `0` or `1` × OLE DB / ODBC / ODBC with `ExtendedAnsiSQL=1` gives identical results, for ad-hoc SQL and for
+  > a saved query alike, whether the saved query was written by ACE itself or by LibRed. The wildcard set
+  > comes from the **connection**: OLE DB is ANSI-92, plain ODBC reads a saved query's pattern as ANSI-89, and
+  > ODBC with `ExtendedAnsiSQL=1` — which `JetConnection` sets on every ODBC connection — is ANSI-92 again.
+  > So this property records what Access's own UI will do with the file, not what any engine does with it.
+  >
+  > **Absent is not the same as `0`.** A clear checkbox is recorded as an explicit `0`; absent means nothing
+  > ever wrote the property. Neither DAO nor Access-on-first-open writes it: a pristine DAO 2000 file carries
+  > an `MSysDb` row with **zero** properties, and after Access opens it the row has nine — still not this one
+  > (verified). Ten of the corpus files carry a populated blob without it, Northwind among them, so absent is
+  > an ordinary state rather than an old-format quirk.
+  >
+  > LibRed neither reads nor writes it, because acting on it would diverge from the engine: its SQL surface is
+  > ANSI-92 throughout, which is what every connection into an ACE database uses. Note the trap — Access's
+  > saved queries are full of ANSI-89 `*` patterns (17 of the 17 extractable ones in the corpus), which makes
+  > it look as though the file's mode must be driving them. It isn't; the connection is.
+  >
   > **Property-reader/writer guardrails.** LibRed validates the signature and consumes the blob exactly to
   > its end. Every block, pooled UTF-16 name, owner record, property entry, name-pool index, and value length
   > must remain within its declared parent and use the exact nested lengths above. `Read`,
@@ -254,7 +279,8 @@
   `Customers.CustomerID = Orders.CustomerID` → `Name1=Customers`, `Name2=Orders`), `0x08` = WHERE
   (`Expression`), `0x09` = a **GROUP BY** column (`Expression`; one row per group column, in order —
   their presence makes it a "totals" query, and the aggregate output columns are ordinary `0x06` rows,
-  e.g. `Expression=Sum(...)`), `0x0A` = a **HAVING** predicate (`Expression`), `0x0B` = an **ORDER BY** key (`Expression`=the sort column, `Name1`=`"d"`
+  e.g. `Expression=Sum(...)`), `0x0A` = a **HAVING** predicate over those groups (`Expression`; one row, and — like the `0x08` WHERE
+  row — it carries no `Flag` at all, verified), `0x0B` = an **ORDER BY** key (`Expression`=the sort column, `Name1`=`"d"`
   for **descending**, absent for ascending; one row per key, `Order` 1-based — verified), `0x0C` = **complex-type
   data** (`Flag 1` = long-text version history, `Flag 2` = MVF / attachment), `0xFF` = end. A **FROM source** (`0x05`) is either a **named table**
   (`Name1`=table, `Name2`=alias), a **derived table / subquery** (`Expression`=the verbatim inner

@@ -192,9 +192,14 @@ public class ActionQueryProcedureAccessTests
 
             using var db = JetDatabase.Open(path);
             Assert.False(db.Catalog.ActionQueries.ContainsKey("CountriesWithManyCustomers"));
-            // Complex ACE-authored SELECT queries are deliberately omitted until their MSysQueries attributes
-            // can be reconstructed losslessly; they must not appear as a different executable query shape.
-            Assert.False(db.Catalog.Views.ContainsKey("CountriesWithManyCustomers"));
+
+            // A grouped SELECT is a view, and its HAVING rides along: the Attribute=0x0A row beside the
+            // Attribute=9 GROUP BY ones. Reading the GROUP BY while silently dropping the HAVING would
+            // reconstruct a query that returns every country — a wrong answer, not a missing feature — so the
+            // clause has to survive into the rebuilt SQL.
+            Assert.True(db.Catalog.Views.TryGetValue("CountriesWithManyCustomers", out string? sql));
+            Assert.Contains("GROUP BY", sql, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("HAVING", sql, StringComparison.OrdinalIgnoreCase);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

@@ -341,8 +341,11 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
                             (r[n1] as string) is { } alias ? $"{r[expr] as string} AS {Quote(alias)}" : r[expr] as string ?? ""));
                     var groupBy = OfAttr(StoredQueryFormat.AttrGroupBy).Select(r => r[expr] as string ?? "").ToList();
                     string grouping = groupBy.Count > 0 ? $" GROUP BY {string.Join(", ", groupBy)}" : "";
+                    string having = OfAttr(StoredQueryFormat.AttrHaving)
+                        .Select(r => r[expr] as string).FirstOrDefault(s => !string.IsNullOrEmpty(s)) is { } h
+                        ? $" HAVING {h}" : "";
                     return new StoredActionQuery(
-                        $"{declared}SELECT {selected} INTO {Quote(action[n1] as string ?? "")} FROM {intoSource.From}{Where()}{grouping}", null);
+                        $"{declared}SELECT {selected} INTO {Quote(action[n1] as string ?? "")} FROM {intoSource.From}{Where()}{grouping}{having}", null);
                 }
         }
 
@@ -486,11 +489,11 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
         static int Ord(object? v) => v is byte[] b && b.Length >= 4 ? System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(b) : 0;
         IEnumerable<object?[]> OfAttr(byte a) => rows.Where(r => r[attr] is byte b && b == a).OrderBy(r => Ord(r[order]));
 
-        // Bail out if the query uses attributes beyond a simple SELECT: a HAVING clause (0x0A), a pass-through
-        // connection string (0x04) or complex-type data (0x0C) all mean this is not a shape we can render.
+        // Bail out if the query uses attributes beyond a simple SELECT: a pass-through connection string
+        // (0x04) or complex-type data (0x0C) mean this is not a shape we can render.
         // AttrOperation is in the list because a SELECT may carry one — the caller has already checked that
         // its kind IS SELECT, so reaching here with any other kind is impossible.
-        var known = new byte[] { StoredQueryFormat.AttrType, StoredQueryFormat.AttrOperation, StoredQueryFormat.AttrParameter, StoredQueryFormat.AttrOption, StoredQueryFormat.AttrTable, StoredQueryFormat.AttrColumn, StoredQueryFormat.AttrJoin, StoredQueryFormat.AttrWhere, StoredQueryFormat.AttrGroupBy, StoredQueryFormat.AttrOrderBy, 0xFF };
+        var known = new byte[] { StoredQueryFormat.AttrType, StoredQueryFormat.AttrOperation, StoredQueryFormat.AttrParameter, StoredQueryFormat.AttrOption, StoredQueryFormat.AttrTable, StoredQueryFormat.AttrColumn, StoredQueryFormat.AttrJoin, StoredQueryFormat.AttrWhere, StoredQueryFormat.AttrGroupBy, StoredQueryFormat.AttrHaving, StoredQueryFormat.AttrOrderBy, 0xFF };
         if (rows.Any(r => r[attr] is byte b && !known.Contains(b))) return null;
 
         // A column row's Name1 (when present) is its output alias.
@@ -524,6 +527,9 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
             .Select(r => (r[expr] as string ?? "") + (string.Equals(r[n1] as string, "d", StringComparison.OrdinalIgnoreCase) ? " DESC" : ""))
             .Where(s => s.Length > 0).ToList();
         var groupBy = OfAttr(StoredQueryFormat.AttrGroupBy).Select(r => r[expr] as string ?? "").ToList();
+        // HAVING: a single AttrHaving row holding the predicate verbatim, carrying no flag of its own.
+        string? having = OfAttr(StoredQueryFormat.AttrHaving)
+            .Select(r => r[expr] as string).FirstOrDefault(s => !string.IsNullOrEmpty(s));
         string? whereClause = WhereClause(rows, attr, expr, order, source?.Extra ?? []);
 
         var sql = new System.Text.StringBuilder(ParametersClause(rows, attr, flag, n1, order, lvExtra));
@@ -535,6 +541,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
         if (source is { } from) sql.Append(" FROM ").Append(from.From);
         if (whereClause is not null) sql.Append(" WHERE ").Append(whereClause);
         if (groupBy.Count > 0) sql.Append(" GROUP BY ").Append(string.Join(", ", groupBy));
+        if (having is not null) sql.Append(" HAVING ").Append(having);
         if (orderBy.Count > 0) sql.Append(" ORDER BY ").Append(string.Join(", ", orderBy));
         return sql.ToString();
     }

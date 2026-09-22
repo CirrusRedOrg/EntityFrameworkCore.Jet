@@ -286,10 +286,45 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
         foreach (var (table, id, values) in order)
         {
+            DeleteComplexValues(table, values);
             foreach (IndexDef index in table.Definition.Indexes.Where(i => i.RootPage > 0)
                 .GroupBy(i => i.RootPage).Select(g => g.First()))
                 table.RemoveIndexEntry(index, values, id);
             table.Delete(id);
+        }
+    }
+
+    /// <summary>
+    /// Removes the values every complex (multi-value / attachment) column of <paramref name="table"/> holds
+    /// for the row being deleted — the flat-table rows carrying that record's complex id.
+    /// </summary>
+    /// <remarks>
+    /// Measured against ACE (<c>ComplexDeleteCascadeProbeTest</c>): deleting a record removes its values from
+    /// <b>every</b> complex column of the table — a record holding three attachments in one column and two in
+    /// another loses all five — and rolls <b>no</b> counter back. The owner's <c>0x1C</c> and each flat
+    /// table's <c>0x14</c> keep their values, so the next row still takes the following id and the freed
+    /// value ids are never reissued. Leaving the rows behind would orphan values no record points at.
+    /// </remarks>
+    private void DeleteComplexValues(Table table, object?[] values)
+    {
+        foreach (ComplexColumn complex in _database.Catalog.ComplexColumns)
+        {
+            if (!string.Equals(complex.OwnerTable.Name, table.Name, StringComparison.OrdinalIgnoreCase)) continue;
+            if (values[complex.OwnerTable.FindColumn(complex.ColumnName)!.Index] is not { } raw) continue;
+            int recordId = Convert.ToInt32(raw, System.Globalization.CultureInfo.InvariantCulture);
+
+            Table flat = _database.OpenTable(complex.FlatTable.Name);
+            foreach ((RowId flatId, object?[] flatValues) in flat.Rows().WithIds().ToList())
+            {
+                if (flatValues[complex.OwnerLink.Index] is not { } link
+                    || Convert.ToInt32(link, System.Globalization.CultureInfo.InvariantCulture) != recordId)
+                    continue;
+
+                foreach (IndexDef index in flat.Definition.Indexes.Where(i => i.RootPage > 0)
+                    .GroupBy(i => i.RootPage).Select(g => g.First()))
+                    flat.RemoveIndexEntry(index, flatValues, flatId);
+                flat.Delete(flatId);
+            }
         }
     }
 

@@ -266,7 +266,13 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         JetFormatBase format = _channel.Format;
 
         // Free the deleted row's chained long-value pages — held until close, as ACE holds them.
-        var oldDescriptors = new RowDecoder(_table.Columns, format).LongValueRaw(ReadRowBytes(id));
+        byte[] rowBytes = ReadRowBytes(id);
+        var oldDescriptors = new RowDecoder(_table.Columns, format).LongValueRaw(rowBytes);
+
+        // Which real indexes this row was the LAST holder of a key for. Asked before the row goes, and with
+        // the row itself excluded, so the answer is "does another row still carry this key" either way —
+        // the caller may or may not have removed this row's entries yet.
+        HashSet<int> lastKeyLost = IndexesLosingTheirLastKey(format, rowBytes, id);
         foreach (ColumnDef column in _table.Columns)
             if ((column.Type is JetDataType.Memo or JetDataType.Ole || column.HasLongValueMap)
                 && oldDescriptors.TryGetValue(column.Index, out byte[]? d))
@@ -302,9 +308,55 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             _channel.ReadPage(_table.DefinitionPage, tdef);
             int rowCount = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4));
             BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4), rowCount - 1);
+
+            // ACE's index entry counts on delete, measured against a DAO delete of the same row
+            // (ComplexDeleteByteParityProbeTest): the TOTAL count (+0) drops by one on every real index, and
+            // the UNIQUE count (+4) only where the row was the last holder of its key. Deliberately NOT the
+            // mirror of insert, which leaves the total alone and only raises the unique count — so the total
+            // drifts downward across insert/delete cycles in ACE too. Faithful, not tidy.
+            //
+            // A total already reading 0 is the exception: ACE leaves that index's pair ENTIRELY alone, unique
+            // included. Measured on the same probe — a flat table's index with total 0 and unique 3 came back
+            // from a DAO delete still 0 and 3, while its siblings with a non-zero total each dropped by one.
+            // So it is not a clamp (a clamp would still have taken unique to 2); a zero total marks a counter
+            // ACE is not maintaining, and it stops touching the pair. Without this the totals go negative.
+            foreach (IndexDef index in _table.Indexes.GroupBy(i => i.RealIndexOrdinal).Select(g => g.First()))
+            {
+                int at = format.TdefRealIndexBlockOffset + index.RealIndexOrdinal * format.RealIndexEntrySize;
+                int total = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(at, 4));
+                if (total == 0) continue;
+                BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(at, 4), total - 1);
+
+                if (!lastKeyLost.Contains(index.RealIndexOrdinal)) continue;
+                int unique = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(at + 4, 4));
+                BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(at + 4, 4), unique - 1);
+            }
+
             _channel.WritePage(_table.DefinitionPage, tdef.AsSpan(0, format.PageSize));
         }
         finally { ArrayPool<byte>.Shared.Return(tdef); }
+    }
+
+    /// <summary>
+    /// The real-index ordinals for which the row at <paramref name="id"/> holds the only copy of its key, so
+    /// removing the row also removes a distinct key. An index the row is excluded from (IgnoreNulls with a
+    /// null key) never counted it, so it is never counted down either — the mirror of the insert side.
+    /// </summary>
+    private HashSet<int> IndexesLosingTheirLastKey(JetFormatBase format, byte[] rowBytes, RowId id)
+    {
+        var lost = new HashSet<int>();
+        if (_table.Indexes.Count == 0) return lost;
+
+        object?[] values = new RowDecoder(_table.Columns, format).Decode(rowBytes);
+        var writer = new IndexWriter(_channel, _table);
+        foreach (IndexDef index in _table.Indexes.GroupBy(i => i.RealIndexOrdinal).Select(g => g.First()))
+        {
+            if (index.RootPage <= 0) continue;
+            if (index.IgnoreNulls && HasNullKey(index, values)) continue;
+            if (!writer.KeyExists(index, values, (id.Page << 8) | id.Row))
+                lost.Add(index.RealIndexOrdinal);
+        }
+        return lost;
     }
 
     /// <summary>Reclaims the row a relocation pointer forwards to, on whatever page it lives. The pointer
@@ -1009,9 +1061,16 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         ReadOnlySpan<byte> tdef = _channel.ReadPageShared(_table.DefinitionPage).Span;
         int highWater = BinaryPrimitives.ReadInt32LittleEndian(tdef.Slice(format.TdefLastAutoNumberOffset, 4));
 
+        // A complex (multi-value / attachment) column is an AutoNumber too, but it draws on its own counter
+        // at 0x1C and there is ONE id per row shared by every complex column of the table — the counter is a
+        // single TDEF word, not one per column (verified: complex1.accdb's Table1 has four attachment columns
+        // and each record carries the same id in all four). So it is assigned once here, outside the 0x14
+        // loop below, which must skip these columns or they would consume the table's ordinary counter.
+        AssignComplexId(format, values, tdef);
+
         bool[] generated = new bool[values.Length];
         foreach (ColumnDef column in _table.Columns)
-            if (column.IsAutoNumber && values[column.Index] is null or DBNull)
+            if (column.IsAutoNumber && column.Type != JetDataType.Complex && values[column.Index] is null or DBNull)
             {
                 if (column.IsRandomAutoNumber)
                     // "Random" AutoNumber (DefaultValue = GenUniqueID()): a random Int32, independent of the
@@ -1028,6 +1087,26 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
                 }
             }
         return generated;
+    }
+
+    /// <summary>
+    /// Gives the row its complex id — one value from the table's <c>0x1C</c> high-water, written into every
+    /// complex column the caller left unset. The id identifies the <b>record</b>, so all of the table's
+    /// complex columns share it; each column's values are then the flat-table rows carrying it.
+    /// </summary>
+    /// <remarks>An id is allocated whether or not any value follows — that is what Access does, and it is why
+    /// a non-null complex id is no evidence that the record holds anything. A caller-supplied id is left
+    /// alone, as for any AutoNumber.</remarks>
+    private void AssignComplexId(JetFormatBase format, object?[] values, ReadOnlySpan<byte> tdef)
+    {
+        var complex = _table.Columns
+            .Where(c => c.Type == JetDataType.Complex && values[c.Index] is null or DBNull)
+            .ToList();
+        if (complex.Count == 0) return;
+
+        int next = unchecked(BinaryPrimitives.ReadInt32LittleEndian(
+            tdef.Slice(format.TdefComplexAutoNumberOffset, 4)) + 1);
+        foreach (ColumnDef column in complex) values[column.Index] = next;
     }
 
     /// <summary>A random non-zero signed Int32 for a "Random" AutoNumber, mirroring Access's <c>GenUniqueID()</c>.</summary>
@@ -1052,9 +1131,12 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// each **unique** index (a unique index gets a distinct key per row) and each non-unique index in
     /// <paramref name="newKeys"/> (the row brings a key it does not hold yet). Access advances it on insert only,
     /// once per real index, and never decrements it. The sibling **total-entry count**
-    /// (`+0`) is deliberately left untouched: Access does **not** maintain it live — it is written only
+    /// (`+0`) is deliberately left untouched **on insert**: Access does not raise it there — it is written
     /// when the index is built (to its entries, in <c>TableCreator</c>'s back-fill) or the file compacted
-    /// (verified: an index created on an empty table reads total `0` through any number of inserts).</item>
+    /// (verified: an index created on an empty table reads total `0` through any number of inserts).
+    /// <b>Delete is not the mirror of this</b> — ACE drops the total by one on every real index when a row
+    /// goes, so the figure drifts downward across insert/delete cycles in ACE as much as here. Measured, and
+    /// matched, in <see cref="Delete"/>.</item>
     /// </list>
     /// </summary>
     private void UpdateTdefCounters(JetFormatBase format, object?[] values, bool[]? generatedAutoNumbers, HashSet<int> newKeys)
@@ -1064,9 +1146,26 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         int count = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4));
         BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4), count + 1);
 
+        // The record's complex id rides its own counter at 0x1C, and every complex column of the table holds
+        // the one id, so the high-water moves once. Deleting a row never rolls it back (verified vs ACE —
+        // ComplexDeleteCascadeProbeTest), which is the same high-water rule 0x14 follows.
+        if (_table.Columns.FirstOrDefault(c => c.Type == JetDataType.Complex) is { } complexColumn
+            && values[complexColumn.Index] is { } complexValue)
+        {
+            int assignedId = Convert.ToInt32(complexValue, CultureInfo.InvariantCulture);
+            int complexHighWater = BinaryPrimitives.ReadInt32LittleEndian(
+                tdef.AsSpan(format.TdefComplexAutoNumberOffset, 4));
+            if (assignedId > complexHighWater)
+                BinaryPrimitives.WriteInt32LittleEndian(
+                    tdef.AsSpan(format.TdefComplexAutoNumberOffset, 4), assignedId);
+        }
+
         foreach (ColumnDef column in _table.Columns)
         {
             if (!column.IsAutoNumber || values[column.Index] is not { } value) continue;
+            // Complex columns are AutoNumbers on their own 0x1C counter, handled above; they must not touch
+            // the table's ordinary one or a row would burn an id from both.
+            if (column.Type == JetDataType.Complex) continue;
             // A "Random" AutoNumber leaves the high-water at its default (Access ignores 0x14 for it — verified:
             // a UI-authored Random AutoNumber reads last-value 0). Advancing it would be meaningless (random ids
             // don't form a monotone sequence) and diverge from Access's on-disk state.

@@ -1649,11 +1649,14 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             maxCols + 1,
             format);
 
-        // Same single-counter rule the CREATE path and the promote path enforce; ADD COLUMN had neither.
-        if (spec.IsAutoNumber && table.Columns.Any(c => c.IsAutoNumber))
+        // Same single-counter rule the CREATE path and the promote path enforce; ADD COLUMN had neither. The
+        // rule is about the header's seed/increment pair, so complex columns — flagged 0x04 but allocated from
+        // 0x1C — are neither the existing counter nor a conflicting one.
+        if (spec.IsAutoNumber && spec.Type != JetDataType.Complex
+            && table.Columns.Any(c => c.IsAutoNumber && c.Type != JetDataType.Complex))
             throw new NotSupportedException(
                 $"Cannot add AutoNumber column '{spec.Name}': table '{table.Name}' already has one "
-                + "(Jet allows a single AutoNumber column per table).");
+                + "(Jet allows a single column to draw on the table's seed/increment counter).");
 
         var newColumn = new ColumnDef
         {
@@ -2190,13 +2193,15 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <summary>Promotes a plain Int32 column to an AutoNumber in place — ALTER COLUMN c COUNTER(seed, increment)
     /// where c is a plain integer. A counter is stored identically to a Long Integer, so this only sets the
     /// column descriptor's <c>0x04</c> AutoNumber flag and the header's seed/increment (<c>0x14</c>/<c>0x18</c>);
-    /// existing values are untouched. Jet allows only one AutoNumber per table, so it rejects a second; and (like
-    /// the reseed path) a column in a relationship is rejected, matching ACE.</summary>
+    /// existing values are untouched. Only one column may draw on that pair, so a second is rejected — complex
+    /// columns are flagged <c>0x04</c> too but allocate from <c>0x1C</c>, so they do not count as the existing
+    /// one; and (like the reseed path) a column in a relationship is rejected, matching ACE.</summary>
     private void PromoteColumnToCounter(TableDef table, ColumnDef col, int seed, int increment)
     {
-        if (table.Columns.Any(c => c.IsAutoNumber && c.ColumnId != col.ColumnId))
+        if (table.Columns.Any(c => c.IsAutoNumber && c.Type != JetDataType.Complex && c.ColumnId != col.ColumnId))
             throw new InvalidOperationException(
-                $"Cannot make '{col.Name}' an AutoNumber: table '{table.Name}' already has one (Jet allows a single AutoNumber column per table).");
+                $"Cannot make '{col.Name}' an AutoNumber: table '{table.Name}' already has one "
+                + "(Jet allows a single column to draw on the table's seed/increment counter).");
         EnsureColumnIsNotInRelationship(table, col);
 
         if (increment == 0) increment = 1;

@@ -171,7 +171,12 @@ public static class TdefBuilder
         // AutoNumber column would be written with the 0x04 flag set and no counter configuration of its own —
         // two columns then claiming one header counter at insert. ALTER's promote path already refuses this;
         // CREATE silently took the first and ignored the rest.
-        var counters = specs.Where(s => s.IsAutoNumber).ToList();
+        //
+        // Complex columns are exempt, and are not a second claimant: they carry the same 0x04 flag but are
+        // allocated from 0x1C, not from this pair. Counting them would refuse to rebuild any table that has an
+        // ordinary counter beside a complex column — complex1.accdb's Table1 has one of each kind — and could
+        // hand `counter` a complex spec whose seed/increment describe nothing.
+        var counters = specs.Where(s => s.IsAutoNumber && s.Type != JetDataType.Complex).ToList();
         if (counters.Count > 1)
             throw new NotSupportedException(
                 $"A table may have only one AutoNumber column; {string.Join(", ", counters.Select(c => $"'{c.Name}'"))} are all declared as one.");

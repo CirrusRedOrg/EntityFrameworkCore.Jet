@@ -826,28 +826,38 @@ Then the value, transformed:
   byte-for-byte against ACE-written keys (single- and multi-chunk); descending is **unverified** against ACE,
   extrapolated from the verified GUID descending. `IndexKeyEncoder.EncodeBinaryChunked`.
 
-### 10.4a Entry removal — LibRed compacts a leaf harder than ACE does
+### 10.4a Entry removal — a leaf is rewritten, not repacked
 
-Removing entries leaves the two engines with **identical index content and byte-different pages**. LibRed
-rewrites the leaf without the removed entries; ACE returns less of their space.
+Removing an entry rewrites the leaf **without changing how the survivors are stored**. Two rules together
+make a delete byte-identical to ACE's:
 
-> After the same `DROP TABLE`, the catalog index roots it touches hold the *same entries in the same order*
-> under both engines, while their free-space fields diverge:
->
-> | index root | before | ACE | LibRed |
-> |---|---|---|---|
-> | `MSysObjects.ParentIdName` | 3,046 | 3,064 | 3,136 |
-> | `MSysObjects.Id` | 3,436 | 3,445 | 3,463 |
-> | `MSysACEs.ObjectId` | 3,256 | 3,274 | 3,311 |
->
-> Since the surviving entries then sit at different offsets, the pages differ widely despite agreeing on
-> every entry. This is index maintenance, not a drop artefact — any `DELETE` removing entries does it.
+- **The page keeps its stored `compressedByteCount`.** A delete never recomputes the prefix. Dropping an
+  entry can only widen what the rest share, so compressing to the largest prefix now available would be
+  legal — and is not what ACE writes. This is the removal-side half of §10.3's "compressed only when it
+  fills": a delete never fills a page, so a delete never re-compresses. Measured: recomputing shortens a
+  two-entry leaf's live region by 4 bytes against ACE's on every leaf a cascading delete touches.
+- **Bytes past the new free-space boundary keep their previous contents** (§10.4c).
 
-**Not currently treated as a defect.** The logical content matches, and ACE goes on writing into these very
-indexes in a LibRed-compacted file — after a LibRed drop it inserts rows, allocates pages and adds catalog
-entries normally. Packing tighter is also the conservative direction. What is *not* established is why ACE
-leaves the space; if a scenario ever turns up that requires matching it byte for byte, this is the knob, and
-matching would mean deliberately compacting **less**.
+Both engines then agree byte for byte. Verified by deleting the same row through DAO and through LibRed on
+two separate copies and diffing whole files: an ordinary table (`[Order Details]`, 5 pages touched) and a
+table with four attachment columns whose delete cascades into the flat tables (`complex1.accdb`'s `Table1`,
+20 pages touched) each came back identical on every page, with LibRed touching no page ACE did not.
+
+### 10.4c Dead bytes past the free-space boundary
+
+**A page is zero-filled when it is allocated and never cleared again.** Every later rewrite moves the
+free-space field (`0x02`) and leaves whatever the vacated bytes held — so a page normally carries the tail of
+a longer earlier generation of itself, which no reader reaches.
+
+> Measured on an insert that splits three levels of `[Order Details]`: on all seven index pages ACE rewrote
+> in place — leaves and nodes alike — the region past the new live end still held the pre-insert bytes; on
+> the one page ACE took fresh from the allocator (recycled from a data page of another table) that region was
+> zero.
+
+A writer that instead builds each page in a clean buffer produces correct, readable files that differ from
+ACE's across the whole vacated region. The rule is cheap to honour: build as normal, then copy the
+destination's bytes from the new live end to the end of the page — but only when the destination is already
+this index's own page of the same type, since a recycled page is the zero-fill case.
 
 ### 10.4b The 510-byte index entry limit
 
@@ -932,7 +942,13 @@ scan Access uses.
 The split mechanics:
 
 - **Leaf split:** partition the sorted entries in half; the lower half stays on the original page,
-  the upper half goes to a newly allocated page. The doubly-linked leaf chain is maintained — the
+  the upper half goes to a newly allocated page. **The half is taken over the entries the page held
+  *before* the insert, and the new entry then joins whichever side its key falls in** — so the cut sits at
+  `mid = preInsertCount / 2`, and the original page keeps `mid + 1` entries for a key landing below `mid`
+  but `mid` for one landing on or above it. (Halving the post-insert list instead always hands the odd entry
+  to the right page, which is the same cut only for a key in the upper half.) Measured against ACE on a
+  602-entry leaf split by one further key: ACE keeps **302** entries for a new key at position 1 or 50 and
+  **301** at position 301, 302 or 400 — so the midpoint itself goes right. The doubly-linked leaf chain is maintained — the
   new right page's *prev* (`0x0C`) points at the left, its *next* (`0x10`) inherits the left's old
   next, the left's *next* becomes the right, and the old next leaf's *prev* is repointed to the
   right. **Getting these offsets right is essential** — Access's scan walks the `0x10` next-chain
@@ -963,6 +979,15 @@ The split mechanics:
   does not show up in a gapped load backfilled ascending (ACE: 5 leaves, `1, 1, 1, 7, 55`), because an
   ascending backfill keeps meeting the right edge of a subtree. A *random* backfill into pre-packed pages is
   unmeasured.
+
+> **Open — the compressed length of a page whose FIRST entry is new.** A key that sorts below everything on
+> the page splits it at the same point as any other low key (verified: both engines keep 302 of 603), but ACE
+> then writes the left page with `compressedByteCount = 0` where the page had been stored at `3` and the
+> entries still share 3 bytes. Every other measured position keeps the `3`. Whether the trigger is "the new
+> entry became the page's first" or "a split writes its left page uncompressed unless the first entry is
+> unchanged" is **not** established — the two fit the measurements equally. Until it is, LibRed recomputes
+> the prefix and keeps compressing, which costs a byte difference only in this one case. The right page is
+> unaffected (its live bytes match exactly).
 - **Propagation:** the promoted separator `[key → left page]` is inserted into the parent, whose
   pointer to the just-split page is repointed to the new right page; if the parent overflows it
   splits in turn, up to the root.

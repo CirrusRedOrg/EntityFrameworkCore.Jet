@@ -12,8 +12,8 @@
 | `0x05` | 2 | Column id |
 | `0x07` | 2 | Variable-table index. For a **fixed** column it is the running count of variable columns with a smaller id (**not** `0`) — ACE's own `ADD COLUMN` writes `2` for a LONG added to `(K LONG, A TEXT, B TEXT)`. For a **variable** column it is that column's own slot index, which is the `0x2B` **high-water** and *not* the count of live variable columns: after a variable column is dropped the next one goes above the abandoned slot, so the two part company. Verified byte-for-byte against DAO-written system tables and against ACE performing the same DDL. |
 | `0x09` | 2 | Column number — a second copy of the column id `0x05` on a **user** table, but **zero** on the tables the engine writes for itself (see the note below). It **diverges after an `ALTER COLUMN` type change**, which burns a new id into `0x05` yet leaves `0x09` at the *old* id; see §3.8 |
-| `0x0B` | 1 | Numeric **precision** (Decimal/Numeric columns); otherwise the low byte of the collation's LANGID (the database default, e.g. `0x09` for en-US) |
-| `0x0C` | 1 | Numeric **scale** (Decimal/Numeric columns); otherwise the high byte of the LANGID (`0x04` for en-US) |
+| `0x0B` | 1 | Numeric **precision** (Decimal/Numeric columns); on a **Complex** column the `MSysComplexColumns.ComplexID` (see below); otherwise the low byte of the collation's LANGID (the database default, e.g. `0x09` for en-US) |
+| `0x0C` | 1 | Numeric **scale** (Decimal/Numeric columns); `0` on a **Complex** column; otherwise the high byte of the LANGID (`0x04` for en-US) |
 | `0x0D` | 1 | Collation **sort id** — the LCID's high word; `0` except for an alternate sort order (see the note below) |
 | `0x0E` | 1 | Collation **sort-order version**: `0` = General Legacy (Access 2000–2007), `1` = the "General" order Access 2010+ made default (a different key encoding, §10.4) |
 | `0x0F` | 1 | Flags (see below) |
@@ -24,6 +24,38 @@
 
 **Flags (`0x0F`):** `0x01` fixed-length, `0x02` updatable, `0x04` auto-number,
 `0x40` auto-number GUID, `0x80` hyperlink (on a Memo column).
+
+> **A `Complex` column (type `0x12`) is an AutoNumber, and its `0x0B` names its `MSysComplexColumns` row.**
+> Verified on all six complex columns across two files: `0x0F` = `0x07` on every one — fixed `0x01`,
+> updatable `0x02` and **auto-number `0x04`** — so the 4-byte in-row complex id is engine-generated per row,
+> exactly like an ordinary counter. Its high-water is **not** `0x14`, which belongs to the table's own
+> AutoNumber; it is [`0x1C`](page-02a-tdef.md), which is why mdbtools calls that field `ct_autonum`. **A
+> table can therefore carry two independent AutoNumber counters** — `LIBRARY.accdb`'s `Book` has `BK_ID` at
+> `0x14` = 8 and `BK_category` at `0x1C` = 10.
+>
+> Two counters, but **any number of flagged columns**: every complex column on the table sets `0x04` while
+> sharing the single `0x1C`, so counting flagged columns does not count counters. `MSysResources` has two
+> flagged (`Id`, `Data`) and `complex1.accdb`'s `Table1` five (`ID` plus four attachment columns). Two
+> consequences for a reader/writer: the `0x14`/`0x18` seed and increment describe only the non-complex one and
+> must not be reported for the others, and a "one AutoNumber per table" rule must be applied over the
+> non-complex columns alone or it rejects a table Access created quite normally.
+>
+> `0x0B` carries the column's `ComplexID`, the key of its `MSysComplexColumns` row, where an ordinary column
+> would hold a precision or the LANGID low byte — and `0x0C` is `0`, where an ordinary column holds the
+> LANGID high byte (`04` for en-US on every plain column beside these). So the descriptor points at the
+> catalog entry directly; a reader need not match on column name.
+>
+> | column | `0x0B` | `MSysComplexColumns.ComplexID` |
+> | --- | --- | --- |
+> | `complex1` `MSysResources.Data` | 1 | 1 |
+> | `complex1` `Table1.Attachment` | 2 | 2 |
+> | `LIBRARY` `MSysResources.Data` | 1 | 1 |
+> | `LIBRARY` `Book.BK_category` | 2 | 2 |
+> | `LIBRARY` `Borrow.BRW_book` | 3 | 3 |
+> | `LIBRARY` `Borrow.BRW_mmberINFO` | 4 | 4 |
+>
+> *Unverified:* whether the id is one byte at `0x0B` or a 16-bit value spanning `0x0B`–`0x0C`. Every observed
+> id is 1–4, so a zero at `0x0C` fits both readings.
 
 > **`0x09` is written by everything that creates a user table, and only by those.** Every genuine user
 > table carries the id on every column, and every zero belongs to a table the engine made for itself —

@@ -260,6 +260,10 @@ public static class IndexKeyEncoder
         JetDataType.Byte => 1,
         JetDataType.Int16 => 2,
         JetDataType.Int32 => 4,
+        // A complex (multi-value / attachment) column's key is its Int32 complex id, encoded exactly as an
+        // Int32 — verified against ACE over 43 entries across 9 such indexes in two files, covering
+        // attachment, Text and Long element types, with no difference in any byte.
+        JetDataType.Complex => 4,
         JetDataType.Single => 4,
         JetDataType.Double or JetDataType.DateTime => 8,
         // Int64/BIGINT keys like Currency — both are an int64, sign bit flipped, big-endian. Its VARIABLE
@@ -279,6 +283,7 @@ public static class IndexKeyEncoder
             case JetDataType.Int16:
                 return EncodeInteger(Convert.ToInt16(value, c), 2);
             case JetDataType.Int32:
+            case JetDataType.Complex: // the complex id, keyed as the Int32 it is
                 return EncodeInteger(Convert.ToInt32(value, c), 4);
             case JetDataType.Currency:
                 return EncodeInteger((long)decimal.Round(JetDecimalConverter.ToDecimal(value, c) * 10000m), 8);

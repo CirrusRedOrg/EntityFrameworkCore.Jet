@@ -372,12 +372,18 @@ public sealed class TableDefinitionPage : Page
 
         // AutoNumber seed/increment from the TDEF header: 0x18 = increment, 0x14 = last-assigned value. On a
         // freshly created table the last value is Seed-Increment, so Seed = last + increment (matching what a
-        // no-insert scaffold reports). A table has at most one AutoNumber column; apply to it.
+        // no-insert scaffold reports).
+        //
+        // At most one column draws on THAT pair — but it is not the only counter a table has. A complex column
+        // carries the very same 0x04 flag and is allocated from 0x1C (ComplexAutoNumber), so a table can hold an
+        // ordinary counter and any number of complex columns all reading IsAutoNumber (complex1.accdb's Table1
+        // has five). Applying the header pair to those too reports a seed and increment that describe a
+        // different counter, so skip them: their high-water is the table's ComplexAutoNumber.
         int increment = buffer.ReadInt32(format.TdefAutoNumberIncrementOffset);
         if (increment == 0) increment = 1;
         int lastAuto = buffer.ReadInt32(format.TdefLastAutoNumberOffset);
         foreach (ColumnDef column in _columns)
-            if (column.IsAutoNumber)
+            if (column.IsAutoNumber && column.Type != JetDataType.Complex)
             {
                 column.Increment = increment;
                 column.Seed = lastAuto + increment;

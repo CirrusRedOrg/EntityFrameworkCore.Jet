@@ -95,6 +95,15 @@ public class JetTypeMappingTests
         Assert.Equal("varchar", JetStoreType.TypeName(Column(unknown)));
         Assert.Equal("varchar", JetStoreType.StoreType(Column(unknown)));
         Assert.Equal(typeof(object), JetClrTypeMap.ToClrType(unknown));
-        Assert.Equal(typeof(object), JetClrTypeMap.ToClrType(JetDataType.Complex));
+    }
+
+    // Complex used to sit with the unknown types as `object`, because its four in-row bytes were passed
+    // through undecoded. They are an Int32 complex id — the column carries the auto-number flag and its ids
+    // come from the table's 0x1C counter — so the id is what a reader sees, and the values it stands for are
+    // reached through ComplexColumn.
+    [Fact]
+    public void A_complex_column_reads_as_its_int32_id()
+    {
+        Assert.Equal(typeof(int), JetClrTypeMap.ToClrType(JetDataType.Complex));
     }
 }

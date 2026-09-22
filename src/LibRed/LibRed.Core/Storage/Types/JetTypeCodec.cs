@@ -28,7 +28,7 @@ public static class JetTypeCodec
         {
             JetDataType.Byte => 1,
             JetDataType.Int16 => 2,
-            JetDataType.Int32 or JetDataType.Single => 4,
+            JetDataType.Int32 or JetDataType.Single or JetDataType.Complex => 4,
             JetDataType.Int64 or JetDataType.Double or JetDataType.DateTime or JetDataType.Currency => 8,
             JetDataType.Guid => 16,
             JetDataType.FixedPoint => 17,
@@ -48,6 +48,11 @@ public static class JetTypeCodec
             case JetDataType.Int16:
                 return BinaryPrimitives.ReadInt16LittleEndian(value);
             case JetDataType.Int32:
+                return BinaryPrimitives.ReadInt32LittleEndian(value);
+            // A Complex column's four bytes are an Int32 **complex id**, not a long-value descriptor: the
+            // column carries the auto-number flag and its ids come from the table's 0x1C counter, one per
+            // row. The values themselves live in a per-column flat table — see <see cref="ComplexColumn"/>.
+            case JetDataType.Complex:
                 return BinaryPrimitives.ReadInt32LittleEndian(value);
             case JetDataType.Int64: // ACE 16 BIGINT
                 return BinaryPrimitives.ReadInt64LittleEndian(value);
@@ -75,7 +80,6 @@ public static class JetTypeCodec
             // substitutes the real value, and hands the raw bytes here only when it has none.
             case JetDataType.Memo:
             case JetDataType.Ole:
-            case JetDataType.Complex:
             default:
                 return value.ToArray();
         }
@@ -246,6 +250,9 @@ public static class JetTypeCodec
             case JetDataType.Int16:
                 return Bytes(2, b => BinaryPrimitives.WriteInt16LittleEndian(b, Convert.ToInt16(value, c)));
             case JetDataType.Int32:
+            // The complex id, written as the Int32 it is — the values it names live in the column's flat
+            // table and are not part of the row (see ComplexColumn).
+            case JetDataType.Complex:
                 return Bytes(4, b => BinaryPrimitives.WriteInt32LittleEndian(b, Convert.ToInt32(value, c)));
             case JetDataType.Int64:
                 return Bytes(8, b => BinaryPrimitives.WriteInt64LittleEndian(b, Convert.ToInt64(value, c)));

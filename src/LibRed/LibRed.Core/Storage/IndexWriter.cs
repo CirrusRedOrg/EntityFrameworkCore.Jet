@@ -181,9 +181,14 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
                 $"Index '{index.Name}': entry for row {rowId.Page}:{rowId.Row} was not found on leaf {leafPage}.");
         entries.RemoveAt(idx);
 
-        // Removing only shrinks the page, so Build never overflows.
-        _channel.WritePage(leafPage,
-            Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries)!);
+        // Removing only shrinks the page, so Build never overflows. The page keeps the prefix length it was
+        // already stored at: ACE re-compresses a leaf only when it must (see InsertIntoLeaf), and a delete
+        // never must. Letting Build pick the largest prefix now available instead repacks entries ACE left
+        // alone — measured as a 4-byte-shorter live region on every leaf a cascading delete touched.
+        // Dropping an entry can only keep or widen what the rest share, so the stored length stays valid.
+        WriteOrThrow(leafPage,
+            Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries,
+                page.CompressedByteCount));
     }
 
     private static bool HasNullKey(IndexDef index, object?[] values) =>
@@ -295,7 +300,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
         if (Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries, keep) is { } asIs)
         {
-            _channel.WritePage(leafPage, asIs);
+            _channel.WritePage(leafPage, KeepTail(leafPage, asIs));
             return;
         }
 
@@ -303,7 +308,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
             && Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries, share)
                 is { } compressed)
         {
-            _channel.WritePage(leafPage, compressed);
+            _channel.WritePage(leafPage, KeepTail(leafPage, compressed));
             return;
         }
 
@@ -316,7 +321,17 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         //
         // AutoNumber and identity keys are ascending by construction, so this is the ordinary case. The
         // condition cannot fire on a random insert, which is why the general behaviour is unchanged.
-        int splitAt = pos == entries.Count - 1 ? entries.Count - 1 : entries.Count / 2;
+        //
+        // Everywhere else ACE halves the entries the page held BEFORE this insert, and the new entry then
+        // joins whichever side its key falls in — so a key landing below the midpoint leaves one MORE entry
+        // behind than a key landing on or above it. Halving the post-insert list instead always hands the odd
+        // entry to the right page, which agrees with ACE only for the upper half. Measured on a 602-entry
+        // leaf split by one further key (§10.5): ACE keeps 302 entries for a key at position 1 or 50, and 301
+        // for one at 301, 302 or 400 — so the midpoint itself goes right.
+        int mid = (entries.Count - 1) / 2;                      // midpoint of the pre-insert entries
+        int splitAt = pos == entries.Count - 1
+            ? entries.Count - 1
+            : Math.Max(1, pos < mid ? mid + 1 : mid);           // never leave the left page empty
         SplitAndPropagate(index, path, path.Count - 1, entries, PageType.LeafIndexPage,
             page.Previous, page.Next, splitAt);
     }
@@ -406,7 +421,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         int parentLevel = path.Count - 1 - level;
         if (Build(PageType.IntermediateIndexPage, 0, 0, tail, parentLevel, entries) is { } built)
         {
-            _channel.WritePage(parentPage, built);
+            _channel.WritePage(parentPage, KeepTail(parentPage, built));
             return;
         }
 
@@ -621,8 +636,40 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     }
 
     private void WriteOrThrow(int pageNumber, byte[]? page) =>
-        _channel.WritePage(pageNumber, page ?? throw new NotSupportedException(
-            "An index page still overflows after a split (a key wider than half a page)."));
+        _channel.WritePage(pageNumber, KeepTail(pageNumber, page ?? throw new NotSupportedException(
+            "An index page still overflows after a split (a key wider than half a page).")));
+
+    /// <summary>
+    /// Carries the destination's bytes past the new live end into a freshly built page, because that is what
+    /// Access leaves behind.
+    /// </summary>
+    /// <remarks>
+    /// <para><see cref="Build"/> works in a zeroed buffer and fills it only as far as the last entry, so
+    /// everything beyond is written back as zeros. ACE instead edits a page in place: it moves the free-space
+    /// pointer and lets the bytes the entries used to occupy stand. Measured on an insert that splits three
+    /// levels of <c>[Order Details]</c>: on every index page ACE rewrote (both leaves and nodes) the region
+    /// past the new live end still held the original bytes, and on the one page it took fresh from the
+    /// allocator that region was zero. So the rule is <b>zero-fill on allocation, never clear again</b>.</para>
+    /// <para>Only a rewrite of this index's own page qualifies — a page just recycled from somewhere else
+    /// still carries the previous owner's type and owner id, and ACE zero-fills that one, which is what
+    /// building in a clean buffer already does.</para>
+    /// <para>The bytes kept are dead: they sit past the free-space boundary, so no reader reaches them.
+    /// Keeping them is for byte-faithfulness with ACE, not for meaning.</para>
+    /// </remarks>
+    private byte[] KeepTail(int pageNumber, byte[] built)
+    {
+        if (pageNumber >= _channel.PageCount) return built;
+
+        ReadOnlySpan<byte> existing = _channel.ReadPage(pageNumber).Span;
+        if (existing[0] != built[0]
+            || BinaryPrimitives.ReadInt32LittleEndian(existing[OwnerOffset..]) != _table.DefinitionPage)
+            return built;
+
+        int liveEnd = _channel.PageSize
+            - BinaryPrimitives.ReadUInt16LittleEndian(built.AsSpan(FreeSpaceOffset, 2));
+        existing[liveEnd..].CopyTo(built.AsSpan(liveEnd));
+        return built;
+    }
 
     /// <summary>Width of the row/child pointer an entry carries after its key.</summary>
     private const int TrailerSize = 4;

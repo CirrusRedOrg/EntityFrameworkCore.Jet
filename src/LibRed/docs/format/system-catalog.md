@@ -179,8 +179,14 @@
   > existing values are untouched, no rebuild. ACE rejects the conversion outright (*"Invalid field data
   > type"*, as does SQL Server); PostgreSQL (`ADD GENERATED AS IDENTITY`) / MySQL (`MODIFY … AUTO_INCREMENT`) /
   > LibRed allow it. Verified: ACE reads the promoted counter and assigns next id = seed. Guards:
-  > Jet permits only one AutoNumber per table (a second is rejected), and a column in a relationship is
-  > rejected (matching ACE).
+  > only one column may draw on the table's seed/increment pair (a second is rejected), and a column in a
+  > relationship is rejected (matching ACE).
+  >
+  > That guard is about the **header pair**, not about the `0x04` flag, and the two are not the same set. A
+  > complex column carries `0x04` as well but is allocated from `0x1C`, so a table can hold several columns
+  > that all read as AutoNumber: `MSysResources` has two (`Id` and the complex `Data`), and a table with four
+  > attachment columns beside an `ID` counter has five. Only the non-complex one is described by `0x14`/`0x18`
+  > — applying that pair to the others reports a different counter's seed and increment as theirs.
   >
   > **Demoting a counter to a plain int** (`ALTER COLUMN <counter> LONG`) is the reverse in-place edit — clear
   > the `0x04` flag and reset the header to a non-AutoNumber table's state (`0x14` = 0, `0x18` = 1); values are
@@ -544,10 +550,123 @@ Four layers — the user table, then three kinds of ordinary hidden/system table
    codes: `UnsignedByte, Short, Long, IEEESingle, IEEEDouble, GUID, Decimal, Text, Attachment`.
    `MSysComplexType_Attachment` = `FileData:Ole, FileFlags:Int32, FileName:Text, FileTimeStamp:DateTime,
    FileType:Text, FileURL:Memo`.
-4. **`f_<GUID>_<Column>`** — the actual data, one row per value/attachment: `_<Column>:Int32` (PK),
-   `<ConceptualTable>_<Column>:Int32` (FK back to the owning row), then the subtype's value columns. For an
-   Attachments column the rows are the real files (`FileData` = OLE `byte[]`, `FileName`, `FileType`);
-   a multi-value scalar column is the same shape with just the value column + FK.
+4. **`f_<GUID>_<Column>`** — the actual data, one row per value/attachment. Two bookkeeping `Int32` columns
+   plus the subtype's value columns:
+   - **`_<Column>`** is the **link back to the owning row** — it holds that row's complex id, and it
+     **repeats once per value**, which is what makes the column multi-valued. Indexed, **not** unique.
+   - **`<Table>_<Column>`** is the **per-value id**: unique, carries the `MSysComplexPKIndex` **primary**
+     index, and is an ordinary **AutoNumber** column whose high-water is the flat table's own
+     [`0x14`](page-02a-tdef.md) — there is no complex-specific counter on this side.
+   - **`IdxFKPrimaryScalar`** is unique over `[_<Column> + <first value column>]` (`Value` for a scalar,
+     `FileName` for an attachment): one record cannot hold the same value twice, and **ACE enforces it**
+     (verified — `ComplexDuplicateValueProbeTest`). Adding a value a record already holds is refused with
+     *"You cannot enter that value because it duplicates an existing value in the multi-valued lookup or
+     attachment field"*, while a fresh value on the same record is accepted. The same value on a **different**
+     record is fine, which is what the composite key says and what the corpus shows. A writer must therefore
+     reject the duplicate itself rather than relying on the value id's own uniqueness.
 
-**To materialize** (if ever needed): read the row's `0x12` id → look up its column in `MSysComplexColumns` →
-open `FlatTableID`'s `f_` table → select rows whose FK equals that id. All readable today by hand.
+   For an Attachments column the rows are the real files (`FileData` = OLE `byte[]`, `FileName`, `FileType`);
+   a multi-value scalar column is the same shape with a single `Value` column.
+
+> **Verified, and the reverse reading is excluded.** `PasesDeSalida.Acompaña`: six rows with inline ids
+> `1,2,3,4,7,14`, six flat rows, and `_TempField*0` takes the values `2,3,3,4,4,7` — two records holding two
+> values each — while `PasesDeSalida_TempField*0` runs `1..6` unique. `XSDFiles.XMLSchemaFiles`: one record,
+> `_XMLSchemaFiles` = `1` on all **37** rows. A unique key on the owner link could not produce either.
+
+> **The names are creation-time and do not follow renames.** `<Table>_<Column>` is whatever the table and
+> column were called when the complex column was made, and so is the `f_<GUID>_<Column>` table itself:
+> `Borrow.BRW_book`'s value-id column is still `Table1_BRW_book`, `Book.BK_category` is backed by
+> `f_…_TempField*7` with columns `_TempField*7` / `Book_TempField*7`, and `COVER.Attachments` by `f_…_Field1`.
+> **Never build these names from the current schema** — resolve the table through `MSysComplexColumns.FlatTableID`,
+> then the two columns through the index shape (primary index → value id; the lone non-unique single-column
+> index → owner link).
+
+> **One record id serves every complex column of the table.** The counter is the table's single `0x1C`, so a
+> row gets one id when it is created and all of its complex columns carry that same id — `complex1.accdb`'s
+> `Table1` has four attachment columns, and records 1, 2 and 3 hold ids 1, 2 and 3 in every one of them. A
+> writer allocates once per row, not once per column.
+
+> **Deleting the owning record cascades to every flat table, and rolls no counter back** (verified through
+> DAO — `ComplexDeleteCascadeProbeTest`). Deleting `Table1`'s record 3, which held three attachments in
+> `Attachment` and two more in `att4`, removed all five flat rows across both tables. The owner's `0x1C`
+> stayed at 3 and each flat table's `0x14` kept its value, so the next row still gets id 4 and the freed
+> value ids are never reissued. A delete path must therefore remove the flat rows of **every** complex column
+> on the table for that id, and must leave both high-waters alone.
+
+> **Both id spaces are sparse high-water counters**, so neither is dense or ordered: record ids run
+> `1,2,3,4,7,14` over six rows, and `XSDFiles`' value ids reach `116` over 37 values. And an id is allocated
+> when the **row** is created, with or without values — `complex1.accdb`'s `Table1` has three rows with ids
+> `1,2,3` and an empty flat table, which Access itself renders as `(0)` in every row's attachment cell. A
+> non-null inline id is therefore **not** evidence that any value exists.
+
+> **The in-row complex id is an AutoNumber.** The `0x12` column's descriptor carries the auto-number flag
+> (`0x0F` bit `0x04`) and its high-water is the owner table's [`0x1C`](page-02a-tdef.md), separate from the
+> table's ordinary counter at `0x14`. Its descriptor also names its catalog row: `0x0B` holds the
+> `ComplexID`. See [page-02b-columns.md](page-02b-columns.md).
+
+### Catalog rows for the hidden tables
+
+All three kinds sit under `ParentId` `0x0F000001` (the Tables container) with `Type=1` — they are ordinary
+tables as far as the catalog is concerned, distinguished only by `Flags` and `Owner`:
+
+| object | `Flags` | `Owner` |
+| --- | --- | --- |
+| an ordinary **user** table | `0x00040000` | user SID |
+| **`f_<GUID>_<col>`** flat table | `0x800A0000` | **the same user SID** |
+| **`MSysComplexType_*`** template | `0x80030000` | `NULL` |
+| **`MSysComplexColumns`** | `0x80000000` | `NULL` |
+| an ordinary **system** table | `0x80000000` | engine SID |
+
+A flat table is thus system-flagged (`0x80000000`) yet owned by the *user* SID, unlike a real system table —
+consistent with it holding user data. `0x00020000` is common to flat and template tables; flat adds
+`0x00080000` and templates `0x00010000`, while the plain user-table bit `0x00040000` is on neither. A flat
+table can carry its own `LvProp`. Verified in `complex1.accdb` and `LIBRARY.accdb`.
+
+### Attachment payload — `FileData`
+
+An attachment's `FileData` is an OLE long value wrapping the file, with an 8-byte outer header, optional
+deflate, and a 20-byte inner header naming the extension. Verified on a `pdf`, an `mp3` and a `png`, across
+both storage modes, with the file's own magic number checked after the inner header:
+
+```
+outer header, 8 bytes
+  [0..3]  compression flag: 1 = a zlib stream follows, 0 = raw bytes follow
+  [4..7]  length of the body once decompressed
+
+body  (inflate when the flag is 1 — the inflated length matched [4..7] exactly)
+  inner header, 20 bytes
+    [0..3]   = 20, the inner header's own length
+    [4..7]   = 1                     (constant on every sample)
+    [8..11]  = 4                     (extension length in UTF-16 units; 12 + 8 = 20)
+    [12..19] extension, UTF-16, null-terminated — "pdf", "mp3", "png"
+  then the file's bytes verbatim
+```
+
+The stream is standard zlib (RFC 1950, opening `78 5E`), so `ZLibStream` reads it without skipping a header.
+`FileFlags` and `FileTimeStamp` were `NULL` on every attachment Access wrote.
+
+> **Capability and policy are different here.** The *format* stores a payload either way — the outer flag
+> says which, ACE reads both, and a long value's stored length runs to `0x3FFFFFFF` (ACE accepts that and
+> rejects `0x40000000`). Everything below is what **Access** chooses on top of that: which extensions it
+> deflates, its 256 MB per file — a quarter of what the format holds — its naming rules, and its
+> blocked-extension list. A reader needs none of it; a writer wanting files that look like Access's does.
+>
+> **When Access compresses is an extension list, not a size rule.** Microsoft documents it on the
+> [Attachment object](https://learn.microsoft.com/en-us/office/vba/api/access.attachment): *"Access will
+> compress your attached files unless those files are compressed natively."* The listed exceptions are
+> `.jpg .jpeg .gif .png .zip .cab .docx .xlsx .xlsb .pptx`; `.tif .exif .bmp .emf .wmf .ico` are compressed,
+> and the table is explicitly partial, so anything absent from the exception list is compressed. The three
+> measured samples agree exactly: `png` is on the list and was stored raw, while `pdf` (3,397,525 →
+> 3,303,763) and `mp3` (5,480,476 → 5,442,917) are not on it and were deflated despite saving almost
+> nothing — which a size rule would not explain. ACE honours the flag either way, so getting it wrong still
+> reads; matching it is about writing what Access writes.
+>
+> The same page gives a writer three more limits: an individual file may not exceed **256 MB**, a name may
+> not exceed **255 characters** including the extension, and a name may not contain `? " / \ < > * | :` or a
+> paragraph mark. Access also blocks a long list of executable extensions (`.exe`, `.bat`, `.vbs`, `.mdb`,
+> …) — that is an Access **application** policy, and whether the engine refuses them through DAO is
+> untested here.
+
+**To materialize**: read the row's `0x12` id → find the column's row in `MSysComplexColumns` (by `ComplexID`
+from the descriptor's `0x0B`, or by name) → open `FlatTableID`'s `f_` table → select the rows whose
+**owner-link** column equals that id. All readable today by hand; LibRed does not yet do it for you.

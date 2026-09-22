@@ -38,6 +38,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
     private Dictionary<string, string>? _views;
     private Dictionary<string, StoredActionQuery>? _actionQueries;
     private Dictionary<string, IReadOnlyList<StoredQueryParameter>>? _queryParameters;
+    private List<ComplexColumn>? _complexColumns;
     private long _seenSchemaGeneration = channel.SchemaGeneration;
 
     /// <summary>All tables in the database (user and system).</summary>
@@ -65,9 +66,67 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
         _views = null;
         _actionQueries = null;
         _queryParameters = null;
+        _complexColumns = null;
         _seenSchemaGeneration = _channel.SchemaGeneration;
         if (markChanged) _channel.MarkSchemaChanged();
     }
+
+    /// <summary>Every complex (multi-value / attachment) column in the database, wired to the table its
+    /// values live in. Empty when the file has no <c>MSysComplexColumns</c> — a Jet 4 database has none.</summary>
+    public IReadOnlyList<ComplexColumn> ComplexColumns
+    {
+        get { EnsureFresh(); return _complexColumns ??= LoadComplexColumns(); }
+    }
+
+    /// <summary>The complex column <paramref name="column"/> of <paramref name="table"/>, or null when that
+    /// column is not a complex one.</summary>
+    public ComplexColumn? FindComplexColumn(string table, string column) =>
+        ComplexColumns.FirstOrDefault(c =>
+            string.Equals(c.OwnerTable.Name, table, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(c.ColumnName, column, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Reads <c>MSysComplexColumns</c> and resolves each row to its owner table, its flat table and the flat
+    /// table's two bookkeeping columns. A row whose tables are missing is skipped rather than throwing: the
+    /// catalog must stay readable even where the complex wiring is incomplete.
+    /// </summary>
+    private List<ComplexColumn> LoadComplexColumns()
+    {
+        var resolved = new List<ComplexColumn>();
+        if (FindTable("MSysComplexColumns") is not { } definition) return resolved;
+
+        int name = ColumnIndex(definition, "ColumnName"), id = ColumnIndex(definition, "ComplexID"),
+            elementType = ColumnIndex(definition, "ComplexTypeObjectID"),
+            owner = ColumnIndex(definition, "ConceptualTableID"), flat = ColumnIndex(definition, "FlatTableID");
+        if (name < 0 || id < 0 || owner < 0 || flat < 0) return resolved;
+
+        foreach (object?[] row in new Storage.Table(_channel, definition).Rows())
+        {
+            if (row[name] is not string columnName) continue;
+            if (TableWithId(row[owner]) is not { } ownerTable || TableWithId(row[flat]) is not { } flatTable) continue;
+            if (ownerTable.FindColumn(columnName) is null) continue;
+
+            // Structural, never by name: the primary index names the per-value id, and the one non-unique
+            // single-column index names the link back to the owning record.
+            ColumnDef? valueId = flatTable.Indexes.FirstOrDefault(i => i.IsPrimaryKey)?.Columns is [{ Column: { } pk }] ? pk : null;
+            ColumnDef? ownerLink = flatTable.Indexes
+                .FirstOrDefault(i => !i.IsUnique && !i.IsPrimaryKey && i.Columns.Count == 1)?.Columns[0].Column;
+            if (valueId is null || ownerLink is null || valueId == ownerLink) continue;
+
+            resolved.Add(new ComplexColumn(
+                columnName, row[id] is null ? 0 : Convert.ToInt32(row[id], CultureInfo.InvariantCulture),
+                ownerTable, flatTable, ownerLink, valueId,
+                elementType < 0 ? null : TableWithId(row[elementType])?.Name));
+        }
+        return resolved;
+
+        static int ColumnIndex(TableDef t, string column) => t.FindColumn(column)?.Index ?? -1;
+    }
+
+    /// <summary>The table whose MSysObjects id (its TDEF page) is <paramref name="id"/>.</summary>
+    private TableDef? TableWithId(object? id) =>
+        id is null ? null
+        : Tables.FirstOrDefault(t => t.DefinitionPage == Convert.ToInt32(id, CultureInfo.InvariantCulture));
 
     private void EnsureFresh()
     {

@@ -63,6 +63,20 @@ public sealed record FunctionCall(
         || name.Equals("PERCENTILE_DISC", StringComparison.OrdinalIgnoreCase)
         || name.Equals("LISTAGG", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Whether <paramref name="name"/> is a list aggregate — the standard's <c>LISTAGG</c> or SQL
+    /// Server's <c>STRING_AGG</c>, which compute the same thing and differ only in what they require: LISTAGG
+    /// needs its WITHIN GROUP and lets the separator go, STRING_AGG needs the separator and lets the order
+    /// go.</summary>
+    public static bool IsListAggregate(string name) =>
+        name.Equals("LISTAGG", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("STRING_AGG", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Whether <paramref name="name"/> accepts WITHIN GROUP — the ordered-set aggregates, which
+    /// require it, and <c>STRING_AGG</c>, for which it is optional (unordered, the values list in the order
+    /// the rows arrive).</summary>
+    public static bool AcceptsWithinGroup(string name) =>
+        IsOrderedSetAggregate(name) || name.Equals("STRING_AGG", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>The WITHIN GROUP keys: the last arguments, one per direction.</summary>
     public IReadOnlyList<Expression> WithinGroupKeys =>
         WithinGroup is null ? [] : Arguments.Skip(Arguments.Count - WithinGroup.Count).ToList();
@@ -113,6 +127,9 @@ public sealed record WindowFrame(FrameUnit Unit, FrameBound Start, FrameBound En
 /// AggregateNode. As a sibling record it falls through to "not an aggregate", which is correct — a window
 /// function returns one value per ROW, not per group, whatever its name.
 /// </remarks>
+/// <param name="Name">The function's name, as written.</param>
+/// <param name="Arguments">Its arguments, with an ordered-set aggregate's WITHIN GROUP keys last.</param>
+/// <param name="Over">The window: its PARTITION BY, ORDER BY and frame.</param>
 /// <param name="Distinct">A windowed aggregate over the distinct values of its argument in each frame.</param>
 /// <param name="IgnoreNulls">IGNORE NULLS (true) or RESPECT NULLS (false); null when neither is written.</param>
 /// <param name="FromLast">FROM LAST (true) or FROM FIRST (false); null when neither is written.</param>

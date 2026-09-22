@@ -68,7 +68,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private static DateTime CheckDateTimeValue(DateTime dateTime)
         {
-            if (dateTime != default && dateTime < new DateTime(100,1,1))
+            if (dateTime != default && dateTime < new DateTime(100, 1, 1))
             {
                 throw new InvalidOperationException($"The {nameof(DateTime)} value '{dateTime}' is smaller than the minimum supported value of '{new DateTime(100, 1, 1)}'.");
             }

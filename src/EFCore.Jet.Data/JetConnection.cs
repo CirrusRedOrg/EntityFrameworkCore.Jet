@@ -1,15 +1,13 @@
+using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.Design;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
-using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
-using Microsoft.Win32;
 
 namespace EntityFrameworkCore.Jet.Data
 {
@@ -85,7 +83,7 @@ namespace EntityFrameworkCore.Jet.Data
         public bool IgnoreMsys => _ignoreMSys;
 
         /// <summary>
-        /// Gets the <see cref="T:System.Data.Common.DbProviderFactory" /> for this <see cref="T:System.Data.Common.DbConnection" />.
+        /// Gets the <see cref="System.Data.Common.DbProviderFactory" /> for this <see cref="System.Data.Common.DbConnection" />.
         /// </summary>
         protected override DbProviderFactory DbProviderFactory => JetFactory;
 
@@ -207,10 +205,10 @@ namespace EntityFrameworkCore.Jet.Data
             => 0;
 
         /// <summary>
-        /// Creates and returns a <see cref="T:System.Data.Common.DbCommand" /> object associated with the current connection.
+        /// Creates and returns a <see cref="System.Data.Common.DbCommand" /> object associated with the current connection.
         /// </summary>
         /// <returns>
-        /// A <see cref="T:System.Data.Common.DbCommand" /> object.
+        /// A <see cref="System.Data.Common.DbCommand" /> object.
         /// </returns>
         protected override DbCommand CreateDbCommand()
         {
@@ -232,7 +230,7 @@ namespace EntityFrameworkCore.Jet.Data
             => JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(_connectionString);
 
         /// <summary>
-        /// Releases the unmanaged resources used by the <see cref="T:System.ComponentModel.Component" /> and optionally releases the managed resources.
+        /// Releases the unmanaged resources used by the <see cref="System.ComponentModel.Component" /> and optionally releases the managed resources.
         /// </summary>
         /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
         protected override void Dispose(bool disposing)
@@ -248,7 +246,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <summary>
         /// Enlists in the specified transaction.
         /// </summary>
-        /// <param name="transaction">A reference to an existing <see cref="T:System.Transactions.Transaction" /> in which to enlist.</param>
+        /// <param name="transaction">A reference to an existing <see cref="System.Transactions.Transaction" /> in which to enlist.</param>
         public override void EnlistTransaction(System.Transactions.Transaction? transaction)
         {
             if (InnerConnection == null)
@@ -257,11 +255,11 @@ namespace EntityFrameworkCore.Jet.Data
         }
 
         /// <summary>
-        /// Returns schema information for the data source of this <see cref="T:System.Data.Common.DbConnection" /> using the specified string for the schema name.
+        /// Returns schema information for the data source of this <see cref="System.Data.Common.DbConnection" /> using the specified string for the schema name.
         /// </summary>
         /// <param name="collectionName">Specifies the name of the schema to return.</param>
         /// <returns>
-        /// A <see cref="T:System.Data.DataTable" /> that contains schema information.
+        /// A <see cref="System.Data.DataTable" /> that contains schema information.
         /// </returns>
         /// <PermissionSet>
         ///   <IPermission class="System.Security.Permissions.FileIOPermission, mscorlib, Version=2.0.3600.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" version="1" PathDiscovery="*AllFiles*" />
@@ -276,10 +274,10 @@ namespace EntityFrameworkCore.Jet.Data
         }
 
         /// <summary>
-        /// Returns schema information for the data source of this <see cref="T:System.Data.Common.DbConnection" />.
+        /// Returns schema information for the data source of this <see cref="System.Data.Common.DbConnection" />.
         /// </summary>
         /// <returns>
-        /// A <see cref="T:System.Data.DataTable" /> that contains schema information.
+        /// A <see cref="System.Data.DataTable" /> that contains schema information.
         /// </returns>
         /// <PermissionSet>
         ///   <IPermission class="System.Security.Permissions.FileIOPermission, mscorlib, Version=2.0.3600.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" version="1" PathDiscovery="*AllFiles*" />
@@ -294,12 +292,12 @@ namespace EntityFrameworkCore.Jet.Data
         }
 
         /// <summary>
-        /// Returns schema information for the data source of this <see cref="T:System.Data.Common.DbConnection" /> using the specified string for the schema name and the specified string array for the restriction values.
+        /// Returns schema information for the data source of this <see cref="System.Data.Common.DbConnection" /> using the specified string for the schema name and the specified string array for the restriction values.
         /// </summary>
         /// <param name="collectionName">Specifies the name of the schema to return.</param>
         /// <param name="restrictionValues">Specifies a set of restriction values for the requested schema.</param>
         /// <returns>
-        /// A <see cref="T:System.Data.DataTable" /> that contains schema information.
+        /// A <see cref="System.Data.DataTable" /> that contains schema information.
         /// </returns>
         /// <PermissionSet>
         ///   <IPermission class="System.Security.Permissions.FileIOPermission, mscorlib, Version=2.0.3600.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" version="1" PathDiscovery="*AllFiles*" />
@@ -314,7 +312,7 @@ namespace EntityFrameworkCore.Jet.Data
         }
 
         /// <summary>
-        /// Opens a database connection with the settings specified by the <see cref="P:System.Data.Common.DbConnection.ConnectionString" />.
+        /// Opens a database connection with the settings specified by the <see cref="System.Data.Common.DbConnection.ConnectionString" />.
         /// </summary>
         public override void Open()
         {
@@ -373,7 +371,7 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 var provider = GetMostRecentCompatibleProviders(dataAccessProviderType)
                     .FirstOrDefault()
-                    .Key ?? throw new InvalidOperationException($"Unable to find any compatible {Enum.GetName(typeof(DataAccessProviderType), dataAccessProviderType)} provider for the connection string: {fileNameOrConnectionString}");
+                    .Key ?? throw new InvalidOperationException($"Unable to find any compatible {Enum.GetName(dataAccessProviderType)} provider for the connection string: {fileNameOrConnectionString}");
                 connectionStringBuilder.SetProvider(provider, dataAccessProviderType);
             }
 
@@ -578,7 +576,7 @@ namespace EntityFrameworkCore.Jet.Data
 
         internal static string GetConnectionString(string fileNameOrConnectionString, DataAccessProviderType dataAccessProviderType, DbProviderFactory dataAccessProviderFactory)
         {
-            var provider = GetMostRecentCompatibleProviders(dataAccessProviderType).FirstOrDefault().Key ?? throw new InvalidOperationException($"Unable to find any compatible {Enum.GetName(typeof(DataAccessProviderType), dataAccessProviderType)} provider for the connection string: {fileNameOrConnectionString}");
+            var provider = GetMostRecentCompatibleProviders(dataAccessProviderType).FirstOrDefault().Key ?? throw new InvalidOperationException($"Unable to find any compatible {Enum.GetName(dataAccessProviderType)} provider for the connection string: {fileNameOrConnectionString}");
             return IsConnectionString(fileNameOrConnectionString)
                 ? ExpandDatabaseFilePath(fileNameOrConnectionString, dataAccessProviderFactory)
                 : GetConnectionString(
@@ -715,20 +713,20 @@ namespace EntityFrameworkCore.Jet.Data
                 case true when isOleDb:
                     throw new InvalidOperationException("The connection string appears to be for ODBC and OLE DB. Only one distinct style is supported at a time.");
                 case false when !isOleDb:
-                {
-                    isOleDb = Regex.IsMatch(connectionString, @"^(?:.*;)?\s*Data Source\s*=", RegexOptions.IgnoreCase);
-                    isOdbc = Regex.IsMatch(connectionString, @"^(?:.*;)?\s*DBQ\s*=", RegexOptions.IgnoreCase);
-
-                    switch (isOdbc)
                     {
-                        case true when isOleDb:
-                            throw new InvalidOperationException("The connection string appears to be for ODBC and OLE DB. Only one distinct style is supported at a time.");
-                        case false when !isOleDb:
-                            throw new ArgumentException("The connection string appears to be neither ODBC nor OLE DB compliant.", nameof(connectionString));
-                    }
+                        isOleDb = Regex.IsMatch(connectionString, @"^(?:.*;)?\s*Data Source\s*=", RegexOptions.IgnoreCase);
+                        isOdbc = Regex.IsMatch(connectionString, @"^(?:.*;)?\s*DBQ\s*=", RegexOptions.IgnoreCase);
 
-                    break;
-                }
+                        switch (isOdbc)
+                        {
+                            case true when isOleDb:
+                                throw new InvalidOperationException("The connection string appears to be for ODBC and OLE DB. Only one distinct style is supported at a time.");
+                            case false when !isOleDb:
+                                throw new ArgumentException("The connection string appears to be neither ODBC nor OLE DB compliant.", nameof(connectionString));
+                        }
+
+                        break;
+                    }
             }
 
             return isOleDb

@@ -1,9 +1,10 @@
+using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
-using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -283,8 +284,7 @@ namespace EntityFrameworkCore.Jet.Data
             if (InnerCommand.CommandType != CommandType.Text)
                 return InnerCommand.ExecuteNonQuery();
 
-            if (_selectRowCountRegularExpression.Match(InnerCommand.CommandText)
-                .Success)
+            if (_selectRowCountRegularExpression.IsMatch(InnerCommand.CommandText))
             {
                 return _connection.RowCount;
             }
@@ -293,7 +293,7 @@ namespace EntityFrameworkCore.Jet.Data
 
             if (!CheckExists(InnerCommand.CommandText, out var newCommandText))
                 return 0;
-            bool isexistssql = newCommandText != InnerCommand.CommandText && (InnerCommand.CommandText.StartsWith("IF EXISTS",StringComparison.OrdinalIgnoreCase) || InnerCommand.CommandText.StartsWith("IF NOT EXISTS", StringComparison.OrdinalIgnoreCase));
+            bool isexistssql = newCommandText != InnerCommand.CommandText && (InnerCommand.CommandText.StartsWith("IF EXISTS", StringComparison.OrdinalIgnoreCase) || InnerCommand.CommandText.StartsWith("IF NOT EXISTS", StringComparison.OrdinalIgnoreCase));
 
             InnerCommand.CommandText = newCommandText;
 
@@ -396,7 +396,7 @@ namespace EntityFrameworkCore.Jet.Data
         {
             //Remove any tag lines from the sql created by ef core. Jet doesn't like comments/tags in the SQL
             var lines = CommandText.Split([Environment.NewLine], StringSplitOptions.None);
-            var filteredLines = lines.Where(line => !line.TrimStart().StartsWith("--"));
+            var filteredLines = lines.Where(line => !line.TrimStart().StartsWith("--", StringComparison.Ordinal));
             CommandText = string.Join(Environment.NewLine, filteredLines).TrimStart();
 
             // At this point, all parameters have already been expanded.
@@ -473,10 +473,9 @@ namespace EntityFrameworkCore.Jet.Data
             return commands;
         }
 
-        private DbDataReader TryGetDataReaderForSelectRowCount(string commandText)
+        private DataTableReader? TryGetDataReaderForSelectRowCount(string commandText)
         {
-            if (_selectRowCountRegularExpression.Match(commandText)
-                .Success)
+            if (_selectRowCountRegularExpression.IsMatch(commandText))
             {
                 var dataTable = new DataTable("Rowcount");
                 dataTable.Columns.Add("ROWCOUNT", typeof(int));
@@ -553,7 +552,7 @@ namespace EntityFrameworkCore.Jet.Data
                     command.CommandText = $"SELECT {placeholder}";
                     command.Parameters.Clear();
 
-                    var identityValue = Convert.ToInt32(command.ExecuteScalar());
+                    var identityValue = Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
 
                     LogHelper.ShowInfo($"{placeholder} = {identityValue}");
 
@@ -600,10 +599,10 @@ namespace EntityFrameworkCore.Jet.Data
                            {
                                var first = match.Groups["first"];
                                var sec = match.Groups["sec"];
-                               var sp = Convert.ToInt32(ExtractParameter(commandText, sec.Index, parameters).Value);
-                               var fp = Convert.ToInt32(ExtractParameter(commandText, first.Index, parameters).Value);
+                               var sp = Convert.ToInt32(ExtractParameter(commandText, sec.Index, parameters).Value, CultureInfo.InvariantCulture);
+                               var fp = Convert.ToInt32(ExtractParameter(commandText, first.Index, parameters).Value, CultureInfo.InvariantCulture);
                                var total = fp + sp;
-                               return total.ToString();
+                               return total.ToString(CultureInfo.InvariantCulture);
                            },
                            1)) != lastCommandText)
                 {
@@ -614,8 +613,8 @@ namespace EntityFrameworkCore.Jet.Data
                     lastCommandText,
                     match => Convert.ToInt32(
                             ExtractParameter(commandText, match.Index, parameters)
-                                .Value)
-                        .ToString(),
+                                .Value, CultureInfo.InvariantCulture)
+                        .ToString(CultureInfo.InvariantCulture),
                     1)) != lastCommandText)
                 {
                     lastCommandText = commandText;
@@ -630,7 +629,8 @@ namespace EntityFrameworkCore.Jet.Data
                        {
                            var first = match.Groups["first"];
                            var sec = match.Groups["sec"];
-                           return (Convert.ToInt32(first.Value) + Convert.ToInt32(sec.Value)).ToString();
+                           return (Convert.ToInt32(first.Value, CultureInfo.InvariantCulture)
+                               + Convert.ToInt32(sec.Value, CultureInfo.InvariantCulture)).ToString(CultureInfo.InvariantCulture);
                        },
                        1)) != lastCommandText)
             {
@@ -651,7 +651,8 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 InnerCommand.CommandText = _outerSelectTopValueRegularExpression.Replace(
                     InnerCommand.CommandText,
-                    match => (int.Parse(match.Value) + _outerSelectSkipEmulationViaDataReaderSkipCount).ToString());
+                    match => (int.Parse(match.Value, CultureInfo.InvariantCulture)
+                        + _outerSelectSkipEmulationViaDataReaderSkipCount).ToString(CultureInfo.InvariantCulture));
             }
         }
 
@@ -681,21 +682,21 @@ namespace EntityFrameworkCore.Jet.Data
                 }
 
                 var parameter = ExtractParameter(InnerCommand.CommandText, match.Index, parameters);
-                _outerSelectSkipEmulationViaDataReaderSkipCount = Convert.ToInt32(parameter.Value);
+                _outerSelectSkipEmulationViaDataReaderSkipCount = Convert.ToInt32(parameter.Value, CultureInfo.InvariantCulture);
 
                 InnerCommand.Parameters.Clear();
                 InnerCommand.Parameters.AddRange(parameters.ToArray());
             }
             else
             {
-                _outerSelectSkipEmulationViaDataReaderSkipCount = int.Parse(skipValueOrParameter.Value);
+                _outerSelectSkipEmulationViaDataReaderSkipCount = int.Parse(skipValueOrParameter.Value, CultureInfo.InvariantCulture);
             }
 
             InnerCommand.CommandText = InnerCommand.CommandText.Remove(match.Index, match.Length);
         }
 
         protected virtual bool IsParameter(string fragment)
-            => fragment.Equals("?") ||
+            => fragment.Equals("?", StringComparison.Ordinal) ||
                fragment.Length >= 2 && fragment[0] == '@' && fragment[1] != '@';
 
         protected virtual DbParameter ExtractParameter(string commandText, int count, List<DbParameter> parameters)
@@ -724,7 +725,7 @@ namespace EntityFrameworkCore.Jet.Data
 
             var placeholders = GetParameterPlaceholders(InnerCommand.CommandText, indices);
 
-            if (placeholders.All(t => t.Name.StartsWith("@")))
+            if (placeholders.All(t => t.Name.StartsWith('@')))
             {
                 MatchParametersAndPlaceholders(placeholders);
 

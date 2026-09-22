@@ -15,6 +15,11 @@ public sealed class TableDef
     public IReadOnlyList<ColumnDef> Columns { get; init; } = [];
     public IReadOnlyList<IndexDef> Indexes { get; init; } = [];
 
+    /// <summary>Every name the TDEF gives an index, including the relationship names that share a real index
+    /// with a named one — see <see cref="LogicalIndexDef"/>. <see cref="Indexes"/> holds one entry per real
+    /// index and so carries only the name that won.</summary>
+    public IReadOnlyList<LogicalIndexDef> LogicalIndexes { get; init; } = [];
+
     /// <summary>
     /// The variable-column count from the TDEF header (<c>0x2B</c>) — a <b>high-water</b> mark, not a live
     /// count. It never decrements on DROP COLUMN, so it exceeds the number of variable columns still present
@@ -45,8 +50,19 @@ public sealed class TableDef
     /// <inheritdoc cref="ValidationRule"/>
     public string? ValidationText { get; internal set; }
 
+    /// <summary>The row count the TDEF header carries (<c>0x10</c>), which the engine keeps current as rows are
+    /// inserted and deleted. Reported as the table's cardinality in schema metadata, as Access reports it.</summary>
+    public int RowCount { get; init; }
+
     /// <summary>True for the MSys* system tables.</summary>
     public bool IsSystem { get; init; }
+
+    /// <summary>The object's raw <c>MSysObjects.Flags</c>, kept as read so callers can classify an object the
+    /// way Access does rather than by name — the system bit (<c>0x80000000</c>), the hidden bit (<c>0x08</c>)
+    /// and the bits that keep an object out of the schema rowsets altogether are all in here. Set by the
+    /// catalog after the definition is decoded; zero for a table built without one (a test's synthetic
+    /// definition, say).</summary>
+    public uint ObjectFlags { get; internal set; }
 
     public ColumnDef? FindColumn(string name) =>
         Columns.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));

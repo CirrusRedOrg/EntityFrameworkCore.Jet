@@ -1,9 +1,8 @@
-using System;
-using System.Data;
-using System.Data.Common;
 using EntityFrameworkCore.Jet.Data;
+using System;
+using System.Data.Common;
 
-static internal class LogHelper
+internal static class LogHelper
 {
 
     internal static void ShowInfo(string info)

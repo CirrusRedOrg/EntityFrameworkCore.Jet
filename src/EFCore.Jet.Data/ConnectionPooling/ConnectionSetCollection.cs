@@ -1,13 +1,8 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace EntityFrameworkCore.Jet.Data.ConnectionPooling
 {
-    class ConnectionSetCollection : KeyedCollection<string, ConnectionSet>
+    sealed class ConnectionSetCollection : KeyedCollection<string, ConnectionSet>
     {
         protected override string GetKeyForItem(ConnectionSet item)
         {
@@ -15,7 +10,7 @@ namespace EntityFrameworkCore.Jet.Data.ConnectionPooling
         }
 
         // TryGetValue has been added in .NET Core 2.0.
-        #pragma warning disable 109
+#pragma warning disable 109
         public new bool TryGetValue(string key, out ConnectionSet? connectionSet)
         {
             try
@@ -29,6 +24,6 @@ namespace EntityFrameworkCore.Jet.Data.ConnectionPooling
                 return false;
             }
         }
-        #pragma warning restore 109
+#pragma warning restore 109
     }
 }

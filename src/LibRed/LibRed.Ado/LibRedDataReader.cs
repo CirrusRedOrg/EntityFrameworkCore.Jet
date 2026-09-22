@@ -1,26 +1,51 @@
-using System.Collections;
-using System.Data.Common;
 using LibRed.Engine.Execution;
+using System.Collections;
+using System.Collections.ObjectModel;
+using System.Data;
+using System.Data.Common;
+using System.Globalization;
 
 namespace LibRed.Data;
 
 /// <summary>Forward-only reader projecting an engine <see cref="ResultSet"/> as ADO.NET rows.</summary>
-public sealed class LibRedDataReader : DbDataReader
+// CA1010 asks for IEnumerable<T>; the non-generic IEnumerable comes from DbDataReader, which every ADO.NET
+// provider inherits as-is, and a generic enumerator over a forward-only reader has no meaning.
+#pragma warning disable CA1010
+public sealed class LibRedDataReader : DbDataReader, IDbColumnSchemaGenerator
+#pragma warning restore CA1010
 {
     private readonly ResultSet _result;
     private readonly IEnumerator<object?[]> _rows;
     private readonly int _recordsAffected;
+    private readonly bool _singleRow;
+    private readonly LibRedConnection? _ownedConnection;
     private object?[] _current = [];
     private bool _pendingFirst;
     private bool _hadRows;
     private bool _closed;
 
+    /// <param name="result">The rows and column metadata the engine produced.</param>
     /// <param name="recordsAffected">Rows affected for a DML command; -1 for a query (ADO convention).</param>
-    internal LibRedDataReader(ResultSet result, int recordsAffected = -1)
+    /// <param name="behavior">
+    /// The behavior the command was executed with. Two of its flags reach the reader: <c>SingleRow</c> caps the
+    /// result at the one row (the constructor has already buffered it, so nothing further is ever read), and
+    /// <c>CloseConnection</c> hands the reader <paramref name="connection"/>'s lifetime — closing the reader
+    /// then closes it, as ACE does. <c>SingleResult</c> is already the only shape this reader has (a batch
+    /// returns its last statement's rows and <c>NextResult</c> is always false), <c>SequentialAccess</c> asks
+    /// for a restriction on a row that is already in memory, and the key and base-column information
+    /// <c>KeyInfo</c> asks for costs a catalog lookup that <c>GetSchemaTable</c> makes anyway — so those three
+    /// are accepted and need nothing.
+    /// </param>
+    /// <param name="connection">The connection to close when this reader closes, for <c>CloseConnection</c>.</param>
+    internal LibRedDataReader(
+        ResultSet result, int recordsAffected = -1,
+        CommandBehavior behavior = CommandBehavior.Default, LibRedConnection? connection = null)
     {
         _result = result;
         _rows = result.Rows.GetEnumerator();
         _recordsAffected = recordsAffected;
+        _singleRow = behavior.HasFlag(CommandBehavior.SingleRow);
+        _ownedConnection = behavior.HasFlag(CommandBehavior.CloseConnection) ? connection : null;
 
         // Buffer the first row eagerly so column types (GetFieldType/GetDataTypeName) are available
         // before the first Read — EF's BufferedDataReader reads that metadata before reading any rows.
@@ -44,6 +69,7 @@ public sealed class LibRedDataReader : DbDataReader
     public override bool Read()
     {
         if (_pendingFirst) { _pendingFirst = false; return true; } // yield the pre-buffered first row
+        if (_singleRow) return false;                              // that buffered row was the only one asked for
         if (!_rows.MoveNext()) return false;
         _current = _rows.Current;
         return true;
@@ -58,7 +84,11 @@ public sealed class LibRedDataReader : DbDataReader
         for (int i = 0; i < _result.ColumnNames.Count; i++)
             if (string.Equals(_result.ColumnNames[i], name, StringComparison.OrdinalIgnoreCase))
                 return i;
+        // CA2201 objects to IndexOutOfRangeException, but it is what DbDataReader.GetOrdinal is documented to
+        // throw for a name that is not a column, and callers (EF among them) catch exactly that.
+#pragma warning disable CA2201
         throw new IndexOutOfRangeException(name);
+#pragma warning restore CA2201
     }
 
     public override object GetValue(int ordinal) => _current[ordinal] ?? DBNull.Value;
@@ -109,12 +139,71 @@ public sealed class LibRedDataReader : DbDataReader
             : ordinal < _current.Length && _current[ordinal] is { } value ? value.GetType() : typeof(object);
     }
 
-    public override string GetDataTypeName(int ordinal) => GetFieldType(ordinal).Name;
+    /// <summary>
+    /// The provider's name for the column's type — <c>VarChar</c>, <c>Char</c>, <c>Long</c>, <c>Currency</c> —
+    /// the same name <see cref="GetColumnSchema"/>, <see cref="GetSchemaTable"/> and the <c>DataTypes</c>
+    /// metadata collection give it, so one type has one name across the whole surface. (ACE's OLE DB provider
+    /// answers this with the OLE DB spelling, <c>DBTYPE_WVARCHAR</c>; its own schema rowsets use these names,
+    /// and matching them is what keeps this provider self-consistent.) A result with nothing described behind
+    /// it — a system-variable select, say — falls back to the CLR type's name.
+    /// </summary>
+    public override string GetDataTypeName(int ordinal) =>
+        _result.Columns[ordinal].TypeName is { Length: > 0 } name ? name : GetFieldType(ordinal).Name;
+
+    /// <summary>The result's columns as <see cref="DbColumn"/>s: each column's type, and for one read straight
+    /// from a table the stored column behind it — its table, its own name, and whether it is a key, unique,
+    /// an AutoNumber or computed.</summary>
+    public ReadOnlyCollection<DbColumn> GetColumnSchema() =>
+        new(_result.Columns.Select((c, i) => (DbColumn)new LibRedDbColumn(c, i)).ToList());
+
+    /// <summary>The same description in the older <c>DataTable</c> form, with the column set ADO.NET
+    /// defines for it.</summary>
+    public override DataTable GetSchemaTable()
+    {
+        var table = new DataTable("SchemaTable") { Locale = System.Globalization.CultureInfo.InvariantCulture };
+        foreach ((string name, Type type) in new (string, Type)[]
+        {
+            (SchemaTableColumn.ColumnName, typeof(string)), (SchemaTableColumn.ColumnOrdinal, typeof(int)),
+            (SchemaTableColumn.ColumnSize, typeof(int)), (SchemaTableColumn.NumericPrecision, typeof(short)),
+            (SchemaTableColumn.NumericScale, typeof(short)), (SchemaTableColumn.IsUnique, typeof(bool)),
+            (SchemaTableColumn.IsKey, typeof(bool)), (SchemaTableOptionalColumn.BaseServerName, typeof(string)),
+            (SchemaTableOptionalColumn.BaseCatalogName, typeof(string)), (SchemaTableColumn.BaseColumnName, typeof(string)),
+            (SchemaTableColumn.BaseSchemaName, typeof(string)), (SchemaTableColumn.BaseTableName, typeof(string)),
+            (SchemaTableColumn.DataType, typeof(Type)), (SchemaTableColumn.AllowDBNull, typeof(bool)),
+            (SchemaTableColumn.ProviderType, typeof(int)), (SchemaTableColumn.IsAliased, typeof(bool)),
+            (SchemaTableColumn.IsExpression, typeof(bool)), (SchemaTableOptionalColumn.IsAutoIncrement, typeof(bool)),
+            (SchemaTableOptionalColumn.IsRowVersion, typeof(bool)), (SchemaTableOptionalColumn.IsHidden, typeof(bool)),
+            (SchemaTableColumn.IsLong, typeof(bool)), (SchemaTableOptionalColumn.IsReadOnly, typeof(bool)),
+            ("DataTypeName", typeof(string)),
+        })
+            table.Columns.Add(name, type);
+
+        for (int i = 0; i < _result.Columns.Count; i++)
+        {
+            ResultColumn c = _result.Columns[i];
+            table.Rows.Add(
+                c.Name, i, (object?)c.Size ?? DBNull.Value,
+                c.Precision is { } p ? (short)p : DBNull.Value, c.Scale is { } s ? (short)s : DBNull.Value,
+                c.IsUnique, c.IsKey,
+                DBNull.Value, DBNull.Value,                       // a Jet file has no server or catalog
+                (object?)c.BaseColumnName ?? DBNull.Value, DBNull.Value,
+                (object?)c.BaseTableName ?? DBNull.Value,
+                c.ClrType, c.AllowNull, c.ProviderType,
+                // Aliased when the query renamed the stored column it reads.
+                c.BaseColumnName is not null && !string.Equals(c.BaseColumnName, c.Name, StringComparison.OrdinalIgnoreCase),
+                c.IsExpression, c.IsAutoIncrement,
+                false, false,                                     // Jet has no rowversion, and hides no column
+                c.IsLong, c.IsReadOnly,
+                c.TypeName);
+        }
+
+        return table;
+    }
 
     public override bool GetBoolean(int ordinal)
     {
         var value = GetValue(ordinal);
-        if (value is short) return Convert.ToBoolean(value);
+        if (value is short) return Convert.ToBoolean(value, CultureInfo.InvariantCulture);
         return (bool)value;
     }
     public override byte GetByte(int ordinal) => (byte)GetValue(ordinal);
@@ -137,7 +226,7 @@ public sealed class LibRedDataReader : DbDataReader
 
         try
         {
-            return Convert.ToInt64(result);
+            return Convert.ToInt64(result, CultureInfo.InvariantCulture);
         }
         catch (Exception)
         {
@@ -187,12 +276,19 @@ public sealed class LibRedDataReader : DbDataReader
 
     public override IEnumerator GetEnumerator() => new DbEnumerator(this, closeReader: false);
 
-    public override void Close() => _closed = true;
+    /// <summary>Releases the cursors the rows are read through, and — under
+    /// <see cref="CommandBehavior.CloseConnection"/> — closes the connection they came from.</summary>
+    public override void Close()
+    {
+        if (_closed) return;
+        _closed = true;
+        _rows.Dispose();
+        _ownedConnection?.Close();
+    }
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) _rows.Dispose();
-        Close();
+        if (disposing) Close();
         base.Dispose(disposing);
     }
 }

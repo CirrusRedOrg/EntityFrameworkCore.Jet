@@ -62,7 +62,7 @@ internal static class AccessTypeMapper
     /// counts 1, 2, 3. Every other type is left exactly as declared: <c>SHORT</c>, <c>BIGINT</c>, <c>TEXT(10)</c>,
     /// <c>GUID</c> and the rest accept the word and ignore it (all verified).
     /// </summary>
-    internal static ColumnSpec WithIdentity(ColumnSpec spec, IdentityAttribute? identity)
+    internal static ColumnSpec WithIdentity(ColumnSpec spec, IdentitySpec? identity)
     {
         if (identity is null || spec.Type != JetDataType.Int32) return spec;
         return spec with { IsAutoNumber = true, Seed = identity.Seed ?? 1, Increment = identity.Increment ?? 1 };

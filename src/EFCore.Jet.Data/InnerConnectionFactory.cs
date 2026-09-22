@@ -1,11 +1,11 @@
+using EntityFrameworkCore.Jet.Data.ConnectionPooling;
 using System;
 using System.Data;
 using System.Data.Common;
-using EntityFrameworkCore.Jet.Data.ConnectionPooling;
 
 namespace EntityFrameworkCore.Jet.Data
 {
-    class InnerConnectionFactory : IDisposable
+    sealed class InnerConnectionFactory : IDisposable
     {
         public static readonly InnerConnectionFactory Instance = new();
 
@@ -24,7 +24,7 @@ namespace EntityFrameworkCore.Jet.Data
                 var connection = dataAccessProviderFactory.CreateConnection();
                 connection.ConnectionString = connectionString;
                 connection.Open();
-                
+
                 return connection;
             }
 
@@ -37,7 +37,7 @@ namespace EntityFrameworkCore.Jet.Data
                     var connection = dataAccessProviderFactory.CreateConnection();
                     connection.ConnectionString = connectionString;
                     connection.Open();
-                    
+
                     return connection;
                 }
 

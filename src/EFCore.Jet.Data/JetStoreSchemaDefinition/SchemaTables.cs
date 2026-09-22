@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
         public static DataTable GetTablesDataTable()
         {
             var dataTable = new DataTable("INFORMATION_SCHEMA.TABLES");
-            
+
             dataTable.Columns.AddRange(
             [
                 new DataColumn("TABLE_NAME", typeof(string)),
@@ -15,7 +15,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                     new DataColumn("VALIDATION_RULE", typeof(string)),
                     new DataColumn("VALIDATION_TEXT", typeof(string))
             ]);
-            
+
             return dataTable;
         }
 
@@ -40,7 +40,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                     new DataColumn("IDENTITY_INCREMENT", typeof(int))
                 // TODO: Add ALLOW_ZERO_LENGTH_STRING
             ]);
-            
+
             return dataTable;
         }
 
@@ -56,7 +56,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                     new DataColumn("IS_NULLABLE", typeof(bool)),
                     new DataColumn("IGNORES_NULLS", typeof(bool))
             ]);
-            
+
             return dataTable;
         }
 
@@ -72,7 +72,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                     new DataColumn("COLUMN_NAME", typeof(string)),
                     new DataColumn("IS_DESCENDING", typeof(bool))
             ]);
-            
+
             return dataTable;
         }
 
@@ -91,10 +91,10 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                     new DataColumn("IS_ENFORCED", typeof(bool)),
                     new DataColumn("IS_INHERITED", typeof(bool))
             ]);
-            
+
             return dataTable;
         }
-        
+
         public static DataTable GetRelationColumnsDataTable()
         {
             var dataTable = new DataTable("INFORMATION_SCHEMA.RELATION_COLUMNS");
@@ -106,10 +106,10 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                     new DataColumn("PRINCIPAL_COLUMN_NAME", typeof(string)),
                     new DataColumn("ORDINAL_POSITION", typeof(int))
             ]);
-            
+
             return dataTable;
         }
-        
+
         public static DataTable GetCheckConstraintsDataTable()
         {
             var dataTable = new DataTable("INFORMATION_SCHEMA.CHECK_CONSTRAINTS");
@@ -120,7 +120,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                     new DataColumn("CONSTRAINT_NAME", typeof(string)),
                     new DataColumn("CHECK_CLAUSE", typeof(string))
             ]);
-            
+
             return dataTable;
         }
     }

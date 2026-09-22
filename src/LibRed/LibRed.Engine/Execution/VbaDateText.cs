@@ -259,23 +259,23 @@ internal static class VbaDateText
         switch (numbers.Count)
         {
             case 2:
-            {
-                (int day, int mon) = dayFirst ? (numbers[0], numbers[1]) : (numbers[1], numbers[0]);
-                return Make(currentYear, mon, day)
-                    ?? Make(currentYear, day, mon)
-                    ?? Make(Year(numbers[1], culture), numbers[0], 1)
-                    ?? Make(Year(numbers[0], culture), numbers[1], 1);
-            }
+                {
+                    (int day, int mon) = dayFirst ? (numbers[0], numbers[1]) : (numbers[1], numbers[0]);
+                    return Make(currentYear, mon, day)
+                        ?? Make(currentYear, day, mon)
+                        ?? Make(Year(numbers[1], culture), numbers[0], 1)
+                        ?? Make(Year(numbers[0], culture), numbers[1], 1);
+                }
             case 3:
-            {
-                if (numbers[0] > 31)
-                    return Make(Year(numbers[0], culture), numbers[1], numbers[2]);
-                (int day, int mon, int year) = YearFirst(culture.DateTimeFormat.ShortDatePattern)
-                    ? (numbers[2], numbers[1], numbers[0])
-                    : dayFirst ? (numbers[0], numbers[1], numbers[2]) : (numbers[1], numbers[0], numbers[2]);
-                int y = Year(year, culture);
-                return Make(y, mon, day) ?? Make(y, day, mon);
-            }
+                {
+                    if (numbers[0] > 31)
+                        return Make(Year(numbers[0], culture), numbers[1], numbers[2]);
+                    (int day, int mon, int year) = YearFirst(culture.DateTimeFormat.ShortDatePattern)
+                        ? (numbers[2], numbers[1], numbers[0])
+                        : dayFirst ? (numbers[0], numbers[1], numbers[2]) : (numbers[1], numbers[0], numbers[2]);
+                    int y = Year(year, culture);
+                    return Make(y, mon, day) ?? Make(y, day, mon);
+                }
             default:
                 return null;
         }

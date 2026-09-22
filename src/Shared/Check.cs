@@ -1,9 +1,5 @@
-#nullable enable
-
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 using JetBrains.Annotations;
+using System.Runtime.CompilerServices;
 using NotNullAttribute = System.Diagnostics.CodeAnalysis.NotNullAttribute;
 
 namespace EntityFrameworkCore.Jet.Utilities;

@@ -1,7 +1,6 @@
 using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
-using System.Reflection;
 using System.Text;
 
 namespace LibRed.Storage;
@@ -75,6 +74,8 @@ internal static class JetTextCollationV1
     public static bool TryEncode(string value, List<byte> output, LocaleTailoring? tailoring = null) =>
         TryEncode(value, output, tailoring, out _);
 
+    /// <param name="value">The text to encode.</param>
+    /// <param name="output">The key body is appended to this.</param>
     /// <param name="tailoring">Per-character overrides for a version-1 locale order other than General; null
     /// for General itself. The same mechanism as version 0 uses, and the same six devices — the entries just
     /// carry a two-byte <c>(Script Member, Alphabetic Weight)</c> primary instead of v0's single byte.</param>

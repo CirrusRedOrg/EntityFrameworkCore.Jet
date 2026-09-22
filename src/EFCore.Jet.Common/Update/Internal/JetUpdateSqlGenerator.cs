@@ -1,10 +1,10 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using EntityFrameworkCore.Jet.Metadata;
+using EntityFrameworkCore.Jet.Utilities;
 using System.Data;
 using System.Globalization;
 using System.Text;
-using EntityFrameworkCore.Jet.Metadata;
-using EntityFrameworkCore.Jet.Utilities;
 
 namespace EntityFrameworkCore.Jet.Update.Internal
 {
@@ -225,7 +225,7 @@ namespace EntityFrameworkCore.Jet.Update.Internal
             }
 
             Check.DebugAssert(
-                storedProcedure.Parameters.Any() || storedProcedure.ResultColumns.Any(),
+                storedProcedure.Parameters.Count > 0 || storedProcedure.ResultColumns.Any(),
                 "Stored procedure call with neither parameters nor result columns");
 
             commandStringBuilder.Append("EXEC ");
@@ -246,7 +246,7 @@ namespace EntityFrameworkCore.Jet.Update.Internal
 
             SqlGenerationHelper.DelimitIdentifier(commandStringBuilder, storedProcedure.Name, storedProcedure.Schema);
 
-            if (storedProcedure.Parameters.Any())
+            if (storedProcedure.Parameters.Count > 0)
             {
                 commandStringBuilder.Append(' ');
 

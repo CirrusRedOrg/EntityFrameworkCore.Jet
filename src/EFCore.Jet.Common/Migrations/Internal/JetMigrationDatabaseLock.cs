@@ -40,6 +40,8 @@ public class JetMigrationDatabaseLock(
         {
             if (!e.Message.Contains("cannot find the input table")) throw;
         }
+
+        GC.SuppressFinalize(this);
     }
 
     /// <summary>
@@ -58,5 +60,7 @@ public class JetMigrationDatabaseLock(
         {
             if (!e.Message.Contains("cannot find the input table")) throw;
         }
+
+        GC.SuppressFinalize(this);
     }
 }

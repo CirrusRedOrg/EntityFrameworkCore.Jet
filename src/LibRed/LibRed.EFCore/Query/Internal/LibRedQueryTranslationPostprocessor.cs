@@ -1,14 +1,10 @@
-using System.Diagnostics.CodeAnalysis;
-using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.Jet.Query.Internal;
 using EntityFrameworkCore.LibRed.Infrastructure;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.LibRed.Query.Internal
 {
     public class LibRedQueryTranslationPostprocessor : RelationalQueryTranslationPostprocessor
     {
-        private readonly IRelationalTypeMappingSource _relationalTypeMappingSource;
         private readonly JetLiftOrderByPostprocessor _liftOrderByPostprocessor;
         private readonly JetSkipTakePostprocessor _skipTakePostprocessor;
         private readonly LibRedSqlMode _sqlMode;
@@ -21,7 +17,6 @@ namespace EntityFrameworkCore.LibRed.Query.Internal
             LibRedSqlMode sqlMode)
             : base(dependencies, relationalDependencies, queryCompilationContext)
         {
-            _relationalTypeMappingSource = relationalTypeMappingSource;
             _sqlMode = sqlMode;
             _liftOrderByPostprocessor = new JetLiftOrderByPostprocessor(relationalTypeMappingSource, relationalDependencies.SqlExpressionFactory, queryCompilationContext.SqlAliasManager);
             _skipTakePostprocessor = new JetSkipTakePostprocessor(relationalTypeMappingSource,

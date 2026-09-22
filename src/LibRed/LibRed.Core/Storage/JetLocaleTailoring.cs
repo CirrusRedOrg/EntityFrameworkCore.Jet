@@ -1,5 +1,5 @@
-using System.Collections.Frozen;
 using LibRed.Catalog;
+using System.Collections.Frozen;
 
 namespace LibRed.Storage;
 
@@ -19,10 +19,12 @@ internal readonly record struct TailoredWeight(byte[] Primaries, byte Secondary)
 /// departs in more than 47 of 193 sampled characters (see
 /// <c>docs/format/page-03-04-index-btree.md</c> §10.4).
 /// </summary>
-/// <param name="Entries">Uppercase keys, except where a locale disagrees with invariant casing.</param>
-/// <param name="DoublesDigraphs">Whether a doubled digraph is written by doubling only its first letter, so
+/// <remarks>
+/// <c>Entries</c> has uppercase keys, except where a locale disagrees with invariant casing.
+/// <c>DoublesDigraphs</c> says whether a doubled digraph is written by doubling only its first letter, so
 /// <c>ggy</c> weighs as <c>gy</c>+<c>gy</c> rather than <c>g</c>+<c>gy</c>. Hungarian alone does this;
-/// Czech, Croatian, Spanish and Danish all take the plain greedy match (<c>cch</c> = <c>c</c>+<c>ch</c>).</param>
+/// Czech, Croatian, Spanish and Danish all take the plain greedy match (<c>cch</c> = <c>c</c>+<c>ch</c>).
+/// </remarks>
 internal sealed class LocaleTailoring
 {
     public LocaleTailoring(
@@ -69,6 +71,10 @@ internal sealed class LocaleTailoring
     /// with invariant casing — which Turkish does, where <c>I</c> is the dotless letter and <c>i</c> is not
     /// its lowercase.
     /// </summary>
+    /// <param name="text">The text being weighed.</param>
+    /// <param name="start">Where in it to match.</param>
+    /// <param name="weight">The matched entry's weights.</param>
+    /// <param name="consumed">How many characters the match covers.</param>
     /// <param name="repeat">True when the match is a doubled digraph and must be emitted twice.</param>
     public bool TryMatch(
         ReadOnlySpan<char> text, int start, out TailoredWeight weight, out int consumed, out bool repeat)

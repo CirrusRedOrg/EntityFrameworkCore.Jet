@@ -1,8 +1,8 @@
-using System.Buffers.Binary;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
+using System.Buffers.Binary;
 
 namespace LibRed.Storage;
 
@@ -136,7 +136,7 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
 
     /// <summary>Reads the usage map whose (row, page) pointer sits at <paramref name="pointerOffset"/> in
     /// the TDEF. Both maps share the same pointer shape and record format.</summary>
-    private IEnumerable<int> PagesAt(int pointerOffset)
+    private List<int> PagesAt(int pointerOffset)
     {
         PageBuffer tdef = _channel.ReadPage(_table.DefinitionPage);
         return ReadMapAt(tdef.ReadByte(pointerOffset), tdef.ReadInt24(pointerOffset + 1));

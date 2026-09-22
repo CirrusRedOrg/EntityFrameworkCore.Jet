@@ -1,5 +1,5 @@
-using System.Buffers.Binary;
 using LibRed.Catalog;
+using System.Buffers.Binary;
 
 namespace LibRed.Storage;
 
@@ -11,12 +11,11 @@ namespace LibRed.Storage;
 /// </code>
 /// The leading count is <c>maxColumnId + 1</c> and drives the null-bitmap width. A table with NO variable
 /// columns omits the whole variable section (offset table + numVar) — such a row can't self-describe that,
-/// so the caller passes <paramref name="hasVar"/> from the schema.
+/// so the caller passes <c>hasVar</c> from the schema.
 /// </summary>
 internal readonly ref struct RowLayout
 {
     private readonly ReadOnlySpan<byte> _row;
-    private readonly int _countSize;
 
     /// <summary>The leading column count (= max column id + 1).</summary>
     public int ColumnCount { get; }
@@ -35,7 +34,6 @@ internal readonly ref struct RowLayout
             throw new InvalidDataException("Row is too short to contain its 2-byte column count.");
 
         _row = row;
-        _countSize = countSize;
         ColumnCount = BinaryPrimitives.ReadUInt16LittleEndian(row[..countSize]);
         NullBitmapSize = (ColumnCount + 7) / 8;
         if (row.Length < countSize + NullBitmapSize)

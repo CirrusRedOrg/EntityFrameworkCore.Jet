@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using EntityFrameworkCore.Jet.Utilities;
-
 namespace EntityFrameworkCore.Jet.Query.Internal;
 
 /// <summary>
@@ -56,9 +54,9 @@ public class JetParameterBasedSqlProcessor(
     }
 
     /// <inheritdoc />
-    protected override Expression ProcessSqlNullability(Expression selectExpression, ParametersCacheDecorator Decorator)
+    protected override Expression ProcessSqlNullability(Expression queryExpression, ParametersCacheDecorator decorator)
     {
         return new JetSqlNullabilityProcessor(Dependencies, Parameters).Process(
-            selectExpression, Decorator);
+            queryExpression, decorator);
     }
 }

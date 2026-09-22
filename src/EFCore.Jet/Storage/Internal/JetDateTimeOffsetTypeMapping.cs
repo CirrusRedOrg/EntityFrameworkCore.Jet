@@ -1,8 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using EntityFrameworkCore.Jet.Infrastructure.Internal;
-using Microsoft.Extensions.Options;
 using System.Globalization;
+using System.Text;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
@@ -10,6 +9,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     {
         private const string DateTimeOffsetFormatConst = @"'{0:yyyy-MM-ddTHH:mm:ss.fffffffzzz}'";
         private const string DateTimeFormatConst = @"'{0:yyyy-MM-dd HH:mm:ss}'";
+        private static readonly CompositeFormat DateTimeFormat = CompositeFormat.Parse(DateTimeFormatConst);
 
         public static new JetDateTimeOffsetTypeMapping Default { get; } = new JetDateTimeOffsetTypeMapping("datetime");
         public JetDateTimeOffsetTypeMapping(
@@ -46,7 +46,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
             if (value is not DateTimeOffset offset) return base.GenerateNonNullSqlLiteral(value);
             var dateTime = offset.Ticks == 0 ? DateTime.FromOADate(0) : offset.UtcDateTime;
-            return $"CDATE({string.Format(CultureInfo.InvariantCulture, DateTimeFormatConst, dateTime)})";
+            return $"CDATE({string.Format(CultureInfo.InvariantCulture, DateTimeFormat, dateTime)})";
         }
     }
 }

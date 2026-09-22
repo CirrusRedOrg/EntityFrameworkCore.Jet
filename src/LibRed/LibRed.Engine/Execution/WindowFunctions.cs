@@ -37,8 +37,12 @@ internal enum WindowOptions
     Filter = 16,
 }
 
+/// <param name="MinArguments">The fewest arguments the call may carry.</param>
+/// <param name="MaxArguments">The most it may carry.</param>
 /// <param name="ResultType">The declared CLR type of the result — the window counterpart of
 /// QueryExecutor.DeclaredFunctionType. The values a function returns are converted to it.</param>
+/// <param name="Evaluate">Produces the function's value for each row of a partition.</param>
+/// <param name="Options">The clauses the call accepts beyond its arguments (IGNORE NULLS, DISTINCT, …).</param>
 internal sealed record WindowFunctionDef(
     int MinArguments, int MaxArguments, Func<IWindowTyping, Type?> ResultType, WindowEvaluator Evaluate,
     WindowOptions Options = WindowOptions.None);
@@ -100,6 +104,10 @@ internal static class WindowFunctions
         ["PERCENTILE_CONT"] = PercentileOf("PERCENTILE_CONT"),
         ["PERCENTILE_DISC"] = PercentileOf("PERCENTILE_DISC"),
         ["LISTAGG"] = new(2, int.MaxValue, static _ => typeof(string), ListAggOf,
+            WindowOptions.Frame | WindowOptions.Distinct | WindowOptions.Filter),
+        // SQL Server's spelling of the same aggregate, whose WITHIN GROUP is optional — so over a window it
+        // can arrive with just the value and the separator.
+        ["STRING_AGG"] = new(2, int.MaxValue, static _ => typeof(string), ListAggOf,
             WindowOptions.Frame | WindowOptions.Distinct | WindowOptions.Filter),
 
         // Access's own First and Last, over the frame rather than the group: the same rows as FIRST_VALUE and
@@ -228,7 +236,8 @@ internal static class WindowFunctions
     /// </summary>
     private static void ListAggOf(WindowPartition p, object?[] o)
     {
-        IReadOnlyList<Sql.Ast.SortDirection> directions = p.Call.WithinGroup!;
+        // STRING_AGG may have no WITHIN GROUP at all, and then lists in window order with no keys of its own.
+        IReadOnlyList<Sql.Ast.SortDirection> directions = p.Call.WithinGroup ?? [];
         int keys = directions.Count;
         string separator = p.ArgumentCount - keys == 2 && o.Length > 0 ? (string)p.Argument(0, 1)! : "";
         FrameRows previous = default;

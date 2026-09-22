@@ -11,8 +11,8 @@ using EntityFrameworkCore.Jet.Query.Internal;
 using EntityFrameworkCore.Jet.Query.Sql.Internal;
 using EntityFrameworkCore.Jet.Storage.Internal;
 using EntityFrameworkCore.Jet.Update.Internal;
-using EntityFrameworkCore.Jet.ValueGeneration.Internal;
 using EntityFrameworkCore.Jet.Utilities;
+using EntityFrameworkCore.Jet.ValueGeneration.Internal;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.Extensions.DependencyInjection

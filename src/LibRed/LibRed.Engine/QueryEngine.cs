@@ -1,9 +1,9 @@
 using LibRed.Catalog;
-using LibRed.IO;
 using LibRed.Engine.Execution;
 using LibRed.Engine.Plan;
 using LibRed.Engine.Planning;
 using LibRed.Engine.Schema;
+using LibRed.IO;
 using LibRed.Sql.Ast;
 using LibRed.Sql.Binding;
 using LibRed.Sql.Parsing;
@@ -19,7 +19,6 @@ public sealed class QueryEngine
     private readonly JetDatabase _database;
     private readonly ISqlParser _parser;
     private readonly Binder _binder;
-    private readonly QueryPlanner _planner = new();
     private readonly SessionState _session = new();
 
     public QueryEngine(JetDatabase database, ISqlParser? parser = null)
@@ -75,6 +74,52 @@ public sealed class QueryEngine
         return bound.Statement is SystemVariableSelectStatement sysSelect
             ? executor.ExecuteSystemVariableSelect(sysSelect)
             : executor.ExecuteQuery(PlanWithIndexes(bound));
+    }
+
+    /// <summary>
+    /// The shape <paramref name="sql"/> would return, without running it — what ADO's
+    /// <c>CommandBehavior.SchemaOnly</c> asks for. A query is parsed, bound and planned, and its columns come
+    /// back with no rows: planning is what knows the shape, and rows are lazy, so nothing is ever read. A
+    /// statement that writes is <em>not</em> executed and describes as nothing (measured: ACE leaves an
+    /// INSERT's table untouched under SchemaOnly), and a stored procedure describes as the query it holds
+    /// rather than running it.
+    /// </summary>
+    public ResultSet Describe(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
+    {
+        if (_parser.IsStatementless(sql)) return ResultSet.Empty;
+
+        SqlStatement parsed = _parser.ParseStatement(sql);
+        // The shared scope always: describing reads the catalog and writes nothing, whatever the statement
+        // would have done had it run.
+        return _database.ReadConsistent(() => DescribeCore(parsed, parameters));
+    }
+
+    private ResultSet DescribeCore(SqlStatement parsed, IReadOnlyDictionary<string, object?>? parameters)
+    {
+        if (parsed is ExecuteStatement exec)
+        {
+            // A stored SELECT describes as its own (parameterized) text; a stored action query would have
+            // written, so it describes as nothing. Its arguments are never evaluated — values cannot change
+            // a shape.
+            if (_database.Catalog.Views.TryGetValue(exec.Procedure, out string? viewSql))
+                return DescribeCore(_parser.ParseStatement(viewSql), parameters);
+            if (_database.Catalog.ActionQueries.ContainsKey(exec.Procedure)) return ResultSet.Empty;
+            throw new InvalidOperationException($"No stored procedure or query named '{exec.Procedure}'.");
+        }
+
+        // Everything that writes — DML, DDL, a make-table SELECT, transaction control — returns no rows and
+        // does not run.
+        if (parsed is not (SelectStatement { Into: null } or SetOperationStatement or SystemVariableSelectStatement))
+            return ResultSet.Empty;
+
+        BoundStatement bound = _binder.Bind(ViewExpander.Expand(parsed, _database.Catalog.Views, _parser));
+        var executor = new QueryExecutor(_database, parameters, _session, describing: true);
+        ResultSet shape = bound.Statement is SystemVariableSelectStatement sysSelect
+            ? executor.ExecuteSystemVariableSelect(sysSelect)
+            : executor.ExecuteQuery(PlanWithIndexes(bound));
+
+        // Its rows are lazy and so far untouched; dropping them is what guarantees they stay that way.
+        return new ResultSet(shape.ColumnNames, [], shape.ColumnTypes, () => shape.Columns);
     }
 
     public int ExecuteNonQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
@@ -221,7 +266,7 @@ public sealed class QueryEngine
     /// <summary>Plans a bound statement, then applies index selection (turning scans into index seeks where a
     /// predicate allows).</summary>
     private PlanNode PlanWithIndexes(BoundStatement bound) =>
-        IndexSelection.Apply(_planner.Plan(bound), _database.Catalog);
+        IndexSelection.Apply(QueryPlanner.Plan(bound), _database.Catalog);
 
     /// <summary>The optimised plan for a query — exposed for tests to assert the chosen access path/strategy
     /// (e.g. that an unindexed equi-join becomes a hash join).</summary>
@@ -243,8 +288,8 @@ public sealed class QueryEngine
         var executor = new QueryExecutor(_database, parameters, _session);
         var evaluator = new ExpressionEvaluator(new EvalScope([], [], null), executor, bag, _session);
 
-        IReadOnlyList<string> paramNames = catalog.QueryParameters.TryGetValue(exec.Procedure, out var ns)
-            ? ns : [];
+        List<string> paramNames = catalog.QueryParameters.TryGetValue(exec.Procedure, out var declared)
+            ? declared.Select(p => p.Name).ToList() : [];
 
         // Access EXEC arguments take three shapes (EF emits all of them):
         //   procParam = value  → a NAMED argument (bind the proc's named parameter to the value)
@@ -281,7 +326,10 @@ public sealed class QueryEngine
             if (positional.Count != paramNames.Count)
                 throw new InvalidOperationException(
                     $"Procedure '{exec.Procedure}' declares {paramNames.Count} parameter(s) but was executed with {positional.Count} argument(s).");
+            // IDE0028's only fix here is `[]`, which would silently drop the comparer.
+#pragma warning disable IDE0028
             args = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+#pragma warning restore IDE0028
             for (int i = 0; i < paramNames.Count; i++) args[paramNames[i]] = positional[i];
         }
 

@@ -1,7 +1,7 @@
-using System.Text;
 using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.Jet.Migrations.Internal;
 using EntityFrameworkCore.Jet.Utilities;
+using System.Text;
 
 namespace EntityFrameworkCore.LibRed.Migrations.Internal
 {

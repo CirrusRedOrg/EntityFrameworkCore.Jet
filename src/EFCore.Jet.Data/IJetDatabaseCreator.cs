@@ -1,3 +1,8 @@
+// The constants below are DAO's own CollatingOrderEnum, transcribed value-for-value. Several of its names
+// share a value (PDXNor/Norwdan, PDXIntl/General, SwedFin/PDXSwe), which CA1069 reads as duplicates; keeping
+// DAO's spelling is what lets a caller match these against the type library and Access's documentation.
+#pragma warning disable CA1069
+
 namespace EntityFrameworkCore.Jet.Data
 {
     public enum CollatingOrder
@@ -40,7 +45,7 @@ namespace EntityFrameworkCore.Jet.Data
         Version40 = 40,
         Version120 = 120
     }
-    
+
     public interface IJetDatabaseCreator
     {
         void CreateDatabase(

@@ -1,5 +1,5 @@
-using System.Globalization;
 using EntityFrameworkCore.Jet.Data;
+using System.Globalization;
 
 namespace LibRed.Engine.Execution;
 
@@ -221,7 +221,7 @@ internal sealed class RunningAggregate
         };
     }
 
-    private object? Statistic()
+    private double? Statistic()
     {
         bool sample = !_name.EndsWith('P');
         if (sample && _count < 2)

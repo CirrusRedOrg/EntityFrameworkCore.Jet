@@ -2,7 +2,6 @@
 
 using EntityFrameworkCore.Jet.Utilities;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-#nullable enable
 
 namespace EntityFrameworkCore.Jet.Query.Internal;
 
@@ -13,8 +12,8 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
     // Every one of those nodes is an Expression with NodeType Extension, so the dispatch is reproduced here and
     // the per-node methods below are unchanged. Anything unrecognised falls through to the base, which visits
     // the node's children — the same default the removed base class applied.
-    protected override Expression VisitExtension(Expression extensionExpression)
-        => extensionExpression switch
+    protected override Expression VisitExtension(Expression node)
+        => node switch
         {
             AtTimeZoneExpression e => VisitAtTimeZone(e),
             CaseExpression e => VisitCase(e),
@@ -52,7 +51,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
             UnionExpression e => VisitUnion(e),
             UpdateExpression e => VisitUpdate(e),
             ValuesExpression e => VisitValues(e),
-            _ => base.VisitExtension(extensionExpression),
+            _ => base.VisitExtension(node),
         };
 
     private bool _isSearchCondition;
@@ -368,23 +367,23 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         {
             case ExpressionType.Not
                 when sqlUnaryExpression.Type == typeof(bool):
-            {
-                // when possible, avoid converting to/from predicate form
-                if (!_isSearchCondition && sqlUnaryExpression.Operand is not (ExistsExpression or InExpression or LikeExpression))
                 {
-                    var negatedOperand = (SqlExpression)Visit(sqlUnaryExpression.Operand);
-                    return sqlExpressionFactory.MakeBinary(
-                        ExpressionType.ExclusiveOr,
-                        negatedOperand,
-                        sqlExpressionFactory.Constant(true, negatedOperand.TypeMapping),
-                        negatedOperand.TypeMapping
-                    )!;
-                }
+                    // when possible, avoid converting to/from predicate form
+                    if (!_isSearchCondition && sqlUnaryExpression.Operand is not (ExistsExpression or InExpression or LikeExpression))
+                    {
+                        var negatedOperand = (SqlExpression)Visit(sqlUnaryExpression.Operand);
+                        return sqlExpressionFactory.MakeBinary(
+                            ExpressionType.ExclusiveOr,
+                            negatedOperand,
+                            sqlExpressionFactory.Constant(true, negatedOperand.TypeMapping),
+                            negatedOperand.TypeMapping
+                        )!;
+                    }
 
-                _isSearchCondition = true;
-                resultCondition = true;
-                break;
-            }
+                    _isSearchCondition = true;
+                    resultCondition = true;
+                    break;
+                }
 
             case ExpressionType.Not:
                 _isSearchCondition = false;

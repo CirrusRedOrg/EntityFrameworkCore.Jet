@@ -307,7 +307,7 @@ FROM `BasicTypesEntities` AS `b`
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE DATEDIFF('ms', CDATE('1970-01-01 00:00:00'), `b`.`DateTimeOffset`) = @unixEpochMilliseconds
+WHERE DATEDIFF_BIG('ms', CDATE('1970-01-01 00:00:00'), `b`.`DateTimeOffset`) = @unixEpochMilliseconds
 """);
     }
 
@@ -321,7 +321,7 @@ WHERE DATEDIFF('ms', CDATE('1970-01-01 00:00:00'), `b`.`DateTimeOffset`) = @unix
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE DATEDIFF('s', CDATE('1970-01-01 00:00:00'), `b`.`DateTimeOffset`) = @unixEpochSeconds
+WHERE DATEDIFF_BIG('s', CDATE('1970-01-01 00:00:00'), `b`.`DateTimeOffset`) = @unixEpochSeconds
 """);
     }
 

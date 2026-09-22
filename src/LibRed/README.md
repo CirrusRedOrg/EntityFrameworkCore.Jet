@@ -203,7 +203,8 @@ Treat the number as of its date — an EF Core version bump moves it.
   - **Ordered-set aggregates** — `PERCENTILE_CONT(p)` and `PERCENTILE_DISC(p) WITHIN GROUP (ORDER BY x [DESC])`,
     grouped or over a window. `PERCENTILE_CONT` interpolates between numbers or dates; `PERCENTILE_DISC` returns
     one of the values, so it also takes text. `LISTAGG([DISTINCT] x [, 'separator']) WITHIN GROUP (ORDER BY …)`
-    joins the values as text.
+    joins the values as text, and SQL Server's `STRING_AGG(x, 'separator')` is the same aggregate with its
+    `WITHIN GROUP` optional and its separator required.
   - **`FILTER (WHERE …)`** on any aggregate, grouped or windowed: `COUNT(*) FILTER (WHERE Amount > 100)`.
   - `FULL [OUTER] JOIN` — ACE offers only inner/left/right, and its query designer cannot express a full one.
   - **`OFFSET … ROWS FETCH NEXT … ROWS ONLY`** paging, where the count may be any expression, not just a
@@ -211,6 +212,9 @@ Treat the number as of its date — an EF Core version bump moves it.
   - **Standard scalar syntax** ACE lacks: `CASE`, `COALESCE`, `NULLIF`, `GREATEST`/`LEAST` (NULL arguments
     ignored, as SQL Server and PostgreSQL treat them — extended mode translates `Math.Max`/`Math.Min` to
     them), and the `VALUES` table value constructor standing in for a query.
+  - **Arguments ACE's own functions do not take**: `LOG(x, base)`, and SQL Server 2022's
+    `LTRIM(x, characters)` / `RTRIM(x, characters)`, where the second argument is a set of characters to
+    strip rather than a substring.
   - **Set operations in a subquery predicate** — `IN (… UNION …)`, `EXISTS (… EXCEPT …)`, and a scalar
     subquery over a set operation.
   - **`ORDER BY` bound to the query expression**, so it applies to a whole set operation rather than to its

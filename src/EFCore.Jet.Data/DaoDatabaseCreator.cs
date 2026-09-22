@@ -1,6 +1,11 @@
-using System;
 using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
+using System;
 using System.Linq;
+
+// The enums nested below are DAO type-library enums transcribed name-for-name and value-for-value, so a
+// caller can match them against the library's own documentation. CA1711 objects to the "Enum" suffix those
+// names carry, and CA1069 to the members DAO gives the same value (dbSortPDXNor/dbSortNorwdan and friends).
+#pragma warning disable CA1711, CA1069
 
 namespace EntityFrameworkCore.Jet.Data
 {
@@ -19,9 +24,9 @@ namespace EntityFrameworkCore.Jet.Data
             }
 
             var filePath = JetStoreDatabaseHandling.ExpandFileName(JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(fileNameOrConnectionString));
-            
+
             if (version == DatabaseVersion.NewestSupported &&
-                string.Equals(System.IO.Path.GetExtension(filePath), ".mdb"))
+                string.Equals(System.IO.Path.GetExtension(filePath), ".mdb", StringComparison.OrdinalIgnoreCase))
             {
                 version = DatabaseVersion.Version40;
             }
@@ -32,16 +37,16 @@ namespace EntityFrameworkCore.Jet.Data
 
                 var databaseType = version switch
                 {
-                    DatabaseVersion.Version10 => (int) DatabaseTypeEnum.dbVersion10,
-                    DatabaseVersion.Version11 => (int) DatabaseTypeEnum.dbVersion11,
-                    DatabaseVersion.Version20 => (int) DatabaseTypeEnum.dbVersion20,
-                    DatabaseVersion.Version30 => (int) DatabaseTypeEnum.dbVersion30,
-                    DatabaseVersion.Version40 => (int) DatabaseTypeEnum.dbVersion40,
-                    DatabaseVersion.Version120 => (int) DatabaseTypeEnum.dbVersion120,
+                    DatabaseVersion.Version10 => (int)DatabaseTypeEnum.dbVersion10,
+                    DatabaseVersion.Version11 => (int)DatabaseTypeEnum.dbVersion11,
+                    DatabaseVersion.Version20 => (int)DatabaseTypeEnum.dbVersion20,
+                    DatabaseVersion.Version30 => (int)DatabaseTypeEnum.dbVersion30,
+                    DatabaseVersion.Version40 => (int)DatabaseTypeEnum.dbVersion40,
+                    DatabaseVersion.Version120 => (int)DatabaseTypeEnum.dbVersion120,
                     _ => 0,
                 };
 
-                var daoCollatingOrder = (CollatingOrderEnum) collatingOrder;
+                var daoCollatingOrder = (CollatingOrderEnum)collatingOrder;
                 var collatingOrderString = daoCollatingOrder switch
                 {
                     CollatingOrderEnum.dbSortArabic => ";LANGID=0x0401;CP=1256;COUNTRY=0",
@@ -80,10 +85,12 @@ namespace EntityFrameworkCore.Jet.Data
             }
             catch (Exception e)
             {
-                throw new Exception($"Cannot create database \"{filePath}\" using DAO.", e);
+                throw new InvalidOperationException($"Cannot create database \"{filePath}\" using DAO.", e);
             }
         }
-        
+
+        private static readonly int[] Dao36Only = [36];
+
         private static dynamic CreateDbEngine()
         {
             var progids = Enumerable.Range(12, 6)
@@ -92,7 +99,7 @@ namespace EntityFrameworkCore.Jet.Data
                 .Concat(
                     Environment.Is64BitProcess
                         ? []
-                        : new[] {36}) // DAO 3.6 is only available as an x86 library
+                        : Dao36Only) // DAO 3.6 is only available as an x86 library
                 .Select(n => "DAO.DBEngine." + n)
                 .ToArray();
             return ComObject.CreateFirstFrom(progids);
@@ -143,7 +150,7 @@ namespace EntityFrameworkCore.Jet.Data
             dbVersion40 = 0x00000040,
             dbVersion120 = 0x00000080
         }
-        
+
         [Flags]
         protected enum TableDefAttributeEnum
         {

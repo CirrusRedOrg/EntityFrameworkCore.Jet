@@ -1,7 +1,7 @@
-using System.Buffers.Binary;
-using System.Text;
 using LibRed.Formats;
 using LibRed.Pages;
+using System.Buffers.Binary;
+using System.Text;
 
 namespace LibRed.Catalog;
 
@@ -105,7 +105,6 @@ public static class TdefBuilder
     // TDEF header offsets + the record marker / continuation-header size live on JetFormatBase (shared,
     // version-aware); the column-descriptor sub-offsets Access needs but the reader ignores are below.
     private const int ColumnRecordMarkerOffset = 0x01; // 0x0659
-    private const int ColumnNumber2Offset = 0x09;      // duplicate column id
 
     // Index-data and index-info block layout + flags are shared with the reader via IndexBlockFormat / IndexFlags.
     private const int MaxIndexesPerTable = 32; // Jet/ACE limit, counting keys- and relationship-backing indexes
@@ -172,7 +171,12 @@ public static class TdefBuilder
         // AutoNumber column would be written with the 0x04 flag set and no counter configuration of its own —
         // two columns then claiming one header counter at insert. ALTER's promote path already refuses this;
         // CREATE silently took the first and ignored the rest.
-        var counters = specs.Where(s => s.IsAutoNumber).ToList();
+        //
+        // Complex columns are exempt, and are not a second claimant: they carry the same 0x04 flag but are
+        // allocated from 0x1C, not from this pair. Counting them would refuse to rebuild any table that has an
+        // ordinary counter beside a complex column — complex1.accdb's Table1 has one of each kind — and could
+        // hand `counter` a complex spec whose seed/increment describe nothing.
+        var counters = specs.Where(s => s.IsAutoNumber && s.Type != JetDataType.Complex).ToList();
         if (counters.Count > 1)
             throw new NotSupportedException(
                 $"A table may have only one AutoNumber column; {string.Join(", ", counters.Select(c => $"'{c.Name}'"))} are all declared as one.");
@@ -367,7 +371,7 @@ public static class TdefBuilder
 
     private static int DefinitionSize(
         JetFormatBase format,
-        IReadOnlyList<ColumnDef> columns,
+        List<ColumnDef> columns,
         IReadOnlyList<IndexSpec> indexes,
         IReadOnlyList<LogicalIndexSpec> logical,
         IReadOnlyList<LongValueColumnSpec> longValueColumns)

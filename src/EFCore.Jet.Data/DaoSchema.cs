@@ -1,9 +1,15 @@
+using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using System;
 using System.Collections.Generic;
 using System.Data;
-using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
+
+// The enums nested below are DAO type-library enums transcribed name-for-name and value-for-value, so a
+// caller can match them against the library's own documentation. CA1711 objects to the "Enum" suffix those
+// names carry, and CA1069 to the members DAO gives the same value (dbFixedField/dbDescending).
+#pragma warning disable CA1711, CA1069
 
 namespace EntityFrameworkCore.Jet.Data
 {
@@ -29,7 +35,7 @@ namespace EntityFrameworkCore.Jet.Data
                 Enumerable.Range(12, 6)
                     .Reverse()
                     .Concat([36])
-                    .Select(n => "DAO.DBEngine." + (n * 10).ToString())
+                    .Select(n => "DAO.DBEngine." + (n * 10).ToString(CultureInfo.InvariantCulture))
                     .ToArray());
 
             try
@@ -525,7 +531,7 @@ namespace EntityFrameworkCore.Jet.Data
             catch (Exception e)
             {
                 // TODO: Try interating over the collections instead of using Item["Name"].
-                throw new Exception($"Cannot rename table '{oldTableName}' to '{newTableName}'.", e);
+                throw new InvalidOperationException($"Cannot rename table '{oldTableName}' to '{newTableName}'.", e);
             }
         }
 
@@ -549,7 +555,7 @@ namespace EntityFrameworkCore.Jet.Data
             catch (Exception e)
             {
                 // TODO: Try interating over the collections instead of using Item["Name"].
-                throw new Exception($"Cannot rename column '{oldColumnName}' to '{newColumnName}' of table '{tableName}'.", e);
+                throw new InvalidOperationException($"Cannot rename column '{oldColumnName}' to '{newColumnName}' of table '{tableName}'.", e);
             }
         }
 
@@ -714,6 +720,7 @@ namespace EntityFrameworkCore.Jet.Data
             _database.Dispose();
             _workspace.Dispose();
             _dbEngine.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         [Flags]

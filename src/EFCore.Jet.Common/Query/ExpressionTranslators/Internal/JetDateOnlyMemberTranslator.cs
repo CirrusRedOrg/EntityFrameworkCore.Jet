@@ -52,7 +52,7 @@ public class JetDateOnlyMemberTranslator(ISqlExpressionFactory sqlExpressionFact
                 ],
                 nullable: true,
                 argumentsPropagateNullability: [false, true, true],
-                returnType),sqlExpressionFactory.Constant(new DateOnly(100,1,1).DayNumber)),
+                returnType), sqlExpressionFactory.Constant(new DateOnly(100, 1, 1).DayNumber)),
 
             _ => null
         };

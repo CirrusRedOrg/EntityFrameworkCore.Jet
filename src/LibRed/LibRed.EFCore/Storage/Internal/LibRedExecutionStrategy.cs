@@ -1,6 +1,4 @@
 using EntityFrameworkCore.Jet.Internal;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.LibRed.Storage.Internal;
 

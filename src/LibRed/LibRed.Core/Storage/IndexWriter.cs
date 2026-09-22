@@ -1,8 +1,8 @@
-using System.Buffers.Binary;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
+using System.Buffers.Binary;
 
 namespace LibRed.Storage;
 
@@ -181,9 +181,14 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
                 $"Index '{index.Name}': entry for row {rowId.Page}:{rowId.Row} was not found on leaf {leafPage}.");
         entries.RemoveAt(idx);
 
-        // Removing only shrinks the page, so Build never overflows.
-        _channel.WritePage(leafPage,
-            Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries)!);
+        // Removing only shrinks the page, so Build never overflows. The page keeps the prefix length it was
+        // already stored at: ACE re-compresses a leaf only when it must (see InsertIntoLeaf), and a delete
+        // never must. Letting Build pick the largest prefix now available instead repacks entries ACE left
+        // alone — measured as a 4-byte-shorter live region on every leaf a cascading delete touched.
+        // Dropping an entry can only keep or widen what the rest share, so the stored length stays valid.
+        WriteOrThrow(leafPage,
+            Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries,
+                page.CompressedByteCount));
     }
 
     private static bool HasNullKey(IndexDef index, object?[] values) =>
@@ -295,7 +300,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
         if (Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries, keep) is { } asIs)
         {
-            _channel.WritePage(leafPage, asIs);
+            _channel.WritePage(leafPage, KeepTail(leafPage, asIs));
             return;
         }
 
@@ -303,7 +308,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
             && Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries, share)
                 is { } compressed)
         {
-            _channel.WritePage(leafPage, compressed);
+            _channel.WritePage(leafPage, KeepTail(leafPage, compressed));
             return;
         }
 
@@ -316,7 +321,17 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         //
         // AutoNumber and identity keys are ascending by construction, so this is the ordinary case. The
         // condition cannot fire on a random insert, which is why the general behaviour is unchanged.
-        int splitAt = pos == entries.Count - 1 ? entries.Count - 1 : entries.Count / 2;
+        //
+        // Everywhere else ACE halves the entries the page held BEFORE this insert, and the new entry then
+        // joins whichever side its key falls in — so a key landing below the midpoint leaves one MORE entry
+        // behind than a key landing on or above it. Halving the post-insert list instead always hands the odd
+        // entry to the right page, which agrees with ACE only for the upper half. Measured on a 602-entry
+        // leaf split by one further key (§10.5): ACE keeps 302 entries for a key at position 1 or 50, and 301
+        // for one at 301, 302 or 400 — so the midpoint itself goes right.
+        int mid = (entries.Count - 1) / 2;                      // midpoint of the pre-insert entries
+        int splitAt = pos == entries.Count - 1
+            ? entries.Count - 1
+            : Math.Max(1, pos < mid ? mid + 1 : mid);           // never leave the left page empty
         SplitAndPropagate(index, path, path.Count - 1, entries, PageType.LeafIndexPage,
             page.Previous, page.Next, splitAt);
     }
@@ -325,6 +340,13 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     /// Splits the (leaf or node) page at <paramref name="level"/> into two, writes both, then promotes a
     /// separator into the parent — splitting parents in turn, or growing a new root at the top.
     /// </summary>
+    /// <param name="index">The index whose tree is being split.</param>
+    /// <param name="path">The pages from the root down to the one being split, one per level.</param>
+    /// <param name="level">Which entry of <paramref name="path"/> is the page to split.</param>
+    /// <param name="entries">That page's entries, in key order, including the one just inserted.</param>
+    /// <param name="type">Leaf or node — what the two halves are written as.</param>
+    /// <param name="prev">The split page's left sibling, for the leaf chain.</param>
+    /// <param name="next">Its right sibling.</param>
     /// <param name="splitAt">How many entries stay on the left page; negative for the default half. Only a
     /// leaf split sets it, to keep a page full when the new entry is its maximum (see InsertIntoLeaf).</param>
     private void SplitAndPropagate(IndexDef index, List<int> path, int level, List<Entry> entries,
@@ -399,7 +421,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         int parentLevel = path.Count - 1 - level;
         if (Build(PageType.IntermediateIndexPage, 0, 0, tail, parentLevel, entries) is { } built)
         {
-            _channel.WritePage(parentPage, built);
+            _channel.WritePage(parentPage, KeepTail(parentPage, built));
             return;
         }
 
@@ -434,6 +456,12 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     /// both matching what Access writes. (An isolation test showed neither is strictly required — Access reads
     /// a node with <c>0x1A=0</c> and compressed just fine; they are kept purely for byte-faithfulness. The one
     /// hard requirement is a <b>leaf's</b> <c>0x1A=0</c> and the leaf-chain offsets at <c>0x0C</c>/<c>0x10</c>.)</summary>
+    /// <param name="type">Leaf or node.</param>
+    /// <param name="prev">The page's left sibling, written into the leaf chain.</param>
+    /// <param name="next">Its right sibling.</param>
+    /// <param name="tail">The page's trailing pointer — a node's rightmost child.</param>
+    /// <param name="level">A node's height above the leaves; 0 on a leaf.</param>
+    /// <param name="entries">The entries to write, in key order.</param>
     /// <param name="prefix">The shared-prefix length to store the entries at. Null computes the largest
     /// available, which is what a split writes. It must not exceed what the entries actually share.</param>
     private byte[]? Build(PageType type, int prev, int next, int tail, int level, List<Entry> entries,
@@ -608,8 +636,40 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     }
 
     private void WriteOrThrow(int pageNumber, byte[]? page) =>
-        _channel.WritePage(pageNumber, page ?? throw new NotSupportedException(
-            "An index page still overflows after a split (a key wider than half a page)."));
+        _channel.WritePage(pageNumber, KeepTail(pageNumber, page ?? throw new NotSupportedException(
+            "An index page still overflows after a split (a key wider than half a page).")));
+
+    /// <summary>
+    /// Carries the destination's bytes past the new live end into a freshly built page, because that is what
+    /// Access leaves behind.
+    /// </summary>
+    /// <remarks>
+    /// <para><see cref="Build"/> works in a zeroed buffer and fills it only as far as the last entry, so
+    /// everything beyond is written back as zeros. ACE instead edits a page in place: it moves the free-space
+    /// pointer and lets the bytes the entries used to occupy stand. Measured on an insert that splits three
+    /// levels of <c>[Order Details]</c>: on every index page ACE rewrote (both leaves and nodes) the region
+    /// past the new live end still held the original bytes, and on the one page it took fresh from the
+    /// allocator that region was zero. So the rule is <b>zero-fill on allocation, never clear again</b>.</para>
+    /// <para>Only a rewrite of this index's own page qualifies — a page just recycled from somewhere else
+    /// still carries the previous owner's type and owner id, and ACE zero-fills that one, which is what
+    /// building in a clean buffer already does.</para>
+    /// <para>The bytes kept are dead: they sit past the free-space boundary, so no reader reaches them.
+    /// Keeping them is for byte-faithfulness with ACE, not for meaning.</para>
+    /// </remarks>
+    private byte[] KeepTail(int pageNumber, byte[] built)
+    {
+        if (pageNumber >= _channel.PageCount) return built;
+
+        ReadOnlySpan<byte> existing = _channel.ReadPage(pageNumber).Span;
+        if (existing[0] != built[0]
+            || BinaryPrimitives.ReadInt32LittleEndian(existing[OwnerOffset..]) != _table.DefinitionPage)
+            return built;
+
+        int liveEnd = _channel.PageSize
+            - BinaryPrimitives.ReadUInt16LittleEndian(built.AsSpan(FreeSpaceOffset, 2));
+        existing[liveEnd..].CopyTo(built.AsSpan(liveEnd));
+        return built;
+    }
 
     /// <summary>Width of the row/child pointer an entry carries after its key.</summary>
     private const int TrailerSize = 4;
@@ -626,6 +686,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     /// Fills an <b>empty</b> index from <paramref name="entries"/> by writing each page once, instead of
     /// inserting the entries one at a time and rewriting a whole leaf per entry.
     /// </summary>
+    /// <param name="index">The empty index to fill.</param>
     /// <param name="entries">(key, row pointer) pairs with a <c>NullKey</c> marker; any order. Sorted here.</param>
     /// <param name="rejectDuplicates">Enforce uniqueness — adjacent equal keys after the sort, null keys exempt
     /// (Jet's uniqueness is over the non-null keys only).</param>

@@ -1,6 +1,6 @@
-using System.Globalization;
 using EntityFrameworkCore.Jet.Data;
 using LibRed.Sql.Ast;
+using System.Globalization;
 
 namespace LibRed.Engine.Execution;
 
@@ -66,7 +66,6 @@ internal static class Percentile
         return below == above ? a : a + (b - a) * share;
     }
 
-    private static double Number(object value) => value is string or char or Guid or byte[]
-        ? throw new InvalidCastException("Type mismatch: PERCENTILE_CONT interpolates numbers and dates.")
+    private static double Number(object value) => value is string or char or Guid or byte[]? throw new InvalidCastException("Type mismatch: PERCENTILE_CONT interpolates numbers and dates.")
         : Convert.ToDouble(ExpressionEvaluator.ConversionNumber(value), CultureInfo.InvariantCulture);
 }

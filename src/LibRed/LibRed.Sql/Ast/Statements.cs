@@ -100,6 +100,8 @@ public sealed record ValuesStatement(IReadOnlyList<IReadOnlyList<Expression>> Ro
 /// <summary>
 /// An INSERT — Access's two append-query forms.
 /// </summary>
+/// <param name="Table">The table the rows are appended to.</param>
+/// <param name="Columns">The target columns, in the order the values are given; empty for DEFAULT VALUES.</param>
 /// <param name="Rows">
 /// The <b>single-record</b> form's values, <c>INSERT INTO t (…) VALUES (…)</c>. Empty when
 /// <paramref name="Source"/> is set.
@@ -138,12 +140,13 @@ public sealed record ColumnDefinition(
     string? Calculated = null,
     /// <summary>A trailing <c>IDENTITY [(seed [, increment])]</c> attribute, or null when the column has none.
     /// The last one written wins when several are.</summary>
-    IdentityAttribute? Identity = null);
+    IdentitySpec? Identity = null);
 
 /// <summary>ACE's <c>IDENTITY [(seed [, increment])]</c> column attribute. It makes a Long column an AutoNumber
 /// counting from its seed by its increment — each 1 when omitted, replacing any the type declared — and is
-/// ignored on every other type.</summary>
-public sealed record IdentityAttribute(int? Seed, int? Increment);
+/// ignored on every other type. (Named for the SQL clause, not for <see cref="System.Attribute"/>, which is
+/// why it is not spelled with that suffix.)</summary>
+public sealed record IdentitySpec(int? Seed, int? Increment);
 
 /// <summary>Referential action for a foreign key's ON DELETE / ON UPDATE clause. Jet records only
 /// enforce + cascade-update + cascade-delete, so NoAction/SetNull/SetDefault collapse to "no cascade".</summary>
@@ -212,9 +215,10 @@ public sealed record ViewColumn(string Expression, string? Alias);
 /// MSysQueries <c>Attribute=0x0B</c> row — Expression = the sort column, Name1 = "d" for descending).</summary>
 public sealed record ViewOrderBy(string Expression, bool Descending);
 
-/// <summary>A view's decomposed SELECT (columns/tables/joins/where/group-by, all as verbatim text), which
-/// Access stores as MSysQueries rows. A GROUP BY makes it a "totals" query (aggregate columns are ordinary
-/// column rows; the group-by columns are separate rows). HAVING and ORDER BY are not stored yet.</summary>
+/// <summary>A view's decomposed SELECT (columns/tables/joins/where/group-by/having, all as verbatim text),
+/// which Access stores as MSysQueries rows. A GROUP BY makes it a "totals" query (aggregate columns are
+/// ordinary column rows; the group-by columns are separate rows), and <paramref name="Having"/> is that
+/// query's own filter over the groups, stored as its own <c>Attribute=0x0A</c> row.</summary>
 public sealed record ViewDefinition(
     bool Distinct,
     IReadOnlyList<ViewColumn> Columns,
@@ -222,6 +226,7 @@ public sealed record ViewDefinition(
     IReadOnlyList<ViewJoin> Joins,
     string? Where,
     IReadOnlyList<string> GroupBy,
+    string? Having,
     IReadOnlyList<ViewOrderBy> OrderBy,
     int? Top);
 
@@ -232,8 +237,10 @@ public sealed record CreateViewStatement(
     ViewDefinition Definition,
     string QuerySql) : SqlStatement;
 
-/// <summary>A CREATE PROCEDURE parameter: a name and its declared Access SQL type name.</summary>
-public sealed record ProcedureParameter(string Name, string TypeName);
+/// <summary>A CREATE PROCEDURE parameter: a name and its declared Access SQL type, with the
+/// <paramref name="Size"/> and <paramref name="Scale"/> it declares. The size also decides the type code —
+/// <c>Text(50)</c> is a Text parameter where a bare <c>Text</c> is a memo — and both are stored alongside it.</summary>
+public sealed record ProcedureParameter(string Name, string TypeName, int? Size = null, int? Scale = null);
 
 /// <summary>CREATE PROCEDURE name [param datatype, …] AS select — a parameterized stored query. Stored like
 /// a view (the decomposed <see cref="Definition"/>) plus a parameter row per declared parameter.</summary>
@@ -244,21 +251,31 @@ public sealed record CreateProcedureStatement(
     string QuerySql) : SqlStatement;
 
 /// <summary>The kind of non-SELECT (action) CREATE PROCEDURE body.</summary>
-public enum ProcedureActionKind { DataDefinition, Append }
+public enum ProcedureActionKind { DataDefinition, Append, Update, Delete, MakeTable }
 
-/// <summary>One appended column of an INSERT procedure body: the target column and the verbatim value text.</summary>
+/// <summary>One column/value pair of an action procedure body: an appended column of an INSERT and its
+/// verbatim value text, or one assignment of an UPDATE (whose <paramref name="Column"/> is table-qualified
+/// when the update runs over a join). Access stores both the same way.</summary>
 public sealed record AppendColumn(string Column, string ValueExpression);
 
-/// <summary>A CREATE PROCEDURE whose body is an action query (not a SELECT). A
+/// <summary>
+/// A CREATE PROCEDURE whose body is an action query (not a plain SELECT). A
 /// <see cref="ProcedureActionKind.DataDefinition"/> body carries the whole <paramref name="DdlSql"/>
-/// (CREATE/DROP TABLE); an <see cref="ProcedureActionKind.Append"/> body carries the
-/// <paramref name="TargetTable"/> and its appended <paramref name="AppendColumns"/>.</summary>
+/// (CREATE/DROP TABLE) and nothing else — Access stores it verbatim. Every other kind carries its sources,
+/// joins and WHERE in <paramref name="Body"/>, exactly as a view carries them, plus what its own kind needs:
+/// <paramref name="AppendColumns"/> are an INSERT's columns or an UPDATE's assignments,
+/// <paramref name="TargetTable"/> is the table an INSERT or a make-table writes into, and
+/// <paramref name="DeleteTarget"/> is the <c>table.*</c> a DELETE names when it names one.
+/// </summary>
 public sealed record CreateActionProcedureStatement(
     string Name,
     ProcedureActionKind Kind,
     string? DdlSql,
     string? TargetTable,
-    IReadOnlyList<AppendColumn>? AppendColumns) : SqlStatement;
+    IReadOnlyList<AppendColumn>? AppendColumns,
+    ViewDefinition? Body = null,
+    string? DeleteTarget = null,
+    IReadOnlyList<ProcedureParameter>? Parameters = null) : SqlStatement;
 
 /// <summary>One action of an ALTER TABLE statement (Access allows exactly one per statement).</summary>
 public abstract record AlterTableAction;
@@ -288,7 +305,7 @@ public sealed record AddCheckAction(CheckConstraint Check) : AlterTableAction;
 /// type, and optionally its nullability (<see cref="NotNull"/>: true = NOT NULL, false = NULL, null = leave
 /// as-is) and default.</summary>
 public sealed record AlterColumnAction(string Field, string TypeName, int? Size, int? Scale, string? Default = null, bool? NotNull = null,
-    IdentityAttribute? Identity = null) : AlterTableAction;
+    IdentitySpec? Identity = null) : AlterTableAction;
 
 /// <summary>ALTER COLUMN field SET DEFAULT expr — set (replace) a column's default, without retyping it.</summary>
 public sealed record AlterColumnSetDefaultAction(string Field, string Default) : AlterTableAction;

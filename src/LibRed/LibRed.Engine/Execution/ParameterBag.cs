@@ -16,7 +16,11 @@ internal sealed class ParameterBag
     /// <summary>The OLE epoch: Jet stores a time as the epoch plus the time of day.</summary>
     private static readonly DateTime OleEpoch = new(1899, 12, 30);
 
+    // IDE0028's only fix here is `[]`, which would silently drop the comparer and make parameter
+    // lookup case-sensitive.
+#pragma warning disable IDE0028
     private readonly Dictionary<string, object?> _values = new(StringComparer.OrdinalIgnoreCase);
+#pragma warning restore IDE0028
 
     public ParameterBag(IReadOnlyDictionary<string, object?>? values)
     {

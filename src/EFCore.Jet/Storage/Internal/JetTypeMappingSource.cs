@@ -1,11 +1,10 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using EntityFrameworkCore.Jet.Data;
-using System.Collections;
-using System.Data;
-using System.Text.Json;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using EntityFrameworkCore.Jet.Internal;
+using System.Collections;
+using System.Data;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
@@ -17,7 +16,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     {
         private readonly JetByteArrayTypeMapping _fixedLengthBinary = new("binary");
         private readonly JetByteArrayTypeMapping _variableLengthBinary = new("varbinary");
-        private readonly JetByteArrayTypeMapping _variableLengthMaxBinary = new("varbinary", storeTypePostfix: StoreTypePostfix.None);
         private readonly JetByteArrayTypeMapping _unboundedBinary = new("longbinary", storeTypePostfix: StoreTypePostfix.None);
 
         private readonly JetBoolTypeMapping _bit = new("bit"); // JET bits are not nullable
@@ -37,7 +35,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private readonly JetDecimalTypeMapping _decimal = new("decimal(18,2)", DbType.Decimal, precision: 18, scale: 2, StoreTypePostfix.PrecisionAndScale);
         private readonly JetDecimalTypeMapping _decimal18_0 = new("decimal", DbType.Decimal, precision: 18, scale: 0);
-        private readonly JetDecimalTypeMapping _currency = new("currency", DbType.Currency, storeTypePostfix:StoreTypePostfix.None);
+        private readonly JetDecimalTypeMapping _currency = new("currency", DbType.Currency, storeTypePostfix: StoreTypePostfix.None);
 
         private readonly JetDateTimeTypeMapping _datetime;
         private readonly JetDateTimeTypeMapping _dateasdatetime;
@@ -48,7 +46,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private readonly JetStringTypeMapping _fixedLengthUnicodeString = new("char", unicode: true);
         private readonly JetStringTypeMapping _variableLengthUnicodeString = new("varchar", unicode: true);
-        private readonly JetStringTypeMapping _variableLengthMaxUnicodeString = new("varchar", unicode: true, size: 255, storeTypePostfix: StoreTypePostfix.Size);
         private readonly JetStringTypeMapping _unboundedUnicodeString = new("longchar", unicode: true, storeTypePostfix: StoreTypePostfix.None);
         private readonly JetGuidTypeMapping _guid;
         private readonly JetByteArrayTypeMapping _rowversion = new("varbinary", size: 8,
@@ -92,7 +89,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             _dateonly = JetDateOnlyTypeMapping.Default;
             _timeonly = JetTimeOnlyTypeMapping.Default;
             _timespan = JetTimeSpanTypeMapping.Default;
-            
+
             _storeTypeMappings
                 = new Dictionary<string, RelationalTypeMapping[]>(StringComparer.OrdinalIgnoreCase)
                 {
@@ -204,10 +201,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             // This is because we don't try to make a new type from this string and any max length value
             // specified in the model, which means use of these strings is almost certainly an error, and
             // if it is not an error, then using, for example, varbinary(1) will work instead.
-            _disallowedMappings
-                = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-                {
-                };
+            // IDE0028's only fix here is a collection expression, which would drop the comparer.
+#pragma warning disable IDE0028
+            _disallowedMappings = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+#pragma warning restore IDE0028
 
             _options = options;
         }

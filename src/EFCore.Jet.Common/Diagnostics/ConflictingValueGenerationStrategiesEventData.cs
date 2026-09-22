@@ -38,6 +38,10 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
         /// <summary>
         ///     The property.
         /// </summary>
+        // CA1716 objects to "Property" as a VB keyword; it is the name EF Core's own PropertyEventData uses,
+        // and this type is consumed through that same diagnostics surface.
+#pragma warning disable CA1716
         public virtual IProperty Property { get; } = property;
+#pragma warning restore CA1716
     }
 }

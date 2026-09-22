@@ -117,6 +117,8 @@ public sealed record WindowNode(PlanNode Input, IReadOnlyList<WindowOutput> Outp
 }
 
 /// <summary>Orders rows.</summary>
+/// <param name="Input">The rows to order.</param>
+/// <param name="Keys">The ORDER BY keys, outermost first.</param>
 /// <param name="Limit">
 /// When set, only this many rows are needed from the ordering, so the sort keeps the smallest n as it goes instead
 /// of ordering its whole input (see QueryExecutor.SortRows). The planner sets it from an enclosing <c>TOP n</c>
@@ -154,9 +156,11 @@ public sealed record SetOperationNode(PlanNode Left, PlanNode Right, SetOperator
 /// an expression (usually a literal, but LibRed also accepts a parameter or a +/- expression) evaluated once
 /// at execution. When <paramref name="Percent"/> is set (<c>TOP n PERCENT</c>) the count is a percentage of
 /// the input row count, taken as <c>ceil(rows × n / 100)</c> (verified vs ACE).</summary>
+/// <param name="Input">The rows to take from.</param>
 /// <param name="Count">
 /// Rows to return, or null for <c>OFFSET n ROWS</c> with no <c>FETCH</c> — skip and then return the rest.
 /// </param>
+/// <param name="Percent">Whether <c>Count</c> is a percentage of the input row count (<c>TOP n PERCENT</c>).</param>
 /// <param name="Offset">
 /// Rows to skip before returning any, from <c>OFFSET n ROWS</c>. Null means start at the first row. The skip
 /// is applied before the count, so <c>OFFSET 10 ROWS FETCH NEXT 5</c> yields rows 11-15. Cannot combine with

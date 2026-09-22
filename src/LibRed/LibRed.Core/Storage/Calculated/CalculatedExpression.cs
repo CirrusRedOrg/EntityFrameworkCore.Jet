@@ -61,15 +61,16 @@ internal static class CalculatedExpression
     /// <c>Trim</c> is in and <c>LTrim</c>/<c>RTrim</c> are out, <c>Asc</c> is in and <c>Chr</c> is out, and
     /// <c>CDbl</c> is the only conversion of the ten. Independently confirmed against the list Access's own
     /// Expression Builder offers.</summary>
-    private static readonly HashSet<string> Accepted = new(StringComparer.OrdinalIgnoreCase)
-    {
+    private static readonly HashSet<string> Accepted =
+    [
+        with(StringComparer.OrdinalIgnoreCase),
         "Abs", "Sgn", "Int", "Fix", "Round", "Sqr", "Exp", "Log", "Sin", "Cos", "Tan", "Atn",
         "Len", "LCase", "UCase", "Trim", "Left", "Right", "Mid", "InStr", "Space", "String", "Str", "Asc",
         "DateSerial", "TimeSerial", "Year", "Month", "Day", "Hour", "Minute", "Second", "Weekday",
         "MonthName", "WeekdayName",
         "IIf", "Choose", "IsNull", "IsEmpty", "CDbl",
         "Pmt", "FV", "PV", "NPer", "Rate", "IPmt", "PPmt", "SLN", "SYD", "DDB",
-    };
+    ];
 
     /// <summary>Parses <paramref name="expression"/> and checks it is one ACE would accept for a column named
     /// <paramref name="self"/> over <paramref name="columns"/>.
@@ -374,32 +375,32 @@ internal static class CalculatedExpression
                 return new CalcColumn(token.Text);
 
             case TokenKind.Punctuation when token.Text == "(":
-            {
-                p++;
-                CalcNode inner = ParseOr(t, ref p);
-                Expect(t, ref p, ")", TokenKind.Punctuation);
-                return inner;
-            }
+                {
+                    p++;
+                    CalcNode inner = ParseOr(t, ref p);
+                    Expect(t, ref p, ")", TokenKind.Punctuation);
+                    return inner;
+                }
 
             case TokenKind.Keyword or TokenKind.Identifier:
-            {
-                if (token.Text.Equals("True", StringComparison.OrdinalIgnoreCase)) { p++; return new CalcLiteral(true); }
-                if (token.Text.Equals("False", StringComparison.OrdinalIgnoreCase)) { p++; return new CalcLiteral(false); }
-                if (token.Text.Equals("Null", StringComparison.OrdinalIgnoreCase)) { p++; return new CalcLiteral(null); }
-
-                p++;
-                if (!IsPunctuation(t, p, "(")) return new CalcColumn(token.Text);
-
-                p++;                                             // the '('
-                var args = new List<CalcNode>();
-                if (!IsPunctuation(t, p, ")"))
                 {
-                    args.Add(ParseOr(t, ref p));
-                    while (IsPunctuation(t, p, ",")) { p++; args.Add(ParseOr(t, ref p)); }
+                    if (token.Text.Equals("True", StringComparison.OrdinalIgnoreCase)) { p++; return new CalcLiteral(true); }
+                    if (token.Text.Equals("False", StringComparison.OrdinalIgnoreCase)) { p++; return new CalcLiteral(false); }
+                    if (token.Text.Equals("Null", StringComparison.OrdinalIgnoreCase)) { p++; return new CalcLiteral(null); }
+
+                    p++;
+                    if (!IsPunctuation(t, p, "(")) return new CalcColumn(token.Text);
+
+                    p++;                                             // the '('
+                    var args = new List<CalcNode>();
+                    if (!IsPunctuation(t, p, ")"))
+                    {
+                        args.Add(ParseOr(t, ref p));
+                        while (IsPunctuation(t, p, ",")) { p++; args.Add(ParseOr(t, ref p)); }
+                    }
+                    Expect(t, ref p, ")", TokenKind.Punctuation);
+                    return new CalcCall(token.Text, args);
                 }
-                Expect(t, ref p, ")", TokenKind.Punctuation);
-                return new CalcCall(token.Text, args);
-            }
 
             default:
                 throw new CalculatedExpressionException($"Unexpected '{token.Text}' in expression.");

@@ -8,9 +8,9 @@ namespace LibRed.Sql.Parsing;
 /// Lowers an ANTLR parse tree into the engine's <see cref="SqlNode"/> AST, so nothing
 /// downstream depends on the generated grammar types.
 /// </summary>
-internal sealed class AstBuilder
+internal static class AstBuilder
 {
-    public SqlStatement Build(StatementContext ctx)
+    public static SqlStatement Build(StatementContext ctx)
     {
         SqlStatement statement = BuildBody(ctx);
 
@@ -27,7 +27,7 @@ internal sealed class AstBuilder
         return statement;
     }
 
-    private SqlStatement BuildBody(StatementContext ctx)
+    private static SqlStatement BuildBody(StatementContext ctx)
     {
         if (ctx.ifThenStatement() is { } ifThen) return BuildIfThen(ifThen);
         if (ctx.createTableStatement() is { } create) return BuildCreateTable(create);
@@ -53,10 +53,10 @@ internal sealed class AstBuilder
         _ => throw new NotSupportedException($"Unsupported transaction statement: {ctx.GetText()}"),
     };
 
-    private SqlStatement BuildIfThen(IfThenStatementContext ctx) =>
+    private static IfThenStatement BuildIfThen(IfThenStatementContext ctx) =>
         new IfThenStatement(ctx.not is not null, BuildQueryExpression(ctx.queryExpression()), BuildThenBody(ctx.thenBody()));
 
-    private SqlStatement BuildThenBody(ThenBodyContext ctx)
+    private static SqlStatement BuildThenBody(ThenBodyContext ctx)
     {
         if (ctx.createTableStatement() is { } create) return BuildCreateTable(create);
         if (ctx.createIndexStatement() is { } createIndex) return BuildCreateIndex(createIndex);
@@ -71,7 +71,7 @@ internal sealed class AstBuilder
         return BuildQueryExpression(ctx.queryExpression());
     }
 
-    private ExecuteStatement BuildExecute(ExecuteStatementContext ctx) =>
+    private static ExecuteStatement BuildExecute(ExecuteStatementContext ctx) =>
         new(Identifier(ctx.name), ctx.expression().Select(BuildExpression).ToList());
 
     private static SqlStatement BuildDrop(DropStatementContext ctx) => ctx switch
@@ -106,7 +106,7 @@ internal sealed class AstBuilder
         return new SystemVariableSelectStatement(items);
     }
 
-    private static SqlStatement BuildCreateTable(CreateTableStatementContext ctx)
+    private static CreateTableStatement BuildCreateTable(CreateTableStatementContext ctx)
     {
         if (ctx.temp is not null)
             throw new NotSupportedException("CREATE TEMPORARY TABLE is not supported.");
@@ -192,7 +192,7 @@ internal sealed class AstBuilder
             ? ctx.GetText()
             : ctx.Start.InputStream.GetText(Antlr4.Runtime.Misc.Interval.Of(ctx.Start.StartIndex, ctx.Stop.StopIndex));
 
-    private static SqlStatement BuildAlterTable(AlterTableStatementContext ctx)
+    private static AlterTableStatement BuildAlterTable(AlterTableStatementContext ctx)
     {
         AlterTableAction action = ctx.alterTableAction() switch
         {
@@ -350,9 +350,9 @@ internal sealed class AstBuilder
     /// <summary>A column's IDENTITY attribute — the last one written, when there are several — or null. ACE takes
     /// it only straight after the type, NULL/NOT NULL or another IDENTITY: after DEFAULT, PRIMARY KEY or any
     /// other constraint it is a syntax error there (verified), so it is one here too.</summary>
-    private static IdentityAttribute? IdentityOf(IEnumerable<ColumnConstraintContext> constraints)
+    private static IdentitySpec? IdentityOf(IEnumerable<ColumnConstraintContext> constraints)
     {
-        IdentityAttribute? identity = null;
+        IdentitySpec? identity = null;
         bool afterOtherConstraint = false;
         foreach (ColumnConstraintContext constraint in constraints)
         {
@@ -363,7 +363,7 @@ internal sealed class AstBuilder
                         throw new SqlParseException(
                             "Syntax error in field definition: IDENTITY must come before DEFAULT, PRIMARY KEY and the " +
                             "column's other constraints.");
-                    identity = new IdentityAttribute(SignedInteger(id.seed), SignedInteger(id.increment));
+                    identity = new IdentitySpec(SignedInteger(id.seed), SignedInteger(id.increment));
                     break;
                 case NotNullConstraintContext or NullableConstraintContext:
                     break;
@@ -375,7 +375,7 @@ internal sealed class AstBuilder
         return identity;
     }
 
-    private static SqlStatement BuildCreateIndex(CreateIndexStatementContext ctx)
+    private static CreateIndexStatement BuildCreateIndex(CreateIndexStatementContext ctx)
     {
         var columns = ctx.indexColumn()
             .Select(ic => (Identifier(ic.col), Descending: ic.dir is { } d && d.Type == DESC))
@@ -391,7 +391,7 @@ internal sealed class AstBuilder
             Identifier(ctx.name), Identifier(ctx.table), ctx.unique is not null, columns, withOption);
     }
 
-    private static SqlStatement BuildCreateView(CreateViewStatementContext ctx)
+    private static CreateViewStatement BuildCreateView(CreateViewStatementContext ctx)
     {
         var columns = ctx._columns.Select(Identifier).ToList();
         ViewDefinition definition = BuildViewDefinition(ctx.query);
@@ -401,7 +401,8 @@ internal sealed class AstBuilder
     private static SqlStatement BuildCreateProcedure(CreateProcedureStatementContext ctx)
     {
         var parameters = (ctx.procParamList()?.procParam() ?? [])
-            .Select(p => new ProcedureParameter(ParamName(p), TypeName(p.dataType())))
+            .Select(p => new ProcedureParameter(
+                ParamName(p), TypeName(p.dataType()), Size(p.dataType()), Scale(p.dataType())))
             .ToList();
 
         // A procedure body is a SELECT (stored as a parameterized query, like a view) or an action query
@@ -411,29 +412,59 @@ internal sealed class AstBuilder
 
         if (body.createTableStatement() is { } ddl)
         {
-            RejectParametersOnAction(parameters);
+            // A data-definition query is stored as its verbatim text, with nothing decomposed — there is no
+            // row for a parameter to reach, so one declared here could never bind.
+            if (parameters.Count > 0)
+                throw new NotSupportedException(
+                    "Parameters on a data-definition procedure are not supported: its SQL is stored verbatim.");
             return new CreateActionProcedureStatement(
                 name, ProcedureActionKind.DataDefinition, OriginalText(ddl), null, null);
         }
-        if (body.insertStatement() is { } insert)
-        {
-            RejectParametersOnAction(parameters);
-            return BuildAppendProcedure(name, insert);
-        }
+        if (body.insertStatement() is { } insert) return BuildAppendProcedure(name, insert, parameters);
+        if (body.updateStatement() is { } update) return BuildUpdateProcedure(name, update, parameters);
+        if (body.deleteStatement() is { } delete) return BuildDeleteProcedure(name, delete, parameters);
 
-        ViewDefinition definition = BuildViewDefinition(body.queryExpression());
-        return new CreateProcedureStatement(name, parameters, definition, OriginalText(body.queryExpression()));
+        QueryExpressionContext query = body.queryExpression();
+        // A SELECT with an INTO is a make-table query — an action query that stores its target on the action
+        // row — not a view of the SELECT.
+        if (MakeTableTarget(query) is { } target)
+            return new CreateActionProcedureStatement(
+                name, ProcedureActionKind.MakeTable, null, target, null,
+                BuildViewDefinition(query), null, parameters);
+
+        ViewDefinition definition = BuildViewDefinition(query);
+        return new CreateProcedureStatement(name, parameters, definition, OriginalText(query));
     }
 
-    private static void RejectParametersOnAction(IReadOnlyList<ProcedureParameter> parameters)
-    {
-        if (parameters.Count > 0)
-            throw new NotSupportedException("Parameters on an action-query procedure are not stored yet.");
-    }
+    /// <summary>The table a <c>SELECT … INTO t</c> body writes into, or null for an ordinary SELECT.</summary>
+    private static string? MakeTableTarget(QueryExpressionContext ctx) =>
+        ctx.setOperator().Length == 0 && ctx.queryTerm(0) is SelectTermContext term
+        && term.querySpecification().into is { } into
+            ? Identifier(into)
+            : null;
 
-    private static SqlStatement BuildAppendProcedure(string name, InsertStatementContext insert)
+    private static CreateActionProcedureStatement BuildAppendProcedure(
+        string name, InsertStatementContext insert, IReadOnlyList<ProcedureParameter> parameters)
     {
         var columns = insert._columns;
+        if (columns.Count == 0)
+            throw new NotSupportedException("An INSERT procedure body must list its target columns.");
+
+        // The multiple-record form: the values come from a SELECT, which is stored as the query's own source
+        // — the same table / join / where rows a view stores — with each column row naming what it reads.
+        if (insert.source is { } source)
+        {
+            ViewDefinition body = BuildViewDefinition(source);
+            if (body.Columns.Count != columns.Count)
+                throw new SqlParseException(
+                    $"INSERT lists {columns.Count} columns but its SELECT returns {body.Columns.Count}.");
+
+            var sourced = columns
+                .Select((col, i) => new AppendColumn(Identifier(col), body.Columns[i].Expression))
+                .ToList();
+            return new CreateActionProcedureStatement(
+                name, ProcedureActionKind.Append, null, Identifier(insert.table), sourced, body, null, parameters);
+        }
 
         // A stored append query keeps its columns and values as text pairs, which has room for exactly one
         // row — so a multi-row table value constructor cannot be stored as a procedure even though it is
@@ -451,8 +482,6 @@ internal sealed class AstBuilder
                 "An INSERT procedure body cannot use DEFAULT as a value.");
 
         var values = rowValues.Select(v => v.expression()).ToArray();
-        if (columns.Count == 0)
-            throw new NotSupportedException("An INSERT procedure body must list its target columns.");
         if (columns.Count != values.Length)
             throw new SqlParseException(
                 $"INSERT lists {columns.Count} columns but {values.Length} values.");
@@ -461,7 +490,47 @@ internal sealed class AstBuilder
             .Select((col, i) => new AppendColumn(Identifier(col), OriginalText(values[i])))
             .ToList();
         return new CreateActionProcedureStatement(
-            name, ProcedureActionKind.Append, null, Identifier(insert.table), appendColumns);
+            name, ProcedureActionKind.Append, null, Identifier(insert.table), appendColumns,
+            null, null, parameters);
+    }
+
+    /// <summary>An UPDATE body: its sources and WHERE are stored exactly as a view's are, and each SET
+    /// assignment becomes a column row naming its target (qualified, over a join) and holding the new
+    /// value's verbatim text.</summary>
+    private static CreateActionProcedureStatement BuildUpdateProcedure(
+        string name, UpdateStatementContext update, IReadOnlyList<ProcedureParameter> parameters)
+    {
+        var assignments = update.assignment()
+            .Select(a => new AppendColumn(OriginalText(a.target), OriginalText(a.expression())))
+            .ToList();
+        return new CreateActionProcedureStatement(
+            name, ProcedureActionKind.Update, null, null, assignments,
+            ActionBody(update.tableSource(), update.whereClause()), null, parameters);
+    }
+
+    /// <summary>A DELETE body: its sources and WHERE, plus the <c>table.*</c> target when the statement names
+    /// one — which Access stores verbatim, and omits entirely for a bare <c>DELETE FROM</c>.</summary>
+    private static CreateActionProcedureStatement BuildDeleteProcedure(
+        string name, DeleteStatementContext delete, IReadOnlyList<ProcedureParameter> parameters)
+    {
+        string? target = delete.target is { } t ? $"{Identifier(t)}.*" : null;
+        return new CreateActionProcedureStatement(
+            name, ProcedureActionKind.Delete, null, null, null,
+            ActionBody(delete.tableSource(), delete.whereClause()), target, parameters);
+    }
+
+    /// <summary>The sources, joins and WHERE of an UPDATE or DELETE body, in the shape a view stores them —
+    /// they carry no output columns of their own.</summary>
+    private static ViewDefinition ActionBody(TableSourceContext[] sources, WhereClauseContext? where)
+    {
+        var tables = new List<ViewSource>();
+        var joins = new List<ViewJoin>();
+        foreach (TableSourceContext ts in sources) CollectSources(ts, tables, joins);
+
+        return new ViewDefinition(
+            Distinct: false, Columns: [], tables, joins,
+            where is null ? null : OriginalText(where.expression()),
+            GroupBy: [], Having: null, OrderBy: [], Top: null);
     }
 
     /// <summary>A declared parameter's name, with any leading <c>@</c> stripped — Access stores the bare
@@ -495,6 +564,19 @@ internal sealed class AstBuilder
             // The multiple-record form's source is a query in its own right, so a declared parameter can
             // appear in its WHERE just as it can in a VALUES list.
             Source = ins.Source is null ? null : LowerParameters(ins.Source, names),
+        },
+        // An action query declares parameters exactly as a SELECT does, and Access stores UPDATE and DELETE
+        // ones — a stored `UPDATE t SET c = pValue WHERE k = pKey` reads back through here.
+        UpdateStatement upd => upd with
+        {
+            From = LowerFrom(upd.From, names)!,
+            Assignments = upd.Assignments.Select(a => a with { Value = LowerExpr(a.Value, names) }).ToList(),
+            Where = upd.Where is null ? null : LowerExpr(upd.Where, names),
+        },
+        DeleteStatement del => del with
+        {
+            From = LowerFrom(del.From, names)!,
+            Where = del.Where is null ? null : LowerExpr(del.Where, names),
         },
         _ => s,
     };
@@ -550,9 +632,9 @@ internal sealed class AstBuilder
     private static FrameBound LowerBound(FrameBound bound, HashSet<string> names) =>
         bound.Offset is null ? bound : bound with { Offset = LowerExpr(bound.Offset, names) };
 
-    /// <summary>Decomposes a view's "simple SELECT" into the columns/tables/joins/where Access stores as
-    /// MSysQueries rows. Rejects anything Access itself rejects in a view (UNION, GROUP BY/aggregates,
-    /// HAVING, ORDER BY) or that we can't decompose (a derived-table/subquery source).</summary>
+    /// <summary>Decomposes a view's "simple SELECT" into the columns/tables/joins/where/group-by/having
+    /// Access stores as MSysQueries rows. Rejects what we can't decompose into them: a UNION (which Access
+    /// stores as segment rows instead) and a parenthesised query.</summary>
     private static ViewDefinition BuildViewDefinition(QueryExpressionContext ctx)
     {
         if (ctx.setOperator().Length > 0)
@@ -561,10 +643,10 @@ internal sealed class AstBuilder
             throw new NotSupportedException("A parenthesised query is not a valid (simple) view.");
 
         QuerySpecificationContext select = term.querySpecification();
-        if (select.havingClause() is not null)
-            throw new NotSupportedException("A view with HAVING is not stored yet.");
         var groupBy = select.groupByClause() is { } g
             ? g.expression().Select(OriginalText).ToList() : (IReadOnlyList<string>)[];
+        // The group filter of a "totals" query, stored verbatim in its own row alongside the GROUP BY ones.
+        string? having = select.havingClause() is { } h ? OriginalText(h.expression()) : null;
         // The view's ORDER BY comes off the query expression, not the SELECT: it orders the view's result.
         var orderBy = ctx.orderByClause() is { } ob
             ? ob.orderByItem().Select(i => new ViewOrderBy(OriginalText(i.expression()), i.dir?.Type == DESC)).ToList()
@@ -582,14 +664,16 @@ internal sealed class AstBuilder
             : select.selectList().selectItem().Select(BuildViewColumn).ToList();
 
         // Flatten the FROM into a flat list of source tables and joins, descending through any parenthesised
-        // join groups (Access stores them flat — one Attribute=5 per table, one Attribute=7 per join).
+        // join groups (Access stores them flat — one Attribute=5 per table, one Attribute=7 per join). A
+        // body with no FROM at all (`SELECT 1 AS n`) is a query Access stores and runs, and it stores it the
+        // same way minus the table rows — so it decomposes to no sources rather than being rejected.
         var tables = new List<ViewSource>();
         var joins = new List<ViewJoin>();
-        foreach (TableSourceContext ts in select.fromClause().tableSource())
+        foreach (TableSourceContext ts in select.fromClause()?.tableSource() ?? [])
             CollectSources(ts, tables, joins);
 
         string? where = select.whereClause() is { } w ? OriginalText(w.expression()) : null;
-        return new ViewDefinition(select.predicate?.DISTINCT() is not null, columns, tables, joins, where, groupBy, orderBy, top);
+        return new ViewDefinition(select.predicate?.DISTINCT() is not null, columns, tables, joins, where, groupBy, having, orderBy, top);
     }
 
     private static void CollectSources(TableSourceContext ts, List<ViewSource> tables, List<ViewJoin> joins)
@@ -685,7 +769,7 @@ internal sealed class AstBuilder
         _ => ViewJoinKind.Inner,
     };
 
-    private static SqlStatement BuildInsert(InsertStatementContext ctx)
+    private static InsertStatement BuildInsert(InsertStatementContext ctx)
     {
         string table = Identifier(ctx.table);
         if (ctx.DEFAULT() is not null)
@@ -718,9 +802,9 @@ internal sealed class AstBuilder
         // The ordering and paging of the WHOLE expression — the grammar admits them here and nowhere else, so
         // there is nothing to disentangle: a leading TOP sits on its operand's own querySpecification, a FETCH
         // sits here, and the two can no longer be mistaken for each other.
-        var orderBy = ctx.orderByClause() is { } ob
+        List<OrderByItem> orderBy = ctx.orderByClause() is { } ob
             ? ob.orderByItem().Select(BuildOrderByItem).ToList()
-            : (IReadOnlyList<OrderByItem>)[];
+            : [];
         Expression? top = null, offset = null;
         if (ctx.offsetFetchClause() is { } paging)
         {
@@ -795,7 +879,7 @@ internal sealed class AstBuilder
     /// <summary>A table value constructor used as a query. Every row must be the same width, and DEFAULT is
     /// rejected: it means "the column's default", which only has a meaning when there is a target column —
     /// so the standard allows it in an INSERT alone.</summary>
-    private static SqlStatement BuildValuesQuery(ValuesTermContext ctx)
+    private static ValuesStatement BuildValuesQuery(ValuesTermContext ctx)
     {
         var rows = new List<IReadOnlyList<Expression>>();
         foreach (RowValuesContext row in ctx.rowValues())
@@ -990,7 +1074,7 @@ internal sealed class AstBuilder
     /// searched form here by turning each arm into <c>operand = value</c>, so evaluation only ever sees one
     /// shape. The operand is re-emitted per arm, which is what the standard's own definition implies and
     /// matches how the Jet generator expands a CASE into IIFs.</summary>
-    private static Expression BuildCase(CaseExpressionContext ctx)
+    private static CaseExpression BuildCase(CaseExpressionContext ctx)
     {
         Expression? operand = ctx.operand is null ? null : BuildExpression(ctx.operand);
 
@@ -1034,22 +1118,31 @@ internal sealed class AstBuilder
     /// one argument, the fraction, no DISTINCT and one key; LISTAGG takes the value and optionally a separator, which
     /// the standard makes a string literal, and any number of keys.
     /// </summary>
-    private static IReadOnlyList<SortDirection>? BuildWithinGroup(FunctionCallContext ctx, string name, List<Expression> args)
+    private static List<SortDirection>? BuildWithinGroup(FunctionCallContext ctx, string name, List<Expression> args)
     {
-        bool orderedSet = FunctionCall.IsOrderedSetAggregate(name);
+        bool stringAgg = name.Equals("STRING_AGG", StringComparison.OrdinalIgnoreCase);
         if (ctx.withinGroup() is not { } within)
         {
-            return orderedSet
+            // STRING_AGG's order is optional — without it the values list as the rows arrive — but its
+            // separator is not, which is the other way round from LISTAGG.
+            if (stringAgg)
+            {
+                ValidateStringAgg(ctx, args);
+                return null;
+            }
+            return FunctionCall.IsOrderedSetAggregate(name)
                 ? throw new SqlParseException($"{name} needs WITHIN GROUP (ORDER BY …).")
                 : null;
         }
-        if (!orderedSet)
+        if (!FunctionCall.AcceptsWithinGroup(name))
             throw new SqlParseException($"{name} takes no WITHIN GROUP.");
         if (ctx.star is not null)
             throw new SqlParseException($"{name} takes no *.");
 
         var keys = within.orderByClause().orderByItem().Select(BuildOrderByItem).ToList();
-        if (name.Equals("LISTAGG", StringComparison.OrdinalIgnoreCase))
+        if (stringAgg)
+            ValidateStringAgg(ctx, args);
+        else if (name.Equals("LISTAGG", StringComparison.OrdinalIgnoreCase))
         {
             if (args.Count is not (1 or 2) || args is [_, not LiteralExpression { Value: string }])
                 throw new SqlParseException("LISTAGG takes a value and, optionally, a separator written as a string.");
@@ -1059,6 +1152,17 @@ internal sealed class AstBuilder
 
         args.AddRange(keys.Select(k => k.Value));
         return keys.Select(k => k.Direction).ToList();
+    }
+
+    /// <summary>SQL Server's <c>STRING_AGG(expression, separator)</c>: both arguments, no <c>*</c>, and the
+    /// separator written as a string, which is what makes it the one value the whole group shares.</summary>
+    private static void ValidateStringAgg(FunctionCallContext ctx, List<Expression> args)
+    {
+        if (ctx.star is not null)
+            throw new SqlParseException("STRING_AGG takes no *.");
+        if (args.Count != 2 || args[1] is not LiteralExpression { Value: string })
+            throw new SqlParseException(
+                "STRING_AGG takes a value and a separator written as a string.");
     }
 
     private static WindowSpec BuildWindowSpec(WindowSpecificationContext ctx) =>
@@ -1113,21 +1217,35 @@ internal sealed class AstBuilder
     private static string FunctionName(FunctionNameContext ctx) =>
         ctx.identifier() is { } id ? Identifier(id) : ctx.GetText();
 
-    private static Expression BuildColumn(ColumnRefContext ctx) =>
-        new ColumnReference(OptionalIdentifier(ctx.qualifier), Identifier(ctx.name));
+    /// <summary>
+    /// A column reference. Access's own query designer writes a qualified column as ONE delimited name —
+    /// <c>[Order Details.UnitPrice]</c> rather than <c>[Order Details].[UnitPrice]</c> — and resolves it as
+    /// table.column, so a saved query read back out of MSysQueries arrives in that form. A period cannot
+    /// appear in an Access object name, which is what makes the split unambiguous: a dot inside the
+    /// delimiters is always the qualifier. An undelimited <c>a.b</c> never reaches here as one name — the
+    /// grammar has already split it — so this only ever rewrites what was bracketed or backticked.
+    /// </summary>
+    private static ColumnReference BuildColumn(ColumnRefContext ctx)
+    {
+        string? qualifier = OptionalIdentifier(ctx.qualifier);
+        string name = Identifier(ctx.name);
+        if (qualifier is null && name.IndexOf('.', StringComparison.Ordinal) is var dot && dot > 0 && dot < name.Length - 1)
+            return new ColumnReference(name[..dot], name[(dot + 1)..]);
+        return new ColumnReference(qualifier, name);
+    }
 
     /// <summary><c>x IN (a, b, …)</c> becomes a flat <see cref="InListExpression"/> evaluated iteratively — NOT a
     /// deep <c>(x = a) OR (x = b) OR …</c> tree, which recurses once per item and overflows the stack when EF Core
     /// inlines a "huge number of values" Contains (thousands of constants). The evaluator reproduces the same
     /// OR/=/NOT three-valued semantics in a loop.</summary>
-    private static Expression BuildIn(InExprContext ctx)
+    private static InListExpression BuildIn(InExprContext ctx)
     {
         Expression value = BuildExpression(ctx.val);
         var items = ctx._items.Select(BuildExpression).ToList();
         return new InListExpression(value, items, ctx.not is not null);
     }
 
-    private static Expression BuildBetween(BetweenExprContext ctx) =>
+    private static BetweenExpression BuildBetween(BetweenExprContext ctx) =>
         new BetweenExpression(BuildExpression(ctx.val), BuildExpression(ctx.lo), BuildExpression(ctx.hi), ctx.not is not null);
 
     /// <summary>Parses an Access <c>#…#</c> date literal (e.g. <c>#1/1/1997#</c>, month/day/year) to a
@@ -1191,7 +1309,7 @@ internal sealed class AstBuilder
         ? new LiteralExpression(ParseInteger(text))
         : new LiteralExpression(double.Parse(text, CultureInfo.InvariantCulture), WrittenDecimal(text));
 
-    private static Expression BuildLiteral(LiteralContext ctx) => ctx switch
+    private static LiteralExpression BuildLiteral(LiteralContext ctx) => ctx switch
     {
         IntLiteralContext i => BuildNumber(i.GetText(), INTEGER_LITERAL),
         NumberLiteralContext n => BuildNumber(n.GetText(), NUMBER_LITERAL),

@@ -1,7 +1,7 @@
-using System.Text;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.IO;
+using System.Text;
 
 namespace LibRed.Pages;
 
@@ -39,6 +39,11 @@ public sealed class TableDefinitionPage : Page
 
     private readonly List<IndexDef> _indexes = [];
     public IReadOnlyList<IndexDef> Indexes => _indexes;
+
+    private readonly List<LogicalIndexDef> _logicalIndexes = [];
+    /// <summary>Every logical index, in the order the TDEF lists them — including the relationship names that
+    /// share a real index with a named one, which <see cref="Indexes"/> keeps only one of.</summary>
+    public IReadOnlyList<LogicalIndexDef> LogicalIndexes => _logicalIndexes;
 
     private readonly Dictionary<int, (int Row, int Page)> _longValueOwnedMaps = [];
     /// <summary>Per long-value (memo/OLE) column id → its owned-pages usage-map pointer (record row +
@@ -236,24 +241,29 @@ public sealed class TableDefinitionPage : Page
     private int ResolveIndexNames(PageBuffer buffer, int infoStart)
     {
         int logicalCount = LogicalIndexCount; // 0x2F — the logical-index (slot) count
-        var info = new (int DataNumber, bool IsRelationship, byte Type)[logicalCount];
+        var info = new (int DataNumber, bool IsRelationship, byte Type, byte FkType)[logicalCount];
         for (int i = 0; i < logicalCount; i++)
         {
             int block = infoStart + i * IndexBlockFormat.InfoBlockSize;
             info[i] = (
                 buffer.ReadInt32(block + IndexBlockFormat.InfoDataNumberOffset),
                 buffer.ReadInt32(block + IndexBlockFormat.InfoFkTablePageOffset) != 0,
-                buffer.ReadByte(block + IndexBlockFormat.InfoTypeOffset));
+                buffer.ReadByte(block + IndexBlockFormat.InfoTypeOffset),
+                buffer.ReadByte(block + IndexBlockFormat.InfoFkTypeOffset));
         }
 
         int namePos = infoStart + logicalCount * IndexBlockFormat.InfoBlockSize;
         var priority = new int[_indexes.Count];
+        _logicalIndexes.Clear();
         for (int i = 0; i < logicalCount; i++)
         {
             (string name, namePos) = ReadName(buffer, namePos, $"logical index {i}");
 
-            (int dataNumber, bool isRelationship, byte type) = info[i];
+            (int dataNumber, bool isRelationship, byte type, byte fkType) = info[i];
             if (dataNumber < 0 || dataNumber >= _indexes.Count) continue;
+
+            _logicalIndexes.Add(new LogicalIndexDef(name, dataNumber, isRelationship,
+                !isRelationship && type == IndexBlockFormat.TypePrimary, fkType));
 
             // Prefer a real index name over a relationship's; prefer the primary among real ones.
             int p = isRelationship ? 1 : type == IndexBlockFormat.TypePrimary ? 3 : 2;
@@ -362,12 +372,18 @@ public sealed class TableDefinitionPage : Page
 
         // AutoNumber seed/increment from the TDEF header: 0x18 = increment, 0x14 = last-assigned value. On a
         // freshly created table the last value is Seed-Increment, so Seed = last + increment (matching what a
-        // no-insert scaffold reports). A table has at most one AutoNumber column; apply to it.
+        // no-insert scaffold reports).
+        //
+        // At most one column draws on THAT pair — but it is not the only counter a table has. A complex column
+        // carries the very same 0x04 flag and is allocated from 0x1C (ComplexAutoNumber), so a table can hold an
+        // ordinary counter and any number of complex columns all reading IsAutoNumber (complex1.accdb's Table1
+        // has five). Applying the header pair to those too reports a seed and increment that describe a
+        // different counter, so skip them: their high-water is the table's ComplexAutoNumber.
         int increment = buffer.ReadInt32(format.TdefAutoNumberIncrementOffset);
         if (increment == 0) increment = 1;
         int lastAuto = buffer.ReadInt32(format.TdefLastAutoNumberOffset);
         foreach (ColumnDef column in _columns)
-            if (column.IsAutoNumber)
+            if (column.IsAutoNumber && column.Type != JetDataType.Complex)
             {
                 column.Increment = increment;
                 column.Seed = lastAuto + increment;

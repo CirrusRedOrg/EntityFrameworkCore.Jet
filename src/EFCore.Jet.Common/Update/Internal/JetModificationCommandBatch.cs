@@ -15,10 +15,12 @@ namespace EntityFrameworkCore.Jet.Update.Internal
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </remarks>
     public class JetModificationCommandBatch(
-        ModificationCommandBatchFactoryDependencies dependencies) : AffectedCountModificationCommandBatch(dependencies, 1)
+        ModificationCommandBatchFactoryDependencies dependencies)
+        : AffectedCountModificationCommandBatch(dependencies, MaxRowCount)
     {
+        // Jet executes one statement at a time: a batch is a single command, never a multi-row one.
         private const int MaxRowCount = 1;
-        private const int MaxParameterCount = 2100 - 2;
+
         private readonly List<IReadOnlyModificationCommand> _pendingBulkInsertCommands = [];
 
         /// <summary>

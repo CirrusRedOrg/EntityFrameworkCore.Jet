@@ -14,7 +14,7 @@ namespace LibRed.IO;
 /// threads is serialised at the page level (concurrent unsynchronised writes to the same page were never
 /// defined behaviour anyway).</para>
 /// </summary>
-internal sealed class PageCache
+internal sealed class PageCache : IDisposable
 {
     /// <summary>Max resident pages per file. At a 4 KB page this is ~32 MB, comfortably covering the whole of a
     /// typical Access database (and the benchmark tables); larger databases simply evict LRU.</summary>
@@ -31,7 +31,6 @@ internal sealed class PageCache
         public object? Parsed;
     }
 
-    private readonly int _pageSize;
     private readonly object _gate = new();
     // Shared for readers, exclusive for publication. Recursive so a writing statement can hold the exclusive
     // scope while each page write re-enters it; an attempted read→write upgrade is rejected explicitly below.
@@ -47,17 +46,21 @@ internal sealed class PageCache
     private readonly Dictionary<int, LinkedListNode<Entry>> _map = [];
     private readonly LinkedList<Entry> _lru = new(); // first = most-recently-used
 
-    private PageCache(int pageSize) => _pageSize = pageSize;
+    private PageCache() { }
+
+    /// <summary>Releases the publication lock. Called when the last channel on the file lets the cache go, so
+    /// an open/close cycle does not leave one behind.</summary>
+    public void Dispose() => _publishGate.Dispose();
 
     // --- shared registry: one cache per canonical file path, refcounted by the channels using it ---
 
-    private static readonly Dictionary<string, (PageCache Cache, int RefCount)> Registry = new(StringComparer.Ordinal);
-    private static readonly object RegistryGate = new();
+    private static readonly Dictionary<string, (PageCache Cache, int RefCount)> Registry = [with(StringComparer.Ordinal)];
+    private static readonly Lock RegistryGate = new();
 
     /// <summary>Returns the shared cache for <paramref name="path"/>, creating it on first use; each call must be
     /// paired with a <see cref="Release"/>. The key is the case-folded full path so relative and absolute opens
     /// of the same file share one pool (two pools for one file would reintroduce cross-handle staleness).</summary>
-    public static PageCache Acquire(string path, int pageSize)
+    public static PageCache Acquire(string path)
     {
         string key = Path.GetFullPath(path).ToLowerInvariant();
         lock (RegistryGate)
@@ -67,7 +70,7 @@ internal sealed class PageCache
                 Registry[key] = (slot.Cache, slot.RefCount + 1);
                 return slot.Cache;
             }
-            var cache = new PageCache(pageSize);
+            var cache = new PageCache();
             Registry[key] = (cache, 1);
             return cache;
         }
@@ -81,7 +84,11 @@ internal sealed class PageCache
         lock (RegistryGate)
         {
             if (!Registry.TryGetValue(key, out var slot)) return;
-            if (slot.RefCount <= 1) Registry.Remove(key);
+            if (slot.RefCount <= 1)
+            {
+                Registry.Remove(key);
+                slot.Cache.Dispose();
+            }
             else Registry[key] = (slot.Cache, slot.RefCount - 1);
         }
     }

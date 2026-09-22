@@ -4,7 +4,11 @@ using System.Data.Common;
 namespace LibRed.Data;
 
 /// <summary>Parameter collection backed by a simple list.</summary>
+// CA1010 asks for IList<T>; the non-generic IList comes from DbParameterCollection, whose members every
+// ADO.NET provider overrides as-is — SqlParameterCollection included.
+#pragma warning disable CA1010
 public sealed class LibRedParameterCollection : DbParameterCollection
+#pragma warning restore CA1010
 {
     private readonly List<LibRedParameter> _items = [];
 

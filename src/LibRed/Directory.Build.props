@@ -12,7 +12,10 @@
   <PropertyGroup>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- The documentation file is what lets IDE0005 (unnecessary usings) run on build; without it the
+         compiler reports that the rule was skipped. CS1591 (missing XML comment) stays suppressed below,
+         so turning it on costs nothing but the generated .xml beside each assembly. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 

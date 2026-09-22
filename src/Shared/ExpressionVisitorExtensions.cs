@@ -1,12 +1,7 @@
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using System.Collections.Generic;
-using System.Diagnostics;
 // ReSharper disable once CheckNamespace
 using System.Runtime.CompilerServices;
 
 namespace System.Linq.Expressions;
-
-#nullable enable
 
 [DebuggerStepThrough]
 internal static class ExpressionVisitorExtensions

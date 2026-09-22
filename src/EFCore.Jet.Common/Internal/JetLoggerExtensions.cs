@@ -1,5 +1,11 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+// Every method here follows EF Core's own logger-extension shape: the message template comes from an
+// EventDefinition rather than being a literal, and the call is already guarded by ShouldLog. That is what
+// CA2254 (varying template), CA1848 (LoggerMessage delegates) and CA1873 (params array) each object to, and
+// EF Core's own generated extensions are written the same way.
+#pragma warning disable CA1848, CA1873, CA2254
+
 namespace EntityFrameworkCore.Jet.Internal
 {
     /// <summary>

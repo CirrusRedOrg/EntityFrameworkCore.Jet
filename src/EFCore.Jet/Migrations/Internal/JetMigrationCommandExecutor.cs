@@ -1,4 +1,3 @@
-using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using Microsoft.EntityFrameworkCore.Migrations.Internal;
 
@@ -53,7 +52,7 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
             return -1;
         }
 
-        List<(IReadOnlyList<MigrationCommand>,bool)> CreateMigrationBatches(IReadOnlyList<MigrationCommand> migrationCommands)
+        static List<(IReadOnlyList<MigrationCommand>, bool)> CreateMigrationBatches(IReadOnlyList<MigrationCommand> migrationCommands)
         {
             //create new batch if JetSchemaOperationsHandling.IsDatabaseOperation is true otherwise had to current batch
             var migrationBatches = new List<(IReadOnlyList<MigrationCommand>, bool)>();
@@ -64,10 +63,10 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
                 {
                     if (currentBatch.Count != 0)
                     {
-                        migrationBatches.Add((currentBatch,false));
+                        migrationBatches.Add((currentBatch, false));
                         currentBatch = [];
                     }
-                    migrationBatches.Add(([migrationCommand],true));
+                    migrationBatches.Add(([migrationCommand], true));
                 }
                 else
                 {
@@ -76,7 +75,7 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
             }
             if (currentBatch.Count != 0)
             {
-                migrationBatches.Add((currentBatch,false));
+                migrationBatches.Add((currentBatch, false));
             }
             return migrationBatches;
         }

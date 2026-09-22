@@ -31,6 +31,14 @@ dotnet build EFCore.Jet.sln
 
 Assemblies are **strong-name signed** using `Key.snk`. `TreatWarningsAsErrors=True` is set globally — fix all warnings.
 
+`src/Directory.Build.props` also turns on `AnalysisMode=Recommended` and `EnforceCodeStyleInBuild`, so **in `src`
+every CA/IDE diagnostic is a build error** (the test projects import the repo-root props and stay on the SDK
+default). Fix them rather than suppress them; where a rule's own fix would change behaviour, a `#pragma` carries a
+written reason. Two traps: `dotnet format whitespace` handles IDE0055 and `dotnet format style` the other IDE rules,
+but **never run either against a single project when the change can touch `src/Shared`** — IDE0005 is evaluated per
+project, and formatting one will delete a using the other four consumers still need. The implicit usings those
+shared files rely on are declared once in `src/Shared/SharedSource.props`.
+
 ### Local EFCore Repository (optional)
 
 To develop against a local EF Core build instead of NuGet packages, copy `Development.props.sample` to `Development.props` and set `LocalEFCoreRepository` to your EF Core checkout. That local build must be compiled with `AssemblyVersion=11.0.0.0` to avoid binding conflicts.
@@ -282,9 +290,11 @@ The Jet provider (`src/EFCore.Jet*`) has **no** equivalent — it does no ACE ve
 `JetTypeMappingSource` keeps `{"bigint", …}` commented out, so `long` maps to `decimal(20,0)` regardless of the
 installed engine. That asymmetry is deliberate for now; don't "fix" one side by assuming the other behaves the same.
 
-**Build configuration:** `src/LibRed/Directory.Build.props` bypasses `src/Directory.Build.props` (it imports the
-repo-root props directly) to set its own build options — not packable, no documentation file, its own `NoWarn`,
-`ImplicitUsings`/`Nullable` on. The Windows stamp is no longer a reason: each driver-bound project applies
+**Build configuration:** `src/LibRed/Directory.Build.props` **imports** `src/Directory.Build.props` and adds to it:
+`ImplicitUsings`/`Nullable` on, `GenerateDocumentationFile` on (IDE0005 cannot run without it), its own `NoWarn`,
+and a LibRed-specific package readme in place of the Jet one the repo root packs. Because it imports rather than
+bypasses, the LibRed projects inherit the same `AnalysisMode`/`EnforceCodeStyleInBuild` as the rest of `src`. The
+Windows stamp is no longer a reason for any of it: each driver-bound project applies
 `[SupportedOSPlatform("windows")]` itself. Strong-naming is preserved.
 
 **SQL pipeline** (always run end-to-end, even for trivial queries, so new features add

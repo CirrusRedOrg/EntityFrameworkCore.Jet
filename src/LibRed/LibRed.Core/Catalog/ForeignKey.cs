@@ -17,6 +17,8 @@ namespace LibRed.Catalog;
 /// <param name="DeleteSetNull">Whether deleting the parent sets the child's FK columns to NULL (Jet's
 /// <c>ON DELETE SET NULL</c>, grbit <c>0x2000</c>; mutually exclusive with cascade delete, and Jet has no
 /// <c>ON UPDATE SET NULL</c>).</param>
+/// <param name="UpdateSetNull">ON UPDATE SET NULL — pathway only; not read back yet (its storage is
+/// unverified: the ACE OLE DB provider rejects the DDL, so the grbit/info-block bytes could not be probed).</param>
 public sealed record ForeignKey(
     string Name,
     string Table,
@@ -27,6 +29,4 @@ public sealed record ForeignKey(
     bool CascadeDelete,
     bool IsInherited = false,
     bool DeleteSetNull = false,
-    /// <summary>ON UPDATE SET NULL — pathway only; not read back yet (its storage is unverified — the ACE
-    /// OLE DB provider rejects the DDL, so the grbit/info-block bytes couldn't be probed).</summary>
     bool UpdateSetNull = false);

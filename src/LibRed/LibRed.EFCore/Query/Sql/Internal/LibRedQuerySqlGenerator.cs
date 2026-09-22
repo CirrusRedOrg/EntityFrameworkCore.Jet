@@ -1,8 +1,6 @@
-using EntityFrameworkCore.Jet.Infrastructure;
 using EntityFrameworkCore.Jet.Query.Sql.Internal;
 using EntityFrameworkCore.Jet.Utilities;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Storage.Internal;
 
 namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
 {
@@ -25,7 +23,7 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
             { nameof(Decimal), "CDEC" },
             { nameof(DateTime), "CDATE" },
             { nameof(TimeOnly), "TIMEVALUE" },
-        };  
+        };
 
         private readonly ITypeMappingSource _typeMappingSource;
         private readonly ISqlGenerationHelper _sqlGenerationHelper;
@@ -214,7 +212,7 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
         }
 
 
-        private Expression VisitJetConvertExpression(SqlUnaryExpression convertExpression)
+        private SqlUnaryExpression VisitJetConvertExpression(SqlUnaryExpression convertExpression)
         {
             var typeMapping = convertExpression.TypeMapping ?? throw new InvalidOperationException(
                 RelationalStrings.UnsupportedType(convertExpression.Type.ShortDisplayName()));
@@ -274,8 +272,7 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
                 _ => base.GetOperator(binaryExpression),
             };
 
-        /// <summary>
-        /// <summary>Generates the TOP part of the SELECT statement,</summary>
+        /// <summary>Generates the TOP part of the SELECT statement.</summary>
         /// <param name="selectExpression"> The select expression. </param>
         protected override void GenerateTop(SelectExpression selectExpression)
         {

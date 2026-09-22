@@ -18,6 +18,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             Guid transactionId,
             IDiagnosticsLogger<DbLoggerCategory.Database.Transaction> logger,
             bool transactionOwned)
-            => new JetTransaction(connection, transaction, transactionId, logger, transactionOwned,Dependencies.SqlGenerationHelper);
+            => new JetTransaction(connection, transaction, transactionId, logger, transactionOwned, Dependencies.SqlGenerationHelper);
     }
 }

@@ -15,10 +15,14 @@ namespace LibRed.Engine.Schema;
 public static class InformationSchema
 {
     /// <summary>The magic view names, without the <c>INFORMATION_SCHEMA.</c> prefix (case-insensitive).</summary>
+    // IDE0028's only fix here is a collection expression, which would silently drop the comparer and make
+    // the names case-sensitive.
+#pragma warning disable IDE0028
     private static readonly HashSet<string> Views = new(StringComparer.OrdinalIgnoreCase)
     {
         "TABLES", "COLUMNS", "INDEXES", "INDEX_COLUMNS", "RELATIONS", "RELATION_COLUMNS", "CHECK_CONSTRAINTS",
     };
+#pragma warning restore IDE0028
 
     private const string Prefix = "INFORMATION_SCHEMA.";
 

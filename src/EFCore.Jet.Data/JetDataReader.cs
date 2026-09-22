@@ -8,7 +8,7 @@ using System.Threading;
 
 namespace EntityFrameworkCore.Jet.Data
 {
-    internal class JetDataReader : DbDataReader
+    internal sealed class JetDataReader : DbDataReader
     {
 #if DEBUG
         private static int _activeObjectsCount;
@@ -212,7 +212,7 @@ namespace EntityFrameworkCore.Jet.Data
             return (TimeOnly)value;
         }
 
-        public virtual TimeSpan GetTimeSpan(int ordinal)
+        public TimeSpan GetTimeSpan(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
 
@@ -227,7 +227,7 @@ namespace EntityFrameworkCore.Jet.Data
             return (TimeSpan)value;
         }
 
-        public virtual DateTimeOffset GetDateTimeOffset(int ordinal)
+        public DateTimeOffset GetDateTimeOffset(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
             if (value is String stringValue)
@@ -270,7 +270,7 @@ namespace EntityFrameworkCore.Jet.Data
 
             try
             {
-                return Convert.ToDecimal(value);
+                return Convert.ToDecimal(value, CultureInfo.InvariantCulture);
             }
             catch
             {
@@ -289,7 +289,7 @@ namespace EntityFrameworkCore.Jet.Data
 
             try
             {
-                return Convert.ToDouble(value);
+                return Convert.ToDouble(value, CultureInfo.InvariantCulture);
             }
             catch
             {
@@ -314,7 +314,7 @@ namespace EntityFrameworkCore.Jet.Data
 
             try
             {
-                return Convert.ToSingle(value);
+                return Convert.ToSingle(value, CultureInfo.InvariantCulture);
             }
             catch
             {
@@ -360,7 +360,7 @@ namespace EntityFrameworkCore.Jet.Data
 
             try
             {
-                return Convert.ToInt16(value);
+                return Convert.ToInt16(value, CultureInfo.InvariantCulture);
             }
             catch
             {
@@ -401,7 +401,7 @@ namespace EntityFrameworkCore.Jet.Data
             //The text e.g. "Chai" should not be attempted to convert to bytes and then to an int but should throw an exception
             try
             {
-                return Convert.ToInt32(value);
+                return Convert.ToInt32(value, CultureInfo.InvariantCulture);
             }
             catch
             {
@@ -429,7 +429,7 @@ namespace EntityFrameworkCore.Jet.Data
 
             try
             {
-                return Convert.ToInt64(value);
+                return Convert.ToInt64(value, CultureInfo.InvariantCulture);
             }
             catch
             {

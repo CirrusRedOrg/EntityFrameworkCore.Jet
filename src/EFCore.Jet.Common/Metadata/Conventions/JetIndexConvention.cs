@@ -33,7 +33,11 @@ public class JetIndexConvention(
     IPropertyNullabilityChangedConvention,
     IPropertyAnnotationChangedConvention
 {
+    // Unread: Jet's index filter is the fixed "IGNORE NULL", so nothing here quotes an identifier. The
+    // constructor parameter stays because it is the signature EF Core's convention-set builder constructs.
+#pragma warning disable IDE0052
     private readonly ISqlGenerationHelper _sqlGenerationHelper = sqlGenerationHelper;
+#pragma warning restore IDE0052
 
     /// <summary>
     ///     Dependencies for this service.
@@ -144,7 +148,7 @@ public class JetIndexConvention(
         }
     }
 
-    private void SetIndexFilter(IConventionIndexBuilder indexBuilder, bool columnNameChanged = false)
+    private static void SetIndexFilter(IConventionIndexBuilder indexBuilder, bool columnNameChanged = false)
     {
         var index = indexBuilder.Metadata;
         if (index.IsUnique
@@ -166,11 +170,11 @@ public class JetIndexConvention(
         }
     }
 
-    private string CreateIndexFilter(List<string> nullableColumns)
+    private static string CreateIndexFilter(List<string> nullableColumns)
     {
         var builder = new StringBuilder();
 
-        if (nullableColumns.Any())
+        if (nullableColumns.Count > 0)
         {
             builder.Append("IGNORE NULL");
         }

@@ -1,11 +1,8 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System.Data.Common;
 using EntityFrameworkCore.LibRed.Infrastructure;
 using EntityFrameworkCore.LibRed.Infrastructure.Internal;
 using LibRed.Data;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore;

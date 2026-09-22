@@ -21,7 +21,9 @@ public static class JetClrTypeMap
         JetDataType.Text or JetDataType.Memo => typeof(string),
         JetDataType.Guid => typeof(Guid),
         JetDataType.FixedPoint => typeof(decimal),
-        JetDataType.Complex => typeof(object),
+        // The in-row value of a complex (multi-value / attachment) column is its Int32 complex id; the
+        // values it stands for are read through ComplexColumn.
+        JetDataType.Complex => typeof(int),
         _ => typeof(object),
     };
 }

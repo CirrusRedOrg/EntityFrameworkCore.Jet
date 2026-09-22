@@ -286,10 +286,45 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
         foreach (var (table, id, values) in order)
         {
+            DeleteComplexValues(table, values);
             foreach (IndexDef index in table.Definition.Indexes.Where(i => i.RootPage > 0)
                 .GroupBy(i => i.RootPage).Select(g => g.First()))
                 table.RemoveIndexEntry(index, values, id);
             table.Delete(id);
+        }
+    }
+
+    /// <summary>
+    /// Removes the values every complex (multi-value / attachment) column of <paramref name="table"/> holds
+    /// for the row being deleted — the flat-table rows carrying that record's complex id.
+    /// </summary>
+    /// <remarks>
+    /// Measured against ACE (<c>ComplexDeleteCascadeProbeTest</c>): deleting a record removes its values from
+    /// <b>every</b> complex column of the table — a record holding three attachments in one column and two in
+    /// another loses all five — and rolls <b>no</b> counter back. The owner's <c>0x1C</c> and each flat
+    /// table's <c>0x14</c> keep their values, so the next row still takes the following id and the freed
+    /// value ids are never reissued. Leaving the rows behind would orphan values no record points at.
+    /// </remarks>
+    private void DeleteComplexValues(Table table, object?[] values)
+    {
+        foreach (ComplexColumn complex in _database.Catalog.ComplexColumns)
+        {
+            if (!string.Equals(complex.OwnerTable.Name, table.Name, StringComparison.OrdinalIgnoreCase)) continue;
+            if (values[complex.OwnerTable.FindColumn(complex.ColumnName)!.Index] is not { } raw) continue;
+            int recordId = Convert.ToInt32(raw, System.Globalization.CultureInfo.InvariantCulture);
+
+            Table flat = _database.OpenTable(complex.FlatTable.Name);
+            foreach ((RowId flatId, object?[] flatValues) in flat.Rows().WithIds().ToList())
+            {
+                if (flatValues[complex.OwnerLink.Index] is not { } link
+                    || Convert.ToInt32(link, System.Globalization.CultureInfo.InvariantCulture) != recordId)
+                    continue;
+
+                foreach (IndexDef index in flat.Definition.Indexes.Where(i => i.RootPage > 0)
+                    .GroupBy(i => i.RootPage).Select(g => g.First()))
+                    flat.RemoveIndexEntry(index, flatValues, flatId);
+                flat.Delete(flatId);
+            }
         }
     }
 
@@ -420,15 +455,26 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // hand, and a BIGINT/DATETIME2 parameter on an older format is left to fail. Upgrading a whole
         // database for a saved query's parameter type is a bigger claim than anything measured — what ACE
         // does with a new-type parameter in MSysQueries has not been probed, unlike the column case.
-        var parameters = statement.Parameters
-            .Select(p => new ViewParameterSpec(
-                p.Name,
-                (byte)AccessTypeMapper.ToColumnSpec(
-                    new ColumnDefinition(p.Name, p.TypeName, null, null, false, false), _database.Format.Version).Type))
-            .ToList();
-        _database.CreateView(statement.Name, BuildViewSpec(statement.Definition) with { Parameters = parameters });
+        _database.CreateView(
+            statement.Name,
+            BuildViewSpec(statement.Definition) with { Parameters = BuildParameterSpecs(statement.Parameters) });
         return 0;
     }
+
+    /// <summary>The declared parameters of a stored query as the rows that hold them: each name with the Jet
+    /// type code its declared Access type maps to. An action query declares them exactly as a SELECT does.</summary>
+    private List<ViewParameterSpec>? BuildParameterSpecs(IReadOnlyList<ProcedureParameter>? parameters) =>
+        parameters is null or { Count: 0 }
+            ? null
+            : parameters
+                .Select(p => new ViewParameterSpec(
+                    p.Name,
+                    // The declared size decides the type code as well as being stored: Text(50) is a Text
+                    // parameter (code 10) where a bare Text is a memo (12), which is what ACE records.
+                    (byte)AccessTypeMapper.ToColumnSpec(
+                        new ColumnDefinition(p.Name, p.TypeName, p.Size, p.Scale, false, false), _database.Format.Version).Type,
+                    p.Size, p.Scale))
+                .ToList();
 
     private int ExecuteAlterTable(AlterTableStatement statement) => statement.Action switch
     {
@@ -664,10 +710,30 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     private int ExecuteCreateActionProcedure(CreateActionProcedureStatement statement)
     {
-        ActionQuerySpec spec = statement.Kind == ProcedureActionKind.DataDefinition
-            ? new ActionQuerySpec(ActionQueryKind.DataDefinition, DdlSql: statement.DdlSql)
-            : new ActionQuerySpec(ActionQueryKind.Append, TargetTable: statement.TargetTable,
-                Values: statement.AppendColumns!.Select(c => new AppendColumnSpec(c.Column, c.ValueExpression)).ToList());
+        if (statement.Kind == ProcedureActionKind.DataDefinition)
+        {
+            _database.CreateActionQuery(
+                statement.Name, new ActionQuerySpec(ActionQueryKind.DataDefinition, DdlSql: statement.DdlSql));
+            return 0;
+        }
+
+        // Every other kind stores its sources, joins and WHERE the way a view stores them, so the body maps
+        // through the same builder; only the action row and the meaning of the column rows differ.
+        var spec = new ActionQuerySpec(
+            statement.Kind switch
+            {
+                ProcedureActionKind.Append => ActionQueryKind.Append,
+                ProcedureActionKind.Update => ActionQueryKind.Update,
+                ProcedureActionKind.Delete => ActionQueryKind.Delete,
+                ProcedureActionKind.MakeTable => ActionQueryKind.MakeTable,
+                _ => throw new NotSupportedException($"A {statement.Kind} procedure body is not stored yet."),
+            },
+            TargetTable: statement.TargetTable,
+            Values: statement.AppendColumns?.Select(c => new AppendColumnSpec(c.Column, c.ValueExpression)).ToList(),
+            Body: statement.Body is { } body ? BuildViewSpec(body) : null,
+            Parameters: BuildParameterSpecs(statement.Parameters),
+            DeleteTarget: statement.DeleteTarget);
+
         _database.CreateActionQuery(statement.Name, spec);
         return 0;
     }
@@ -681,6 +747,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             j.Condition, j.LeftAlias, j.RightAlias)).ToList(),
         d.Where,
         d.GroupBy,
+        d.Having,
         Parameters: null,
         OrderBy: d.OrderBy.Select(o => new ViewOrderBySpec(o.Expression, o.Descending)).ToList(),
         Top: d.Top);
@@ -817,7 +884,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// <summary>Writes a new row: every column not in <paramref name="provided"/> takes its default (an explicit
     /// NULL is left as NULL), the row is checked as any insert is, and it is written. Returns its AutoNumber value,
     /// if it has one.</summary>
-    private object? InsertNewRow(string tableName, Table table, RowDefaults defaults, object?[] values, IReadOnlySet<int> provided)
+    private object? InsertNewRow(string tableName, Table table, RowDefaults defaults, object?[] values, HashSet<int> provided)
     {
         var evaluator = new ExpressionEvaluator(new EvalScope([], [], null), _scalarRunner, parameters: _parameters);
         foreach (var (index, expression) in defaults.Columns)
@@ -940,13 +1007,17 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// combined evaluation scope), and its rows. A physical table exposes <see cref="Table"/> (rows have real
     /// <see cref="RowId"/>s and can be a SET/DELETE target); a derived table (a subquery in the source) has
     /// <see cref="Table"/> null and its already-materialised <see cref="DerivedRows"/> (never a target).</summary>
+    /// <param name="Alias">The name the source is reached by in the statement.</param>
+    /// <param name="Table">The physical table, or null for a derived one.</param>
+    /// <param name="Columns">Its columns, alias-qualified.</param>
+    /// <param name="DerivedRows">A derived table's already-materialised rows; null for a physical table.</param>
     /// <param name="Lateral">The plan of a LATERAL source — an APPLY's right side — which is re-executed once
     /// per outer row instead of being materialised, because it may correlate to the rows joined before it.</param>
     /// <remarks>A writable derived table is one source table per table it reads, in a run: the first carries the
     /// joined rows the derived query chose (<see cref="Combos"/>, <see cref="ComboWidth"/> tables wide) and the rest
     /// are <see cref="InCombo"/>, filled from them. <see cref="CacheKey"/> tells a table's rows apart from another
     /// table's under the same alias.</remarks>
-    private sealed record SourceTable(string Alias, Table? Table, IReadOnlyList<OutputColumn> Columns,
+    private sealed record SourceTable(string Alias, Table? Table, List<OutputColumn> Columns,
         IReadOnlyList<object?[]>? DerivedRows, Plan.PlanNode? Lateral = null)
     {
         public IReadOnlyList<(RowId Id, object?[] Values)[]>? Combos { get; init; }

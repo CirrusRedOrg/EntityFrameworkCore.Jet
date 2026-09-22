@@ -242,6 +242,121 @@ public sealed class JetDatabase : IDisposable
     public JetCatalog Catalog { get; }
 
     /// <summary>
+    /// The values a complex (multi-value / attachment) column holds for one record — the rows of the column's
+    /// flat table whose owner link is <paramref name="complexId"/>, which is the Int32 that record's row
+    /// carries in the column itself.
+    /// </summary>
+    /// <remarks>An <b>empty result is ordinary</b>, not an error: the id is allocated when the row is created,
+    /// so a record that never had a value still has one. Each returned array is positional over
+    /// <see cref="ComplexColumn.ValueColumns"/>. For an attachment column, pass the <c>FileData</c> value to
+    /// <see cref="ComplexAttachment.Unwrap"/> to get the file itself.</remarks>
+    /// <returns>One array per value, in the flat table's row order.</returns>
+    public IReadOnlyList<object?[]> ReadComplexValues(ComplexColumn column, int complexId)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+        var values = new List<object?[]>();
+        foreach (object?[] row in OpenTable(column.FlatTable.Name).Rows())
+        {
+            if (row[column.OwnerLink.Index] is not { } link
+                || Convert.ToInt32(link, System.Globalization.CultureInfo.InvariantCulture) != complexId)
+                continue;
+            values.Add([.. column.ValueColumns.Select(c => row[c.Index])]);
+        }
+        return values;
+    }
+
+    /// <summary>
+    /// Adds one value to a complex column for the record <paramref name="complexId"/> names —
+    /// a row in the column's flat table, linked back by that id.
+    /// </summary>
+    /// <param name="column">The complex column to add to.</param>
+    /// <param name="complexId">The owning record's complex id, as its row carries it in the column.</param>
+    /// <param name="value">The value's columns, positional over <see cref="ComplexColumn.ValueColumns"/> —
+    /// the same shape <see cref="ReadComplexValues(ComplexColumn, int)"/> returns.</param>
+    /// <remarks>
+    /// The per-value id fills itself: it is an ordinary AutoNumber on the flat table, so the insert draws it
+    /// from that table's own counter. The record's <c>0x1C</c> high-water is <b>not</b> touched — that counts
+    /// records, not values (verified: adding three attachments to an existing row left it unchanged).
+    /// <para>A record may not hold the same value twice — ACE enforces the flat table's
+    /// <c>IdxFKPrimaryScalar</c> over <c>[ownerLink + Value/FileName]</c> and refuses the duplicate. LibRed
+    /// enforces it through the same unique index, so the insert is rejected here too.</para>
+    /// </remarks>
+    public void AddComplexValue(ComplexColumn column, int complexId, params object?[] value)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+        ArgumentNullException.ThrowIfNull(value);
+        if (value.Length != column.ValueColumns.Count)
+            throw new ArgumentException(
+                $"'{column.OwnerTable.Name}.{column.ColumnName}' takes {column.ValueColumns.Count} value column(s), "
+                + $"not {value.Length}.", nameof(value));
+
+        Storage.Table flat = OpenTable(column.FlatTable.Name);
+        var row = new object?[column.FlatTable.Columns.Count];
+        row[column.OwnerLink.Index] = complexId;   // the value id is left null for the AutoNumber to fill
+        for (int i = 0; i < value.Length; i++) row[column.ValueColumns[i].Index] = value[i];
+        flat.Insert(row);
+    }
+
+    /// <summary>
+    /// Attaches a file to an attachment column: stores <paramref name="content"/> under
+    /// <paramref name="fileName"/> for the record <paramref name="complexId"/> names.
+    /// </summary>
+    /// <remarks>
+    /// <para>Fills the columns as Access does — <c>FileName</c> whole, <c>FileType</c> the extension without
+    /// its dot, <c>FileData</c> the packed payload, and <c>FileFlags</c>/<c>FileURL</c>/<c>FileTimeStamp</c>
+    /// null, which is what ACE leaves on every attachment measured. A file whose name a record already holds
+    /// is rejected — that one is the <b>engine's</b> rule, enforced by the flat table's unique index, and ACE
+    /// refuses it too.</para>
+    /// <para>The rest of what Access imposes on an attachment is <b>policy, not capability</b>: which
+    /// extensions it deflates, its 256 MB per file (the format holds four times that), its name length and
+    /// character rules, and its blocked-extension list. The defaults here follow Access, because a file
+    /// Access cannot open is rarely what a caller wants — but <paramref name="compress"/> and
+    /// <paramref name="enforceAccessLimits"/> exist so the choice is the caller's. The blocked-extension list
+    /// is never applied: it belongs to the Access UI, and whether the engine refuses those through DAO is
+    /// untested.</para>
+    /// </remarks>
+    /// <param name="column">The attachment column to add to.</param>
+    /// <param name="complexId">The owning record's complex id, as its row carries it in the column.</param>
+    /// <param name="fileName">The file's name, stored whole in <c>FileName</c>.</param>
+    /// <param name="content">The file's bytes.</param>
+    /// <param name="compress">Force the stored form, or <see langword="null"/> to follow Access's convention
+    /// for the extension. Both forms are valid on disk and ACE reads either.</param>
+    /// <param name="enforceAccessLimits">Apply Access's size and naming limits
+    /// (<see cref="ComplexAttachment.ValidateAccessLimits"/>). Off writes what the format permits.</param>
+    public void AddAttachment(
+        ComplexColumn column, int complexId, string fileName, byte[] content,
+        bool? compress = null, bool enforceAccessLimits = true)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+        ArgumentException.ThrowIfNullOrEmpty(fileName);
+        ArgumentNullException.ThrowIfNull(content);
+        if (!column.IsAttachment)
+            throw new InvalidOperationException(
+                $"'{column.OwnerTable.Name}.{column.ColumnName}' is not an attachment column.");
+        if (enforceAccessLimits) ComplexAttachment.ValidateAccessLimits(fileName, content);
+
+        string extension = Path.GetExtension(fileName).TrimStart('.');
+        var value = new object?[column.ValueColumns.Count];
+        for (int i = 0; i < value.Length; i++)
+            value[i] = column.ValueColumns[i].Name switch
+            {
+                "FileName" => fileName,
+                "FileType" => extension,
+                "FileData" => ComplexAttachment.Pack(extension, content, compress),
+                _ => null,
+            };
+        AddComplexValue(column, complexId, value);
+    }
+
+    /// <summary>The values a complex column holds for one record, by table and column name. Throws when
+    /// <paramref name="column"/> of <paramref name="table"/> is not a complex column.</summary>
+    public IReadOnlyList<object?[]> ReadComplexValues(string table, string column, int complexId) =>
+        ReadComplexValues(
+            Catalog.FindComplexColumn(table, column)
+            ?? throw new InvalidOperationException($"'{table}.{column}' is not a complex column."),
+            complexId);
+
+    /// <summary>
     /// Creates a new table and registers it in the catalog. An optional primary key creates a
     /// unique index over the named columns. The database must have been opened writable; the
     /// table is usable immediately for inserts and scans.

@@ -69,6 +69,10 @@ public sealed class OfficeStandardEncryption : IPageCodec
         _ => throw new NotSupportedException($"Unsupported Office-Standard hash {name}."),
     };
 
+    // CA5350/CA5351 (weak hashing): MD5 and SHA-1 are not a choice here. The Office "Standard" encryption
+    // descriptor NAMES the algorithm, and a file Access wrote with one cannot be opened with anything else,
+    // so refusing them would mean refusing the documents. Scoped to the dispatch that honours the descriptor.
+#pragma warning disable CA5350, CA5351
     private static byte[] Hash(HashAlgorithmName name, byte[] data) => name.Name switch
     {
         "MD5" => MD5.HashData(data),
@@ -78,6 +82,7 @@ public sealed class OfficeStandardEncryption : IPageCodec
         "SHA512" => SHA512.HashData(data),
         _ => throw new NotSupportedException($"Unsupported hash algorithm {name}."),
     };
+#pragma warning restore CA5350, CA5351
 
     // The CryptoAPI CryptDeriveKey 0x36/0x5C expansion uses a fixed 64-byte pad buffer for every hash algorithm
     // (it is not HMAC, so SHA-384/512 do NOT switch to their 128-byte block size). Verified: AES-256 + SHA-512.
@@ -200,6 +205,9 @@ public sealed class OfficeStandardEncryption : IPageCodec
         uint algId = aes ? 0x6610u : AlgIdRc4;
         int keyBits = aes ? 256 : 40;
         byte[] salt = RandomBytes(16);
+        // CA5350: the Office-Standard scheme hashes the password with SHA-1 by definition — a file created
+        // with anything else is not this scheme, and Access would not open it.
+#pragma warning disable CA5350
         byte[] baseHash = SHA1.HashData(Concat(salt, Encoding.Unicode.GetBytes(password)));
         int keyLen = keyBits / 8;
         int finalLen = !aes && keyBits == 40 ? 16 : keyLen;
@@ -209,6 +217,7 @@ public sealed class OfficeStandardEncryption : IPageCodec
         byte[] verKey = codec.ComputeKey(VerifierBlock);
         byte[] verifier = RandomBytes(16);
         byte[] verifierHash = SHA1.HashData(verifier);
+#pragma warning restore CA5350
         byte[] encVerifier, encVerifierHash;
         if (aes)
         {

@@ -1,7 +1,5 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.Internal
@@ -73,12 +71,16 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             ?? throw new InvalidOperationException("Could not find SelectExpression._projection.");
 
         /// <summary>Subqueries seen as the target of a <c>LEFT JOIN</c>, by reference.</summary>
+        // IDE0028's only fix here is a collection expression, which would drop the comparer and match the
+        // subqueries structurally instead of by reference.
+#pragma warning disable IDE0028
         private readonly HashSet<SelectExpression> _leftJoinTargets = new(ReferenceEqualityComparer.Instance);
+#pragma warning restore IDE0028
 
-        [return: NotNullIfNotNull(nameof(expression))]
-        public override Expression? Visit(Expression? expression)
+        [return: NotNullIfNotNull(nameof(node))]
+        public override Expression? Visit(Expression? node)
         {
-            switch (expression)
+            switch (node)
             {
                 // ShapedQueryExpression and the split-collection shaper forbid generic child visiting.
                 case ShapedQueryExpression shapedQueryExpression:
@@ -94,30 +96,30 @@ namespace EntityFrameworkCore.Jet.Query.Internal
                         Visit(splitCollectionShaper.InnerShaper));
 
                 case UpdateExpression or DeleteExpression:
-                    return expression;
+                    return node;
 
                 case SelectExpression selectExpression:
-                {
-                    // Record this select's LEFT JOIN targets before descending, so we recognise one when
-                    // VisitChildren reaches it.
-                    foreach (var table in selectExpression.Tables)
                     {
-                        if (table is LeftJoinExpression { Table: SelectExpression target })
+                        // Record this select's LEFT JOIN targets before descending, so we recognise one when
+                        // VisitChildren reaches it.
+                        foreach (var table in selectExpression.Tables)
                         {
-                            _leftJoinTargets.Add(target);
+                            if (table is LeftJoinExpression { Table: SelectExpression target })
+                            {
+                                _leftJoinTargets.Add(target);
+                            }
                         }
-                    }
 
-                    if (_leftJoinTargets.Contains(selectExpression))
-                    {
-                        Guard(selectExpression);
-                    }
+                        if (_leftJoinTargets.Contains(selectExpression))
+                        {
+                            Guard(selectExpression);
+                        }
 
-                    return base.VisitExtension(selectExpression);
-                }
+                        return base.VisitExtension(selectExpression);
+                    }
 
                 default:
-                    return base.Visit(expression);
+                    return base.Visit(node);
             }
         }
 
@@ -125,7 +127,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
         {
             // Anchor on something non-NULL for any row that actually matched: the grouping key when the subquery
             // groups (referencing anything else there would not be legal), otherwise any projected column.
-            var anchor = selectExpression.GroupBy.FirstOrDefault()
+            var anchor = (selectExpression.GroupBy is [var key, ..] ? key : null)
                 ?? selectExpression.Projection.Select(p => p.Expression).OfType<ColumnExpression>().FirstOrDefault();
 
             if (anchor is null)

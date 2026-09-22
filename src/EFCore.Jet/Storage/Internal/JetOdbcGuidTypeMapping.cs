@@ -1,5 +1,3 @@
-using System.Data;
-
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetOdbcGuidTypeMapping : JetGuidTypeMapping

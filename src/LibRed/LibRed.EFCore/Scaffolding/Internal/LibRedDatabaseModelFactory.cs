@@ -1,17 +1,11 @@
-using System.Data.Common;
-using System.Text.RegularExpressions;
 using EntityFrameworkCore.Jet.Internal; // FK scaffolding-logger extensions (ForeignKeyFound, …)
 using EntityFrameworkCore.Jet.Metadata.Internal; // JetAnnotationNames (identity seed/increment)
 using LibRed;
 using LibRed.Catalog;
 using LibRed.Data;
 using LibRed.Engine.Schema; // shared store-type/nullability derivations (JetStoreType) — kept in sync with INFORMATION_SCHEMA
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
+using System.Text.RegularExpressions;
 
 namespace EntityFrameworkCore.LibRed.Scaffolding.Internal;
 
@@ -74,7 +68,7 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
         return databaseModel;
     }
 
-    private IReadOnlyList<DatabaseTable> GetTables(JetDatabase database, DatabaseModel databaseModel, Func<string, bool>? filter)
+    private List<DatabaseTable> GetTables(JetDatabase database, DatabaseModel databaseModel, Func<string, bool>? filter)
     {
         var tables = new List<DatabaseTable>();
 

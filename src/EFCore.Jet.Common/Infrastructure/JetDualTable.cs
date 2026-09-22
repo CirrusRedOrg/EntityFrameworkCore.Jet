@@ -32,13 +32,16 @@ namespace EntityFrameworkCore.Jet.Infrastructure
         /// <summary>
         /// The DUAL table or query
         /// </summary>
-        public static string CustomName = "";
+        public static string CustomName { get; set; } = "";
         //MSysRelationships
         //MSysAccessStorage
         //#Dual
         //(SELECT COUNT(*) FROM MSysAccessStorage)
 
-        public static string DetectedName = "#Dual";
+        /// <summary>
+        /// The DUAL table or query the scaffolding factory last detected in the database.
+        /// </summary>
+        public static string DetectedName { get; set; } = "#Dual";
 
         /// <summary>
         /// The name to generate into SQL: the user's <see cref="CustomName"/> when one has been set,

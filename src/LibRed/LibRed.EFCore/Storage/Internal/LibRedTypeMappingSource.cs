@@ -1,10 +1,9 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System.Collections;
-using System.Data;
-using System.Text.Json;
 using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.LibRed.Infrastructure.Internal;
+using System.Collections;
+using System.Data;
 
 namespace EntityFrameworkCore.LibRed.Storage.Internal
 {
@@ -16,7 +15,6 @@ namespace EntityFrameworkCore.LibRed.Storage.Internal
     {
         private readonly LibRedByteArrayTypeMapping _fixedLengthBinary = new("binary");
         private readonly LibRedByteArrayTypeMapping _variableLengthBinary = new("varbinary");
-        private readonly LibRedByteArrayTypeMapping _variableLengthMaxBinary = new("varbinary", storeTypePostfix: StoreTypePostfix.None);
         private readonly LibRedByteArrayTypeMapping _unboundedBinary = new("longbinary", storeTypePostfix: StoreTypePostfix.None);
 
         private readonly LibRedBoolTypeMapping _bit = new("bit"); // JET bits are not nullable
@@ -36,7 +34,7 @@ namespace EntityFrameworkCore.LibRed.Storage.Internal
 
         private readonly LibRedDecimalTypeMapping _decimal = new("decimal(18,2)", DbType.Decimal, precision: 18, scale: 2, StoreTypePostfix.PrecisionAndScale);
         private readonly LibRedDecimalTypeMapping _decimal18_0 = new("decimal", DbType.Decimal, precision: 18, scale: 0);
-        private readonly LibRedDecimalTypeMapping _currency = new("currency", DbType.Currency, storeTypePostfix:StoreTypePostfix.None);
+        private readonly LibRedDecimalTypeMapping _currency = new("currency", DbType.Currency, storeTypePostfix: StoreTypePostfix.None);
 
         private readonly LibRedDateTimeTypeMapping _datetime;
         private readonly LibRedDateTimeTypeMapping _dateasdatetime;
@@ -47,7 +45,6 @@ namespace EntityFrameworkCore.LibRed.Storage.Internal
 
         private readonly LibRedStringTypeMapping _fixedLengthUnicodeString = new("char", unicode: true);
         private readonly LibRedStringTypeMapping _variableLengthUnicodeString = new("varchar", unicode: true);
-        private readonly LibRedStringTypeMapping _variableLengthMaxUnicodeString = new("varchar", unicode: true, size: 255, storeTypePostfix: StoreTypePostfix.Size);
         private readonly LibRedStringTypeMapping _unboundedUnicodeString = new("longchar", unicode: true, storeTypePostfix: StoreTypePostfix.None);
         private readonly LibRedGuidTypeMapping _guid;
         private readonly LibRedByteArrayTypeMapping _rowversion = new("varbinary", size: 8,
@@ -203,10 +200,10 @@ namespace EntityFrameworkCore.LibRed.Storage.Internal
             // This is because we don't try to make a new type from this string and any max length value
             // specified in the model, which means use of these strings is almost certainly an error, and
             // if it is not an error, then using, for example, varbinary(1) will work instead.
-            _disallowedMappings
-                = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-                {
-                };
+            // IDE0028's only fix here is a collection expression, which would drop the comparer.
+#pragma warning disable IDE0028
+            _disallowedMappings = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+#pragma warning restore IDE0028
 
             _options = options;
         }

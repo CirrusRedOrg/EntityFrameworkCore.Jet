@@ -13,8 +13,13 @@ namespace LibRed.Engine.Schema;
 public static class JetStoreType
 {
     /// <summary>An AutoNumber (counter) column is never nullable — its non-null behaviour comes from the
-    /// AutoNumber flag, not the LvProp <c>Required</c> property (verified; matches Access/DAO).</summary>
-    public static bool IsNullable(ColumnDef column) => !column.IsAutoNumber && column.IsNullable;
+    /// AutoNumber flag, not the LvProp <c>Required</c> property (verified; matches Access/DAO).
+    /// <para>A complex column is the exception, because it carries the same <c>0x04</c> flag without being a
+    /// counter in this sense. ACE reports an attachment column as <b>nullable</b> over OLE DB's schema
+    /// rowset, and DAO reports <c>Required = False</c> for it; treating the flag alone as decisive
+    /// contradicted both.</para></summary>
+    public static bool IsNullable(ColumnDef column) =>
+        (!column.IsAutoNumber || column.Type == JetDataType.Complex) && column.IsNullable;
 
     /// <summary>The bare type name (no facets) — <c>INFORMATION_SCHEMA.COLUMNS.DATA_TYPE</c>, with length /
     /// precision / scale reported in their own columns. Mirrors <c>AdoxSchema.GetDataTypeString</c>.</summary>
@@ -39,6 +44,13 @@ public static class JetStoreType
         JetDataType.Binary => "varbinary",
         JetDataType.Memo => "longchar",
         JetDataType.Ole => "longbinary",
+        // A complex (multi-value / attachment) column has no type of its own on this surface, because OLE DB
+        // cannot express one: ACE flattens it to long text, giving the identical schema row to a Memo column
+        // — type 130, flags 234, max length 0, and System.String at the Memo ceiling in a reader's schema
+        // table. Only DAO names it (type 101, dbAttachment). Reported as Memo is, so a caller reading this
+        // sees what it would see through ACE. Falling through to the default gave a bare "varchar", which is
+        // also a malformed store type — every other name either carries its facet or takes none at all.
+        JetDataType.Complex => "longchar",
         _ => "varchar",
     };
 

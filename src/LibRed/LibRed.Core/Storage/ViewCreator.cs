@@ -1,7 +1,7 @@
-using System.Buffers.Binary;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.IO;
+using System.Buffers.Binary;
 
 namespace LibRed.Storage;
 
@@ -13,8 +13,15 @@ namespace LibRed.Storage;
 /// </summary>
 public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
 {
-    private const int ViewFlags = 0x10000000;         // a SELECT query / view
-    private const int AppendFlags = 0x10000040;       // an INSERT (append) query
+    // MSysObjects.Flags for a stored query: 0x10000000 plus the kind, and the kind byte is DAO's own
+    // QueryDef.Type value (verified vs ACE for all six: crosstab 16, delete 32, update 48, append 64,
+    // make-table 80, data-definition 96) — not the Flag the MSysQueries action row carries, which numbers
+    // the kinds differently.
+    private const int ViewFlags = 0x10000000;           // a SELECT query / view (DAO type 0)
+    private const int DeleteFlags = 0x10000020;
+    private const int UpdateFlags = 0x10000030;
+    private const int AppendFlags = 0x10000040;         // an INSERT (append) query
+    private const int MakeTableFlags = 0x10000050;
     private const int DataDefinitionFlags = 0x10000060; // a CREATE/DROP TABLE (data-definition) query
     private static readonly byte[] DefaultOwner = [0x69, 0x0C];
     private static readonly byte[] AdminSid = [0x68, 0x0C];
@@ -42,7 +49,15 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
     /// <summary>Persists a stored action query (a non-SELECT CREATE PROCEDURE body) byte-faithfully.</summary>
     public void CreateAction(string name, ActionQuerySpec spec)
     {
-        int flags = spec.Kind == ActionQueryKind.DataDefinition ? DataDefinitionFlags : AppendFlags;
+        int flags = spec.Kind switch
+        {
+            ActionQueryKind.DataDefinition => DataDefinitionFlags,
+            ActionQueryKind.Append => AppendFlags,
+            ActionQueryKind.Update => UpdateFlags,
+            ActionQueryKind.Delete => DeleteFlags,
+            ActionQueryKind.MakeTable => MakeTableFlags,
+            _ => throw new NotSupportedException($"Action query kind {spec.Kind} is not stored yet."),
+        };
         int objectId = AllocateQueryObject(name, flags);
         AddActionRows(objectId, spec);
     }
@@ -135,21 +150,112 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
 
         Row(mq, objectId, StoredQueryFormat.AttrType, order: 1, flag: StoredQueryFormat.QueryTypeSelect);
         Row(mq, objectId, StoredQueryFormat.AttrEnd, order: 1);
+        AddParameterRows(mq, objectId, spec.Parameters);
+
         if (spec.Kind == ActionQueryKind.DataDefinition)
         {
             // The whole DDL statement is stored verbatim in one row; Access records it with a leading space.
-            Row(mq, objectId, StoredQueryFormat.AttrOperation, order: 1, flag: StoredQueryFormat.ActionDdl, expression: " " + spec.DdlSql);
+            // Nothing is decomposed: a data-definition query has no sources, columns or predicate.
+            Row(mq, objectId, StoredQueryFormat.AttrOperation, order: 1, flag: StoredQueryFormat.ActionDdl,
+                expression: " " + spec.DdlSql);
+            return;
         }
-        else
+
+        // The action row carries the kind, and the target table for the two kinds that write into one.
+        short kind = spec.Kind switch
         {
-            Row(mq, objectId, StoredQueryFormat.AttrOperation, order: 1, flag: StoredQueryFormat.ActionAppend, name1: spec.TargetTable);
-            // Each appended column: Name2 = target column, Expression = the (literal) value; the 0x8000 flag
-            // marks a VALUES append (as opposed to an INSERT … SELECT, whose columns carry Flag 0).
-            var values = spec.Values ?? [];
-            for (int i = 0; i < values.Count; i++)
-                Row(mq, objectId, StoredQueryFormat.AttrColumn, order: i + 1, flag: StoredQueryFormat.AppendValueFlag,
-                    expression: values[i].ValueExpression, name2: values[i].Column);
+            ActionQueryKind.Append => StoredQueryFormat.ActionAppend,
+            ActionQueryKind.Update => StoredQueryFormat.ActionUpdate,
+            ActionQueryKind.Delete => StoredQueryFormat.ActionDelete,
+            ActionQueryKind.MakeTable => StoredQueryFormat.ActionMakeTable,
+            _ => throw new NotSupportedException($"Action query kind {spec.Kind} is not stored yet."),
+        };
+        Row(mq, objectId, StoredQueryFormat.AttrOperation, order: 1, flag: kind,
+            name1: spec.Kind is ActionQueryKind.Append or ActionQueryKind.MakeTable ? spec.TargetTable : null);
+
+        // Sources first: Access processes the rows in order, and a derived-table source defines an alias the
+        // column expressions reference (the same reason the view path writes tables before columns).
+        AddSourceRows(mq, objectId, spec.Body);
+
+        var values = spec.Values ?? [];
+        switch (spec.Kind)
+        {
+            case ActionQueryKind.Append:
+                // Name2 = target column, Expression = the value; the 0x8000 flag marks an INSERT … VALUES,
+                // where a column fed by the query's own source carries Flag 0.
+                for (int i = 0; i < values.Count; i++)
+                    Row(mq, objectId, StoredQueryFormat.AttrColumn, order: i + 1,
+                        flag: spec.Body is null ? StoredQueryFormat.AppendValueFlag : (short)0,
+                        expression: values[i].ValueExpression, name2: values[i].Column);
+                break;
+
+            case ActionQueryKind.Update:
+                // One row per SET assignment, stored exactly as an append's columns are.
+                for (int i = 0; i < values.Count; i++)
+                    Row(mq, objectId, StoredQueryFormat.AttrColumn, order: i + 1, flag: 0,
+                        expression: values[i].ValueExpression, name2: values[i].Column);
+                break;
+
+            case ActionQueryKind.Delete:
+                // `DELETE t.* FROM …` keeps that target verbatim in a single column row; `DELETE FROM …`
+                // stores no column row at all, and Access renders it back as `DELETE * FROM …`.
+                if (spec.DeleteTarget is { } target)
+                    Row(mq, objectId, StoredQueryFormat.AttrColumn, order: 1, flag: 0, expression: target);
+                break;
+
+            case ActionQueryKind.MakeTable:
+                // An ordinary output list: Expression = the column, Name1 = its alias.
+                var columns = spec.Body?.Columns ?? [];
+                for (int i = 0; i < columns.Count; i++)
+                    Row(mq, objectId, StoredQueryFormat.AttrColumn, order: i + 1, flag: 0,
+                        expression: columns[i].Expression, name1: columns[i].Alias);
+                break;
         }
+
+        AddJoinAndWhereRows(mq, objectId, spec.Body);
+    }
+
+    /// <summary>The <c>0x02</c> parameter rows, in declaration order — written identically for a view and for
+    /// an action query.</summary>
+    private void AddParameterRows(TableDef mq, int objectId, IReadOnlyList<ViewParameterSpec>? parameters)
+    {
+        for (int i = 0; i < (parameters?.Count ?? 0); i++)
+        {
+            ViewParameterSpec p = parameters![i];
+            Row(mq, objectId, StoredQueryFormat.AttrParameter, order: i + 1,
+                flag: p.TypeCode, name1: p.Name,
+                lvExtra: StoredQueryFormat.PackParameterFacets((JetDataType)p.TypeCode, p.Size, p.Scale));
+        }
+    }
+
+    /// <summary>The <c>0x05</c> FROM rows: a named table in Name1 (alias in Name2), or a derived table whose
+    /// subquery SQL goes in Expression with Name1 empty.</summary>
+    private void AddSourceRows(TableDef mq, int objectId, ViewSpec? body)
+    {
+        var tables = body?.Tables ?? [];
+        for (int i = 0; i < tables.Count; i++)
+        {
+            ViewTableSpec t = tables[i];
+            if (t.SubquerySql is { } sub)
+                Row(mq, objectId, StoredQueryFormat.AttrTable, order: i + 1, expression: sub, name2: t.Alias);
+            else
+                Row(mq, objectId, StoredQueryFormat.AttrTable, order: i + 1, name1: t.Table, name2: t.Alias);
+        }
+    }
+
+    /// <summary>The <c>0x07</c> join rows (condition, kind, and the two tables the condition names) and the
+    /// single <c>0x08</c> WHERE row.</summary>
+    private void AddJoinAndWhereRows(TableDef mq, int objectId, ViewSpec? body)
+    {
+        var joins = body?.Joins ?? [];
+        for (int i = 0; i < joins.Count; i++)
+        {
+            ViewJoinSpec j = joins[i];
+            Row(mq, objectId, StoredQueryFormat.AttrJoin, order: i + 1, flag: (short)j.Kind,
+                expression: j.Condition, name1: j.LeftAlias, name2: j.RightAlias);
+        }
+        if (body?.Where is { } where)
+            Row(mq, objectId, StoredQueryFormat.AttrWhere, order: 1, expression: where);
     }
 
     private void AddQueryRows(int objectId, ViewSpec spec)
@@ -165,9 +271,7 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         Row(mq, objectId, StoredQueryFormat.AttrType, order: 1, flag: StoredQueryFormat.QueryTypeSelect);
         Row(mq, objectId, StoredQueryFormat.AttrEnd, order: 1);
         // Declared parameters (CREATE PROCEDURE) come right after the End row, before the tables.
-        for (int i = 0; i < (spec.Parameters?.Count ?? 0); i++)
-            Row(mq, objectId, StoredQueryFormat.AttrParameter, order: i + 1,
-                flag: spec.Parameters![i].TypeCode, name1: spec.Parameters[i].Name);
+        AddParameterRows(mq, objectId, spec.Parameters);
         // DISTINCT and TOP are both StoredQueryFormat.AttrOption (0x03) rows, distinguished by their Flag bits; a TOP row also
         // carries the count in Name1. The bits are cumulative, so Access can put both on one row -- writing
         // them separately is equally valid and keeps the two spec fields independent here.
@@ -177,34 +281,24 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
             Row(mq, objectId, StoredQueryFormat.AttrOption, order: flagOrder++, flag: StoredQueryFormat.FlagDistinct);
         if (spec.Top is { } top)
             Row(mq, objectId, StoredQueryFormat.AttrOption, order: flagOrder++, flag: StoredQueryFormat.FlagTop, name1: top.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        for (int i = 0; i < spec.Tables.Count; i++)
-        {
-            ViewTableSpec t = spec.Tables[i];
-            // A derived table stores its subquery SQL in Expression (Name1 empty); a named table uses Name1.
-            if (t.SubquerySql is { } sub)
-                Row(mq, objectId, StoredQueryFormat.AttrTable, order: i + 1, expression: sub, name2: t.Alias);
-            else
-                Row(mq, objectId, StoredQueryFormat.AttrTable, order: i + 1, name1: t.Table, name2: t.Alias);
-        }
+        AddSourceRows(mq, objectId, spec);
         for (int i = 0; i < spec.Columns.Count; i++)
             Row(mq, objectId, StoredQueryFormat.AttrColumn, order: i + 1, flag: 0,
                 expression: spec.Columns[i].Expression, name1: spec.Columns[i].Alias);
-        for (int i = 0; i < spec.Joins.Count; i++)
-        {
-            ViewJoinSpec j = spec.Joins[i];
-            Row(mq, objectId, StoredQueryFormat.AttrJoin, order: i + 1, flag: (short)j.Kind, expression: j.Condition, name1: j.LeftAlias, name2: j.RightAlias);
-        }
-        if (spec.Where is { } where)
-            Row(mq, objectId, StoredQueryFormat.AttrWhere, order: 1, expression: where);
+        AddJoinAndWhereRows(mq, objectId, spec);
         for (int i = 0; i < (spec.GroupBy?.Count ?? 0); i++)
             Row(mq, objectId, StoredQueryFormat.AttrGroupBy, order: i + 1, flag: 0, expression: spec.GroupBy![i]);
+        // The group filter carries no flag of its own, exactly as the WHERE row doesn't.
+        if (spec.Having is { } having)
+            Row(mq, objectId, StoredQueryFormat.AttrHaving, order: 1, expression: having);
         for (int i = 0; i < (spec.OrderBy?.Count ?? 0); i++)
             Row(mq, objectId, StoredQueryFormat.AttrOrderBy, order: i + 1, expression: spec.OrderBy![i].Expression,
                 name1: spec.OrderBy[i].Descending ? "d" : null);
     }
 
     private void Row(TableDef mq, int objectId, byte attribute, int order,
-        short? flag = null, string? expression = null, string? name1 = null, string? name2 = null)
+        short? flag = null, string? expression = null, string? name1 = null, string? name2 = null,
+        int? lvExtra = null)
     {
         var values = new object?[mq.Columns.Count];
         SetByName(mq, values, "ObjectId", objectId);
@@ -216,6 +310,8 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         if (expression is not null) SetByName(mq, values, "Expression", expression);
         if (name1 is not null) SetByName(mq, values, "Name1", name1);
         if (name2 is not null) SetByName(mq, values, "Name2", name2);
+        // A declared parameter's length; ACE writes it here and renders the PARAMETERS clause from it.
+        if (lvExtra is { } extra) SetByName(mq, values, "LvExtra", extra);
         new RowInserter(_channel, mq).Insert(values, updateIndexes: true);
     }
 

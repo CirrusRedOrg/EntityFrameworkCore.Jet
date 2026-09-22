@@ -61,4 +61,40 @@ public class ListAggTests(ListAggTests.Database database)
     [InlineData("LISTAGG(*) WITHIN GROUP (ORDER BY Id)")]
     public void The_syntax_is_the_standards(string aggregate) =>
         Assert.Throws<SqlParseException>(() => Rows($"SELECT {aggregate} FROM S"));
+
+    // SQL Server's STRING_AGG(expression, separator) computes what LISTAGG computes, and the two differ only
+    // in what each insists on: LISTAGG needs its WITHIN GROUP and lets the separator go, STRING_AGG needs the
+    // separator and lets the order go.
+    [Theory]
+    [InlineData("STRING_AGG(Rep, ', ') WITHIN GROUP (ORDER BY Rep)", "E:eve N:ann, ann, bob S:cat, dan, dan")]
+    [InlineData("STRING_AGG(DISTINCT Rep, ',') WITHIN GROUP (ORDER BY Rep)", "E:eve N:ann,bob S:cat,dan")]
+    [InlineData("STRING_AGG(Rep, ',') FILTER (WHERE Amount > 60)", "E:eve N:ann,bob S:cat")]
+    public void String_agg_lists_each_group(string aggregate, string expected) =>
+        Assert.Equal(expected, Rows($"SELECT Region, {aggregate} FROM S GROUP BY Region ORDER BY Region"));
+
+    [Fact]
+    public void String_agg_without_within_group_lists_in_the_order_the_rows_arrive() =>
+        Assert.Equal("ann,ann,bob,cat,dan,dan,eve", Rows("SELECT STRING_AGG(Rep, ',') FROM S"));
+
+    [Fact]
+    public void String_agg_leaves_nulls_out_and_lists_nothing_as_null()
+    {
+        Assert.Equal("ann,bob", Rows(
+            "SELECT STRING_AGG(IIF(Amount > 60 AND Region = 'N', Rep, NULL), ',') FROM S"));
+        Assert.Equal("", Rows("SELECT STRING_AGG(Rep, ',') FROM S WHERE Id > 100"));
+    }
+
+    [Fact]
+    public void String_agg_over_a_window_lists_each_frame() =>
+        Assert.Equal(
+            "1:ann 2:ann,ann 3:ann,ann,bob 4:cat 5:cat,dan 6:cat,dan,dan 7:eve",
+            Rows("SELECT Id, STRING_AGG(Rep, ',') OVER (PARTITION BY Region ORDER BY Id) FROM S ORDER BY Id"));
+
+    [Theory]
+    [InlineData("STRING_AGG(Rep)")]                                   // the separator is not optional
+    [InlineData("STRING_AGG(Rep, Region)")]                           // and must be written as a string
+    [InlineData("STRING_AGG(Rep, ',', 'x') WITHIN GROUP (ORDER BY Id)")]
+    [InlineData("STRING_AGG(*)")]
+    public void String_agg_takes_a_value_and_a_written_separator(string aggregate) =>
+        Assert.Throws<SqlParseException>(() => Rows($"SELECT {aggregate} FROM S"));
 }

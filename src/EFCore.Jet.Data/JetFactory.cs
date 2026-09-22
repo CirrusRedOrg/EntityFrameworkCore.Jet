@@ -31,16 +31,16 @@ namespace EntityFrameworkCore.Jet.Data
         }
 
         /// <summary>
-        /// Specifies whether the specific <see cref="T:System.Data.Common.DbProviderFactory" /> supports the <see cref="T:System.Data.Common.DbDataSourceEnumerator" /> class.
+        /// Specifies whether the specific <see cref="System.Data.Common.DbProviderFactory" /> supports the <see cref="System.Data.Common.DbDataSourceEnumerator" /> class.
         /// </summary>
         public override bool CanCreateDataSourceEnumerator
             => false;
 
         /// <summary>
-        /// Returns a new instance of the provider's class that implements the <see cref="T:System.Data.Common.DbCommand" /> class.
+        /// Returns a new instance of the provider's class that implements the <see cref="System.Data.Common.DbCommand" /> class.
         /// </summary>
         /// <returns>
-        /// A new instance of <see cref="T:System.Data.Common.DbCommand" />.
+        /// A new instance of <see cref="System.Data.Common.DbCommand" />.
         /// </returns>
         public override DbCommand CreateCommand()
             => InnerFactory == null
@@ -48,10 +48,10 @@ namespace EntityFrameworkCore.Jet.Data
                 : new JetCommand(Connection);
 
         /// <summary>
-        /// Returns a new instance of the provider's class that implements the <see cref="T:System.Data.Common.DbCommandBuilder" /> class.
+        /// Returns a new instance of the provider's class that implements the <see cref="System.Data.Common.DbCommandBuilder" /> class.
         /// </summary>
         /// <returns>
-        /// A new instance of <see cref="T:System.Data.Common.DbCommandBuilder" />.
+        /// A new instance of <see cref="System.Data.Common.DbCommandBuilder" />.
         /// </returns>
         public override DbCommandBuilder CreateCommandBuilder()
         {
@@ -66,10 +66,10 @@ namespace EntityFrameworkCore.Jet.Data
         }
 
         /// <summary>
-        /// Returns a new instance of the provider's class that implements the <see cref="T:System.Data.Common.DbConnection" /> class.
+        /// Returns a new instance of the provider's class that implements the <see cref="System.Data.Common.DbConnection" /> class.
         /// </summary>
         /// <returns>
-        /// A new instance of <see cref="T:System.Data.Common.DbConnection" />.
+        /// A new instance of <see cref="System.Data.Common.DbConnection" />.
         /// </returns>
         public override DbConnection CreateConnection()
             => InnerFactory == null
@@ -77,10 +77,10 @@ namespace EntityFrameworkCore.Jet.Data
                 : new JetConnection(InnerFactory);
 
         /// <summary>
-        /// Returns a new instance of the provider's class that implements the <see cref="T:System.Data.Common.DbConnectionStringBuilder" /> class.
+        /// Returns a new instance of the provider's class that implements the <see cref="System.Data.Common.DbConnectionStringBuilder" /> class.
         /// </summary>
         /// <returns>
-        /// A new instance of <see cref="T:System.Data.Common.DbConnectionStringBuilder" />.
+        /// A new instance of <see cref="System.Data.Common.DbConnectionStringBuilder" />.
         /// </returns>
         public override DbConnectionStringBuilder CreateConnectionStringBuilder()
             => InnerFactory == null
@@ -88,10 +88,10 @@ namespace EntityFrameworkCore.Jet.Data
                 : new JetConnectionStringBuilder(InnerFactory);
 
         /// <summary>
-        /// Returns a new instance of the provider's class that implements the <see cref="T:System.Data.Common.DbDataAdapter" /> class.
+        /// Returns a new instance of the provider's class that implements the <see cref="System.Data.Common.DbDataAdapter" /> class.
         /// </summary>
         /// <returns>
-        /// A new instance of <see cref="T:System.Data.Common.DbDataAdapter" />.
+        /// A new instance of <see cref="System.Data.Common.DbDataAdapter" />.
         /// </returns>
         public override DbDataAdapter? CreateDataAdapter()
             => InnerFactory == null
@@ -99,19 +99,19 @@ namespace EntityFrameworkCore.Jet.Data
                 : InnerFactory.CreateDataAdapter();
 
         /// <summary>
-        /// Returns a new instance of the provider's class that implements the <see cref="T:System.Data.Common.DbDataSourceEnumerator" /> class.
+        /// Returns a new instance of the provider's class that implements the <see cref="System.Data.Common.DbDataSourceEnumerator" /> class.
         /// </summary>
         /// <returns>
-        /// A new instance of <see cref="T:System.Data.Common.DbDataSourceEnumerator" />.
+        /// A new instance of <see cref="System.Data.Common.DbDataSourceEnumerator" />.
         /// </returns>
         public override DbDataSourceEnumerator? CreateDataSourceEnumerator()
             => null;
 
         /// <summary>
-        /// Returns a new instance of the provider's class that implements the <see cref="T:System.Data.Common.DbParameter" /> class.
+        /// Returns a new instance of the provider's class that implements the <see cref="System.Data.Common.DbParameter" /> class.
         /// </summary>
         /// <returns>
-        /// A new instance of <see cref="T:System.Data.Common.DbParameter" />.
+        /// A new instance of <see cref="System.Data.Common.DbParameter" />.
         /// </returns>
         public override DbParameter? CreateParameter()
             => InnerFactory == null
@@ -133,8 +133,8 @@ namespace EntityFrameworkCore.Jet.Data
                     {
                         throw new TypeLoadException($"The referenced version '{version}' of 'System.Data.OleDb' is lower than the minimum required version {MinimumRequiredOleDbVersion}.");
                     }
-                    
-                    return (DbProviderFactory) type
+
+                    return (DbProviderFactory)type
                         .GetField("Instance", BindingFlags.Static | BindingFlags.Public)
                         .GetValue(null);
                 }
@@ -156,8 +156,8 @@ namespace EntityFrameworkCore.Jet.Data
                     {
                         throw new TypeLoadException($"The referenced version '{version}' of 'System.Data.Odbc' is lower than the minimum required version {MinimumRequiredOdbcVersion}.");
                     }
-                    
-                    return (DbProviderFactory) type
+
+                    return (DbProviderFactory)type
                         .GetField("Instance", BindingFlags.Static | BindingFlags.Public)
                         .GetValue(null);
                 }

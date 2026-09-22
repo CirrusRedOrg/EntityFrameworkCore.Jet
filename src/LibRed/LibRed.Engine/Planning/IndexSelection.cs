@@ -14,8 +14,13 @@ namespace LibRed.Engine.Planning;
 /// </summary>
 internal static class IndexSelection
 {
+    // IDE0028's only fix here is `[]`, which would silently drop the comparer.
+#pragma warning disable IDE0028
     private static readonly HashSet<string> NoOuter = new(StringComparer.OrdinalIgnoreCase);
+#pragma warning restore IDE0028
 
+    /// <param name="node">The plan subtree to rewrite.</param>
+    /// <param name="catalog">The catalog the candidate indexes are read from.</param>
     /// <param name="outer">Aliases of the enclosing query (empty at top level). A value referencing only these
     /// is a constant from this query's view, so a correlated predicate <c>t.col = outer.col</c> becomes an
     /// index seek keyed off the outer row — the point of running index selection on correlated subqueries.</param>
@@ -51,7 +56,7 @@ internal static class IndexSelection
         };
     }
 
-    private static PlanNode RewriteFilterOverScan(FilterNode filter, ScanNode scan, JetCatalog catalog, HashSet<string> outer)
+    private static FilterNode RewriteFilterOverScan(FilterNode filter, ScanNode scan, JetCatalog catalog, HashSet<string> outer)
     {
         if (catalog.FindTable(scan.Table) is not { } def)
             return filter;
@@ -138,7 +143,7 @@ internal static class IndexSelection
     /// <para>Ties then match too: equal-keyed index entries are ordered by row pointer, i.e. physical position,
     /// which is the order a scan feeds the sort in — and the sort breaks ties by input position.</para>
     /// </remarks>
-    private static PlanNode? OrderedIndexRead(SortNode sort, ScanNode scan, JetCatalog catalog)
+    private static IndexRangeSeekNode? OrderedIndexRead(SortNode sort, ScanNode scan, JetCatalog catalog)
     {
         if (catalog.FindTable(scan.Table) is not { } def)
             return null;
@@ -232,6 +237,8 @@ internal static class IndexSelection
     /// inner scan becomes an <see cref="IndexSeekNode"/> keyed off the outer row. Executed per left row, it
     /// seeks the index instead of scanning the whole inner table. The join keeps its ON as the residual check.
     /// </summary>
+    // Not a HashJoinNode as CA1859 reads it: a join that cannot be hashed is returned as the join it was.
+#pragma warning disable CA1859
     private static PlanNode RewriteJoin(JoinNode j, JetCatalog catalog, HashSet<string> outer)
     {
         PlanNode left = Apply(j.Left, catalog, outer); // rewrite the outer side first (independent of this join)
@@ -287,6 +294,7 @@ internal static class IndexSelection
 
         return j with { Left = left, Right = right };
     }
+#pragma warning restore CA1859
 
     /// <summary>Splits the join condition into equi-key column pairs (left-referencing = right-referencing)
     /// whose columns are of the same type kind, or null if there is no such pair. The full ON is still applied

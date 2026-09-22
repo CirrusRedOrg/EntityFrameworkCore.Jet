@@ -227,6 +227,11 @@ Points verified against ACE that aren't obvious from that page:
   `CHARACTER_MAXIMUM_LENGTH`), **not** 1.
 - **Bare `TEXT` → Memo** (long text); `TEXT(n)` → `varchar(n)` (a Jet quirk, ACE-verified).
 - Sized Text/Binary dimensions must be positive: Text is `1..255` characters and Binary is `1..510` bytes.
+- **A declaration wider than that is refused at DDL time — it is not promoted to Memo and not clamped.**
+  Verified: `VARCHAR(255)` creates a 255-character column, `VARCHAR(256)` and everything above it
+  (`VARCHAR(1000)`, `TEXT(1000)`, `CHAR(1000)`, `VARCHAR(65535)`) fail the whole `CREATE TABLE` with
+  ACE's *"Size of field 'c' is too long."* LibRed refuses the same declarations at the same threshold and
+  opens its message with ACE's wording, so a caller matching on it behaves the same against either engine.
 - **`CHAR(n)` / `BINARY(n)` are FIXED-length columns; `TEXT(n)` / `VARBINARY(n)` are variable** — ACE's own DDL
   produces both forms, so the fixed form is not a LibRed-only construct.
 - **An over-long value is refused on both forms, with one message**: *"The field is too small to accept the
@@ -348,3 +353,37 @@ goes through the broken conversion. It is live in the ordinary `System.Data.OleD
 COM consumer: a materialised value from any month but January shifts back a month to a valid date, and only a
 January value throws the `ArgumentOutOfRangeException` above. So: predicates are right, corruption is silent
 outside January, and Access itself never reads through OLE DB.
+
+## Footnote — what the drivers know about `BIGINT` and `DATETIME2`
+
+*Driver behaviour, not file format. Both types postdate the drivers, and each layer was left at a different
+moment, so what a caller is told depends entirely on which one it asks.* Measured against ACE 16 on a file the
+engine raised to `0x06` when the columns were created:
+
+| | schema metadata | a value in a query |
+| --- | --- | --- |
+| **`BIGINT`**, OLE DB | `DATA_TYPE` **20** (`DBTYPE_I8`), but `COLUMN_FLAGS` **106** — variable length, no precision | correct: `Int64`, `DBTYPE_I8` |
+| **`BIGINT`**, ODBC | `DATA_TYPE` **-8** (`SQL_WCHAR`), `TYPE_NAME` **CHAR**, size **4** | the 8 stored bytes as 4 UTF-16 characters — `9223372036854775807` reads back as `"￿￿￿翿"` |
+| **`DATETIME2`**, OLE DB | `DATA_TYPE` **135**, `COLUMN_FLAGS` **106**, no precision | corrupt (above) |
+| **`DATETIME2`**, ODBC | `DATA_TYPE` **-3** (`SQL_VARBINARY`), size **42** | the raw 42 bytes, uncorrupted |
+| **both**, DAO | — | correct: `BIGINT` as `Int64` (field type **16**), `DATETIME2` as a full-precision string (field type **26**) |
+
+Two rules fall out. **ODBC describes what it does not know by its stored width**, through whichever generic
+type fits — 8 bytes as 4 wide characters, 42 bytes as binary — and hands back exactly those bytes; it never
+converts, so nothing is corrupted but nothing is decoded either.
+
+**Only materialisation is broken, and only in the driver.** Through ODBC, an `INSERT` or `UPDATE` of either
+type stores the right value (read back from the file directly to confirm), `WHERE Big = 4294967297` and
+`WHERE Stamp = #…#` both match, and anything the engine computes comes back correctly — `CStr(Big)` returns
+`"4294967297"`, `Year(Stamp)` returns `2021`. It is only selecting the column itself, `MAX(Big)` included, that
+yields the undecoded bytes. So a caller stuck on ODBC can use either type by never selecting it bare; a tool
+that issues `SELECT *` gets nonsense with no error raised. **OLE DB knows both type codes** and reads a
+`BIGINT` correctly, yet describes both columns with the generic "variable length, no precision" it gives a type
+it has no entry for. Its `DataTypes` list never learned either type: it still reports the same 15 as it did for
+Jet 4, so neither `BigInt` nor `DateTime2` appears in the types the provider claims to support.
+
+**DAO is the exception on both counts**: it has type codes for the two types and returns their values
+correctly, and it is the only surface that knows a column is calculated — `Field.Properties("Expression")`
+hands back the expression, which OLE DB, ODBC and ADOX all withhold while reporting the expression's result
+type as if it were a stored one. The engine and DAO moved together; the interop layers did not, which is
+consistent with Access never reading its own files through them.

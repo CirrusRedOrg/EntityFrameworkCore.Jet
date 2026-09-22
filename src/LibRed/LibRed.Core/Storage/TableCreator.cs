@@ -1,10 +1,11 @@
-using System.Buffers.Binary;
-using System.Text;
 using EntityFrameworkCore.Jet.Data;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
+using System.Buffers.Binary;
+using System.Globalization;
+using System.Text;
 using MapRetirement = ((int Row, int Page) Map, System.Collections.Generic.IReadOnlyList<(int Row, int Page)> Clear, System.Collections.Generic.IReadOnlyList<int> Pages);
 
 namespace LibRed.Storage;
@@ -326,7 +327,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             JetDataType.Byte, RawValue: [(byte)resultType]);
         foreach (string version in CalculatedVersionProperties)
             yield return new PropertyBlob.Property(
-                column.Name, version, CalculatedMinimumVersion, JetDataType.Text) { IsDdl = false };
+                column.Name, version, CalculatedMinimumVersion, JetDataType.Text)
+            { IsDdl = false };
     }
 
     private static readonly string[] CalculatedVersionProperties =
@@ -581,7 +583,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     }
 
     /// <summary>Resolves index column names to (columnId, ascending) slots against a table.</summary>
-    private static IReadOnlyList<(int Id, bool Ascending)> ResolveSlots(
+    private static List<(int Id, bool Ascending)> ResolveSlots(
         TableDef table, IEnumerable<(string Column, bool Ascending)> columns)
     {
         var byName = table.Columns.ToDictionary(c => c.Name, c => c.ColumnId, StringComparer.OrdinalIgnoreCase);
@@ -592,7 +594,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <summary>Surgically inserts one data index and its logical info block into an existing table's TDEF,
     /// name-sorted. <paramref name="buildInfo"/> gets (block number, data-block ordinal) and
     /// returns the 28-byte info block — a plain index or an outgoing-FK block. Returns the new block number.</summary>
-    private int InsertIndex(TableDef table, string indexName, IReadOnlyList<(int Id, bool Ascending)> slots,
+    private int InsertIndex(TableDef table, string indexName, List<(int Id, bool Ascending)> slots,
         bool unique, bool required, bool ignoreNulls, Func<int, int, byte[]> buildInfo)
     {
         JetFormatBase format = _channel.Format;
@@ -1216,8 +1218,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         foreach (object?[] values in new Table(_channel, mo).Rows())
             if (string.Equals(values[nameIdx] as string, name, StringComparison.OrdinalIgnoreCase)
-                && Convert.ToInt16(values[typeIdx] ?? (short)0) == type)
-                return Convert.ToInt32(values[idIdx]);
+                && Convert.ToInt16(values[typeIdx] ?? (short)0, CultureInfo.InvariantCulture) == type)
+                return Convert.ToInt32(values[idIdx], CultureInfo.InvariantCulture);
         return null;
     }
 
@@ -1266,7 +1268,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         var table = new Table(_channel, def);
 
         foreach ((RowId id, object?[] values) in table.Rows().WithIds()
-                     .Where(r => r.Values[idIndex] is not null && Convert.ToInt32(r.Values[idIndex]) == tdefPage)
+                     .Where(r => r.Values[idIndex] is not null
+                         && Convert.ToInt32(r.Values[idIndex], CultureInfo.InvariantCulture) == tdefPage)
                      .ToList())
         {
             SetCatalogValues(table, def, id, values, (nameIndex, newName));
@@ -1371,7 +1374,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         foreach ((RowId id, object?[] values) in table.Rows().WithIds())
         {
-            if (values[idIndex] is null || Convert.ToInt32(values[idIndex]) != tdefPage) continue;
+            if (values[idIndex] is null || Convert.ToInt32(values[idIndex], CultureInfo.InvariantCulture) != tdefPage) continue;
             if (values[lvProp.Index] is not byte[] { Length: > 0 } blob) return;
 
             byte[] renamed = RewriteCalculatedReferences(
@@ -1477,8 +1480,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         {
             if (!NameMatches(values[nameIndex], name)) continue;
             // Skip the object being renamed — it can't collide with itself (same-name and case-only renames).
-            if (values[idIndex] is not null && Convert.ToInt32(values[idIndex]) == exceptObjectId) continue;
-            short type = Convert.ToInt16(values[typeIndex] ?? (short)0);
+            if (values[idIndex] is not null
+                && Convert.ToInt32(values[idIndex], CultureInfo.InvariantCulture) == exceptObjectId) continue;
+            short type = Convert.ToInt16(values[typeIndex] ?? (short)0, CultureInfo.InvariantCulture);
             if (type is ObjectTypeTable or StoredQueryFormat.ObjectTypeQuery) return true;
         }
 
@@ -1525,7 +1529,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         var table = new Table(_channel, t);
 
         var rows = table.Rows().WithIds()
-            .Where(r => r.Values[idx] is not null && Convert.ToInt32(r.Values[idx]) == keyValue)
+            .Where(r => r.Values[idx] is not null
+                && Convert.ToInt32(r.Values[idx], CultureInfo.InvariantCulture) == keyValue)
             .ToList();
         foreach ((RowId id, object?[] values) in rows)
         {
@@ -1644,11 +1649,14 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             maxCols + 1,
             format);
 
-        // Same single-counter rule the CREATE path and the promote path enforce; ADD COLUMN had neither.
-        if (spec.IsAutoNumber && table.Columns.Any(c => c.IsAutoNumber))
+        // Same single-counter rule the CREATE path and the promote path enforce; ADD COLUMN had neither. The
+        // rule is about the header's seed/increment pair, so complex columns — flagged 0x04 but allocated from
+        // 0x1C — are neither the existing counter nor a conflicting one.
+        if (spec.IsAutoNumber && spec.Type != JetDataType.Complex
+            && table.Columns.Any(c => c.IsAutoNumber && c.Type != JetDataType.Complex))
             throw new NotSupportedException(
                 $"Cannot add AutoNumber column '{spec.Name}': table '{table.Name}' already has one "
-                + "(Jet allows a single AutoNumber column per table).");
+                + "(Jet allows a single column to draw on the table's seed/increment counter).");
 
         var newColumn = new ColumnDef
         {
@@ -1868,7 +1876,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         foreach ((RowId id, object?[] values) in table.Rows().WithIds())
         {
-            if (values[idIdx] is null || Convert.ToInt32(values[idIdx]) != tdefPage) continue;
+            if (values[idIdx] is null || Convert.ToInt32(values[idIdx], CultureInfo.InvariantCulture) != tdefPage) continue;
             byte[] blob = values[lvProp.Index] as byte[] ?? [];
             var props = PropertyBlob.Read(blob).ToList();
             mutate(props);
@@ -1894,7 +1902,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         foreach ((RowId id, object?[] values) in table.Rows().WithIds())
         {
-            if (values[idIdx] is null || Convert.ToInt32(values[idIdx]) != tdefPage) continue;
+            if (values[idIdx] is null || Convert.ToInt32(values[idIdx], CultureInfo.InvariantCulture) != tdefPage) continue;
             byte[] blob = values[lvProp.Index] as byte[] ?? [];
             byte[] updated = PropertyBlob.AddColumnProperties(blob, columnName, props);
             byte[] descriptor = new RowInserter(_channel, msys).StorePackedLongValue(lvProp.ColumnId, updated);
@@ -1924,7 +1932,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         foreach ((RowId id, object?[] values) in table.Rows().WithIds())
         {
-            if (values[idIdx] is null || Convert.ToInt32(values[idIdx]) != tdefPage) continue;
+            if (values[idIdx] is null || Convert.ToInt32(values[idIdx], CultureInfo.InvariantCulture) != tdefPage) continue;
             byte[] blob = values[lvProp.Index] as byte[] ?? [];
 
             var checks = PropertyBlob.ReadCheckConstraints(blob).ToList();
@@ -1964,7 +1972,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         foreach ((RowId id, object?[] values) in table.Rows().WithIds())
         {
-            if (values[idIdx] is null || Convert.ToInt32(values[idIdx]) != tdefPage) continue;
+            if (values[idIdx] is null || Convert.ToInt32(values[idIdx], CultureInfo.InvariantCulture) != tdefPage) continue;
             byte[] blob = values[lvProp.Index] as byte[] ?? [];
 
             var checks = PropertyBlob.ReadCheckConstraints(blob).ToList();
@@ -2185,13 +2193,15 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <summary>Promotes a plain Int32 column to an AutoNumber in place — ALTER COLUMN c COUNTER(seed, increment)
     /// where c is a plain integer. A counter is stored identically to a Long Integer, so this only sets the
     /// column descriptor's <c>0x04</c> AutoNumber flag and the header's seed/increment (<c>0x14</c>/<c>0x18</c>);
-    /// existing values are untouched. Jet allows only one AutoNumber per table, so it rejects a second; and (like
-    /// the reseed path) a column in a relationship is rejected, matching ACE.</summary>
+    /// existing values are untouched. Only one column may draw on that pair, so a second is rejected — complex
+    /// columns are flagged <c>0x04</c> too but allocate from <c>0x1C</c>, so they do not count as the existing
+    /// one; and (like the reseed path) a column in a relationship is rejected, matching ACE.</summary>
     private void PromoteColumnToCounter(TableDef table, ColumnDef col, int seed, int increment)
     {
-        if (table.Columns.Any(c => c.IsAutoNumber && c.ColumnId != col.ColumnId))
+        if (table.Columns.Any(c => c.IsAutoNumber && c.Type != JetDataType.Complex && c.ColumnId != col.ColumnId))
             throw new InvalidOperationException(
-                $"Cannot make '{col.Name}' an AutoNumber: table '{table.Name}' already has one (Jet allows a single AutoNumber column per table).");
+                $"Cannot make '{col.Name}' an AutoNumber: table '{table.Name}' already has one "
+                + "(Jet allows a single column to draw on the table's seed/increment counter).");
         EnsureColumnIsNotInRelationship(table, col);
 
         if (increment == 0) increment = 1;
@@ -2901,7 +2911,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         foreach ((RowId id, object?[] values) in table.Rows().WithIds())
         {
-            if (values[idIdx] is null || Convert.ToInt32(values[idIdx]) != tdefPage) continue;
+            if (values[idIdx] is null || Convert.ToInt32(values[idIdx], CultureInfo.InvariantCulture) != tdefPage) continue;
             if (values[lvProp.Index] is not byte[] { Length: > 0 } blob) return;
 
             byte[] cleaned = PropertyBlob.RemoveOwner(blob, columnName);
@@ -3215,7 +3225,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         }
     }
 
-    private static byte[] BuildIndexDataBlock(IReadOnlyList<(int Id, bool Ascending)> columns, int rootPage, int usageRow, int usagePage, bool unique, bool required, bool ignoreNulls)
+    private static byte[] BuildIndexDataBlock(List<(int Id, bool Ascending)> columns, int rootPage, int usageRow, int usagePage, bool unique, bool required, bool ignoreNulls)
     {
         var b = new byte[IndexBlockFormat.DataBlockSize];
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(0, 4), IndexBlockFormat.DataMarker);
@@ -3322,7 +3332,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         WriteDefinition(inc.ParentPage, def, existingContinuations, rewrite: true);
     }
 
-    private byte[] BuildIncomingInfoBlock(IncomingRelationship inc)
+    private static byte[] BuildIncomingInfoBlock(IncomingRelationship inc)
     {
         var b = new byte[IndexBlockFormat.InfoBlockSize];
         BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(IndexBlockFormat.InfoMarkerOffset, 4), JetFormatBase.TdefRecordMarker);

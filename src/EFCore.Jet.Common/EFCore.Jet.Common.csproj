@@ -16,9 +16,7 @@
 	  <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<Compile Include="..\Shared\*.cs" />
-	</ItemGroup>
+	<Import Project="..\Shared\SharedSource.props" />
 
 	<ItemGroup>
 		<None Update="Properties\JetStrings.Designer.tt">
@@ -37,9 +35,6 @@
 
 	<ItemGroup>
 		<Using Include="System.Data.Common" />
-		<Using Include="System.Diagnostics" />
-		<Using Include="System.Linq.Expressions" />
-		<Using Include="System.Reflection" />
 		<Using Include="Microsoft.EntityFrameworkCore" />
 		<Using Include="Microsoft.EntityFrameworkCore.ChangeTracking" />
 		<Using Include="Microsoft.EntityFrameworkCore.Diagnostics" />

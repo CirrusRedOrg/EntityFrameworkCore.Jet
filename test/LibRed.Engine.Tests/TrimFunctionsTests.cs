@@ -4,8 +4,10 @@ using Xunit;
 
 namespace LibRed.Engine.Tests;
 
-// Trim/LTrim/RTrim are single-argument and remove ONLY spaces — the space and the ideographic space U+3000, in any
-// mixture; not tabs or other whitespace, and no trim-char parameter — verified vs ACE. NULL-propagating.
+// With one argument Trim/LTrim/RTrim remove ONLY spaces — the space and the ideographic space U+3000, in any
+// mixture; not tabs or other whitespace — verified vs ACE. NULL-propagating. LTrim and RTrim also take SQL
+// Server 2022's second argument, a set of characters to strip; that one is a LibRed extension, since ACE takes
+// no such parameter.
 public class TrimFunctionsTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
@@ -54,4 +56,36 @@ public class TrimFunctionsTests : TempDatabaseTest
     [InlineData("RTrim(Null)")]
     public void Trim_propagates_null(string expr)
         => Assert.Null(Eval(expr));
+
+    // The second argument is a SET of characters, not a substring: every leading (or trailing) character that
+    // appears anywhere in it is removed, and the stripping stops at the first character that does not.
+    [Theory]
+    [InlineData("LTrim('xxhixx', 'x')", "hixx")]
+    [InlineData("RTrim('xxhixx', 'x')", "xxhi")]
+    [InlineData("LTrim('xyxhiyx', 'xy')", "hiyx")]
+    [InlineData("RTrim('xyhixyx', 'xy')", "xyhi")]
+    [InlineData("LTrim('.,.hi', '.,')", "hi")]
+    [InlineData("LTrim('xyz', 'zyx')", "")]           // every character stripped
+    [InlineData("LTrim('hi', 'x')", "hi")]            // nothing to strip
+    [InlineData("LTrim('hi', '')", "hi")]             // an empty set strips nothing
+    [InlineData("LTrim('  hi  ', ' ')", "hi  ")]      // spaces, said explicitly
+    [InlineData("RTrim(Chr(9) & 'hi' & Chr(9), Chr(9))", "\thi")] // a tab, which the one-argument form keeps
+    public void Two_argument_trim_strips_the_characters_given(string expr, string expected)
+        => Assert.Equal(expected, Convert.ToString(Eval(expr)));
+
+    [Theory]
+    [InlineData("LTrim(Null, 'x')")]
+    [InlineData("LTrim('xhi', Null)")]
+    [InlineData("RTrim(Null, 'x')")]
+    [InlineData("RTrim('hix', Null)")]
+    public void Two_argument_trim_propagates_null(string expr)
+        => Assert.Null(Eval(expr));
+
+    // Access has no third argument, and Trim itself takes only the one.
+    [Theory]
+    [InlineData("LTrim('hi', 'x', 'y')")]
+    [InlineData("RTrim('hi', 'x', 'y')")]
+    [InlineData("Trim('hi', 'x')")]
+    public void A_third_argument_is_rejected(string expr)
+        => Assert.Throws<InvalidOperationException>(() => Eval(expr));
 }

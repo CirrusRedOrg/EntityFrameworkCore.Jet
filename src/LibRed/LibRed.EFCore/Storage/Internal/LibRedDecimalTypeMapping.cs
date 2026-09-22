@@ -1,5 +1,5 @@
-using System.Data;
 using Microsoft.EntityFrameworkCore.Storage.Json;
+using System.Data;
 
 namespace EntityFrameworkCore.LibRed.Storage.Internal
 {

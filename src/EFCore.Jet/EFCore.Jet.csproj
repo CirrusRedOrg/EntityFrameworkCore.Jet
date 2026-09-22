@@ -17,9 +17,7 @@
 		</AssemblyAttribute>
 	</ItemGroup>
 
-	<ItemGroup>
-		<Compile Include="..\Shared\*.cs" />
-	</ItemGroup>
+	<Import Project="..\Shared\SharedSource.props" />
 
 	<ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
 		<PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none" />
@@ -75,9 +73,6 @@
 
 	<ItemGroup>
 	  <Using Include="System.Data.Common" />
-	  <Using Include="System.Diagnostics" />
-	  <Using Include="System.Linq.Expressions" />
-	  <Using Include="System.Reflection" />
 	  <Using Include="Microsoft.EntityFrameworkCore" />
 	  <Using Include="Microsoft.EntityFrameworkCore.ChangeTracking" />
 	  <Using Include="Microsoft.EntityFrameworkCore.Diagnostics" />

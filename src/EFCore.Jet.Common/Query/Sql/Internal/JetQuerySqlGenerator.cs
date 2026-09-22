@@ -89,7 +89,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
                 GenerateTop(selectExpression);
 
-                if (selectExpression.Projection.Any())
+                if (selectExpression.Projection.Count > 0)
                 {
                     GenerateList(selectExpression.Projection, e => Visit(e));
                 }
@@ -208,7 +208,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         private void VisitJetTables(IReadOnlyList<TableExpressionBase> tables, bool addFromSql, out List<ColumnExpression> colexp)
         {
             colexp = [];
-            if (!tables.Any())
+            if (tables.Count == 0)
             {
                 GeneratePseudoFromClause();
                 return;
@@ -301,7 +301,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     case CrossApplyExpression or OuterApplyExpression:
                         throw new UnreachableException();
                     case CrossJoinExpression cj:
-                        groups.Add((cj.Table, [], new HashSet<string> { cj.Table.Alias! }));
+                        groups.Add((cj.Table, [], [cj.Table.Alias!]));
                         break;
                     case PredicateJoinExpressionBase join:
                         var predicateAliases = ExtractTableAliases(join.JoinPredicate);
@@ -319,7 +319,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                         }
                         break;
                     default:
-                        groups.Add((table, [], new HashSet<string> { table.Alias! }));
+                        groups.Add((table, [], [table.Alias!]));
                         break;
                 }
             }
@@ -388,7 +388,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             }
         }
 
-        private HashSet<string> ExtractTableAliases(SqlExpression expression)
+        private static HashSet<string> ExtractTableAliases(SqlExpression expression)
         {
             var result = new HashSet<string>();
             CollectTableAliases(expression, result);
@@ -412,7 +412,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             }
         }
 
-        private List<ColumnExpression> ExtractColumnExpressions(SqlBinaryExpression binaryexp)
+        private static List<ColumnExpression> ExtractColumnExpressions(SqlBinaryExpression binaryexp)
         {
             List<ColumnExpression> result = [];
             switch (binaryexp.Left)
@@ -437,7 +437,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             return result;
         }
-        private List<ColumnExpression> ExtractColumnExpressions(SqlUnaryExpression unaryexp)
+        private static List<ColumnExpression> ExtractColumnExpressions(SqlUnaryExpression unaryexp)
         {
             List<ColumnExpression> result = [];
             switch (unaryexp.Operand)
@@ -508,7 +508,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             throw new UnreachableException();
         }
 
-        private bool IsNonComposedSetOperation(SelectExpression selectExpression)
+        private static bool IsNonComposedSetOperation(SelectExpression selectExpression)
             => selectExpression.Offset == null
                 && selectExpression.Limit == null
                 && selectExpression is { IsDistinct: false, Predicate: null, Having: null, Orderings.Count: 0, GroupBy.Count: 0, Tables: [SetOperationBase setOperation] }
@@ -826,7 +826,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         }
 
 
-        private Expression VisitJetConvertExpression(SqlUnaryExpression convertExpression)
+        private SqlUnaryExpression VisitJetConvertExpression(SqlUnaryExpression convertExpression)
         {
             var typeMapping = convertExpression.TypeMapping ?? throw new InvalidOperationException(
                 RelationalStrings.UnsupportedType(convertExpression.Type.ShortDisplayName()));
@@ -986,11 +986,11 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     CollectEqualityColumns(andAlso.Right, result);
                 }
                 else if (expression is SqlBinaryExpression
-                         {
-                             OperatorType: ExpressionType.Equal,
-                             Left: ColumnExpression left,
-                             Right: ColumnExpression right
-                         })
+                {
+                    OperatorType: ExpressionType.Equal,
+                    Left: ColumnExpression left,
+                    Right: ColumnExpression right
+                })
                 {
                     result.Add(left);
                     result.Add(right);
@@ -998,7 +998,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             }
         }
 
-        private Expression VisitRowValuePrivate(RowValueExpression rowValueExpression, IReadOnlyList<string> columnNames)
+        private RowValueExpression VisitRowValuePrivate(RowValueExpression rowValueExpression, IReadOnlyList<string> columnNames)
         {
             var values = rowValueExpression.Values;
             var count = values.Count;

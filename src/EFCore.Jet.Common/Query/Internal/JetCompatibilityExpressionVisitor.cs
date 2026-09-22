@@ -7,8 +7,8 @@ namespace EntityFrameworkCore.Jet.Query.Internal;
 
 public class JetCompatibilityExpressionVisitor : ExpressionVisitor
 {
-    protected override Expression VisitExtension(Expression extensionExpression)
-        => extensionExpression switch
+    protected override Expression VisitExtension(Expression node)
+        => node switch
         {
             RowNumberExpression rowNumberExpression => VisitRowNumber(rowNumberExpression),
             CrossApplyExpression crossApplyExpression => VisitCrossApply(crossApplyExpression),
@@ -21,7 +21,7 @@ public class JetCompatibilityExpressionVisitor : ExpressionVisitor
             SelectExpression selectExpression => VisitSelect(selectExpression),
             ShapedQueryExpression shapedQueryExpression => shapedQueryExpression.Update(Visit(shapedQueryExpression.QueryExpression), Visit(shapedQueryExpression.ShaperExpression)),
             CrossJoinExpression crossJoinExpression => VisitCrossJoin(crossJoinExpression),
-            _ => base.VisitExtension(extensionExpression)
+            _ => base.VisitExtension(node)
         };
 
     protected virtual Expression VisitRowNumber(RowNumberExpression rowNumberExpression)
@@ -92,7 +92,7 @@ public class JetCompatibilityExpressionVisitor : ExpressionVisitor
     protected virtual Expression TranslationFailed(Expression expression)
         => throw new InvalidOperationException("Unsupported Jet expression: " + expression.Print());
 
-    private bool ContainsUnsupportCol(SqlBinaryExpression binaryexp)
+    private static bool ContainsUnsupportCol(SqlBinaryExpression binaryexp)
     {
         bool containsunsupported = false;
         if (binaryexp.Left is SqlBinaryExpression left)

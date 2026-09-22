@@ -2,9 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using EntityFrameworkCore.Jet.Internal;
-using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using System.Diagnostics.CodeAnalysis;
 
 namespace EntityFrameworkCore.Jet.Query.Internal;
 
@@ -16,7 +14,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal;
 /// </summary>
 public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryableMethodTranslatingExpressionVisitor
 {
-    protected readonly RelationalQueryCompilationContext queryCompilationContext;
+    private readonly RelationalQueryCompilationContext _queryCompilationContext;
 
     private readonly bool _subquery;
 
@@ -32,7 +30,7 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
         RelationalQueryCompilationContext queryCompilationContext)
         : base(dependencies, relationalDependencies, queryCompilationContext)
     {
-        this.queryCompilationContext = queryCompilationContext;
+        _queryCompilationContext = queryCompilationContext;
         _subquery = false;
     }
 
@@ -46,7 +44,7 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
         JetQueryableMethodTranslatingExpressionVisitor parentVisitor)
         : base(parentVisitor)
     {
-        this.queryCompilationContext = parentVisitor.queryCompilationContext;
+        _queryCompilationContext = parentVisitor._queryCompilationContext;
         _subquery = true;
     }
 
@@ -64,7 +62,7 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
     {
         //Jet can't handle a left join following a cross join
         //so we push the cross join into a subquery wrapped by parentheses and then do the left join on that
-        if (outer.QueryExpression is SelectExpression selectExpression && selectExpression.Tables.Last() is CrossJoinExpression)
+        if (outer.QueryExpression is SelectExpression selectExpression && selectExpression.Tables[^1] is CrossJoinExpression)
         {
             selectExpression.PushdownIntoSubquery();
         }
@@ -120,7 +118,7 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
     /// </summary>
     protected override bool IsValidSelectExpressionForExecuteUpdate(
         SelectExpression selectExpression,
-        TableExpressionBase table,
+        TableExpressionBase targetTable,
         [NotNullWhen(true)] out TableExpression? tableExpression)
     {
         if (selectExpression is
@@ -133,12 +131,12 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
                 Limit: null
             })
         {
-            if (selectExpression.Tables.Count > 1 && table is JoinExpressionBase joinExpressionBase)
+            if (selectExpression.Tables.Count > 1 && targetTable is JoinExpressionBase joinExpressionBase)
             {
-                table = joinExpressionBase.Table;
+                targetTable = joinExpressionBase.Table;
             }
 
-            if (table is TableExpression te)
+            if (targetTable is TableExpression te)
             {
                 tableExpression = te;
                 return true;
@@ -163,7 +161,7 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
 
         if (!IsOrdered(selectExpression))
         {
-            queryCompilationContext.Logger.RowLimitingOperationWithoutOrderByWarning();
+            _queryCompilationContext.Logger.RowLimitingOperationWithoutOrderByWarning();
         }
 
         selectExpression.ApplyOffset(translation);
@@ -193,7 +191,7 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
         if (selectExpression.Predicate == null
             && selectExpression.Orderings.Count == 0)
         {
-            queryCompilationContext.Logger.FirstWithoutOrderByAndFilterWarning();
+            _queryCompilationContext.Logger.FirstWithoutOrderByAndFilterWarning();
         }
 
         JetApplyLimit(selectExpression, TranslateExpression(Expression.Constant(1))!);
@@ -271,7 +269,7 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
 
         if (!IsOrdered(selectExpression))
         {
-            queryCompilationContext.Logger.RowLimitingOperationWithoutOrderByWarning();
+            _queryCompilationContext.Logger.RowLimitingOperationWithoutOrderByWarning();
         }
 
         JetApplyLimit(selectExpression, translation);
@@ -279,7 +277,7 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
         return source;
     }
 
-    private void JetApplyLimit(SelectExpression selectExpression, SqlExpression limit)
+    private static void JetApplyLimit(SelectExpression selectExpression, SqlExpression limit)
     {
         var oldLimit = selectExpression.Limit;
 

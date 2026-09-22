@@ -1,6 +1,6 @@
-using System.Globalization;
 using EntityFrameworkCore.Jet.Data;
 using LibRed.Catalog;
+using System.Globalization;
 
 namespace LibRed.Storage.Calculated;
 
@@ -58,14 +58,14 @@ internal static class CalculatedEvaluator
         switch (node.Operator)
         {
             case "+":
-            {
-                // '+' concatenates when BOTH sides are text, and adds otherwise — the overload that makes
-                // it the null-propagating sibling of '&'. Adding a number to a date yields a DATE, not the
-                // serial underneath it, so `[D] + 1` stays a date the way ACE stores it.
-                if (left is string a && right is string b) return a + b;
-                double sum = ToNumber(left) + ToNumber(right);
-                return left is DateTime ^ right is DateTime ? DateTime.FromOADate(sum) : sum;
-            }
+                {
+                    // '+' concatenates when BOTH sides are text, and adds otherwise — the overload that makes
+                    // it the null-propagating sibling of '&'. Adding a number to a date yields a DATE, not the
+                    // serial underneath it, so `[D] + 1` stays a date the way ACE stores it.
+                    if (left is string a && right is string b) return a + b;
+                    double sum = ToNumber(left) + ToNumber(right);
+                    return left is DateTime ^ right is DateTime ? DateTime.FromOADate(sum) : sum;
+                }
             case "-":
                 return left is DateTime && right is DateTime
                     ? ToNumber(left) - ToNumber(right)
@@ -76,21 +76,30 @@ internal static class CalculatedEvaluator
             case "And": return ToBoolean(left) && ToBoolean(right);
             case "Or": return ToBoolean(left) || ToBoolean(right);
             case "Like": return Like(ToText(left), ToText(right));
-            case "=": case "<>": case "<": case ">": case "<=": case ">=":
-            {
-                int c = Compare(left, right);
-                return node.Operator switch
+            case "=":
+            case "<>":
+            case "<":
+            case ">":
+            case "<=":
+            case ">=":
                 {
-                    "=" => c == 0, "<>" => c != 0, "<" => c < 0,
-                    ">" => c > 0, "<=" => c <= 0, _ => c >= 0,
-                };
-            }
+                    int c = Compare(left, right);
+                    return node.Operator switch
+                    {
+                        "=" => c == 0,
+                        "<>" => c != 0,
+                        "<" => c < 0,
+                        ">" => c > 0,
+                        "<=" => c <= 0,
+                        _ => c >= 0,
+                    };
+                }
             default:
                 throw new CalculatedExpressionException($"Unsupported operator '{node.Operator}'.");
         }
     }
 
-    private static object? In(CalcIn node, Func<string, object?> value)
+    private static bool? In(CalcIn node, Func<string, object?> value)
     {
         object? operand = Evaluate(node.Operand, value);
         if (operand is null) return null;
@@ -124,24 +133,24 @@ internal static class CalculatedEvaluator
         switch (name.ToUpperInvariant())
         {
             case "IIF":
-            {
-                if (node.Arguments.Count != 3)
-                    throw new CalculatedExpressionException(
-                        $"{name} takes 3 arguments, not {node.Arguments.Count}.");
-                object? condition = Evaluate(node.Arguments[0], value);
-                return Evaluate(node.Arguments[condition is not null && ToBoolean(condition) ? 1 : 2], value);
-            }
+                {
+                    if (node.Arguments.Count != 3)
+                        throw new CalculatedExpressionException(
+                            $"{name} takes 3 arguments, not {node.Arguments.Count}.");
+                    object? condition = Evaluate(node.Arguments[0], value);
+                    return Evaluate(node.Arguments[condition is not null && ToBoolean(condition) ? 1 : 2], value);
+                }
             case "CHOOSE":
-            {
-                if (node.Arguments.Count < 2)
-                    throw new CalculatedExpressionException($"{name} needs at least two arguments.");
-                object? selector = Evaluate(node.Arguments[0], value);
-                if (selector is null) return null;
-                int index = (int)Math.Round(ToNumber(selector), MidpointRounding.ToEven);
-                return index >= 1 && index < node.Arguments.Count
-                    ? Evaluate(node.Arguments[index], value)
-                    : null;
-            }
+                {
+                    if (node.Arguments.Count < 2)
+                        throw new CalculatedExpressionException($"{name} needs at least two arguments.");
+                    object? selector = Evaluate(node.Arguments[0], value);
+                    if (selector is null) return null;
+                    int index = (int)Math.Round(ToNumber(selector), MidpointRounding.ToEven);
+                    return index >= 1 && index < node.Arguments.Count
+                        ? Evaluate(node.Arguments[index], value)
+                        : null;
+                }
         }
 
         object?[] args = [.. node.Arguments.Select(a => Evaluate(a, value))];

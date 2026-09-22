@@ -74,7 +74,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         public static int? SetJetIdentityIncrement(
             this IConventionModel model, int? increment, bool fromDataAnnotation = false)
-            => (int?) model.SetOrRemoveAnnotation(
+            => (int?)model.SetOrRemoveAnnotation(
                 JetAnnotationNames.IdentityIncrement,
                 increment,
                 fromDataAnnotation)?.Value;

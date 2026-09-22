@@ -16,16 +16,17 @@ statistics:
 **These two fields are maintained very differently (verified vs ACE):**
 
 - **Total entry count (`+0`) is *not* maintained on insert.** Access leaves it unchanged through live
-  inserts, deletes and updates. It is written when the index is **built over the rows present** —
+  inserts and updates — but **a delete decrements it** (see "On delete" below). It is written when the index
+  is **built over the rows present** —
   `CREATE INDEX` (unique or not), a foreign key's backing index, and the rebuild of an index whose column an
   `ALTER COLUMN` changes — to the **number of entries the index then holds** (the rows, less those an
   IGNORE NULL index leaves out); and on **compact/repair**, to the row count. So an index created on an
   empty table and then filled by inserts reads `0`, while one created over six rows reads `6`. A writer must
   **not** set it on insert: that would falsely mark the file as compacted.
-- **Unique entry count (`+4`) *is* maintained live and is cumulative** — Access advances it on
-  **INSERT only**, by one when the row brings a key the index **does not hold at that moment**, and **never
-  decrements** it. Verified: after 3 inserts into a unique index it is `3`; after deleting a row it stays
-  `3`; after one more insert it is `4`. It equals the current distinct-key count only with no deletions.
+- **Unique entry count (`+4`) *is* maintained live** — Access advances it on **INSERT** by one when the row
+  brings a key the index **does not hold at that moment**, and lowers it only on a delete that clears the
+  last row holding a key, and then only for an index whose total is non-zero (see "On delete"). It equals the
+  current distinct-key count only where no delete has left a gap the index never refilled.
   - A **unique** index gains a new key with every row, so it advances on every insert.
   - A **non-unique** index advances only for a key not already in it. Keys are compared as index keys, so
     collation-equal text (`'a'`, `'A'`) is one key; a **Null is a key** like any other (a second Null adds
@@ -42,9 +43,25 @@ statistics:
     for a retype to or from Memo/OLE: only an index over the changed column is rebuilt — a primary key
     included — and a table referencing this one keeps its foreign-key index's counts.
 
-  LibRed maintains both this way — inserts in `RowInserter`, builds in `TableCreator`'s index back-fill, and
-  the Memo/OLE retype (which LibRed does by rebuilding the whole table) restores every other index's counts
-  afterwards — and exposes `+4` as `IndexDef.UniqueEntryCount`.
+**On delete — and the zero rule that governs both fields.** A delete is the one operation that lowers either
+count, and it is gated on the total:
+
+- **A block whose total (`+0`) reads `0` is left entirely alone** — total and unique both. A zero total marks
+  an index Access is not maintaining a total for (one built empty and filled by inserts, per the bullet
+  above), and Access stops touching the pair rather than taking it negative. This is **not** a clamp at zero:
+  an index whose total was `0` and unique `3` comes back from a delete still `0` and `3`, where a clamp would
+  have taken unique to `2`.
+- **Otherwise the total drops by one**, on every real index, for each row removed.
+- **And the unique count drops by one** on those indexes where the deleted row was the **last** holder of its
+  key — compared as index keys, exactly as on the insert side.
+
+> This is why an index built empty and filled by three inserts reads unique `3` before a delete and unique
+> `3` after it: its total is `0`, so the delete skips it. The rule is visible only on an index that *was*
+> built over rows, where both fields move together.
+
+  LibRed maintains both this way — inserts and deletes in `RowInserter`, builds in `TableCreator`'s index
+  back-fill, and the Memo/OLE retype (which LibRed does by rebuilding the whole table) restores every other
+  index's counts afterwards — and exposes `+4` as `IndexDef.UniqueEntryCount`.
 
 
 ### 3.5 Index-data block (52 bytes)

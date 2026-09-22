@@ -1,5 +1,6 @@
 using System;
 using System.Dynamic;
+using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
@@ -7,11 +8,14 @@ namespace EntityFrameworkCore.Jet.Data
 {
     // A small wrapper around COM interop to make it more easy to use.
     // See https://github.com/dotnet/runtime/issues/12587#issuecomment-534611966
-    internal class ComObject : DynamicObject, IDisposable
+    internal sealed class ComObject : DynamicObject, IDisposable
     {
         private object _instance;
 #if DEBUG
+        // Read only in a debugger, to tell two wrappers of the same COM object apart.
+#pragma warning disable IDE0052
         private readonly Guid _trackingId = Guid.NewGuid();
+#pragma warning restore IDE0052
 #endif
 
         public static ComObject CreateFirstFrom(params string[] progids)
@@ -28,10 +32,10 @@ namespace EntityFrameworkCore.Jet.Data
                     }
                 }
             }
-            
+
             throw new TypeLoadException("Could not create an instance using any of the supplied ProgIDs.");
         }
-        
+
         public static ComObject CreateFirstFrom(params Guid[] clsids)
         {
             foreach (var clsid in clsids)
@@ -46,7 +50,7 @@ namespace EntityFrameworkCore.Jet.Data
                     }
                 }
             }
-            
+
             throw new TypeLoadException("Could not create an instance using any of the supplied CLSIDs.");
         }
 
@@ -56,7 +60,7 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 throw new ArgumentException("The object is already a ComObject.", nameof(instance));
             }
-            
+
             _instance = instance;
         }
 
@@ -86,7 +90,8 @@ namespace EntityFrameworkCore.Jet.Data
                         BindingFlags.GetProperty,
                         Type.DefaultBinder,
                         _instance,
-                        []
+                        [],
+                        CultureInfo.InvariantCulture
                     ));
             return true;
         }
@@ -103,7 +108,8 @@ namespace EntityFrameworkCore.Jet.Data
                         value is ComObject comObject
                             ? comObject._instance
                             : value
-                    ]
+                    ],
+                    CultureInfo.InvariantCulture
                 );
             return true;
         }
@@ -117,7 +123,8 @@ namespace EntityFrameworkCore.Jet.Data
                         BindingFlags.InvokeMethod,
                         Type.DefaultBinder,
                         _instance,
-                        args
+                        args,
+                        CultureInfo.InvariantCulture
                     ));
             return true;
         }
@@ -132,7 +139,8 @@ namespace EntityFrameworkCore.Jet.Data
                         BindingFlags.GetProperty,
                         Type.DefaultBinder,
                         _instance,
-                        indexes
+                        indexes,
+                        CultureInfo.InvariantCulture
                     ));
             return true;
         }

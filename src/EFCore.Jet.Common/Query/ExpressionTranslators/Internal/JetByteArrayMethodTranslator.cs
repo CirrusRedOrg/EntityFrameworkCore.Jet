@@ -76,23 +76,23 @@ public class JetByteArrayMethodTranslator(ISqlExpressionFactory sqlExpressionFac
             switch (method.Name)
             {
                 case nameof(Enumerable.Contains) when arguments is [var source, var item] && source.Type == typeof(byte[]):
-                {
-                    var sourceTypeMapping = source.TypeMapping;
+                    {
+                        var sourceTypeMapping = source.TypeMapping;
 
-                    var value = item is SqlConstantExpression constantValue
-                        ? _sqlExpressionFactory.Constant(new[] { (byte)constantValue.Value! }, sourceTypeMapping)
-                        : _sqlExpressionFactory.Function(
-                            "CHR",
-                            [item],
-                            nullable: true,
-                            argumentsPropagateNullability: [true],
-                            typeof(string));
+                        var value = item is SqlConstantExpression constantValue
+                            ? _sqlExpressionFactory.Constant(new[] { (byte)constantValue.Value! }, sourceTypeMapping)
+                            : _sqlExpressionFactory.Function(
+                                "CHR",
+                                [item],
+                                nullable: true,
+                                argumentsPropagateNullability: [true],
+                                typeof(string));
 
-                    return _sqlExpressionFactory.GreaterThan(
-                        _sqlExpressionFactory.Function(
-                            "INSTR",
-                            [
-                                _sqlExpressionFactory.Constant(1),
+                        return _sqlExpressionFactory.GreaterThan(
+                            _sqlExpressionFactory.Function(
+                                "INSTR",
+                                [
+                                    _sqlExpressionFactory.Constant(1),
                                 _sqlExpressionFactory.Function(
                                     "STRCONV",
                                     [source, _sqlExpressionFactory.Constant(64)],
@@ -101,12 +101,12 @@ public class JetByteArrayMethodTranslator(ISqlExpressionFactory sqlExpressionFac
                                     typeof(string)),
                                 value,
                                 _sqlExpressionFactory.Constant(0)
-                            ],
-                            nullable: true,
-                            argumentsPropagateNullability: [false, true, true, false],
-                            typeof(int)),
-                        _sqlExpressionFactory.Constant(0));
-                }
+                                ],
+                                nullable: true,
+                                argumentsPropagateNullability: [false, true, true, false],
+                                typeof(int)),
+                            _sqlExpressionFactory.Constant(0));
+                    }
 
                 // First without a predicate
                 case nameof(Enumerable.First) when arguments is [var source] && source.Type == typeof(byte[]):

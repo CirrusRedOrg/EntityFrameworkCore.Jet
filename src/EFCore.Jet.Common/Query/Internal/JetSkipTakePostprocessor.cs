@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using EntityFrameworkCore.Jet.Internal;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
@@ -12,8 +11,6 @@ namespace EntityFrameworkCore.Jet.Query.Internal;
 /// </remarks>
 public class JetSkipTakePostprocessor : ExpressionVisitor
 {
-    private readonly IRelationalTypeMappingSource _typeMappingSource;
-    private readonly ISqlExpressionFactory _sqlExpressionFactory;
     private Stack<SelectExpression> parent = new();
     private readonly QuerySplittingBehavior? _splittingBehavior;
     /// <summary>
@@ -27,7 +24,10 @@ public class JetSkipTakePostprocessor : ExpressionVisitor
         ISqlExpressionFactory sqlExpressionFactory,
         QuerySplittingBehavior? splittingBehavior)
     {
-        (_typeMappingSource, _sqlExpressionFactory) = (typeMappingSource, sqlExpressionFactory);
+        // Neither dependency is needed by the rewrite; both stay on the signature because that is what the
+        // postprocessor constructs this with.
+        _ = typeMappingSource;
+        _ = sqlExpressionFactory;
         _splittingBehavior = splittingBehavior;
     }
 
@@ -48,10 +48,10 @@ public class JetSkipTakePostprocessor : ExpressionVisitor
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    [return: NotNullIfNotNull(nameof(expression))]
-    public override Expression? Visit(Expression? expression)
+    [return: NotNullIfNotNull(nameof(node))]
+    public override Expression? Visit(Expression? node)
     {
-        switch (expression)
+        switch (node)
         {
             case ShapedQueryExpression shapedQueryExpression:
                 return shapedQueryExpression.UpdateQueryExpression(Visit(shapedQueryExpression.QueryExpression));
@@ -100,7 +100,7 @@ public class JetSkipTakePostprocessor : ExpressionVisitor
                     return newselectExpression;
                 }
             default:
-                return base.Visit(expression);
+                return base.Visit(node);
         }
     }
 }

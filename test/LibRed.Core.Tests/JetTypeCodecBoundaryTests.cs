@@ -137,11 +137,21 @@ public class JetTypeCodecBoundaryTests
             Assert.Throws<InvalidOperationException>(() => JetTypeCodec.Encode(binary, new byte[] { 1, 2, 3, 4 })).Message);
     }
 
+    // Complex used to stand in for "unsupported" here. It no longer is — its four bytes are an Int32 complex
+    // id and LibRed both reads and writes them — so the example is now one of the genuinely unmodelled codes.
     [Fact]
     public void Unsupported_encoding_reports_the_column_type()
     {
         var error = Assert.Throws<NotSupportedException>(() =>
-            JetTypeCodec.Encode(Column(JetDataType.Complex), new object()));
-        Assert.Contains(nameof(JetDataType.Complex), error.Message);
+            JetTypeCodec.Encode(Column(JetDataType.Unknown11), new object()));
+        Assert.Contains(nameof(JetDataType.Unknown11), error.Message);
+    }
+
+    [Fact]
+    public void A_complex_id_round_trips_as_an_int32()
+    {
+        ColumnDef column = Column(JetDataType.Complex, length: 4, fixedLength: true);
+        Assert.Equal(new byte[] { 0x2A, 0, 0, 0 }, JetTypeCodec.Encode(column, 42));
+        Assert.Equal(42, JetTypeCodec.Decode(column, JetDataType.Complex, new byte[] { 0x2A, 0, 0, 0 }));
     }
 }

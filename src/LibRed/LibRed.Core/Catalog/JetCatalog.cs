@@ -2,6 +2,7 @@ using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
 using LibRed.Storage;
+using System.Globalization;
 
 namespace LibRed.Catalog;
 
@@ -36,7 +37,8 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
     private List<ForeignKey>? _relationships;
     private Dictionary<string, string>? _views;
     private Dictionary<string, StoredActionQuery>? _actionQueries;
-    private Dictionary<string, IReadOnlyList<string>>? _queryParameters;
+    private Dictionary<string, IReadOnlyList<StoredQueryParameter>>? _queryParameters;
+    private List<ComplexColumn>? _complexColumns;
     private long _seenSchemaGeneration = channel.SchemaGeneration;
 
     /// <summary>All tables in the database (user and system).</summary>
@@ -54,7 +56,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
     /// <summary>A stored query's declared parameter names in declaration order (its <c>Attribute=2</c> rows).
     /// Used to bind an <c>EXECUTE proc a, b</c>'s positional arguments to the procedure's named parameters.
     /// Empty for a query with no parameters.</summary>
-    public IReadOnlyDictionary<string, IReadOnlyList<string>> QueryParameters { get { EnsureFresh(); EnsureStoredQueries(); return _queryParameters!; } }
+    public IReadOnlyDictionary<string, IReadOnlyList<StoredQueryParameter>> QueryParameters { get { EnsureFresh(); EnsureStoredQueries(); return _queryParameters!; } }
 
     /// <summary>Drops the cached catalog so a freshly created table is picked up on next read.</summary>
     public void Invalidate(bool markChanged = true)
@@ -64,9 +66,67 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
         _views = null;
         _actionQueries = null;
         _queryParameters = null;
+        _complexColumns = null;
         _seenSchemaGeneration = _channel.SchemaGeneration;
         if (markChanged) _channel.MarkSchemaChanged();
     }
+
+    /// <summary>Every complex (multi-value / attachment) column in the database, wired to the table its
+    /// values live in. Empty when the file has no <c>MSysComplexColumns</c> — a Jet 4 database has none.</summary>
+    public IReadOnlyList<ComplexColumn> ComplexColumns
+    {
+        get { EnsureFresh(); return _complexColumns ??= LoadComplexColumns(); }
+    }
+
+    /// <summary>The complex column <paramref name="column"/> of <paramref name="table"/>, or null when that
+    /// column is not a complex one.</summary>
+    public ComplexColumn? FindComplexColumn(string table, string column) =>
+        ComplexColumns.FirstOrDefault(c =>
+            string.Equals(c.OwnerTable.Name, table, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(c.ColumnName, column, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Reads <c>MSysComplexColumns</c> and resolves each row to its owner table, its flat table and the flat
+    /// table's two bookkeeping columns. A row whose tables are missing is skipped rather than throwing: the
+    /// catalog must stay readable even where the complex wiring is incomplete.
+    /// </summary>
+    private List<ComplexColumn> LoadComplexColumns()
+    {
+        var resolved = new List<ComplexColumn>();
+        if (FindTable("MSysComplexColumns") is not { } definition) return resolved;
+
+        int name = ColumnIndex(definition, "ColumnName"), id = ColumnIndex(definition, "ComplexID"),
+            elementType = ColumnIndex(definition, "ComplexTypeObjectID"),
+            owner = ColumnIndex(definition, "ConceptualTableID"), flat = ColumnIndex(definition, "FlatTableID");
+        if (name < 0 || id < 0 || owner < 0 || flat < 0) return resolved;
+
+        foreach (object?[] row in new Storage.Table(_channel, definition).Rows())
+        {
+            if (row[name] is not string columnName) continue;
+            if (TableWithId(row[owner]) is not { } ownerTable || TableWithId(row[flat]) is not { } flatTable) continue;
+            if (ownerTable.FindColumn(columnName) is null) continue;
+
+            // Structural, never by name: the primary index names the per-value id, and the one non-unique
+            // single-column index names the link back to the owning record.
+            ColumnDef? valueId = flatTable.Indexes.FirstOrDefault(i => i.IsPrimaryKey)?.Columns is [{ Column: { } pk }] ? pk : null;
+            ColumnDef? ownerLink = flatTable.Indexes
+                .FirstOrDefault(i => !i.IsUnique && !i.IsPrimaryKey && i.Columns.Count == 1)?.Columns[0].Column;
+            if (valueId is null || ownerLink is null || valueId == ownerLink) continue;
+
+            resolved.Add(new ComplexColumn(
+                columnName, row[id] is null ? 0 : Convert.ToInt32(row[id], CultureInfo.InvariantCulture),
+                ownerTable, flatTable, ownerLink, valueId,
+                elementType < 0 ? null : TableWithId(row[elementType])?.Name));
+        }
+        return resolved;
+
+        static int ColumnIndex(TableDef t, string column) => t.FindColumn(column)?.Index ?? -1;
+    }
+
+    /// <summary>The table whose MSysObjects id (its TDEF page) is <paramref name="id"/>.</summary>
+    private TableDef? TableWithId(object? id) =>
+        id is null ? null
+        : Tables.FirstOrDefault(t => t.DefinitionPage == Convert.ToInt32(id, CultureInfo.InvariantCulture));
 
     private void EnsureFresh()
     {
@@ -120,6 +180,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
                             || name.StartsWith('#');
 
             TableDef definition = ReadTableDefinition(definitionPage, name, isSystem);
+            definition.ObjectFlags = flags;
             // Attach column DefaultValue and table CHECK properties from the extended-properties (LvProp) blob.
             if (row[lvpropIndex] is byte[] { Length: > 0 } blob)
             {
@@ -197,9 +258,9 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
     private void EnsureStoredQueries()
     {
         if (_views is not null) return;
-        _views = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        _actionQueries = new Dictionary<string, StoredActionQuery>(StringComparer.OrdinalIgnoreCase);
-        _queryParameters = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        _views = [with(StringComparer.OrdinalIgnoreCase)];
+        _actionQueries = [with(StringComparer.OrdinalIgnoreCase)];
+        _queryParameters = [with(StringComparer.OrdinalIgnoreCase)];
 
         TableDef? mqDef = FindTable("MSysQueries");
         TableDef? objDef = FindTable("MSysObjects");
@@ -208,7 +269,8 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
         // Group MSysQueries rows by ObjectId.
         var mq = mqDef.Columns;
         int oid = ColumnIndex(mq, "ObjectId"), attr = ColumnIndex(mq, "Attribute"), expr = ColumnIndex(mq, "Expression"),
-            flag = ColumnIndex(mq, "Flag"), n1 = ColumnIndex(mq, "Name1"), n2 = ColumnIndex(mq, "Name2"), order = ColumnIndex(mq, "Order");
+            flag = ColumnIndex(mq, "Flag"), n1 = ColumnIndex(mq, "Name1"), n2 = ColumnIndex(mq, "Name2"), order = ColumnIndex(mq, "Order"),
+            lvExtra = ColumnIndex(mq, "LvExtra");
         var byObject = new Dictionary<int, List<object?[]>>();
         foreach (object?[] row in new Table(_channel, mqDef).Rows())
             if (row[oid] is int id)
@@ -230,24 +292,40 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
             object?[]? operation = rows.FirstOrDefault(r => r[attr] is byte b && b == StoredQueryFormat.AttrOperation);
             short kind = operation?[flag] is short k ? k : StoredQueryFormat.OperationSelect;
             if (operation is not null && kind != StoredQueryFormat.OperationSelect)
-                _actionQueries[name] = ReconstructAction(rows, attr, expr, flag, n1, n2, order);
-            else if (Reconstruct(rows, attr, expr, flag, n1, n2, order) is { } sql)
+                _actionQueries[name] = ReconstructAction(rows, attr, expr, flag, n1, n2, order, lvExtra);
+            else if (Reconstruct(rows, attr, expr, flag, n1, n2, order, lvExtra) is { } sql)
                 _views[name] = sql;
 
             // The declared parameters (Attribute=2 rows), in declaration order, for EXECUTE positional binding.
-            var paramNames = rows.Where(r => r[attr] is byte b && b == StoredQueryFormat.AttrParameter)
+            // Each row's Flag is the parameter's Jet type code (0 for Access's untyped parameter).
+            var parameters = rows.Where(r => r[attr] is byte b && b == StoredQueryFormat.AttrParameter)
                 .OrderBy(r => r[order] is byte[] ob && ob.Length >= 4
                     ? System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(ob) : 0)
-                .Select(r => r[n1] as string).Where(s => s is not null).Select(s => s!).ToList();
-            if (paramNames.Count > 0) _queryParameters[name] = paramNames;
+                .Where(r => r[n1] is string)
+                .Select(r =>
+                {
+                    JetDataType? type = r[flag] is short f and not 0 ? (JetDataType)(byte)f : null;
+                    // The declared facets ride in LvExtra: a length for text, precision and scale packed
+                    // together for a decimal.
+                    var (size, precision, scale) = type is { } t
+                        ? StoredQueryFormat.UnpackParameterFacets(t, r[lvExtra] as int?)
+                        : (null, null, null);
+                    return new StoredQueryParameter((string)r[n1]!, type, size, precision, scale);
+                })
+                .ToList();
+            if (parameters.Count > 0) _queryParameters[name] = parameters;
         }
     }
 
-    /// <summary>Rebuilds a stored action query's executable SQL from its MSysQueries rows. Handles the kinds
-    /// LibRed can execute (CREATE/DROP TABLE, INSERT … VALUES); other kinds return an unsupported reason.</summary>
-    private static StoredActionQuery ReconstructAction(List<object?[]> rows, int attr, int expr, int flag, int n1, int n2, int order)
+    /// <summary>Rebuilds a stored action query's executable SQL from its MSysQueries rows. Handles every kind
+    /// whose statement LibRed's engine can run — CREATE/DROP TABLE, INSERT (from VALUES or from a SELECT),
+    /// UPDATE, DELETE and make-table; the rest return an unsupported reason.</summary>
+    private static StoredActionQuery ReconstructAction(
+        List<object?[]> rows, int attr, int expr, int flag, int n1, int n2, int order, int lvExtra)
     {
         static int Ord(object? v) => v is byte[] b && b.Length >= 4 ? System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(b) : 0;
+        List<object?[]> OfAttr(byte a) => rows.Where(r => r[attr] is byte b && b == a).OrderBy(r => Ord(r[order])).ToList();
+
         object?[]? action = rows.FirstOrDefault(r => r[attr] is byte b && b == StoredQueryFormat.AttrOperation);
         if (action is null) return new StoredActionQuery(null, "The stored action query has no action row.");
 
@@ -256,94 +334,122 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
             // The whole DDL statement is in Expression (Access stored it with a leading space).
             return new StoredActionQuery((action[expr] as string)?.TrimStart(), null);
 
-        if (kind == StoredQueryFormat.ActionAppend)
-        {
-            // INSERT … VALUES: only literal-value columns (Flag 0x8000) and no FROM source. An INSERT …
-            // SELECT (table rows present / Flag-0 columns) is stored but LibRed does not execute it yet.
-            if (rows.Any(r => r[attr] is byte b && b == StoredQueryFormat.AttrTable))
-                return new StoredActionQuery(null, "INSERT … SELECT stored queries are not executed by LibRed yet.");
-            var cols = rows.Where(r => r[attr] is byte b && b == StoredQueryFormat.AttrColumn).OrderBy(r => Ord(r[order])).ToList();
-            if (cols.Count == 0 || cols.Any(r => r[flag] is short cf && cf != StoredQueryFormat.AppendValueFlag))
-                return new StoredActionQuery(null, "This append query shape is not executed by LibRed yet.");
+        // Every remaining kind keeps its sources, predicate and declared parameters where a SELECT keeps them,
+        // so they are read the same way. A query with no FROM source at all is an INSERT … VALUES, which has
+        // none by definition.
+        var source = BuildFromClause(rows, attr, expr, flag, n1, n2, order);
+        string? where = source is { } s ? WhereClause(rows, attr, expr, order, s.Extra) : null;
+        string Where() => where is null ? "" : $" WHERE {where}";
+        var columns = OfAttr(StoredQueryFormat.AttrColumn);
+        string declared = ParametersClause(rows, attr, flag, n1, order, lvExtra);
 
-            string target = action[n1] as string ?? "";
-            string columns = string.Join(", ", cols.Select(r => $"[{r[n2] as string}]"));
-            string values = string.Join(", ", cols.Select(r => r[expr] as string ?? "NULL"));
-            return new StoredActionQuery($"INSERT INTO [{target}] ({columns}) VALUES ({values})", null);
+        switch (kind)
+        {
+            case StoredQueryFormat.ActionAppend:
+                {
+                    string target = Quote(action[n1] as string ?? "");
+                    // A literal-value column (Flag 0x8000) is an INSERT … VALUES; a Flag-0 one reads its value
+                    // from the query's own FROM source, which makes it an INSERT … SELECT. Both name the target
+                    // column in Name2 and hold the value's text in Expression.
+                    if (columns.Count == 0)
+                        return new StoredActionQuery(null, "An append query with no columns is not executed by LibRed.");
+
+                    string targetColumns = string.Join(", ", columns.Select(r => Quote(r[n2] as string ?? "")));
+                    string values = string.Join(", ", columns.Select(r => r[expr] as string ?? "NULL"));
+
+                    if (columns.All(r => r[flag] is short cf && cf == StoredQueryFormat.AppendValueFlag))
+                        return source is null
+                            ? new StoredActionQuery($"{declared}INSERT INTO {target} ({targetColumns}) VALUES ({values})", null)
+                            : new StoredActionQuery(null, "An append query cannot take both literal values and a source.");
+
+                    return source is { } appendSource
+                        ? new StoredActionQuery(
+                            $"{declared}INSERT INTO {target} ({targetColumns}) SELECT {values} FROM {appendSource.From}{Where()}", null)
+                        : new StoredActionQuery(null, "An append query with no values and no source is not executed by LibRed.");
+                }
+
+            case StoredQueryFormat.ActionUpdate when source is { } updateSource:
+                {
+                    // One column row per assignment: Name2 is the target column — qualified when the update runs
+                    // over a join — and Expression is the new value.
+                    if (columns.Count == 0)
+                        return new StoredActionQuery(null, "An update query with no assignments is not executed by LibRed.");
+                    string assignments = string.Join(", ",
+                        columns.Select(r => $"{Qualified(r[n2] as string ?? "")} = {r[expr] as string ?? "NULL"}"));
+                    return new StoredActionQuery($"{declared}UPDATE {updateSource.From} SET {assignments}{Where()}", null);
+                }
+
+            case StoredQueryFormat.ActionDelete when source is { } deleteSource:
+                {
+                    // Access writes `DELETE <table>.* FROM …` when the query names the table's columns and
+                    // `DELETE * FROM …` when it doesn't; the column row holds that `<table>.*` verbatim.
+                    string what = columns.Count > 0 ? columns[0][expr] as string ?? "*" : "*";
+                    return new StoredActionQuery($"{declared}DELETE {what} FROM {deleteSource.From}{Where()}", null);
+                }
+
+            case StoredQueryFormat.ActionMakeTable when source is { } intoSource:
+                {
+                    // The target is on the action row; a target in ANOTHER database file (Name2) is a shape
+                    // LibRed has no statement for.
+                    if (action[n2] is string external && external.Length > 0)
+                        return new StoredActionQuery(null, $"A make-table query writing into '{external}' is not executed by LibRed.");
+
+                    string selected = columns.Count == 0
+                        ? "*"
+                        : string.Join(", ", columns.Select(r =>
+                            (r[n1] as string) is { } alias ? $"{r[expr] as string} AS {Quote(alias)}" : r[expr] as string ?? ""));
+                    var groupBy = OfAttr(StoredQueryFormat.AttrGroupBy).Select(r => r[expr] as string ?? "").ToList();
+                    string grouping = groupBy.Count > 0 ? $" GROUP BY {string.Join(", ", groupBy)}" : "";
+                    string having = OfAttr(StoredQueryFormat.AttrHaving)
+                        .Select(r => r[expr] as string).FirstOrDefault(s => !string.IsNullOrEmpty(s)) is { } h
+                        ? $" HAVING {h}" : "";
+                    return new StoredActionQuery(
+                        $"{declared}SELECT {selected} INTO {Quote(action[n1] as string ?? "")} FROM {intoSource.From}{Where()}{grouping}{having}", null);
+                }
         }
 
         // Everything else is stored but not executed. Name the kind: "not supported" that doesn't say what it
         // is leaves a caller no way to tell an unimplemented feature from an unreadable file.
-        string what = kind switch
+        string reason = kind switch
         {
-            StoredQueryFormat.ActionUpdate => "UPDATE",
-            StoredQueryFormat.ActionDelete => "DELETE",
-            StoredQueryFormat.ActionMakeTable => "Make-table (SELECT … INTO)",
-            StoredQueryFormat.ActionCrosstab => "Crosstab (TRANSFORM)",
-            StoredQueryFormat.ActionPassThrough => "Pass-through",
-            StoredQueryFormat.ActionUnion => "UNION",
-            _ => $"Kind-{kind}",
+            StoredQueryFormat.ActionUpdate or StoredQueryFormat.ActionDelete or StoredQueryFormat.ActionMakeTable =>
+                "The stored action query names no table.",
+            StoredQueryFormat.ActionCrosstab => "Crosstab (TRANSFORM) stored queries are not executed by LibRed yet.",
+            StoredQueryFormat.ActionPassThrough => "Pass-through stored queries are not executed by LibRed yet.",
+            StoredQueryFormat.ActionUnion => "UNION stored queries are not executed by LibRed yet.",
+            _ => $"Kind-{kind} stored queries are not executed by LibRed yet.",
         };
-        return new StoredActionQuery(null, $"{what} stored queries are not executed by LibRed yet.");
+        return new StoredActionQuery(null, reason);
     }
 
-    /// <summary>Rebuilds a simple-SELECT view's SQL from its MSysQueries rows; null if it uses an
-    /// attribute we don't reconstruct (a non-simple query).</summary>
-    private static string? Reconstruct(List<object?[]> rows, int attr, int expr, int flag, int n1, int n2, int order)
+    /// <summary>Bracket-quotes a stored name, so one with a space in it survives.</summary>
+    private static string Quote(string name) => $"[{name}]";
+
+    /// <summary>Bracket-quotes a name that may already be table-qualified, quoting each part — a stored
+    /// assignment names its target as <c>Orders.ShipCountry</c> when the update runs over a join, and
+    /// quoting that whole string would make it one nonexistent column.</summary>
+    private static string Qualified(string name) =>
+        name.Contains('.') ? string.Join(".", name.Split('.').Select(Quote)) : Quote(name);
+
+    /// <summary>
+    /// A stored query's FROM clause, and the join conditions that could not go in it. Access stores a query's
+    /// sources the same way whatever its kind — one <c>0x05</c> row per table and one <c>0x07</c> per join
+    /// condition, flat, with no grouping — so a SELECT, an UPDATE, a DELETE and an append-from-SELECT all
+    /// rebuild their sources through here. Null when the query names no table at all.
+    /// </summary>
+    private static (string From, List<string> Extra)? BuildFromClause(
+        List<object?[]> rows, int attr, int expr, int flag, int n1, int n2, int order)
     {
         static int Ord(object? v) => v is byte[] b && b.Length >= 4 ? System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(b) : 0;
         IEnumerable<object?[]> OfAttr(byte a) => rows.Where(r => r[attr] is byte b && b == a).OrderBy(r => Ord(r[order]));
 
-        // Bail out if the query uses attributes beyond a simple SELECT: a HAVING clause (0x0A), a pass-through
-        // connection string (0x04) or complex-type data (0x0C) all mean this is not a shape we can render.
-        // AttrOperation is in the list because a SELECT may carry one — the caller has already checked that
-        // its kind IS SELECT, so reaching here with any other kind is impossible.
-        var known = new byte[] { StoredQueryFormat.AttrType, StoredQueryFormat.AttrOperation, StoredQueryFormat.AttrParameter, StoredQueryFormat.AttrOption, StoredQueryFormat.AttrTable, StoredQueryFormat.AttrColumn, StoredQueryFormat.AttrJoin, StoredQueryFormat.AttrWhere, StoredQueryFormat.AttrGroupBy, StoredQueryFormat.AttrOrderBy, 0xFF };
-        if (rows.Any(r => r[attr] is byte b && !known.Contains(b))) return null;
-
-        // Declared parameters (a stored procedure): each Attribute=2 row is Name1=name, Flag=Jet type code.
-        // Emitted as a leading PARAMETERS clause so the parser lowers body references to them as parameters.
-        var parameters = OfAttr(StoredQueryFormat.AttrParameter)
-            .Select(r => (Name: r[n1] as string, Code: r[flag] is short f ? (byte)f : (byte)0))
-            .Where(p => p.Name is not null)
-            .Select(p => $"[{p.Name}] {AccessTypeName(p.Code)}")
-            .ToList();
-
-        // A column row's Name1 (when present) is its output alias.
-        var columns = OfAttr(StoredQueryFormat.AttrColumn)
-            .Select(r => (r[n1] as string) is { } a ? $"{r[expr] as string} AS [{a}]" : r[expr] as string ?? "").ToList();
         // A derived-table source has its subquery SQL in Expression and no Name1; a named table uses Name1.
         var tables = OfAttr(StoredQueryFormat.AttrTable)
             .Select(r => (Table: r[n1] as string ?? "", Alias: r[n2] as string, Sub: r[n1] is null ? r[expr] as string : null)).ToList();
         if (tables.Count == 0) return null;
-        // No column rows at all is Access's "SELECT *" -- the shape every auto-generated form/report
-        // record-source query takes. Treating it as unreconstructable dropped those queries silently.
-        if (columns.Count == 0) columns.Add("*");
-
-        // The option bits are cumulative and can share one row, so test each as a bit across all of them.
-        short options = 0;
-        foreach (object?[] r in OfAttr(StoredQueryFormat.AttrOption))
-            if (r[flag] is short f) options |= f;
-
-        // DISTINCT and DISTINCTROW are separate bits and separate keywords: DISTINCT dedupes output rows,
-        // DISTINCTROW dedupes by the underlying contributing rows. Emitting one for the other changes results.
-        bool distinct = (options & StoredQueryFormat.FlagDistinct) != 0;
-        bool distinctRow = (options & StoredQueryFormat.FlagDistinctRow) != 0;
-        // TOP n: an AttrOption row with the TOP bit; the count is in Name1. The PERCENT bit rides alongside
-        // it (48 = TOP PERCENT), and dropping it turns "TOP 10 PERCENT" into "TOP 10" -- silently wrong.
-        string? top = OfAttr(StoredQueryFormat.AttrOption)
-            .Where(r => r[flag] is short f && (f & StoredQueryFormat.FlagTop) != 0)
-            .Select(r => r[n1] as string).FirstOrDefault();
-        bool percent = (options & StoredQueryFormat.FlagPercent) != 0;
-        // ORDER BY: one AttrOrderBy row per key (Expression = column, Name1 = "d" for descending).
-        var orderBy = OfAttr(StoredQueryFormat.AttrOrderBy)
-            .Select(r => (r[expr] as string ?? "") + (string.Equals(r[n1] as string, "d", StringComparison.OrdinalIgnoreCase) ? " DESC" : ""))
-            .Where(s => s.Length > 0).ToList();
         var joins = OfAttr(StoredQueryFormat.AttrJoin)
             .Select(r => (Cond: r[expr] as string ?? "", Kind: r[flag] is short f ? f : (short)1,
                           Left: r[n1] as string ?? "", Right: r[n2] as string ?? "")).ToList();
-        string? where = OfAttr(StoredQueryFormat.AttrWhere).Select(r => r[expr] as string).FirstOrDefault();
-        var groupBy = OfAttr(StoredQueryFormat.AttrGroupBy).Select(r => r[expr] as string ?? "").ToList();
 
         static string Ident(string s) => $"[{s}]";
         static string Render((string Table, string? Alias, string? Sub) t) =>
@@ -372,7 +478,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
 
                 short kind = !leftIn && j.Kind is 2 or 3 ? (short)(j.Kind == 2 ? 3 : 2) : j.Kind; // flip on reversed order
                 string kw = kind switch { 2 => "LEFT", 3 => "RIGHT", _ => "INNER" };
-                from.Append($" {kw} JOIN {Render(tables[ti])} ON {j.Cond}");
+                from.Append(CultureInfo.InvariantCulture, $" {kw} JOIN {Render(tables[ti])} ON {j.Cond}");
                 used.Add(newKey);
                 pending.RemoveAt(i);
                 progress = true;
@@ -381,26 +487,120 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
         }
         // Any tables the joins didn't reach are comma (cross) joins.
         foreach (var t in tables.Where(t => !used.Contains(Key(t))))
-            from.Append($", {Render(t)}");
+            from.Append(CultureInfo.InvariantCulture, $", {Render(t)}");
 
         // Joins whose two tables were both already in scope become extra WHERE conditions (a cyclic graph).
-        // The stored predicate is only parenthesised when something is being ANDed onto it — wrapping a lone
-        // predicate adds a paren pair Access never wrote, which is a needless difference from its own SQL.
-        var extra = pending.Select(j => j.Cond).ToList();
-        string? whereClause =
-            where is null ? (extra.Count > 0 ? string.Join(" AND ", extra) : null)
+        return (from.ToString(), pending.Select(j => j.Cond).ToList());
+    }
+
+    /// <summary>The leading <c>PARAMETERS name Type, …;</c> clause a query with declared parameters (its
+    /// <c>0x02</c> rows: Name1=name, Flag=Jet type code) is rebuilt with, so the parser lowers references to
+    /// those names in the body into engine parameters; empty for a query declaring none. An action query
+    /// declares them exactly as a SELECT does.</summary>
+    private static string ParametersClause(List<object?[]> rows, int attr, int flag, int n1, int order, int lvExtra)
+    {
+        static int Ord(object? v) => v is byte[] b && b.Length >= 4 ? System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(b) : 0;
+        var parameters = rows
+            .Where(r => r[attr] is byte b && b == StoredQueryFormat.AttrParameter)
+            .OrderBy(r => Ord(r[order]))
+            .Select(r => (Name: r[n1] as string, Code: r[flag] is short f ? (byte)f : (byte)0, Extra: r[lvExtra] as int?))
+            .Where(p => p.Name is not null)
+            .Select(p => $"[{p.Name}] {AccessTypeName(p.Code)}{Facets(p.Code, p.Extra)}")
+            .ToList();
+
+        return parameters.Count == 0 ? "" : $"PARAMETERS {string.Join(", ", parameters)}; ";
+    }
+
+    /// <summary>A declared parameter's facets as the type name's suffix — <c>(50)</c> for a text length,
+    /// <c>(18,4)</c> for a decimal's precision and scale — so the rebuilt clause declares what was declared.
+    /// Empty where the row records none.</summary>
+    private static string Facets(byte code, int? lvExtra)
+    {
+        if (code == 0) return "";   // the untyped parameter, rendered as the keyword Value
+        var (size, precision, scale) = StoredQueryFormat.UnpackParameterFacets((JetDataType)code, lvExtra);
+        return size is { } length ? $"({length})"
+            : precision is { } p ? $"({p},{scale ?? 0})"
+            : "";
+    }
+
+    /// <summary>The WHERE clause: the query's stored predicate (the <c>0x08</c> row) and any join condition
+    /// <see cref="BuildFromClause"/> could not place, ANDed together. The stored predicate is only
+    /// parenthesised when something is being ANDed onto it — wrapping a lone predicate adds a paren pair
+    /// Access never wrote, which is a needless difference from its own SQL.</summary>
+    private static string? WhereClause(List<object?[]> rows, int attr, int expr, int order, List<string> extra)
+    {
+        static int Ord(object? v) => v is byte[] b && b.Length >= 4 ? System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(b) : 0;
+        string? where = rows
+            .Where(r => r[attr] is byte b && b == StoredQueryFormat.AttrWhere)
+            .OrderBy(r => Ord(r[order]))
+            .Select(r => r[expr] as string).FirstOrDefault();
+
+        return where is null ? (extra.Count > 0 ? string.Join(" AND ", extra) : null)
             : extra.Count == 0 ? where
             : string.Join(" AND ", extra.Prepend($"({where})"));
+    }
 
-        var sql = new System.Text.StringBuilder();
-        if (parameters.Count > 0) sql.Append("PARAMETERS ").Append(string.Join(", ", parameters)).Append("; ");
+    /// <summary>Rebuilds a simple-SELECT view's SQL from its MSysQueries rows; null if it uses an
+    /// attribute we don't reconstruct (a non-simple query).</summary>
+    private static string? Reconstruct(
+        List<object?[]> rows, int attr, int expr, int flag, int n1, int n2, int order, int lvExtra)
+    {
+        static int Ord(object? v) => v is byte[] b && b.Length >= 4 ? System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(b) : 0;
+        IEnumerable<object?[]> OfAttr(byte a) => rows.Where(r => r[attr] is byte b && b == a).OrderBy(r => Ord(r[order]));
+
+        // Bail out if the query uses attributes beyond a simple SELECT: a pass-through connection string
+        // (0x04) or complex-type data (0x0C) mean this is not a shape we can render.
+        // AttrOperation is in the list because a SELECT may carry one — the caller has already checked that
+        // its kind IS SELECT, so reaching here with any other kind is impossible.
+        var known = new byte[] { StoredQueryFormat.AttrType, StoredQueryFormat.AttrOperation, StoredQueryFormat.AttrParameter, StoredQueryFormat.AttrOption, StoredQueryFormat.AttrTable, StoredQueryFormat.AttrColumn, StoredQueryFormat.AttrJoin, StoredQueryFormat.AttrWhere, StoredQueryFormat.AttrGroupBy, StoredQueryFormat.AttrHaving, StoredQueryFormat.AttrOrderBy, 0xFF };
+        if (rows.Any(r => r[attr] is byte b && !known.Contains(b))) return null;
+
+        // A column row's Name1 (when present) is its output alias.
+        var columns = OfAttr(StoredQueryFormat.AttrColumn)
+            .Select(r => (r[n1] as string) is { } a ? $"{r[expr] as string} AS [{a}]" : r[expr] as string ?? "").ToList();
+        // A query with no table rows has no FROM clause, which Access allows and stores this way (`SELECT 1
+        // AS n`). One with neither tables nor columns says nothing at all, and is not a query we can rebuild.
+        var source = BuildFromClause(rows, attr, expr, flag, n1, n2, order);
+        if (source is null && columns.Count == 0) return null;
+        // No column rows at all is Access's "SELECT *" -- the shape every auto-generated form/report
+        // record-source query takes. Treating it as unreconstructable dropped those queries silently.
+        if (columns.Count == 0) columns.Add("*");
+
+        // The option bits are cumulative and can share one row, so test each as a bit across all of them.
+        short options = 0;
+        foreach (object?[] r in OfAttr(StoredQueryFormat.AttrOption))
+            if (r[flag] is short f) options |= f;
+
+        // DISTINCT and DISTINCTROW are separate bits and separate keywords: DISTINCT dedupes output rows,
+        // DISTINCTROW dedupes by the underlying contributing rows. Emitting one for the other changes results.
+        bool distinct = (options & StoredQueryFormat.FlagDistinct) != 0;
+        bool distinctRow = (options & StoredQueryFormat.FlagDistinctRow) != 0;
+        // TOP n: an AttrOption row with the TOP bit; the count is in Name1. The PERCENT bit rides alongside
+        // it (48 = TOP PERCENT), and dropping it turns "TOP 10 PERCENT" into "TOP 10" -- silently wrong.
+        string? top = OfAttr(StoredQueryFormat.AttrOption)
+            .Where(r => r[flag] is short f && (f & StoredQueryFormat.FlagTop) != 0)
+            .Select(r => r[n1] as string).FirstOrDefault();
+        bool percent = (options & StoredQueryFormat.FlagPercent) != 0;
+        // ORDER BY: one AttrOrderBy row per key (Expression = column, Name1 = "d" for descending).
+        var orderBy = OfAttr(StoredQueryFormat.AttrOrderBy)
+            .Select(r => (r[expr] as string ?? "") + (string.Equals(r[n1] as string, "d", StringComparison.OrdinalIgnoreCase) ? " DESC" : ""))
+            .Where(s => s.Length > 0).ToList();
+        var groupBy = OfAttr(StoredQueryFormat.AttrGroupBy).Select(r => r[expr] as string ?? "").ToList();
+        // HAVING: a single AttrHaving row holding the predicate verbatim, carrying no flag of its own.
+        string? having = OfAttr(StoredQueryFormat.AttrHaving)
+            .Select(r => r[expr] as string).FirstOrDefault(s => !string.IsNullOrEmpty(s));
+        string? whereClause = WhereClause(rows, attr, expr, order, source?.Extra ?? []);
+
+        var sql = new System.Text.StringBuilder(ParametersClause(rows, attr, flag, n1, order, lvExtra));
         sql.Append("SELECT ");
         if (distinctRow) sql.Append("DISTINCTROW ");
         else if (distinct) sql.Append("DISTINCT ");
         if (top is not null) sql.Append("TOP ").Append(top).Append(percent ? " PERCENT " : " ");
-        sql.Append(string.Join(", ", columns)).Append(" FROM ").Append(from);
+        sql.Append(string.Join(", ", columns));
+        if (source is { } from) sql.Append(" FROM ").Append(from.From);
         if (whereClause is not null) sql.Append(" WHERE ").Append(whereClause);
         if (groupBy.Count > 0) sql.Append(" GROUP BY ").Append(string.Join(", ", groupBy));
+        if (having is not null) sql.Append(" HAVING ").Append(having);
         if (orderBy.Count > 0) sql.Append(" ORDER BY ").Append(string.Join(", ", orderBy));
         return sql.ToString();
     }
@@ -444,6 +644,8 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
             DefinitionPage = definitionPage,
             Columns = tdef.Columns,
             Indexes = tdef.Indexes,
+            LogicalIndexes = tdef.LogicalIndexes,
+            RowCount = tdef.RowCount,
             VariableColumnCount = tdef.VariableColumnCount,
             ComplexAutoNumber = tdef.ComplexAutoNumber,
             IsSystem = isSystem,

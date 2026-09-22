@@ -8,7 +8,7 @@ public class JetIntTypeMapping : IntTypeMapping
         : base(storeType, System.Data.DbType.Int32)
     {
     }
-        
+
     protected JetIntTypeMapping(RelationalTypeMappingParameters parameters)
         : base(parameters)
     {

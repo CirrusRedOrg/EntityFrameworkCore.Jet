@@ -85,7 +85,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             static bool IsStrategyNoneNeeded(IReadOnlyProperty property, StoreObjectIdentifier storeObject)
             {
                 if (property.ValueGenerated == ValueGenerated.OnAdd
-                    && property.TryGetDefaultValue(storeObject, out _) == false
+                    && !property.TryGetDefaultValue(storeObject, out _)
                     && property.GetDefaultValueSql(storeObject) == null
                     && property.GetComputedColumnSql(storeObject) == null
                     && property.DeclaringType.Model.GetValueGenerationStrategy() == JetValueGenerationStrategy.IdentityColumn)

@@ -21,8 +21,8 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             dataReader = GetDbDataReaderFromSimpleStatement(command);
             return dataReader != null;
         }
-        
-        private static DbDataReader? GetDbDataReaderFromSimpleStatement(JetCommand command)
+
+        private static DataTableReader? GetDbDataReaderFromSimpleStatement(JetCommand command)
         {
             // Command text format is
             // SELECT * FROM `INFORMATION_SCHEMA.<what>` [WHERE <condition>] [ORDER BY <order>]
@@ -35,7 +35,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             //          relation_columns
             //          check_constraints
 
-            var jetConnection = (JetConnection) command.Connection;
+            var jetConnection = (JetConnection)command.Connection;
             var innerCommand = command.InnerCommand;
             var commandText = innerCommand.CommandText;
             var innerConnection = command.InnerCommand.Connection;
@@ -51,7 +51,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             var conditions = match.Groups["conditions"].Value;
             var orderColumns = match.Groups["orderColumns"].Value;
 
-            Func<JetConnection, DataTable>? schemaMethod = dbObject.ToLower() switch
+            Func<JetConnection, DataTable>? schemaMethod = dbObject.ToLowerInvariant() switch
             {
                 "tables" => GetTables,
                 "columns" => GetColumns,
@@ -105,7 +105,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 
             foreach (var row in selectedRows)
                 selectedDataTable.ImportRow(row);
-            
+
             return selectedDataTable.CreateDataReader();
         }
 
@@ -144,7 +144,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             using var schemaProvider = SchemaProvider.CreateInstance(connection.SchemaProviderType, connection);
             return schemaProvider.GetRelationColumns();
         }
- 
+
         private static DataTable GetCheckConstraints(JetConnection connection)
         {
             using var schemaProvider = SchemaProvider.CreateInstance(connection.SchemaProviderType, connection);

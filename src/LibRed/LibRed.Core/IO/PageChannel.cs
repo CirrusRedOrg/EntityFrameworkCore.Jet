@@ -1,6 +1,6 @@
-using System.Buffers.Binary;
 using LibRed.Crypto;
 using LibRed.Formats;
+using System.Buffers.Binary;
 
 namespace LibRed.IO;
 
@@ -65,7 +65,7 @@ public sealed class PageChannel : IDisposable
         // A test may inject its own manager; otherwise share the per-path one (refcounted, released on Dispose).
         _ownsLocks = locks is null;
         _locks = locks ?? MonitorLockManager.Acquire(path);
-        _cache = PageCache.Acquire(path, format.PageSize);
+        _cache = PageCache.Acquire(path);
         _cache.InitFileLength(stream.Length);
     }
 
@@ -292,8 +292,7 @@ public sealed class PageChannel : IDisposable
             throw new InvalidOperationException("This channel was opened read-only.");
         if (source.Length != PageSize)
             throw new ArgumentException($"A page write must be exactly {PageSize} bytes.", nameof(source));
-        if (pageNumber < 0)
-            throw new ArgumentOutOfRangeException(nameof(pageNumber));
+        ArgumentOutOfRangeException.ThrowIfNegative(pageNumber);
 
         // ACE-only full-database probe: the file reaches exactly 2 GiB (524288 Jet4/ACE pages)
         // and rejects the next allocation. Check before staging a page or extending the stream.

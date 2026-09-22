@@ -36,7 +36,7 @@ public sealed class MonitorLockManager : ILockManager, IDisposable
     // --- refcounted per-path registry: one manager per canonical file path, freed on the last Release ---
 
     private static readonly Dictionary<string, (MonitorLockManager Manager, int RefCount)> Registry =
-        new(StringComparer.Ordinal);
+        [with(StringComparer.Ordinal)];
 
     private static string Key(string path) => Path.GetFullPath(path).ToLowerInvariant();
 

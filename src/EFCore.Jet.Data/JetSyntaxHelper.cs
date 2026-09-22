@@ -52,7 +52,7 @@ namespace EntityFrameworkCore.Jet.Data
             StringBuilder sb = new(binaryArray.Length * 2);
 
             foreach (byte b in binaryArray)
-                sb.Append(b.ToString("X2"));
+                sb.Append(b.ToString("X2", CultureInfo.InvariantCulture));
 
             return sb.ToString();
         }
@@ -101,7 +101,7 @@ namespace EntityFrameworkCore.Jet.Data
                     c == '*' || c == '?' || c == '[' || c == '#'
                 )
                 {
-                    sb.AppendFormat("[{0}]", c);
+                    sb.AppendFormat(CultureInfo.InvariantCulture, "[{0}]", c);
                     usedEscapeChar = true;
                 }
                 else

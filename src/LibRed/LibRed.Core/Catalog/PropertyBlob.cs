@@ -49,12 +49,14 @@ public static class PropertyBlob
     /// part of the object's definition and some are only recognised correctly by Access when flagged. It
     /// defaults to <see langword="true"/> because the properties LibRed currently creates are schema
     /// properties such as <c>DefaultValue</c>, <c>Required</c>, and <c>CheckConstraints</c>.</para></summary>
+#pragma warning disable CA1716 // "Property" is the format's own name for this record, and it is nested in PropertyBlob.
     public readonly record struct Property(
         string Owner, string Name, string Value, JetDataType Type = JetDataType.Memo, byte[]? RawValue = null)
     {
         /// <summary>Whether this entry is a DDL/property-definition property.</summary>
         public bool IsDdl { get; init; } = true;
     }
+#pragma warning restore CA1716
 
     /// <summary>A boolean property (e.g. <c>Required</c>), stored as a single 0/1 byte.</summary>
     public static Property Bool(string owner, string name, bool value) =>
@@ -62,6 +64,7 @@ public static class PropertyBlob
 
     /// <summary>Builds the blob for a set of properties, grouped by owner in the given order — matching
     /// what ACE writes (verified byte-for-byte for column DefaultValues).</summary>
+    /// <param name="properties">The properties to write, grouped by owner in the order given.</param>
     /// <param name="signature">The 4-byte signature to stamp. Pass the ORIGINAL blob's first four bytes when
     /// rewriting one, so a Jet-4 <c>KKD\0</c> blob is not silently reissued as an ACE <c>MR2\0</c> one — two
     /// of the four write paths here already preserve it, and the faithful round-trip rule says all four
@@ -119,7 +122,7 @@ public static class PropertyBlob
     }
 
     /// <summary>Appends one owner's value block: the owner record then a property entry per property.</summary>
-    private static void AppendOwnerBlock(List<byte> blob, string owner, IEnumerable<Property> props, IReadOnlyDictionary<string, int> nameIndex)
+    private static void AppendOwnerBlock(List<byte> blob, string owner, IEnumerable<Property> props, Dictionary<string, int> nameIndex)
     {
         Property[] propertyArray = props.ToArray();
         ValidateOwnerProperties(owner, propertyArray, nameIndex);
@@ -392,7 +395,7 @@ public static class PropertyBlob
         return Encoding.Unicode.GetString(body.Slice(6, ownerLength));
     }
 
-    private static void ReadProperties(ReadOnlySpan<byte> body, IReadOnlyList<string> names, List<Property> properties)
+    private static void ReadProperties(ReadOnlySpan<byte> body, List<string> names, List<Property> properties)
     {
         string owner = ReadOwner(body);
         int pos = BinaryPrimitives.ReadUInt16LittleEndian(body[..2]);
@@ -432,7 +435,7 @@ public static class PropertyBlob
             ValidateOwnerProperties(group.Owner, group.Properties, nameIndex);
     }
 
-    private static void ValidateNames(IReadOnlyList<string> names)
+    private static void ValidateNames(List<string> names)
     {
         if (names.Count > ushort.MaxValue + 1)
             throw new ArgumentException($"A property blob cannot name more than {ushort.MaxValue + 1} properties.");
@@ -449,7 +452,7 @@ public static class PropertyBlob
     }
 
     private static void ValidateOwnerProperties(
-        string owner, IEnumerable<Property> properties, IReadOnlyDictionary<string, int> nameIndex)
+        string owner, IEnumerable<Property> properties, Dictionary<string, int> nameIndex)
     {
         int ownerLength = Encoding.Unicode.GetByteCount(owner);
         if (ownerLength > ushort.MaxValue - 6)

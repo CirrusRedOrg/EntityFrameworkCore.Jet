@@ -175,11 +175,6 @@ public static class LibRedDbContextOptionsBuilderExtensions
         ArgumentNullException.ThrowIfNull(optionsBuilder);
         ArgumentNullException.ThrowIfNull(connection);
 
-        if (connection is not LibRedConnection)
-        {
-            throw new ArgumentException($"The {nameof(connection)} parameter must be of type {nameof(LibRedConnection)}.");
-        }
-
         var extension = (LibRedOptionsExtension)GetOrCreateExtension(optionsBuilder)
             .WithConnection(connection, contextOwnsConnection);
         ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension);
@@ -218,11 +213,6 @@ public static class LibRedDbContextOptionsBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(optionsBuilder);
         ArgumentNullException.ThrowIfNull(connection);
-
-        if (connection is not LibRedConnection)
-        {
-            throw new ArgumentException($"The {nameof(connection)} parameter must be of type {nameof(LibRedConnection)}.");
-        }
 
         var extension = ((LibRedOptionsExtension)GetOrCreateExtension(optionsBuilder)
                 .WithConnection(connection, contextOwnsConnection))

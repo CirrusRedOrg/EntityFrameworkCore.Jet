@@ -1044,7 +1044,23 @@ INNER JOIN (SELECT @p1 AS `Value`) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
         {
             await base.Join_local_string_closure_is_cached_correctly(async);
 
-            AssertSql();
+            AssertSql(
+                """
+@p1='1' (Nullable = false) (Size = 1)
+@p2='2' (Nullable = false) (Size = 1)
+
+SELECT `e`.`EmployeeID`
+FROM `Employees` AS `e`
+INNER JOIN (SELECT @p1 AS `Value` UNION ALL VALUES (@p2)) AS `p` ON `e`.`EmployeeID` = ASCW(`p`.`Value`)
+""",
+                //
+                """
+@p1='3' (Nullable = false) (Size = 1)
+
+SELECT `e`.`EmployeeID`
+FROM `Employees` AS `e`
+INNER JOIN (SELECT @p1 AS `Value`) AS `p` ON `e`.`EmployeeID` = ASCW(`p`.`Value`)
+""");
         }
 
         public override async Task Join_local_bytes_closure_is_cached_correctly(bool async)

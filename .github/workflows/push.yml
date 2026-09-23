@@ -888,12 +888,8 @@ jobs:
           $buildSha = '${{ github.sha }}'.SubString(0, 7);
           $pack = $officialBuild -or $ciBuildOnly
 
-          $pushToAzureArtifacts = $pack
-          $pushToMygetOrg = $pack
           $pushToNugetOrg = $pack -and $officialBuild
 
-          echo "pushToAzureArtifacts: $pushToAzureArtifacts"
-          echo "pushToMygetOrg: $pushToMygetOrg"
           echo "pushToNugetOrg: $pushToNugetOrg"
 
           echo "officialBuild: $officialBuild"
@@ -944,24 +940,12 @@ jobs:
             }
           }
 
-          echo "pushToAzureArtifacts=$pushToAzureArtifacts" >> $env:GITHUB_ENV
-          echo "pushToMygetOrg=$pushToMygetOrg" >> $env:GITHUB_ENV
           echo "pushToNugetOrg=$pushToNugetOrg" >> $env:GITHUB_ENV
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
         with:
           name: nupkgs
           path: nupkgs
-      - name: "NuGet Push - myget.org - Debug"
-        if: ${{ env.pushToMygetOrg == 'true' }}
-        working-directory: nupkgs
-        shell: pwsh
-        run: dotnet nuget push './Debug/withPdbs/**/*.nupkg' --api-key '${{ secrets.MYGETORG_CIRRUSRED_ALLPACKAGES_DEBUG_PUSHNEW }}' --source 'https://www.myget.org/F/cirrusred-debug/api/v3/index.json' --skip-duplicate
-      - name: "NuGet Push - myget.org - Release"
-        if: ${{ env.pushToMygetOrg == 'true' }}
-        working-directory: nupkgs
-        shell: pwsh
-        run: dotnet nuget push './Release/default/**/*.nupkg' --api-key '${{ secrets.MYGETORG_CIRRUSRED_ALLPACKAGES_PUSHNEW }}' --source 'https://www.myget.org/F/cirrusred/api/v3/index.json' --skip-duplicate
       - name: "NuGet Push - nuget.org - Release"
         if: ${{ env.pushToNugetOrg == 'true' }}
         working-directory: nupkgs

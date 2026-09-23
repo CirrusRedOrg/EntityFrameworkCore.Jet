@@ -921,6 +921,16 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 return convertExpression;
             }
 
+            // .NET converts a char to a number by its code point, so (uint)'1' is 49. Passing the operand
+            // through leaves a one-character string, which Jet then coerces by parsing it: 1, not 49.
+            if (typeMapping.ClrType.IsInteger() && typeMapping.ClrType != typeof(char) && convertExpression.Operand.Type == typeof(char))
+            {
+                Sql.Append("ASCW(");
+                Visit(convertExpression.Operand);
+                Sql.Append(")");
+                return convertExpression;
+            }
+
             //Just pass the operand in the default case
             //If we have a type mapping on the operand, then it seems to work fine
             //Jet appears to be fairly flexible when types aren't specifically mentioned

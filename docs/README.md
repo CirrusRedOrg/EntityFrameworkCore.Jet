@@ -1,8 +1,6 @@
 # EntityFrameworkCore.Jet
 [![Build status](https://github.com/CirrusRedOrg/EntityFrameworkCore.Jet/actions/workflows/push.yml/badge.svg?branch=master)](https://github.com/CirrusRedOrg/EntityFrameworkCore.Jet/actions/workflows/push.yml)
 [![Stable release feed for official builds](https://img.shields.io/nuget/vpre/EntityFrameworkCore.Jet.svg?style=flat-square&label=NuGet)](https://www.nuget.org/packages/EntityFrameworkCore.Jet/)
-[![CI build feed for release builds](https://img.shields.io/myget/cirrusred/vpre/EntityFrameworkCore.Jet.svg?label=CI%20Release)](https://www.myget.org/feed/cirrusred/package/nuget/EntityFrameworkCore.Jet)
-[![CI build feed for debugging enabled builds](https://img.shields.io/myget/cirrusred-debug/vpre/EntityFrameworkCore.Jet.svg?label=CI%20Debug)](https://www.myget.org/feed/cirrusred-debug/package/nuget/EntityFrameworkCore.Jet)
 
 `EntityFrameworkCore.Jet` is an Entity Framework Core provider for Microsoft Jet/ACE databases (supporting the Microsoft Access database file formats `MDB` and `ACCDB`).
 
@@ -132,20 +130,9 @@ All official releases are available on [nuget.org](https://www.nuget.org/package
 
 ### CI Builds
 
-CI publishes each build to MyGet. To use the latest CI builds, add a `NuGet.config` file to your solution root, add the feeds you are interested in and enable _prereleases_:
-
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <packageSources>
-    <add key="efcorejet-daily" value="https://www.myget.org/F/cirrusred/api/v3/index.json" />
-    <add key="efcorejet-daily-debug" value="https://www.myget.org/F/cirrusred-debug/api/v3/index.json" />
-    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
-  </packageSources>
-</configuration>
-```
-
-There are two CI build feeds available, one with (optimized) `Release` configuration builds and one with (unoptimized) `Debug` configuration builds.
+There is no CI package feed. Every build of `master` packs the projects and attaches them to its workflow
+run as the `nupkgs` artifact, which can be downloaded from the run's page on GitHub and restored from a local
+folder. The artifact holds optimized `Release` packages and unoptimized `Debug` ones, both with PDBs.
 All packages use SourceLink.
   
 ## Fluent API

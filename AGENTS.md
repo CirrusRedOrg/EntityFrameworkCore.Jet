@@ -7,7 +7,7 @@ It is kept in sync with `CLAUDE.md`; if you change guidance in one, check whethe
 
 EntityFrameworkCore.Jet is an EF Core provider for Microsoft Jet/ACE databases (Microsoft Access `.mdb`/`.accdb` files). The **Jet** provider runs **Windows only** and bridges EF Core to the Access database engine via either ODBC or OLE DB. Alongside it, **LibRed** (also in this repo, on `master`) is a from-scratch managed engine that reads/writes the file format directly and is **cross-platform** — see the LibRed section below.
 
-Current version: `11.0.0-alpha.3` (`Version.props`) targeting EF Core 11 and `net11.0`; `global.json` pins the 11.0.100 RC1 SDK with `rollForward: latestFeature`. The test projects use **xunit v3**.
+Current version: `11.0.0-alpha.4` (`Version.props`) targeting EF Core 11 and `net11.0`; `global.json` pins the 11.0.100 RC1 SDK with `rollForward: latestFeature`. The test projects use **xunit v3**.
 
 ### Which layer am I touching?
 
@@ -343,11 +343,13 @@ flags — `jet` and `libred` — and skips the jobs that don't apply:
 - **BuildAndTest** — the Jet matrix: ACE 2010/2016 × x64/x86 × ODBC/OLE DB on `windows-latest`. The x86 legs patch
   `IMAGE_FILE_LARGE_ADDRESS_AWARE` onto `dotnet.exe` and the test hosts, because ACE in a 2GB address space dies
   partway through the largest shard.
-- **LibRed** — `LibRed.Engine.Tests` on Linux/Windows/macOS + ubuntu-arm/windows-arm, no ACE anywhere.
+- **LibRed** — `LibRed.Engine.Tests` and `LibRed.Core.Tests` on Linux/Windows/macOS + ubuntu-arm/windows-arm,
+  no ACE anywhere.
 - **LibRedAccess** — the ACE cross-check suites on `windows-latest` with ACE 2016.
 - **LibRedFunctional** — both `EFCore.LibRed.FunctionalTests` (compatible mode) and
   `EFCore.LibRed.Extended.FunctionalTests` (extended mode) on the five-platform matrix, `continue-on-error`.
-- **NuGet** — packs and pushes to MyGet/NuGet for `master`, `*-servicing`, `*-wip` and release tags.
+- **NuGet** — packs for `master`, `*-servicing`, `*-wip` and release tags, attaching the packages to the run
+  as the `nupkgs` artifact. It pushes to nuget.org on **release tags only**; there is no CI package feed.
 
 ## Versioning
 

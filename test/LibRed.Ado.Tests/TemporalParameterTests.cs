@@ -54,11 +54,9 @@ public class TemporalParameterTests
         Assert.Equal(1, reader.GetInt32(0));
     }
 
-    // default(DateTime) (Ticks 0 / 0001-01-01) is below Jet's OLE date floor, so the write path collapses it
-    // onto the epoch (OA 0); the reader reverses that so the epoch reads back as default, not 1899-12-30. This
-    // is the read half of EFCore.Jet's symmetric mapping. Here we store the epoch directly and read it back.
+    // The epoch (OA 0) is a real date, and every accessor returns it as stored, as ACE's OLE DB reader does.
     [Fact]
-    public void The_stored_epoch_reads_back_as_default_datetime()
+    public void The_stored_epoch_reads_back_as_the_epoch_on_every_accessor()
     {
         using var conn = OpenTemp();
         Exec(conn, "CREATE TABLE `D` (`Id` INTEGER PRIMARY KEY, `V` DATETIME)");
@@ -68,8 +66,10 @@ public class TemporalParameterTests
         cmd.CommandText = "SELECT `V` FROM `D`";
         using var reader = cmd.ExecuteReader();
         Assert.True(reader.Read());
-        Assert.Equal(default, reader.GetDateTime(0));
-        Assert.Equal(default, reader.GetFieldValue<DateTime>(0));
+        var epoch = new DateTime(1899, 12, 30);
+        Assert.Equal(epoch, reader.GetValue(0));
+        Assert.Equal(epoch, reader.GetDateTime(0));
+        Assert.Equal(epoch, reader.GetFieldValue<DateTime>(0));
     }
 
     public static IEnumerable<object[]> TemporalCases() =>

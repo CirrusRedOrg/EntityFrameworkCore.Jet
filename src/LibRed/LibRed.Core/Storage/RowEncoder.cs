@@ -144,7 +144,7 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     /// before the codec pads them, since padding to width would otherwise hide an over-long value.</summary>
     private static void EnsureFitsDeclaredLength(ColumnDef column, byte[] encoded)
     {
-        if (column.Type is not (JetDataType.Text or JetDataType.Binary)) return;
+        if (column.Type is not (JetDataType.Text or JetDataType.Binary or JetDataType.BigBinary)) return;
         if (column.Length <= 0 || encoded.Length <= column.Length) return;
 
         // Report in the column's own units: TEXT declares characters and stores UTF-16, BINARY declares bytes.

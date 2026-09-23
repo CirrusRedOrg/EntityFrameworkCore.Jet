@@ -31,7 +31,7 @@ public class ColumnDescriptorByteParityAccessTests(ITestOutputHelper output) : T
     [
         "BIT", "BYTE", "SMALLINT", "INTEGER", "COUNTER", "REAL", "FLOAT", "CURRENCY", "DATETIME",
         "GUID", "DECIMAL(18,4)", "CHAR(50)", "VARCHAR(50)", "TEXT(50)",
-        "BINARY(50)", "VARBINARY(50)", "LONGTEXT", "LONGBINARY",
+        "BINARY(50)", "VARBINARY(50)", "BIGBINARY(50)", "BIGBINARY", "LONGTEXT", "LONGBINARY",
         "BIGINT",       // ACE 16+
         "DATETIME2",    // ACE 17+
     ];

@@ -6,7 +6,8 @@ namespace LibRed.Engine.Tests;
 
 // Jet/ACE caps a char/varchar column at 255 characters and a binary/varbinary column at 510 bytes (verified
 // vs ACE: char(255)/binary(510) accepted, char(256)/binary(511) rejected "Size of field is too long"). LibRed
-// enforces the same caps at CREATE so it never writes a fixed column Access can't open.
+// enforces the same caps at CREATE so it never writes a fixed column Access can't open. A bigbinary column's cap
+// is 4000 bytes (bigbinary(4000) accepted, bigbinary(4001) rejected the same way).
 public class ColumnSizeLimitTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
@@ -21,6 +22,7 @@ public class ColumnSizeLimitTests : TempDatabaseTest
     [InlineData("nchar(255)")]
     [InlineData("binary(510)")]
     [InlineData("varbinary(510)")]
+    [InlineData("bigbinary(4000)")]
     public void Sizes_at_the_limit_are_accepted(string type)
     {
         var e = Fresh();
@@ -34,6 +36,7 @@ public class ColumnSizeLimitTests : TempDatabaseTest
     [InlineData("binary(511)")]
     [InlineData("varbinary(511)")]
     [InlineData("binary(8000)")]
+    [InlineData("bigbinary(4001)")]
     public void Sizes_over_the_limit_are_rejected(string type)
     {
         var e = Fresh();

@@ -37,12 +37,12 @@ public enum JetDataType : byte
     Guid = 0x0F,
     FixedPoint = 0x10, // NUMERIC / DECIMAL
 
-    /// <summary>Unmodelled, and the one unmodelled code actually met in the wild: three real Jet 4 `.mdb`
-    /// files carry it, every time as <c>MSysAccessObjects.Data</c> — fixed length, 3992 bytes, holding chunks
-    /// of an OLE Compound File (signature <c>D0 CF 11 E0 A1 B1 1A E1</c>). That is Access's own object
-    /// storage: the VBA project and its type-library references. Never seen on a user column. LibRed hands
-    /// back the raw bytes and does not interpret the container.</summary>
-    Unknown11 = 0x11,
+    /// <summary>ACE's <c>BigBinary</c>: a binary value bounded by a single data page — <c>BIGBINARY(n)</c> in
+    /// DDL, up to 4000 bytes, where <see cref="Binary"/> stops at 510. The descriptor and the row are laid out
+    /// exactly as for a variable Binary column — the value inline, never a long value, so it counts against the
+    /// record cap — yet ACE restricts it in queries and indexes exactly as it does <see cref="Ole"/>. Access's
+    /// legacy object store, <c>MSysAccessObjects.Data</c>, is a fixed 3992-byte column of this type.</summary>
+    BigBinary = 0x11,
 
     Complex = 0x12,    // ACE complex/multi-value columns
     Int64 = 0x13,      // ACE 16 (Access 2016, version byte 0x05): BIGINT (Large Number)

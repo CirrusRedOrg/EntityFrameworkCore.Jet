@@ -143,8 +143,8 @@ public class JetTypeCodecBoundaryTests
     public void Unsupported_encoding_reports_the_column_type()
     {
         var error = Assert.Throws<NotSupportedException>(() =>
-            JetTypeCodec.Encode(Column(JetDataType.Unknown11), new object()));
-        Assert.Contains(nameof(JetDataType.Unknown11), error.Message);
+            JetTypeCodec.Encode(Column(JetDataType.Unknown0D), new object()));
+        Assert.Contains(nameof(JetDataType.Unknown0D), error.Message);
     }
 
     [Fact]

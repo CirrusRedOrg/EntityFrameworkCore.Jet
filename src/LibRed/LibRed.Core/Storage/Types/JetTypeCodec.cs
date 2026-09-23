@@ -71,6 +71,7 @@ public static class JetTypeCodec
             case JetDataType.Text:
                 return DecodeText(value);
             case JetDataType.Binary:
+            case JetDataType.BigBinary:
                 return value.ToArray();
             case JetDataType.FixedPoint:
                 return DecodeNumeric(value, column.Scale);
@@ -281,6 +282,7 @@ public static class JetTypeCodec
             case JetDataType.Text:
                 return EncodeText(column, AsText(value, c));
             case JetDataType.Binary:
+            case JetDataType.BigBinary:
                 return EncodeBinary(column, AsBinary(column, value));
             case JetDataType.FixedPoint:
                 return EncodeNumeric(column, JetDecimalConverter.ToDecimal(value, c));

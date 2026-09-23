@@ -1,4 +1,6 @@
 using System.Data;
+using System.Data.Common;
+using System.Globalization;
 using LibRed.Data;
 using Xunit;
 
@@ -221,6 +223,30 @@ public class LibRedSchemaTests
         // materialise them.
         Assert.Equal(20, types["BigInt"]);
         Assert.Equal(135, types["DateTime2"]);
+    }
+
+    // A type's CreateFormat declares a column the Columns collection reports as that same type. ACE leaves the
+    // field empty for every type.
+    [Fact]
+    public void DataTypes_CreateFormat_declares_a_column_of_that_type()
+    {
+        string path = TemporaryDatabase.CopyPath(Northwind, "create-format-");
+        using var connection = new LibRedConnection($"Data Source={path}");
+        connection.Open();
+
+        int n = 0;
+        foreach (DataRow type in connection.GetSchema("DataTypes").Rows)
+        {
+            string declared = string.Format(CultureInfo.InvariantCulture, (string)type["CreateFormat"], 18, 4);
+            using (DbCommand create = connection.CreateCommand())
+            {
+                create.CommandText = $"CREATE TABLE T{n} (C {declared})";
+                create.ExecuteNonQuery();
+            }
+            DataRow column = connection.GetSchema("Columns", [null, null, $"T{n++}", null]).Rows[0];
+            Assert.Equal(type["TypeName"], column["TYPE_NAME"]);
+        }
+        Assert.Equal(19, n);
     }
 
     [Fact]

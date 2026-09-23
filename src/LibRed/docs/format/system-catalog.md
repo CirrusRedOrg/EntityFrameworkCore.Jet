@@ -85,7 +85,7 @@
   > database has none, at any `dbVersion`, and Access adds them (with `MSysAccessStorage` and the nav-pane
   > tables) the first time it opens the file. Which is why `DatabaseCreator` does not write them either. The
   > one place the value matters is [data-types.md](data-types.md), where it says which files carry the
-  > unmodelled `0x11` column.
+  > legacy `MSysAccessObjects` store and its BigBinary (`0x11`) column.
   >
   > **`ANSI Query Mode`** — an `MSysDb` property, empty owner, `dataType` `0x04` (Int32), holding a 4-byte
   > little-endian `0` or `1`. It is the per-database half of Access's *Object Designers → SQL Server

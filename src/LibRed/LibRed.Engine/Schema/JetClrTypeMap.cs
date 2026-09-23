@@ -17,7 +17,7 @@ public static class JetClrTypeMap
         JetDataType.Double => typeof(double),
         JetDataType.DateTime => typeof(DateTime),
         JetDataType.DateTimeExtended => typeof(DateTime),
-        JetDataType.Binary or JetDataType.Ole => typeof(byte[]),
+        JetDataType.Binary or JetDataType.BigBinary or JetDataType.Ole => typeof(byte[]),
         JetDataType.Text or JetDataType.Memo => typeof(string),
         JetDataType.Guid => typeof(Guid),
         JetDataType.FixedPoint => typeof(decimal),

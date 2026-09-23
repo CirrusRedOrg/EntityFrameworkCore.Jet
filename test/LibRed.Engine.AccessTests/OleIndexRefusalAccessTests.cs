@@ -8,7 +8,8 @@ namespace LibRed.Engine.Tests;
 /// An OLE column cannot be in an index — a key, a unique constraint, a relationship's — and ACE refuses every route
 /// that would put one there, up front, with "Invalid field definition '…' in definition of index or relationship.",
 /// leaving nothing behind (docs/format/page-03-04-index-btree.md). LibRed refuses the same statements at the same
-/// point with the same message; it used to accept them on an empty table, after which every insert failed.
+/// point with the same message; it used to accept them on an empty table, after which every insert failed. A
+/// BigBinary column cannot be indexed either, and is refused the same way.
 /// </summary>
 [Collection(AceCollection.Name)]
 public class OleIndexRefusalAccessTests(ITestOutputHelper output)
@@ -24,6 +25,12 @@ public class OleIndexRefusalAccessTests(ITestOutputHelper output)
     // Refused as OLE before the relationship's type match would refuse it.
     [InlineData("CREATE TABLE P (Id LONG CONSTRAINT pkP PRIMARY KEY)", "CREATE TABLE X (Id LONG, O LONGBINARY)", "ALTER TABLE X ADD CONSTRAINT fkXP FOREIGN KEY (O) REFERENCES P (Id)")]
     [InlineData("CREATE TABLE P (Id LONG CONSTRAINT pkP PRIMARY KEY)", "CREATE TABLE X (Id LONG, O LONGBINARY CONSTRAINT fkXP REFERENCES P (Id))")]
+    // A BigBinary column is refused on the same routes, with the same message.
+    [InlineData("CREATE TABLE X (Id LONG, B BIGBINARY)", "CREATE INDEX ixB ON X (B)")]
+    [InlineData("CREATE TABLE X (Id LONG, B BIGBINARY(20) CONSTRAINT pkX PRIMARY KEY)")]
+    [InlineData("CREATE TABLE X (Id LONG, B BIGBINARY(20) CONSTRAINT uxB UNIQUE)")]
+    [InlineData("CREATE TABLE X (Id LONG, B VARBINARY(20))", "CREATE INDEX ixB ON X (B)", "ALTER TABLE X ALTER COLUMN B BIGBINARY(20)")]
+    [InlineData("CREATE TABLE P (Id LONG CONSTRAINT pkP PRIMARY KEY)", "CREATE TABLE X (Id LONG, B BIGBINARY(20) CONSTRAINT fkXP REFERENCES P (Id))")]
     public void Libred_refuses_an_ole_column_in_an_index_as_ace_does(params string[] steps)
     {
         string northwind = Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb");

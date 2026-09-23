@@ -181,6 +181,10 @@ internal static class AccessTypeMapper
                 => Binary(column, isFixed: true),
             "VARBINARY" or "BINARY VARYING" or "BIT VARYING"
                 => Binary(column, isFixed: false),
+            // Up to 4000 bytes, stored inline like VARBINARY under its own type code, and bare BIGBINARY takes
+            // the maximum (verified vs ACE). There is no fixed-length form in DDL.
+            "BIGBINARY"
+                => Binary(column, isFixed: false, JetDataType.BigBinary, RecordLayout.MaxBigBinaryBytes),
 
             // Long-value columns: variable-length with no fixed byte length. The in-row value is a
             // 12-byte long-value descriptor; short values are stored inline after it.
@@ -236,16 +240,17 @@ internal static class AccessTypeMapper
 
     // A binary column: length is in bytes (not char-doubled). A size-less binary/varbinary takes the
     // MAXIMUM (510 bytes) — verified vs ACE, which defaults a bare BINARY/VARBINARY to a 510-byte field.
-    private static ColumnSpec Binary(ColumnDefinition column, bool isFixed)
+    private static ColumnSpec Binary(ColumnDefinition column, bool isFixed,
+        JetDataType type = JetDataType.Binary, int maxBytes = MaxBinaryBytes)
     {
-        int bytes = column.Size ?? MaxBinaryBytes;
+        int bytes = column.Size ?? maxBytes;
         if (bytes <= 0)
             throw new InvalidOperationException(
                 $"Size of field '{column.Name}' must be positive (got {bytes}).");
-        if (bytes > MaxBinaryBytes)
+        if (bytes > maxBytes)
             throw new InvalidOperationException(
-                $"Size of field '{column.Name}' is too long: a binary/varbinary column holds at most {MaxBinaryBytes} " +
-                $"bytes in Jet/ACE (got {bytes}). Use LONGBINARY/OLE for longer data.");
-        return new(column.Name, JetDataType.Binary, bytes, IsFixedLength: isFixed);
+                $"Size of field '{column.Name}' is too long: a {column.TypeName.ToLowerInvariant()} column holds at most " +
+                $"{maxBytes} bytes in Jet/ACE (got {bytes}). Use LONGBINARY/OLE for longer data.");
+        return new(column.Name, type, bytes, IsFixedLength: isFixed);
     }
 }

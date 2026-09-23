@@ -574,11 +574,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <summary>Refuses an index over an OLE column — a key, a unique constraint, a relationship's — before anything
     /// is written, as ACE does on every route (verified: CREATE INDEX, PRIMARY KEY and UNIQUE both in CREATE TABLE and
     /// added, a foreign key in either place, and ALTER COLUMN of an indexed column to OLE). An OLE value has no index
-    /// key, and without this the definition is accepted on an empty table and every later insert fails.</summary>
+    /// key, and without this the definition is accepted on an empty table and every later insert fails. A BigBinary
+    /// column is refused the same way, with the same message (verified on the same routes).</summary>
     private static void RejectOleIndexColumns(IEnumerable<string> columnNames, Func<string, JetDataType?> typeOf)
     {
         foreach (string name in columnNames)
-            if (typeOf(name) == JetDataType.Ole)
+            if (typeOf(name) is JetDataType.Ole or JetDataType.BigBinary)
                 throw new InvalidOperationException($"Invalid field definition '{name}' in definition of index or relationship.");
     }
 
@@ -2063,7 +2064,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // because the column was required.
         if (col.Type is JetDataType.Boolean or JetDataType.Byte or JetDataType.Int16 or JetDataType.Int32
                 or JetDataType.Single or JetDataType.Double or JetDataType.Currency or JetDataType.DateTime
-                or JetDataType.Guid or JetDataType.Text or JetDataType.Binary or JetDataType.FixedPoint
+                or JetDataType.Guid or JetDataType.Text or JetDataType.Binary or JetDataType.BigBinary
+                or JetDataType.FixedPoint
             && col.Type == newSpec.Type
             && col.Length == newSpec.Length && col.IsFixedLength == newSpec.IsFixedLength
             && (col.Type != JetDataType.FixedPoint || (col.Precision == newSpec.Precision && col.Scale == newSpec.Scale)))
@@ -2071,7 +2073,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         bool variableLengthChange =
             !col.IsFixedLength && !newSpec.IsFixedLength && col.Type == newSpec.Type &&
-            newSpec.Type is JetDataType.Text or JetDataType.Binary;
+            newSpec.Type is JetDataType.Text or JetDataType.Binary or JetDataType.BigBinary;
         // A variable text/binary length change is a cheap in-place descriptor edit (below). A storage-type change
         // (numeric type, fixed size, fixed↔variable) is a full column rewrite: the byte-faithful in-place edit
         // where it applies (all-fixed non-indexed target), else the logical rebuild (AlterColumnTypeInPlace picks).
@@ -2474,8 +2476,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         ColumnDef oldTarget = oldDef.FindColumn(columnName)
             ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
         EnsureColumnIsNotInRelationship(oldDef, oldTarget);
-        if (newSpec.Type == JetDataType.Ole && oldDef.Indexes.Any(i => i.Columns.Any(c => c.Column.ColumnId == oldTarget.ColumnId)))
-            RejectOleIndexColumns([oldTarget.Name], _ => JetDataType.Ole);
+        if (newSpec.Type is JetDataType.Ole or JetDataType.BigBinary
+            && oldDef.Indexes.Any(i => i.Columns.Any(c => c.Column.ColumnId == oldTarget.ColumnId)))
+            RejectOleIndexColumns([oldTarget.Name], _ => newSpec.Type);
 
         // Also reached directly, not only through AlterColumn, so it carries the width limits itself.
         // The record-fits check needs the true fixed-region end, so it runs once that is measured, below.
@@ -2804,7 +2807,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             JetDataType.DateTime => value is DateTime d ? d : Convert.ToDateTime(value, inv),
             JetDataType.Text or JetDataType.Memo => Convert.ToString(value, inv),
             JetDataType.Guid => value is Guid g ? g : Guid.Parse(value.ToString()!),
-            JetDataType.Binary or JetDataType.Ole => value as byte[] ?? System.Text.Encoding.Unicode.GetBytes(value.ToString()!),
+            JetDataType.Binary or JetDataType.BigBinary or JetDataType.Ole => value as byte[] ?? System.Text.Encoding.Unicode.GetBytes(value.ToString()!),
             _ => value,
         };
     }

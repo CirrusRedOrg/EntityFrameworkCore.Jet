@@ -36,6 +36,9 @@ public class RowByteParityAccessTests(ITestOutputHelper output) : TempDatabaseTe
             "INSERT INTO W (A, M) VALUES (1, 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')" },
         { "CREATE TABLE W (A LONG, M LONGTEXT)",
             "INSERT INTO W (A, M) VALUES (1, '中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中')" },
+        // A BigBinary value stays inline at any size, where VARBINARY stops at 510.
+        { "CREATE TABLE W (A LONG, B BIGBINARY)", "INSERT INTO W (A, B) VALUES (1, 0x0102030405)" },
+        { "CREATE TABLE W (A LONG, B BIGBINARY)", $"INSERT INTO W (A, B) VALUES (1, 0x{string.Concat(Enumerable.Repeat("0A1B2C", 1000))})" },
     };
 
     [Theory]

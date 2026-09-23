@@ -507,6 +507,7 @@ public static class SchemaRowsets
         JetDataType.Text => "VarChar",
         JetDataType.Memo or JetDataType.Complex => "LongText",
         JetDataType.Binary => "VarBinary",
+        JetDataType.BigBinary => "BigBinary",
         JetDataType.Ole => "LongBinary",
         _ => "VarBinary",
     };
@@ -719,7 +720,7 @@ public static class SchemaRowsets
         // are not. A binary column never is here, whatever its descriptor: ACE reports BINARY(n) as variable,
         // the same collapse ADOX makes in reporting every binary column as adVarBinary.
         JetDataType.Text => c.IsFixedLength,
-        JetDataType.Binary => false,
+        JetDataType.Binary or JetDataType.BigBinary => false,
         // BIGINT and DATETIME2 postdate ACE's OLE DB provider, which describes both as variable-length with no
         // precision although each is a fixed width on disk — measured, and matched here so the metadata agrees
         // with what a caller reading through ACE would have been told.
@@ -748,7 +749,7 @@ public static class SchemaRowsets
     /// for the unbounded memo/OLE types, and — as ACE reports it — two for a Yes/No column.</summary>
     private static long? CharacterMaxLength(ColumnDef c) => EffectiveType(c) switch
     {
-        JetDataType.Text or JetDataType.Binary => JetStoreType.MaxLength(c),
+        JetDataType.Text or JetDataType.Binary or JetDataType.BigBinary => JetStoreType.MaxLength(c),
         JetDataType.Memo or JetDataType.Ole or JetDataType.Complex => 0L,
         JetDataType.Boolean => 2L,
         _ => null,
@@ -758,7 +759,7 @@ public static class SchemaRowsets
     private static long? CharacterOctetLength(ColumnDef c) => EffectiveType(c) switch
     {
         JetDataType.Text => JetStoreType.MaxLength(c) * 2L,
-        JetDataType.Binary => JetStoreType.MaxLength(c),
+        JetDataType.Binary or JetDataType.BigBinary => JetStoreType.MaxLength(c),
         JetDataType.Memo or JetDataType.Ole or JetDataType.Complex => 0L,
         _ => null,
     };

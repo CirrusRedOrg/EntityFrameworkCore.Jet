@@ -20,34 +20,70 @@
 | `0x0C` | Memo | long value (§8); text once resolved |
 | `0x0F` | GUID | 16 raw bytes. Stored as a *variable*-length column when declared through SQL (see below) |
 | `0x10` | FixedPoint (Numeric/Decimal) | 17 bytes: sign byte (`0x80` = negative) + 128-bit magnitude (four 32-bit little-endian words, low word last); value = magnitude / 10^scale. Precision/scale from the column descriptor (§3.4) |
-| `0x11` | *unmodelled* — see below | raw bytes |
+| `0x11` | BigBinary — **BIGBINARY(n)** | raw bytes, inline, up to 4000 (see below) |
 | `0x12` | Complex (multi-value / attachment) | descriptor parsed; contents not materialized (out of scope for SQL/EF) |
 | `0x13` | Int64 — **BIGINT** (ACE 16 / Access 2016) | 8-byte little-endian signed integer. Stored as a *variable*-length column (see below) |
 | `0x14` | DateTimeExtended — **DATETIME2** (ACE 17 / Access 2019+) | fixed 42-byte ASCII `<day>:<time>:<precision>` (see below) |
 
-> **Unmodelled codes are read, not refused.** `0x0D`, `0x0E` and `0x11` are held open in `JetDataType` as
+> **Unmodelled codes are read, not refused.** `0x0D` and `0x0E` are held open in `JetDataType` as
 > `Unknown*` placeholders: a TDEF carrying one still parses, the column decodes to its **raw bytes**, and only
 > *writing* such a column is refused. This is not tidiness — the catalog reads **every** table's definition,
-> so a reader that refuses one unrecognised column cannot open the database at all.
+> so a reader that refuses one unrecognised column cannot open the database at all. Neither has ever been
+> observed.
+
+**`0x11` is BigBinary — a binary value bounded by a single data page.** It holds up to 4000 bytes, which sits
+just inside the 4060-byte record cap ([page-01 §5](page-01-data-and-rows.md)), and the value is always stored
+**inline** in the row, never as a long value. So it is the largest binary a row can carry on one page without
+the long-value machinery — and a full-size one leaves the row's other columns almost nothing.
+
+ACE's DDL declares it as `BIGBINARY(n)`, and a bare `BIGBINARY` takes the maximum, 4000; `BIGBINARY(4001)` is
+refused with "Size of field is too long", as `VARBINARY(511)` is. The descriptor is byte-for-byte the one ACE
+writes for the same `VARBINARY(n)` except for the type byte — variable, same flags, length in bytes — and DDL
+has no fixed-length form. It needs no format raise: ACE creates one in an ACE 12 file without touching the
+version byte, and Jet 4 `.mdb` files carry it.
+
+The value lives in the row's variable section exactly as a `VARBINARY` value does, at every size, so it counts
+against the record cap: two BigBinary columns take 2000 + 2000 bytes in one row, and 4000 + 4000 is refused
+with "Record is too large." — where two `LONGBINARY` columns take 4000 + 4000, since only their 12-byte
+descriptors are in the row. ACE reports the column as binary in all its metadata — OLE DB `DATA_TYPE` 128 with
+the declared length and no fixed or long flag, ADOX `adVarBinary` with its `DefinedSize`, DAO `Type` 17 — and
+names it `BigBinary` only in its DataTypes list, where it is the binary type above 510 bytes.
+
+**In a query it is an OLE Object, not a binary.** Stored inline or not, ACE puts it under every restriction a
+long value has, with the same messages it gives `LONGBINARY` (verified, statement for statement, against both):
+
+| Use | BigBinary and OLE alike |
+| --- | --- |
+| `=`, `<`, column-to-column comparison, `LIKE` in `WHERE` | accepted |
+| `LEN`, `LENB`, `MID`, `&` | accepted |
+| `ORDER BY` | "Cannot sort on Memo, OLE, or Hyperlink Object" |
+| `GROUP BY` | "Cannot group on Memo, OLE, or Hyperlink Object" |
+| `DISTINCT` | "Cannot include Memo, OLE, or Hyperlink Object when you select unique values" |
+| `MAX` (an aggregate argument) | "Cannot have Memo, OLE, or Hyperlink Object fields in aggregate argument" |
+| `JOIN … ON` it | "Cannot join on Memo, OLE, or Hyperlink Object" |
+| selected by a `UNION` | "Cannot use Memo, OLE, or Hyperlink Object field … in the SELECT clause of a union query" |
+| `IN (SELECT` it `…)` | "Invalid Memo, OLE, or Hyperlink Object in subquery" |
+
+**It cannot be indexed** either. ACE refuses it on every route an OLE column is refused on, with the same
+message — `CREATE INDEX`, `PRIMARY KEY`, `UNIQUE`, a foreign key, and `ALTER COLUMN` of an indexed column to
+`BIGBINARY` — see [§10.4](page-03-04-index-btree.md).
+
+So against `LONGBINARY` it gives up size (4000 bytes against about 1 GB) and row budget, and gains nothing a
+query can use; what it saves is the long-value page a `LONGBINARY` value past the inline size needs.
+
+> **Access's legacy object store is a BigBinary column.** `MSysAccessObjects.Data` is `0x11`, *fixed*, 3992
+> bytes, holding chunks of an **OLE Compound File** (signature `D0 CF 11 E0 A1 B1 1A E1`) — Access's own
+> object storage, the VBA project and its type-library references (one chunk reads
+> `ado\msado21.tlb#Microsoft…`). A single stream sliced across rows; LibRed hands the bytes back and does not
+> interpret the container. ACE still reports that fixed column as variable, the same collapse it makes for
+> `BINARY(n)`.
 >
-> **`0x11` is the only one seen in the wild**, and never on a user column: it is always
-> `MSysAccessObjects.Data`, fixed length, 3992 bytes. The contents are chunks of an **OLE Compound File**
-> (signature `D0 CF 11 E0 A1 B1 1A E1`) — Access's own object storage, holding the VBA project and its
-> type-library references (one chunk reads `ado\msado21.tlb#Microsoft…`). A single stream sliced across rows.
-> LibRed hands the bytes back and does not interpret the container.
->
-> **It belongs to the legacy object-storage table, not to any feature.** Access later replaced
-> `MSysAccessObjects` with `MSysAccessStorage`, which uses modelled types, and a file has one or the other.
-> The discriminator is **not** the format version — Jet 4 `.mdb` files with page-0 version byte `0x01` split
-> either way. It is the generation Access chose **when it created the database**, recorded as the
-> `AccessVersion` property on the `MSysDb` object: `08.50` (Access 2000) uses the legacy store, `09.50`
-> (Access 2002+) does not. Adding a type-library reference to a current `.accdb` does **not** produce it.
->
-> So a current Access still writes `0x11` today if asked for a new Access 2000 database — but only that way.
-> A file created by anything else (DAO, LibRed) gets `MSysAccessStorage` when Access first opens it, whatever
-> its engine format, and so never grows a `0x11` column afterwards.
->
-> `0x0D` and `0x0E` have never been observed; they are placeholders only.
+> Access later replaced `MSysAccessObjects` with `MSysAccessStorage`, which uses no BigBinary column, and a
+> file has one or the other. The discriminator is **not** the format version — Jet 4 `.mdb` files with page-0
+> version byte `0x01` split either way. It is the generation Access chose **when it created the database**,
+> recorded as the `AccessVersion` property on the `MSysDb` object: `08.50` (Access 2000) uses the legacy
+> store, `09.50` (Access 2002+) does not. A file created by anything else (DAO, LibRed) gets
+> `MSysAccessStorage` when Access first opens it.
 
 LibRed's scalar reader requires the exact fixed widths listed above before invoking the numeric,
 GUID, date, or decimal codec. Text, Binary, Memo/OLE descriptors, and Complex values remain

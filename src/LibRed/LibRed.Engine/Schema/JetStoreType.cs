@@ -40,8 +40,9 @@ public static class JetStoreType
         // Text keeps its fixed/variable distinction (adChar/adVarChar → char/varchar). Binary does NOT: ADOX
         // reports every binary column as adVarBinary (it never surfaces fixed adBinary), so a fixed binary column
         // collapses to varbinary — match that, or INFORMATION_SCHEMA/scaffolding disagree with EFCore.Jet's output.
+        // A BigBinary column is reported as adVarBinary too, with its own DefinedSize (verified).
         JetDataType.Text => column.IsFixedLength ? "char" : "varchar",
-        JetDataType.Binary => "varbinary",
+        JetDataType.Binary or JetDataType.BigBinary => "varbinary",
         JetDataType.Memo => "longchar",
         JetDataType.Ole => "longbinary",
         // A complex (multi-value / attachment) column has no type of its own on this surface, because OLE DB
@@ -59,7 +60,7 @@ public static class JetStoreType
     public static int? MaxLength(ColumnDef column) => column.Type switch
     {
         JetDataType.Text => Math.Max(1, column.Length / 2),
-        JetDataType.Binary => Math.Max(1, column.Length),
+        JetDataType.Binary or JetDataType.BigBinary => Math.Max(1, column.Length),
         _ => null,
     };
 
@@ -73,7 +74,7 @@ public static class JetStoreType
         return column.Type switch
         {
             JetDataType.FixedPoint => $"{name}({column.Precision},{column.Scale})",
-            JetDataType.Text or JetDataType.Binary => $"{name}({MaxLength(column)})",
+            JetDataType.Text or JetDataType.Binary or JetDataType.BigBinary => $"{name}({MaxLength(column)})",
             _ => name,
         };
     }

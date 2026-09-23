@@ -40,11 +40,23 @@ public static class RecordLayout
     /// of Binary.</summary>
     public const int MaxFieldBytes = 510;
 
+    /// <summary>The widest a BigBinary column may be declared: <c>BIGBINARY(4001)</c> gives ACE's "Size of
+    /// field is too long".</summary>
+    public const int MaxBigBinaryBytes = 4000;
+
     /// <summary>Throws if a column is declared wider than ACE stores. Memo and OLE are exempt — their data
     /// lives on long-value pages and the in-row descriptor is a fixed size.</summary>
     public static void ValidateFieldWidth(string columnName, JetDataType type, int lengthBytes)
     {
         if (type is JetDataType.Memo or JetDataType.Ole) return;
+        if (type == JetDataType.BigBinary)
+        {
+            if (lengthBytes > MaxBigBinaryBytes)
+                throw new NotSupportedException(
+                    $"Column '{columnName}' is declared {lengthBytes} bytes wide; a BigBinary column holds at most "
+                    + $"{MaxBigBinaryBytes}.");
+            return;
+        }
         if (lengthBytes > MaxFieldBytes)
             throw new NotSupportedException(
                 $"Column '{columnName}' is declared {lengthBytes} bytes wide; Jet/ACE stores at most {MaxFieldBytes} "

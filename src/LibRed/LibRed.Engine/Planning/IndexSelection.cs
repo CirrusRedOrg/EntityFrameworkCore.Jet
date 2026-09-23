@@ -341,7 +341,7 @@ internal static class IndexSelection
         JetDataType.Boolean or JetDataType.Byte or JetDataType.Int16 or JetDataType.Int32 or JetDataType.Int64
             or JetDataType.Single or JetDataType.Double or JetDataType.Currency or JetDataType.FixedPoint => TypeKind.Numeric,
         JetDataType.Text or JetDataType.Memo => TypeKind.Text,
-        JetDataType.Binary or JetDataType.Ole => TypeKind.Binary,
+        JetDataType.Binary or JetDataType.BigBinary or JetDataType.Ole => TypeKind.Binary,
         JetDataType.DateTime or JetDataType.DateTimeExtended => TypeKind.Temporal,
         JetDataType.Guid => TypeKind.Guid,
         _ => null,

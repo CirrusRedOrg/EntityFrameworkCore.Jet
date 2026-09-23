@@ -87,6 +87,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     // for every outer row of a correlated subquery / nested-loop inner.
     private readonly Dictionary<ProjectNode, ProjectionSchema> _projectionSchemas = new(ReferenceEqualityComparer.Instance);
 
+    // The type each scalar subquery declares, keyed by AST node: described once, however often DeclaredType asks.
+    private readonly Dictionary<SqlStatement, Type?> _scalarSubqueryTypes = new(ReferenceEqualityComparer.Instance);
+
     // Decorrelated EXISTS subqueries, keyed by AST node. A present-but-null value records "analysed, not
     // decorrelatable", so an unsound-to-rewrite subquery isn't re-analysed on every outer row.
     private readonly Dictionary<SqlStatement, ExistsSemiJoin?> _semiJoins = new(ReferenceEqualityComparer.Instance);
@@ -139,12 +142,16 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         bool describing = false)
     {
         _database = database;
+        _parameterValues = parameters;
         _parameters = new ParameterBag(parameters);
         _session = session;
         _describing = describing;
     }
 
     private readonly bool _describing;
+
+    /// <summary>The parameter values as passed, for the describing executor a scalar subquery is typed with.</summary>
+    private readonly IReadOnlyDictionary<string, object?>? _parameterValues;
 
     public ResultSet ExecuteQuery(PlanNode plan)
     {
@@ -929,6 +936,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     ? typeof(int) : _session?.LastIdentity?.GetType();
             case ExistsExpression or InSubqueryExpression or InListExpression or BetweenExpression:
                 return typeof(bool);
+            case ScalarSubquery subquery:
+                return ScalarSubqueryType(subquery.Query);
             case UnaryExpression unary:
                 return unary.Operator is UnaryOperator.Not or UnaryOperator.IsNull or UnaryOperator.IsNotNull
                     or UnaryOperator.IsTrue or UnaryOperator.IsNotTrue or UnaryOperator.IsFalse or UnaryOperator.IsNotFalse
@@ -960,11 +969,26 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
     }
 
+    /// <summary>The type a scalar subquery declares: that of its one column, found by describing its plan. Describing
+    /// reads no row and evaluates nothing, so a correlated subquery never needs the outer row it cannot have here; a
+    /// column only that row could type is left untyped. Its values already come back in this type — each is the
+    /// subquery's own projected value.</summary>
+    private Type? ScalarSubqueryType(SqlStatement query)
+    {
+        if (!_scalarSubqueryTypes.TryGetValue(query, out Type? type))
+            _scalarSubqueryTypes[query] = type =
+                new QueryExecutor(_database, _parameterValues, _session, describing: true)
+                    .DescribeQuery(QueryPlanner.PlanStatement(query)) is [var first, ..] ? first.ClrType : null;
+        return type;
+    }
+
     /// <summary>
     /// The declared type of a CASE — the standard's "highest precedence type from the set of types in
-    /// result_expressions and the optional else_result_expression". A branch whose own type is unknown
-    /// contributes nothing rather than poisoning the answer, which is what makes a bare <c>NULL</c> arm
-    /// harmless: a NULL literal has no type and the standard ignores it for precedence too. Numeric branches
+    /// result_expressions and the optional else_result_expression". A bare <c>NULL</c> arm contributes nothing
+    /// rather than poisoning the answer: a NULL literal has no type and the standard ignores it for precedence
+    /// too. Any other arm whose type is unknown leaves the whole choice unknown, since it may hold anything —
+    /// letting the known arms declare alone made <c>IIF(x IS NULL, 0, x)</c> over an untyped Decimal
+    /// <c>x</c> declare Integer, and the value was then converted to it. Numeric branches
     /// widen on <see cref="CommonNumericType"/>, so <c>THEN 1 ELSE 2.5</c> declares Double. A genuine mix
     /// (a string branch and a numeric one) declares nothing rather than guessing, leaving the column untyped
     /// exactly as it was before CASE was understood at all.
@@ -995,7 +1019,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         {
             Type? branchType = IsWrittenDecimal(alternative) ? typeof(decimal) : DeclaredType(alternative, columns);
             if (branchType is null)
-                continue;
+            {
+                if (alternative is LiteralExpression { Value: null })
+                    continue;
+                return null;
+            }
             bool branchCurrency = branchType == typeof(decimal)
                 && ExpressionEvaluator.NumberTypeOf(alternative, columns, e => DeclaredType(e, columns)).Class
                     == NumberClass.Currency;

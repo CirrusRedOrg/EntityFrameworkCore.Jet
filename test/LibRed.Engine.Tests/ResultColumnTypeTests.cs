@@ -132,6 +132,38 @@ public class ResultColumnTypeTests(ResultColumnTypeTests.Database database)
         Assert.IsType<decimal>(rows.Single()[0]);
     }
 
+    // A scalar subquery declares its column's type, so a choice over it widens with it. Untyped, the Integer 0 alone
+    // declared IIF(x IS NULL, 0, x): the money sum doubled came back a Decimal under a declared Integer, and the
+    // other column's value was rounded into one.
+    [Fact]
+    public void A_scalar_subquery_declares_its_type_through_a_choice()
+    {
+        var (types, rows) = database.Query(
+            "SELECT IIF(t3.x < 0, 9, t3.x + 8), t3.x + t3.x FROM (SELECT IIF(t2.x IS NULL, 0, t2.x) AS x "
+            + "FROM (SELECT (SELECT SUM(M) FROM T) AS x FROM T q) t2) t3", CultureInfo.GetCultureInfo("en-US"));
+        Assert.Equal([typeof(decimal), typeof(decimal)], types);
+        Assert.All(rows, row => Assert.Equal(new object?[] { 20.5m, 25m }, row));
+    }
+
+    [Theory]
+    // Rows taking different arms still come back in the one declared type.
+    [InlineData("IIF(Id = 1, 9, (SELECT SUM(M) FROM T))", 9, 12.5)]
+    // A correlated subquery is typed without the outer row.
+    [InlineData("(SELECT SUM(i.M) FROM T i WHERE i.Id = o.Id)", 10.5, 2)]
+    public void A_scalar_subquery_column_is_its_type_on_every_row(string expression, double first, double second)
+    {
+        (Type declared, object?[] values) = Column($"SELECT o.Id, {expression} AS c FROM T o ORDER BY o.Id");
+        Assert.Equal(typeof(decimal), declared);
+        Assert.Equal(new object?[] { (decimal)first, (decimal)second }, values);
+    }
+
+    // A choice with an arm nothing can type declares nothing, rather than letting its typed arms declare alone.
+    [Fact]
+    public void A_choice_with_an_untyped_arm_declares_nothing() =>
+        Assert.Equal(typeof(object),
+            database.Query("SELECT IIF(Id = 1, 0, (SELECT o.M FROM T i WHERE i.Id = 1)) FROM T o",
+                CultureInfo.GetCultureInfo("en-US")).ColumnTypes[0]);
+
     [Fact]
     public void Values_keep_their_widened_value()
     {

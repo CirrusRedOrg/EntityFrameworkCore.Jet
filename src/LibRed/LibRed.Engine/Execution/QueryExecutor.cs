@@ -931,13 +931,15 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 return typeof(bool);
             case UnaryExpression unary:
                 return unary.Operator is UnaryOperator.Not or UnaryOperator.IsNull or UnaryOperator.IsNotNull
+                    or UnaryOperator.IsTrue or UnaryOperator.IsNotTrue or UnaryOperator.IsFalse or UnaryOperator.IsNotFalse
                     ? typeof(bool) : DeclaredUnaryType(unary.Operator, DeclaredType(unary.Operand, columns));
             case BinaryExpression binary:
                 if (binary.Operator is BinaryOperator.Equal or BinaryOperator.NotEqual
                     or BinaryOperator.LessThan or BinaryOperator.LessThanOrEqual
                     or BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual
                     or BinaryOperator.And or BinaryOperator.Or or BinaryOperator.Xor or BinaryOperator.Eqv
-                    or BinaryOperator.Imp or BinaryOperator.Like or BinaryOperator.In)
+                    or BinaryOperator.Imp or BinaryOperator.Like or BinaryOperator.In
+                    or BinaryOperator.IsDistinctFrom or BinaryOperator.IsNotDistinctFrom)
                     return typeof(bool);
                 if (binary.Operator == BinaryOperator.Concat)
                     return typeof(string);

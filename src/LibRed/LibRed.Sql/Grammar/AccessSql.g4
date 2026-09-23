@@ -424,6 +424,9 @@ expression
     | val=expression not=NOT? IN LPAREN sub=queryExpression RPAREN                            # InSubqueryExpr
     | val=expression not=NOT? IN LPAREN items+=expression (COMMA items+=expression)* RPAREN  # InExpr
     | operand=expression IS not=NOT? NULL                                   # IsNullExpr
+    // Standard SQL beyond ACE, which rejects both ('Invalid use of IS operator', 'Syntax error').
+    | operand=expression IS not=NOT? truth=(TRUE | FALSE)                   # IsTruthExpr
+    | left=expression IS not=NOT? DISTINCT FROM right=expression            # IsDistinctFromExpr
     // NOT binds looser than the comparisons and tighter than AND (VBA operator precedence; verified vs ACE:
     // NOT 1 = 2 is True). BNOT sits with it, and each bitwise operator with its logical one, left to right
     // (verified vs ACE: BNOT 1 + 1 is -3, NOT 0 BAND 1 is 1, 2 AND 1 BAND 3 is 3, 0 OR 0 BOR 4 is 4).

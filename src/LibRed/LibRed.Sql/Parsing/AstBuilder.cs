@@ -1047,6 +1047,14 @@ internal static class AstBuilder
             ? new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))
             : new UnaryExpression(UnaryOperator.Not, new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))),
         IsNullExprContext n => new UnaryExpression(n.not is null ? UnaryOperator.IsNull : UnaryOperator.IsNotNull, BuildExpression(n.operand)),
+        IsTruthExprContext t => new UnaryExpression(
+            t.truth.Type == TRUE
+                ? t.not is null ? UnaryOperator.IsTrue : UnaryOperator.IsNotTrue
+                : t.not is null ? UnaryOperator.IsFalse : UnaryOperator.IsNotFalse,
+            BuildExpression(t.operand)),
+        IsDistinctFromExprContext d => new BinaryExpression(
+            d.not is null ? BinaryOperator.IsDistinctFrom : BinaryOperator.IsNotDistinctFrom,
+            BuildExpression(d.left), BuildExpression(d.right)),
         AndExprContext a => Binary(a.op, a.left, a.right),
         OrExprContext o => Binary(o.op, o.left, o.right),
         XorExprContext x => Binary(x.op, x.left, x.right),

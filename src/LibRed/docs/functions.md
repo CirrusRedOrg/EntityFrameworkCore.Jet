@@ -231,6 +231,12 @@ using; SQL written to run on ACE as well must leave them out.
 `Coalesce`, `Greatest` and `Least` declare the type their arguments unify to, as `CASE` does (`CASE` itself is
 syntax, not a function).
 
+Two standard predicates, operators rather than functions, both never Null (ACE rejects both):
+
+- **`x IS [NOT] TRUE` / `x IS [NOT] FALSE`** — a truth test in which Null is neither True nor False.
+- **`x IS [NOT] DISTINCT FROM y`** — `<>` / `=` with Null taken as a value: two Nulls are not distinct, a Null
+  and a value are.
+
 ### Date and time
 
 - **`DatePart`** also takes `"ms"`, `"mcs"` and `"ns"`: the millisecond, microsecond and nanosecond of the time.

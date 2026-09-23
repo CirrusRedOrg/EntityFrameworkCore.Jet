@@ -38,11 +38,12 @@ public enum BinaryOperator
     Equal, NotEqual, LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual,
     And, Or, Xor, Eqv, Imp, Like, In,
     BitAnd, BitOr, BitXor, // Access bitwise operators BAND / BOR / BXOR (integers only)
+    IsDistinctFrom, IsNotDistinctFrom, // standard SQL, not ACE: '=' with Null as a value, never Null
 }
 
 public sealed record BinaryExpression(BinaryOperator Operator, Expression Left, Expression Right) : Expression;
 
-public enum UnaryOperator { Negate, Not, IsNull, IsNotNull, BitNot }
+public enum UnaryOperator { Negate, Not, IsNull, IsNotNull, BitNot, IsTrue, IsNotTrue, IsFalse, IsNotFalse }
 
 public sealed record UnaryExpression(UnaryOperator Operator, Expression Operand) : Expression;
 

@@ -689,6 +689,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitLikeExpr([NotNull] AccessSqlParser.LikeExprContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>IsTruthExpr</c>
+	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitIsTruthExpr([NotNull] AccessSqlParser.IsTruthExprContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>IsNullExpr</c>
 	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
 	/// </summary>
@@ -751,6 +758,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitConcatExpr([NotNull] AccessSqlParser.ConcatExprContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>IsDistinctFromExpr</c>
+	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitIsDistinctFromExpr([NotNull] AccessSqlParser.IsDistinctFromExprContext context);
 	/// <summary>
 	/// Visit a parse tree produced by the <c>MulDivExpr</c>
 	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.

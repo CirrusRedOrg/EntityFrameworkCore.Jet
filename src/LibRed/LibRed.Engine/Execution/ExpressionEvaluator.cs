@@ -1964,6 +1964,10 @@ internal sealed partial class ExpressionEvaluator(
             UnaryOperator.BitNot => v is null ? null : BitNot(v),
             UnaryOperator.IsNull => v is null,
             UnaryOperator.IsNotNull => v is not null,
+            UnaryOperator.IsTrue => AsBool(v) is true,
+            UnaryOperator.IsNotTrue => AsBool(v) is not true,
+            UnaryOperator.IsFalse => AsBool(v) is false,
+            UnaryOperator.IsNotFalse => AsBool(v) is not false,
             _ => throw new NotSupportedException($"Unary operator {u.Operator}."),
         };
     }
@@ -2020,6 +2024,16 @@ internal sealed partial class ExpressionEvaluator(
             return left is null && right is null
                 ? null
                 : (left is null ? "" : ConcatText(left)) + (right is null ? "" : ConcatText(right));
+
+        // IS [NOT] DISTINCT FROM is '=' with Null taken as a value, so it is never Null: two Nulls are not
+        // distinct, a Null and a value are.
+        if (b.Operator is BinaryOperator.IsDistinctFrom or BinaryOperator.IsNotDistinctFrom)
+        {
+            bool distinct = left is null || right is null
+                ? (left is null) != (right is null)
+                : CompareAsKinds(b.Left, left, b.Right, right) != 0;
+            return distinct == (b.Operator == BinaryOperator.IsDistinctFrom);
+        }
 
         // The arithmetic operators other than '+' read text as a number even when the other side is Null, so text
         // that is not a number, a GUID or a binary value is a type mismatch before Null propagates (verified vs

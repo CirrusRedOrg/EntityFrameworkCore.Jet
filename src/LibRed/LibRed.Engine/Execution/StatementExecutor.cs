@@ -468,7 +468,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             ? null
             : parameters
                 .Select(p => new ViewParameterSpec(
-                    p.Name,
+                    p.Stored ?? p.Name,
                     // The declared size decides the type code as well as being stored: Text(50) is a Text
                     // parameter (code 10) where a bare Text is a memo (12), which is what ACE records.
                     (byte)AccessTypeMapper.ToColumnSpec(

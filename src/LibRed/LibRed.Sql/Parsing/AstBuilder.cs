@@ -402,7 +402,7 @@ internal static class AstBuilder
     {
         var parameters = (ctx.procParamList()?.procParam() ?? [])
             .Select(p => new ProcedureParameter(
-                ParamName(p), TypeName(p.dataType()), Size(p.dataType()), Scale(p.dataType())))
+                ParamName(p), TypeName(p.dataType()), Size(p.dataType()), Scale(p.dataType()), StoredParamName(p)))
             .ToList();
 
         // A procedure body is a SELECT (stored as a parameterized query, like a view) or an action query
@@ -538,6 +538,12 @@ internal static class AstBuilder
     private static string ParamName(ProcParamContext p) => p.pname.PARAM() is { } at
         ? at.GetText().TrimStart('@')
         : Identifier(p.pname.identifier());
+
+    /// <summary>A declared parameter's name as Access stores it: a name written in brackets keeps them
+    /// (verified vs ACE: <c>[@firstName]</c> is stored as <c>[@firstName]</c>), anything else as
+    /// <see cref="ParamName"/> reads it.</summary>
+    private static string StoredParamName(ProcParamContext p) =>
+        p.pname.identifier()?.GetText() is ['[', ..] bracketed ? bracketed : ParamName(p);
 
     /// <summary>The declared type name of a data type — up to three words (e.g. "national character varying")
     /// joined by single spaces.</summary>

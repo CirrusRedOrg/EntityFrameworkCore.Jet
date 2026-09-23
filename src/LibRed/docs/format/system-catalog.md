@@ -363,11 +363,20 @@
   > a stored query is a stored query — with one `0x02` parameter row per declared parameter. The Access
   > syntax accepts the parameter list either bare or **parenthesised**, and a parameter may be written
   > `@name`; Access stores the **bare** name (the `@` is stripped — `@Beginning_Date` → `Name1=Beginning_Date`)
-  > while the body keeps the `@` reference verbatim: `CREATE PROCEDURE name (p1 datatype, p2 datatype) AS
-  > select` or `CREATE PROCEDURE name p1 datatype AS select`. Verified: a LibRed-written parameterized query
+  > while the body keeps the `@` reference verbatim. A name declared **in brackets** is stored as written,
+  > brackets included (`[@firstName]` → `Name1=[@firstName]`, `[first name]` → `Name1=[first name]`), and
+  > DAO's `Parameter.Name` reports it that way. ACE renders the PARAMETERS clause keeping a bracketed `Name1`
+  > as it stands and bracketing a bare one that needs it (a stored `first name` renders `[first name]`).
+  > The two forms are `CREATE PROCEDURE name (p1 datatype, p2 datatype) AS select` and
+  > `CREATE PROCEDURE name p1 datatype AS select`.
+  >
+  > **Write:** LibRed stores `Name1` as ACE does — a bracketed name with its brackets, a bare `@` dropped —
+  > byte-identical for `[@x]`, `[x]`, `x`, `[x y]` and `@x`. Verified: a LibRed-written parameterized query
   > runs in Access and honours supplied parameter values. **Read-back:** LibRed reconstructs a parameterized
-  > query with a leading `PARAMETERS name Type, …;` clause (the `0x02` rows) and lowers body references to a
-  > declared name into engine parameters, so LibRed's own engine executes the stored procedure when values are supplied.
+  > query with a leading `PARAMETERS name Type, …;` clause (the `0x02` rows), keeping a bracketed `Name1` as it
+  > stands and bracketing a bare one; the name a value binds by is the one inside the brackets. Body references
+  > to a declared name are lowered into engine parameters, so LibRed's own engine executes the stored procedure
+  > when values are supplied.
   >
   > **A declared name wins over a column of the same name — and a `@` prefix does not distinguish them.**
   > Measured against ACE 12 on Northwind: *every* unqualified occurrence of a declared parameter name is the

@@ -310,7 +310,11 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
                     var (size, precision, scale) = type is { } t
                         ? StoredQueryFormat.UnpackParameterFacets(t, r[lvExtra] as int?)
                         : (null, null, null);
-                    return new StoredQueryParameter((string)r[n1]!, type, size, precision, scale);
+                    // ACE stores the name as declared, its brackets included ('[@firstName]'); the name bound to is
+                    // inside them, as the parser reads the declaration.
+                    string declared = (string)r[n1]!;
+                    string name = declared is ['[', .., ']'] ? declared[1..^1] : declared;
+                    return new StoredQueryParameter(name, type, size, precision, scale);
                 })
                 .ToList();
             if (parameters.Count > 0) _queryParameters[name] = parameters;
@@ -505,7 +509,9 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
             .OrderBy(r => Ord(r[order]))
             .Select(r => (Name: r[n1] as string, Code: r[flag] is short f ? (byte)f : (byte)0, Extra: r[lvExtra] as int?))
             .Where(p => p.Name is not null)
-            .Select(p => $"[{p.Name}] {AccessTypeName(p.Code)}{Facets(p.Code, p.Extra)}")
+            // ACE stores the name as declared, its brackets included ('[@firstName]'), and renders it as it stands;
+            // LibRed stores it bare. Bracket only a bare one.
+            .Select(p => $"{(p.Name!.StartsWith('[') ? p.Name : $"[{p.Name}]")} {AccessTypeName(p.Code)}{Facets(p.Code, p.Extra)}")
             .ToList();
 
         return parameters.Count == 0 ? "" : $"PARAMETERS {string.Join(", ", parameters)}; ";

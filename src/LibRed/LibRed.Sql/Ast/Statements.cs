@@ -240,7 +240,9 @@ public sealed record CreateViewStatement(
 /// <summary>A CREATE PROCEDURE parameter: a name and its declared Access SQL type, with the
 /// <paramref name="Size"/> and <paramref name="Scale"/> it declares. The size also decides the type code —
 /// <c>Text(50)</c> is a Text parameter where a bare <c>Text</c> is a memo — and both are stored alongside it.</summary>
-public sealed record ProcedureParameter(string Name, string TypeName, int? Size = null, int? Scale = null);
+/// <summary>A declared parameter. <paramref name="Name"/> is the name it binds by; <paramref name="Stored"/> is the
+/// spelling Access stores, which keeps a bracketed name's brackets.</summary>
+public sealed record ProcedureParameter(string Name, string TypeName, int? Size = null, int? Scale = null, string? Stored = null);
 
 /// <summary>CREATE PROCEDURE name [param datatype, …] AS select — a parameterized stored query. Stored like
 /// a view (the decomposed <see cref="Definition"/>) plus a parameter row per declared parameter.</summary>

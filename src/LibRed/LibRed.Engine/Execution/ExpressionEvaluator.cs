@@ -152,7 +152,7 @@ internal sealed partial class ExpressionEvaluator(
         foreach (Expression itemExpr in inl.Items)
         {
             if (Evaluate(itemExpr) is not { } item) hasNull = true;
-            else if (CompareAsKinds(val, item) == 0) { found = true; break; }
+            else if (CompareAsKinds(inl.Value, val, itemExpr, item) == 0) { found = true; break; }
         }
         return !found && hasNull ? null : found != inl.Negated;
     }
@@ -165,7 +165,7 @@ internal sealed partial class ExpressionEvaluator(
         object? val = Evaluate(be.Value), low = Evaluate(be.Low), high = Evaluate(be.High);
         if (val is null || low is null || high is null) return null;
 
-        int toLow = CompareAsKinds(val, low), toHigh = CompareAsKinds(val, high);
+        int toLow = CompareAsKinds(be.Value, val, be.Low, low), toHigh = CompareAsKinds(be.Value, val, be.High, high);
         bool inside = (toLow >= 0 && toHigh <= 0) || (toLow <= 0 && toHigh >= 0);
         return inside != be.Negated;
     }
@@ -2067,12 +2067,12 @@ internal sealed partial class ExpressionEvaluator(
 
         return b.Operator switch
         {
-            BinaryOperator.Equal => CompareAsKinds(left, right) == 0,
-            BinaryOperator.NotEqual => CompareAsKinds(left, right) != 0,
-            BinaryOperator.LessThan => CompareAsKinds(left, right) < 0,
-            BinaryOperator.LessThanOrEqual => CompareAsKinds(left, right) <= 0,
-            BinaryOperator.GreaterThan => CompareAsKinds(left, right) > 0,
-            BinaryOperator.GreaterThanOrEqual => CompareAsKinds(left, right) >= 0,
+            BinaryOperator.Equal => CompareAsKinds(b.Left, left, b.Right, right) == 0,
+            BinaryOperator.NotEqual => CompareAsKinds(b.Left, left, b.Right, right) != 0,
+            BinaryOperator.LessThan => CompareAsKinds(b.Left, left, b.Right, right) < 0,
+            BinaryOperator.LessThanOrEqual => CompareAsKinds(b.Left, left, b.Right, right) <= 0,
+            BinaryOperator.GreaterThan => CompareAsKinds(b.Left, left, b.Right, right) > 0,
+            BinaryOperator.GreaterThanOrEqual => CompareAsKinds(b.Left, left, b.Right, right) >= 0,
             // LIKE reads any other value as the text CStr gives it (verified vs ACE: TRUE LIKE '-1' is True). A binary
             // value becomes text too, so LIKE is case-insensitive over a binary column even though '=' on the same
             // column is byte-wise: `B LIKE 'A%'` matches both 0x4100 ('A') and 0x6100 ('a').
@@ -2272,9 +2272,13 @@ internal sealed partial class ExpressionEvaluator(
         return (leftText ? TextAsNumber((string)left) : Serial(left), rightText ? TextAsNumber((string)right) : Serial(right));
     }
 
-    /// <summary>The order of two values once <see cref="Comparable"/> has brought them to a common kind.</summary>
-    private static int CompareAsKinds(object left, object right)
+    /// <summary>The order of two values once <see cref="Comparable"/> has brought them to a common kind. A parameter
+    /// compared with text takes the text's type (verified vs ACE: a numeric parameter against a text column compares
+    /// as text, so <c>[S] &gt; ?</c> with 100 counts 'abc' and '11').</summary>
+    private static int CompareAsKinds(Expression leftOperand, object left, Expression rightOperand, object right)
     {
+        if (leftOperand is ParameterExpression && right is string && left is not string) left = ConcatText(left);
+        if (rightOperand is ParameterExpression && left is string && right is not string) right = ConcatText(right);
         (object l, object r) = Comparable(left, right);
         return Compare(l, r);
     }

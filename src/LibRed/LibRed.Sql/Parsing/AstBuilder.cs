@@ -1316,7 +1316,7 @@ internal static class AstBuilder
         HexLiteralContext h => new LiteralExpression(ParseHexBytes(h.GetText())),
         StringLiteralContext s => new LiteralExpression(Unquote(s.GetText())),
         DateLiteralContext d => new LiteralExpression(ParseDate(d.GetText())),
-        GuidLiteralContext g => new LiteralExpression(Guid.Parse(g.GetText())), // Access {…} braces; Guid.Parse accepts them
+        GuidLiteralContext g => new LiteralExpression(ParseGuid(g.GetText())),
         TrueLiteralContext => new LiteralExpression(true),
         FalseLiteralContext => new LiteralExpression(false),
         NullLiteralContext => new LiteralExpression(null),
@@ -1357,6 +1357,9 @@ internal static class AstBuilder
         // conditional's type as `long` and silently widen the int branch, so every literal
         // (even `1`) would arrive as a boxed long.
         int.TryParse(text, out int i) ? i : (object)long.Parse(text, CultureInfo.InvariantCulture);
+
+    /// <summary>A GUID literal, <c>{…}</c> or ACE's <c>{guid {…}}</c>: the GUID is the innermost braced part.</summary>
+    private static Guid ParseGuid(string text) => Guid.Parse(text[text.LastIndexOf('{')..(text.IndexOf('}') + 1)]);
 
     /// <summary>A raw binary literal (<c>0x…</c>) → the decoded bytes. Access writes OLE / Long Binary values
     /// this way (e.g. a Categories.Picture bitmap). An odd digit count is a malformed literal and throws.</summary>

@@ -274,7 +274,7 @@ public static class JetTypeCodec
                 {
                     Guid g => g,
                     byte[] b when b.Length == 16 => new Guid(b),
-                    string s when Guid.TryParse(s, out Guid parsed) => parsed,
+                    string s when TryParseGuid(s, out Guid parsed) => parsed,
                     _ => throw new NotSupportedException(
                         $"Cannot store {value.GetType().Name} in GUID column '{column.Name}'."),
                 }).ToByteArray();
@@ -527,5 +527,15 @@ public static class JetTypeCodec
         BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(9, 4), (uint)bits[1]);
         BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(13, 4), (uint)bits[0]);
         return result;
+    }
+
+    /// <summary>Text read as a GUID: the forms <see cref="Guid.TryParse(string?, out Guid)"/> reads, and ACE's
+    /// <c>{guid {…}}</c> (verified vs ACE: it inserts '{guid {…}}' into a GUID column). The key encoder reads a GUID
+    /// the same way, so a row and its index key always come from one parse.</summary>
+    internal static bool TryParseGuid(string text, out Guid guid)
+    {
+        string s = text.Trim();
+        if (s.StartsWith("{guid", StringComparison.OrdinalIgnoreCase) && s.EndsWith('}')) s = s[5..^1].Trim();
+        return Guid.TryParse(s, out guid);
     }
 }

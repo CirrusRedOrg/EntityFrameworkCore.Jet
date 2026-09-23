@@ -139,6 +139,7 @@ public static class IndexKeyEncoder
                 {
                     Guid g => g,
                     byte[] b when b.Length == 16 => new Guid(b),
+                    string text when JetTypeCodec.TryParseGuid(text, out Guid parsed) => parsed,
                     _ => throw new NotSupportedException($"Cannot encode GUID index key from {value.GetType().Name}."),
                 };
                 byte[] s = Convert.FromHexString(guid.ToString("N")); // 16 bytes, canonical string order

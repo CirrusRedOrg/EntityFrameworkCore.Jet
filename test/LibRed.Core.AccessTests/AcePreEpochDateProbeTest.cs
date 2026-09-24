@@ -1,5 +1,6 @@
 using System.Data.OleDb;
 using System.Globalization;
+using LibRed.Catalog;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -123,6 +124,82 @@ public class AcePreEpochDateRegressionTests(ITestOutputHelper output)
             // would order these correctly — a parity gap, in the direction of being right.
             Assert.Equal((short)0, Scalar(conn, "SELECT (#12/29/1899 06:00:00# < #12/29/1899 18:00:00#) FROM `P`"));
             Assert.Equal("1,3,2,4,5,6", order);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // Below 100-01-01 an OA DATE still has a representation — the serial just keeps falling — but .NET's
+    // ToOADate refuses it, except DateTime.MinValue, which it maps to 0.0: the epoch. What ACE does at that
+    // edge decides whether LibRed should store such a date or refuse it. Asked through ACE's own SQL: the
+    // managed OLE DB provider converts a DateTime parameter with that same ToOADate before ACE sees it.
+    [Fact]
+    public void Ace_dates_before_the_year_100()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "acey100-");
+        try
+        {
+            using var conn = OpenOleDb(path);
+            Exec(conn, "CREATE TABLE `Y` (`Id` INT, `D` DATETIME)");
+
+            void Insert(string label, int id, string value)
+            {
+                string outcome;
+                try
+                {
+                    Exec(conn, $"INSERT INTO `Y` (`Id`, `D`) VALUES ({id}, {value})");
+                    outcome = $"serial {Describe(Scalar(conn, $"SELECT CDbl(`D`) FROM `Y` WHERE `Id` = {id}"))}, "
+                              + $"text {Describe(Scalar(conn, $"SELECT CStr(`D`) FROM `Y` WHERE `Id` = {id}"))}";
+                }
+                catch (OleDbException ex) { outcome = $"<ACE error: {ex.Message.Trim()}>"; }
+                output.WriteLine($"{label,-30} {outcome}");
+            }
+
+            Insert("#0100-01-01#", 1, "#0100-01-01#");
+            Insert("CDate(-657434) [100-01-01]", 2, "CDate(-657434)");
+            Insert("CDate(-657435) [one before]", 3, "CDate(-657435)");
+            Insert("-700000 (a number)", 6, "-700000");
+
+            // Verdict (observed 2026-09-23, ACE OLE DB). 100-01-01, serial -657434, is the floor: it stores
+            // either way it is written, and one day below it is refused, as is any serial further down.
+            Assert.Equal(-657434d, Scalar(conn, "SELECT CDbl(`D`) FROM `Y` WHERE `Id` = 1"));
+            Assert.Equal(-657434d, Scalar(conn, "SELECT CDbl(`D`) FROM `Y` WHERE `Id` = 2"));
+            Assert.Null(Scalar(conn, "SELECT `Id` FROM `Y` WHERE `Id` = 3"));
+            Assert.Null(Scalar(conn, "SELECT `Id` FROM `Y` WHERE `Id` = 6"));
+            // Not asked through a literal: a year under 100 there is read as a two-digit year and placed by the
+            // machine's calendar window, so which date it names depends on the computer, not on ACE.
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // LibRed at the same floor: 0100-01-01 is stored at the serial ACE gives it, and anything earlier is refused
+    // with the column named — DateTime.MinValue included, which would otherwise be stored as the epoch.
+    [Fact]
+    public void Libred_refuses_a_date_before_the_year_100_as_ace_does()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libredy100-");
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("Y",
+                    [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                     new ColumnSpec("D", JetDataType.DateTime, 8, IsFixedLength: true)],
+                    primaryKey: ["Id"]);
+                db.CreateIndex("Y", "IX_D", [("D", false)]);
+                var table = db.OpenTable("Y");
+                table.Insert([1, new DateTime(100, 1, 1)]);
+
+                foreach (DateTime early in new[] { new DateTime(99, 12, 31), DateTime.MinValue })
+                {
+                    var error = Assert.Throws<InvalidOperationException>(() => table.Insert([2, early]));
+                    output.WriteLine(error.Message);
+                    Assert.Contains("'D'", error.Message);
+                }
+            }
+
+            using var conn = OpenOleDb(path);
+            Assert.Equal(1, Scalar(conn, "SELECT COUNT(*) FROM `Y`"));
+            Assert.Equal(-657434d, Scalar(conn, "SELECT CDbl(`D`) FROM `Y` WHERE `Id` = 1"));
         }
         finally { TemporaryDatabase.Delete(path); }
     }

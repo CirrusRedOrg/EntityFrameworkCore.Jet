@@ -38,7 +38,7 @@ public sealed class MonitorLockManager : ILockManager, IDisposable
     private static readonly Dictionary<string, (MonitorLockManager Manager, int RefCount)> Registry =
         [with(StringComparer.Ordinal)];
 
-    private static string Key(string path) => Path.GetFullPath(path).ToLowerInvariant();
+    private static string Key(string path) => FileIdentity.Key(path);
 
 
     /// <summary>The shared manager for a file path (creating it on first use); each call must be paired with a

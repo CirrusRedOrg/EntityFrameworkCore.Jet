@@ -63,4 +63,54 @@ public class IndexSplitAccessTests
         }
         finally { TemporaryDatabase.Delete(path); }
     }
+
+    // A root split rewrites the TDEF's root pointer, and every other open handle has to see it. A catalog
+    // loaded before the split keeps the old root — by then only the leftmost leaf — so an insert through it
+    // descends into the wrong leaf. With that leaf full, as a sequential load leaves it, the insert splits it
+    // as though it were still the root and writes a new root over the real one, cutting every key right of
+    // that leaf out of the index: ACE's seeks for them miss. EF keeps several connections open, so this is an
+    // ordinary shape.
+    [Fact]
+    public void Access_seeks_a_row_another_handle_inserted_after_a_root_split()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-splitstale-");
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("Big",
+                    [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                     new ColumnSpec("T", JetDataType.Text, 20, IsFixedLength: false)],
+                    primaryKey: ["Id"]);
+                db.OpenTable("Big").Insert([1, "r1"]);
+            }
+
+            using (var splitter = JetDatabase.Open(path, readOnly: false))
+            using (var stale = JetDatabase.Open(path, readOnly: false))
+            {
+                stale.OpenTable("Big");                          // its catalog loads while the root is one leaf
+                var t = splitter.OpenTable("Big");
+                for (int i = 2; i <= N; i++) t.Insert([i, $"r{i}"]);   // the root splits
+                stale.OpenTable("Big").Insert([5000, "r5000"]);
+            }
+
+            using var conn = OpenOleDb(path);
+            // Seeks across the whole tree, left leaf to the stale handle's row, and a range the index answers.
+            foreach (int id in new[] { 1, 400, 512, 1000, N, 5000 })
+            {
+                using var seek = conn.CreateCommand();
+                seek.CommandText = $"SELECT T FROM Big WHERE Id = {id}";
+                Assert.Equal($"r{id}", seek.ExecuteScalar());
+            }
+            using (var range = conn.CreateCommand())
+            {
+                range.CommandText = "SELECT COUNT(*) FROM Big WHERE Id BETWEEN 1 AND 5000";
+                Assert.Equal(N + 1, Convert.ToInt32(range.ExecuteScalar()));
+            }
+            using var duplicate = conn.CreateCommand();
+            duplicate.CommandText = "INSERT INTO Big (Id, T) VALUES (5000, 'again')";
+            Assert.ThrowsAny<OleDbException>(() => duplicate.ExecuteNonQuery());
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
 }

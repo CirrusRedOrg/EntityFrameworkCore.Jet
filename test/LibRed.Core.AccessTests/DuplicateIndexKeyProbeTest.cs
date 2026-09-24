@@ -63,6 +63,59 @@ public class DuplicateIndexKeyProbeTest(ITestOutputHelper output)
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // The same leaves, written back: a delete rewrites the leaf at the prefix length ACE stored, and that
+    // length reaches past the key into the row pointer.
+    [Theory]
+    [InlineData(500)]
+    [InlineData(2000)]
+    public void Deleting_a_row_from_a_leaf_ace_compressed_into_the_row_pointer(int rows)
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, $"dupkey-delete-{rows}-");
+        try
+        {
+            using (var connection = AceTestDatabase.Open(path))
+            {
+                Exec(connection, "CREATE TABLE Dup (K TEXT(50), V LONG)");
+                Exec(connection, "CREATE INDEX IX_Dup ON Dup (K)");
+                for (int i = 0; i < rows; i++)
+                {
+                    using var insert = connection.CreateCommand();
+                    insert.CommandText = "INSERT INTO Dup (K, V) VALUES (?, ?)";
+                    insert.Parameters.AddWithValue("k", "same");
+                    insert.Parameters.AddWithValue("v", i);
+                    insert.ExecuteNonQuery();
+                }
+            }
+
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                var table = db.OpenTable("Dup");
+                IndexDef index = table.Definition.Indexes.Single(i => i.Name == "IX_Dup");
+                int keyIndex = table.Definition.FindColumn("K")!.Index;
+                int valueIndex = table.Definition.FindColumn("V")!.Index;
+                var key = new object?[table.Definition.Columns.Count];
+                key[keyIndex] = "same";
+                (RowId id, object?[] values) = table.SeekRowsWithIds(index, key)
+                    .First(r => Convert.ToInt32(r.Values[valueIndex]) == rows / 2);
+                table.RemoveIndexEntry(index, values, id);
+                table.Delete(id);
+            }
+
+            using (var connection = AceTestDatabase.Open(path))
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT COUNT(*) FROM Dup WHERE K = 'same'";
+                Assert.Equal(rows - 1, Convert.ToInt32(command.ExecuteScalar()));
+            }
+
+            using var reopened = JetDatabase.Open(path);
+            var reread = reopened.OpenTable("Dup");
+            IndexDef rereadIndex = reread.Definition.Indexes.Single(i => i.Name == "IX_Dup");
+            Assert.Equal(rows - 1, new IndexCursor(reread.Channel, rereadIndex.RootPage).RawEntries().Count());
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     // Dumps the raw bytes of the index root once duplicates have forced a second level, because the entry
     // layout has to be read off the page rather than reasoned about: under the model LibRed implements —
     // key suffix followed by a 4-byte trailer — a 2-byte entry cannot exist, yet ACE wrote one.

@@ -59,9 +59,8 @@ public static class RecordLayout
         }
         if (lengthBytes > MaxFieldBytes)
             throw new NotSupportedException(
-                $"Column '{columnName}' is declared {lengthBytes} bytes wide; Jet/ACE stores at most {MaxFieldBytes} "
-                + $"per field ({MaxFieldBytes / 2} Text characters). Use Memo or OLE for anything longer — a wider "
-                + "column leaves a table Access cannot query.");
+                $"Column '{columnName}' is declared {lengthBytes} bytes wide; a column holds at most {MaxFieldBytes} "
+                + $"bytes ({MaxFieldBytes / 2} Text characters). Use Memo or OLE for anything longer.");
     }
 
     /// <summary>The largest record the declaration can produce: the row header, the fixed region, the
@@ -87,8 +86,7 @@ public static class RecordLayout
             throw new NotSupportedException(
                 $"{(tableName is null ? "The table" : $"Table '{tableName}'")} declares {fixedBytes} bytes of "
                 + $"fixed-length columns over {columnCount} column ids, so its widest record would be {widest} "
-                + $"bytes and Jet/ACE stores at most {format.MaxRecordSize}. Access cannot open a database "
-                + "containing such a table at all. Make the wide columns variable-length, or move them to "
-                + "Memo/OLE, which live on their own pages.");
+                + $"bytes; a record holds at most {format.MaxRecordSize}. Make the wide columns variable-length, "
+                + "or move them to Memo/OLE, which live on their own pages.");
     }
 }

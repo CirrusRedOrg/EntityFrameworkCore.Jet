@@ -149,7 +149,7 @@ public static class TdefBuilder
         // and relationships (§3.5 index-data blocks, the 0x33 count). Reject rather than write a bad TDEF.
         if (indexes.Count > MaxIndexesPerTable)
             throw new NotSupportedException(
-                $"Table has {indexes.Count} indexes; Jet/ACE allows at most {MaxIndexesPerTable} per table (including those backing keys and relationships).");
+                $"Table has {indexes.Count} indexes; a table can have at most {MaxIndexesPerTable} (including those backing keys and relationships).");
         var columns = ResolveColumns(format, specs, collation ?? Collation.GeneralLegacy);
         IReadOnlyList<LogicalIndexSpec> logical = logicalIndexes ?? indexes.Select((ix, i) => new LogicalIndexSpec(
             Number: i, DataOrdinal: i, FkType: 0, FkNumber: IndexBlockFormat.NoForeignKey, FkTablePage: 0,
@@ -247,7 +247,7 @@ public static class TdefBuilder
 
         if (spec.Precision > Storage.Types.JetTypeCodec.MaxNumericPrecision)
             throw new NotSupportedException(
-                $"Column '{spec.Name}' declares NUMERIC precision {spec.Precision}; Jet/ACE allows at most "
+                $"Column '{spec.Name}' declares NUMERIC precision {spec.Precision}; the maximum precision is "
                 + $"{Storage.Types.JetTypeCodec.MaxNumericPrecision}.");
 
         if (spec.Scale > spec.Precision)
@@ -261,7 +261,7 @@ public static class TdefBuilder
     {
         if (specs.Count > MaxColumnsPerTable)
             throw new NotSupportedException(
-                $"Table has {specs.Count} columns; Jet/ACE allows at most {MaxColumnsPerTable} per table.");
+                $"Table has {specs.Count} columns; a table can have at most {MaxColumnsPerTable}.");
 
         var ids = new HashSet<int>();
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -279,7 +279,7 @@ public static class TdefBuilder
             int id = spec.ColumnId ?? i;
             if (id is < 0 or >= MaxColumnsPerTable)
                 throw new NotSupportedException(
-                    $"Column '{spec.Name}' has id {id}; Jet/ACE column ids range from 0 through {MaxColumnsPerTable - 1}.");
+                    $"Column '{spec.Name}' has id {id}; column ids range from 0 through {MaxColumnsPerTable - 1}.");
             if (!ids.Add(id))
                 throw new NotSupportedException($"Column id {id} is used more than once.");
             if (spec.Length is < 0 or > ushort.MaxValue)
@@ -309,7 +309,7 @@ public static class TdefBuilder
     {
         if (logical.Count > MaxIndexesPerTable)
             throw new NotSupportedException(
-                $"Table has {logical.Count} logical indexes; Jet/ACE allows at most {MaxIndexesPerTable}.");
+                $"Table has {logical.Count} logical indexes; a table can have at most {MaxIndexesPerTable}.");
 
         var columnByName = columns.ToDictionary(c => c.Name, StringComparer.OrdinalIgnoreCase);
         foreach (IndexSpec index in indexes)
@@ -317,7 +317,7 @@ public static class TdefBuilder
             ValidateNameLength(index.Name, "Index");
             if (index.Columns.Count > IndexBlockFormat.MaxColumns)
                 throw new NotSupportedException(
-                    $"Index '{index.Name}' spans {index.Columns.Count} columns; Jet/ACE allows {IndexBlockFormat.MaxColumns}.");
+                    $"Index '{index.Name}' spans {index.Columns.Count} columns; an index can span at most {IndexBlockFormat.MaxColumns}.");
             foreach (string column in index.Columns)
                 if (!columnByName.ContainsKey(column))
                     throw new NotSupportedException($"Index '{index.Name}' refers to unknown column '{column}'.");
@@ -366,7 +366,7 @@ public static class TdefBuilder
         int length = Encoding.Unicode.GetByteCount(name);
         if (length is 0 or > MaxNameBytes)
             throw new NotSupportedException(
-                $"{kind} name is {length} UTF-16 bytes; Jet/ACE names must use 1 through {MaxNameBytes / 2} characters.");
+                $"{kind} name is {length} UTF-16 bytes; a name must be 1 through {MaxNameBytes / 2} characters.");
     }
 
     private static int DefinitionSize(
@@ -402,7 +402,7 @@ public static class TdefBuilder
         foreach (IndexSpec ix in indexes)
             if (ix.Columns.Count > IndexBlockFormat.MaxColumns)
                 throw new NotSupportedException(
-                    $"Index '{ix.Name}' spans {ix.Columns.Count} columns; Jet/ACE indexes (and the keys built on them) are limited to {IndexBlockFormat.MaxColumns}.");
+                    $"Index '{ix.Name}' spans {ix.Columns.Count} columns; an index, and a key built on one, can span at most {IndexBlockFormat.MaxColumns}.");
 
         // 1. Index-data blocks: columns, root page, unique flag.
         for (int i = 0; i < indexes.Count; i++)

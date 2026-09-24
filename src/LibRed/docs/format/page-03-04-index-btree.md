@@ -21,6 +21,12 @@
 | `0x1B` | … | Entry-position bitmask. mdbtools **version-labels** this: bitmask at `0x16` (Jet3) / **`0x1B` (Jet4)**. The `+5` Jet3→Jet4 shift is **fully decomposed**: a **4-byte field inserted at `0x08`** (right after the owner) plus the **1-byte B-tree level at `0x1A`** = `+5`. Everything between is Jet3's field shifted by 4 (Jet3 → Jet4): prev `0x08`→`0x0C`, next `0x0C`→`0x10`, child-tail `0x10`→`0x14`, compressed count `0x14`→`0x18`, and the mask `0x16`→`0x1B`, the level accounting for its extra `+1`. No unexplained bytes remain in this header. (The Jet4 *positions* are ACE-verified; that these are exactly the bytes Jet3 lacks is not yet confirmed against a real Jet3 index page.) |
 | `0x1E0` | — | Start of entry data |
 
+> **"Lower-key" and "higher-key" above mean the stored key bytes, not the column value.** A descending key
+> is the ascending key with every byte inverted (§10.4), so a DESC index's chain runs from the greatest
+> value at the leftmost leaf to the least at the rightmost, and a range stated in values enters the tree at
+> its **upper** bound. Entering at the lower bound instead lands past the range's entries, which are all
+> behind it in the chain.
+
 ### 10.2 Entries
 
 The entry bitmask (`0x1B` up to `0x1E0`) is a bitmap whose set bits, read in order, give the
@@ -140,7 +146,7 @@ Access satisfies an indexed primary-key seek over the entry LibRed wrote.
 > throws on anything it has no table for instead of emitting General bytes. That matters more than it
 > sounds: a wrong key does not fail, it silently disagrees with ACE's.
 
-Non-boolean columns are prefixed by a **flag byte**:
+Every column — Yes/No included — is prefixed by a **flag byte**:
 
 | | Ascending | Descending |
 | --- | --- | --- |
@@ -161,12 +167,16 @@ Then the value, transformed:
   stores; §5). A non-negative value uses sign `0xFF`; a **negative value is the bitwise complement
   of the whole 17-byte positive form** (sign becomes `0x00`, magnitude one's-complemented). Byte
   order therefore equals numeric order: negatives (`0x00`) precede non-negatives (`0xFF`), and
-  complementing makes a larger magnitude sort earlier among the negatives. **Zero encodes as
-  positive.** Descending inverts all bytes as usual. Verified byte-for-byte vs ACE, ascending and
-  descending; e.g. at scale 4, `1.0` → `7F FF 00…002710` (10000) and
+  complementing makes a larger magnitude sort earlier among the negatives. Zero encodes as positive,
+  **except a negative zero**: a value too small for the scale (`-0.00001` in `DECIMAL(18,4)`) truncates to
+  magnitude 0 and ACE keeps its sign, in the row (sign byte `0x80`, §5) and in the key (`7F 00 FF…FF`)
+  (verified). ACE's own `= 0` and `< 0` both exclude that row. Descending inverts all bytes as usual.
+  Verified byte-for-byte vs ACE, ascending and descending; e.g. at scale 4, `1.0` → `7F FF 00…002710` (10000) and
   `-1.0` → `7F 00 FF…FFD8EF` (`~10000`).
-- **Boolean:** no flag byte — a single constant: ascending `0x00` = true, `0xFF` = false
-  (true sorts first).
+- **Boolean (Yes/No):** the flag byte, then one byte: ascending `7F 00` = true, `7F FF` = false (true
+  sorts first); descending inverts both, `80 FF` = true, `80 00` = false (verified vs ACE, byte for byte in
+  both directions). The value is Access truthiness: `-1`, `1` and `7` all key as true. A Yes/No column
+  cannot be null, so the null flag does not occur.
 - **Memo (Long Text)** is **indexable** in Access (`CREATE INDEX` on a memo column succeeds — only
   `OLE Object` and BigBinary are rejected, *"Invalid field definition … in definition of index or
   relationship"*). ACE refuses an OLE column on **every** route into an index: `CREATE INDEX`, a
@@ -839,6 +849,13 @@ make a delete byte-identical to ACE's:
   fills": a delete never fills a page, so a delete never re-compresses. Measured: recomputing shortens a
   two-entry leaf's live region by 4 bytes against ACE's on every leaf a cascading delete touches.
 - **Bytes past the new free-space boundary keep their previous contents** (§10.4c).
+
+Keeping the stored count means the rewrite has to re-store the survivors at a prefix it did not choose, and
+that prefix may reach past the key into the row pointer (§10.3). Each survivor is therefore stored as the
+tail of the **whole** entry, `key ++ trailer` — the same concatenation the read side reconstructs — and a
+stored entry can again be shorter than four bytes. Taking the tail of the key alone is not merely a different
+packing: where the prefix is longer than the key, there are no key bytes left to take. Verified on a leaf of
+equal keys stored at prefix 9 over a 7-byte key: the rewritten page reads back complete, in ACE and here.
 
 Both engines then agree byte for byte. Verified by deleting the same row through DAO and through LibRed on
 two separate copies and diffing whole files: an ordinary table (`[Order Details]`, 5 pages touched) and a

@@ -262,7 +262,7 @@ public static class JetTypeCodec
             case JetDataType.Double:
                 return Bytes(8, b => BinaryPrimitives.WriteDoubleLittleEndian(b, Convert.ToDouble(value, c)));
             case JetDataType.DateTime:
-                return Bytes(8, b => BinaryPrimitives.WriteDoubleLittleEndian(b, ToOaDate(value, c)));
+                return Bytes(8, b => BinaryPrimitives.WriteDoubleLittleEndian(b, ToOaDate(column, value, c)));
             case JetDataType.DateTimeExtended: // ACE 17 DATETIME2
                 return EncodeExtendedDateTime(Convert.ToDateTime(value, c));
             case JetDataType.Currency:
@@ -468,15 +468,30 @@ public static class JetTypeCodec
     /// column. Jet has no dedicated TimeSpan/DateOnly/TimeOnly type, so — like EFCore.Jet — a
     /// <see cref="TimeSpan"/> and <see cref="TimeOnly"/> are stored as an offset from the epoch, and a
     /// <see cref="DateOnly"/> as that date at midnight.
+    /// <para>ACE stores nothing before 100-01-01 (serial -657434) and refuses a date or serial below it
+    /// (verified). .NET's <c>ToOADate</c> would instead throw for such a date without naming the column — or,
+    /// for <see cref="DateTime.MinValue"/>, return 0.0 and store the epoch — so the floor is checked here. The
+    /// index key encodes through this too, so a key can never name a date its row could not hold.</para>
     /// </summary>
-    private static double ToOaDate(object value, IFormatProvider c) => value switch
+    internal static double ToOaDate(ColumnDef column, object value, IFormatProvider c)
     {
-        DateTime dt => dt.ToOADate(),
-        TimeSpan ts => (OleEpoch + ts).ToOADate(),
-        DateOnly d => d.ToDateTime(TimeOnly.MinValue).ToOADate(),
-        TimeOnly t => (OleEpoch + t.ToTimeSpan()).ToOADate(),
-        _ => Convert.ToDateTime(value, c).ToOADate(),
-    };
+        DateTime date = value switch
+        {
+            DateTime dt => dt,
+            TimeSpan ts => OleEpoch + ts,
+            DateOnly d => d.ToDateTime(TimeOnly.MinValue),
+            TimeOnly t => OleEpoch + t.ToTimeSpan(),
+            _ => Convert.ToDateTime(value, c),
+        };
+        if (date < MinOaDate)
+            throw new InvalidOperationException(
+                $"Date {date:yyyy-MM-dd} is out of range for column '{column.Name}': "
+                + "the earliest date is 0100-01-01.");
+        return date.ToOADate();
+    }
+
+    /// <summary>The earliest date ACE stores: 0100-01-01, serial -657434.</summary>
+    private static readonly DateTime MinOaDate = new(100, 1, 1);
 
     /// <summary>
     /// Builds an <b>inline</b> long-value (memo/OLE) in-row value: a 12-byte descriptor
@@ -510,7 +525,7 @@ public static class JetTypeCodec
             throw new InvalidOperationException(
                 $"Value {value} does not fit column '{column.Name}', declared "
                 + $"DECIMAL({column.Precision},{column.Scale}): it holds at most {column.Precision - scale} "
-                + $"digits before the decimal point. Access refuses such a value rather than storing it.");
+                + "digits before the decimal point.");
 
         decimal factor = 1m;
         for (int i = 0; i < scale; i++) factor *= 10m;
@@ -523,7 +538,8 @@ public static class JetTypeCodec
 
         int[] bits = decimal.GetBits(magnitude); // [lo, mid, hi, flags]; magnitude has scale 0
         var result = new byte[17];
-        result[0] = (byte)(value < 0 ? 0x80 : 0x00);
+        // IsNegative, not < 0: a negative zero read back from ACE's row (-0.0000m) has to be written back as one.
+        result[0] = (byte)(decimal.IsNegative(value) ? 0x80 : 0x00);
         // bytes[1..5) top word = 0; hi at 5, mid at 9, lo at 13 (see DecodeNumeric).
         BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(5, 4), (uint)bits[2]);
         BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(9, 4), (uint)bits[1]);

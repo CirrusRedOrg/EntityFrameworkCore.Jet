@@ -19,6 +19,11 @@ public class DatabaseEncryptionTests
         return p;
     }
 
+    /// <summary>Opens the database the way every encryption operation requires — writable and exclusive, under
+    /// the password it currently carries. A wrong password is rejected here rather than by the operation.</summary>
+    private static JetDatabase OpenExclusive(string path, string? password = null) =>
+        JetDatabase.Open(path, readOnly: false, password: password, exclusive: true);
+
     private static int TableRows(string path, string? password)
     {
         using var db = JetDatabase.Open(path, readOnly: true, password: password);
@@ -36,14 +41,16 @@ public class DatabaseEncryptionTests
         {
             int rows = TableRows(path, null); // readable plaintext to start
 
-            DatabaseEncryption.SetPassword(path, "S3cret!", scheme);
+            using (JetDatabase db = OpenExclusive(path))
+                DatabaseEncryption.SetPassword(db, "S3cret!", scheme);
 
             Assert.Equal(rows, TableRows(path, "S3cret!"));                              // opens with password
             var missing = Assert.Throws<InvalidOperationException>(() => TableRows(path, null));
             Assert.Contains("password is required", missing.Message, StringComparison.OrdinalIgnoreCase);
             Assert.Throws<UnauthorizedAccessException>(() => TableRows(path, "wrong"));  // rejects wrong one
 
-            DatabaseEncryption.RemovePassword(path, "S3cret!");
+            using (JetDatabase db = OpenExclusive(path, "S3cret!"))
+                DatabaseEncryption.RemovePassword(db);
             Assert.Equal(rows, TableRows(path, null));                                   // plaintext again
         }
         finally { TemporaryDatabase.Delete(path); }
@@ -63,13 +70,15 @@ public class DatabaseEncryptionTests
         try
         {
             int rows = TableRows(path, null);
-            DatabaseEncryption.SetPasswordRc4(path, "S3cret!", keyBits, hash);
+            using (JetDatabase db = OpenExclusive(path))
+                DatabaseEncryption.SetPasswordRc4(db, "S3cret!", keyBits, hash);
 
             Assert.Equal(rows, TableRows(path, "S3cret!"));                              // opens with password
             var missing = Assert.Throws<InvalidOperationException>(() => TableRows(path, null));
             Assert.Contains("password is required", missing.Message, StringComparison.OrdinalIgnoreCase);
 
-            DatabaseEncryption.RemovePassword(path, "S3cret!");
+            using (JetDatabase db = OpenExclusive(path, "S3cret!"))
+                DatabaseEncryption.RemovePassword(db);
             Assert.Equal(rows, TableRows(path, null));                                   // plaintext again
         }
         finally { TemporaryDatabase.Delete(path); }
@@ -82,7 +91,11 @@ public class DatabaseEncryptionTests
     public void SetPasswordRc4_rejects_invalid_key_length(int keyBits)
     {
         string path = Copy();
-        try { Assert.Throws<ArgumentOutOfRangeException>(() => DatabaseEncryption.SetPasswordRc4(path, "pw", keyBits)); }
+        try
+        {
+            using JetDatabase db = OpenExclusive(path);
+            Assert.Throws<ArgumentOutOfRangeException>(() => DatabaseEncryption.SetPasswordRc4(db, "pw", keyBits));
+        }
         finally { TemporaryDatabase.Delete(path); }
     }
 
@@ -93,8 +106,10 @@ public class DatabaseEncryptionTests
         try
         {
             int rows = TableRows(path, null);
-            DatabaseEncryption.SetPassword(path, "old-pass", AccessEncryption.OfficeStandardAes);
-            DatabaseEncryption.ChangePassword(path, "old-pass", "new-pass", AccessEncryption.OfficeStandardRc4);
+            using (JetDatabase db = OpenExclusive(path))
+                DatabaseEncryption.SetPassword(db, "old-pass", AccessEncryption.OfficeStandardAes);
+            using (JetDatabase db = OpenExclusive(path, "old-pass"))
+                DatabaseEncryption.ChangePassword(db, "new-pass", AccessEncryption.OfficeStandardRc4);
 
             Assert.Equal(rows, TableRows(path, "new-pass"));                             // new password works
             Assert.Throws<UnauthorizedAccessException>(() => TableRows(path, "old-pass")); // old one doesn't
@@ -111,8 +126,10 @@ public class DatabaseEncryptionTests
         try
         {
             int rows = TableRows(path, null);
-            DatabaseEncryption.SetPasswordRc4(path, "old-pass", 40, StandardHash.Sha1);
-            DatabaseEncryption.ChangePasswordRc4(path, "old-pass", "new-pass", 128, StandardHash.Sha512);
+            using (JetDatabase db = OpenExclusive(path))
+                DatabaseEncryption.SetPasswordRc4(db, "old-pass", 40, StandardHash.Sha1);
+            using (JetDatabase db = OpenExclusive(path, "old-pass"))
+                DatabaseEncryption.ChangePasswordRc4(db, "new-pass", 128, StandardHash.Sha512);
 
             Assert.Equal(rows, TableRows(path, "new-pass"));
             Assert.Throws<UnauthorizedAccessException>(() => TableRows(path, "old-pass"));
@@ -130,7 +147,8 @@ public class DatabaseEncryptionTests
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-ace-encrypted-");
         try
         {
-            DatabaseEncryption.SetPassword(path, password, scheme);
+            using (JetDatabase db = OpenExclusive(path))
+                DatabaseEncryption.SetPassword(db, password, scheme);
 
             using (var connection = OpenAce(path, password))
             {
@@ -144,8 +162,8 @@ public class DatabaseEncryptionTests
                 Assert.Equal(1, insert.ExecuteNonQuery());
             }
 
-            using var db = JetDatabase.Open(path, readOnly: true, password: password);
-            var shippers = db.OpenTable("Shippers");
+            using var reader = JetDatabase.Open(path, readOnly: true, password: password);
+            var shippers = reader.OpenTable("Shippers");
             int id = shippers.Definition.FindColumn("ShipperID")!.Index;
             int company = shippers.Definition.FindColumn("CompanyName")!.Index;
             Assert.Contains(shippers.Rows(), row =>
@@ -161,22 +179,22 @@ public class DatabaseEncryptionTests
         try
         {
             int rows = TableRows(path, null);
-            DatabaseEncryption.SetPassword(path, "old-pass", AccessEncryption.OfficeStandardAes);
+            using (JetDatabase db = OpenExclusive(path))
+                DatabaseEncryption.SetPassword(db, "old-pass", AccessEncryption.OfficeStandardAes);
 
-            Assert.Throws<ArgumentException>(() =>
-                DatabaseEncryption.ChangePassword(path, "old-pass", "", AccessEncryption.OfficeStandardRc4));
-            Assert.Equal(rows, TableRows(path, "old-pass"));
+            // One handle survives all four rejections: a rejected change never touches the database it holds.
+            using (JetDatabase db = OpenExclusive(path, "old-pass"))
+            {
+                Assert.Throws<ArgumentException>(() =>
+                    DatabaseEncryption.ChangePassword(db, "", AccessEncryption.OfficeStandardRc4));
+                Assert.Throws<ArgumentException>(() =>
+                    DatabaseEncryption.ChangePassword(db, "new-pass", AccessEncryption.None));
+                Assert.Throws<ArgumentOutOfRangeException>(() =>
+                    DatabaseEncryption.ChangePasswordRc4(db, "new-pass", 33));
+                Assert.Throws<ArgumentOutOfRangeException>(() =>
+                    DatabaseEncryption.ChangePasswordRc4(db, "new-pass", 40, (StandardHash)999));
+            }
 
-            Assert.Throws<ArgumentException>(() =>
-                DatabaseEncryption.ChangePassword(path, "old-pass", "new-pass", AccessEncryption.None));
-            Assert.Equal(rows, TableRows(path, "old-pass"));
-
-            Assert.Throws<ArgumentOutOfRangeException>(() =>
-                DatabaseEncryption.ChangePasswordRc4(path, "old-pass", "new-pass", 33));
-            Assert.Equal(rows, TableRows(path, "old-pass"));
-
-            Assert.Throws<ArgumentOutOfRangeException>(() =>
-                DatabaseEncryption.ChangePasswordRc4(path, "old-pass", "new-pass", 40, (StandardHash)999));
             Assert.Equal(rows, TableRows(path, "old-pass"));
         }
         finally { TemporaryDatabase.Delete(path); }
@@ -189,28 +207,45 @@ public class DatabaseEncryptionTests
         try
         {
             byte[] plaintext = File.ReadAllBytes(path);
-            Assert.Throws<ArgumentException>(() =>
-                DatabaseEncryption.SetPassword(path, "pw", AccessEncryption.None));
+            using (JetDatabase db = OpenExclusive(path))
+                Assert.Throws<ArgumentException>(() =>
+                    DatabaseEncryption.SetPassword(db, "pw", AccessEncryption.None));
             Assert.Equal(plaintext, File.ReadAllBytes(path));
 
-            DatabaseEncryption.SetPassword(path, "old-pass", AccessEncryption.OfficeStandardAes);
+            using (JetDatabase db = OpenExclusive(path))
+                DatabaseEncryption.SetPassword(db, "old-pass", AccessEncryption.OfficeStandardAes);
             byte[] encrypted = File.ReadAllBytes(path);
 
-            Assert.Throws<InvalidOperationException>(() =>
-                DatabaseEncryption.SetPassword(path, "other", AccessEncryption.OfficeStandardRc4));
+            using (JetDatabase db = OpenExclusive(path, "old-pass"))
+            {
+                Assert.Throws<InvalidOperationException>(() =>
+                    DatabaseEncryption.SetPassword(db, "other", AccessEncryption.OfficeStandardRc4));
+                Assert.Throws<ArgumentOutOfRangeException>(() =>
+                    DatabaseEncryption.ChangePasswordRc4(db, "new-pass", 40, (StandardHash)(-1)));
+            }
             Assert.Equal(encrypted, File.ReadAllBytes(path));
 
-            Assert.Throws<UnauthorizedAccessException>(() =>
-                DatabaseEncryption.RemovePassword(path, "wrong"));
+            // A wrong password no longer reaches an operation at all: it fails the open it would have to pass.
+            Assert.Throws<UnauthorizedAccessException>(() => OpenExclusive(path, "wrong"));
             Assert.Equal(encrypted, File.ReadAllBytes(path));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
 
-            Assert.Throws<UnauthorizedAccessException>(() =>
-                DatabaseEncryption.ChangePassword(path, "wrong", "new-pass", AccessEncryption.Agile));
-            Assert.Equal(encrypted, File.ReadAllBytes(path));
-
-            Assert.Throws<ArgumentOutOfRangeException>(() =>
-                DatabaseEncryption.ChangePasswordRc4(path, "old-pass", "new-pass", 40, (StandardHash)(-1)));
-            Assert.Equal(encrypted, File.ReadAllBytes(path));
+    [Fact]
+    public void A_shared_open_is_refused_and_the_database_is_left_alone()
+    {
+        string path = Copy();
+        try
+        {
+            byte[] plaintext = File.ReadAllBytes(path);
+            using (var shared = JetDatabase.Open(path, readOnly: false))
+            {
+                var refused = Assert.Throws<InvalidOperationException>(
+                    () => DatabaseEncryption.SetPassword(shared, "pw", AccessEncryption.Agile));
+                Assert.Contains("exclusively", refused.Message, StringComparison.Ordinal);
+            }
+            Assert.Equal(plaintext, File.ReadAllBytes(path));
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -225,7 +260,8 @@ public class DatabaseEncryptionTests
         string path = Copy();
         try
         {
-            DatabaseEncryption.SetPassword(path, "pw", AccessEncryption.OfficeStandardAes);
+            using (JetDatabase db = OpenExclusive(path))
+                DatabaseEncryption.SetPassword(db, "pw", AccessEncryption.OfficeStandardAes);
             byte[] malformed = File.ReadAllBytes(path);
             System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(
                 malformed.AsSpan(0x299, 2), checked((ushort)descriptorLength));
@@ -250,9 +286,12 @@ public class DatabaseEncryptionTests
         string path = Copy();
         try
         {
-            DatabaseEncryption.SetPassword(path, "pw", AccessEncryption.OfficeStandardAes);
+            using (JetDatabase db = OpenExclusive(path))
+                DatabaseEncryption.SetPassword(db, "pw", AccessEncryption.OfficeStandardAes);
+
+            using JetDatabase encrypted = OpenExclusive(path, "pw");
             Assert.Throws<InvalidOperationException>(() =>
-                DatabaseEncryption.SetPassword(path, "pw2", AccessEncryption.OfficeStandardAes));
+                DatabaseEncryption.SetPassword(encrypted, "pw2", AccessEncryption.OfficeStandardAes));
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -261,7 +300,11 @@ public class DatabaseEncryptionTests
     public void Remove_on_plaintext_throws()
     {
         string path = Copy();
-        try { Assert.Throws<InvalidOperationException>(() => DatabaseEncryption.RemovePassword(path, "pw")); }
+        try
+        {
+            using JetDatabase db = OpenExclusive(path);
+            Assert.Throws<InvalidOperationException>(() => DatabaseEncryption.RemovePassword(db));
+        }
         finally { TemporaryDatabase.Delete(path); }
     }
 
@@ -271,9 +314,10 @@ public class DatabaseEncryptionTests
         string path = Copy();
         try
         {
+            using JetDatabase db = OpenExclusive(path);
             // LegacyJet on an .accdb is a format mismatch; None is not a set-scheme.
-            Assert.Throws<ArgumentException>(() => DatabaseEncryption.SetPassword(path, "pw", AccessEncryption.LegacyJet));
-            Assert.Throws<ArgumentException>(() => DatabaseEncryption.SetPassword(path, "pw", AccessEncryption.None));
+            Assert.Throws<ArgumentException>(() => DatabaseEncryption.SetPassword(db, "pw", AccessEncryption.LegacyJet));
+            Assert.Throws<ArgumentException>(() => DatabaseEncryption.SetPassword(db, "pw", AccessEncryption.None));
         }
         finally { TemporaryDatabase.Delete(path); }
     }

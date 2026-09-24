@@ -771,7 +771,7 @@ internal static class AstBuilder
         // FULL JOIN executed directly, this one cannot be represented on disk. Refuse rather than silently
         // storing the INNER the fall-through would otherwise pick.
         FullJoinContext => throw new NotSupportedException(
-            "A FULL JOIN cannot be stored in a view: the Access query format has no representation for it."),
+            "A FULL JOIN cannot be stored in a view: a stored query has no representation for it."),
         _ => ViewJoinKind.Inner,
     };
 

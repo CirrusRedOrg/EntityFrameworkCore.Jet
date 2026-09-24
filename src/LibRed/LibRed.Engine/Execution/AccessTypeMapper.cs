@@ -33,9 +33,8 @@ internal static class AccessTypeMapper
         // because each would otherwise produce a column that looks declared one way and behaves another.
         if (column.PrimaryKey)
             throw new NotSupportedException(
-                $"Column '{column.Name}' cannot be both calculated and a key: ACE accepts an index on a "
-                + "calculated column and then refuses every insert into the table, so such a table can never "
-                + "hold a row.");
+                $"Column '{column.Name}' cannot be both calculated and a key: a table with an index on a "
+                + "calculated column cannot hold any rows.");
         if (column.Default is not null)
             throw new NotSupportedException(
                 $"Column '{column.Name}' cannot have a DEFAULT as well as a calculated expression — its value "
@@ -234,7 +233,7 @@ internal static class AccessTypeMapper
         if (characters > MaxTextCharacters)
             throw new InvalidOperationException(
                 $"Size of field '{column.Name}' is too long: a char/varchar column holds at most {MaxTextCharacters} " +
-                $"characters in Jet/ACE (got {characters}). Use LONGTEXT/MEMO for longer text.");
+                $"characters (got {characters}). Use LONGTEXT/MEMO for longer text.");
         return new(column.Name, JetDataType.Text, characters * 2, IsFixedLength: isFixed);
     }
 
@@ -250,7 +249,7 @@ internal static class AccessTypeMapper
         if (bytes > maxBytes)
             throw new InvalidOperationException(
                 $"Size of field '{column.Name}' is too long: a {column.TypeName.ToLowerInvariant()} column holds at most " +
-                $"{maxBytes} bytes in Jet/ACE (got {bytes}). Use LONGBINARY/OLE for longer data.");
+                $"{maxBytes} bytes (got {bytes}). Use LONGBINARY/OLE for longer data.");
         return new(column.Name, type, bytes, IsFixedLength: isFixed);
     }
 }

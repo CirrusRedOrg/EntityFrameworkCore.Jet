@@ -251,10 +251,12 @@ relocated to the end of the larger 4 KB page:
 - **Jet 4 / ACE: `0xE00`–`0x1000`** (256 × 2 bytes, end of the 4 KB page) — same structure, same "end of
   header page" placement, scaled to the bigger page.
 
-The first slot is the **exclusive-mode** commit state; the remaining 255 are shared-mode users. Each 2-byte
-value is a commit/lock status Jet uses (with the matching user lock in the `.ldb`/`.laccdb`) to coordinate
-concurrency — this table is only the per-user *overall status*; the `.ldb`/`.laccdb` holds the actual
-page-level read/write registration. **`00 00` means "mid-write to disk"**, and `01 00` means
+The first slot (`0xE00`) is the **exclusive-mode** commit state; the remaining 255 are shared-mode users,
+**user *n* at `0xE00 + 2n`** — so the first shared user is `0xE02`. A user's number is its own: it comes from
+the position the connection takes in the `.ldb`/`.laccdb` when it registers, which is what ties this table to
+the lock file and why neither can be written without the other. Each 2-byte value is a commit/lock status Jet
+uses (with the matching user lock in the `.ldb`/`.laccdb`) to coordinate concurrency — this table is only the
+per-user *overall status*; the lock file holds the actual page-level read/write registration. **`00 00` means "mid-write to disk"**, and `01 00` means
 "accessed a corrupted page" — either one *without a matching user lock* makes Jet declare the database
 suspect and demand a repair before it will open.
 
@@ -338,6 +340,13 @@ per-file 2-byte mask**. Verified, e.g. with mask `24-CC`: `Users 02-01 ^ 24-CC =
 `Creator 03-04 ^ 24-CC = 27-C8` (inheritable container grant). The long `Admins` SID isn't emitted — Access
 materialises it (as a 98-byte SID) on first open.
 
+**The mask is recoverable from the file, even though it is stored nowhere (verified).** `MSysObjects` is owned
+by the `Engine` account (`03-03`) in every file, so `mask = MSysObjects.Owner ^ 03-03`, and every other account
+follows from it: an owner of `680E` gives mask `6B-0D`, under which that file's `690C` / `680C` / `6809` are
+`Users` / `admin` / `Creator`. That is how a writer adding an object to a file it did not create gets the SIDs
+right ([system-catalog §11](system-catalog.md)); the pair baked in below fits only the files this engine
+creates itself.
+
 That mask is **bound to the exact millisecond-precise creation-date `double`** at `0x72`: a file with
 self-consistent SIDs but a *different* creation date is rejected with *"Record(s) cannot be read; no read
 permission on 'MSysObjects'/'MSysACEs'"* (Jet 3112). Grafting a real file's date **and** SIDs together opens
@@ -370,7 +379,7 @@ parse, and `MSysAccounts` yields the account SIDs in §2.3. Implemented as `LibR
 `PageChannel` selects it for non-ACE (`!IsAccdb`) files with a nonzero database key.
 
 **Creating/removing the encoding (implemented).** `DatabaseEncryption.SetJetEncoding` picks a fresh random
-`0x3E` key, writes it (header-masked), and RC4s every page `1..n` in place; `RemoveJetEncoding` decrypts and clears
+`0x3E` key, writes it (header-masked), and RC4s every page `1..n`; `RemoveJetEncoding` decrypts and clears
 the key (RC4 is symmetric, so this reuses the read codec). This is the "Encode Database" feature and is
 **completely independent of the database password** (§2, the `0x42` field): legacy Jet4 stores the encoding key
 plainly at `0x3E` — it is *not* password-derived (verified: an encoded file carries a nonzero `0x3E` key and an
@@ -386,7 +395,15 @@ same password on an unencoded file; and `RemoveJetEncoding` yields valid re-open
 is opaque per file, read straight from `0x3E`. Setting a password on an already-encoded file is identical to on
 a plain file, since `0x42` is on the never-encrypted page 0. Access's "Encode Database" **also compacts** (adding
 a password does not), so a byte-for-byte reproduction from an un-compacted source isn't achievable — LibRed's
-`SetJetEncoding` is a pure in-place RC4, a valid encoding without the compact.
+`SetJetEncoding` is a pure RC4 re-encode, a valid encoding without the compact.
+
+> **Setting, changing or clearing a password takes the file exclusively (verified).** ACE refuses
+> `ALTER DATABASE PASSWORD` on a shared connection even when nobody else is attached — *"Cannot change
+> password on a shared open database."* — so the requirement is on the writer's own open mode, not merely on
+> the absence of other users. Opened exclusively while another user is attached, the **open itself** fails,
+> naming the user and machine holding it, which it reads from the `.laccdb` (§2.2). Exclusive and alone, the
+> change is accepted and the file then opens only with the password. The same holds for clearing it. A writer
+> may therefore treat these operations as single-user by construction: take the file exclusively or refuse.
 
 ### 2.5 Office "Standard"/CryptoAPI page encryption (verified)
 
@@ -492,7 +509,7 @@ The Agile XML descriptor uses the same `len@0x299` + blob-at-`0x29B` framing.
 > keyed by `0x3E` (`SetJetEncoding`/`RemoveJetEncoding`) — so the single `AccessEncryption.LegacyJet` scheme
 > cannot say which is meant, and directs the caller to the pair.
 >
-> **RC4 key length + hash are caller-selectable** via `DatabaseEncryption.SetPasswordRc4(path, password, keyBits =
+> **RC4 key length + hash are caller-selectable** via `DatabaseEncryption.SetPasswordRc4(database, password, keyBits =
 > 40, hash = StandardHash.Sha1)` / `ChangePasswordRc4` — `keyBits` 40–128 (multiple of 8), `hash` ∈ MD5/SHA-1/
 > SHA-256/384/512 (`StandardHash` enum; MD2/MD4 excluded, no managed impl). The descriptor's `ProviderType`/CSP
 > name follows the CryptoAPI split: Base provider for RC4 ≤56-bit with MD5/SHA-1, else Enhanced RSA/AES. RC4 always

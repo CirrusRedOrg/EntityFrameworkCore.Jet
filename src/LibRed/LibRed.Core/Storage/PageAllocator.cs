@@ -91,7 +91,15 @@ public sealed class PageAllocator(PageChannel channel)
         int startPage = BinaryPrimitives.ReadInt32LittleEndian(p.AsSpan(mapOffset + 1, 4));
         int bit = page - startPage;
         int byteIndex = mapOffset + 5 + bit / 8;
-        if (bit < 0 || byteIndex >= mapOffset + free.Slot.Length) return; // outside the inline window
+        // A page the map has no bit for cannot be recorded as free, and dropping it here is how a page is lost
+        // for good — nothing else remembers it. It does not arise in a well-formed file: allocation extends the
+        // map to the file's frontier, and ACE's own map covers its whole file (measured: a 1,761-page file
+        // carries a 229-byte record from page 0, and records pages freed above the original 512-page window).
+        // So this is a malformed or foreign map, and it says so rather than quietly leaking the page.
+        if (bit < 0 || byteIndex >= mapOffset + free.Slot.Length)
+            throw new InvalidDataException(
+                $"Cannot record page {page} as free: the global free-pages map covers pages {startPage} through "
+                + $"{startPage + (free.Slot.Length - 5) * 8 - 1}, so the page has no bit in it.");
 
         p[byteIndex] |= (byte)(1 << (bit % 8));
         _channel.WritePage(free.PageNumber, p);

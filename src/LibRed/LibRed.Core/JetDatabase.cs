@@ -16,6 +16,10 @@ public sealed class JetDatabase : IDisposable
     private readonly PageChannel _channel;
     private bool _disposed;
 
+    /// <summary>The channel this database reads and writes through — for the operations that act on the file
+    /// as a whole rather than on its contents, such as changing the encryption.</summary>
+    internal PageChannel Channel => _channel;
+
     private JetDatabase(PageChannel channel)
     {
         _channel = channel;
@@ -79,12 +83,16 @@ public sealed class JetDatabase : IDisposable
 
     /// <summary>Opens a database file (read-only by default). For a password-encrypted ACCDB, supply
     /// <paramref name="password"/>; writable opens encrypt modified pages again before publishing them.</summary>
-    public static JetDatabase Open(string path, bool readOnly = true, string? password = null)
+    /// <remarks><c>exclusive</c> takes the file for this database alone, as ACE's <c>Mode=Share Exclusive</c>
+    /// does: the open fails while anything else holds it, and nothing else can open it until this one closes.
+    /// Changing the password or the page encoding needs such a database, because it rewrites the whole
+    /// file — see <see cref="Crypto.DatabaseEncryption"/>.</remarks>
+    public static JetDatabase Open(string path, bool readOnly = true, string? password = null, bool exclusive = false)
     {
         // Coordinate page access between every handle open on this file (EF holds several connections on one
         // .accdb): readers share a page, a writer excludes them. PageChannel shares one per-path manager
         // (refcounted, freed on the last close). Process-local for now; the file-based managers replace it.
-        var channel = PageChannel.Open(path, readOnly, password);
+        var channel = PageChannel.Open(path, readOnly, password, locks: null, exclusive);
         try
         {
             return new JetDatabase(channel);

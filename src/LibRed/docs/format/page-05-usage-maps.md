@@ -53,7 +53,12 @@ numbers, so appended pointer-shaped bytes or pointers to ordinary data pages can
 >   stays marked free — verified: of equally-full ACE pages only the last is in the free map, because
 >   each earlier one had a next-row attempt that didn't fit. LibRed matches this: on allocating a new page
 >   it **clears the previous tail's free bit and sets the new page's**, leaving exactly the tail marked
->   free. (Non-sequential fills and deletes aren't specially handled — neither is supported yet.)
+>   free.
+> - **A delete puts the bit back.** Space freed in a page that had none makes that page a candidate again, so
+>   its free bit is set when the row's space is reclaimed — otherwise the space is there and nothing looks at
+>   it. Verified vs ACE: deleting a row from the **first** of many data pages (full, so its bit had been
+>   cleared as the fill moved on) has ACE write the map holder as well as the data page, and both engines then
+>   write the same pages with the same bytes.
 > - **Inline map, grown in place.** LibRed writes the inline map with `startPage = 0` and an initially
 >   64-byte bitmap (pages 0–511). When an insert needs to mark a page **past** that window, LibRed grows
 >   the bitmap **record in place** — still type `0x00`, same `startPage` — extending it in **32-bit (4-byte)
@@ -80,8 +85,12 @@ numbers, so appended pointer-shaped bytes or pointers to ordinary data pages can
 >   record of length **69** with `startPage` 512 / 1024 / 1536 / 2560, one bit set, while the *owned* map of
 >   the same table kept `startPage = 0` and grew. An owned map cannot slide: it must retain every page it has
 >   ever taken. LibRed slides the window for free-pages maps (table and long-value column), and only for
->   them; if a bit already set would fall outside the new window it grows in place instead, so nothing is
->   silently forgotten.
+>   them; if a bit already set would fall outside the new window it **widens** the record instead — the start
+>   drops to the lowest page it must cover (rounded down to a byte, as the released map's move does) and the
+>   record is sized to reach the highest — so nothing is silently forgotten. The window can already sit
+>   **above** the page being marked, since it follows the append tail while a table's older pages stay where
+>   they are; a map in that position must still be able to record the lower page. What ACE writes there —
+>   a widened record, or a re-based window — is **not measured**.
 > - **The conversion point is a page-budget calculation, not a constant.** The owned map converts as soon as
 >   its next grown record would not fit the usage-map page alongside the page header (14 bytes), the row
 >   directory (2 bytes/record) and the *other* records sharing that page. So the threshold moves with the
@@ -168,7 +177,8 @@ map (page 0, a TDEF page, an ordinary data page) fails at the first allocation a
 
 **Freed pages are released at close, through the released-pages map.** Pages freed during a session are not
 reusable on the same connection: later allocations in that session grow the file instead, and the free map on
-disk does not change until the file closes. At close ACE moves them into the free map. This holds for the
+disk does not change until the file closes (verified). A handle's freed pages are its own business until then:
+on disk they are in neither map, and only the close moves them into the free map. At close ACE moves them into the free map. This holds for the
 long-value pages of a deleted row, the pages of a dropped index — by `DROP INDEX`, by `DROP CONSTRAINT` on a
 foreign key, or by the index rebuild of an `ALTER COLUMN` — and every page of a dropped table. A free made in a
 transaction that rolls back frees nothing; one that commits stays released even if a later transaction on the
@@ -223,8 +233,14 @@ usage map, etc.), and the only change to page 1 is one cleared bit per page take
 > bitmap directly; for a **reference (`0x01`)** map — as a very large pre-existing ACE file carries —
 > it scans each slot's dedicated bitmap page (type `0x05`), where a **set bit is a free page** (the
 > global map's sense), clears the bit on that bitmap page, and returns `slot × (pageSize−4)×8 + bit`.
-> `Free` is the inverse (sets the bit). A page outside a pre-existing map's coverage cannot be recorded
-> as free until that coverage exists.
+> `Free` is the inverse (sets the bit).
+>
+> **The map covers the whole file (verified).** The global free map grows with the file, by the same in-place
+> rule as a table's owned map and always from start page 0, so its coverage is never behind the frontier — a
+> file of 1,761 pages carries a 229-byte record, covering 1,792 — and a page freed above the original 512-page
+> window is marked in it like any other. A page the map has no bit for is therefore a malformed map, not an
+> ordinary state, and cannot be recorded as free: nothing else remembers it, so a writer that drops it there
+> loses it for good.
 >
 > **Release at close.** The frees ACE holds go through `Release`, which keeps the page in a list on the handle
 > — staged with the open transaction, kept on commit, dropped on rollback or on a rollback to a savepoint
@@ -235,7 +251,8 @@ usage map, etc.), and the only change to page 1 is one cleared bit per page take
 >
 > **Where LibRed differs from ACE.** An `UPDATE` frees the old long value before writing the new one, so the
 > new value reuses those pages in the same statement. Held pages live in the handle, not in the released-pages
-> map, so every handle releases its own at its own close, even while other handles are open.
+> map — which is ACE's own behaviour (above), the difference being only that each LibRed handle releases its
+> own at its own close, while other handles stay open.
 >
 > **Global-map growth.** The inline growth rule in §9 applies, but ACE leaves **4 bytes free in the
 > holder page** before promoting the global map to reference form. With a 69-byte companion row,
@@ -269,6 +286,15 @@ tables. Dropping a table retires each of its map records in turn: it clears the 
 clears them, tombstones the record's row, and — once no live row is left — frees the holder page itself.
 Dropping a memo/OLE column retires that column's two records the same way — step 1 below, for that column
 alone ([long-values](long-values.md#dropping-a-long-value-column)).
+
+**Dropping one index is the same act in miniature (verified).** `DROP INDEX`, and `DROP CONSTRAINT` for the
+index a relationship owns, free **every page of that index's B-tree** — the pages past the root are recorded
+only in the index's own owned map, so freeing the root alone leaves them owned by nothing — and retire that
+map's record: bits cleared, row tombstoned, the holder's free space back, and the holder itself freed if
+nothing live is left on it. The record's row **number** is not reused afterwards; the next `CREATE INDEX`
+appends past it ([long-values](long-values.md)). `DROP CONSTRAINT` additionally deletes the relationship's
+`MSysRelationships` rows outright — the row's space returns to its page and the table's row count falls —
+rather than only flagging the slots.
 
 Each tombstone slides the records below it up the page, and the bytes they vacate are not cleared, so a moved
 record leaves a copy of itself behind. The order is therefore visible on disk, and ACE's is fixed:

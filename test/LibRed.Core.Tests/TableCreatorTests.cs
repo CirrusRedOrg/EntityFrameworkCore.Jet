@@ -361,4 +361,68 @@ public class TableCreatorTests
         }
         finally { TemporaryDatabase.Delete(path); }
     }
+
+    // Every JetDatabase DDL entry point takes a raw ColumnSpec and hands it to the writer, so the version gate
+    // has to be here and not only on the SQL path above it — otherwise a Core caller writes a BIGINT
+    // descriptor into an ACE 12 file, a column Access cannot read.
+    [Fact]
+    public void Creating_a_table_refuses_a_type_the_file_is_too_old_for()
+    {
+        string path = TemporaryDatabase.CreatePath("versiongate-");
+        try
+        {
+            DatabaseCreator.CreateEmpty(path, version: 0x02);        // ACE 12
+            using var db = JetDatabase.Open(path, readOnly: false);
+
+            var error = Assert.Throws<NotSupportedException>(() => db.CreateTable("T",
+                [new ColumnSpec("K", JetDataType.Int32, 4, IsFixedLength: true),
+                 new ColumnSpec("Big", JetDataType.Int64, 8, IsFixedLength: false)]));
+            Assert.Contains("Access 2016", error.Message);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // Every lookup downstream resolves an index by name with First/FirstOrDefault, so two blocks sharing one
+    // name make DROP INDEX remove an arbitrary one. ACE refuses the duplicate outright.
+    [Fact]
+    public void A_duplicate_index_name_is_refused()
+    {
+        string path = TemporaryDatabase.CreatePath("dupindex-");
+        try
+        {
+            DatabaseCreator.CreateEmpty(path);
+            using var db = JetDatabase.Open(path, readOnly: false);
+            db.CreateTable("T", [Long("K"), Long("A"), Long("B")]);
+
+            db.CreateIndex("T", "IX", [("A", false)], isUnique: false, isPrimary: false,
+                disallowNull: false, ignoreNulls: false);
+            Assert.Throws<InvalidOperationException>(() => db.CreateIndex("T", "IX", [("B", false)],
+                isUnique: false, isPrimary: false, disallowNull: false, ignoreNulls: false));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // The TDEF header holds a single seed/increment pair, so a second AutoNumber column would carry the 0x04
+    // flag with no counter of its own. ALTER's promote path always refused it; CREATE silently took the first
+    // and ignored the rest, and ADD COLUMN checked nothing.
+    [Fact]
+    public void A_table_may_only_have_one_autonumber_column()
+    {
+        string path = TemporaryDatabase.CreatePath("twocounters-");
+        try
+        {
+            DatabaseCreator.CreateEmpty(path);
+            using var db = JetDatabase.Open(path, readOnly: false);
+
+            Assert.Throws<NotSupportedException>(() => db.CreateTable("T", [Counter("A"), Counter("B")]));
+
+            db.CreateTable("U", [Counter("A"), Long("K")]);
+            Assert.Throws<NotSupportedException>(() => db.AddColumn("U", Counter("C")));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    private static ColumnSpec Long(string name) => new(name, JetDataType.Int32, 4, IsFixedLength: true);
+    private static ColumnSpec Counter(string name) =>
+        new(name, JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true, Seed: 1, Increment: 1);
 }

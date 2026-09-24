@@ -30,6 +30,12 @@ public sealed class TableDefinitionPage : Page
     public int ComplexAutoNumber { get; private set; }
 
     public TableType TableType { get; private set; }
+
+    /// <summary>The column-id high-water (header <c>0x29</c>) — how many ids the table has handed out over its
+    /// lifetime, which never decrements. It is what sizes a row's leading count and null bitmap, so it differs
+    /// from <see cref="ColumnCount"/> for every table that has dropped a column or burned an id on a retype.</summary>
+    public int ColumnIdHighWater { get; private set; }
+
     public int VariableColumnCount { get; private set; }
     public int ColumnCount { get; private set; }
     public int LogicalIndexCount { get; private set; }
@@ -91,17 +97,18 @@ public sealed class TableDefinitionPage : Page
         ComplexAutoNumber = buffer.ReadInt32(format.TdefComplexAutoNumberOffset);
         TableType = (TableType)buffer.ReadByte(format.TdefTableTypeOffset);
         VariableColumnCount = buffer.ReadUInt16(format.TdefVariableColumnsOffset);
+        ColumnIdHighWater = buffer.ReadUInt16(format.TdefMaxColumnsOffset);
         ColumnCount = buffer.ReadUInt16(format.TdefColumnCountOffset);
         LogicalIndexCount = buffer.ReadInt32(format.TdefLogicalIndexCountOffset);
         IndexCount = buffer.ReadInt32(format.TdefIndexCountOffset);
 
         if (ColumnCount > MaxColumnsPerTable)
-            throw new InvalidDataException($"TDEF declares {ColumnCount} columns; Jet/ACE permits at most {MaxColumnsPerTable}.");
+            throw new InvalidDataException($"TDEF declares {ColumnCount} columns; a table can have at most {MaxColumnsPerTable}.");
         if (VariableColumnCount > MaxColumnsPerTable)
             throw new InvalidDataException(
-                $"TDEF declares a variable-column high-water of {VariableColumnCount}; Jet/ACE permits at most {MaxColumnsPerTable}.");
+                $"TDEF declares a variable-column high-water of {VariableColumnCount}; the maximum is {MaxColumnsPerTable}.");
         if (IndexCount is < 0 or > MaxIndexesPerTable)
-            throw new InvalidDataException($"TDEF declares {IndexCount} real indexes; Jet/ACE permits 0 through {MaxIndexesPerTable}.");
+            throw new InvalidDataException($"TDEF declares {IndexCount} real indexes; the valid range is 0 through {MaxIndexesPerTable}.");
         // Capped at 32 exactly as IndexCount is, and this is the check that matters: a table gains a logical
         // block per INCOMING relationship without gaining a data block, so it overruns here while 0x33 stays
         // legal. Previously only the sign was checked, which let a file written past the limit read back as
@@ -109,7 +116,7 @@ public sealed class TableDefinitionPage : Page
         // while seeing nothing wrong with it itself.
         if (LogicalIndexCount is < 0 or > MaxIndexesPerTable)
             throw new InvalidDataException(
-                $"TDEF declares {LogicalIndexCount} logical indexes; Jet/ACE permits 0 through {MaxIndexesPerTable}.");
+                $"TDEF declares {LogicalIndexCount} logical indexes; the valid range is 0 through {MaxIndexesPerTable}.");
 
         // The column descriptors follow a per-index block sized by the REAL index count at
         // 0x33 (IndexCount) — NOT the logical count at 0x2F (LogicalIndexCount). The two are

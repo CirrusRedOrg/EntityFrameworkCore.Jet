@@ -60,6 +60,52 @@ public class ColumnLengthAccessTests : TempDatabaseTest
         Assert.Contains("too small", outcome, StringComparison.OrdinalIgnoreCase);
     }
 
+    // WITH COMPRESSION stores a Latin-1 value one byte per character, so a limit checked on the stored bytes
+    // would let a TEXT(5) take up to 8 characters. ACE's limit is the declared character count either way.
+    [Theory]
+    [InlineData("abcdef")]
+    [InlineData("abcdefgh")]
+    public void Ace_compressed_text_column_versus_an_overlong_value(string value)
+    {
+        string path = TemporaryDatabase.CopyPath(
+            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "collencomp-");
+
+        using OleDbConnection connection = AceTestDatabase.Open(path);
+        using (OleDbCommand ddl = connection.CreateCommand())
+        {
+            ddl.CommandText = "CREATE TABLE LenProbe (Id LONG PRIMARY KEY, V TEXT(5) WITH COMPRESSION)";
+            ddl.ExecuteNonQuery();
+        }
+        using (OleDbCommand ok = connection.CreateCommand())
+        {
+            ok.CommandText = "INSERT INTO LenProbe (Id, V) VALUES (1, 'abcde')";
+            ok.ExecuteNonQuery();
+        }
+
+        using OleDbCommand insert = connection.CreateCommand();
+        insert.CommandText = $"INSERT INTO LenProbe (Id, V) VALUES (2, '{value}')";
+        var error = Assert.Throws<OleDbException>(() => insert.ExecuteNonQuery());
+        Assert.Contains("too small", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("abcdef")]
+    [InlineData("abcdefgh")]
+    public void Libred_refuses_an_overlong_value_in_a_compressed_text_column(string value)
+    {
+        string path = TemporaryDatabase.CopyPath(
+            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "collencomp-lib-");
+
+        using var db = JetDatabase.Open(path, readOnly: false);
+        var engine = new QueryEngine(db);
+        engine.ExecuteNonQuery("CREATE TABLE LenProbe (Id LONG PRIMARY KEY, V TEXT(5) WITH COMPRESSION)");
+        engine.ExecuteNonQuery("INSERT INTO LenProbe (Id, V) VALUES (1, 'abcde')");
+
+        var error = Assert.Throws<InvalidOperationException>(() =>
+            engine.ExecuteNonQuery($"INSERT INTO LenProbe (Id, V) VALUES (2, '{value}')"));
+        Assert.Contains("too small", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>Inserts <paramref name="value"/>, reporting what ACE did rather than throwing.</summary>
     private static string TryInsert(OleDbConnection connection, string table, int id, object value)
     {

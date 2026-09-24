@@ -58,11 +58,12 @@ internal sealed class PageCache : IDisposable
     private static readonly Lock RegistryGate = new();
 
     /// <summary>Returns the shared cache for <paramref name="path"/>, creating it on first use; each call must be
-    /// paired with a <see cref="Release"/>. The key is the case-folded full path so relative and absolute opens
-    /// of the same file share one pool (two pools for one file would reintroduce cross-handle staleness).</summary>
+    /// paired with a <see cref="Release"/>. The key is <see cref="FileIdentity"/>'s, so relative and absolute opens
+    /// of one file share a pool (two pools for one file would reintroduce cross-handle staleness) while two files
+    /// whose paths differ only in case, on a platform where that makes them two files, do not.</summary>
     public static PageCache Acquire(string path)
     {
-        string key = Path.GetFullPath(path).ToLowerInvariant();
+        string key = FileIdentity.Key(path);
         lock (RegistryGate)
         {
             if (Registry.TryGetValue(key, out var slot))
@@ -80,7 +81,7 @@ internal sealed class PageCache : IDisposable
     /// pool is discarded so a later re-open re-reads from disk (picking up any external change).</summary>
     public static void Release(string path)
     {
-        string key = Path.GetFullPath(path).ToLowerInvariant();
+        string key = FileIdentity.Key(path);
         lock (RegistryGate)
         {
             if (!Registry.TryGetValue(key, out var slot)) return;

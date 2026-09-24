@@ -258,7 +258,7 @@ public sealed class LibRedConnection : DbConnection
     }
 
     public override void ChangeDatabase(string databaseName) =>
-        throw new NotSupportedException("A Jet/ACE connection maps to a single file.");
+        throw new NotSupportedException("A connection is to a single database file; there is no other database to change to.");
 
     protected override DbCommand CreateDbCommand() => new LibRedCommand { Connection = this };
 

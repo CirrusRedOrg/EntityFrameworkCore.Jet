@@ -7,7 +7,7 @@ namespace LibRed.Storage;
 /// Decodes the order-preserving key bytes of an index entry back into column values.
 /// </summary>
 /// <remarks>
-/// Each non-boolean column is prefixed by a flag byte (0x7F start / 0x00 null for ascending;
+/// Each column is prefixed by a flag byte (0x7F start / 0x00 null for ascending;
 /// 0x80 / 0xFF for descending). Fixed/numeric types use a reversible transform (sign-bit flip
 /// + big-endian for integers; an IEEE transform for floating point). TEXT/Binary/GUID keys use
 /// Jet's collation encoding, which is lossy and not reversible — decoding stops at the first
@@ -15,8 +15,6 @@ namespace LibRed.Storage;
 /// </remarks>
 public static class IndexKeyDecoder
 {
-    private const byte AscBooleanTrue = 0x00; // ascending: true sorts before false
-
     public static object?[] Decode(IReadOnlyList<(ColumnDef Column, bool Ascending)> columns, ReadOnlySpan<byte> key)
     {
         var values = new object?[columns.Count];
@@ -27,14 +25,6 @@ public static class IndexKeyDecoder
             (ColumnDef column, bool ascending) = columns[i];
             if (pos >= key.Length) break;
 
-            // Booleans carry no flag byte — the value IS the byte.
-            if (column.Type == JetDataType.Boolean)
-            {
-                byte b = key[pos++];
-                values[i] = ascending ? b == AscBooleanTrue : b != AscBooleanTrue;
-                continue;
-            }
-
             byte flag = key[pos++];
             if (flag == (ascending ? IndexKeyFlags.AscNull : IndexKeyFlags.DescNull))
             {
@@ -42,6 +32,15 @@ public static class IndexKeyDecoder
                 continue;
             }
             // Otherwise flag is the start flag (0x7F / 0x80).
+
+            // Yes/No: one byte after the flag, 0x00 for true ascending and 0xFF for true descending.
+            if (column.Type == JetDataType.Boolean)
+            {
+                if (pos >= key.Length) break;
+                byte b = key[pos++];
+                values[i] = b == (ascending ? 0x00 : 0xFF);
+                continue;
+            }
 
             // GUID key: 8 bytes, a 0x09 marker, 8 bytes, a terminator — the 16 bytes are the GUID's
             // canonical string order (see IndexKeyEncoder). Descending inverts every data byte (the 0x09

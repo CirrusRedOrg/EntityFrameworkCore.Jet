@@ -5,7 +5,7 @@ using Xunit;
 namespace LibRed.Engine.Tests;
 
 // A Memo (Long Text) column is indexable in Access; its index key is the text collation key over the first
-// 255 characters. Exercise the insert path (RowInserter → IndexKeyEncoder) end-to-end through the engine.
+// 255 characters. Exercise the write paths (RowInserter → IndexKeyEncoder) end-to-end through the engine.
 public class MemoIndexTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
@@ -39,5 +39,28 @@ public class MemoIndexTests : TempDatabaseTest
         e.ExecuteNonQuery($"INSERT INTO MK (Id, M) VALUES (1, '{new string('z', 255)}A')");
         e.ExecuteNonQuery($"INSERT INTO MK (Id, M) VALUES (2, '{new string('z', 255)}B')");
         Assert.Equal(2, Convert.ToInt32(e.ExecuteQuery("SELECT COUNT(*) FROM MK").Rows.Single()[0]));
+    }
+
+    // Deleting asks each index whether the row being removed held the last copy of its key, which means
+    // encoding that key from the row. The decode behind that question was the one on the table path without a
+    // long-value reader, so the Memo came back as its 12-byte on-disk descriptor and the key encoder's text
+    // path cast a byte[] to string — deleting ANY row of a memo-indexed table threw.
+    [Theory]
+    [InlineData(5)]      // inline: the value sits in the row beside its descriptor
+    [InlineData(4000)]   // chained onto its own long-value pages
+    public void A_row_deletes_from_a_memo_indexed_table(int length)
+    {
+        string memo = new('m', length);
+        var e = Fresh();
+        e.ExecuteNonQuery($"INSERT INTO MK (Id, M) VALUES (1, '{memo}')");
+        e.ExecuteNonQuery("INSERT INTO MK (Id, M) VALUES (2, 'second')");
+
+        Assert.Equal(1, e.ExecuteNonQuery("DELETE FROM MK WHERE Id = 1"));
+
+        Assert.Equal(2, Convert.ToInt32(e.ExecuteQuery("SELECT Id FROM MK").Rows.Single()[0]));
+        // The survivor is still reachable through the memo index, and the deleted row is not — so the delete
+        // maintained the index rather than leaving an entry behind.
+        Assert.Single(e.ExecuteQuery("SELECT Id FROM MK WHERE M = 'second'").Rows);
+        Assert.Empty(e.ExecuteQuery($"SELECT Id FROM MK WHERE M = '{memo}'").Rows);
     }
 }

@@ -31,7 +31,8 @@ public class ConcurrentAllocationTests
         try
         {
             CreateTable(path);
-            DatabaseEncryption.SetPassword(path, password, AccessEncryption.Agile);
+            using (var db = JetDatabase.Open(path, readOnly: false, exclusive: true))
+                DatabaseEncryption.SetPassword(db, password, AccessEncryption.Agile);
 
             RunConflictAndRetry(path, password);
             VerifyWithLibRed(path, password);

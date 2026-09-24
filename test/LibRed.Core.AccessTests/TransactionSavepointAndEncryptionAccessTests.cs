@@ -29,7 +29,8 @@ public class TransactionSavepointAndEncryptionAccessTests
                 Table table = setup.OpenTable("EncryptedCommit");
                 for (int i = 1; i <= 10; i++) table.Insert([i, $"key-{i}", "short", "short", new string('A', 5000)]);
             }
-            DatabaseEncryption.SetPassword(path, password, scheme);
+            using (var setup = JetDatabase.Open(path, readOnly: false, exclusive: true))
+                DatabaseEncryption.SetPassword(setup, password, scheme);
             byte[] encryptedBefore = File.ReadAllBytes(path);
 
             using (var writer = JetDatabase.Open(path, readOnly: false, password: password))
@@ -135,7 +136,8 @@ public class TransactionSavepointAndEncryptionAccessTests
                 Table table = db.OpenTable("EncryptedTxn");
                 for (int i = 1; i <= 10; i++) table.Insert([i, $"key-{i}", "short", "short", originalMemo]);
             }
-            DatabaseEncryption.SetPassword(path, password, scheme);
+            using (var db = JetDatabase.Open(path, readOnly: false, exclusive: true))
+                DatabaseEncryption.SetPassword(db, password, scheme);
             byte[] encryptedBefore = File.ReadAllBytes(path);
 
             using (var db = JetDatabase.Open(path, readOnly: false, password: password))

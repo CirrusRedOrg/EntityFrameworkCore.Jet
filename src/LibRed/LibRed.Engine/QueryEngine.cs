@@ -233,7 +233,12 @@ public sealed class QueryEngine
             }
             catch
             {
+                // Rolling back to a savepoint leaves it open for reuse, so the statement's own frame has to be
+                // closed too. Left open it sits above the savepoint the enclosing BEGIN pushed, and that level's
+                // COMMIT then refuses — only the innermost savepoint can be released — so one failed statement
+                // makes every later nested COMMIT throw.
                 _database.RollbackToSavepoint(savepoint);
+                _database.ReleaseSavepoint(savepoint);
                 throw;
             }
         }

@@ -49,6 +49,24 @@ public class CreateViewTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // CREATE VIEW drops a leading space from the name, where CREATE PROCEDURE refuses one — both measured against
+    // ACE (RenameNameValidationAccessTests).
+    [Fact]
+    public void A_leading_space_is_dropped_from_a_view_name_and_refused_in_a_procedure_name()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE VIEW [ Spaced] AS SELECT 1 AS [n]");
+            Assert.Contains("Spaced", db.Catalog.Views.Keys);
+
+            Assert.Throws<ArgumentException>(() => e.ExecuteNonQuery("CREATE PROCEDURE [ Proc] AS SELECT 1 AS [n]"));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     // A view is read back from the file (its MSysQueries rows), reconstructed to SQL, and resolved as a
     // derived table when queried through LibRed's own engine.
     [Fact]

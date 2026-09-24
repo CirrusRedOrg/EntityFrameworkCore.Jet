@@ -41,7 +41,11 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // as-is (Jet, unlike SQL Server, permits explicit AutoNumber values); either way the row's
         // final id drives both the row encoding and the high-water update below.
         bool[]? generatedAutoNumbers = AssignAutoNumbers(format, values);
-        if (updateIndexes) EnforceUniqueIndexes(values); // reject a duplicate before writing anything
+        if (updateIndexes)
+        {
+            EnforceNonNullKeys(values);   // after AssignAutoNumbers, so a counter key has its value
+            EnforceUniqueIndexes(values); // reject a duplicate before writing anything
+        }
 
         // Index keys are encoded from the *logical* values. MaterializeLongValues replaces a memo/OLE value
         // with its on-disk LongValueDescriptor, and a Memo column IS indexable (its key is the collation key
@@ -54,7 +58,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // Encode first: the fixed-region length is pinned by any existing row (to match Access),
         // or derived from the columns for a just-created empty table.
         var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format),
-            _table.VariableColumnCount, SpillCalculated);
+            _table.VariableColumnCount, SpillCalculated, _table.ColumnIdHighWater);
         byte[] record = encoder.Encode(values, null, calculated ? keyValues : null);
 
         EnsureRecordFits(format, record);
@@ -152,7 +156,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // parse returns a negative length for an all-fixed-column table (no variable columns — e.g. Northwind
         // Order Details), which without the guard would overflow `new byte[len]`.
         var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format),
-            _table.VariableColumnCount, SpillCalculated);
+            _table.VariableColumnCount, SpillCalculated, _table.ColumnIdHighWater);
         byte[] record = encoder.Encode(values, preservedCalculated, logicalValues);
 
         // Here as well as on the insert path, and before the in-place rewrite rather than beside the
@@ -302,6 +306,12 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         }
         finally { ArrayPool<byte>.Shared.Return(page); }
 
+        // The page has room again, so its bit goes back into the table's free-pages map — the mirror of the
+        // insert path clearing it when the page filled (AllocateDataPage). Without this the space a delete
+        // frees in a full page is space no later insert ever looks at, and ACE sets the bit here too
+        // (measured: deleting a row from the first of many pages, ACE writes the map holder and LibRed did not).
+        UpdateUsageBit(format.TdefFreePagesOffset, id.Page, set: true);
+
         byte[] tdef = ArrayPool<byte>.Shared.Rent(format.PageSize);
         try
         {
@@ -347,7 +357,11 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         var lost = new HashSet<int>();
         if (_table.Indexes.Count == 0) return lost;
 
-        object?[] values = new RowDecoder(_table.Columns, format).Decode(rowBytes);
+        // With a long-value reader, because these values are handed to the index key encoder: a Memo column IS
+        // indexable, and decoded without the reader it comes back as its 12-byte on-disk descriptor, which the
+        // encoder's text path casts to string and dies on. A decode that feeds a key needs the value the
+        // column holds, not the pointer to it.
+        object?[] values = new RowDecoder(_table.Columns, format, new LongValueReader(_channel)).Decode(rowBytes);
         var writer = new IndexWriter(_channel, _table);
         foreach (IndexDef index in _table.Indexes.GroupBy(i => i.RealIndexOrdinal).Select(g => g.First()))
         {
@@ -632,6 +646,17 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         else new PageAllocator(_channel).Free(pageNumber);
     }
 
+    /// <summary>Rejects the insert if a primary-key or WITH DISALLOW NULL index would get a Null in any of its
+    /// columns — ACE refuses it on every write, not only when the index is built (verified).</summary>
+    private void EnforceNonNullKeys(object?[] values)
+    {
+        foreach (IndexDef index in _table.Indexes.Where(i => (i.IsPrimaryKey || i.Required) && i.RootPage > 0))
+            if (index.Columns.FirstOrDefault(c => values[c.Column.Index] is null or DBNull).Column is { } nullColumn)
+                throw new InvalidOperationException(
+                    $"Index or primary key cannot contain a Null value: column '{nullColumn.Name}' of "
+                    + $"'{_table.Name}' is Null, and index '{index.Name}' does not allow it.");
+    }
+
     /// <summary>Rejects the insert if a UNIQUE or PRIMARY index would gain a duplicate key. A row with a
     /// null in any of a unique index's columns is skipped — Jet treats nulls as distinct, so a unique index
     /// allows multiple nulls (verified vs ACE). Runs before the row is written so nothing is half-inserted.</summary>
@@ -709,8 +734,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     {
         if (record.Length > format.MaxRecordSize)
             throw new InvalidOperationException(
-                $"Record is too large: {record.Length} bytes, and Jet/ACE stores at most {format.MaxRecordSize} "
-                + "excluding long values. Move the large columns to Memo/OLE, which live on their own pages.");
+                $"Record is too large: {record.Length} bytes, and a record holds at most {format.MaxRecordSize} "
+                + "bytes excluding long values. Move the large columns to Memo/OLE, which live on their own pages.");
     }
 
     private (int PageNumber, byte[] Page) FindPageWithRoom(JetFormatBase format, int needed)
@@ -834,6 +859,13 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
             ReadOnlySpan<byte> row = page.AsSpan(offset, length);
             bool rowHasVar = RowLayout.HasVariableSection(row, _table.Columns);
+
+            // A row written while a since-dropped variable column existed still carries its trailer, but the
+            // live columns no longer say so, and reading it as all-fixed measures the trailer as fixed data —
+            // which would then pad every new row out to it, up to a false "Record is too large". The table's
+            // 0x2B high-water is the tell: it outlives the drop, so a row that reads as all-fixed in a table
+            // that has ever had a variable column cannot be trusted to pin the length. The schema does it.
+            if (!rowHasVar && _table.VariableColumnCount > 0) continue;
             RowLayout layout = RowLayout.Parse(row, format.RowColumnCountSize, rowHasVar);
             int varDataStart = layout.FixedRegionLength + format.RowColumnCountSize;
 

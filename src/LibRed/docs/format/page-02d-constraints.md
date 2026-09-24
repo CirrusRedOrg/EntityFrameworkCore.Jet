@@ -104,7 +104,19 @@ count, and it is gated on the total:
 > *"Index or primary key cannot contain a Null value."* That is what an `ADD COLUMN … PRIMARY KEY` on a table
 > holding rows meets, since the new column is NULL on every old row; the exception is an AutoNumber column,
 > which numbers the old rows as it is added (§3.1) and so takes the key. A `WITH IGNORE NULL`
-> index is not required and is accepted over the same rows.
+> index is not required and is accepted over the same rows. The rule holds on every later write too: an
+> `INSERT` or `UPDATE` that leaves a NULL in any column of a required index is refused with the same message.
+>
+> **An AutoNumber takes no `UPDATE`** (verified vs ACE) — *"Cannot update 'Id'; field not updateable."* — even
+> `SET Id = Id`, whether or not it is a key. On `INSERT` an explicit number is accepted and the counter carries
+> on after it (50, then 51); an explicit NULL is refused.
+>
+> **`ON UPDATE CASCADE` reaches the statement's own rows, and keeps going down.** Where the parent and child
+> ends are the same table, a row the cascade rewrites may also be a row the `UPDATE` is itself rewriting:
+> `Emp(Id, MgrId → Emp.Id)` holding `(1, null), (2, 1)` under `SET Id = Id + 100` comes out of ACE as
+> `(101, null), (102, 101)` — the cascaded key is in the row ACE writes, not overwritten by it. And a cascade
+> carries on through a grandchild: `P ← C ← G`, each `ON UPDATE CASCADE`, moves all three on `UPDATE P SET
+> Id = 5`. Both verified against ACE.
 
 A table has **at most 32 index-data blocks** (the `0x33` count, §3.1) — the Jet/ACE "32 indexes per
 table" limit, counting the indexes that back primary keys, unique constraints and the child side of
@@ -178,13 +190,18 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > block, `0x0C = 0x02` (outgoing), `0x11` = parent page, `0x17 = 0x02`, name = the constraint name.
 > The **parent** (referenced) table gains an **extra** logical block beyond its data blocks:
 > `index_num2` → its referenced-key (PK) data block, `0x0C = 0x01` (incoming), `0x11` = child page,
-> `0x17 = 0x02`, name = an auto-generated hidden `.r?` name. The two ends cross-reference: each block's
-> `0x0D` holds the other block's `index_num` (`0x04`). Logical blocks are stored **sorted by name**;
-> `index_num` is assigned in creation order (a table's own indexes first, then relationships as added). Take
-> the next number as **`max(index_num) + 1`**, not as the logical block count: dropping a relationship removes
-> a block *without* renumbering the survivors' `index_num` (only their data ordinals shift), so after any
-> `DROP CONSTRAINT` the count sits below the max and a count-derived number collides with a live block —
-> leaving two blocks claiming the number each end's `0x0D` cross-link names.
+> `0x17 = 0x02`, name = the hidden name **`.r` followed by the letter `'A' + index_num`** — `.rB` for block 1,
+> `.rC` for 2, `.rD` for 3 (verified vs ACE, in `CREATE TABLE` and `ALTER TABLE` alike; the name past `Z` is
+> not measured). The two ends cross-reference: each block's `0x0D` holds the other block's `index_num`
+> (`0x04`). Logical blocks are stored **sorted by name, ignoring case** (verified: `a3` sorts before `IX2`, a
+> foreign key `fk` before `IX2`; how punctuation and accented letters order is not measured). `index_num` is
+> assigned in creation order (a table's own indexes first, then relationships as added), and a new block —
+> an index, an outgoing or an incoming relationship block — takes the **lowest number no block holds**
+> (verified vs ACE: with 1 and 2 free below a live 3, a new index takes 1; a parent's incoming block likewise
+> takes its lowest free number). Dropping an index or a relationship removes a block *without* renumbering the
+> survivors' `index_num` (only their data ordinals shift), so the free numbers are gaps: neither the logical
+> block count (which collides with a live block, leaving two blocks claiming the number each end's `0x0D`
+> cross-link names) nor `max(index_num) + 1` is the number ACE uses.
 >
 > The parent key must be a **unique or primary** index over the referenced columns. Over a plain
 > non-unique index ACE refuses the relationship — *"No unique index found for the referenced field of the
@@ -208,7 +225,9 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > `0x11` = the table's own page — an outgoing `0x02` block (`index_num2` → the FK-column index) and an
 > incoming `0x01` block (`index_num2` → the referenced-key index), cross-referenced by `index_num`. The
 > incoming block is numbered after the data-block logical indexes (`index_num` = data-block count).
-> Verified byte-for-byte against an ACE-created self-reference.
+> Verified byte-for-byte against an ACE-created self-reference. Added to an existing table, the outgoing
+> block takes the lowest free number and the incoming block the next free one above it (verified: with 1 free
+> below a live 2, outgoing 1 and incoming 3, named `.rD`).
 
 > **`index_num` (`0x04`) vs `index_num2` (`0x08`) (verified).** `0x04` is the
 > logical index's own unique number; `0x08` is the ordinal of the **real index-data block** (§3.5)

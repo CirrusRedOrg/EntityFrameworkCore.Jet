@@ -20,6 +20,8 @@ public class IndexOrderingAccessTests
         { "GUID", OleDbType.Guid, [Guid.Empty, new Guid("00000000-0000-0000-0000-000000000001"), new Guid("01020304-0506-0708-090a-0b0c0d0e0f10"), new Guid("ffffffff-ffff-ffff-ffff-ffffffffffff"), null] },
         { "VARBINARY(16)", OleDbType.VarBinary, [new byte[] { 0 }, new byte[] { 1, 0 }, new byte[] { 0, 1, 2, 3, 4, 5, 6, 7 }, new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, Enumerable.Range(0, 16).Select(i => (byte)i).ToArray(), null] },
         { "VARCHAR(50)", OleDbType.VarWChar, ["", "0", "A", "A-B", "O'Brien", "Z", null] },
+        // A Yes/No column cannot be null, and has only the two values.
+        { "BIT", OleDbType.Boolean, [true, false] },
     };
 
     [Theory]
@@ -60,6 +62,73 @@ public class IndexOrderingAccessTests
             var aligned = new object?[table.Definition.Columns.Count];
             aligned[table.Definition.FindColumn("K")!.Index] = row[table.Definition.FindColumn("K")!.Index];
             Assert.Equal(stored, IndexKeyEncoder.Encode(index.Columns, aligned));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    public static TheoryData<bool, int?, int?> RangeBounds => new()
+    {
+        { true, 20, 60 }, { false, 20, 60 },
+        { true, 20, null }, { false, 20, null },
+        { true, null, 60 }, { false, null, 60 },
+    };
+
+    [Theory]
+    [MemberData(nameof(RangeBounds))]
+    public void Range_seek_returns_the_rows_ace_returns_whichever_way_the_index_sorts(
+        bool ascending, int? low, int? high)
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "index-range-seek-");
+        try
+        {
+            using (var connection = AceTestDatabase.Open(path))
+            {
+                Execute(connection, "CREATE TABLE RangeKeys (K INT, V INT NOT NULL)");
+                Execute(connection, $"CREATE INDEX IX_RangeKeys ON RangeKeys (K {(ascending ? "ASC" : "DESC")})");
+                for (int i = 0; i < 10; i++)
+                    Execute(connection, $"INSERT INTO RangeKeys (K, V) VALUES ({i * 10}, {i})");
+            }
+
+            string predicate = (low, high) switch
+            {
+                ({ } l, { } h) => $"K >= {l} AND K <= {h}",
+                ({ } l, null) => $"K >= {l}",
+                (null, { } h) => $"K <= {h}",
+                _ => "1 = 1",
+            };
+
+            int[] aceRows;
+            using (var connection = AceTestDatabase.Open(path))
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = $"SELECT V FROM RangeKeys WHERE {predicate} ORDER BY V";
+                using var reader = command.ExecuteReader();
+                var ids = new List<int>();
+                while (reader.Read()) ids.Add(Convert.ToInt32(reader[0]));
+                aceRows = [.. ids];
+            }
+
+            using var db = JetDatabase.Open(path);
+            var table = db.OpenTable("RangeKeys");
+            IndexDef index = table.Definition.Indexes.Single(i => i.Name == "IX_RangeKeys");
+            int keyIndex = table.Definition.FindColumn("K")!.Index;
+            int valueIndex = table.Definition.FindColumn("V")!.Index;
+
+            object?[]? Bound(int? value)
+            {
+                if (value is not { } v) return null;
+                var aligned = new object?[table.Definition.Columns.Count];
+                aligned[keyIndex] = v;
+                return aligned;
+            }
+
+            int[] seeked = [.. table.SeekRangeRows(index, Bound(low), Bound(high))
+                .Select(r => Convert.ToInt32(r[valueIndex]))
+                .Where(v => (low is not { } l || v * 10 >= l) && (high is not { } h || v * 10 <= h))
+                .Order()];
+
+            Assert.True(aceRows.SequenceEqual(seeked),
+                $"ACE=[{string.Join(',', aceRows)}], range seek=[{string.Join(',', seeked)}]");
         }
         finally { TemporaryDatabase.Delete(path); }
     }

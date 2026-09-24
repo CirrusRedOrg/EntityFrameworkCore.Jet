@@ -99,8 +99,8 @@ internal static class CalculatedExpression
                 // insert into the table -- so a column using one can never be populated (§3.4a).
                 case CalcCall f when f.Name.EndsWith('$'):
                     throw new CalculatedExpressionException(
-                        $"The expression {f.Name} cannot be used in a calculated column. Access accepts the '$' "
-                        + $"name variants at design time but cannot populate such a column; use '{f.Name[..^1]}'.");
+                        $"The expression {f.Name} cannot be used in a calculated column: the '$' variants are not "
+                        + $"supported there; use '{f.Name[..^1]}'.");
                 case CalcCall f when !Accepted.Contains(f.Name):
                     throw new CalculatedExpressionException(
                         $"The expression {f.Name} cannot be used in a calculated column.");

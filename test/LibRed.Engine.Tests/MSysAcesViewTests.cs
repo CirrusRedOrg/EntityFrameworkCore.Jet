@@ -7,8 +7,11 @@ using Xunit;
 namespace LibRed.Engine.Tests;
 
 // A LibRed-created view must get the same MSysACEs permission rows Access writes for a query object, or
-// Access warns about permissions when opening it (verified against Northwind: owner 0x690C = ACM 0xF00FE,
-// admin/users 0x680C = ACM 0xFFEFF — distinct from a table's, where both SIDs get full 0xFFEFF).
+// Access warns about permissions when opening it. Measured against ACE's own CREATE VIEW, row for row
+// (CatalogRowParityAccessTests): both rows get full access, as a table's do. The SIDs are this file's —
+// Northwind masks the Users account as 0x690C and admin as 0x680C — and LibRed reads that mask out of the
+// file rather than carrying one of its own, so the same view in a LibRed-created database gets that
+// database's SIDs instead.
 public class MSysAcesViewTests
 {
     [Fact]
@@ -39,8 +42,8 @@ public class MSysAcesViewTests
                 .ToList();
 
             Assert.Equal(2, rows.Count);
-            Assert.Equal(("680C", 0xFFEFF), (rows[0].Sid, rows[0].Acm)); // admin/users → full
-            Assert.Equal(("690C", 0xF00FE), (rows[1].Sid, rows[1].Acm)); // owner → query mask
+            Assert.Equal(("680C", 0xFFEFF), (rows[0].Sid, rows[0].Acm)); // admin → full
+            Assert.Equal(("690C", 0xFFEFF), (rows[1].Sid, rows[1].Acm)); // owner (Users) → full
             Assert.All(rows, r => Assert.Equal(false, r.Inh));
         }
         finally { TemporaryDatabase.Delete(path); }

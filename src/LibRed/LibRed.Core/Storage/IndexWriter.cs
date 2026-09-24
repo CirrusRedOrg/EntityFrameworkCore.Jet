@@ -111,15 +111,21 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
     /// <summary>
     /// Seeks the index for the rows whose key lies in the range [<paramref name="low"/>, <paramref name="high"/>]
-    /// (either bound null = open): descends to the low bound's leaf and walks the leaf chain, yielding row ids
-    /// while the key does not exceed the high bound. The key encoding is order-preserving so this returns the
-    /// range in order. Like <see cref="Seek"/> it may over-return at the boundaries (lossy keys / strict-vs-
-    /// inclusive) — the caller re-applies the real predicate.
+    /// (either bound null = open): descends to the bound that sorts first in the index and walks the leaf chain,
+    /// yielding row ids up to the other bound. The key encoding is order-preserving so this returns the range in
+    /// index order — ascending by value on an ASC index, descending on a DESC one. Like <see cref="Seek"/> it may
+    /// over-return at the boundaries (lossy keys / strict-vs-inclusive) — the caller re-applies the real predicate.
     /// </summary>
     public IEnumerable<RowId> SeekRange(IndexDef index, object?[]? low, object?[]? high)
     {
         byte[]? lowKey = low is null ? null : IndexKeyEncoder.Encode(index.Columns, low);
         byte[]? highKey = high is null ? null : IndexKeyEncoder.Encode(index.Columns, high);
+
+        // A DESC index inverts its key bytes, so the low VALUE is the byte-greater key and the tree is walked
+        // from the high bound down to it. The bounds are stated in values; here on they are byte bounds, so
+        // swap them and the walk below reads the same way for either direction.
+        if (!index.Columns[0].Ascending)
+            (lowKey, highKey) = (highKey, lowKey);
 
         int leaf = Descend(index.RootPage, WithTrailer(lowKey ?? [], 0))[^1];
         var visitedLeaves = new HashSet<int>();
@@ -488,15 +494,23 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
         int pos = EntryDataOffset;
         bool first = true;
+        Span<byte> trailer = stackalloc byte[TrailerSize];
         foreach (Entry e in entries)
         {
-            ReadOnlySpan<byte> stored = first ? e.Key : e.Key.AsSpan(compress);
+            // The prefix covers the entry WHOLE — key ++ trailer — so where many rows share a key it reaches
+            // past the key into the row pointer, and what is stored is the tail of that concatenation. ACE
+            // writes leaves this way and IndexPageReader.DecodeEntries reads them back the same way; taking
+            // the tail of the key alone throws on exactly those pages.
+            int skip = first ? 0 : compress;
             first = false;
-            int len = stored.Length + 4;
+            int keySkip = Math.Min(skip, e.Key.Length);
+            int trailerSkip = skip - keySkip;
+            int len = e.Key.Length - keySkip + TrailerSize - trailerSkip;
             if (pos + len > pageSize) return null; // overflow
 
-            stored.CopyTo(page.AsSpan(pos));
-            WriteInt32Be(page, pos + stored.Length, e.Trailer);
+            BinaryPrimitives.WriteInt32BigEndian(trailer, e.Trailer);
+            e.Key.AsSpan(keySkip).CopyTo(page.AsSpan(pos));
+            trailer[trailerSkip..].CopyTo(page.AsSpan(pos + e.Key.Length - keySkip));
             pos += len;
 
             int end = pos - EntryDataOffset;
@@ -519,6 +533,10 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     {
         (_, IReadOnlyList<int> continuations, int block) = LocateIndexBlock(index);
         WriteInt32IntoDefinition(continuations, block + IndexBlockFormat.RootPageOffset, newRoot);
+        // The root pointer is part of the definition every other handle caches: until they reload it they
+        // descend from the old root — by now only the leftmost page of the tree — and an insert through one
+        // splits that page as if it were the root and writes it over this one.
+        _channel.MarkSchemaChanged();
     }
 
     /// <summary>The (row, page) pointer to the index's own pages usage map, read from its data block.</summary>

@@ -81,6 +81,71 @@ public class DeleteByteParityTests(ITestOutputHelper output)
         }
     }
 
+    // A delete that gives space back to a page which had none. The page is the first of many, so it was full
+    // and its bit in the table's free-pages map had been cleared; freeing space in it is what puts the bit back,
+    // and a page whose bit stays clear is space no insert will ever use again. Both directions are asserted
+    // here: ACE writing a page LibRed leaves alone is exactly the shape of that leak.
+    [Fact]
+    public void A_delete_that_frees_space_in_a_full_page_writes_what_ace_writes()
+    {
+        object? engine = CreateDbEngine();
+        if (engine is null) { output.WriteLine("Skipped: DAO unavailable."); return; }
+
+        string northwind = Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb");
+        string orig = TemporaryDatabase.CopyPath(northwind, "delfree-orig-");
+        try
+        {
+            using (var db = JetDatabase.Open(orig, readOnly: false))
+            {
+                var e = new QueryEngine(db);
+                e.ExecuteNonQuery("CREATE TABLE Filled (Id LONG CONSTRAINT pk PRIMARY KEY, V TEXT(200))");
+                for (int i = 0; i < 200; i++)
+                    e.ExecuteNonQuery($"INSERT INTO Filled (Id, V) VALUES ({i}, '{new string((char)('a' + i % 26), 200)}')");
+            }
+
+            string aceCopy = TemporaryDatabase.CopyPath(orig, "delfree-ace-");
+            string noiseCopy = TemporaryDatabase.CopyPath(orig, "delfree-noise-");
+            string libredCopy = TemporaryDatabase.CopyPath(orig, "delfree-libred-");
+
+            object ace = Invoke(engine, "OpenDatabase", aceCopy)!;
+            try
+            {
+                object rs = Invoke(ace, "OpenRecordset", "SELECT * FROM Filled WHERE Id = 0")!;
+                try { Invoke(rs, "Delete"); }
+                finally { Invoke(rs, "Close"); }
+            }
+            finally { Invoke(ace, "Close"); }
+
+            object quiet = Invoke(engine, "OpenDatabase", noiseCopy)!;
+            try
+            {
+                object rs = Invoke(quiet, "OpenRecordset", "SELECT * FROM Filled")!;
+                Invoke(rs, "Close");
+            }
+            finally { Invoke(quiet, "Close"); }
+
+            using (var db = JetDatabase.Open(libredCopy, readOnly: false))
+                new QueryEngine(db).ExecuteNonQuery("DELETE FROM Filled WHERE Id = 0");
+
+            byte[] o = File.ReadAllBytes(orig), a = File.ReadAllBytes(aceCopy),
+                   n = File.ReadAllBytes(noiseCopy), l = File.ReadAllBytes(libredCopy);
+            // Page 0 is left out: its modification counter moves for reasons that have nothing to do with the
+            // delete, which is why the whole-file comparisons skip it too.
+            var aceDelete = Changed(o, a).Except(Changed(o, n)).Where(p => p != 0).ToHashSet();
+            var libredWrote = Changed(o, l).Where(p => p != 0).ToHashSet();
+
+            output.WriteLine($"ACE wrote [{string.Join(",", aceDelete.Order())}], "
+                             + $"LibRed wrote [{string.Join(",", libredWrote.Order())}]");
+            Assert.Empty(libredWrote.Except(aceDelete).Order());
+            Assert.Empty(aceDelete.Except(libredWrote).Order());
+            foreach (int page in aceDelete)
+                Assert.True(
+                    a.AsSpan(page * PageSize, PageSize).SequenceEqual(l.AsSpan(page * PageSize, PageSize)),
+                    $"page {page} (type 0x{o[page * PageSize]:X2}) differs from ACE's");
+        }
+        finally { TemporaryDatabase.Delete(orig); }
+    }
+
     private static HashSet<int> Changed(byte[] left, byte[] right)
     {
         var changed = new HashSet<int>();

@@ -67,7 +67,8 @@ public class OfficeStandardVariantReadTests
     private static string CreateEncryptedCopy()
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.WideTableAccdb, "office-standard-variant-");
-        DatabaseEncryption.SetPasswordRc4(path, "Test123");
+        using (var db = JetDatabase.Open(path, readOnly: false, exclusive: true))
+            DatabaseEncryption.SetPasswordRc4(db, "Test123");
         return path;
     }
 

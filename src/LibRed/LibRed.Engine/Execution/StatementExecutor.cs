@@ -69,8 +69,17 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
         var relationships = statement.ForeignKeys.Select(fk => ToRelationshipSpec(statement.Table, fk)).ToList();
 
+        // An unnamed constraint's generated name has to fit the 64 characters a name may have, however long the
+        // table's own name is.
+        string Generated(string prefix, int i)
+        {
+            string suffix = $"_{i}";
+            int room = JetName.MaxLength - prefix.Length - 1 - suffix.Length;
+            return $"{prefix}_{(statement.Table.Length > room ? statement.Table[..room] : statement.Table)}{suffix}";
+        }
+
         var uniques = statement.UniqueConstraints.Select((u, i) => new UniqueIndexSpec(
-            Name: u.Name ?? $"UQ_{statement.Table}_{i}",
+            Name: u.Name ?? Generated("UQ", i),
             Columns: u.Columns)).ToList();
 
         var defaults = statement.Columns
@@ -79,7 +88,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             .ToList();
 
         var checks = statement.CheckConstraints
-            .Select((ck, i) => (Name: ck.Name ?? $"CK_{statement.Table}_{i}", ck.Expression))
+            .Select((ck, i) => (Name: ck.Name ?? Generated("CK", i), ck.Expression))
             .ToList();
 
         _database.CreateTable(statement.Table, columns, primaryKey, relationships, uniques, defaults, checks,
@@ -361,7 +370,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// <summary>Applies each enforced relationship's ON UPDATE action when a parent row's referenced key
     /// changes: CASCADE rewrites the children's FK to the new key; NO ACTION rejects if any child exists.
     /// (Jet has no ON UPDATE SET NULL.)</summary>
-    private void CascadeParentKeyUpdate(string parentTable, object?[] oldValues, object?[] newValues)
+    /// <remarks><c>stillToWrite</c> carries the rows a running UPDATE has yet to write: a cascade onto one of
+    /// them changes the values that write will carry instead of writing the row here (see SetChildKey).</remarks>
+    private void CascadeParentKeyUpdate(string parentTable, object?[] oldValues, object?[] newValues,
+        Dictionary<(int Tdef, RowId Id), object?[]>? stillToWrite = null)
     {
         foreach (ForeignKey fk in ChildRelationshipsOf(parentTable))
         {
@@ -372,7 +384,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             if (children.Count == 0) continue;
 
             if (fk.CascadeUpdate)
-                foreach (var (cid, cvals) in children) SetChildKey(fk, cid, cvals, newKey);
+                foreach (var (cid, cvals) in children) SetChildKey(fk, cid, cvals, newKey, stillToWrite);
             else
                 throw new InvalidOperationException(
                     $"The record cannot be deleted or changed because table '{fk.Table}' includes related records.");
@@ -388,7 +400,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     /// <summary>Rewrites a child row's FK columns to <paramref name="newKey"/> (or NULL for SET NULL),
     /// maintaining any index over them.</summary>
-    private void SetChildKey(ForeignKey fk, RowId childId, object?[] childValues, object?[]? newKey)
+    private void SetChildKey(ForeignKey fk, RowId childId, object?[] childValues, object?[]? newKey,
+        Dictionary<(int Tdef, RowId Id), object?[]>? stillToWrite = null)
     {
         Table child = _database.OpenTable(fk.Table);
         var newValues = (object?[])childValues.Clone();
@@ -400,6 +413,16 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             if (!Equals(nv, childValues[idx])) { newValues[idx] = nv; changed.Add(idx); }
         }
         if (changed.Count == 0) return;
+
+        // A child row the running statement has yet to write itself: hand it the new key and let its own write
+        // carry it, so the row it writes and the index entries it moves both hold the cascaded value. Writing
+        // here as well would be undone by that write — it was built before this cascade ran — while the index
+        // entry moved here would keep the new key, which is a row disagreeing with its own index.
+        if (stillToWrite?.TryGetValue((child.Definition.DefinitionPage, childId), out object?[]? waiting) == true)
+        {
+            foreach (int idx in changed) waiting[idx] = newValues[idx];
+            return;
+        }
 
         // A cascade rewrites a row, so it owes the row the same invariants an UPDATE does. It used to apply
         // none of them: ON DELETE SET NULL would write NULL into a column carrying the Required property, and
@@ -442,7 +465,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     private int ExecuteCreateView(CreateViewStatement statement)
     {
-        _database.CreateView(statement.Name, BuildViewSpec(statement.Definition));
+        // CREATE VIEW drops a leading space from the name, where every other route refuses one (verified vs ACE).
+        _database.CreateView(statement.Name.TrimStart(' '), BuildViewSpec(statement.Definition));
         return 0;
     }
 
@@ -940,6 +964,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 // would from INSERT INTO t DEFAULT VALUES.
                 if (ReferenceEquals(supplied[i], DefaultRowValue))
                     continue;
+                // An explicit number is kept and the counter carries on after it; an explicit Null is refused
+                // (verified vs ACE) — to the row inserter a Null means "generate the next id".
+                if (supplied[i] is null && column.IsAutoNumber && column.Type == JetDataType.Int32)
+                    throw new InvalidOperationException(
+                        $"Cannot insert a Null value into AutoNumber field '{statement.Table}.{column.Name}'.");
 
                 values[column.Index] = supplied[i];
                 provided.Add(column.Index);
@@ -1637,6 +1666,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             (int ti, int position) = found[0];
             Table tt = TargetTable(tables, ti);
             ColumnDef col = tt.Definition.Columns[position];
+            // An AutoNumber takes no UPDATE at all, even to its own value (verified vs ACE for the Int32
+            // counter; a ReplicationID AutoNumber is not measured, so it is left alone).
+            if (col.IsAutoNumber && col.Type == JetDataType.Int32)
+                throw new InvalidOperationException(
+                    $"Cannot update '{tt.Name}.{col.Name}': an AutoNumber field cannot be updated.");
             return (TableIndex: ti, Column: col, a.Value);
         }).ToList();
         if (targets.GroupBy(t => (t.TableIndex, t.Column.Index)).FirstOrDefault(g => g.Count() > 1) is { } duplicate)
@@ -1673,16 +1707,38 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             }
         }
 
+        // The rows this statement is still going to write, by table and row id. A cascade that reaches one of
+        // them must fold the new key into the values waiting here rather than write the row itself: the write
+        // waiting here was built from the snapshot taken before the cascade, so it would put the old key back
+        // while the index kept the cascaded one. A table whose parent and child ends are the same table is the
+        // shape that does this. An entry is dropped once its row has been written, after which a cascade
+        // reaching it writes the row as usual.
+        var stillToWrite = new Dictionary<(int Tdef, RowId Id), object?[]>();
+        foreach (var (table, id, _, values) in dirty.Values)
+            stillToWrite[(table.Definition.DefinitionPage, id)] = values;
+
         foreach (var (table, id, original, values) in dirty.Values)
         {
             var changed = new HashSet<int>();
             for (int i = 0; i < values.Length; i++)
                 if (!Equals(original[i], values[i])) changed.Add(i);
-            if (changed.Count == 0) continue; // unchanged after all
+            if (changed.Count == 0)
+            {
+                stillToWrite.Remove((table.Definition.DefinitionPage, id));
+                continue; // unchanged after all
+            }
 
             // UPDATE must preserve the same Required/NOT NULL invariant as INSERT. Check the complete
             // post-assignment row before any referential action, row rewrite, or index mutation occurs.
             EnforceRequired(table.Name, table.Definition.Columns, values);
+
+            // A changed primary-key or WITH DISALLOW NULL column must not become Null, the insert rule.
+            foreach (IndexDef index in table.Definition.Indexes
+                .Where(i => (i.IsPrimaryKey || i.Required) && i.Columns.Any(c => changed.Contains(c.Column.Index))))
+                if (index.Columns.FirstOrDefault(c => values[c.Column.Index] is null).Column is { } nullColumn)
+                    throw new InvalidOperationException(
+                        $"Index or primary key cannot contain a Null value: column '{nullColumn.Name}' of "
+                        + $"'{table.Name}' is Null, and index '{index.Name}' does not allow it.");
 
             // Child side: a changed FK column must still reference an existing parent (like an insert).
             if (_database.Catalog.ForeignKeysOf(table.Name).Any(f => f.IsEnforced &&
@@ -1706,13 +1762,19 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
             // Parent side: a changed referenced-key column triggers each relationship's ON UPDATE action
             // (CASCADE rewrites children, NO ACTION rejects if children exist).
-            CascadeParentKeyUpdate(table.Name, original, values);
+            CascadeParentKeyUpdate(table.Name, original, values, stillToWrite);
+
+            // The cascade may have folded a new key into this very row — a row that references itself — so the
+            // set of changed columns is re-derived before the row and its index entries are written.
+            for (int i = 0; i < values.Length; i++)
+                if (!Equals(original[i], values[i])) changed.Add(i);
 
             table.Update(id, values, changed);
             foreach (IndexDef index in table.Definition.Indexes
                 .Where(i => i.RootPage > 0 && i.Columns.Any(c => changed.Contains(c.Column.Index)))
                 .GroupBy(i => i.RootPage).Select(g => g.First()))
                 table.MoveIndexEntry(index, original, values, id);
+            stillToWrite.Remove((table.Definition.DefinitionPage, id));
         }
 
         foreach (var (values, (table, provided)) in newRows)

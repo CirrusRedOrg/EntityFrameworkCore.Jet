@@ -53,6 +53,105 @@ public class GlobalMapPointerAccessTests : TempDatabaseTest
         AssertAceReads(path, rows: 1500);
     }
 
+    // Whether the global free-pages map's coverage keeps up with the file, which decides whether a page can
+    // ever be freed that the map has no bit for. A 69-byte inline record covers pages 0–511; the file here is
+    // pushed well past that with ACE, and then an UPDATE replaces long values — the one free ACE performs
+    // immediately rather than holding to close — so their pages have to be recorded somewhere above 511.
+    [Fact]
+    public void Ace_grows_the_free_map_to_cover_the_file_it_frees_pages_in()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "globalptr-ace-grow-");
+        using (OleDbConnection connection = AceTestDatabase.Open(path))
+        {
+            using (OleDbCommand ddl = connection.CreateCommand())
+            {
+                ddl.CommandText = "CREATE TABLE Grown (K LONG CONSTRAINT pk PRIMARY KEY, M MEMO)";
+                ddl.ExecuteNonQuery();
+            }
+            using OleDbCommand insert = connection.CreateCommand();
+            insert.CommandText = "INSERT INTO Grown (K, M) VALUES (?, ?)";
+            OleDbParameter k = insert.Parameters.Add("k", OleDbType.Integer);
+            OleDbParameter m = insert.Parameters.Add("m", OleDbType.LongVarWChar);
+            for (int i = 0; i < 700; i++)
+            {
+                k.Value = i;
+                m.Value = new string((char)('a' + i % 26), 4000);
+                insert.ExecuteNonQuery();
+            }
+        }
+
+        int pages = (int)(new FileInfo(path).Length / 4096);
+        byte[] holder = ReadPage(path, 1);
+        int offset = BinaryPrimitives.ReadUInt16LittleEndian(holder.AsSpan(14)) & 0x1FFF;
+        int length = 4096 - offset; // row 0 is the last record on the page, so its record runs to the page end
+        int start = BinaryPrimitives.ReadInt32LittleEndian(holder.AsSpan(offset + 1));
+
+        // Then free pages above the window: shortening a memo releases its long-value pages at once.
+        using (OleDbConnection connection = AceTestDatabase.Open(path))
+        using (OleDbCommand update = connection.CreateCommand())
+        {
+            update.CommandText = "UPDATE Grown SET M = 'short' WHERE K < 100";
+            update.ExecuteNonQuery();
+        }
+
+        byte[] after = ReadPage(path, 1);
+        int freeAbove512 = 0;
+        for (int p = 512; p < pages; p++) if (MapBit(after, 0, p)) freeAbove512++;
+
+        // Measured: 700 memo rows made a 1,761-page file, whose free map is a 229-byte inline record starting at
+        // page 0 — coverage 1,792 pages — and the UPDATE marked 43 pages free above 511. So ACE's map covers
+        // every page it might have to free, which is why a page outside the map's coverage is a malformed file
+        // rather than an ordinary state (PageAllocator.Free).
+        Assert.True(pages > 512, $"expected the file to pass the 512-page window; it is {pages} pages");
+        Assert.Equal(0, start);
+        Assert.True(length >= 5 + (pages + 7) / 8,
+            $"free map record is {length} bytes, too short for {pages} pages");
+        Assert.True(freeAbove512 > 0, "expected the pages the UPDATE freed to be marked free above page 512");
+    }
+
+    // Where a freed page lives between the free and the close. LibRed keeps this handle's released pages in
+    // memory and writes them to the global maps at close; the audit asks whether that loses them if the process
+    // dies, which is only a fault if ACE puts them on disk sooner.
+    [Fact]
+    public void Ace_keeps_released_pages_off_disk_until_the_session_closes()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "globalptr-ace-release-");
+        using (OleDbConnection connection = AceTestDatabase.Open(path))
+        {
+            using (OleDbCommand ddl = connection.CreateCommand())
+            {
+                ddl.CommandText = "CREATE TABLE Doomed (K LONG CONSTRAINT pk PRIMARY KEY, M MEMO)";
+                ddl.ExecuteNonQuery();
+            }
+            using OleDbCommand insert = connection.CreateCommand();
+            insert.CommandText = "INSERT INTO Doomed (K, M) VALUES (?, ?)";
+            OleDbParameter k = insert.Parameters.Add("k", OleDbType.Integer);
+            OleDbParameter m = insert.Parameters.Add("m", OleDbType.LongVarWChar);
+            for (int i = 0; i < 200; i++)
+            {
+                k.Value = i;
+                m.Value = new string((char)('a' + i % 26), 4000);
+                insert.ExecuteNonQuery();
+            }
+        }
+
+        byte[] before = ReadPage(path, 1);
+        byte[] duringDrop;
+        using (OleDbConnection connection = AceTestDatabase.Open(path))
+        {
+            using (OleDbCommand drop = connection.CreateCommand())
+            {
+                drop.CommandText = "DROP TABLE Doomed";
+                drop.ExecuteNonQuery();
+            }
+            duringDrop = ReadPage(path, 1); // the session is still open
+        }
+        byte[] after = ReadPage(path, 1);
+
+        Assert.Equal(before, duringDrop); // nothing on disk yet — the pages are the session's own business
+        Assert.NotEqual(before, after);   // and the close puts them in the free map
+    }
+
     private static void FillWithLibRed(string path, int rows)
     {
         using var db = JetDatabase.Open(path, readOnly: false);

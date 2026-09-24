@@ -238,8 +238,18 @@ the documented 255-column, 32-index, and 64-character-name limits.
 > reject the *entire file* (65+ char column → "Unrecognized database format"; 65+ char table → "Unspecified
 > error"), not just the object. ACE's *storage/read* path tolerates every special character (quotes, `#`, `%`,
 > `&`, spaces, tab, unicode all round-trip), but `. ! ` `` ` `` `[ ]` make the name **unreferenceable in SQL**
-> (both bracket- and backtick-quoted `SELECT` fail) — matching Access's documented forbidden set. LibRed enforces
-> both (max 64 + forbidden chars) on caller-supplied names via `JetName.Validate`, since writing the format
+> (both bracket- and backtick-quoted `SELECT` fail) — matching Access's documented forbidden set.
+>
+> ACE's **DDL** is stricter than its storage path (verified): it refuses a name that **begins with a space** or
+> contains a **control character** — a tab and U+0001 measured, for tables and columns, *"' Lead' is not a
+> valid name."* A trailing space is accepted and kept (`[Trail ]` stays `Trail `). The same rules — the forbidden
+> characters, 64 characters, a leading space — hold for a **view** and a **stored procedure**, with one
+> exception: `CREATE VIEW` drops a leading space rather than refusing it (`[ View]` is stored as `View`), where
+> `CREATE PROCEDURE` refuses it. A foreign key's name is also an index name on its table, so `ADD CONSTRAINT …
+> FOREIGN KEY` is refused when the table already has an index of that name — *"Table 'FkC' already has an index
+> named 'Taken'."*
+>
+> LibRed enforces all of this on caller-supplied names via `JetName.Validate`, since writing the format
 > directly bypasses ACE's DDL parser. Internal hidden names (the `.rN` incoming-relationship index names, §3.6)
 > legitimately start with `.` and are **not** validated.
 

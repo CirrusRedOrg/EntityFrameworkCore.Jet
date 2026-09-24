@@ -69,9 +69,9 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 
 **Inline row record → [page-01](page-01-data-and-rows.md):**
 ```
-[colCount:2 = maxColumnId+1] [fixed data] [var data] [varOffsetTable:(numVar+1)×2] [numVar:2] [nullBitmap:ceil(colCount/8)]
+[colCount:2 = TDEF 0x29 high-water] [fixed data] [var data] [varOffsetTable:(numVar+1)×2] [numVar:2] [nullBitmap:ceil(colCount/8)]
 ```
-Variable section (`varOffsetTable`+`numVar`) omitted when the table has no variable columns. Null bitmap keyed by column id (set = present); dead ids' bits set. Booleans carry no data (the bit *is* the value). With the variable section omitted, `fixed data` is padded to a **minimum of 2 bytes** (a floor, not an alignment — an odd 3-byte region stays 3), making 5 the shortest record; ACE misreads anything shorter.
+Variable section (`varOffsetTable`+`numVar`) omitted only when the table has never had a variable column (TDEF `0x2B` = 0); `numVar` is that high-water. Null bitmap keyed by column id (set = present); a dead id's bit is set in a row the ALTER COLUMN re-lay rewrote and clear in one inserted afterwards. Booleans carry no data (the bit *is* the value). With the variable section omitted, `fixed data` is padded to a **minimum of 2 bytes** (a floor, not an alignment — an odd 3-byte region stays 3), making 5 the shortest record; ACE misreads anything shorter.
 
 ---
 
@@ -234,7 +234,7 @@ Global maps, located by page 0: free pages at `0x18` (page 1 row 0 as ACE writes
 
 **Entry trailing pointer (4-byte big-endian):** leaf → row id (`page = ptr>>8`, `row = ptr&0xFF`); node → child page.
 
-**Key flag byte:** present `0x7F` asc / `0x80` desc; null `0x00` asc / `0xFF` desc. (Boolean: no flag; `0x00` true, `0xFF` false.)
+**Key flag byte:** present `0x7F` asc / `0x80` desc; null `0x00` asc / `0xFF` desc. (Boolean: the flag, then `0x00` true / `0xFF` false; descending inverts both.)
 
 ---
 
@@ -272,7 +272,7 @@ so guard with a validator; **query-engine** — ACE's SQL-engine limits that Lib
 
 | Limit | Value | Kind |
 | --- | --- | --- |
-| Object / table / field name | 64 chars | engine constant (ACE `WCHAR[64]`-style; >64 corrupts the file — [page-02a](page-02a-tdef.md) §3.3) |
+| Object / table / field name | 64 chars | engine constant (ACE `WCHAR[64]`-style; >64 corrupts the file — [page-02a](page-02a-tdef.md) §3.3); no `. ! ` `` ` `` `[ ]`, no leading space, no control character |
 | Fields per table | 255 | engine constant — the `0x29` column-id high-water, ids never reused ([page-02a](page-02a-tdef.md) §3.1) |
 | Indexes per table | 32 | engine constant — binds on the **logical** count `0x2F`, not the real count `0x33` ([page-02d](page-02d-constraints.md) §3.5) |
 | Fields per index / PK | 10 | structural (the 52-byte index-data block's fixed 10-slot column array — [page-02d](page-02d-constraints.md) §3.5) |

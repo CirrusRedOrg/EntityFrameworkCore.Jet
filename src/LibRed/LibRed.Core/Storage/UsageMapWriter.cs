@@ -151,6 +151,7 @@ public sealed class UsageMapWriter(PageChannel channel)
         int newEnd = newStart + InlineWindowPages;
 
         var marked = new List<int>();
+        bool fitsWindow = true;
         for (int i = 0; i < bitmap.Length; i++)
         {
             if (bitmap[i] == 0) continue;
@@ -158,12 +159,28 @@ public sealed class UsageMapWriter(PageChannel channel)
             {
                 if ((bitmap[i] & (1 << bit)) == 0) continue;
                 int markedPage = startPage + i * 8 + bit;
-                if (markedPage < newStart || markedPage >= newEnd) return false;
+                if (markedPage < newStart || markedPage >= newEnd) fitsWindow = false;
                 marked.Add(markedPage);
             }
         }
 
-        var record = new byte[InlineMapHeaderSize + InlineWindowBitmapBytes];
+        // A window that has already moved above the target cannot slide back down without dropping the pages
+        // it still advertises, so it widens instead: the start drops to the lowest page it must cover (rounded
+        // down to a byte, as the released map's move does) and the record is sized to reach the highest. That
+        // keeps it inline and keeps every bit. Marking a page a table's free map cannot represent is not a
+        // corruption — the bit only advertises room — but silently dropping it is what leaves reusable space
+        // invisible, and throwing outright failed an ordinary DROP TABLE on a real file (complex1.accdb, whose
+        // MSysObjects free map sits at page 2288 while its catalog rows live at page 17).
+        int bitmapBytes = InlineWindowBitmapBytes;
+        if (!fitsWindow)
+        {
+            int lowest = Math.Min(targetPage, marked.Count == 0 ? targetPage : marked.Min());
+            int highest = Math.Max(targetPage, marked.Count == 0 ? targetPage : marked.Max());
+            newStart = lowest / 8 * 8;
+            bitmapBytes = RoundUpTo((highest - newStart) / 8 + 1, UsageMapChunkBytes);
+        }
+
+        var record = new byte[InlineMapHeaderSize + bitmapBytes];
         record[0] = InlineMapType;
         BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(1, 4), newStart);
         marked.Add(targetPage);

@@ -13,7 +13,7 @@
 | `0x05` | Currency | int64 LE, scaled: value / 10000 |
 | `0x06` | Single | 4-byte IEEE |
 | `0x07` | Double | 8-byte IEEE |
-| `0x08` | DateTime | 8-byte IEEE double, OLE-automation epoch (1899-12-30) |
+| `0x08` | DateTime | 8-byte IEEE double, OLE-automation epoch (1899-12-30); nothing before 0100-01-01 (serial -657434) — ACE refuses an earlier date or serial |
 | `0x09` | Binary | raw bytes |
 | `0x0A` | Text | UTF-16LE, or compressed Unicode (§7); inline ≤ 255 chars |
 | `0x0B` | OLE | long value (§8) |

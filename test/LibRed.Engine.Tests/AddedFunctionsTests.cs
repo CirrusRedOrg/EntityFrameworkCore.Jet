@@ -28,6 +28,10 @@ public class AddedFunctionsTests : TempDatabaseTest
     [InlineData("Hex(255)", "FF")]
     [InlineData("Oct(8)", "10")]
     [InlineData("MonthName(1)", "January")]
+    // The second argument abbreviates. It was accepted by the arity table and then ignored, so this returned
+    // the full name — a silently wrong value rather than a refused call.
+    [InlineData("MonthName(1, True)", "Jan")]
+    [InlineData("MonthName(1, False)", "January")]
     [InlineData("TypeName(5)", "Long")]
     public void String_returning(string expr, string expected)
         => Assert.Equal(expected, Convert.ToString(Eval(expr)));

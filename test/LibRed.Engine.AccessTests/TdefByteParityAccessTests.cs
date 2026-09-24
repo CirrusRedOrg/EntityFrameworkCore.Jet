@@ -30,6 +30,7 @@ public class TdefByteParityAccessTests(ITestOutputHelper output) : TempDatabaseT
         { "notnull", "CREATE TABLE W (Id LONG, A LONG NOT NULL, B TEXT(20) NOT NULL, CONSTRAINT pk PRIMARY KEY (Id))" },
         { "counter", "CREATE TABLE W (Id COUNTER, A TEXT(30), CONSTRAINT pk PRIMARY KEY (Id))" },
         { "unique", "CREATE TABLE W (Id LONG, A LONG, CONSTRAINT pk PRIMARY KEY (Id), CONSTRAINT u UNIQUE (A))" },
+        { "self-reference", "CREATE TABLE W (Id LONG, P LONG, CONSTRAINT pk PRIMARY KEY (Id), CONSTRAINT fk FOREIGN KEY (P) REFERENCES W (Id))" },
         { "guid+decimal", "CREATE TABLE W (Id LONG, G GUID, D DECIMAL(18,4), CONSTRAINT pk PRIMARY KEY (Id))" },
         { "many-columns", "CREATE TABLE W (Id LONG, A BYTE, B SMALLINT, C REAL, D FLOAT, E CURRENCY, "
             + "F DATETIME, G BIT, H CHAR(10), I VARCHAR(40), J BINARY(8), CONSTRAINT pk PRIMARY KEY (Id))" },

@@ -68,6 +68,40 @@ public class SqlTransactionControlTests : TempDatabaseTest
         Assert.Empty(Ids(e));
     }
 
+    // A statement that fails inside a transaction runs under a savepoint of its own, which is rolled back — and
+    // has to be closed as well. Left open it sits above the savepoint the enclosing BEGIN pushed, so that
+    // level's COMMIT is no longer releasing the innermost savepoint and refuses: one failed statement would
+    // make every later nested COMMIT throw, on a transaction the failure was supposed to leave intact.
+    [Fact]
+    public void A_failed_statement_leaves_the_enclosing_levels_committable()
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery("BEGIN TRANSACTION");
+        e.ExecuteNonQuery("INSERT INTO t (id) VALUES (1)");
+        e.ExecuteNonQuery("BEGIN TRANSACTION");
+        e.ExecuteNonQuery("INSERT INTO t (id) VALUES (2)");
+        Assert.Throws<ConstraintViolationException>(() => e.ExecuteNonQuery("INSERT INTO t (id) VALUES (2)"));
+
+        e.ExecuteNonQuery("COMMIT");   // inner: releases its savepoint
+        e.ExecuteNonQuery("COMMIT");   // outer: commits the transaction
+        Assert.Equal([1, 2], Ids(e));
+    }
+
+    [Fact]
+    public void A_failed_statement_leaves_the_enclosing_levels_rollable()
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery("BEGIN TRANSACTION");
+        e.ExecuteNonQuery("INSERT INTO t (id) VALUES (1)");
+        e.ExecuteNonQuery("BEGIN TRANSACTION");
+        e.ExecuteNonQuery("INSERT INTO t (id) VALUES (2)");
+        Assert.Throws<ConstraintViolationException>(() => e.ExecuteNonQuery("INSERT INTO t (id) VALUES (1)"));
+
+        e.ExecuteNonQuery("ROLLBACK");  // inner: undoes id=2 only
+        e.ExecuteNonQuery("COMMIT");    // outer: keeps id=1
+        Assert.Equal([1], Ids(e));
+    }
+
     [Fact]
     public void Commit_with_no_transaction_open_throws()
     {

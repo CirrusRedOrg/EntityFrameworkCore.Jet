@@ -137,6 +137,21 @@ public class JetTypeCodecBoundaryTests
             Assert.Throws<InvalidOperationException>(() => JetTypeCodec.Encode(binary, new byte[] { 1, 2, 3, 4 })).Message);
     }
 
+    // DATETIME2 is 42 ASCII bytes, "<day>:<time>:<precision>". The width was checked and the CONTENT was not,
+    // so a damaged value escaped as ArgumentOutOfRangeException (s[..-1] on a missing colon), FormatException
+    // (non-digits) or an overflow — never the InvalidDataException every other type reports.
+    [Theory]
+    [InlineData("no colons here at all, but exactly 42 bytes!")]
+    [InlineData("12345:only one colon and padding to 42.....")]
+    [InlineData("abcdefghijklmnopqrs:tuvwxyzabcdefghijklmn:07")]
+    [InlineData("9999999999999999999:0000000000000000000:07")]
+    public void A_damaged_extended_datetime_reports_corruption(string text)
+    {
+        byte[] value = Encoding.ASCII.GetBytes(text.PadRight(42)[..42]);
+        Assert.ThrowsAny<InvalidDataException>(() =>
+            JetTypeCodec.Decode(Column(JetDataType.DateTimeExtended, length: 42, fixedLength: true), value));
+    }
+
     // Complex used to stand in for "unsupported" here. It no longer is — its four bytes are an Int32 complex
     // id and LibRed both reads and writes them — so the example is now one of the genuinely unmodelled codes.
     [Fact]

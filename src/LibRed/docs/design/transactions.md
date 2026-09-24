@@ -26,6 +26,17 @@ Status: **draft / accepted direction** · Date: 2026-07-18
 > (L0), the ACE co-residency constraint (§2), commit-byte / cross-process protocol, cascade worklist — still
 > stands as the roadmap. See `TransactionIsolationTests` and [[libred-parallel-dirty-read-flakiness]].
 
+> **Deferred (2026-09-24) — the commit-byte protocol and the Jet lock manager (§4 L0, phases 7–8).** The two
+> are one job, not two: a writer's commit slot is `0xE00 + 2n` for *its own* user number *n*, and that number
+> comes from the position it takes in the `.laccdb` — so there is no writing the commit table without first
+> doing the lock-file registration. What is missing is measured behaviour: the values ACE writes into its slot
+> as it begins and ends a batch (the order and 2-byte extent are known, the values are not — page-00 §2.2),
+> and whether page 0 is itself under a byte-range lock meanwhile. Guessing writes a signal Access reads as
+> corruption, so this waits on a ProcMon/Frida characterisation of a live `MSACCESS.EXE`. Until then LibRed is
+> **single-writer**, as `src/LibRed/README.md` states, and every mention of commit bytes, `.laccdb` records and
+> cross-process recovery below is **roadmap, not code**. What ships today is the deferred-write overlay, the
+> write-conflict check on commit, and process-local page locks.
+
 This is the ground-up design for LibRed's transaction support and the concurrency
 infrastructure it sits on. It replaces the ad-hoc page-level undo log currently in
 `PageChannel`, and is written so the localized atomicity gaps the production audit

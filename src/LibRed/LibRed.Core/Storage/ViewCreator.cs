@@ -23,13 +23,14 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
     private const int AppendFlags = 0x10000040;         // an INSERT (append) query
     private const int MakeTableFlags = 0x10000050;
     private const int DataDefinitionFlags = 0x10000060; // a CREATE/DROP TABLE (data-definition) query
-    private static readonly byte[] DefaultOwner = [0x69, 0x0C];
-    private static readonly byte[] AdminSid = [0x68, 0x0C];
+    // The owner and the administrator grantee, read from the file being written: an on-disk SID is masked per
+    // file (page-00 §2.3), so a pair baked in here would name no account in any other file.
 
-    // MSysACEs permission rows a QUERY/VIEW object gets — distinct from a table's (owner and admin both get
-    // full 0xFFEFF on a table). Verified against every Northwind view: owner (0x690C) = 0xF00FE, admin/users
-    // (0x680C) = 0xFFEFF. Without these, Access opens the file but warns about permissions on the query.
-    private const int QueryOwnerAcm = 0xF00FE;  // 983294
+    // MSysACEs permission rows a QUERY/VIEW object gets. ACE's own CREATE VIEW writes full access in both rows,
+    // as its CREATE TABLE does — measured row for row against it. (Northwind's views, made in the Access UI,
+    // carry 0xF00FE in the owner row instead: the UI grants a narrower set than the SQL path. Access reads
+    // either.) Without these rows at all, Access opens the file but warns about permissions on the query.
+    private const int QueryOwnerAcm = 0xFFEFF;  // 1048319
     private const int QueryAdminAcm = 0xFFEFF;  // 1048319
 
     // A relationship object's MSysACEs rows (verified vs ACE): owner 0xF00FE as a query's, admin 0xFFFFF.
@@ -72,9 +73,12 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         AllocateObject(name, CatalogFormat.ObjectTypeRelationship, CatalogFormat.RelationshipContainerParentId, flags: 0,
             RelationshipOwnerAcm, RelationshipAdminAcm);
 
-    private int AllocateQueryObject(string name, int flags) =>
-        AllocateObject(name, StoredQueryFormat.ObjectTypeQuery, CatalogFormat.ObjectContainerParentId, flags,
+    private int AllocateQueryObject(string name, int flags)
+    {
+        JetName.Validate(name, "query name");
+        return AllocateObject(name, StoredQueryFormat.ObjectTypeQuery, CatalogFormat.ObjectContainerParentId, flags,
             QueryOwnerAcm, QueryAdminAcm);
+    }
 
     /// <summary>Reserves the next free high-bit object id, checks the name is free, and writes
     /// the MSysObjects row and its two MSysACEs rows. For a query the <paramref name="flags"/> distinguish view /
@@ -117,7 +121,8 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         TableDef msysAces = _catalog.FindTable("MSysACEs")
             ?? throw new InvalidOperationException("MSysACEs catalog table was not found.");
 
-        foreach ((byte[] sid, int acm) in new[] { (DefaultOwner, ownerAcm), (AdminSid, adminAcm) })
+        (byte[] users, byte[] admin) = _catalog.SecuritySids;
+        foreach ((byte[] sid, int acm) in new[] { (users, ownerAcm), (admin, adminAcm) })
         {
             var values = new object?[msysAces.Columns.Count];
             SetByName(msysAces, values, "ACM", acm);
@@ -137,7 +142,7 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         SetByName(msysObjects, values, "Type", type);
         SetByName(msysObjects, values, "Name", name);
         SetByName(msysObjects, values, "Flags", flags);
-        SetByName(msysObjects, values, "Owner", DefaultOwner);
+        SetByName(msysObjects, values, "Owner", _catalog.SecuritySids.Users);
         SetByName(msysObjects, values, "DateCreate", now);
         SetByName(msysObjects, values, "DateUpdate", now);
         new RowInserter(_channel, msysObjects).Insert(values, updateIndexes: true);

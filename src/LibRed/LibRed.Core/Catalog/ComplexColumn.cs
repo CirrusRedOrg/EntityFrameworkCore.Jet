@@ -152,7 +152,7 @@ public readonly record struct ComplexAttachment(string Extension, byte[] Content
         ArgumentException.ThrowIfNullOrEmpty(fileName);
         if (content.Length > MaxAccessAttachmentBytes)
             throw new ArgumentOutOfRangeException(nameof(content),
-                $"An attachment is {content.Length} bytes; Access accepts at most {MaxAccessAttachmentBytes} per file.");
+                $"An attachment is {content.Length} bytes; an attachment holds at most {MaxAccessAttachmentBytes} bytes.");
         if (fileName.Length > 255)
             throw new ArgumentException(
                 $"An attachment name is at most 255 characters including the extension; '{fileName}' is {fileName.Length}.",

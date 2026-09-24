@@ -39,10 +39,41 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
     private Dictionary<string, StoredActionQuery>? _actionQueries;
     private Dictionary<string, IReadOnlyList<StoredQueryParameter>>? _queryParameters;
     private List<ComplexColumn>? _complexColumns;
+    private (byte[] Users, byte[] Admin)? _securitySids;
     private long _seenSchemaGeneration = channel.SchemaGeneration;
 
     /// <summary>All tables in the database (user and system).</summary>
     public IReadOnlyList<TableDef> Tables { get { EnsureFresh(); return _tables ??= LoadTables(); } }
+
+    /// <summary>
+    /// The two account SIDs <b>as this database masks them</b>: the owner a new object takes (the Users
+    /// group) and the administrator its second permission row grants. Every on-disk SID is a workgroup
+    /// account SID XOR'd with a mask that differs per file and is stored nowhere (page-00 §2.3) — but
+    /// <c>MSysObjects</c> is owned by the Engine account in every file, ACE-written and LibRed-written alike,
+    /// so its own catalog row gives the mask away. An object written into a file has to carry that file's
+    /// SIDs, or its owner decodes to no account at all.
+    /// </summary>
+    /// <remarks>Falls back to the pair <see cref="Storage.DatabaseCreator"/> bakes in, which is what a file
+    /// this engine created carries, when the row cannot be read.</remarks>
+    public (byte[] Users, byte[] Admin) SecuritySids
+    {
+        get
+        {
+            _ = Tables; // reading the catalog captures the mask from MSysObjects' own row
+            return _securitySids ?? (Storage.DatabaseCreator.SidUsers, Storage.DatabaseCreator.SidAdmin);
+        }
+    }
+
+    // The default workgroup's account SIDs (page-00 §2.3), in the "user" form object ownership uses.
+    private static readonly byte[] EngineAccount = [0x03, 0x03];
+    private static readonly byte[] UsersAccount = [0x02, 0x01];
+    private static readonly byte[] AdminAccount = [0x03, 0x01];
+
+    private static byte[] AsMaskedInThisFile(byte[] engineOnDisk, byte[] account) =>
+    [
+        (byte)(engineOnDisk[0] ^ EngineAccount[0] ^ account[0]),
+        (byte)(engineOnDisk[1] ^ EngineAccount[1] ^ account[1]),
+    ];
 
     /// <summary>Views (stored simple-SELECT queries) as name → reconstructed SELECT SQL, rebuilt from
     /// each view's MSysQueries rows. Complex/system queries that don't reconstruct are omitted.</summary>
@@ -160,6 +191,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
         int nameIndex = ColumnIndex(columns, "Name");
         int flagsIndex = ColumnIndex(columns, "Flags");
         int lvpropIndex = ColumnIndex(columns, "LvProp");
+        int ownerIndex = ColumnIndex(columns, "Owner");
 
         var catalog = new Table(_channel, catalogDef);
         var tables = new List<TableDef>();
@@ -170,6 +202,12 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
 
             int definitionPage = (int)row[idIndex]!;
             string name = (string)row[nameIndex]!;
+
+            // MSysObjects' own row carries the Engine account's SID as this file masks it — the one anchor
+            // for every SID a new object in this file must be written with (see SecuritySids).
+            if (definitionPage == _catalogPage && row[ownerIndex] is byte[] { Length: 2 } engine)
+                _securitySids = (AsMaskedInThisFile(engine, UsersAccount), AsMaskedInThisFile(engine, AdminAccount));
+
             uint flags = unchecked((uint)(int)row[flagsIndex]!);
             // A table is "system" (excluded from the user-table list, as Access's own schema view
             // does) if it is flagged system or hidden, or is named as engine/temporary infrastructure:
@@ -653,6 +691,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
             LogicalIndexes = tdef.LogicalIndexes,
             RowCount = tdef.RowCount,
             VariableColumnCount = tdef.VariableColumnCount,
+            ColumnIdHighWater = tdef.ColumnIdHighWater,
             ComplexAutoNumber = tdef.ComplexAutoNumber,
             IsSystem = isSystem,
         };

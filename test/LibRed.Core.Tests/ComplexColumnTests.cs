@@ -128,28 +128,33 @@ public class ComplexColumnTests
         Assert.Equal(1, table.ComplexAutoNumber);
     }
 
-    // The rebuild reconstructs every ColumnSpec from the live ColumnDefs, so it sees both flagged columns.
-    // Counting a complex column as a second claimant of the one header counter made this throw outright.
+    // The drop-and-recreate rebuild is refused on a table that owns a complex column, because it cannot carry
+    // the column's links across: the rebuilt descriptor writes the collation LANGID over the 0x0B that holds
+    // the MSysComplexColumns key, and the table lands on a new TDEF page while its catalog row still names the
+    // old one. Measured on this very table before the refusal went in — MSysResources.Data resolved before the
+    // ALTER and no complex column resolved at all after it — and on complex1.accdb's four attachment columns.
+    // ACE performs the same ALTER with every link intact (ComplexWriteAceReadbackTests), so this is a gap.
+    //
+    // It used to assert the rebuild SUCCEEDED here, which is how the orphaning went unnoticed: it checked the
+    // AutoNumber flag and the 0x1C counter, which do survive, rather than whether the column still resolved.
     [Fact]
-    public void A_table_with_both_counters_can_still_be_rebuilt()
+    public void A_table_with_a_complex_column_refuses_the_rebuild()
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "complex-alter-");
         try
         {
-            // Text -> Memo is a storage-type change, which takes the full logical rebuild.
             using (var db = JetDatabase.Open(path, readOnly: false))
-                db.AlterColumn("MSysResources", "Name",
-                    new ColumnSpec("Name", JetDataType.Memo, 0, IsFixedLength: false));
+            {
+                // Text -> Memo is a storage-type change, which takes the full logical rebuild.
+                var refused = Assert.Throws<NotSupportedException>(() => db.AlterColumn("MSysResources", "Name",
+                    new ColumnSpec("Name", JetDataType.Memo, 0, IsFixedLength: false)));
+                Assert.Contains("multi-value or attachment", refused.Message, StringComparison.Ordinal);
+            }
 
             using var reopened = JetDatabase.Open(path);
             TableDef table = reopened.Catalog.FindTable("MSysResources")!;
-
-            Assert.Equal(JetDataType.Memo, table.FindColumn("Name")!.Type);
-            // Both counters survive the rewrite: the header pair still describes Id, and 0x1C is carried through.
-            Assert.Equal(2, table.FindColumn("Id")!.Seed);
-            Assert.True(table.FindColumn("Data")!.IsAutoNumber);
-            Assert.Equal(1, table.ComplexAutoNumber);
-            Assert.Single(reopened.OpenTable("MSysResources").Rows());
+            Assert.Equal(JetDataType.Text, table.FindColumn("Name")!.Type);   // nothing was changed
+            Assert.Equal(1, reopened.Catalog.ComplexColumns.Count(c => c.OwnerTable.Name == "MSysResources"));
         }
         finally { TemporaryDatabase.Delete(path); }
     }

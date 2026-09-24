@@ -46,4 +46,22 @@ public class AlterColumnDefaultTests : TempDatabaseTest
         e.ExecuteNonQuery("INSERT INTO T (Id, V) VALUES (1, 42)");
         Assert.Equal(42, Convert.ToInt32(ReadV(e, 1)));
     }
+
+    // GenUniqueID() is a LONG-only default, which CREATE TABLE and ADD COLUMN both refuse on any other type.
+    // Both ALTER forms wrote the property straight through instead, so the default was persisted and then
+    // evaluated — putting a random Int32 into a Text column on the next omit-insert.
+    [Fact]
+    public void GenUniqueID_is_refused_as_a_default_on_a_text_column()
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery("ALTER TABLE T ADD COLUMN S TEXT(10)");
+
+        Assert.Throws<InvalidOperationException>(() =>
+            e.ExecuteNonQuery("ALTER TABLE T ALTER COLUMN S TEXT(10) DEFAULT GenUniqueID()"));
+        Assert.Throws<InvalidOperationException>(() =>
+            e.ExecuteNonQuery("ALTER TABLE T ALTER COLUMN S SET DEFAULT GenUniqueID()"));
+
+        // And the legitimate case still works, so the guard is not simply refusing everything.
+        e.ExecuteNonQuery("ALTER TABLE T ALTER COLUMN V SET DEFAULT GenUniqueID()");
+    }
 }

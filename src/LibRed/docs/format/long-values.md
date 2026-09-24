@@ -210,7 +210,11 @@ the long values:
 > the primary page full, ACE does not compact or reuse it but allocates a page holding the new index's map
 > alone, at row 0 (verified: after `CREATE INDEX` the primary page still has its 57 rows and the new index
 > block's `+0x22` pointer reads row 0 of a fresh page). Only when the primary page still has room for
-> another 69-byte record does the new index's map go there, appended after the existing rows. Each column's
+> another 69-byte record does the new index's map go there, appended after the existing rows — **always
+> appended, never a reused row**: `DROP INDEX` leaves the dropped index's map row in place, and the next
+> `CREATE INDEX` still takes a new row after the last one — a page of rows 0–4 that loses an index and gains
+> one grows to 6 rows, with the new index at row 5 (verified). The row therefore cannot be derived from the
+> table's shape. Each column's
 > §3.3.2 `used_pages`/`free_pages` pointers, and the index blocks' `+0x22` pointers, carry the resolved
 > (row, page). For a fresh table all these maps are empty. When LibRed writes a value to an LVAL page (§8),
 > it **sets that page's bit in the column's owned-pages *and* free-pages maps** — both §3.3.2

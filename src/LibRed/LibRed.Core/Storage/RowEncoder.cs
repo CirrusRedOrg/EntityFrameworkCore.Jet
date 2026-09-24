@@ -21,7 +21,7 @@ namespace LibRed.Storage;
 /// </summary>
 public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase format,
     int? fixedDataLength = null, int? variableColumnCount = null,
-    Func<ColumnDef, byte[], byte[]>? spillCalculated = null)
+    Func<ColumnDef, byte[], byte[]>? spillCalculated = null, int? columnIdHighWater = null)
 {
     private readonly IReadOnlyList<ColumnDef> _columns = columns;
 
@@ -42,6 +42,11 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     // never decrements — else the tight maximum over the live columns, which is the same number until the
     // LAST variable column is dropped and is all a standalone encode can know.
     private readonly int? _variableColumnCount = variableColumnCount;
+
+    // How many column ids the row's leading count and null bitmap span: the TDEF's 0x29 high-water when the
+    // caller has it, which is what ACE writes even after the highest-id column has been dropped — else the
+    // highest live id + 1, all a standalone encode can know.
+    private readonly int? _columnIdHighWater = columnIdHighWater;
 
     // Fixed (non-boolean) columns occupy a contiguous region; its length is defined by the
     // table definition. Default to the tight max so a standalone encode round-trips; INSERT
@@ -66,11 +71,14 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         if (values.Length != _columns.Count)
             throw new ArgumentException($"Expected {_columns.Count} values, got {values.Length}.", nameof(values));
 
-        // The leading count and the null-bitmap width are driven by the highest column id + 1, NOT the live
-        // column count — the two coincide only while ids are contiguous (fresh table / ADD COLUMN), and diverge
-        // once ids have a gap (a burned type-change id, or a DROP COLUMN gap). Verified vs ACE (spec §5).
-        // AssembleRow derives both from this.
-        int maxColumnId = _columns.Count == 0 ? -1 : _columns.Max(c => c.ColumnId);
+        // The leading count and the null-bitmap width span every column id the table has ever handed out — the
+        // TDEF's 0x29 high-water — NOT the live column count, and not the highest live id either. The three
+        // coincide while ids are contiguous (fresh table / ADD COLUMN) and diverge once one is dead: a burned
+        // type-change id, or a DROP COLUMN gap. Measured vs ACE: after dropping the only other column of a
+        // two-column table, ACE still writes count 2 (spec §5). AssembleRow derives the bitmap width from this.
+        int maxColumnId = Math.Max(
+            (_columnIdHighWater ?? 0) - 1,
+            _columns.Count == 0 ? -1 : _columns.Max(c => c.ColumnId));
 
         // And the variable section is addressed the same way: by VariableIndex, NOT by position among the
         // live variable columns. DROP COLUMN leaves a hole in the index space — the TDEF's 0x2B count is a
@@ -78,9 +86,13 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         // packing the chunks densely puts every column after the hole one slot too low. The decoder reads
         // VarChunk(column.VariableIndex) and so does ACE, which is what makes it silent: the row is written
         // and read back happily by nothing at all.
+        // The trailer survives the loss of the last variable column, too: ACE keeps writing it, with numVar at
+        // the 0x2B high-water, once a table has ever had one (measured — a table whose only TEXT column was
+        // dropped still gets `06 00 06 00 | 01 00`). Only a table that never had one has no trailer at all.
         var varCols = _columns.Where(c => !c.IsFixedLength).ToList();
-        int numVar = varCols.Count == 0 ? 0
-            : Math.Max(_variableColumnCount ?? 0, varCols.Max(c => c.VariableIndex) + 1);
+        int numVar = Math.Max(
+            _variableColumnCount ?? 0,
+            varCols.Count == 0 ? 0 : varCols.Max(c => c.VariableIndex) + 1);
 
         // Encode each region's payload first so we can size the row exactly.
         var fixedRegion = new byte[_fixedDataLength];
@@ -108,7 +120,7 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
             varChunks[column.VariableIndex] = v is null ? [] : JetTypeCodec.Encode(column, v);
         }
 
-        return AssembleRow(maxColumnId, fixedRegion, varChunks, _columns, values);
+        return AssembleRow(maxColumnId, fixedRegion, varChunks, _columns, values, deadIdsPresent: false);
     }
 
     /// <summary>The slot for a calculated column: the envelope holding the result, wrapped in a long-value
@@ -145,12 +157,19 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     private static void EnsureFitsDeclaredLength(ColumnDef column, byte[] encoded)
     {
         if (column.Type is not (JetDataType.Text or JetDataType.Binary or JetDataType.BigBinary)) return;
-        if (column.Length <= 0 || encoded.Length <= column.Length) return;
+        if (column.Length <= 0) return;
 
-        // Report in the column's own units: TEXT declares characters and stores UTF-16, BINARY declares bytes.
+        // In the column's own units: TEXT declares characters, BINARY bytes. A TEXT value is counted by
+        // decoding it, because WITH COMPRESSION stores a Latin-1 value one byte per character — counted in
+        // bytes, a TEXT(5) would take 8 characters, where ACE refuses the sixth. Neither encoding spends
+        // fewer than one byte per character, so a value within the declared count of BYTES is within the
+        // declared count of characters and needs no decoding — which is every ordinary value.
         bool text = column.Type == JetDataType.Text;
         int declared = text ? column.Length / 2 : column.Length;
-        int actual = text ? encoded.Length / 2 : encoded.Length;
+        if (encoded.Length <= declared) return;
+
+        int actual = text ? JetTypeCodec.DecodeText(encoded).Length : encoded.Length;
+        if (actual <= declared) return;
         throw new InvalidOperationException(
             $"The field '{column.Name}' is too small to accept the amount of data you attempted to add: "
             + $"{actual} {(text ? "characters" : "bytes")} into a column declared to hold {declared}.");
@@ -187,7 +206,8 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     /// write rows Access refuses. A guard that both paths must pass through belongs on the shared path.
     /// </remarks>
     internal static byte[] AssembleRow(int maxColumnId, ReadOnlySpan<byte> fixedRegion,
-        IReadOnlyList<byte[]> varChunks, IReadOnlyList<ColumnDef> columns, object?[] values)
+        IReadOnlyList<byte[]> varChunks, IReadOnlyList<ColumnDef> columns, object?[] values,
+        bool deadIdsPresent = true)
     {
         // A calculated column is exempt from the declared-width check: its length field is a constant ACE
         // writes (39 for a value type, 509 for any Text, whatever size was asked for), not a limit — a
@@ -247,15 +267,20 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
                 || (column.Type == JetDataType.Boolean ? IsTruthy(values[column.Index]) : values[column.Index] is not null);
             if (present) row[bitmapPos + (column.ColumnId >> 3)] |= (byte)(1 << (column.ColumnId & 7));
         }
-        for (int id = 0; id <= maxColumnId; id++)   // dead ids read present in ACE
-            if (!liveIds.Contains(id))
-                row[bitmapPos + (id >> 3)] |= (byte)(1 << (id & 7));
+        // A dead id's bit depends on which route wrote the row, and both are measured against ACE: the ALTER
+        // COLUMN re-lay carries the old row's bit forward (a retype's burned id reads present, §5), while a
+        // row INSERTED afterwards leaves it clear — the same statement pair gives ACE 0x0F for the re-laid row
+        // and 0x0D for the next insert.
+        if (deadIdsPresent)
+            for (int id = 0; id <= maxColumnId; id++)
+                if (!liveIds.Contains(id))
+                    row[bitmapPos + (id >> 3)] |= (byte)(1 << (id & 7));
         return row;
     }
 
     /// <summary>Access truthiness for a Boolean (bit) value being stored: a bool is itself, any non-zero
-    /// number is true, 0 / null is false.</summary>
-    private static bool IsTruthy(object? value) => value switch
+    /// number is true, 0 / null is false. The index key uses the same rule, so a key always agrees with its row.</summary>
+    internal static bool IsTruthy(object? value) => value switch
     {
         null => false,
         bool b => b,

@@ -1,5 +1,7 @@
 using LibRed;
+using LibRed.Catalog;
 using LibRed.Formats;
+using LibRed.Storage;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -71,5 +73,52 @@ public class DatabaseDefinitionPageTests
         {
             TemporaryDatabase.Delete(bogus);
         }
+    }
+
+    // A damaged file has to report damage: InvalidDataException is LibRed's signal for it, and
+    // EndOfStreamException — which derives from IOException and shares no catchable base with it — is what a
+    // truncated or empty file produced instead, from the two page-0 reads that run before any channel exists.
+    [Theory]
+    [InlineData(0)]        // empty
+    [InlineData(64)]       // shorter than the page-0 header
+    [InlineData(300)]      // header readable, shorter than one page
+    public void A_truncated_file_reports_corruption_not_end_of_stream(int length)
+    {
+        string path = TemporaryDatabase.CreatePath($"truncated-{length}-");
+        try
+        {
+            byte[] file = new byte[4096];
+            DatabaseCreator.BuildDefinitionPage(
+                version: 0x02, isAccdb: true, codePage: 1252,
+                collation: Collation.GeneralLegacy, creationDays: 45000.25).CopyTo(file, 0);
+            File.WriteAllBytes(path, file[..length]);
+
+            Assert.ThrowsAny<InvalidDataException>(() => JetDatabase.Open(path).Dispose());
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // The creation date is an OLE Automation double straight out of the file, decoded in the very first thing
+    // an open does. NaN, infinity, or anything past DateTime's range escaped as ArgumentOutOfRangeException
+    // from inside AddDays.
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(1e18)]
+    [InlineData(-1e18)]
+    public void An_impossible_creation_date_reports_corruption(double days)
+    {
+        string path = TemporaryDatabase.CreatePath("baddate-");
+        try
+        {
+            byte[] file = new byte[4096 * 3];
+            DatabaseCreator.BuildDefinitionPage(
+                version: 0x02, isAccdb: true, codePage: 1252,
+                collation: Collation.GeneralLegacy, creationDays: days).CopyTo(file, 0);
+            File.WriteAllBytes(path, file);
+
+            Assert.ThrowsAny<InvalidDataException>(() => JetDatabase.Open(path).Dispose());
+        }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

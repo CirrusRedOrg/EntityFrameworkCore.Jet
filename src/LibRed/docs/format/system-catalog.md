@@ -29,8 +29,8 @@
 
   **Writing a table object** (verified against Access-written rows). A complete user-table row sets:
   `Id` = TDEF page; `ParentId` = `0x0F000001` (the database's "Tables" container, constant);
-  `Type` = `1`; `Name`; `Flags` = `0`; `Owner` = a 2-byte binary SID (`0x69 0x0C` for a
-  workgroup-less database, constant across tables); and `DateCreate` / `DateUpdate`. The other
+  `Type` = `1`; `Name`; `Flags` = `0`; `Owner` = the 2-byte binary SID of the **Users** account *as this file
+  masks it* (see the SID note below — the bytes differ per database); and `DateCreate` / `DateUpdate`. The other
   columns (`Connect`, `Database`, `ForeignName`, `Lv*`, `RmtInfo*`) are null **except `LvProp`**,
   an OLE long-value blob ("MR2"-prefixed) holding the object's **extended properties** — including
   column-level properties such as *Required* (see §3.4) and *DefaultValue*.
@@ -41,16 +41,26 @@
   > `ObjectId` (Int32, the object's id), `SID` (Binary, a security id), `ACM` (Int32, an access mask), and
   > `FInheritable` (Boolean). Each row sets `ObjectId` = the object id, `SID` = a 2-byte binary security id,
   > `ACM` = an access mask, `FInheritable` = false, and the object's `ObjectId` index must be maintained so
-  > Access's security check finds them. Access writes **two** rows per object, and the mask
-  > **differs by object type**:
-  > - **Table:** owner (`0x690C`) and admin/users (`0x680C`) both get full access `ACM = 0xFFEFF` (1048319).
-  > - **Query/view:** owner (`0x690C`) gets `ACM = 0xF00FE` (983294, a query-specific mask), admin/users
-  >   (`0x680C`) gets full `0xFFEFF`.
+  > Access's security check finds them. Access writes **two** rows per object — one for the **Users** account
+  > (which also owns the object) and one for **admin** — and the masks depend on the object and on the route
+  > that created it (verified):
+  > - **Table** (`CREATE TABLE`): both rows `ACM = 0xFFEFF` (1048319), full access.
+  > - **Query/view** (`CREATE VIEW`): both rows `0xFFEFF` as well.
+  > - **Relationship** (`ADD CONSTRAINT … FOREIGN KEY`): Users `0xF00FE` (983294), admin `0xFFFFF`.
+  > - A view created in the **Access UI** instead carries `0xF00FE` in its Users row. The narrower query mask
+  >   is the UI's, not the SQL path's, and Access reads either.
   >
-  > LibRed writes both rows for tables (`TableCreator.AddPermissionRows`) and for queries/views
-  > (`ViewCreator.AddPermissionRows`). (System-table `MSysACEs` rows in an existing file carry restricted
-  > masks like `0x60000`/`0x14` and a long per-database owner SID; those are the pre-existing catalog's, not
-  > what a writer emits for a new user object.)
+  > (System-table `MSysACEs` rows in an existing file carry restricted masks like `0x60000`/`0x14` and a long
+  > per-database owner SID; those are the pre-existing catalog's, not what a writer emits for a new object.)
+
+  > **The SIDs are per file, and have to be read out of the file being written (verified).** An on-disk SID is
+  > a workgroup account SID XOR'd with a mask that differs per database and is stored nowhere
+  > ([page-00 §2.3](page-00-database.md)). It is recoverable all the same: `MSysObjects` is owned by the
+  > **Engine** account (`03-03`) in every file, so `mask = MSysObjects.Owner ^ 03-03`, and every other account
+  > follows from it — a file whose `MSysObjects.Owner` is `680E` has mask `6B-0D`, under which `690C` is
+  > Users `02-01`, `680C` admin `03-01` and `6809` Creator `03-04`. An object written with a **different**
+  > file's SIDs carries an owner that names no account in the file it sits in, so a writer adding an object to
+  > a database it did not create must take the mask from that database.
 
   > **Property blob (`LvProp`) format — verified byte-for-byte against ACE.** A 4-byte signature
   > (`MR2\0` on ACE, `KKD\0` on older MDB) then blocks, each `[int length][short type][body]` with the
@@ -250,13 +260,15 @@
 - **Relationships** are `MSysObjects` rows of **Type 8** too — one per relationship, alongside its
   `MSysRelationships` rows (verified vs ACE: every relationship Access or ACE creates has one, whether from
   `ALTER TABLE … ADD CONSTRAINT` or a `CREATE TABLE` foreign key). `Name` is the relationship's name,
-  `ParentId 0x0F000003` (the Relationships container), `Flags 0`, `Owner 0x690C`, `DateCreate` = `DateUpdate` =
+  `ParentId 0x0F000003` (the Relationships container), `Flags 0`, `Owner` = the file's Users SID (the SID note
+  above), `DateCreate` = `DateUpdate` =
   the creation time, and `LvProp`, `Lv`, `LvExtra`, `LvModule`, `Connect`, `Database`, `ForeignName`,
   `RmtInfoShort`, `RmtInfoLong` all null.
   - **`Id`** is the next negative synthetic id: one past the highest in the file, from the sequence queries draw
     on, so relationships and queries interleave (`0x8000002C` relationship, `0x8000002D` view,
     `0x8000002E` relationship), and a dropped relationship's id is taken by the next object.
-  - **Two `MSysACEs` rows**: SID `0x690C` with ACM `0xF00FE`, and SID `0x680C` with ACM `0xFFFFF`.
+  - **Two `MSysACEs` rows**: the Users SID with ACM `0xF00FE`, and admin's with `0xFFFFF` — the one object
+    class whose two masks differ from a table's (verified against ACE's `ADD CONSTRAINT`).
   - **Dropping it** — `DROP CONSTRAINT`, or `DROP TABLE` of the referencing table — removes the object and its
     two `MSysACEs` rows.
   - **Its name** must differ from every other relationship's (*"There is already a relationship named '…' in
@@ -417,6 +429,23 @@
   > on this table specifically — without `MSysComplexType_Text` the statements still succeed, and without
   > `MSysQueries` they fail with a different error. LibRed creates all ten in `DatabaseCreator.CreateEmpty` for version ≥ `0x02`, which is what lets ACE run DDL in a
   > LibRed-created database.
+  >
+  > **What DDL does to a complex column's three links (verified).** A complex column hangs off its descriptor's
+  > `0x0B` (the `MSysComplexColumns.ComplexID`, [page-02b §3.4](page-02b-columns.md)), its catalog row's
+  > `ConceptualTableID` (the owning table's TDEF page), and an `f_<GUID>_<column>` flat table holding the
+  > values. The three statements that can break them do **not** behave alike:
+  >
+  > | statement | |
+  > | --- | --- |
+  > | `DROP TABLE` | takes the complex columns' `MSysComplexColumns` rows **and** their flat tables with it |
+  > | `ALTER TABLE … DROP COLUMN <complex>` | accepted; removes the column and its own `<column>_<GUID>` index, and **leaves the catalog row and the flat table orphaned** |
+  > | `ALTER TABLE … ALTER COLUMN <other column>` | accepted, with every complex column of the table intact |
+  >
+  > The middle row is the trap for a writer: the column goes, its index goes, and the two structures that hold
+  > its values stay behind with nothing pointing at them. A drop-and-recreate rebuild is not a way to perform
+  > the third — rebuilding a descriptor writes the collation LANGID over `0x0B`, and a new TDEF page leaves
+  > every `ConceptualTableID` naming the old one, so all three links are lost at once. LibRed refuses that
+  > rebuild on a table with a complex column rather than perform it; matching ACE here is unimplemented.
 
   > **Action-query procedure bodies** (a CREATE PROCEDURE body that is not a SELECT) are stored with a
   > different MSysObjects `Flags` and an `Attribute=0x01` row (verified vs ACE). **Every kind keeps its

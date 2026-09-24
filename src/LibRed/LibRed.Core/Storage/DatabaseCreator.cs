@@ -263,10 +263,9 @@ public static class DatabaseCreator
         // onto the 0x03 layout, so reading one stays supported; only writing it is refused.
         if (version == (byte)JetVersion.Version15_2013)
             throw new NotSupportedException(
-                $"Cannot create a database at {nameof(JetVersion.Version15_2013)} (version byte 0x04): the "
-                + "Access engine refuses to open a file stamped with it. Access 2013 writes the Access 2010 "
-                + $"format, so use {nameof(JetVersion.Version14_2010)} for a 2013-era database. Existing 0x04 "
-                + "files can still be opened for reading.");
+                $"Cannot create a database at {nameof(JetVersion.Version15_2013)} (version byte 0x04): it is not a "
+                + $"valid format for a new database. Use {nameof(JetVersion.Version14_2010)}, the format Access 2013 "
+                + "databases use. Existing 0x04 files can still be opened for reading.");
 
         JetFormatBase format = JetFormatBase.FromVersionByte(version);
 

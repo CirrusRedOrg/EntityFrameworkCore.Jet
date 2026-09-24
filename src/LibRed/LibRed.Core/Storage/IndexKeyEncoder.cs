@@ -14,7 +14,7 @@ namespace LibRed.Storage;
 /// index's logical order, so a freshly encoded key can be slotted into a leaf by byte compare.
 /// </summary>
 /// <remarks>
-/// Each non-boolean column is prefixed by a flag byte (0x7F start / 0x00 null ascending;
+/// Each column is prefixed by a flag byte (0x7F start / 0x00 null ascending;
 /// 0x80 / 0xFF descending). Fixed/numeric types use the reversible transform (sign-bit flip +
 /// big-endian for integers; an IEEE transform for floating point); descending inverts the bytes.
 /// GUID keys are encoded byte-faithfully (string-order halves split by 0x09, terminated by 0x08).
@@ -67,9 +67,13 @@ public static class IndexKeyEncoder
 
             if (column.Type == JetDataType.Boolean)
             {
-                // No flag byte: ascending true sorts before false (0x00 < 0xFF); descending mirrors.
-                bool b = value is true;
-                buffer.Add((byte)((b ^ !ascending) ? 0x00 : 0xFF));
+                // The start flag, then 0x00 for true and 0xFF for false, so true sorts first; descending
+                // inverts both bytes (verified against ACE: 7F 00 / 7F FF, 80 FF / 80 00). The value is read
+                // with the row's truthiness — -1 and 7 are true — or the key disagrees with the row it indexes.
+                // A Yes/No column cannot be null, and a null is keyed as the false the row stores for it.
+                byte b = RowEncoder.IsTruthy(value) ? (byte)0x00 : (byte)0xFF;
+                buffer.Add(ascending ? IndexKeyFlags.AscStart : IndexKeyFlags.DescStart);
+                buffer.Add(ascending ? b : (byte)~b);
                 continue;
             }
 
@@ -295,7 +299,7 @@ public static class IndexKeyEncoder
             case JetDataType.Double:
                 return EncodeFloatBits(BitConverter.DoubleToInt64Bits(Convert.ToDouble(value, c)), 8);
             case JetDataType.DateTime:
-                return EncodeFloatBits(BitConverter.DoubleToInt64Bits(Convert.ToDateTime(value, c).ToOADate()), 8);
+                return EncodeFloatBits(BitConverter.DoubleToInt64Bits(JetTypeCodec.ToOaDate(column, value, c)), 8);
             case JetDataType.FixedPoint:
                 return EncodeFixedPoint(JetDecimalConverter.ToDecimal(value, c), column.Scale);
             default:
@@ -309,7 +313,9 @@ public static class IndexKeyEncoder
     /// A non-negative value uses sign <c>0xFF</c>; a negative value is the **bitwise complement of the
     /// whole 17-byte positive form** (sign becomes <c>0x00</c>, magnitude is one's-complemented), so byte
     /// order equals numeric order: negatives (sign 0x00) precede non-negatives (0xFF), and complementing
-    /// makes a larger magnitude sort earlier among negatives. Zero encodes as positive.
+    /// makes a larger magnitude sort earlier among negatives. A negative zero — what a value too small for
+    /// the scale truncates to — keeps its sign, as ACE keys it (<c>7F 00 FF…FF</c>), so the sign is taken with
+    /// <see cref="decimal.IsNegative"/>: <c>&lt; 0</c> is false for <c>-0.0000m</c>.
     /// Verified byte-for-byte against ACE (see <c>DecimalKeyEncodingTests</c>).
     /// </summary>
     private static byte[] EncodeFixedPoint(decimal value, byte scale)
@@ -329,7 +335,7 @@ public static class IndexKeyEncoder
         BinaryPrimitives.WriteUInt32BigEndian(key.AsSpan(9, 4), (uint)bits[1]);
         BinaryPrimitives.WriteUInt32BigEndian(key.AsSpan(13, 4), (uint)bits[0]);
 
-        if (value < 0)
+        if (decimal.IsNegative(value))
             for (int i = 0; i < key.Length; i++) key[i] = (byte)~key[i];
         return key;
     }

@@ -40,6 +40,47 @@ public class PageCacheTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // The pool is per FILE, and the key has to decide that the way the file system does. Two paths differing
+    // only in the case of the name are one file where names are case-insensitive and two files where they are
+    // not, so the same assertion reads both ways: the second channel sees the first's write exactly when the
+    // two paths name one file. Keying on the lower-cased path made them share everywhere, which on a
+    // case-sensitive file system writes one database's pages into another's.
+    [Fact]
+    public void Two_paths_share_a_pool_exactly_when_they_name_one_file()
+    {
+        string path = CopyNorthwind("case");
+        string variant = Path.Combine(Path.GetDirectoryName(path)!, Path.GetFileName(path).ToUpperInvariant());
+        Assert.NotEqual(path, variant);
+
+        // Ground truth from the file system itself: where the upper-cased name already resolves, it is the file
+        // just written; where it does not, a second file is made so both paths exist either way.
+        bool sameFile = File.Exists(variant);
+        if (!sameFile) File.Copy(path, variant);
+        try
+        {
+            const int page = 1;
+            byte[] mutated;
+            using (var writer = PageChannel.Open(path, readOnly: false))
+            using (var reader = PageChannel.Open(variant, readOnly: false))
+            {
+                mutated = reader.ReadPage(page).Span.ToArray(); // the reader caches the current image
+                mutated[0x40] ^= 0xFF;
+                writer.WritePage(page, mutated);
+
+                Assert.Equal(sameFile, reader.ReadPage(page).Span.SequenceEqual(mutated));
+            }
+
+            // And the same on disk once both have closed: one file carries the write, two files do not.
+            byte[] onDisk = File.ReadAllBytes(variant);
+            Assert.Equal(sameFile, onDisk.AsSpan(page * 4096, 4096).SequenceEqual(mutated));
+        }
+        finally
+        {
+            if (!sameFile) TemporaryDatabase.Delete(variant);
+            TemporaryDatabase.Delete(path);
+        }
+    }
+
     [Fact]
     public void Rollback_restores_the_cached_image_not_just_the_disk()
     {

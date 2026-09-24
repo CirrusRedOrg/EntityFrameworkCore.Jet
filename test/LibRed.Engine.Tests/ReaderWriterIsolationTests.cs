@@ -114,7 +114,10 @@ public class ReaderWriterIsolationTests
         try
         {
             if (password is not null)
-                DatabaseEncryption.SetPassword(path, password, AccessEncryption.Agile);
+            {
+                using var encrypt = JetDatabase.Open(path, readOnly: false, exclusive: true);
+                DatabaseEncryption.SetPassword(encrypt, password, AccessEncryption.Agile);
+            }
 
             using var writerDb = JetDatabase.Open(path, readOnly: false, password: password);
             using var readerDb = JetDatabase.Open(path, readOnly: false, password: password);

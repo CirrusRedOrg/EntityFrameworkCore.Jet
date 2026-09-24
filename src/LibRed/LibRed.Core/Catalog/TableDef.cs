@@ -33,6 +33,12 @@ public sealed class TableDef
     /// </remarks>
     public int VariableColumnCount { get; init; }
 
+    /// <summary>The column-id high-water from the TDEF header (<c>0x29</c>) — how many ids the table has handed
+    /// out, which never decrements either. It is what a row's leading count and null-bitmap width span, so it
+    /// outlives a dropped column: a two-column table whose second column is dropped keeps writing rows that
+    /// count 2 (measured vs ACE).</summary>
+    public int ColumnIdHighWater { get; init; }
+
     /// <summary>The complex-type AutoNumber high-water (TDEF header <c>0x1C</c>) — the next id for a complex
     /// (multi-value/attachment) column. Carried for faithful round-trip; 0 for every table LibRed handles.</summary>
     public int ComplexAutoNumber { get; init; }

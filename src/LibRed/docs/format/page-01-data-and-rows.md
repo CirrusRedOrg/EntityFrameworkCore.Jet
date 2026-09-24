@@ -169,8 +169,12 @@ malformed pointers fail with `InvalidDataException`.
 [ null bitmap : ceil(colCount / 8) bytes ]      ← the very end of the row
 ```
 
-- **The variable section (offset table + `numVarCols` field) is OMITTED entirely when the table has no
-  variable columns.** An all-fixed row is just `[colCount][fixed][nullBitmap]` — verified vs ACE:
+- **The variable section (offset table + `numVarCols` field) is OMITTED entirely when the table has never had
+  a variable column** — when the TDEF's `0x2B` high-water is 0, not merely when no variable column is live
+  today. Dropping the last one leaves `0x2B` where it was, and the trailer is still written at that width
+  (verified): `T(A LONG, T TEXT(20))` that has lost `T` writes
+  `02 00 | 02000000 | 0600 0600 | 0100 | 01` — `numVarCols` 1, one empty slot. An all-fixed row is just
+  `[colCount][fixed][nullBitmap]` — verified vs ACE:
   `T(A,B,C LONG)` + row `(11,22,33)` is **15 bytes** `03 00 | 0B000000 16000000 21000000 | 07`, not 19. The
   fixed-region length is recovered from the schema (column offsets), so the row needs no var-data-start pointer. (A reader keyed on fixed offsets +
   null bitmap decodes both forms; a *writer* must omit the section to be byte-faithful.)
@@ -200,15 +204,18 @@ malformed pointers fail with `InvalidDataException`.
     engine created the table — the fault is in the record, not the TDEF. A 4-byte record reads back correctly (16 Booleans, 2-byte bitmap), so the reader's cliff is one byte below what
     ACE's writer guarantees. **Why** the floor is 2 rather than 1 is not established.
 
-- **`colCount` is `max(column id) + 1`, not the live column count** — the two coincide only while ids are
-  contiguous (a fresh table, or after ADD COLUMN, which keeps ids contiguous). They **diverge** once ids have a
-  gap — a burned id from a type-change ALTER, or a DROP COLUMN gap — and then `colCount` (and therefore the null
-  bitmap width) is driven by the **highest id**, leaving bit positions for the dead ids. Verified vs ACE:
-  after `ALTER COLUMN B DOUBLE` burns B's id 1→3 in a 3-column table, the row's `colCount` field is **4** and the null bitmap is `0x0F` (the dead id 1's bit is set present). A writer that
-  sizes these by the live count writes a bit ACE can't find for any id ≥ live count → ACE reads that column null.
-  - It is the **highest live id**, though, and *not* the TDEF's `0x29` id high-water — those differ when the
-    highest-id column is dropped, and rows written afterwards then legitimately carry a *shorter* count and a
-    narrower bitmap than the rows before them. ACE reads across the change.
+- **`colCount` is the TDEF's `0x29` column-id high-water, not the live column count** — how many ids the table
+  has ever handed out. The two coincide only while ids are contiguous (a fresh table, or after ADD COLUMN,
+  which keeps ids contiguous) and **diverge** once an id is dead — a burned id from a type-change ALTER, or a
+  DROP COLUMN gap — and then `colCount`, and therefore the null-bitmap width, keeps the bit positions of the
+  dead ids. Verified: a 3-column table whose `ALTER COLUMN B DOUBLE` burns B's id 1→3 writes `colCount` **4**,
+  and a two-column table whose *highest-id* column is dropped still writes **2** (`02 00 | 02000000 | 01`) —
+  the high-water, not the highest live id, which would have given 1. A writer that sizes these by the live
+  count writes a bit ACE cannot find for any id ≥ live count → ACE reads that column null.
+- **A dead id's bit depends on which route wrote the row** (verified). The **ALTER COLUMN re-lay** carries the
+  old row's bit forward, so a retype's burned id reads **present** (`0x0F` above). A row **inserted
+  afterwards** leaves it **clear** (`0x0D` on the same table), as do the dropped ids after a `DROP COLUMN`
+  (`01` for a live column 0 with ids 1 and 2 dropped).
 - **Null bitmap** is indexed by **column id**; a **set bit = the value is present** (non-null).
 - **Fixed** column value is at `rowStart + 2 + fixedOffset`, `length` bytes.
   - A **fixed-length text** column (`CHAR`/`NCHAR`, not `TEXT`/`VARCHAR`) fills its whole `length`: the value is
@@ -232,8 +239,11 @@ malformed pointers fail with `InvalidDataException`.
   - A variable **text**/**binary** value must **fit its column's declared width**. Where a fixed column pads or
     truncates, ACE **rejects** an over-long variable one — six characters into a `TEXT(5)`, six bytes into a
     `VARBINARY(5)`, both *"The field is too small to accept the amount of data you attempted to add"* (verified
-    vs ACE). The bound is the descriptor's `length`, in **bytes** for both, so `TEXT(5)` is 10. `Memo`/`OLE` are exempt — their inline form is a long-value descriptor whose size is
-    unrelated to `length`.
+    vs ACE). The bound is the declared width: **characters** for text (`length / 2`, so `TEXT(5)` is 5) and
+    **bytes** for binary. A `WITH COMPRESSION` text value is counted in characters too, although it stores one
+    byte per Latin-1 character — ACE refuses a sixth and an eighth character in a compressed `TEXT(5)`
+    (verified), so a limit taken from the stored bytes would admit up to 8. `Memo`/`OLE` are exempt — their
+    inline form is a long-value descriptor whose size is unrelated to `length`.
 - **Booleans** carry **no data** — the value *is* the null-bitmap bit (set = true). Boolean
   columns are never null, and they occupy **no fixed-region bytes**: their descriptor's fixed
   offset is 0 and the fixed offsets of other columns skip over them. (Verified: a Boolean that

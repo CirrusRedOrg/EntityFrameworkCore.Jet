@@ -119,20 +119,26 @@ public sealed class PageChannel : IDisposable
     /// Opens a database file, sniffs its Jet/ACE version from page 0 and resolves the
     /// matching <see cref="JetFormatBase"/>.
     /// </summary>
-    public static PageChannel Open(string path, bool readOnly = true, string? password = null, ILockManager? locks = null)
+    /// <remarks><c>exclusive</c> takes the file for this channel alone (<c>FileShare.None</c>), the equivalent
+    /// of ACE's <c>Mode=Share Exclusive</c>: the open fails while anyone else holds the file, and nobody else
+    /// can open it until this channel closes. Off by default, because the ordinary state of a Jet database is
+    /// shared. Operations that rewrite the whole file — changing a password or the page encoding — require it,
+    /// exactly as ACE requires an exclusive connection for the same statements.</remarks>
+    public static PageChannel Open(string path, bool readOnly = true, string? password = null,
+        ILockManager? locks = null, bool exclusive = false)
     {
         // A Jet/ACE file is a shared-file database — Access, ODBC and OLE DB all open it with multiple
         // concurrent handles (a store's long-lived connection plus per-context connections to the same
-        // file, as EF's test infrastructure does). So we share read+write rather than taking the file
-        // exclusively; an exclusive open (FileShare.None) would throw IOException the moment a second
-        // connection touched the same .accdb. Coexisting handles stay coherent by sharing a single per-file
-        // write-through buffer pool (PageCache) rather than each caching independently — one pool means one
-        // connection's writes are seen by the others, as the old straight-to-disk reads guaranteed.
+        // file, as EF's test infrastructure does). So the default is to share read+write; an exclusive open
+        // (FileShare.None) throws IOException the moment a second connection touches the same .accdb, which
+        // is exactly what the caller of one asks for. Coexisting handles stay coherent by sharing a single
+        // per-file write-through buffer pool (PageCache) rather than each caching independently — one pool
+        // means one connection's writes are seen by the others, as the old straight-to-disk reads guaranteed.
         var stream = new FileStream(
             path,
             FileMode.Open,
             readOnly ? FileAccess.Read : FileAccess.ReadWrite,
-            FileShare.ReadWrite);
+            exclusive ? FileShare.None : FileShare.ReadWrite);
 
         try
         {
@@ -166,7 +172,7 @@ public sealed class PageChannel : IDisposable
             if (databaseKey != 0 && codec is null)
                 throw new NotSupportedException("The database is encrypted with an unsupported scheme.");
 
-            return new PageChannel(stream, format, readOnly, path, codec, locks);
+            return new PageChannel(stream, format, readOnly, path, codec, locks) { IsExclusive = exclusive };
         }
         catch
         {
@@ -174,6 +180,13 @@ public sealed class PageChannel : IDisposable
             throw;
         }
     }
+
+    /// <summary>Whether this channel holds the file to itself — see the <c>exclusive</c> argument to
+    /// <see cref="Open"/>. Rewriting the file as a whole is only allowed on such a channel.</summary>
+    public bool IsExclusive { get; private init; }
+
+    /// <summary>The database file this channel reads and writes.</summary>
+    internal string Path => _path;
 
     /// <summary>Decodes the 4-byte database (encryption) key at page-0 <c>0x3E</c> through the fixed header mask.</summary>
     private static int DecodeDatabaseKey(ReadOnlySpan<byte> page0)
@@ -297,7 +310,7 @@ public sealed class PageChannel : IDisposable
         // ACE-only full-database probe: the file reaches exactly 2 GiB (524288 Jet4/ACE pages)
         // and rejects the next allocation. Check before staging a page or extending the stream.
         if ((long)pageNumber >= (1L << 31) / PageSize)
-            throw new InvalidOperationException("The database cannot grow beyond the ACE 2 GiB file-size limit.");
+            throw new InvalidOperationException("The database cannot grow beyond 2 GiB, the maximum file size.");
 
         // Inside a transaction, defer the write into the private overlay — invisible to other channels until
         // commit. Snapshot the page's prior overlay state (once per savepoint frame) so a savepoint rollback can
@@ -526,7 +539,7 @@ public sealed class PageChannel : IDisposable
         if (!Format.IsAccdb)
             throw new NotSupportedException(
                 $"Cannot raise this database to version 0x{version:X2}: it is a Jet MDB " +
-                $"(\"{JetFormatBase.JetIdentifier}\"), and only an ACCDB carries an ACE version byte. " +
+                $"(\"{JetFormatBase.JetIdentifier}\"), and only an ACCDB can take that version. " +
                 "The statement needs a data type this format cannot store.");
 
         page0[JetFormatBase.VersionOffset] = version;

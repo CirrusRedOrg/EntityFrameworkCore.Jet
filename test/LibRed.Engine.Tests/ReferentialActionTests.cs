@@ -127,4 +127,45 @@ public class ReferentialActionTests
         }
         finally { TemporaryDatabase.Delete(path); }
     }
+
+    // A cascade rewrites a child row, so it owes that row every invariant an UPDATE of it would: SET NULL may
+    // not null a Required column, and CASCADE may not drive two children onto one unique key. Table.Update
+    // enforces nothing itself, so without these checks the statement — which never names the child table —
+    // writes what the UPDATE path a few lines away explicitly refuses.
+    [Fact]
+    public void Set_null_refuses_to_null_a_required_child_column()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE TABLE P (Id long PRIMARY KEY)");
+            e.ExecuteNonQuery("CREATE TABLE C (Id long PRIMARY KEY, ParentId long NOT NULL, "
+                + "CONSTRAINT FK_C FOREIGN KEY (ParentId) REFERENCES P (Id) ON DELETE SET NULL)");
+            e.ExecuteNonQuery("INSERT INTO P (Id) VALUES (1)");
+            e.ExecuteNonQuery("INSERT INTO C (Id, ParentId) VALUES (100, 1)");
+
+            Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("DELETE FROM P WHERE Id = 1"));
+
+            // The child row is intact, not half-nulled.
+            Assert.Equal(1, Convert.ToInt32(e.ExecuteQuery("SELECT ParentId FROM C WHERE Id = 100").Rows.Single()[0]));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    [Fact]
+    public void Cascade_refuses_to_create_a_duplicate_child_key()
+    {
+        Run(" ON UPDATE CASCADE", e =>
+        {
+            // One child per parent, and a unique index over the FK column: moving parent 1 onto 2 would
+            // cascade its child onto the other child's key.
+            e.ExecuteNonQuery("DELETE FROM C WHERE Id = 101");
+            e.ExecuteNonQuery("INSERT INTO C (Id, ParentId) VALUES (102, 2)");
+            e.ExecuteNonQuery("CREATE UNIQUE INDEX UX_C ON C (ParentId)");
+
+            Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("UPDATE P SET Id = 2 WHERE Id = 1"));
+        });
+    }
 }

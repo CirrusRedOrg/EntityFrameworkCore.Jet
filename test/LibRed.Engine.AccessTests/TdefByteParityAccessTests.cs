@@ -64,26 +64,26 @@ public class TdefByteParityAccessTests(ITestOutputHelper output) : TempDatabaseT
         output.WriteLine($"{label}: {ace.Length} bytes, index names [{string.Join(", ", IndexNames(ace, format))}]");
     }
 
-    // The one measured divergence. ACE assigns usage-map rows in DECLARATION order: an inline PRIMARY KEY on
-    // the first column is created before the long-value columns and takes row 2, while a trailing CONSTRAINT
-    // clause is created after them and lands past their rows. LibRed cannot tell the two spellings apart —
-    // the position is lost between the parser and CreateTable — so it always uses the inline order.
-    //
-    // Both files are self-consistent and ACE reads either, so this is faithfulness, not corruption. Asserted
-    // rather than ignored so that closing the gap fails here and this note gets updated with it.
+    // Usage-map rows follow DECLARATION order: an inline PRIMARY KEY on the first column is declared before the
+    // long-value columns and takes row 2, while a trailing CONSTRAINT clause is declared after them and lands
+    // past their rows. The same table written the two ways lays its maps out differently, and both engines now
+    // agree on each. (This used to record the divergence, LibRed always using the inline order because the
+    // constraint's position was lost between the parser and CreateTable; it is carried through now, and the
+    // rule across inline, table-level, interleaved and foreign-key shapes is in
+    // CreateTableUsageMapOrderAccessTests.)
     [Fact]
     public void Usage_map_rows_follow_declaration_order()
     {
         const string inline = "CREATE TABLE W (Id LONG PRIMARY KEY, M LONGTEXT, N LONGTEXT)";
         const string named = "CREATE TABLE W (Id LONG, M LONGTEXT, N LONGTEXT, CONSTRAINT pk PRIMARY KEY (Id))";
 
-        // Inline: the index is declared first and gets row 2, the columns follow. Both engines agree.
+        // Inline: the index is declared first and gets row 2, the columns follow.
         Assert.Equal("index [2] long-value [3,4 5,6]", Rows(inline, AceCreate));
         Assert.Equal("index [2] long-value [3,4 5,6]", Rows(inline, LibRedCreate));
 
-        // Named: ACE creates the columns first, so they take rows 2..5 and the index lands on 6.
+        // Named: the columns are declared first, so they take rows 2..5 and the index lands on 6.
         Assert.Equal("index [6] long-value [2,3 4,5]", Rows(named, AceCreate));
-        Assert.Equal("index [2] long-value [3,4 5,6]", Rows(named, LibRedCreate));   // the divergence
+        Assert.Equal("index [6] long-value [2,3 4,5]", Rows(named, LibRedCreate));
     }
 
     private static void AceCreate(string path, string sql)

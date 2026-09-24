@@ -168,9 +168,10 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
     /// <summary>
     /// Removes a row's entry from the index. Descends to the entry's leaf, drops it, and rewrites the leaf.
-    /// No rebalancing: an underfull or empty leaf is fine, and a stale separator (if the removed entry was a
-    /// leaf's maximum) stays a valid upper bound, so later descents still route correctly — matching Access's
-    /// lazy delete.
+    /// No rebalancing of an underfull leaf, and a stale separator (if the removed entry was a leaf's maximum)
+    /// stays a valid upper bound, so later descents still route correctly — matching Access's lazy delete. A
+    /// leaf the delete leaves <b>empty</b> is the exception: Access takes it out of the tree, and so does this
+    /// (see <see cref="UnlinkEmptyLeaf"/>).
     /// </summary>
     public void RemoveEntry(IndexDef index, object?[] values, RowId rowId)
     {
@@ -188,6 +189,8 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
                 $"Index '{index.Name}': entry for row {rowId.Page}:{rowId.Row} was not found on leaf {leafPage}.");
         entries.RemoveAt(idx);
 
+        if (entries.Count == 0 && UnlinkEmptyLeaf(index, path, page)) return;
+
         // Removing only shrinks the page, so Build never overflows. The page keeps the prefix length it was
         // already stored at: ACE re-compresses a leaf only when it must (see InsertIntoLeaf), and a delete
         // never must. Letting Build pick the largest prefix now available instead repacks entries ACE left
@@ -196,6 +199,62 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         WriteOrThrow(leafPage,
             Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries,
                 page.CompressedByteCount));
+    }
+
+    /// <summary>
+    /// Takes a leaf whose last entry has just been removed out of the tree: past it in the leaf chain, its
+    /// separator gone from the parent node, and the page itself back to the allocator. Returns false when the
+    /// leaf has to stay, and the caller writes it back empty instead.
+    /// </summary>
+    /// <remarks>
+    /// <para>This is what ACE does. Measured on a two-leaf tree whose low leaf was emptied by a range delete:
+    /// the surviving leaf comes back with <c>prev = 0</c>, the node keeps only its child-tail pointer with no
+    /// separator entries left, and the emptied page is no longer reachable from the root.</para>
+    /// <para>Two shapes keep their empty leaf. A leaf that <b>is</b> the root has nowhere to go — an index with
+    /// no rows is exactly one empty leaf. And a leaf that is its parent's only remaining child cannot be
+    /// unlinked without leaving the parent pointing at nothing, a node shape ACE has not been observed to
+    /// write; an empty leaf is a valid one, so the tree keeps it rather than inventing that.</para>
+    /// </remarks>
+    private bool UnlinkEmptyLeaf(IndexDef index, List<int> path, CheckedIndexPage leaf)
+    {
+        if (path.Count < 2) return false;
+
+        int leafPage = path[^1];
+        int parentPage = path[^2];
+        (List<Entry> entries, int tail) = Parse(ReadMutationPage(parentPage, PageType.IntermediateIndexPage));
+
+        int slot = entries.FindIndex(e => e.Trailer == leafPage);
+        if (slot >= 0)
+        {
+            entries.RemoveAt(slot);
+        }
+        else if (tail == leafPage)
+        {
+            // The tail has no key bound of its own, so the last separator's child takes its place and that
+            // separator's key — an upper bound on the leaf now leaving — goes with it.
+            if (entries.Count == 0) return false;
+            tail = entries[^1].Trailer;
+            entries.RemoveAt(entries.Count - 1);
+        }
+        else
+        {
+            throw new InvalidDataException(
+                $"Index '{index.Name}': node {parentPage} does not point at leaf {leafPage}.");
+        }
+
+        if (leaf.Previous != 0) SetLeafLink(leaf.Previous, NextPageOffset, leaf.Next);
+        if (leaf.Next != 0) SetLeafLink(leaf.Next, PrevPageOffset, leaf.Previous);
+
+        // Dropping a separator only shrinks the node, so Build never overflows. A leaf's parent is one level
+        // above the leaves by definition.
+        WriteOrThrow(parentPage, Build(PageType.IntermediateIndexPage, 0, 0, tail, level: 1, entries));
+
+        // The page leaves the index the way AllocateIndexPage brought it in: its bit out of the index's own
+        // pages map, then released — held until this handle closes, the route ACE takes for a freed page.
+        (int mapRow, int mapPage) = IndexUsageMapPointer(index);
+        _usageMaps.SetBit(mapRow, mapPage, leafPage, set: false);
+        _allocator.Release(leafPage);
+        return true;
     }
 
     private static bool HasNullKey(IndexDef index, object?[] values) =>
@@ -375,7 +434,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
             WriteOrThrow(leftPage, Build(type, prev, rightPage, tail: 0, nodeLevel, left));
             WriteOrThrow(rightPage, Build(type, leftPage, next, tail: 0, nodeLevel, right));
-            if (next != 0) SetPrev(next, rightPage); // fix the old next leaf's back-link
+            if (next != 0) SetLeafLink(next, PrevPageOffset, rightPage); // fix the old next leaf's back-link
         }
         else
         {
@@ -644,13 +703,16 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         }
     }
 
-    private void SetPrev(int pageNumber, int prev)
+    /// <summary>Patches one end of a neighbouring leaf's chain link — <see cref="PrevPageOffset"/> or
+    /// <see cref="NextPageOffset"/> — without disturbing its entries. A split repairs the back-link of the leaf
+    /// it pushed right; unlinking an emptied leaf repairs both of its neighbours.</summary>
+    private void SetLeafLink(int pageNumber, int offset, int target)
     {
         CheckedIndexPage checkedPage = IndexPageReader.Read(_channel, pageNumber, _table.DefinitionPage);
         if (checkedPage.Type != PageType.LeafIndexPage)
-            throw new InvalidDataException($"Leaf next-pointer targets non-leaf page {pageNumber}.");
+            throw new InvalidDataException($"Leaf chain pointer targets non-leaf page {pageNumber}.");
         byte[] page = checkedPage.Buffer.Span.ToArray();
-        WriteInt32Le(page, PrevPageOffset, prev);
+        WriteInt32Le(page, offset, target);
         _channel.WritePage(pageNumber, page);
     }
 

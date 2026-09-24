@@ -44,6 +44,34 @@ numbers, so appended pointer-shaped bytes or pointers to ordinary data pages can
 > The usage map is authoritative: a brute-force owner-scan can over-count, because deleted/
 > orphaned pages can retain a stale owner stamp that the map correctly omits.
 
+### 9.0a Which row each map takes
+
+A table's maps share one **primary usage-map page**, one map per row. Rows `0` and `1` are the table's own
+owned and free maps. The rest belong to its indexes (one row each, the index's own pages map, named from its
+data block at `+0x22`) and to its long-value columns (two rows each, owned then free, named from the
+§3.3.2 list) — and **which row each takes follows the order the `CREATE TABLE` statement declares them**, not
+the table's shape:
+
+- a long-value column claims its two rows where its **column** is written;
+- an index claims its row where its **constraint** is written — at its column for an inline
+  `PRIMARY KEY` / `UNIQUE` / `REFERENCES`, or at the constraint itself for a table-level `CONSTRAINT` clause;
+- where the two fall at the same point — an inline constraint, or a table-level one written immediately after
+  a column — the **constraint** takes the earlier row.
+
+So the same table written two ways lays out differently, and an index's row cannot be derived from the table:
+
+```
+CREATE TABLE T (Id LONG CONSTRAINT pk PRIMARY KEY, M MEMO)     pk row 2,  M rows 3/4
+CREATE TABLE T (Id LONG, M MEMO, CONSTRAINT pk PRIMARY KEY (Id))    M rows 2/3,  pk row 4
+CREATE TABLE T (M MEMO, A LONG CONSTRAINT u UNIQUE, N MEMO)    M rows 2/3, u row 4, N rows 5/6
+```
+
+Index **data blocks** are unaffected: they stay in primary-key, then unique, then foreign-key order whatever
+the statement's order, so an index's data-block ordinal and its map row are independent.
+
+Once the primary page is full the remaining long-value columns spill to a page of their own (owned = row 0,
+free = row 1); an index's map spills the same way rather than being squeezed in.
+
 > **LibRed write behaviour (multi-page growth on insert).** When an insert finds no owned data page
 > with room, LibRed allocates a new page (via the global map, §9.1), initialises it as an empty data
 > page owned by the table, sets its **owned** bit, and moves the **free** marker to it. Verified:
@@ -323,8 +351,9 @@ and changes nothing else on it; the other pages a drop frees (data, long-value, 
 a wide definition's continuation pages) keep their original type bytes. The marker, what survives on the page
 and how close a LibRed drop lands to an ACE one are in [page-08](page-08-released-tdef.md).
 
-#### A long-value page is released on its own terms
+#### A page emptied of its contents is released on its own terms
 
-Deleting the last value that shared a packed long-value page releases the page and stamps it **`0x09`**,
-clearing it from the column's owned and free maps here. That mechanism, and the page it leaves behind, are in
-[page-09](page-09-released-long-value.md).
+Deleting the last live row on a table's data page, or the last value that shared a packed long-value page,
+releases the page and stamps it **`0x09`**, clearing it from the owning maps here — the table's for a data
+page, the column's for a long-value one. A table's **first** data page is the exception and is never
+released. That mechanism, and the page it leaves behind, are in [page-09](page-09-released-data.md).

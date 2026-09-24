@@ -27,7 +27,12 @@ public sealed record RelationshipSpec(
     // pathway is threaded through; TableCreator throws NotImplemented rather than guess the bytes. See the
     // libred-foreign-key-status memory / spec §11.
     bool UpdateSetNull = false,
-    bool ReferencesPrimaryKey = false)
+    bool ReferencesPrimaryKey = false,
+    // How many of the table's columns were declared before this constraint, which is what decides the order
+    // of the usage-map rows CREATE TABLE lays out (see TableCreator). Only a statement knows it; 0 — the
+    // default a direct caller gets — puts the constraint's map row ahead of every long-value column's, which
+    // is what ACE writes for a constraint declared on the first column.
+    int DeclaredAfterColumns = 0)
 {
     /// <summary>A relationship naming only its child columns, to reference the parent's primary key.</summary>
     public static IReadOnlyList<(string Column, string ReferencedColumn)> ChildColumnsOnly(IReadOnlyList<string> columns) =>
@@ -44,5 +49,6 @@ public sealed record RelationshipSpec(
                 $"The foreign key has {columns.Count} columns but references {referencedColumns.Count} in '{referencedTable}'.");
 }
 
-/// <summary>A UNIQUE constraint to create as a unique (non-primary) index over the named columns.</summary>
-public sealed record UniqueIndexSpec(string Name, IReadOnlyList<string> Columns);
+/// <summary>A UNIQUE constraint to create as a unique (non-primary) index over the named columns.
+/// <para><b>DeclaredAfterColumns</b> is as <see cref="RelationshipSpec"/>'s.</para></summary>
+public sealed record UniqueIndexSpec(string Name, IReadOnlyList<string> Columns, int DeclaredAfterColumns = 0);

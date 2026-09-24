@@ -122,8 +122,10 @@ internal static class AstBuilder
         // The PRIMARY KEY constraint's name, from whichever form declared it (column- or table-level).
         string? primaryKeyName = null;
 
-        // Where each foreign key and the primary key sit in the statement's text, for a self-reference below.
+        // Where each constraint sits in the statement's text — used for a self-reference below, and to count
+        // the columns declared before each one (DeclaredAfterColumns).
         var foreignKeyTokens = new List<int>();
+        var uniqueTokens = new List<int>();
         int primaryKeyToken = int.MaxValue;
 
         // Column-level UNIQUE and REFERENCES (the single-field forms) apply to the column they follow.
@@ -135,7 +137,11 @@ internal static class AstBuilder
                 if (p.cname is not null) primaryKeyName = Identifier(p.cname);
                 primaryKeyToken = Math.Min(primaryKeyToken, p.Start.TokenIndex);
             }
-            uniques.AddRange(keys.Uniques);
+            foreach ((UniqueConstraint unique, int token) in keys.Uniques)
+            {
+                uniques.Add(unique);
+                uniqueTokens.Add(token);
+            }
             foreach ((ForeignKeyConstraint fk, int token) in keys.References)
             {
                 foreignKeys.Add(fk);
@@ -154,6 +160,7 @@ internal static class AstBuilder
                     break;
                 case UniqueTableConstraintContext uq:
                     uniques.Add(new UniqueConstraint(uq.name is null ? null : Identifier(uq.name), uq._columns.Select(Identifier).ToList()));
+                    uniqueTokens.Add(uq.Start.TokenIndex);
                     break;
                 case ForeignKeyTableConstraintContext fk:
                     foreignKeys.Add(BuildForeignKey(fk));
@@ -181,7 +188,19 @@ internal static class AstBuilder
                 foreignKeys[i] = fk with { ReferencedColumns = primaryKey.ToList() };
         }
 
-        return new CreateTableStatement(table, columns, primaryKey, foreignKeys, uniques, checks, primaryKeyName);
+        // Each constraint's place in the element list, as the count of columns declared before it. The storage
+        // layer lays the table's usage-map rows out in declaration order, interleaving indexes with long-value
+        // columns, and a statement is the only thing that knows that order.
+        int[] columnStarts = [.. ctx.columnDefinition().Select(c => c.Start.TokenIndex)];
+        int ColumnsBefore(int token) => columnStarts.Count(start => start < token);
+
+        for (int i = 0; i < uniques.Count; i++)
+            uniques[i] = uniques[i] with { DeclaredAfterColumns = ColumnsBefore(uniqueTokens[i]) };
+        for (int i = 0; i < foreignKeys.Count; i++)
+            foreignKeys[i] = foreignKeys[i] with { DeclaredAfterColumns = ColumnsBefore(foreignKeyTokens[i]) };
+
+        return new CreateTableStatement(table, columns, primaryKey, foreignKeys, uniques, checks, primaryKeyName,
+            primaryKeyToken == int.MaxValue ? 0 : ColumnsBefore(primaryKeyToken));
     }
 
     /// <summary>The verbatim source text of a parse context (preserving spacing), via the input stream —
@@ -226,7 +245,7 @@ internal static class AstBuilder
         return new AddColumnAction(
             BuildColumnDefinition(ctx),
             keys.References.FirstOrDefault().Constraint,
-            keys.Uniques.FirstOrDefault(),
+            keys.Uniques.FirstOrDefault().Constraint,
             keys.PrimaryKeys.FirstOrDefault()?.cname is { } name ? Identifier(name) : null);
     }
 
@@ -235,7 +254,7 @@ internal static class AstBuilder
     /// statement's text.</summary>
     private readonly record struct ColumnKeys(
         List<PrimaryKeyConstraintContext> PrimaryKeys,
-        List<UniqueConstraint> Uniques,
+        List<(UniqueConstraint Constraint, int Token)> Uniques,
         List<(ForeignKeyConstraint Constraint, int Token)> References);
 
     private static ColumnKeys ColumnKeysOf(ColumnDefinitionContext column)
@@ -245,7 +264,8 @@ internal static class AstBuilder
         return new ColumnKeys(
             constraints.OfType<PrimaryKeyConstraintContext>().ToList(),
             constraints.OfType<UniqueColumnConstraintContext>()
-                .Select(u => new UniqueConstraint(u.cname is null ? null : Identifier(u.cname), [name])).ToList(),
+                .Select(u => (new UniqueConstraint(u.cname is null ? null : Identifier(u.cname), [name]),
+                              u.Start.TokenIndex)).ToList(),
             constraints.OfType<ColumnReferencesConstraintContext>()
                 .Select(r => (BuildColumnReferences(r, name), r.Start.TokenIndex)).ToList());
     }

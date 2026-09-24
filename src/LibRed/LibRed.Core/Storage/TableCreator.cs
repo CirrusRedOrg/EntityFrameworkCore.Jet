@@ -80,7 +80,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         IReadOnlyList<UniqueIndexSpec>? uniqueConstraints = null,
         IReadOnlyList<(string Column, string DefaultSql)>? columnDefaults = null,
         IReadOnlyList<(string Name, string Expression)>? checkConstraints = null,
-        string? primaryKeyName = null)
+        string? primaryKeyName = null,
+        int primaryKeyDeclaredAfterColumns = 0)
     {
         relationships ??= [];
         uniqueConstraints ??= [];
@@ -143,7 +144,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // A calculated column with a Memo RESULT needs the maps too, and its declared type does not say so:
         // ACE declares such a column Text with length 0 and reaches the value through a long-value
         // descriptor, so keying off Type alone leaves it without maps and its result nowhere to go (§3.4a).
-        var longValueCols = columns.Select((c, i) => (Column: c, Id: c.ColumnId ?? i))
+        var longValueCols = columns.Select((c, i) => (Column: c, Id: c.ColumnId ?? i, Position: i))
             .Where(x => x.Column.Type is JetDataType.Memo or JetDataType.Ole
                         || x.Column.CalculatedResultType is JetDataType.Memo)
             .ToList();
@@ -151,17 +152,18 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // The table's data-block indexes: the primary key (unique), then a unique index per UNIQUE
         // constraint, then one non-unique index per foreign key over its child columns — Access enforces
         // a relationship through an index on the FK columns. Each carries the relationship (if any) it backs.
-        var indexPlans = new List<(string Name, IReadOnlyList<string> Columns, bool IsPk, bool IsUnique, RelationshipSpec? Fk)>();
+        var indexPlans = new List<(string Name, IReadOnlyList<string> Columns, bool IsPk, bool IsUnique,
+            RelationshipSpec? Fk, int DeclaredAfterColumns)>();
         if (primaryKey is { Count: > 0 })
             // Name the PK index after the CONSTRAINT if one was given (ACE does the same, and the scaffolder
             // round-trips it). If unnamed, LibRed picks the stable "PrimaryKey" (the DAO/Access-UI convention)
             // — an engine choice, since ACE-via-SQL instead generates a random "Index_<hex>" with no fixed
             // value to reproduce, and nothing downstream depends on the exact name.
-            indexPlans.Add((primaryKeyName ?? "PrimaryKey", primaryKey, true, true, null));
+            indexPlans.Add((primaryKeyName ?? "PrimaryKey", primaryKey, true, true, null, primaryKeyDeclaredAfterColumns));
         foreach (UniqueIndexSpec unique in uniqueConstraints)
-            indexPlans.Add((unique.Name, unique.Columns, false, true, null));
+            indexPlans.Add((unique.Name, unique.Columns, false, true, null, unique.DeclaredAfterColumns));
         foreach (RelationshipSpec fk in relationships)
-            indexPlans.Add((fk.Name, fk.Columns.Select(c => c.Column).ToList(), false, false, fk));
+            indexPlans.Add((fk.Name, fk.Columns.Select(c => c.Column).ToList(), false, false, fk, fk.DeclaredAfterColumns));
 
         // Every index this CREATE would build, including the ones arriving as a PRIMARY KEY or UNIQUE
         // constraint rather than as an index — the inline `col type PRIMARY KEY` form is refused earlier, at
@@ -183,6 +185,34 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int colsOnPrimary = Math.Clamp((mapsPerPage - primaryRecords) / 2, 0, longValueCols.Count);
         WriteUsageMaps(format, usageMapPage, mapCount: primaryRecords + colsOnPrimary * 2);
 
+        // Which row each of them gets. Rows 0 and 1 are the table's own; the rest go in the order the CREATE
+        // TABLE statement DECLARES them (verified vs ACE): a long-value column takes two where its column is
+        // written, an index takes one where its constraint is written — inline on a column, or wherever a
+        // table-level CONSTRAINT appears in the element list. So `(Id LONG CONSTRAINT pk PRIMARY KEY, M MEMO)`
+        // gives pk row 2 and M rows 3/4, while `(Id LONG, M MEMO, CONSTRAINT pk PRIMARY KEY (Id))` gives M
+        // rows 2/3 and pk row 4 — the same table, the same maps, different rows.
+        //
+        // A constraint and a column that sit at the same point (an inline constraint, or a table-level one
+        // written immediately after the column) put the CONSTRAINT first: measured on
+        // `(Id LONG, CONSTRAINT pk PRIMARY KEY (Id), M MEMO)`, which gives pk row 2.
+        //
+        // This orders the map ROWS only. indexPlans keeps its own order, because that is what numbers the
+        // index data blocks (RealIndexOrdinal), and ACE numbers those PK-then-unique-then-FK regardless.
+        var claims = indexPlans
+            .Select((p, i) => (Sort: (p.DeclaredAfterColumns, Constraint: 0, i), Index: i, LongValue: -1))
+            .Concat(longValueCols.Take(colsOnPrimary)
+                .Select((c, j) => (Sort: (c.Position, Constraint: 1, j), Index: -1, LongValue: j)))
+            .OrderBy(c => c.Sort);
+
+        var indexRows = new int[indexPlans.Count];
+        var longValueRows = new (int Used, int Free)[longValueCols.Count];
+        int nextMapRow = 2;
+        foreach (var claim in claims)
+        {
+            if (claim.Index >= 0) indexRows[claim.Index] = nextMapRow++;
+            else { longValueRows[claim.LongValue] = (nextMapRow, nextMapRow + 1); nextMapRow += 2; }
+        }
+
         // §3.3.2 entries: a long-value column's maps are on the primary page (if it fit) or a dedicated page.
         var longValueSpecs = new List<LongValueColumnSpec>(longValueCols.Count);
         for (int j = 0; j < longValueCols.Count; j++)
@@ -190,7 +220,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             int colId = longValueCols[j].Id;
             if (j < colsOnPrimary)
                 longValueSpecs.Add(new LongValueColumnSpec(
-                    colId, UsedRow: primaryRecords + 2 * j, FreeRow: primaryRecords + 2 * j + 1, MapPage: usageMapPage));
+                    colId, UsedRow: longValueRows[j].Used, FreeRow: longValueRows[j].Free, MapPage: usageMapPage));
             else
             {
                 int columnMapPage = _allocator.Allocate();
@@ -200,7 +230,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         }
 
         // Each index is an empty leaf root, populated as rows are inserted. Its usage map is on the primary
-        // page right after the two data-page maps (row 2 + i).
+        // page, at the row the declaration order above gave it.
         var indexes = new List<IndexSpec>(indexPlans.Count);
         for (int i = 0; i < indexPlans.Count; i++)
         {
@@ -210,9 +240,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             // Record the root in the index's own pages usage map — Access does this at CREATE, before any
             // row exists (verified: a freshly created empty index has exactly its root bit set). As the tree
             // grows, IndexWriter adds each page it allocates, so the map covers the whole B-tree.
-            new UsageMapWriter(_channel).SetBit(2 + i, usageMapPage, rootPage, set: true);
+            new UsageMapWriter(_channel).SetBit(indexRows[i], usageMapPage, rootPage, set: true);
             indexes.Add(new IndexSpec(plan.Name, plan.Columns, plan.IsPk, plan.IsUnique,
-                rootPage, UsageMapRow: 2 + i, UsageMapPage: usageMapPage));
+                rootPage, UsageMapRow: indexRows[i], UsageMapPage: usageMapPage));
         }
 
         // Build the child's logical index-info blocks. A plain index (PK) maps 1:1 to its data block;
@@ -394,7 +424,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <summary>The data-block ordinal of the index over a self-reference's referenced columns, found
     /// among the indexes being created for this table (the table is not in the catalog yet).</summary>
     private static int SelfReferencedOrdinal(
-        List<(string Name, IReadOnlyList<string> Columns, bool IsPk, bool IsUnique, RelationshipSpec? Fk)> indexPlans,
+        List<(string Name, IReadOnlyList<string> Columns, bool IsPk, bool IsUnique, RelationshipSpec? Fk,
+            int DeclaredAfterColumns)> indexPlans,
         RelationshipSpec fk)
     {
         var refColumns = fk.Columns.Select(c => c.ReferencedColumn).ToList();

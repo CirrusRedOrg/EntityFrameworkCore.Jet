@@ -865,6 +865,25 @@ two separate copies and diffing whole files: an ordinary table (`[Order Details]
 table with four attachment columns whose delete cascades into the flat tables (`complex1.accdb`'s `Table1`,
 20 pages touched) each came back identical on every page, with LibRed touching no page ACE did not.
 
+### 10.4d A leaf the removal empties leaves the tree
+
+An underfull leaf is left alone (§10.4a), but a leaf whose **last** entry is removed is taken out of the tree
+rather than rewritten empty. Three things change together:
+
+- **The leaf chain closes over it.** Its left neighbour's `nextPage` (`0x10`) takes its `nextPage`, and its
+  right neighbour's `prevPage` (`0x0C`) takes its `prevPage`. A leaf that was the chain's head therefore
+  leaves the next leaf reading `prevPage = 0`.
+- **The parent node loses the child pointer.** Where the leaf was an entry's trailer, that separator entry
+  goes and the child-tail (`0x14`) is untouched. Where it was the child-tail, the last entry's child becomes
+  the tail and that entry goes. A node is left with **no entries and only its child-tail** rather than
+  collapsed into its remaining child: `entryCount = 0` over a live `0x14` is a valid node.
+- **The page is released** — cleared from the index's own pages map (`+0x22` of its data block) and returned
+  to the global map. Its **type byte stays `0x04`**: unlike a released data page ([page-09](page-09-released-data.md))
+  an index page carries no released-page marker, and none of its bytes change.
+
+Two shapes keep an empty leaf, having nowhere to go: a leaf that **is** the root — an index with no rows is
+one empty leaf — and a leaf that is its parent's only remaining child.
+
 ### 10.4c Dead bytes past the free-space boundary
 
 **A page is zero-filled when it is allocated and never cleared again.** Every later rewrite moves the

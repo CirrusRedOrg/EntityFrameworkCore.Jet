@@ -11,9 +11,9 @@ namespace LibRed.Core.Tests;
 /// <summary>
 /// Several small long values (the single-page form, up to 3,816 bytes) pack onto one LVAL page. Deleting a
 /// row retires its value's row there to a 0-length deleted+overflow tombstone and re-lays the page, and once
-/// the last value on it is gone the page is stamped <see cref="PageType.ReleasedLongValuePage"/> and freed.
-/// That is where the <c>0x09</c> pages in real Access files come from — see
-/// <c>docs/format/page-05-usage-maps.md</c> §9.
+/// the last value on it is gone the page is stamped <see cref="PageType.ReleasedDataPage"/> and freed.
+/// That is one of the two routes to a <c>0x09</c> page; an ordinary data page emptied by DELETE is the
+/// other — see <c>docs/format/page-09-released-data.md</c>.
 /// </summary>
 /// <remarks>
 /// A <b>chained</b> value owns its pages outright and gives them back at <c>0x01</c>, which is why no
@@ -89,7 +89,7 @@ public class PackedLongValueReleaseAccessTests(ITestOutputHelper output) : TempD
             channel.ReadPage(page, buffer);
             if (BitConverter.ToUInt32(buffer, channel.Format.DataOwnerOffset) != 0x4C41564C) continue;
             if (buffer[0] == (byte)PageType.DataPage) live++;
-            else if (buffer[0] == (byte)PageType.ReleasedLongValuePage) released++;
+            else if (buffer[0] == (byte)PageType.ReleasedDataPage) released++;
         }
         return $"lval live={live} released={released}";
     }

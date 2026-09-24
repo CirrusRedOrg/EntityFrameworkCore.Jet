@@ -20,11 +20,12 @@ public enum PageType : byte
     /// See <c>docs/format/page-08-released-tdef.md</c>.</summary>
     ReleasedTableDefinition = 0x08,
 
-    /// <summary>A long-value page released because the last value sharing it was deleted. Several small
-    /// (single-page form) values pack onto one LVAL page; each delete retires its row to a 0-length
-    /// deleted+overflow tombstone, and when none are left the page is stamped with this type and freed.
-    /// A <b>chained</b> value owns its pages outright and they go back at <see cref="DataPage"/> instead,
-    /// which is why only the packed form produces this. Nothing needs to handle it on read: allocation
-    /// selects on the free map, not on this byte. See <c>docs/format/page-09-released-long-value.md</c>.</summary>
-    ReleasedLongValuePage = 0x09,
+    /// <summary>A data page released because its last live row was deleted. It covers both an ordinary
+    /// table's data page emptied by DELETE and a packed long-value page whose last tenant was deleted —
+    /// structurally the same event, and the same one-byte stamp. Every row slot is left a 0-length
+    /// deleted+overflow tombstone and the page is given back. A <b>chained</b> long value owns its pages
+    /// outright and they go back at <see cref="DataPage"/> instead. Nothing needs to handle it on read:
+    /// allocation selects on the free map, not on this byte.
+    /// See <c>docs/format/page-09-released-data.md</c>.</summary>
+    ReleasedDataPage = 0x09,
 }

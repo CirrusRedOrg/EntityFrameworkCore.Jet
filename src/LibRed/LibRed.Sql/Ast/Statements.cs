@@ -163,10 +163,14 @@ public sealed record ForeignKeyConstraint(
     IReadOnlyList<string> ReferencedColumns,
     ReferentialAction OnDelete,
     ReferentialAction OnUpdate,
-    bool NoIndex = false);
+    bool NoIndex = false,
+    int DeclaredAfterColumns = 0);
 
-/// <summary>A UNIQUE constraint (table-level, or a column-level UNIQUE) over one or more columns.</summary>
-public sealed record UniqueConstraint(string? Name, IReadOnlyList<string> Columns);
+/// <summary>A UNIQUE constraint (table-level, or a column-level UNIQUE) over one or more columns.
+/// <para><b>DeclaredAfterColumns</b> is how many of the table's columns the statement declares before this
+/// constraint. It carries the constraint's place in the CREATE TABLE element list through to the storage
+/// layer, which lays the usage-map rows out in that order.</para></summary>
+public sealed record UniqueConstraint(string? Name, IReadOnlyList<string> Columns, int DeclaredAfterColumns = 0);
 
 /// <summary>A CHECK constraint: an optional name and the raw expression text (validated by Access, not
 /// yet enforced by LibRed).</summary>
@@ -182,7 +186,9 @@ public sealed record CreateTableStatement(
     // The PRIMARY KEY's CONSTRAINT name, if one was given (column- or table-level). ACE names the primary
     // key index after the constraint (verified: the scaffolder round-trips it), so it must be preserved.
     // When null (no name given), the engine picks its own stable fallback in TableCreator.
-    string? PrimaryKeyName = null) : SqlStatement;
+    string? PrimaryKeyName = null,
+    // How many columns are declared before the PRIMARY KEY constraint — see UniqueConstraint.
+    int PrimaryKeyDeclaredAfterColumns = 0) : SqlStatement;
 
 /// <summary>The optional WITH clause of CREATE INDEX: PRIMARY (make it the primary key), DISALLOW NULL
 /// (no nulls allowed), IGNORE NULL (rows with nulls excluded from the index).</summary>

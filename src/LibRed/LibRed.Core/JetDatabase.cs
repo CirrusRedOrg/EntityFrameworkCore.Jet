@@ -380,13 +380,14 @@ public sealed class JetDatabase : IDisposable
         IReadOnlyList<UniqueIndexSpec>? uniqueConstraints = null,
         IReadOnlyList<(string Column, string DefaultSql)>? columnDefaults = null,
         IReadOnlyList<(string Name, string Expression)>? checkConstraints = null,
-        string? primaryKeyName = null)
+        string? primaryKeyName = null,
+        int primaryKeyDeclaredAfterColumns = 0)
     {
         ValidateCalculated(columns, [.. columns.Select(c => c.Name)]);
         EnsureFormatForCalculated(columns);
         new Storage.TableCreator(_channel, Catalog, Collation)
             .Create(name, columns, primaryKey, relationships, uniqueConstraints, columnDefaults, checkConstraints,
-                primaryKeyName);
+                primaryKeyName, primaryKeyDeclaredAfterColumns);
         Catalog.Invalidate();
     }
 

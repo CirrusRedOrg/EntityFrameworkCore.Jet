@@ -14,8 +14,9 @@ alone.
 
 The other pages a drop frees — data pages, long-value pages, usage-map holders — **keep their original type
 bytes**; only the definition page is marked. A definition that runs onto continuation pages has only its first
-page marked: the continuations are freed with every byte, their `0x02` type included, left as it was. (A long-value page released for a different reason does get its
-own marker, [`0x09`](page-09-released-long-value.md), but not as part of a drop.)
+page marked: the continuations are freed with every byte, their `0x02` type included, left as it was. (A data
+or long-value page released for a different reason — emptied of its rows or its packed values — does get its
+own marker, [`0x09`](page-09-released-data.md), but not as part of a drop.)
 
 ## Reading
 
@@ -39,4 +40,4 @@ LibRed sets the same marker in `TableCreator.DropTable`, as the last step of giv
 
 - [page-02a](page-02a-tdef.md) — what the page held while it was live.
 - [page-05 §9](page-05-usage-maps.md) — the rest of what a drop gives back.
-- [page-09](page-09-released-long-value.md) — the other released-page marker, from a different mechanism.
+- [page-09](page-09-released-data.md) — the other released-page marker, from a different mechanism.

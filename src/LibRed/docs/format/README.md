@@ -37,7 +37,7 @@ Implemented by `src/LibRed/LibRed.Core/`. The canonical offsets live in
 | [page-03-04-index-btree.md](page-03-04-index-btree.md) | Index B-tree pages (types `0x03` node / `0x04` leaf): header, entries, prefix compression, key encoding, splitting |
 | [page-05-usage-maps.md](page-05-usage-maps.md) | Per-table owned/free usage maps, `0x05` bitmap pages, and the global free-pages map (allocation) |
 | [page-08-released-tdef.md](page-08-released-tdef.md) | Released table-definition page (type `0x08`): what `DROP TABLE` leaves behind |
-| [page-09-released-long-value.md](page-09-released-long-value.md) | Released long-value page (type `0x09`): a packed LVAL page emptied of its values |
+| [page-09-released-data.md](page-09-released-data.md) | Released data page (type `0x09`): a table data page emptied by DELETE, or a packed LVAL page emptied of its values |
 | [long-values.md](long-values.md) | Memo / OLE long values, LVAL pages, and the per-column usage-map list |
 | [data-types.md](data-types.md) | Data-type codes and their decode, plus compressed Unicode |
 | [system-catalog.md](system-catalog.md) | `MSysObjects` / `MSysACEs` / `MSysQueries` / `MSysRelationships`, the `LvProp` property blob, views & procedures, relationships |
@@ -65,7 +65,7 @@ catalogued one level up in [`../functions.md`](../functions.md).
   | `0x04` | Index B-tree leaf | `IndexCursor` | [page-03-04](page-03-04-index-btree.md) |
   | `0x05` | Page-usage bitmap | `UsageMap` | [page-05](page-05-usage-maps.md) |
   | `0x08` | Released table definition (a dropped table's TDEF) | `PageType.ReleasedTableDefinition` | [page-08](page-08-released-tdef.md) |
-  | `0x09` | Released long-value page (emptied of its packed values) | `PageType.ReleasedLongValuePage` | [page-09](page-09-released-long-value.md) |
+  | `0x09` | Released data page (emptied by DELETE, or of its packed long values) | `PageType.ReleasedDataPage` | [page-09](page-09-released-data.md) |
 
   `0x08` and `0x09` mark pages that have been **given back**. Neither needs handling on read — allocation
   selects on the global free map, not on this byte — but both are written, so a file LibRed produces carries
@@ -99,7 +99,7 @@ table says which file each section lives in.
 | §8 | Long values (Memo / OLE) | [long-values.md](long-values.md) |
 | §9 | Usage maps | [page-05-usage-maps.md](page-05-usage-maps.md) |
 | §9.1 | Global usage maps (free and released pages) | [page-05-usage-maps.md](page-05-usage-maps.md) |
-| — | Released pages (`0x08`, `0x09`) | [page-08](page-08-released-tdef.md) / [page-09](page-09-released-long-value.md) — no §-number |
+| — | Released pages (`0x08`, `0x09`) | [page-08](page-08-released-tdef.md) / [page-09](page-09-released-data.md) — no §-number |
 | §10 | Index B-tree pages | [page-03-04-index-btree.md](page-03-04-index-btree.md) |
 | §11 | System catalog | [system-catalog.md](system-catalog.md) |
 | §12 | Version differences | this README (below) |

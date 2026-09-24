@@ -300,11 +300,13 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// <summary>
     /// Deletes the row at <paramref name="id"/> and reclaims its space, then decrements the TDEF row count
     /// (0x10). The caller removes the row's index entries first. A relocated row's hidden target is reclaimed
-    /// too, and its LVAL pages are freed — held until the connection closes, as ACE holds a delete's.
+    /// too, and its LVAL pages are freed — held until the connection closes, as ACE holds a delete's. A page
+    /// whose last live row this was is released outright (<see cref="WriteReclaimedPage"/>).
     /// </summary>
     public void Delete(RowId id)
     {
         JetFormatBase format = _channel.Format;
+        bool released;
 
         // Free the deleted row's chained long-value pages — held until close, as ACE holds them.
         byte[] rowBytes = ReadRowBytes(id);
@@ -339,7 +341,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
                 ReclaimRelocationTarget(format, page, id.Row);
 
             ReclaimRow(format, page, id.Row);
-            _channel.WritePage(id.Page, page.AsSpan(0, format.PageSize));
+            released = WriteReclaimedPage(format, page, id.Page);
         }
         finally { ArrayPool<byte>.Shared.Return(page); }
 
@@ -347,7 +349,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // insert path clearing it when the page filled (AllocateDataPage). Without this the space a delete
         // frees in a full page is space no later insert ever looks at, and ACE sets the bit here too
         // (measured: deleting a row from the first of many pages, ACE writes the map holder and LibRed did not).
-        UpdateUsageBit(format.TdefFreePagesOffset, id.Page, set: true);
+        // A released page is the exception: it has already left both of the table's maps.
+        if (!released) UpdateUsageBit(format.TdefFreePagesOffset, id.Page, set: true);
 
         byte[] tdef = ArrayPool<byte>.Shared.Rent(format.PageSize);
         try
@@ -457,9 +460,78 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
                 throw Unresolvable(row, $"page {targetPage} row {targetRow} is not a hidden relocated row");
 
             ReclaimRow(format, page, targetRow);
+            // Written back, never released, even when that was the page's last row — ACE keeps a page emptied
+            // this way as an ordinary data page (measured: deleting a relocated row leaves the page it had
+            // moved to at type 0x01 with a bare 4080 free and its one slot tombstoned, still in the table's
+            // maps). The release belongs to deleting a LIVE row (see WriteReclaimedPage); the row reclaimed
+            // here was already hidden, so emptying its page is a space operation rather than a deletion.
             _channel.WritePage(targetPage, page.AsSpan(0, format.PageSize));
         }
         finally { ArrayPool<byte>.Shared.Return(page); }
+    }
+
+    /// <summary>
+    /// Writes back the page a DELETE has just reclaimed a row from, and gives the page away when that row was
+    /// the last live one on it. Returns whether it was released. Only the delete path: a page emptied by
+    /// reclaiming a hidden relocation target is kept, as ACE keeps it (see <see cref="ReclaimRelocationTarget"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>A page emptied by DELETE is stamped <see cref="PageType.ReleasedDataPage"/> (<c>0x09</c>), taken
+    /// out of the table's owned and free maps, and released — held until this handle closes, the route ACE
+    /// takes for a delete's pages. Nothing else about the page changes: the row count stands and every slot
+    /// stays the 0-length deleted+overflow tombstone <see cref="ReclaimRow"/> left, which is already what ACE
+    /// writes, so the stamp is the only differing byte.</para>
+    /// <para>Measured against ACE over a 1,200-row table with 699 rows deleted from the low end: 18 data pages
+    /// emptied, and on each one ACE changed exactly the type byte, cleared the page from both of the table's
+    /// maps, and set its bit in the global map. This is the same event as an emptied packed long-value page
+    /// (<see cref="ReleasePackedValue"/>) and carries the same stamp — <c>0x09</c> is not confined to
+    /// long-value pages, and these carry the table's own owner at <c>0x04</c> rather than an <c>LVAL</c>
+    /// signature.</para>
+    /// <para>"Emptied" is every slot deleted <b>and</b> zero-length, not merely every slot deleted: a hidden
+    /// relocation target is a live row carrying the deleted flag, so a page holding one is not empty.</para>
+    /// <para>The table's <b>first</b> data page is the exception and is kept whatever happens to it — see
+    /// <see cref="IsFirstDataPage"/>.</para>
+    /// </remarks>
+    private bool WriteReclaimedPage(JetFormatBase format, byte[] page, int pageNumber)
+    {
+        bool release = IsEmptied(format, page) && !IsFirstDataPage(pageNumber);
+        if (release) page[0] = (byte)PageType.ReleasedDataPage;
+        _channel.WritePage(pageNumber, page.AsSpan(0, format.PageSize));
+        if (!release) return false;
+
+        UpdateUsageBit(format.TdefOwnedPagesOffset, pageNumber, set: false);
+        UpdateUsageBit(format.TdefFreePagesOffset, pageNumber, set: false);
+        new PageAllocator(_channel).Release(pageNumber);
+        return true;
+    }
+
+    /// <summary>
+    /// The first page of the table's owned-pages map — the one data page ACE never gives back, however empty
+    /// it gets. Measured: deleting every row of a 35-page table releases 34 of them and leaves this one at
+    /// <c>0x01</c>, still in both of the table's maps, with all its slots tombstoned like the rest. It is not
+    /// "keep one page": it stays even while later pages still hold live rows.
+    /// </summary>
+    /// <remarks>Read as the lowest page in the owned map, which in every file measured is also the page the
+    /// table was created with — the two readings are not distinguished here.</remarks>
+    private bool IsFirstDataPage(int pageNumber) =>
+        new UsageMap(_channel, _table).DataPages().FirstOrDefault() == pageNumber;
+
+    /// <summary>True when no live row is left on the page: every slot a zero-length deleted tombstone. Slot
+    /// offsets are non-increasing, so a slot is zero-length exactly when it repeats the previous one's offset
+    /// (the page size standing in for the first).</summary>
+    private static bool IsEmptied(JetFormatBase format, byte[] page)
+    {
+        int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
+        int previous = format.PageSize;
+        for (int i = 0; i < rowCount; i++)
+        {
+            ushort entry = BinaryPrimitives.ReadUInt16LittleEndian(
+                page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2));
+            int offset = entry & RowPointer.OffsetMask;
+            if ((entry & RowPointer.DeletedFlag) == 0 || offset != previous) return false;
+            previous = offset;
+        }
+        return true;
     }
 
     private InvalidDataException Unresolvable(int row, string why) =>
@@ -628,7 +700,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// Retires one value from a shared (single-page form) long-value page: its row becomes a <b>0-length
     /// deleted+overflow tombstone</b> and the page is re-laid, the surviving records packing from the page end
     /// in slot order so the freed space is reclaimed. When nothing live is left the page is given back — its
-    /// type byte set to <see cref="PageType.ReleasedLongValuePage"/>, its bit cleared from the column's owned
+    /// type byte set to <see cref="PageType.ReleasedDataPage"/>, its bit cleared from the column's owned
     /// and free maps, and the page returned to the global allocator.
     /// </summary>
     /// <remarks>
@@ -638,10 +710,10 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// 4 gone  0x01 n=5 free=3272 [4096DO,4096DO,4096DO,4096DO,3296]   the survivor slid to the top
     /// all     0x09 n=5 free=4072 [4096DO x5]
     /// </code>
-    /// This is where page type <c>0x09</c> comes from — an emptied packed long-value page, which the spec had
-    /// recorded as a released page of unidentified origin (page-09). Chained values are unaffected: they own
-    /// their pages outright and are freed below, leaving them at <c>0x01</c>, which is why no experiment that
-    /// used a memo large enough to chain ever produced one.
+    /// This is one of the two routes to page type <c>0x09</c>; the other is an ordinary data page emptied by
+    /// DELETE (see <see cref="Delete"/>). Chained values take neither: they own their pages outright and are
+    /// freed below, leaving them at <c>0x01</c>, which is why no experiment that used a memo large enough to
+    /// chain ever produced one.
     /// </remarks>
     private void ReleasePackedValue(ColumnDef column, int pageNumber, int row,
         (int Row, int Page) owned, (int Row, int Page) free, bool releaseAtClose)
@@ -683,7 +755,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             (ushort)(offset - (dir + holder.RowCount * 2)));
 
         bool emptied = records.All(r => r.Length == 0);
-        if (emptied) page[0] = (byte)PageType.ReleasedLongValuePage;
+        if (emptied) page[0] = (byte)PageType.ReleasedDataPage;
         _channel.WritePage(pageNumber, page);
 
         // A page that survives has room again, so it goes back into the column's free-pages map — the same

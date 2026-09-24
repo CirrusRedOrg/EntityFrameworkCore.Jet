@@ -80,7 +80,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
         var uniques = statement.UniqueConstraints.Select((u, i) => new UniqueIndexSpec(
             Name: u.Name ?? Generated("UQ", i),
-            Columns: u.Columns)).ToList();
+            Columns: u.Columns,
+            DeclaredAfterColumns: u.DeclaredAfterColumns)).ToList();
 
         var defaults = statement.Columns
             .Where(c => c.Default is not null)
@@ -92,7 +93,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             .ToList();
 
         _database.CreateTable(statement.Table, columns, primaryKey, relationships, uniques, defaults, checks,
-            statement.PrimaryKeyName);
+            statement.PrimaryKeyName, statement.PrimaryKeyDeclaredAfterColumns);
         return 0;
     }
 
@@ -153,7 +154,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         NoIndex: fk.NoIndex,
         DeleteSetNull: fk.OnDelete == ReferentialAction.SetNull,
         UpdateSetNull: fk.OnUpdate == ReferentialAction.SetNull,
-        ReferencesPrimaryKey: fk.ReferencedColumns.Count == 0);
+        ReferencesPrimaryKey: fk.ReferencedColumns.Count == 0,
+        DeclaredAfterColumns: fk.DeclaredAfterColumns);
 
     /// <summary>Access-style fallback name when the constraint is unnamed: "childparent".</summary>
     private static string DefaultRelationshipName(string childTable, ForeignKeyConstraint fk) =>

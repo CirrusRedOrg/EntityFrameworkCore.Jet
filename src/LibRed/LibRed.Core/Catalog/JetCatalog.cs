@@ -164,6 +164,10 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
         long generation = _channel.SchemaGeneration;
         if (generation == _seenSchemaGeneration) return;
         Invalidate(markChanged: false);
+        // The file's format version is schema too, and another connection can raise it — adding a BIGINT or a
+        // DATETIME2 column moves the byte on page 0. Without this, a handle open across that change goes on
+        // reporting the version the file had when IT opened, and would refuse a column the file can now hold.
+        _channel.ResyncFormatVersion();
         _seenSchemaGeneration = generation;
     }
 

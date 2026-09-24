@@ -77,6 +77,54 @@ public class RecordSizeAccessTests(ITestOutputHelper output) : TempDatabaseTest
         Assert.InRange(accepted, cap - 1, cap);
     }
 
+    // A dropped fixed column does not give its bytes back: DROP COLUMN is a metadata edit, every survivor
+    // keeps the offset it had, and the gap stays in every row as dead space. So the region a new column has
+    // to fit into is where the live columns END, not what they add up to — and counting the sum let a column
+    // in that would take the rows past the cap, the very shape ACE refuses to open a database for. ACE is the
+    // oracle for both halves: whether it allows the ADD, and whether it can still read the table afterwards.
+    [Fact]
+    public void Adding_a_column_counts_the_hole_a_dropped_one_left()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "recsize-hole-");
+        using OleDbConnection connection = AceTestDatabase.Open(path);
+
+        // Eight 500-byte binaries fill the fixed region to 4000, leaving no room for a ninth.
+        using (OleDbCommand ddl = connection.CreateCommand())
+        {
+            ddl.CommandText = "CREATE TABLE Holed (Id LONG PRIMARY KEY, "
+                + string.Join(", ", Enumerable.Range(0, 8).Select(i => $"B{i} BINARY(500)")) + ")";
+            ddl.ExecuteNonQuery();
+        }
+
+        // ACE's own answer to dropping one and adding another the same size.
+        string? aceRefusal = null;
+        // B0 is in the MIDDLE of the fixed region, so the survivors above it keep their offsets and the hole
+        // stays. Dropping the last column would simply lower the high-water and prove nothing.
+        foreach (string sql in new[] { "ALTER TABLE Holed DROP COLUMN B0", "ALTER TABLE Holed ADD COLUMN B8 BINARY(500)" })
+        {
+            using OleDbCommand alter = connection.CreateCommand();
+            alter.CommandText = sql;
+            try { alter.ExecuteNonQuery(); }
+            catch (OleDbException e) { aceRefusal = e.Message.Trim(); break; }
+        }
+        output.WriteLine($"ACE drop-then-add: {aceRefusal ?? "accepted"}");
+
+        string libred = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "recsize-hole-lib-");
+        using (var database = JetDatabase.Open(libred, readOnly: false))
+        {
+            var specs = new List<ColumnSpec> { new("Id", JetDataType.Int32, 4, IsFixedLength: true) };
+            for (int i = 0; i < 8; i++) specs.Add(new ColumnSpec($"B{i}", JetDataType.Binary, 500, IsFixedLength: true));
+            database.CreateTable("Holed", specs, primaryKey: ["Id"]);
+            Assert.True(database.DropColumn("Holed", "B0"));
+
+            Exception? refused = Record.Exception(() =>
+                database.AddColumn("Holed", new ColumnSpec("B8", JetDataType.Binary, 500, IsFixedLength: true)));
+            output.WriteLine($"LibRed drop-then-add: {refused?.Message ?? "accepted"}");
+            Assert.Equal(aceRefusal is null, refused is null);
+        }
+        TemporaryDatabase.Delete(libred);
+    }
+
     [Fact]
     public void LibRed_refuses_a_record_ace_would_refuse_and_leaves_the_file_alone()
     {

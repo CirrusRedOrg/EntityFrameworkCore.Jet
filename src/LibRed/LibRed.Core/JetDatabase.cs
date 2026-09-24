@@ -189,6 +189,9 @@ public sealed class JetDatabase : IDisposable
     /// <summary>Releases <paramref name="savepoint"/>, merging its writes into the enclosing scope.</summary>
     public void ReleaseSavepoint(Savepoint savepoint) => _channel.ReleaseSavepoint(savepoint);
 
+    /// <inheritdoc cref="PageChannel.DependOn"/>
+    public void DependOn(Func<bool> stillHolds, string violation) => _channel.DependOn(stillHolds, violation);
+
     // --- nested transactions (shared by the ADO API and SQL BEGIN/COMMIT/ROLLBACK) ---
     // One physical transaction; nesting maps onto the savepoint stack. The depth counts every open level, so a
     // COMMIT/ROLLBACK at the innermost level releases/rolls back just that level and the outermost commits or
@@ -394,7 +397,7 @@ public sealed class JetDatabase : IDisposable
     public void CreateIndex(string table, string index, IReadOnlyList<(string Column, bool Descending)> columns,
         bool isUnique = false, bool isPrimary = false, bool disallowNull = false, bool ignoreNulls = false)
     {
-        new Storage.TableCreator(_channel, Catalog).AddIndex(table, index, columns, isUnique, isPrimary, disallowNull, ignoreNulls);
+        new Storage.TableCreator(_channel, Catalog, Collation).AddIndex(table, index, columns, isUnique, isPrimary, disallowNull, ignoreNulls);
         Catalog.Invalidate();
     }
 
@@ -402,7 +405,7 @@ public sealed class JetDatabase : IDisposable
     /// FOREIGN KEY. Writes the child backing index, the parent's incoming block and MSysRelationships.</summary>
     public void AddForeignKey(string childTable, RelationshipSpec relationship)
     {
-        new Storage.TableCreator(_channel, Catalog).AddForeignKey(childTable, relationship);
+        new Storage.TableCreator(_channel, Catalog, Collation).AddForeignKey(childTable, relationship);
         Catalog.Invalidate();
     }
 
@@ -410,7 +413,7 @@ public sealed class JetDatabase : IDisposable
     /// Merges into the table's LvProp CheckConstraints property; the engine enforces it on insert/update.</summary>
     public void AddCheckConstraint(string table, string name, string expression)
     {
-        new Storage.TableCreator(_channel, Catalog).AddCheckConstraint(table, name, expression);
+        new Storage.TableCreator(_channel, Catalog, Collation).AddCheckConstraint(table, name, expression);
         Catalog.Invalidate();
     }
 
@@ -418,7 +421,7 @@ public sealed class JetDatabase : IDisposable
     /// LvProp CheckConstraints property. Returns false if no CHECK of that name exists.</summary>
     public bool DropCheckConstraint(string table, string name)
     {
-        bool dropped = new Storage.TableCreator(_channel, Catalog).DropCheckConstraint(table, name);
+        bool dropped = new Storage.TableCreator(_channel, Catalog, Collation).DropCheckConstraint(table, name);
         if (dropped) Catalog.Invalidate();
         return dropped;
     }
@@ -427,7 +430,7 @@ public sealed class JetDatabase : IDisposable
     /// change is an in-place descriptor edit; a storage-type change rebuilds the table (converting values).</summary>
     public void AlterColumn(string table, string column, ColumnSpec newSpec)
     {
-        new Storage.TableCreator(_channel, Catalog).AlterColumn(table, column, newSpec);
+        new Storage.TableCreator(_channel, Catalog, Collation).AlterColumn(table, column, newSpec);
         Catalog.Invalidate();
     }
 
@@ -436,7 +439,7 @@ public sealed class JetDatabase : IDisposable
     /// index rebuild. Falls back to the logical rebuild only for a Memo/OLE (long-value) source or target.</summary>
     public void AlterColumnTypeInPlace(string table, string column, ColumnSpec newSpec)
     {
-        new Storage.TableCreator(_channel, Catalog).AlterColumnTypeInPlace(table, column, newSpec);
+        new Storage.TableCreator(_channel, Catalog, Collation).AlterColumnTypeInPlace(table, column, newSpec);
         Catalog.Invalidate();
     }
 
@@ -444,7 +447,7 @@ public sealed class JetDatabase : IDisposable
     /// DefaultValue in the LvProp blob; the engine applies it on an omit-insert.</summary>
     public void SetColumnDefault(string table, string column, string defaultSql)
     {
-        new Storage.TableCreator(_channel, Catalog).SetColumnDefault(table, column, defaultSql);
+        new Storage.TableCreator(_channel, Catalog, Collation).SetColumnDefault(table, column, defaultSql);
         Catalog.Invalidate();
     }
 
@@ -453,7 +456,7 @@ public sealed class JetDatabase : IDisposable
     /// (ACE-verified). A no-op if the column had no default.</summary>
     public void DropColumnDefault(string table, string column)
     {
-        new Storage.TableCreator(_channel, Catalog).DropColumnDefault(table, column);
+        new Storage.TableCreator(_channel, Catalog, Collation).DropColumnDefault(table, column);
         Catalog.Invalidate();
     }
 
@@ -462,21 +465,21 @@ public sealed class JetDatabase : IDisposable
     /// the engine enforces it on insert and ACE reads it byte-faithfully (verified).</summary>
     public void SetColumnRequired(string table, string column, bool required)
     {
-        new Storage.TableCreator(_channel, Catalog).SetColumnRequired(table, column, required);
+        new Storage.TableCreator(_channel, Catalog, Collation).SetColumnRequired(table, column, required);
         Catalog.Invalidate();
     }
 
     /// <summary>Drops a named FOREIGN KEY constraint from a table — ALTER TABLE … DROP CONSTRAINT. Returns
     /// false if no such relationship exists (e.g. the name is a primary-key/unique index, not yet handled).</summary>
     public bool DropConstraint(string childTable, string name) =>
-        new Storage.TableCreator(_channel, Catalog).DropConstraint(childTable, name);
+        new Storage.TableCreator(_channel, Catalog, Collation).DropConstraint(childTable, name);
 
     /// <summary>Renames a table — ALTER TABLE … RENAME TO. Updates MSysObjects.Name and repoints the by-name
     /// table references in MSysRelationships; indexes and stored queries are left alone, matching ACE. Returns
     /// false if the table doesn't exist; throws if the new name is taken.</summary>
     public bool RenameTable(string oldName, string newName)
     {
-        bool renamed = new Storage.TableCreator(_channel, Catalog).RenameTable(oldName, newName);
+        bool renamed = new Storage.TableCreator(_channel, Catalog, Collation).RenameTable(oldName, newName);
         if (renamed) Catalog.Invalidate(); // the cached TableDefs still carry the old name
         return renamed;
     }
@@ -486,18 +489,20 @@ public sealed class JetDatabase : IDisposable
     /// DEFAULT. Returns false if the column doesn't exist; throws if the new name is taken on that table.</summary>
     public bool RenameColumn(string table, string oldName, string newName)
     {
-        bool renamed = new Storage.TableCreator(_channel, Catalog).RenameColumn(table, oldName, newName);
+        bool renamed = new Storage.TableCreator(_channel, Catalog, Collation).RenameColumn(table, oldName, newName);
         if (renamed) Catalog.Invalidate();
         return renamed;
     }
 
     /// <summary>Drops a column — ALTER TABLE … DROP COLUMN. A metadata-only TDEF edit (survivors and rows are
-    /// untouched). Returns false if the column doesn't exist; throws for an indexed/keyed or memo/OLE column.</summary>
+    /// untouched), except that a memo/OLE column's long-value usage maps are retired with it, as ACE does.
+    /// Returns false if the column doesn't exist; throws for an indexed/keyed column (drop the index first).</summary>
     public bool DropColumn(string table, string column) =>
-        new Storage.TableCreator(_channel, Catalog).DropColumn(table, column);
+        new Storage.TableCreator(_channel, Catalog, Collation).DropColumn(table, column);
 
     /// <summary>Adds a column — ALTER TABLE … ADD COLUMN. Appends the descriptor/name and bumps the counts;
-    /// existing rows read it as NULL. Returns false if the column already exists; throws for memo/OLE.</summary>
+    /// existing rows read it as NULL. A memo/OLE column gets its long-value usage maps at the same time.
+    /// Returns false if the column already exists.</summary>
     public bool AddColumn(string table, Catalog.ColumnSpec column, string? defaultValue = null)
     {
         if (column.CalculatedExpression is not null)
@@ -538,17 +543,17 @@ public sealed class JetDatabase : IDisposable
     /// <summary>Drops an index — DROP INDEX … ON table. Removes its TDEF blocks and frees its B-tree root.
     /// Returns false if the index doesn't exist; throws if it backs a relationship.</summary>
     public bool DropIndex(string table, string index) =>
-        new Storage.TableCreator(_channel, Catalog).DropIndex(table, index);
+        new Storage.TableCreator(_channel, Catalog, Collation).DropIndex(table, index);
 
     /// <summary>Drops a table — DROP TABLE. Removes its MSysObjects + MSysACEs rows and frees its pages.
     /// Returns false if the table doesn't exist; throws if it is in a relationship.</summary>
     public bool DropTable(string table) =>
-        new Storage.TableCreator(_channel, Catalog).DropTable(table);
+        new Storage.TableCreator(_channel, Catalog, Collation).DropTable(table);
 
     /// <summary>Drops a view or stored procedure — DROP VIEW / DROP PROCEDURE (interchangeable, both target a
     /// type-5 query object). Removes its MSysObjects + MSysQueries + MSysACEs rows. Returns false if absent.</summary>
     public bool DropQueryObject(string name) =>
-        new Storage.TableCreator(_channel, Catalog).DropQueryObject(name);
+        new Storage.TableCreator(_channel, Catalog, Collation).DropQueryObject(name);
 
     /// <summary>Creates a view (a stored SELECT query) — the CREATE VIEW statement. Written the way Access
     /// does: an MSysObjects type-5 row plus the query decomposed into MSysQueries rows.</summary>

@@ -47,19 +47,19 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             EnforceUniqueIndexes(values); // reject a duplicate before writing anything
         }
 
-        // Index keys are encoded from the *logical* values. MaterializeLongValues replaces a memo/OLE value
-        // with its on-disk LongValueDescriptor, and a Memo column IS indexable (its key is the collation key
-        // of the first 255 characters), so snapshot the values first and key the index off that snapshot.
-        // A calculated column reads the same logical values, so the snapshot serves it too.
+        // From here the row exists in two forms, and they are two ARRAYS. `values` stays as the caller gave
+        // it — the logical row — and `storage` is the copy long values are materialised into, where a memo
+        // becomes the 12-byte descriptor naming its pages. Everything that needs the value reads `values`
+        // (index keys — a Memo is indexable, on the collation key of its first 255 characters — and
+        // calculated expressions); only the encoder reads `storage`. See ToStorageValues.
         bool calculated = HasCalculatedColumns;
-        object?[] keyValues = updateIndexes || calculated ? (object?[])values.Clone() : values;
-        MaterializeLongValues(values);
+        object?[] storage = ToStorageValues(values);
 
         // Encode first: the fixed-region length is pinned by any existing row (to match Access),
         // or derived from the columns for a just-created empty table.
         var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format),
             _table.VariableColumnCount, SpillCalculated, _table.ColumnIdHighWater);
-        byte[] record = encoder.Encode(values, null, calculated ? keyValues : null);
+        byte[] record = encoder.Encode(storage, null, calculated ? values : null);
 
         EnsureRecordFits(format, record);
 
@@ -85,41 +85,64 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         _channel.WritePage(pageNumber, page);
 
         // Asked before the row's own entries go in, so an index "already has" a key only through another row.
-        HashSet<int> newKeys = updateIndexes ? IndexesGainingANewKey(keyValues) : [];
+        HashSet<int> newKeys = updateIndexes ? IndexesGainingANewKey(values) : [];
         UpdateTdefCounters(format, values, generatedAutoNumbers, newKeys);
         if (updateIndexes)
-            UpdateIndexes(keyValues, new RowId(pageNumber, rowCount));
+            UpdateIndexes(values, new RowId(pageNumber, rowCount));
     }
 
     /// <summary>
     /// Rewrites an existing row in place at its slot (page + row index preserved, matching Access, so
     /// index rowid pointers stay valid). Any changed memo/OLE value is re-materialized onto LVAL pages;
     /// the page is repacked to absorb a size change (slot order = physical order, as Access keeps it).
-    /// Throws if the row no longer fits its page (relocation not implemented yet); index-key maintenance for
-    /// a changed indexed column is the caller's responsibility. Does not touch the old LVAL pages (freeing
-    /// them is a follow-up).
+    /// A row that no longer fits its page is <b>relocated</b> — the slot becomes a 4-byte forward pointer and
+    /// the row moves to a page with room, as Access does — and one that outgrows its new page moves again.
+    /// Index-key maintenance for a changed indexed column is the caller's responsibility.
     /// </summary>
     public void Update(RowId id, object?[] values, IReadOnlySet<int> changedColumns)
+    {
+        // An update is several writes — the old long values are freed, the new ones materialised onto pages,
+        // then the row itself — and the row is the last of them, so it is the last thing that can fail (a
+        // record that has grown past 4060, a page that will not take it). Under the SQL engine every
+        // statement already runs in one, but a caller using the Core API directly had no such cover: the
+        // failure left the old memo's pages freed and the new value's written, with the row still naming the
+        // old one. The order is deliberate and unchanged — ACE frees an update's pages at once, and the new
+        // value may land on them — so what this adds is only the undo.
+        bool ownTransaction = !_channel.InTransaction;
+        if (ownTransaction) _channel.BeginTransaction();
+        try
+        {
+            UpdateCore(id, values, changedColumns);
+            if (ownTransaction) _channel.CommitTransaction(flush: false);
+        }
+        catch when (ownTransaction)
+        {
+            _channel.RollbackTransaction();
+            throw;
+        }
+    }
+
+    private void UpdateCore(RowId id, object?[] values, IReadOnlySet<int> changedColumns)
     {
         JetFormatBase format = _channel.Format;
         RejectExplicitCalculatedValues(values, changedColumns);
 
-        // The row as its columns hold it, for a recomputed calculated column to read: the loop below swaps an
-        // unchanged memo's text for its on-disk descriptor, and MaterializeLongValues the changed ones.
-        object?[]? logicalValues = HasCalculatedColumns ? (object?[])values.Clone() : null;
+        // Two arrays, as on the insert path: `values` stays the logical row the caller gave, and `storage` is
+        // where the long values become descriptors. The caller keeps the values it passed — an index entry
+        // this update moves has to be keyed off them, and a descriptor is not a key.
+        object?[] storage = (object?[])values.Clone();
 
         // Long-value (memo/OLE) columns: keep an unchanged column's on-disk descriptor verbatim (so it is not
         // needlessly re-materialised onto fresh LVAL pages), and free a changed column's old chained pages.
         byte[] oldRow = ReadRowBytes(id);
-        var decoder = new RowDecoder(_table.Columns, format);
-        var oldDescriptors = decoder.LongValueRaw(oldRow);
-        var oldCalculated = decoder.CalculatedRaw(oldRow);
+        var oldDescriptors = RowDecoder.LongValueDescriptors(_table.Columns, format, oldRow);
+        var oldCalculated = RowDecoder.CalculatedSlots(_table.Columns, format, oldRow);
         foreach (ColumnDef column in _table.Columns)
         {
             if (column.Type is not (JetDataType.Memo or JetDataType.Ole)) continue;
             if (!oldDescriptors.TryGetValue(column.Index, out byte[]? oldDescriptor)) continue; // old value was null
             if (changedColumns.Contains(column.Index)) FreeLongValue(column, oldDescriptor, releaseAtClose: false);
-            else values[column.Index] = new LongValueDescriptor(oldDescriptor);
+            else storage[column.Index] = new LongValueDescriptor(oldDescriptor);
         }
 
         // A calculated column is recomputed only when the UPDATE writes a column its expression READS —
@@ -149,7 +172,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
                 FreeLongValue(column, stale, releaseAtClose: false);
         }
 
-        MaterializeLongValues(values);
+        MaterializeLongValues(storage);
 
         byte[] srcPage = _channel.ReadPageShared(id.Page).Span.ToArray();
         // Use the same guarded inference as Insert (Math.Max with the column-derived length): the raw per-row
@@ -157,7 +180,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // Order Details), which without the guard would overflow `new byte[len]`.
         var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format),
             _table.VariableColumnCount, SpillCalculated, _table.ColumnIdHighWater);
-        byte[] record = encoder.Encode(values, preservedCalculated, logicalValues);
+        byte[] record = encoder.Encode(storage, preservedCalculated, HasCalculatedColumns ? values : null);
 
         // Here as well as on the insert path, and before the in-place rewrite rather than beside the
         // page-search: a row that grows past the cap but still fits its current page is rewritten where it
@@ -169,13 +192,19 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         if ((raw & RowPointer.OverflowFlag) != 0)
         {
             // This slot is a 4-byte forward pointer to the real (relocated) row; rewrite it on its target page
-            // (which keeps its hidden "deleted" flag). If it grows past that page too, we'd need to re-relocate.
+            // (which keeps its hidden "deleted" flag).
             DataPage.TryReadRow(new PageBuffer(srcPage, id.Page), format, id.Row,
                 out RowSlot sourceSlot, out ReadOnlySpan<byte> sourceBytes);
             RelocatedRow target = RowRelocationReader.Resolve(
                 _channel, _table.DefinitionPage, sourceSlot, sourceBytes);
-            if (!TryRewriteRowInPlace(target.Buffer.PageNumber, target.RowNumber, record))
-                throw new NotSupportedException("Re-relocating an already-relocated row that grew again is not supported yet.");
+            if (TryRewriteRowInPlace(target.Buffer.PageNumber, target.RowNumber, record)) return;
+
+            // It has outgrown the page it was moved to as well, so it moves again. The old hidden row is
+            // reclaimed first — through the same path a delete uses, and while the source slot still points at
+            // it — and the pointer is then re-aimed, exactly as the first move wrote it. Nothing else changes:
+            // the row keeps its id, so every index entry still names it.
+            ReclaimRelocationTarget(format, srcPage, id.Row);
+            Relocate(format, id, record);
             return;
         }
 
@@ -185,10 +214,18 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // It no longer fits: relocate the row to another page as a hidden ("deleted") record, and turn this
         // slot into a 4-byte forward pointer (row id preserved, so index entries stay valid) — Access's own
         // overflow mechanism, verified against ACE.
+        Relocate(format, id, record);
+    }
+
+    /// <summary>Writes <paramref name="record"/> as a hidden row on a page with room and turns the slot at
+    /// <paramref name="id"/> into the 4-byte forward pointer that names it. Four bytes always fit the slot the
+    /// row is vacating, so this cannot fail for want of space.</summary>
+    private void Relocate(JetFormatBase format, RowId id, byte[] record)
+    {
         (int targetPage, int targetRow) = WriteHiddenRow(format, record);
         var pointerBytes = new byte[4];
         BinaryPrimitives.WriteInt32LittleEndian(pointerBytes, (targetPage << 8) | targetRow);
-        TryRewriteRowInPlace(id.Page, id.Row, pointerBytes, addFlags: RowPointer.OverflowFlag); // 4 bytes always fits
+        TryRewriteRowInPlace(id.Page, id.Row, pointerBytes, addFlags: RowPointer.OverflowFlag);
     }
 
     /// <summary>Rewrites the row at (page, slot) in place, repacking the page from the end in slot order so
@@ -262,8 +299,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
     /// <summary>
     /// Deletes the row at <paramref name="id"/> and reclaims its space, then decrements the TDEF row count
-    /// (0x10). The caller removes the row's index entries first. (The row's LVAL pages, if any, are freed
-    /// above; nothing else about them is reclaimed yet.)
+    /// (0x10). The caller removes the row's index entries first. A relocated row's hidden target is reclaimed
+    /// too, and its LVAL pages are freed — held until the connection closes, as ACE holds a delete's.
     /// </summary>
     public void Delete(RowId id)
     {
@@ -271,7 +308,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
         // Free the deleted row's chained long-value pages — held until close, as ACE holds them.
         byte[] rowBytes = ReadRowBytes(id);
-        var oldDescriptors = new RowDecoder(_table.Columns, format).LongValueRaw(rowBytes);
+        var oldDescriptors = RowDecoder.LongValueDescriptors(_table.Columns, format, rowBytes);
 
         // Which real indexes this row was the LAST holder of a key for. Asked before the row goes, and with
         // the row itself excluded, so the answer is "does another row still carry this key" either way —
@@ -378,8 +415,14 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// The target is flagged deleted so scans skip it, which is why it is read straight off the directory
     /// rather than through <see cref="RowRelocationReader"/> — but it carries that reader's checks, because
     /// this one WRITES: an unvalidated pointer runs ReclaimRow over a live row of an unrelated page, sliding
-    /// its neighbours and stamping a tombstone. Anything that fails a check is left alone rather than
-    /// throwing, so a delete still removes the row the caller asked about.</summary>
+    /// its neighbours and stamping a tombstone.
+    /// <para>A failed check is <b>corruption, and says so</b>. It used to return quietly so that a delete
+    /// still removed the row the caller asked about — but the caller only reaches here because the slot is a
+    /// live relocation pointer, so a pointer that does not resolve means the file already disagrees with
+    /// itself, and carrying on strands the moved row silently. That is also how a bug in this engine's own
+    /// relocation writer would look: nothing raised, a page quietly leaked.</para></summary>
+    /// <exception cref="InvalidDataException">The forward pointer does not resolve to a hidden row of this
+    /// table.</exception>
     private void ReclaimRelocationTarget(JetFormatBase format, byte[] sourcePage, int row)
     {
         int offset = BinaryPrimitives.ReadUInt16LittleEndian(
@@ -388,30 +431,39 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             ? format.PageSize
             : BinaryPrimitives.ReadUInt16LittleEndian(
                 sourcePage.AsSpan(format.DataRowDirectoryOffset + (row - 1) * 2, 2)) & RowPointer.OffsetMask;
-        if (offset < format.DataRowDirectoryOffset || end > format.PageSize || end - offset < 4) return;
+        if (offset < format.DataRowDirectoryOffset || end > format.PageSize || end - offset < 4)
+            throw Unresolvable(row, $"its slot spans [{offset}, {end}), which cannot hold a 4-byte pointer");
 
         int pointer = BinaryPrimitives.ReadInt32LittleEndian(sourcePage.AsSpan(offset, 4));
         int targetPage = pointer >> 8, targetRow = pointer & 0xFF;
-        if (targetPage <= 0 || targetPage >= _channel.PageCount) return;
+        if (targetPage <= 0 || targetPage >= _channel.PageCount)
+            throw Unresolvable(row, $"it names page {targetPage}, which is outside the file");
 
         byte[] page = ArrayPool<byte>.Shared.Rent(format.PageSize);
         try
         {
             _channel.ReadPage(targetPage, page);
-            if (BinaryPrimitives.ReadUInt32LittleEndian(page.AsSpan(format.DataOwnerOffset, 4))
-                != (uint)_table.DefinitionPage) return;
-            if (targetRow >= BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2))) return;
+            uint owner = BinaryPrimitives.ReadUInt32LittleEndian(page.AsSpan(format.DataOwnerOffset, 4));
+            if (owner != (uint)_table.DefinitionPage)
+                throw Unresolvable(row, $"page {targetPage} is owned by {owner}, not '{_table.Name}'");
+            int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
+            if (targetRow >= rowCount)
+                throw Unresolvable(row, $"page {targetPage} has {rowCount} slots, so row {targetRow} is not one");
 
             // The target is a hidden inline row: deleted, not itself a relocation source, and nonempty.
             ushort slot = BinaryPrimitives.ReadUInt16LittleEndian(
                 page.AsSpan(format.DataRowDirectoryOffset + targetRow * 2, 2));
-            if ((slot & (RowPointer.DeletedFlag | RowPointer.OverflowFlag)) != RowPointer.DeletedFlag) return;
+            if ((slot & (RowPointer.DeletedFlag | RowPointer.OverflowFlag)) != RowPointer.DeletedFlag)
+                throw Unresolvable(row, $"page {targetPage} row {targetRow} is not a hidden relocated row");
 
             ReclaimRow(format, page, targetRow);
             _channel.WritePage(targetPage, page.AsSpan(0, format.PageSize));
         }
         finally { ArrayPool<byte>.Shared.Return(page); }
     }
+
+    private InvalidDataException Unresolvable(int row, string why) =>
+        new($"The relocation pointer in '{_table.Name}' row {row} does not resolve: {why}.");
 
     /// <summary>
     /// Takes a row's bytes off its page the way ACE does: the rows stored below it slide up to close the
@@ -485,15 +537,16 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
                 out RowSlot sourceSlot, out ReadOnlySpan<byte> sourceBytes);
             RelocatedRow target = RowRelocationReader.Resolve(
                 _channel, _table.DefinitionPage, sourceSlot, sourceBytes);
-            if (!TryRewriteRowInPlace(target.Buffer.PageNumber, target.RowNumber, record))
-                throw new NotSupportedException("Re-relocating an already-relocated row that grew again is not supported yet.");
+            if (TryRewriteRowInPlace(target.Buffer.PageNumber, target.RowNumber, record)) return;
+
+            // Outgrown its new page as well, so it moves again — the old hidden row reclaimed while the
+            // pointer still names it, then the pointer re-aimed. See Update, which does the same.
+            ReclaimRelocationTarget(format, srcPage, id.Row);
+            Relocate(format, id, record);
             return;
         }
         if (TryRewriteRowInPlace(id.Page, id.Row, record)) return;
-        (int targetPage, int targetRow) = WriteHiddenRow(format, record);
-        var pointerBytes = new byte[4];
-        BinaryPrimitives.WriteInt32LittleEndian(pointerBytes, (targetPage << 8) | targetRow);
-        TryRewriteRowInPlace(id.Page, id.Row, pointerBytes, addFlags: RowPointer.OverflowFlag);
+        Relocate(format, id, record);
     }
 
     /// <summary>The full inline bytes of the row at <paramref name="id"/>, following an overflow-forward
@@ -663,9 +716,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     private void EnforceUniqueIndexes(object?[] values)
     {
         IndexWriter? writer = null;
-        foreach (IndexDef index in _table.Indexes
-            .Where(i => i.IsUnique && i.RootPage > 0)
-            .GroupBy(i => i.RootPage).Select(g => g.First()))
+        foreach (IndexDef index in _table.RealIndexes.Where(i => i.IsUnique))
         {
             if (HasNullKey(index, values)) continue; // nulls are distinct — multiple allowed
             writer ??= new IndexWriter(_channel, _table);
@@ -683,10 +734,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     private void UpdateIndexes(object?[] values, RowId rowId)
     {
         var writer = new IndexWriter(_channel, _table);
-        foreach (IndexDef index in _table.Indexes
-            .Where(i => i.RootPage > 0)
-            .GroupBy(i => i.RootPage)
-            .Select(g => g.First()))
+        foreach (IndexDef index in _table.RealIndexes)
         {
             // WITH IGNORE NULL: a row with a null in any indexed column is not added to this index.
             if (index.IgnoreNulls && HasNullKey(index, values)) continue;
@@ -704,9 +752,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     {
         var gaining = new HashSet<int>();
         IndexWriter? writer = null;
-        foreach (IndexDef index in _table.Indexes
-            .Where(i => !i.IsUnique && i.RootPage > 0)
-            .GroupBy(i => i.RootPage).Select(g => g.First()))
+        foreach (IndexDef index in _table.RealIndexes.Where(i => !i.IsUnique))
         {
             if (index.IgnoreNulls && HasNullKey(index, values)) continue;
             writer ??= new IndexWriter(_channel, _table);
@@ -886,6 +932,26 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// whose value exceeds the inline limit, write it to an LVAL page and substitute the 12-byte reference
     /// descriptor (short values, and pre-built descriptors from other callers, are left as-is to inline).
     /// </summary>
+    /// <summary>
+    /// The row as it is <b>stored</b>: a copy of the logical values in which every memo/OLE value too large to
+    /// inline has become the descriptor naming its pages.
+    /// </summary>
+    /// <remarks>
+    /// The copy is the point. A row has two representations — the values a caller holds, and the descriptors
+    /// the record carries — and they are indistinguishable at the type level, since both live in an
+    /// <c>object?[]</c>. Materialising in place made the caller's array silently change meaning halfway
+    /// through a write, and everything that then read it got the wrong one: a delete keyed an index off a
+    /// <c>byte[]</c> descriptor, an update moved an index entry using a descriptor as a key, a caller was left
+    /// holding pages that had been freed. Two arrays makes the distinction one the code can state.
+    /// </remarks>
+    private object?[] ToStorageValues(object?[] values)
+    {
+        object?[] storage = (object?[])values.Clone();
+        MaterializeLongValues(storage);
+        return storage;
+    }
+
+    /// <inheritdoc cref="ToStorageValues"/>
     private void MaterializeLongValues(object?[] values)
     {
         const int maxInline = LongValueFormat.MaxInlineValue;

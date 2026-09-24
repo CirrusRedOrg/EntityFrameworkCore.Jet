@@ -63,4 +63,29 @@ public class MemoIndexTests : TempDatabaseTest
         Assert.Single(e.ExecuteQuery("SELECT Id FROM MK WHERE M = 'second'").Rows);
         Assert.Empty(e.ExecuteQuery($"SELECT Id FROM MK WHERE M = '{memo}'").Rows);
     }
+
+    // The same question on the UPDATE path, and the harder half of it: moving the index entry needs the OLD
+    // key as well as the new one, so the old row's Memo has to be resolved rather than read as the 12-byte
+    // descriptor standing in for it. Both storage forms, because the descriptor is all the row holds either
+    // way and only the reader knows the difference.
+    [Theory]
+    [InlineData(5, 7)]          // inline to inline
+    [InlineData(5, 4000)]       // inline to chained
+    [InlineData(4000, 5)]       // chained to inline
+    [InlineData(4000, 3000)]    // chained to chained
+    public void A_memo_indexed_row_updates_and_keeps_its_index(int before, int after)
+    {
+        string old = new('m', before), replacement = new('n', after);
+        var e = Fresh();
+        e.ExecuteNonQuery($"INSERT INTO MK (Id, M) VALUES (1, '{old}')");
+        e.ExecuteNonQuery("INSERT INTO MK (Id, M) VALUES (2, 'second')");
+
+        Assert.Equal(1, e.ExecuteNonQuery($"UPDATE MK SET M = '{replacement}' WHERE Id = 1"));
+
+        Assert.Equal(replacement, e.ExecuteQuery("SELECT M FROM MK WHERE Id = 1").Rows.Single()[0]);
+        // The index moved with the value: the new one is reachable through it and the old one is gone.
+        Assert.Single(e.ExecuteQuery($"SELECT Id FROM MK WHERE M = '{replacement}'").Rows);
+        Assert.Empty(e.ExecuteQuery($"SELECT Id FROM MK WHERE M = '{old}'").Rows);
+        Assert.Single(e.ExecuteQuery("SELECT Id FROM MK WHERE M = 'second'").Rows);
+    }
 }

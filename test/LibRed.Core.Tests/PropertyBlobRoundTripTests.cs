@@ -48,4 +48,34 @@ public class PropertyBlobRoundTripTests
 
         Assert.Equal("42", Assert.Single(after, p => p.Name == PropertyBlob.DefaultValueProperty).Value);
     }
+
+    // The table's own properties are owned by the empty string, and adding a CHECK constraint replaces one of
+    // them. Doing that by dropping the owner's whole block and writing back only CheckConstraints took every
+    // other table-level property with it — ValidationRule above all, which LibRed reads and reports but does
+    // not re-emit. No public API authors a designer ValidationRule, so this pins the invariant where the defect
+    // was: the read-modify-write over the property list.
+    [Fact]
+    public void Replacing_the_check_property_keeps_the_tables_other_properties()
+    {
+        byte[] blob = PropertyBlob.Write(
+        [
+            new PropertyBlob.Property("", PropertyBlob.ValidationRuleProperty, "[V]>0"),
+            new PropertyBlob.Property("", PropertyBlob.ValidationTextProperty, "V must be positive"),
+            new PropertyBlob.Property("V", PropertyBlob.DefaultValueProperty, "0"),
+        ]);
+
+        // The same shape the CHECK paths use: replace one table-owned property, leave the rest alone.
+        var properties = PropertyBlob.Read(blob).ToList();
+        properties.RemoveAll(p => p.Owner.Length == 0 && p.Name == PropertyBlob.CheckConstraintsProperty);
+        properties.Add(new PropertyBlob.Property(
+            "", PropertyBlob.CheckConstraintsProperty, PropertyBlob.WriteCheckList([("CK_T", "V < 100")])));
+        byte[] updated = PropertyBlob.Write(properties, blob.AsSpan(0, 4));
+
+        (string? rule, string? text) = PropertyBlob.ReadValidation(updated, "");
+        Assert.Equal("[V]>0", rule);
+        Assert.Equal("V must be positive", text);
+        Assert.Contains(PropertyBlob.ReadCheckConstraints(updated), c => c.Name == "CK_T");
+        Assert.Contains(PropertyBlob.Read(updated), p => p.Owner == "V" && p.Value == "0");
+        Assert.Equal(blob[..4], updated[..4]);          // and the signature is carried across, not restamped
+    }
 }

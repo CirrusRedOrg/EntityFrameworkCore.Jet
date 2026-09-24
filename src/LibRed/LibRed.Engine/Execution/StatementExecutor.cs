@@ -198,6 +198,15 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             if (partialNull || !ParentRowExists(fk, target))
                 throw new InvalidOperationException(
                     $"INSERT into '{childTable}' violates foreign key '{fk.Name}': no matching row in '{fk.ReferencedTable}'.");
+
+            // Inside a transaction, finding the parent now is not enough: reading it writes no page, so the
+            // commit's page-conflict check cannot see the dependency, and a concurrent transaction is free to
+            // delete that parent and commit — each having checked the other's precondition, leaving a child row
+            // referencing nothing. The condition is re-checked when this transaction commits.
+            _database.DependOn(
+                () => ParentRowExists(fk, target),
+                $"Transaction conflict on foreign key '{fk.Name}': the row in '{fk.ReferencedTable}' that "
+                + $"'{childTable}' was checked against no longer exists.");
         }
     }
 
@@ -296,8 +305,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         foreach (var (table, id, values) in order)
         {
             DeleteComplexValues(table, values);
-            foreach (IndexDef index in table.Definition.Indexes.Where(i => i.RootPage > 0)
-                .GroupBy(i => i.RootPage).Select(g => g.First()))
+            foreach (IndexDef index in table.Definition.RealIndexes)
                 table.RemoveIndexEntry(index, values, id);
             table.Delete(id);
         }
@@ -329,8 +337,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                     || Convert.ToInt32(link, System.Globalization.CultureInfo.InvariantCulture) != recordId)
                     continue;
 
-                foreach (IndexDef index in flat.Definition.Indexes.Where(i => i.RootPage > 0)
-                    .GroupBy(i => i.RootPage).Select(g => g.First()))
+                foreach (IndexDef index in flat.Definition.RealIndexes)
                     flat.RemoveIndexEntry(index, flatValues, flatId);
                 flat.Delete(flatId);
             }
@@ -360,7 +367,17 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                         stack.Push((child, cid, cvals, false));
             }
             else if (fk.DeleteSetNull)
-                foreach (var (cid, cvals) in children) SetChildKey(fk, cid, cvals, newKey: null);
+                foreach (var (cid, cvals) in children)
+                {
+                    // A child this same statement is already deleting is left alone. Nulling it would rewrite a
+                    // row whose values the delete is still holding — captured when it was scheduled — so the
+                    // delete would then look its index entries up under a key the index no longer has
+                    // ("entry not found"). Reachable on a self-referencing table, where the parent and the
+                    // child are rows of one table and one DELETE can name both. Skipping costs nothing: the row
+                    // and its entries go in a moment either way, and nobody can observe the intermediate null.
+                    if (scheduled.Contains((fk.Table, cid))) continue;
+                    SetChildKey(fk, cid, cvals, newKey: null);
+                }
             else
                 throw new InvalidOperationException(
                     $"The record cannot be deleted or changed because table '{fk.Table}' includes related records.");
@@ -431,9 +448,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // Table.Update carries no enforcement of its own (unlike Insert), so there is no backstop under this.
         EnforceRequired(child.Name, child.Definition.Columns, newValues);
 
-        foreach (IndexDef index in child.Definition.Indexes
-            .Where(i => i.IsUnique && i.RootPage > 0 && i.Columns.Any(c => changed.Contains(c.Column.Index)))
-            .GroupBy(i => i.RootPage).Select(g => g.First()))
+        foreach (IndexDef index in child.Definition.RealIndexes
+            .Where(i => i.IsUnique && i.Columns.Any(c => changed.Contains(c.Column.Index))))
             if (!index.Columns.Any(c => newValues[c.Column.Index] is null) && child.HasDuplicateKey(index, newValues, childId))
                 throw new ConstraintViolationException(
                     $"Cannot cascade to '{child.Name}': a row with the same " +
@@ -444,9 +460,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         EnforceCheckConstraints(child.Definition, newValues);
 
         child.Update(childId, newValues, changed);
-        foreach (IndexDef index in child.Definition.Indexes
-            .Where(i => i.RootPage > 0 && i.Columns.Any(c => changed.Contains(c.Column.Index)))
-            .GroupBy(i => i.RootPage).Select(g => g.First()))
+        foreach (IndexDef index in child.Definition.RealIndexes
+            .Where(i => i.Columns.Any(c => changed.Contains(c.Column.Index))))
             child.MoveIndexEntry(index, childValues, newValues, childId);
     }
 
@@ -1747,9 +1762,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
             // A changed UNIQUE/PRIMARY key must not collide with another row (null keys are distinct — a
             // unique index permits multiple nulls, so they're skipped, matching the insert rule).
-            foreach (IndexDef index in table.Definition.Indexes
-                .Where(i => i.IsUnique && i.RootPage > 0 && i.Columns.Any(c => changed.Contains(c.Column.Index)))
-                .GroupBy(i => i.RootPage).Select(g => g.First()))
+            foreach (IndexDef index in table.Definition.RealIndexes
+                .Where(i => i.IsUnique && i.Columns.Any(c => changed.Contains(c.Column.Index))))
                 if (!index.Columns.Any(c => values[c.Column.Index] is null) && table.HasDuplicateKey(index, values, id))
                     throw new ConstraintViolationException(
                         $"Cannot update '{table.Name}': a row with the same " +
@@ -1770,9 +1784,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 if (!Equals(original[i], values[i])) changed.Add(i);
 
             table.Update(id, values, changed);
-            foreach (IndexDef index in table.Definition.Indexes
-                .Where(i => i.RootPage > 0 && i.Columns.Any(c => changed.Contains(c.Column.Index)))
-                .GroupBy(i => i.RootPage).Select(g => g.First()))
+            foreach (IndexDef index in table.Definition.RealIndexes
+                .Where(i => i.Columns.Any(c => changed.Contains(c.Column.Index))))
                 table.MoveIndexEntry(index, original, values, id);
             stillToWrite.Remove((table.Definition.DefinitionPage, id));
         }

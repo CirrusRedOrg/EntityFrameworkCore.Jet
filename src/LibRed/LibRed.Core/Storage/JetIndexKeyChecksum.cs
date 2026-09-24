@@ -1,10 +1,10 @@
 namespace LibRed.Storage;
 
 /// <summary>
-/// The two bytes ACE puts at the end of an index entry too long to store whole.
+/// The two bytes ACE puts at the end of an index key too long to store whole.
 /// </summary>
 /// <remarks>
-/// An entry of at most 510 bytes is stored as built. Past that ACE keeps the first 508 bytes and replaces the
+/// A key of at most 510 bytes is stored as built. Past that ACE keeps the first 508 bytes and replaces the
 /// rest with this value, computed over the bytes it dropped — which is why two long values that share a
 /// 508-byte prefix still sort apart instead of colliding.
 /// <para>
@@ -18,10 +18,11 @@ namespace LibRed.Storage;
 /// them. There is no initial value and no final XOR.
 /// </para>
 /// <para>
-/// <b>Not verified where the dropped bytes contain a word-sort record.</b> Those cannot be checked even in
-/// principle: the record sits in the part ACE discarded, so what it contained is unobservable, and if ACE
-/// recomputes its position when truncating then the input differs from anything reconstructable here. The
-/// caller refuses those rather than guess — see <see cref="IndexKeyEncoder"/>.
+/// <b>It holds where the dropped bytes contain a word-sort record too</b>, which was long assumed
+/// uncheckable: the record sits in the part ACE discarded, so what it held looked unobservable, and ACE might
+/// have recomputed its position when truncating. Neither is so — the position byte tracks where the mark
+/// actually sat, and the checksum over the reconstructed key matches ACE's for both mark characters at
+/// positions spread through the value. See <see cref="IndexKeyEncoder"/>.
 /// </para>
 /// </remarks>
 internal static class JetIndexKeyChecksum

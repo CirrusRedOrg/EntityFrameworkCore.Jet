@@ -68,6 +68,7 @@
   > name]` repeated, indexed 0,1,…). Other blocks are a **per-owner value map** (owner = a column name,
   > or `""` for the table): `[short ownerRecLen][short 0][short nameLen][owner name]` then property
   > entries `[short entryLen][byte DDL flag][byte dataType][short nameIndex][short valueLen][value]`.
+  > The owner record's second field is **always zero** (verified).
   > The per-entry flag is `0x01` for a **DDL/property-definition property** and `0x00` for an ordinary
   > property. A set flag makes the property definition-protected (`dbSecWriteDef` permission is needed to
   > change/delete it), and Access only recognises some properties when the classification is correct
@@ -442,10 +443,12 @@
   > | `ALTER TABLE … ALTER COLUMN <other column>` | accepted, with every complex column of the table intact |
   >
   > The middle row is the trap for a writer: the column goes, its index goes, and the two structures that hold
-  > its values stay behind with nothing pointing at them. A drop-and-recreate rebuild is not a way to perform
-  > the third — rebuilding a descriptor writes the collation LANGID over `0x0B`, and a new TDEF page leaves
-  > every `ConceptualTableID` naming the old one, so all three links are lost at once. LibRed refuses that
-  > rebuild on a table with a complex column rather than perform it; matching ACE here is unimplemented.
+  > its values stay behind with nothing pointing at them. The third is the trap for one that performs an
+  > `ALTER COLUMN` by rebuilding the table rather than editing it in place, because a rebuilt table keeps none
+  > of this by itself. Five things tie a complex column to its values and all five have to arrive intact: the
+  > descriptor's `0x0B`, the catalog row's `ConceptualTableID`, the flat table, the **in-row complex ids** that
+  > name each record's values, and the table's **`0x1C`** counter — which a new table starts at zero, so the
+  > next row would take an id that already names another record's values.
 
   > **Action-query procedure bodies** (a CREATE PROCEDURE body that is not a SELECT) are stored with a
   > different MSysObjects `Flags` and an `Attribute=0x01` row (verified vs ACE). **Every kind keeps its
@@ -517,14 +520,22 @@
   enforced, no-cascade single-column FK stores `ccolumn = 1`, `icolumn = 0`, `grbit = 0`; a relationship
   cascading both update and delete stores `grbit = 0x1100`.
 
-  > **Writing a relationship.** Access records a relationship purely in `MSysRelationships` (there is
-  > **no** `MSysObjects` row for it) **plus** a non-unique index on the child table's FK column(s) —
-  > enforcement requires the child FK to be indexed and the parent key to be uniquely indexed (the
-  > parent PK). LibRed writes the `MSysRelationships` rows, creates that child-side index, **and** the
-  > byte-faithful relationship logical-index linkage in *both* tables' TDEFs (§3.6: outgoing block on
-  > the child, incoming block on the parent, cross-referenced by `index_num`) at `CREATE TABLE` time.
+  > **Writing a relationship.** An **enforced** relationship is `MSysRelationships` rows, an `MSysObjects`
+  > row of its own (`Type` = 8, under the relationship container, with the `MSysACEs` pair `0xF00FE` /
+  > `0xFFFFF` of §11) **and** a non-unique index on the
+  > child table's FK column(s) — enforcement requires the child FK to be indexed and the parent key to be
+  > uniquely indexed (the parent PK). LibRed writes all of it, including the byte-faithful relationship
+  > logical-index linkage in *both* tables' TDEFs (§3.6: outgoing block on the child, incoming block on the
+  > parent, cross-referenced by `index_num`) at `CREATE TABLE` time.
   > Verified: a LibRed-created relationship is byte-identical to an ACE-created one (bar index *names*),
   > Access opens the file without repair, and `GetOleDbSchemaTable(Foreign_Keys)` enumerates it.
+  >
+  > **An UNENFORCED relationship (`grbit & 0x02`) is the catalog rows alone** (verified) — no backing index
+  > on the child, no outgoing or incoming block in either TDEF, and the referenced parent column need carry
+  > no index at all. That is what the "Enforce Referential Integrity" checkbox is on disk: without a unique
+  > index on the parent the engine cannot enforce, so it records the relationship as a declaration and stops
+  > there. Such a relationship is still fully readable, since the column names are text in
+  > `MSysRelationships` — but a reader that resolves relationships through the TDEFs will miss it.
   >
   > **`ALTER TABLE … ADD CONSTRAINT … FOREIGN KEY`** writes the *same* linkage, but **surgically** onto the
   > two existing (empty) TDEFs: it inserts the child's backing index + outgoing block into the child TDEF

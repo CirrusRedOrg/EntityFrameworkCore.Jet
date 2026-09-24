@@ -33,6 +33,9 @@ The entry bitmask (`0x1B` up to `0x1E0`) is a bitmap whose set bits, read in ord
 **end offsets** of successive entries within the entry-data region. Entry `n` spans
 `[prevEnd, end_n)` relative to `0x1E0` (first entry starts at 0).
 
+**The bits run LSB-first within each byte**: bit `i` of the byte at `0x1B + i/8` is `i & 7`, so offset 0 is
+the low bit of `0x1B` and offset 7 its high bit, offset 8 the low bit of `0x1C`, and so on.
+
 Each entry ends with a **4-byte big-endian** trailing pointer:
 - **Leaf:** `pointer` is a row id — page = `pointer >> 8`, row = `pointer & 0xFF`.
 - **Node:** the trailing 4 bytes are the **child page**; recurse into it. After all entries,
@@ -878,12 +881,16 @@ ACE's across the whole vacated region. The rule is cheap to honour: build as nor
 destination's bytes from the new live end to the end of the page — but only when the destination is already
 this index's own page of the same type, since a recycled page is the zero-fill case.
 
-### 10.4b The 510-byte index entry limit
+### 10.4b The 510-byte index key limit
 
-**ACE stores an index entry of at most 510 bytes as built.** At exactly 510 it comes back byte-for-byte; a
+**ACE stores an index key of at most 510 bytes as built.** At exactly 510 it comes back byte-for-byte; a
 value that would need 511 comes back as 510: the first **508** bytes kept, and the rest replaced by a
 two-byte **checksum over the bytes that were dropped**. That is why two long values sharing a 508-byte
 prefix still sort apart instead of colliding.
+
+The 510 counts the **key alone** — the concatenated column weights — and the 4-byte row pointer that follows
+it is on top, so the longest entry on a leaf page is 514 bytes. The cap is on the whole key rather than on
+each column: two 200-character text columns weigh about 404 bytes each and are truncated as a pair.
 
 #### The checksum
 

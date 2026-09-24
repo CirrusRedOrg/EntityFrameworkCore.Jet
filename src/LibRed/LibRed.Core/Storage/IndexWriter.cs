@@ -11,7 +11,8 @@ namespace LibRed.Storage;
 /// and — when a page overflows — <b>splits</b> it, promoting a separator into the parent and propagating
 /// splits up the tree (growing a new root when the root itself splits, and repointing the index-data
 /// block's root). Leaf pages keep their doubly-linked prev/next chain; pages are written with prefix
-/// compression. Indexes whose key columns need unsupported (text/binary) collation still throw.
+/// compression. A key column whose collating order LibRed cannot encode still throws — see
+/// <see cref="Collation.IsIndexKeyEncodable"/> for which orders it can.
 /// </summary>
 /// <remarks>
 /// A page entry is <c>[key bytes][4-byte big-endian trailer]</c>: on a leaf the trailer is the row

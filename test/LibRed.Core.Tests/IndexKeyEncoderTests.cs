@@ -32,6 +32,46 @@ public class IndexKeyEncoderTests
         Assert.True(checkd > 0);
     }
 
+    // A DateTime is stored as an OLE Automation double and read back through DateTime.FromOADate, which rounds
+    // to the nearest millisecond — so a value carrying finer ticks looks as though it cannot survive the
+    // round trip, and every key rebuilt from a row's decoded values would then miss the entry on the index.
+    // It does survive: the quantising happens on the way IN, in ToOADate, so the double the column holds is
+    // already millisecond-exact and decoding it is lossless. Measured over 10,000 values spanning year 100 to
+    // 9999 — not one re-encodes to a different double. This pins that, because the day it stops being true
+    // the symptom is a delete that cannot find its own index entry.
+    [Fact]
+    public void A_datetime_with_sub_millisecond_ticks_deletes_from_its_index()
+    {
+        string path = TemporaryDatabase.CopyPath(
+            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "date-key-");
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            db.CreateTable("D",
+            [
+                new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                new ColumnSpec("When", JetDataType.DateTime, 8, IsFixedLength: true),
+            ], primaryKey: ["Id"]);
+            db.CreateIndex("D", "IX_When", [("When", false)]);
+
+            // 1234567 ticks past the second: not a whole number of milliseconds, and not representable in the
+            // double the column stores either.
+            var odd = new DateTime(2020, 1, 2, 3, 4, 5, DateTimeKind.Unspecified).AddTicks(1234567);
+            Table table = db.OpenTable("D");
+            table.Insert([1, odd]);
+            table.Insert([2, odd.AddDays(1)]);
+
+            var (id, _) = table.Rows().WithIds().First(r => Convert.ToInt32(r.Values[0]) == 1);
+            foreach (IndexDef index in table.Definition.Indexes.Where(i => i.RootPage > 0)
+                         .GroupBy(i => i.RootPage).Select(g => g.First()))
+                table.RemoveIndexEntry(index, table.Rows().WithIds().First(r => r.Id.Equals(id)).Values, id);
+            table.Delete(id);
+
+            Assert.Equal(2, Convert.ToInt32(db.OpenTable("D").Rows().Single()[0]));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

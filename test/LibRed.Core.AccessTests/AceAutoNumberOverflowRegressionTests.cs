@@ -1,6 +1,7 @@
 using System.Data.OleDb;
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -58,6 +59,43 @@ public class AceAutoNumberOverflowRegressionTests(ITestOutputHelper output)
             return id;
         }
         catch (OleDbException ex) { output.WriteLine($"  ACE insert '{label}' -> <error: {ex.Message.Trim()}>"); return null; }
+    }
+
+    // An increment of ZERO would hand every row the same id, and ACE's own DDL refuses it. LibRed wrote one
+    // happily and read one back as 1, so the value could neither be created by Access nor noticed once it was
+    // there. An omitted increment is 1 all the way from the SQL layer, so a zero is always one the caller
+    // asked for — refused on the way in, and reported rather than papered over on the way out.
+    [Fact]
+    public void A_zero_increment_counter_is_refused_by_ace_and_by_libred()
+    {
+        string path = NewDb("ace-zero-increment-");
+        try
+        {
+            string? refusal = null;
+            using (var connection = OpenOleDb(path))
+            using (var ddl = connection.CreateCommand())
+            {
+                ddl.CommandText = "CREATE TABLE T (Id COUNTER(1, 0) CONSTRAINT PK PRIMARY KEY, V TEXT(5))";
+                try { ddl.ExecuteNonQuery(); }
+                catch (OleDbException e) { refusal = e.Message.Trim(); }
+            }
+            output.WriteLine($"ACE COUNTER(1, 0): {refusal ?? "accepted"}");
+            Assert.NotNull(refusal);
+
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var refused = Assert.Throws<NotSupportedException>(() =>
+                db.CreateTable("T", [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true,
+                    IsAutoNumber: true, Seed: 1, Increment: 0)], primaryKey: ["Id"]));
+            output.WriteLine($"LibRed COUNTER(1, 0): {refused.Message}");
+            Assert.Contains("same id", refused.Message, StringComparison.Ordinal);
+            Assert.Null(db.Catalog.FindTable("T"));
+
+            // And a plain counter still is one, so the guard has not swallowed the ordinary case.
+            db.CreateTable("Ok", [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true,
+                IsAutoNumber: true, Seed: 1, Increment: 1)], primaryKey: ["Id"]);
+            Assert.Equal(1, db.Catalog.FindTable("Ok")!.Columns.First(c => c.IsAutoNumber).Increment);
+        }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Theory]

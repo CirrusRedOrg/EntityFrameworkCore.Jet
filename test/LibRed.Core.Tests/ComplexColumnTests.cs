@@ -128,35 +128,88 @@ public class ComplexColumnTests
         Assert.Equal(1, table.ComplexAutoNumber);
     }
 
-    // The drop-and-recreate rebuild is refused on a table that owns a complex column, because it cannot carry
-    // the column's links across: the rebuilt descriptor writes the collation LANGID over the 0x0B that holds
-    // the MSysComplexColumns key, and the table lands on a new TDEF page while its catalog row still names the
-    // old one. Measured on this very table before the refusal went in — MSysResources.Data resolved before the
-    // ALTER and no complex column resolved at all after it — and on complex1.accdb's four attachment columns.
-    // ACE performs the same ALTER with every link intact (ComplexWriteAceReadbackTests), so this is a gap.
+    // The drop-and-recreate rebuild moves the table to a new definition page and rewrites every descriptor,
+    // which is exactly what a complex column's three links cannot survive on their own: its catalog row names
+    // the owner by that page, its descriptor's 0x0B carries the MSysComplexColumns key where an ordinary
+    // column carries the collation LANGID, and its values live in a flat table the drop would take with it.
+    // Carried across, an unrelated ALTER leaves the column resolving to the same values it did before —
+    // which is what ACE's own ALTER does (ComplexWriteAceReadbackTests).
     //
-    // It used to assert the rebuild SUCCEEDED here, which is how the orphaning went unnoticed: it checked the
-    // AutoNumber flag and the 0x1C counter, which do survive, rather than whether the column still resolved.
+    // Asserting that the values still RESOLVE is the whole point: the earlier version of this test checked the
+    // AutoNumber flag and the 0x1C counter, which survived even while the column was being orphaned.
     [Fact]
-    public void A_table_with_a_complex_column_refuses_the_rebuild()
+    public void A_table_with_a_complex_column_keeps_it_through_the_rebuild()
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "complex-alter-");
         try
         {
+            string flatTable;
+            int complexId, counter;
+            List<(int Id, int Values)> before;
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
+                ComplexColumn data = db.Catalog.FindComplexColumn("MSysResources", "Data")!;
+                flatTable = data.FlatTable.Name;
+                complexId = data.ComplexId;
+                counter = db.Catalog.FindTable("MSysResources")!.ComplexAutoNumber;
+                before = RecordValueCounts(db, data);
+                Assert.NotEmpty(before);
+
                 // Text -> Memo is a storage-type change, which takes the full logical rebuild.
-                var refused = Assert.Throws<NotSupportedException>(() => db.AlterColumn("MSysResources", "Name",
-                    new ColumnSpec("Name", JetDataType.Memo, 0, IsFixedLength: false)));
-                Assert.Contains("multi-value or attachment", refused.Message, StringComparison.Ordinal);
+                db.AlterColumn("MSysResources", "Name", new ColumnSpec("Name", JetDataType.Memo, 0, IsFixedLength: false));
             }
 
             using var reopened = JetDatabase.Open(path);
             TableDef table = reopened.Catalog.FindTable("MSysResources")!;
-            Assert.Equal(JetDataType.Text, table.FindColumn("Name")!.Type);   // nothing was changed
-            Assert.Equal(1, reopened.Catalog.ComplexColumns.Count(c => c.OwnerTable.Name == "MSysResources"));
+            Assert.Equal(JetDataType.Memo, table.FindColumn("Name")!.Type);
+
+            // The column still resolves — to the same catalog row, the same flat table, and the same values
+            // record by record — and the counter that hands out the next record id came across with it.
+            ComplexColumn after = Assert.Single(
+                reopened.Catalog.ComplexColumns.Where(c => c.OwnerTable.Name == "MSysResources"));
+            Assert.Equal(complexId, after.ComplexId);
+            Assert.Equal(flatTable, after.FlatTable.Name);
+            Assert.Equal(table.DefinitionPage, after.OwnerTable.DefinitionPage);
+            Assert.Equal(counter, table.ComplexAutoNumber);
+            Assert.Equal(before, RecordValueCounts(reopened, after));
         }
         finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // A complex column's catalog row names its column by NAME, and the catalog drops a row whose name the
+    // owning table does not have — so a rename that left the row behind did not misname the column, it
+    // disconnected it: the values stayed on disk with nothing able to reach them.
+    [Fact]
+    public void Renaming_a_complex_column_keeps_it_resolving()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "complex-rename-");
+        try
+        {
+            List<(int Id, int Values)> before;
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                before = RecordValueCounts(db, db.Catalog.FindComplexColumn("MSysResources", "Data")!);
+                Assert.NotEmpty(before);
+                Assert.True(db.RenameColumn("MSysResources", "Data", "Payload"));
+            }
+
+            using var reopened = JetDatabase.Open(path);
+            Assert.Null(reopened.Catalog.FindComplexColumn("MSysResources", "Data"));
+            ComplexColumn renamed = reopened.Catalog.FindComplexColumn("MSysResources", "Payload")!;
+            Assert.Equal(before, RecordValueCounts(reopened, renamed));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    /// <summary>Each row's complex id and how many values it resolves to — the link the rebuild has to keep.</summary>
+    private static List<(int Id, int Values)> RecordValueCounts(JetDatabase db, ComplexColumn column)
+    {
+        int index = column.OwnerTable.FindColumn(column.ColumnName)!.Index;
+        return [.. db.OpenTable(column.OwnerTable.Name).Rows()
+            .Where(r => r[index] is not null)
+            .Select(r => Convert.ToInt32(r[index], System.Globalization.CultureInfo.InvariantCulture))
+            .Order()
+            .Select(id => (id, db.ReadComplexValues(column, id).Count))];
     }
 
     [Fact]

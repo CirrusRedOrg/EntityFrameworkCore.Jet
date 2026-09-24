@@ -19,10 +19,11 @@ public class ComplexWriteAceReadbackTests(ITestOutputHelper output)
     // A complex column is held to its values by three links: its descriptor's 0x0B carries the
     // MSysComplexColumns key (page-02b §3.4), where an ordinary column carries the collation LANGID; that
     // catalog row names the owning table by TDEF page; and the values sit in an f_<GUID> flat table keyed to
-    // the row. A retype that falls back to the drop-and-recreate rebuild rewrites every descriptor and moves
-    // the table to a new TDEF page, carrying none of the three — it left complex1's Table1 with no complex
-    // columns at all. ACE performs the same ALTER with every one of them intact, so LibRed's refusal is a
-    // measured GAP, recorded here: the test asserts the refusal, and that nothing was destroyed on the way.
+    // the row. A retype of some OTHER column takes the drop-and-recreate rebuild, which rewrites every
+    // descriptor and moves the table to a new TDEF page — so all three have to be carried over deliberately,
+    // and once left Table1 with no complex column resolving at all. ACE performs the same ALTER with every one
+    // intact, and it is the oracle here: the same statement is run through both engines and the wiring each
+    // leaves behind compared, column for column and value for value.
     [Theory]
     [InlineData(@"D:\exampleaccdb\complex1.accdb", "Table1", "Col1", "LONGTEXT")]
     [InlineData(@"D:\exampleaccdb\LIBRARY.accdb", "Book", "BK_publisher", "LONGTEXT")]
@@ -30,38 +31,37 @@ public class ComplexWriteAceReadbackTests(ITestOutputHelper output)
         string source, string table, string column, string newType)
     {
         if (!File.Exists(source)) { output.WriteLine($"Skipped: {source} not present."); return; }
+        string statement = $"ALTER TABLE [{table}] ALTER COLUMN [{column}] {newType}";
+
         // What ACE itself does with the same statement is the oracle for what LibRed should do.
         string acePath = TemporaryDatabase.CopyPath(source, "complex-alter-ace-");
         string aceOutcome;
         using (OleDbConnection connection = AceTestDatabase.Open(acePath))
         using (OleDbCommand alter = connection.CreateCommand())
         {
-            alter.CommandText = $"ALTER TABLE [{table}] ALTER COLUMN [{column}] {newType}";
+            alter.CommandText = statement;
             try { alter.ExecuteNonQuery(); aceOutcome = "accepted"; }
             catch (OleDbException e) { aceOutcome = e.Message.Trim(); }
         }
         output.WriteLine($"ACE: {aceOutcome}");
-        if (aceOutcome == "accepted")
-            output.WriteLine($"ACE after: {Remains(acePath)}");
+        Assert.Equal("accepted", aceOutcome);
+        string aceLeft = Remains(acePath);
 
         string path = TemporaryDatabase.CopyPath(source, "complex-alter-");
         try
         {
             string before = Remains(path);
             using (var db = JetDatabase.Open(path, readOnly: false))
-            {
-                var refused = Assert.Throws<NotSupportedException>(() =>
-                    new QueryEngine(db).ExecuteNonQuery($"ALTER TABLE [{table}] ALTER COLUMN [{column}] {newType}"));
-                output.WriteLine($"LibRed: {refused.Message}");
-                Assert.Contains("multi-value or attachment", refused.Message, StringComparison.Ordinal);
-            }
+                new QueryEngine(db).ExecuteNonQuery(statement);
 
-            // Refused, and refused before touching anything.
+            string libredLeft = Remains(path);
             output.WriteLine($"before: {before}");
-            output.WriteLine($"after:  {Remains(path)}");
-            Assert.Equal(before, Remains(path));
+            output.WriteLine($"ACE:    {aceLeft}");
+            output.WriteLine($"LibRed: {libredLeft}");
+            Assert.Equal(aceLeft, libredLeft);
+            Assert.Equal(before, libredLeft); // and neither engine changed the complex wiring at all
 
-            // And ACE still reads the table.
+            // And ACE still reads the table LibRed rebuilt.
             using OleDbConnection ace = AceTestDatabase.Open(path);
             using OleDbCommand count = ace.CreateCommand();
             count.CommandText = $"SELECT COUNT(*) FROM [{table}]";
@@ -134,8 +134,12 @@ public class ComplexWriteAceReadbackTests(ITestOutputHelper output)
     }
 
     /// <summary>What the catalog still says about complex columns: the MSysComplexColumns rows by column name,
-    /// and the names of the f_&lt;GUID&gt; flat tables still present. With <paramref name="table"/>, also that
-    /// table's own columns and indexes, so a drop that was accepted and did nothing is visible as such.</summary>
+    /// the names of the f_&lt;GUID&gt; flat tables still present, and — the part that says the wiring still
+    /// WORKS rather than merely still exists — each column that resolves, with the number of records holding
+    /// values and the number of values. Definition pages are left out deliberately: two engines rebuilding the
+    /// same table put it on different pages, and that is not a difference in the wiring.
+    /// With <paramref name="table"/>, also that table's own columns and indexes, so a drop that was accepted
+    /// and did nothing is visible as such.</summary>
     private static string Remains(string path, string? table = null)
     {
         using var db = JetDatabase.Open(path);
@@ -155,7 +159,17 @@ public class ComplexWriteAceReadbackTests(ITestOutputHelper output)
             .Where(t => t.Name.StartsWith("f_", StringComparison.Ordinal))
             .Select(t => t.Name[^12..])   // the trailing _<column> part, which the GUID prefix buries
             .Order(StringComparer.Ordinal);
-        return $"MSysComplexColumns=[{string.Join(",", rows)}] flat=[{string.Join(",", flat)}]";
+        var resolved = db.Catalog.ComplexColumns
+            .Select(c =>
+            {
+                var values = db.OpenTable(c.FlatTable.Name).Rows()
+                    .Select(r => Convert.ToInt32(r[c.OwnerLink.Index]))
+                    .ToList();
+                return $"{c.OwnerTable.Name}.{c.ColumnName}:{values.Distinct().Count()}/{values.Count}";
+            })
+            .Order(StringComparer.Ordinal);
+        return $"MSysComplexColumns=[{string.Join(",", rows)}] flat=[{string.Join(",", flat)}] "
+            + $"resolved=[{string.Join(",", resolved)}]";
     }
 
     [Fact]

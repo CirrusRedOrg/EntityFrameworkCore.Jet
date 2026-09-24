@@ -60,7 +60,7 @@ public class TableDefinitionPageTests
         using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
         JetFormatBase format = db.Format;
         byte[] page = TdefBuilder.Build(format, TableType.User,
-            [new ColumnSpec("C", JetDataType.Int32, 4, IsFixedLength: true)]).Page;
+            [new ColumnSpec("C", JetDataType.Int32, 4, IsFixedLength: true)], Collation.GeneralLegacy).Page;
 
         switch (field)
         {

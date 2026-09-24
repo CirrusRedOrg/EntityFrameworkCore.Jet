@@ -20,6 +20,15 @@ Status: **draft / accepted direction** · Date: 2026-07-18
 > fails with a write conflict and remains open for rollback. This prevents silent lost updates without strict
 > two-phase locking. If publication itself fails after writing some pages, that prefix is restored from the
 > validated baselines (and appended tail pages are truncated), leaving the transaction open and rollbackable.
+> **A page check cannot see what a transaction only read**, which is where write skew gets in: an
+> `INSERT` checks its foreign key's parent row and writes no page for it, so a concurrent connection may delete
+> that parent, and each transaction's precondition holds at the moment it is checked while the pair of them
+> leaves a child referencing nothing. So a transaction also carries a **read set** of the conditions its writes
+> depend on (`PageChannel.DependOn`), each re-evaluated under the publication gate before anything is
+> published; a commit whose condition has stopped holding is refused like a write conflict. The conditions are
+> semantic rather than physical — the FK's parent is sought again, not its page compared — so an unrelated row
+> on the same page cannot produce a false conflict. A savepoint rollback drops the conditions recorded after it
+> along with the writes that needed them.
 > Schema-changing commits also advance a shared per-file catalog generation; other open
 > connections invalidate their parsed table/relationship/view caches on the next catalog access, while ordinary
 > DML does not force a catalog reload. The undo log described below is gone. Everything else here — the lock-manager layering

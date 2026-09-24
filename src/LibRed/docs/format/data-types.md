@@ -176,6 +176,13 @@ A text value that begins with the 2-byte marker `FF FE` is **compressed**: the f
 are one per character (ASCII range), not UTF-16. Otherwise the value is UTF-16LE. Applies to
 both `Text` and resolved `Memo`.
 
+> **A leading U+FEFF is indistinguishable from the marker, and the format does not resolve it.** U+FEFF in
+> UTF-16LE *is* `FF FE`, so a value whose first character is one cannot be told from a compressed value by its
+> bytes. Such a value is stored as plain UTF-16 — the collision is made, not avoided — and reads back wrongly:
+> `U+FEFF`+`abc` as `abc`, a lone `U+FEFF` as the empty string, two of them as `U+00FF U+00FE`. That is what
+> Access itself returns for its own value (verified), so the character is not recoverable at all. Only the
+> first position is ambiguous: `a`+U+FEFF+`b` round-trips intact.
+
 The descriptor's `0x10` extended flag `0x01` records the column as compression-*capable*. ACE sets it only
 when the column is declared `WITH COMPRESSION` (or `WITH COMP`); a plain `TEXT`/`MEMO` column created through
 SQL DDL leaves it **clear**.

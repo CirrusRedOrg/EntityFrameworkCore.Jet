@@ -197,7 +197,6 @@ public class LongTextStorageAccessTests(ITestOutputHelper output) : TempDatabase
     private static List<byte[]> RawDescriptors(PageChannel channel, Catalog.TableDef definition, int columnId)
     {
         var found = new List<byte[]>();
-        var decoder = new RowDecoder(definition.Columns, channel.Format);
         foreach (int number in new UsageMap(channel, definition).DataPages())
         {
             var page = new DataPage();
@@ -205,7 +204,8 @@ public class LongTextStorageAccessTests(ITestOutputHelper output) : TempDatabase
             for (int row = 0; row < page.RowCount; row++)
             {
                 if (page.Rows[row].IsDeleted) continue;
-                foreach (var descriptor in decoder.LongValueRaw(page.GetRow(row)))
+                foreach (var descriptor in RowDecoder.LongValueDescriptors(
+                             definition.Columns, channel.Format, page.GetRow(row)))
                     if (descriptor.Key == columnId)
                         found.Add(descriptor.Value[..12]);
             }

@@ -52,6 +52,14 @@ public sealed class PageChannel : IDisposable
     // a rollback discards the staged pages, and a savepoint rollback truncates them to the savepoint's count.
     private readonly List<int> _releasing = [];
     private readonly List<int> _released = [];
+
+    // What the open transaction's writes depend on being TRUE of OTHER rows — a foreign key's parent row
+    // existing, say. Reading a row writes no page, so such a dependency is invisible to the page-conflict
+    // check above, and two transactions can each check the other's precondition and commit to a state neither
+    // would have allowed (write skew). Each condition is re-evaluated at commit, under the publication lock,
+    // so a commit that would leave a dangling reference is refused instead. A savepoint rollback truncates
+    // them with the writes that needed them.
+    private readonly List<(Func<bool> StillHolds, string Violation)> _dependencies = [];
     // Whether anything this channel wrote has been published, so a close knows the session changed the file.
     private bool _published;
 
@@ -82,6 +90,20 @@ public sealed class PageChannel : IDisposable
         if (_readOnly)
             throw new InvalidOperationException("This channel was opened read-only.");
         (_active is not null ? _releasing : _released).Add(page);
+    }
+
+    /// <summary>
+    /// Records a condition this transaction's writes depend on — something it read and found true of rows it
+    /// did not write, such as the parent row a foreign key needs. <paramref name="stillHolds"/> is evaluated
+    /// again at commit, and a commit whose condition has since stopped holding is refused with
+    /// <paramref name="violation"/>. Outside a transaction there is nothing to record: the statement's check
+    /// and its write are one publication, which no other connection can interleave with.
+    /// </summary>
+    public void DependOn(Func<bool> stillHolds, string violation)
+    {
+        ArgumentNullException.ThrowIfNull(stillHolds);
+        if (_active is null) return;
+        _dependencies.Add((stillHolds, violation));
     }
 
     /// <summary>The committed pages held for release at close, in the order they were freed.</summary>
@@ -407,9 +429,7 @@ public sealed class PageChannel : IDisposable
             throw new InvalidOperationException("This channel was opened read-only.");
         if (_active is not null)
             throw new InvalidOperationException("A transaction is already in progress.");
-        _overlay.Clear();
-        _commitBaselines.Clear();
-        _releasing.Clear();
+        ClearTransactionState();
         _schemaDirty = false;
         _txPageCount = PageCount; // committed count at start (PageCount is still file-based while _active is null)
         return _active = new Transaction(_txPageCount);
@@ -437,6 +457,12 @@ public sealed class PageChannel : IDisposable
                     throw new InvalidOperationException(
                         $"Transaction write conflict on page {page}: another connection committed a change to this page.");
             }
+
+            // And what the transaction merely READ and relied on. Evaluated here, inside the publication lock,
+            // so nothing can change between the check and the publish it guards.
+            foreach ((Func<bool> stillHolds, string violation) in _dependencies)
+                if (!stillHolds())
+                    throw new InvalidOperationException(violation);
 
             // Keep the transaction open until every page has published. If a later page fails, restore the
             // already-published prefix from its validated committed baselines so the caller can still roll back.
@@ -488,10 +514,8 @@ public sealed class PageChannel : IDisposable
             }
 
             _active = null;
-            _overlay.Clear();
-            _commitBaselines.Clear();
-            _released.AddRange(_releasing);
-            _releasing.Clear();
+            _released.AddRange(_releasing);   // the pages it freed are now the session's to hold until close
+            ClearTransactionState();
             if (_schemaDirty) _cache.MarkSchemaChanged();
             _schemaDirty = false;
         });
@@ -506,12 +530,22 @@ public sealed class PageChannel : IDisposable
     public void RollbackTransaction()
     {
         if (_active is null) return;
-        _overlay.Clear();
-        _commitBaselines.Clear();
-        _releasing.Clear();   // a rolled-back free frees nothing
+        ClearTransactionState();   // including the staged releases: a rolled-back free frees nothing
         _schemaDirty = false;
         _active = null;
         ResyncFormatVersion();   // a discarded format raise must not stay raised in memory
+    }
+
+    /// <summary>Drops everything the open transaction accumulated — its unpublished pages, the images they
+    /// were derived from, the conditions its writes depend on, and the page releases it staged. A commit has
+    /// already moved the releases into the session's committed list before calling this; a rollback has not,
+    /// which is the whole difference between them.</summary>
+    private void ClearTransactionState()
+    {
+        _overlay.Clear();
+        _commitBaselines.Clear();
+        _dependencies.Clear();
+        _releasing.Clear();
     }
 
     /// <summary>
@@ -549,13 +583,27 @@ public sealed class PageChannel : IDisposable
         return true;
     }
 
-    /// <summary>Re-derives <see cref="Format"/> from the version byte now visible on page 0. Cheap, and only
-    /// on the rollback paths, so it costs nothing in the ordinary case.</summary>
-    private void ResyncFormatVersion()
+    /// <summary>Re-derives <see cref="Format"/> from the version byte now visible on page 0 — after a rollback
+    /// that may have discarded a raise, and when another handle's schema change becomes visible, since a raise
+    /// is something ANOTHER connection can do to this file and this one would otherwise go on reporting the
+    /// version the file had when it opened. Only on those paths, so it costs nothing in the ordinary case, and
+    /// page 0 is cached by then.</summary>
+    internal void ResyncFormatVersion()
     {
         byte onDisk = ReadPage(0).Span[JetFormatBase.VersionOffset];
-        if ((byte)Format.Version != onDisk)
+        if ((byte)Format.Version == onDisk) return;
+        try
+        {
             Format = JetFormatBase.FromVersionByte(onDisk);
+        }
+        catch (NotSupportedException)
+        {
+            // A version byte this build does not know is not a reason to fail a rollback. The open already
+            // decided how to read the file — JetFormatBase.Detect reads an unknown ACE byte with the latest
+            // known layout — and re-deriving it strictly here disagrees with that decision, so every rollback
+            // on such a file threw although the file had opened and read perfectly well. The format the open
+            // chose stands.
+        }
     }
 
     /// <summary>Opens a savepoint in the current transaction; pass the handle to
@@ -564,7 +612,7 @@ public sealed class PageChannel : IDisposable
     {
         if (_active is null)
             throw new InvalidOperationException("No transaction is in progress.");
-        return _active.Save(_txPageCount, _releasing.Count);
+        return _active.Save(_txPageCount, _releasing.Count, _dependencies.Count);
     }
 
     /// <summary>Rolls the transaction back to <paramref name="savepoint"/>: undoes every write made since it was
@@ -574,9 +622,12 @@ public sealed class PageChannel : IDisposable
         if (_active is null)
             throw new InvalidOperationException("No transaction is in progress.");
         int releaseCount = _active.ReleaseCountAt(savepoint);
+        int dependencyCount = _active.DependencyCountAt(savepoint);
         var (before, pageCount) = _active.TakeForRollbackTo(savepoint);
         RestoreOverlay(before, pageCount);
         _releasing.RemoveRange(releaseCount, _releasing.Count - releaseCount);
+        // The writes that needed them are undone, so the conditions are no longer anything to hold the commit to.
+        _dependencies.RemoveRange(dependencyCount, _dependencies.Count - dependencyCount);
     }
 
     /// <summary>Releases <paramref name="savepoint"/>, merging its changes into the enclosing scope. Only the

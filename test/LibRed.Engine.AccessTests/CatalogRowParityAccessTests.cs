@@ -52,6 +52,44 @@ public class CatalogRowParityAccessTests : TempDatabaseTest
         Assert.Contains("Type=8", ace);
     }
 
+    // An ALTER moves the object's DateUpdate and leaves DateCreate alone — measured through ACE, and the
+    // reason LibRed maintains the field at all: it used to write both stamps at CREATE and never touch them
+    // again, so its catalog said every table was last changed when it was made. Both engines are driven
+    // through the same statements here, because the rule is ACE's rather than a choice.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void An_alter_moves_DateUpdate_and_leaves_DateCreate(bool throughAce)
+    {
+        string path = TemporaryDatabase.CopyPath(
+            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "dateupdate-");
+        Action<string, string> run = throughAce ? AceRun : LibRedRun;
+        try
+        {
+            run(path, "CREATE TABLE W (A LONG, B TEXT(20))");
+            (DateTime created, DateTime updated) = Stamps(path);
+
+            Thread.Sleep(1100);   // the stamps are stored to the second
+            run(path, "ALTER TABLE W ADD COLUMN C LONG");
+            (DateTime createdAfter, DateTime updatedAfter) = Stamps(path);
+
+            Assert.Equal(created, createdAfter);
+            Assert.True(updatedAfter > updated, $"DateUpdate did not move: {updated:O} -> {updatedAfter:O}");
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    private static (DateTime Created, DateTime Updated) Stamps(string path)
+    {
+        using var db = JetDatabase.Open(path);
+        var objects = db.OpenTable("MSysObjects");
+        int name = objects.Definition.FindColumn("Name")!.Index;
+        int created = objects.Definition.FindColumn("DateCreate")!.Index;
+        int updated = objects.Definition.FindColumn("DateUpdate")!.Index;
+        object?[] row = objects.Rows().First(r => (string?)r[name] == "W");
+        return ((DateTime)row[created]!, (DateTime)row[updated]!);
+    }
+
     private static void AceRun(string path, string sql)
     {
         using OleDbConnection connection = AceTestDatabase.Open(path);

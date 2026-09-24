@@ -10,7 +10,10 @@ public class RowDecoderTests
     {
         var tdef = db.ReadTableDefinition(2); // MSysObjects schema
         columns = tdef.Columns;
-        var decoder = new RowDecoder(columns, db.Format);
+        // MSysObjects has a Memo column of its own — LvProp — so decoding one of its rows needs the pages
+        // that value lives on. Without the reader it came back as its 12-byte descriptor, which these
+        // assertions never look at and so never noticed.
+        var decoder = new RowDecoder(columns, db.Format, new LongValueReader(db.OpenTable("MSysObjects").Channel));
         var page = db.ReadDataPage(dataPage);
 
         var rows = new List<object?[]>();

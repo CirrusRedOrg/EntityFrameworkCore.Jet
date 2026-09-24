@@ -17,15 +17,19 @@ namespace LibRed.Storage;
 /// ADD/DROP/ALTER/RENAME for columns, indexes, relationships and CHECK constraints — each a surgical edit
 /// of the existing TDEF rather than a rebuild, so unmodelled descriptor bytes survive.
 /// </summary>
-public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collation? collation = null)
+/// <param name="collation">The <b>database's</b> collating order, from page 0. Every non-numeric column this
+/// class writes inherits it, which is what decides how that column's index keys are encoded, so it is
+/// required rather than defaulted. It used to fall back to General-Legacy for "callers that don't create
+/// columns" — but ALTER COLUMN creates them, by rebuilding the table, and passed nothing: on a General (v1)
+/// database that silently produced v0 columns whose keys the rest of the file does not sort by.</param>
+/// <param name="channel">The database file.</param>
+/// <param name="catalog">The catalog to read and keep current.</param>
+public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collation collation)
 {
     private readonly PageChannel _channel = channel;
     private readonly JetCatalog _catalog = catalog;
     private readonly PageAllocator _allocator = new(channel);
-
-    // The database's default collating order, written into new non-numeric columns. Defaults to General
-    // legacy for callers that don't create columns (most alter operations).
-    private readonly Collation _collation = collation ?? Collation.GeneralLegacy;
+    private readonly Collation _collation = collation;
 
     /// <summary>
     /// Jet/ACE caps a table at 32 indexes and the cap applies to BOTH TDEF counts — the index-data blocks at
@@ -279,7 +283,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         // Build the definition and point it at the usage maps: owned-pages = row 0, free-pages =
         // row 1, both on the usage-map page.
-        byte[] tdef = TdefBuilder.Build(format, TableType.User, columns, indexes, longValueSpecs, childLogical, _collation).Page;
+        byte[] tdef = TdefBuilder.Build(format, TableType.User, columns, _collation, indexes, longValueSpecs, childLogical).Page;
         tdef[format.TdefOwnedPagesOffset] = 0; // owned map record row
         WriteInt24(tdef, format.TdefOwnedPagesOffset + 1, usageMapPage);
         tdef[format.TdefFreePagesOffset] = 1; // free map record row
@@ -907,6 +911,19 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         fk = ResolvePrimaryKeyReference(fk, creatingTable: null);
         EnsureSameDataTypes(fk, ColumnOf(child), ColumnOf(_catalog.FindTable(fk.ReferencedTable)));
 
+        // An UNENFORCED relationship is catalog rows and nothing else — no backing index on the child, no
+        // incoming block on the parent. Measured across three files: every enforced relationship has an index
+        // over its columns on both sides, and none of the unenforced ones does. LIBRARY.accdb's BookTable1
+        // references Book(BK_ID), a column with no index at all, which an enforced relationship could not be.
+        // That is what the "Enforce Referential Integrity" checkbox means on disk: without a unique index on
+        // the parent ACE cannot enforce, so it records the relationship as a declaration and stops there.
+        if (!fk.IsEnforced)
+        {
+            AddRelationshipRows(childTable, fk);
+            _catalog.Invalidate();
+            return;
+        }
+
         byte upd = fk.CascadeUpdate ? CascadeAction : NoCascadeAction;
         byte del = fk.CascadeDelete ? CascadeAction : fk.DeleteSetNull ? SetNullAction : NoCascadeAction;
         var slots = ResolveSlots(child, fk.Columns.Select(c => (c.Column, Ascending: true)));
@@ -1028,7 +1045,15 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// child cannot be dropped — drop the referencing table (or the relationship) first. EF drops FKs before
     /// tables, but database-first scaffolding cleanup drops child tables directly, which must work.
     /// </summary>
-    public bool DropTable(string tableName)
+    public bool DropTable(string tableName) => DropTable(tableName, keepComplexColumns: false);
+
+    /// <inheritdoc cref="DropTable(string)"/>
+    /// <param name="tableName">The table to drop.</param>
+    /// <param name="keepComplexColumns">Leaves the complex columns' catalog rows and flat tables where they
+    /// are, for the one caller that drops a table in order to put it back: <see cref="RewriteColumn"/>. Taking
+    /// them would destroy the values it is rebuilding around, and it re-points each row at the new
+    /// definition page instead.</param>
+    private bool DropTable(string tableName, bool keepComplexColumns)
     {
         TableDef? table = _catalog.FindTable(tableName);
         if (table is null) return false;
@@ -1051,10 +1076,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // alone leaves the flat tables orphaned and catalog rows naming a table that is gone. ACE takes both
         // with it (measured: dropping complex1.accdb's Table1 through ACE leaves neither, where LibRed left
         // four of each). Each flat table goes the ordinary way, which is why this runs before the drop proper.
-        var complexColumns = _catalog.ComplexColumns
-            .Where(c => string.Equals(c.OwnerTable.Name, tableName, StringComparison.OrdinalIgnoreCase))
-            .Select(c => (c.FlatTable.Name, c.ComplexId))
-            .ToList();
+        var complexColumns = keepComplexColumns
+            ? []
+            : _catalog.ComplexColumns
+                .Where(c => string.Equals(c.OwnerTable.Name, tableName, StringComparison.OrdinalIgnoreCase))
+                .Select(c => (c.FlatTable.Name, c.ComplexId))
+                .ToList();
         foreach ((string flatTable, int complexId) in complexColumns)
         {
             DropTable(flatTable);
@@ -1101,7 +1128,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             owned.UnionWith(pages);
             retire.Add((map, [map], pages));
         }
-        foreach (IndexDef index in table.Indexes.Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First()))
+        foreach (IndexDef index in table.RealIndexes)
             owned.Add(index.RootPage);
         List<int> dataPages = maps.DataPages().ToList();
         owned.UnionWith(dataPages);
@@ -1286,22 +1313,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     }
 
     /// <summary>Sets the <c>Name</c> of the MSysObjects row whose <c>Id</c> is this table's TDEF page.</summary>
-    private void RenameCatalogObject(int tdefPage, string newName)
-    {
-        TableDef def = _catalog.FindTable("MSysObjects")
-            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
-        int idIndex = ColumnIndexOf(def, "Id");
-        int nameIndex = ColumnIndexOf(def, "Name");
-        var table = new Table(_channel, def);
-
-        foreach ((RowId id, object?[] values) in table.Rows().WithIds()
-                     .Where(r => r.Values[idIndex] is not null
-                         && Convert.ToInt32(r.Values[idIndex], CultureInfo.InvariantCulture) == tdefPage)
-                     .ToList())
-        {
-            SetCatalogValues(table, def, id, values, (nameIndex, newName));
-        }
-    }
+    private void RenameCatalogObject(int tdefPage, string newName) =>
+        UpdateCatalogRows("MSysObjects", "Id", tdefPage, required: true, ("Name", newName));
 
     /// <summary>Repoints every relationship that names <paramref name="oldName"/> on either side. Both the
     /// child (<c>szObject</c>) and parent (<c>szReferencedObject</c>) are stored by name, and a self-reference
@@ -1344,11 +1357,18 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             throw new InvalidOperationException(
                 $"ALTER TABLE '{tableName}' RENAME COLUMN '{oldName}' TO '{newName}': the table already has a column named '{newName}'.");
 
+        // A complex column's catalog row names its column by NAME, and the catalog will not resolve a row
+        // whose name the owning table no longer has — so a rename that left the row behind did not merely
+        // misname the column, it disconnected it from its values. Read before the TDEF is rewritten, while
+        // the catalog still resolves the old name.
+        int? complexId = _catalog.FindComplexColumn(tableName, oldName)?.ComplexId;
+
         TdefParts parts = ParseTdef(table.DefinitionPage); // stitches continuation pages for a multi-page TDEF
         RenameColumnInParts(parts, table.Columns.Count, col.Index, newName, _channel.Format);
         WriteTdef(table.DefinitionPage, parts);
         RenameColumnProperties(table.DefinitionPage, oldName, newName);
         RepointRelationshipColumns(tableName, oldName, newName);
+        if (complexId is int id) SetComplexColumnName(id, newName);
         _catalog.Invalidate();
         return true;
     }
@@ -1392,28 +1412,47 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// the column had no properties.</summary>
     private void RenameColumnProperties(int tdefPage, string oldName, string newName)
     {
-        TableDef msys = _catalog.FindTable("MSysObjects")
-            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
-        int idIndex = ColumnIndexOf(msys, "Id");
-        ColumnDef lvProp = msys.FindColumn("LvProp")
-            ?? throw new InvalidOperationException("MSysObjects is missing 'LvProp'.");
-        var table = new Table(_channel, msys);
+        if (ReadObjectProperties(tdefPage) is not { Length: > 0 } blob) return;
 
-        foreach ((RowId id, object?[] values) in table.Rows().WithIds())
+        byte[] renamed = RewriteCalculatedReferences(
+            PropertyBlob.RenameOwner(blob, oldName, newName), oldName, newName);
+        // Nothing owned by, or referring to, this column — leave the blob exactly as it was.
+        if (renamed.AsSpan().SequenceEqual(blob)) return;
+        WriteObjectProperties(tdefPage, renamed);
+    }
+
+    /// <summary>The extended-property blob <c>MSysObjects.LvProp</c> holds for an object — every column's
+    /// DefaultValue, Required, ValidationRule, Format, Description, AllowZeroLength and the rest, plus the
+    /// table's own — or null when it has none.</summary>
+    private byte[]? ReadObjectProperties(int objectId)
+    {
+        (TableDef msys, Table table, ColumnDef lvProp) = ObjectProperties();
+        return RowsKeyed(table, ColumnIndexOf(msys, "Id", "MSysObjects"), objectId)
+            .Select(r => r.Values[lvProp.Index] as byte[]).FirstOrDefault();
+    }
+
+    /// <summary>Replaces an object's extended-property blob with <paramref name="properties"/>. Not an
+    /// <see cref="UpdateCatalogRows"/> call, because <c>LvProp</c> is a Memo: the blob has to be stored on its
+    /// own page first and the row given the descriptor that names it.</summary>
+    private void WriteObjectProperties(int objectId, byte[] properties)
+    {
+        (TableDef msys, Table table, ColumnDef lvProp) = ObjectProperties();
+        foreach ((RowId id, object?[] values) in RowsKeyed(table, ColumnIndexOf(msys, "Id", "MSysObjects"), objectId))
         {
-            if (values[idIndex] is null || Convert.ToInt32(values[idIndex], CultureInfo.InvariantCulture) != tdefPage) continue;
-            if (values[lvProp.Index] is not byte[] { Length: > 0 } blob) return;
-
-            byte[] renamed = RewriteCalculatedReferences(
-                PropertyBlob.RenameOwner(blob, oldName, newName), oldName, newName);
-            // Nothing owned by, or referring to, this column — leave the blob exactly as it was.
-            if (renamed.AsSpan().SequenceEqual(blob)) return;
-
-            byte[] descriptor = new RowInserter(_channel, msys).StorePackedLongValue(lvProp.ColumnId, renamed);
+            byte[] descriptor = new RowInserter(_channel, msys).StorePackedLongValue(lvProp.ColumnId, properties);
             values[lvProp.Index] = new LongValueDescriptor(descriptor);
             table.Update(id, values, new HashSet<int> { lvProp.Index });
             return;
         }
+    }
+
+    private (TableDef Definition, Table Table, ColumnDef LvProp) ObjectProperties()
+    {
+        TableDef msys = _catalog.FindTable("MSysObjects")
+            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
+        ColumnDef lvProp = msys.FindColumn("LvProp")
+            ?? throw new InvalidOperationException("MSysObjects is missing 'LvProp'.");
+        return (msys, new Table(_channel, msys), lvProp);
     }
 
     /// <summary>The calculated columns of <paramref name="table"/> whose expression reads
@@ -1536,7 +1575,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             changed.Add(column);
         }
 
-        foreach (IndexDef index in def.Indexes.Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First()))
+        foreach (IndexDef index in def.RealIndexes)
             if (index.Columns.Any(c => changed.Contains(c.Column.Index)))
                 table.MoveIndexEntry(index, values, newValues, id);
 
@@ -1548,11 +1587,49 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// rows. A full delete: its <b>index entries are removed</b> (not just the slot soft-deleted) so, e.g., the
     /// MSysObjects <c>ParentIdName</c> unique index doesn't retain a stale entry that would then reject
     /// re-creating a same-named table.</summary>
+    /// <summary>Sets <paramref name="updates"/> on every row of <paramref name="catalogTable"/> whose
+    /// <paramref name="keyColumn"/> equals <paramref name="keyValue"/> — the update counterpart of
+    /// <see cref="DeleteCatalogRows"/>, and the one way this class changes a catalog row: through
+    /// <see cref="SetCatalogValues"/>, so an indexed column's entry moves with its value.</summary>
+    /// <param name="catalogTable">The system table to update.</param>
+    /// <param name="keyColumn">The column matched against <paramref name="keyValue"/>.</param>
+    /// <param name="keyValue">The key naming the rows to update.</param>
+    /// <param name="required">Whether a missing catalog table is an error. False for the ones a database need
+    /// not have at all (a Jet 4 file has no <c>MSysComplexColumns</c>).</param>
+    /// <param name="updates">The column/value pairs to set on each matching row.</param>
+    private void UpdateCatalogRows(string catalogTable, string keyColumn, int keyValue,
+        bool required, params (string Column, object? Value)[] updates)
+    {
+        TableDef? t = _catalog.FindTable(catalogTable);
+        if (t is null)
+        {
+            if (!required) return;
+            throw new InvalidOperationException($"{catalogTable} catalog table was not found.");
+        }
+
+        int key = ColumnIndexOf(t, keyColumn, catalogTable);
+        var columns = updates.Select(u => (Column: ColumnIndexOf(t, u.Column, catalogTable), u.Value)).ToArray();
+        var table = new Table(_channel, t);
+
+        foreach ((RowId id, object?[] values) in RowsKeyed(table, key, keyValue))
+            SetCatalogValues(table, t, id, values, [.. columns]);
+    }
+
+    /// <summary>The rows of a catalog table whose key column holds <paramref name="keyValue"/>, materialised
+    /// before the caller writes any of them back.</summary>
+    private static List<(RowId Id, object?[] Values)> RowsKeyed(Table table, int keyColumn, int keyValue) =>
+        [.. table.Rows().WithIds()
+            .Where(r => r.Values[keyColumn] is not null
+                && Convert.ToInt32(r.Values[keyColumn], CultureInfo.InvariantCulture) == keyValue)];
+
+    private static int ColumnIndexOf(TableDef table, string column, string tableName) =>
+        (table.FindColumn(column) ?? throw new InvalidOperationException($"{tableName} is missing '{column}'.")).Index;
+
     private void DeleteCatalogRows(string catalogTable, string keyColumn, int keyValue)
     {
         TableDef t = _catalog.FindTable(catalogTable)
             ?? throw new InvalidOperationException($"{catalogTable} catalog table was not found.");
-        int idx = (t.FindColumn(keyColumn) ?? throw new InvalidOperationException($"{catalogTable} is missing '{keyColumn}'.")).Index;
+        int idx = ColumnIndexOf(t, keyColumn, catalogTable);
         var table = new Table(_channel, t);
 
         var rows = table.Rows().WithIds()
@@ -1561,11 +1638,24 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             .ToList();
         foreach ((RowId id, object?[] values) in rows)
         {
-            foreach (IndexDef index in t.Indexes.Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First()))
+            foreach (IndexDef index in t.RealIndexes)
                 table.RemoveIndexEntry(index, values, id);
             table.Delete(id);
         }
     }
+
+    /// <summary>Points a complex column's <c>MSysComplexColumns</c> row at <paramref name="definitionPage"/> —
+    /// the owner is named by definition page, so a rebuild that moves the table has to follow it there or the
+    /// column stops resolving and its values become unreachable.</summary>
+    private void SetComplexColumnOwner(int complexId, int definitionPage) =>
+        UpdateCatalogRows("MSysComplexColumns", "ComplexID", complexId, required: true,
+            ("ConceptualTableID", definitionPage));
+
+    /// <summary>Follows a renamed complex column in its <c>MSysComplexColumns</c> row. The catalog matches the
+    /// row to a column by name, so a stale one stops resolving altogether — the column keeps its values on
+    /// disk and nothing can reach them.</summary>
+    private void SetComplexColumnName(int complexId, string columnName) =>
+        UpdateCatalogRows("MSysComplexColumns", "ComplexID", complexId, required: true, ("ColumnName", columnName));
 
     /// <summary>
     /// Drops a secondary/unique/primary index — <c>DROP INDEX index ON table</c>. Byte-faithful with ACE
@@ -1574,7 +1664,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// and free its B-tree root page back to the global free map — the same index-removal path as DROP
     /// CONSTRAINT, minus the relationship linkage. A secondary index lives only in the TDEF (no MSys row).
     /// Returns false if no such index exists. Throws if the index backs a relationship (ACE rejects that —
-    /// drop the relationship first) or the TDEF is multi-page. (PK and unique indexes ARE droppable.)
+    /// drop the relationship first). A multi-page TDEF is handled, and PK and unique indexes ARE droppable.
     /// </summary>
     public bool DropIndex(string tableName, string indexName)
     {
@@ -1823,7 +1913,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         TableDef table = _catalog.FindTable(tableName)
             ?? throw new InvalidOperationException($"Table '{tableName}' was not found after adding column '{spec.Name}'.");
         ColumnDef column = table.FindColumn(spec.Name)!;
-        int increment = spec.Increment == 0 ? 1 : spec.Increment;
+        if (spec.Increment == 0) throw TdefBuilder.ZeroIncrement(spec.Name);
+        int increment = spec.Increment;
 
         var rows = new Table(_channel, table).Rows().WithIds().ToList();
         if (rows.Count > 0)
@@ -2190,10 +2281,16 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         }
     }
 
-    /// <summary>The table's fixed-data region, counted the way <see cref="TdefBuilder"/> counts it on create:
-    /// Boolean is fixed but occupies no data, so it contributes nothing.</summary>
+    /// <summary>The table's fixed-data region: the high-water of where its live columns END, not the sum of
+    /// their lengths. DROP COLUMN is a metadata-only edit that leaves every survivor's fixed offset exactly
+    /// where it was, so a dropped column's bytes stay in the region as dead space — a sum under-counts by
+    /// precisely that hole, and would pass a declaration whose rows then overrun 4060, which is a table Access
+    /// refuses to open the database for. On a table that has dropped nothing the two agree, because the
+    /// offsets pack from zero. Boolean is fixed but occupies no data, so it contributes nothing, exactly as
+    /// <see cref="TdefBuilder"/> counts it on create.</summary>
     private static int FixedBytes(TableDef table) =>
-        table.Columns.Where(c => c.IsFixedLength && c.Type != JetDataType.Boolean).Sum(c => c.Length);
+        table.Columns.Where(c => c.IsFixedLength && c.Type != JetDataType.Boolean)
+            .Select(c => c.FixedOffset + c.Length).DefaultIfEmpty(0).Max();
 
     /// <summary>The TDEF's `0x29` column-id high-water — the number of ids handed out over the table's
     /// lifetime, which is what sizes a record's null bitmap (dropped ids keep their bit).</summary>
@@ -2232,7 +2329,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     {
         EnsureColumnIsNotInRelationship(table, col);
 
-        if (increment == 0) increment = 1;
+        if (increment == 0) throw TdefBuilder.ZeroIncrement(col.Name);
         JetFormatBase format = _channel.Format;
         byte[] tdef = _channel.ReadPage(table.DefinitionPage).Span.ToArray();
         BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefLastAutoNumberOffset, 4), seed - increment);
@@ -2255,7 +2352,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 + "can have only one.");
         EnsureColumnIsNotInRelationship(table, col);
 
-        if (increment == 0) increment = 1;
+        if (increment == 0) throw TdefBuilder.ZeroIncrement(col.Name);
         JetFormatBase format = _channel.Format;
         TdefParts parts = ParseTdef(table.DefinitionPage);
         int descSize = format.ColumnDescriptorSize;
@@ -2321,21 +2418,24 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         EnsureColumnIsNotInRelationship(def, target);
 
-        // This rebuild drops and recreates the table, and a complex (multi-value / attachment) column cannot
-        // survive that: its values live in an f_<GUID> flat table keyed to the row it hangs off, its descriptor
-        // carries the MSysComplexColumns key at 0x0B where a rebuilt descriptor writes the collation LANGID,
-        // and its catalog row names the table by TDEF page — which the rebuild moves. Letting it run destroyed
-        // every complex column of the table (measured on complex1.accdb: four attachment columns before, none
-        // after). ACE performs the same ALTER with all of them intact, so this is a gap, not a rule — but a
-        // refusal is the only honest answer until the rebuild carries the three links across.
-        if (_catalog.ComplexColumns.Any(c => string.Equals(c.OwnerTable.Name, tableName, StringComparison.OrdinalIgnoreCase)))
-            throw new NotSupportedException(
-                $"Cannot change the type of '{columnName}': table '{tableName}' has a multi-value or attachment "
-                + "column, and this change rebuilds the table, which would discard its values.");
+        // A complex (multi-value / attachment) column is held to its values by three links, and the rebuild
+        // threatens all three: its values live in an f_<GUID> flat table that DropTable would take with the
+        // table, its descriptor carries the MSysComplexColumns key at 0x0B (kept by the RawDescriptor
+        // passthrough, now that the builder leaves a complex column's union alone), and its catalog row names
+        // the owner by definition page — which the rebuild moves. So the flat tables and rows stay put, and
+        // the rows are re-pointed at the new page below. ACE performs this ALTER with every link intact.
+        var complexColumns = _catalog.ComplexColumns
+            .Where(c => string.Equals(c.OwnerTable.Name, tableName, StringComparison.OrdinalIgnoreCase))
+            .Select(c => c.ComplexId)
+            .ToList();
 
-        // Read straight off the definition page: 0x29 is in the header, so this needs none of the block
-        // slicing (or continuation-page stitching) a full ParseTdef would do for one 16-bit field.
-        int priorHighWater = _channel.ReadPage(def.DefinitionPage).ReadUInt16(_channel.Format.TdefMaxColumnsOffset);
+        // Read straight off the definition page: 0x29 and 0x1C are in the header, so this needs none of the
+        // block slicing (or continuation-page stitching) a full ParseTdef would do for two header fields.
+        PageBuffer priorHeader = _channel.ReadPage(def.DefinitionPage);
+        int priorHighWater = priorHeader.ReadUInt16(_channel.Format.TdefMaxColumnsOffset);
+        // The complex-column counter. A fresh table starts it at zero, so without this the next insert would
+        // hand out a complex id that already names another row's values.
+        int priorComplexAutoNumber = priorHeader.ReadInt32(_channel.Format.TdefComplexAutoNumberOffset);
         if (priorHighWater >= MaxColumnsPerTable)
             throw new NotSupportedException($"Cannot alter '{columnName}': too many fields defined — {MaxColumnsPerTable} column ids have been used.");
 
@@ -2385,6 +2485,18 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         var defaults = def.Columns.Where(c => c.DefaultValue is not null)
             .Select(c => (Column: c.Name, DefaultSql: c.DefaultValue!)).ToList();
 
+        // The whole extended-property blob, kept and put back verbatim. Recreating the table writes a blob
+        // built from the specs — DefaultValue, Required, the calculated triple and the CHECK constraints —
+        // which is everything LibRed models and nothing else, so ValidationRule, Format, Description,
+        // AllowZeroLength, the table's own properties and anything Access wrote that LibRed has no name for
+        // would be lost. ACE's own ALTER leaves the blob alone; carrying it across is the same outcome. The
+        // properties it holds are owned by column NAME, which the rebuild preserves.
+        byte[]? properties = ReadObjectProperties(def.DefinitionPage);
+
+        // And the table's permission rows, for the same reason: recreating it writes the pair a new table gets,
+        // which is not necessarily the set of grants this one carried.
+        var permissions = ReadPermissionRows(def.DefinitionPage);
+
         // 3. Pre-check: convert every target value in memory BEFORE touching disk. An unconvertible value
         //    (e.g. non-numeric text → INT) throws here, with nothing written — the caller sees a clean failure.
         foreach (object?[] row in rows)
@@ -2400,7 +2512,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             // Drop incoming relationships (so the parent becomes unreferenced) → drop → recreate (PK only) →
             // re-insert → recreate secondary indexes → re-add outgoing then incoming relationships.
             foreach (ForeignKey r in incoming) { DropConstraint(r.Table, r.Name); _catalog.Invalidate(); }
-            DropTable(tableName);
+            DropTable(tableName, keepComplexColumns: true);
             _catalog.Invalidate();
             Create(tableName, specs, primaryKey, relationships: null, uniqueConstraints: null,
                 columnDefaults: defaults, checkConstraints: checks, primaryKeyName: pk?.Name);
@@ -2412,7 +2524,18 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             TdefParts rebuilt = ParseTdef(rebuiltPage);
             BinaryPrimitives.WriteUInt16LittleEndian(
                 rebuilt.Header.AsSpan(_channel.Format.TdefMaxColumnsOffset, 2), (ushort)(priorHighWater + 1));
+            BinaryPrimitives.WriteInt32LittleEndian(
+                rebuilt.Header.AsSpan(_channel.Format.TdefComplexAutoNumberOffset, 4), priorComplexAutoNumber);
             WriteTdef(rebuiltPage, rebuilt);
+            _catalog.Invalidate();
+
+            // The table is a new object at a new page, so every complex column's catalog row has to follow it;
+            // the ids in the rows themselves are carried through the re-insert below, which is what keeps each
+            // record pointing at its own values.
+            foreach (int complexId in complexColumns)
+                SetComplexColumnOwner(complexId, rebuiltPage);
+            if (properties is { Length: > 0 }) WriteObjectProperties(rebuiltPage, properties);
+            RestorePermissionRows(rebuiltPage, permissions);
             _catalog.Invalidate();
 
             var dest = new Table(_channel, _catalog.FindTable(tableName)!);
@@ -2576,8 +2699,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // Sizing the whole re-lay from whichever row happened to be first either truncates the long rows' fixed
         // tails or drags the short rows' variable data up into their fixed region. The schema floor covers an
         // empty table, and rows shorter than the result are zero-filled by BuildRelaidRecord.
-        int oldFixedLen = oldDef.Columns.Where(c => c.IsFixedLength && c.Type != JetDataType.Boolean)
-            .Select(c => c.FixedOffset + c.Length).DefaultIfEmpty(0).Max();
+        int oldFixedLen = FixedBytes(oldDef);
         foreach (var r in rows)
             oldFixedLen = Math.Max(oldFixedLen, FixedRegionLength(r.Raw, RowLayout.HasVariableSection(r.Raw, oldDef.Columns)));
 
@@ -3066,7 +3188,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             .ToList();
         foreach ((RowId id, object?[] values) in rows)
         {
-            foreach (IndexDef index in msys.Indexes.Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First()))
+            foreach (IndexDef index in msys.RealIndexes)
                 table.RemoveIndexEntry(index, values, id);
             table.Delete(id);
         }
@@ -3143,8 +3265,22 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// and every logical block matching <paramref name="removeLogical"/> (with its name).</summary>
     private static void RemoveTdefBlocks(TdefParts parts, int? removeDataOrdinal, Func<(byte[] Info, byte[] Name), bool> removeLogical)
     {
+        // The logical blocks go first, so what is left is exactly what has to survive the renumbering below.
+        parts.Logical.RemoveAll(b => removeLogical(b));
+
         if (removeDataOrdinal is int ord)
         {
+            // One data block can be named by more than one logical block — a primary key that also backs a
+            // relationship is the everyday case — and the renumbering below only moves references PAST the
+            // block being removed. A surviving reference EQUAL to it would silently come to name whichever
+            // index slid into the slot: same table, same file, an index quietly pointing at another index's
+            // B-tree. The callers guard against this by refusing to drop an index a relationship uses; this is
+            // the structural check behind that, so a route that ever gets here says so instead of writing it.
+            foreach ((byte[] survivor, byte[] name) in parts.Logical)
+                if (BinaryPrimitives.ReadInt32LittleEndian(survivor.AsSpan(0x08, 4)) == ord)
+                    throw new InvalidOperationException(
+                        $"Cannot remove index-data block {ord}: logical index '{NameOf(name)}' still refers to it.");
+
             parts.Stats.RemoveAt(ord);
             parts.DataBlocks.RemoveAt(ord);
             foreach ((byte[] info, _) in parts.Logical)
@@ -3153,7 +3289,16 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 if (num2 > ord) BinaryPrimitives.WriteInt32LittleEndian(info.AsSpan(0x08, 4), num2 - 1);
             }
         }
-        parts.Logical.RemoveAll(b => removeLogical(b));
+    }
+
+    /// <summary>Advances the object's <c>MSysObjects.DateUpdate</c>, leaving <c>DateCreate</c> where it is —
+    /// measured: an ACE <c>ALTER TABLE … ADD COLUMN</c> moves the one and not the other. A no-op for an object
+    /// with no catalog row yet, which is every table mid-CREATE.</summary>
+    private void TouchObject(int objectId)
+    {
+        // Stamping MSysObjects from its own update path would recurse.
+        if (_catalog.FindTable("MSysObjects") is { } msys && msys.DefinitionPage == objectId) return;
+        UpdateCatalogRows("MSysObjects", "Id", objectId, required: false, ("DateUpdate", DateTime.Now));
     }
 
     private void WriteTdef(int tdefPage, TdefParts parts)
@@ -3177,6 +3322,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // Write across the first page and continuation pages as needed (fresh ones, the old released) — handles a
         // definition that shrinks to one page, stays multi-page, or grows past a page (e.g. ADD COLUMN).
         WriteDefinition(tdefPage, def, parts.Continuations, rewrite: true);
+
+        // Every edit to an existing table's definition comes through here, which is why the catalog stamp does
+        // too: a column added, dropped, renamed or retyped, an index or relationship created or removed.
+        TouchObject(tdefPage);
     }
 
     /// <summary>The data-block ordinal of a table's own index over the FK's referenced columns (for a
@@ -3572,6 +3721,40 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             SetByName(msysAces, values, "ObjectId", objectId);
             SetByName(msysAces, values, "SID", sid);
             new RowInserter(_channel, msysAces).Insert(values, updateIndexes: true);
+        }
+    }
+
+    /// <summary>An object's <c>MSysACEs</c> rows, whole. A table need not carry only the pair
+    /// <see cref="AddPermissionRows"/> writes: a workgroup-secured database grants to as many accounts as it
+    /// likes, and those rows are the grants themselves, not a description of them.</summary>
+    private List<object?[]> ReadPermissionRows(int objectId)
+    {
+        TableDef msysAces = _catalog.FindTable("MSysACEs")
+            ?? throw new InvalidOperationException("MSysACEs catalog table was not found.");
+        int idIndex = ColumnIndexOf(msysAces, "ObjectId");
+        return [.. new Table(_channel, msysAces).Rows()
+            .Where(r => r[idIndex] is not null
+                && Convert.ToInt32(r[idIndex], CultureInfo.InvariantCulture) == objectId)
+            .Select(r => (object?[])r.Clone())];
+    }
+
+    /// <summary>Makes <paramref name="rows"/> the object's only <c>MSysACEs</c> rows, re-pointed at it — for a
+    /// rebuild, which has just been given the standard pair for a brand-new table and needs the grants the
+    /// table actually had.</summary>
+    private void RestorePermissionRows(int objectId, List<object?[]> rows)
+    {
+        if (rows.Count == 0) return;
+        TableDef msysAces = _catalog.FindTable("MSysACEs")
+            ?? throw new InvalidOperationException("MSysACEs catalog table was not found.");
+        int idIndex = ColumnIndexOf(msysAces, "ObjectId");
+
+        DeleteCatalogRows("MSysACEs", "ObjectId", objectId);
+        var inserter = new RowInserter(_channel, msysAces);
+        foreach (object?[] row in rows)
+        {
+            var values = (object?[])row.Clone();
+            values[idIndex] = objectId;
+            inserter.Insert(values, updateIndexes: true);
         }
     }
 

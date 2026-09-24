@@ -111,7 +111,6 @@ public class CompressedTextAccessTests : TempDatabaseTest
         using var channel = PageChannel.Open(path, readOnly: true);
         TableDef definition = new JetCatalog(channel).FindTable("MemoProbe")!;
         ColumnDef column = definition.Columns.Single(c => c.Name == "C");
-        var decoder = new RowDecoder(definition.Columns, channel.Format);
         var reader = new LongValueReader(channel);
         var result = new List<byte[]>();
 
@@ -122,7 +121,7 @@ public class CompressedTextAccessTests : TempDatabaseTest
             for (int row = 0; row < page.RowCount; row++)
             {
                 if (page.Rows[row].IsDeleted) continue;
-                foreach (var raw in decoder.LongValueRaw(page.GetRow(row)))
+                foreach (var raw in RowDecoder.LongValueDescriptors(definition.Columns, channel.Format, page.GetRow(row)))
                 {
                     if (raw.Key != column.ColumnId) continue;
                     byte[] payload = reader.Resolve(raw.Value);
@@ -185,7 +184,6 @@ public class CompressedTextAccessTests : TempDatabaseTest
         TableDef definition = new JetCatalog(channel).FindTable("TextProbe")
             ?? new JetCatalog(channel).FindTable("MemoProbe")!;
         ColumnDef column = definition.Columns.Single(c => c.Name == columnName);
-        var decoder = new RowDecoder(definition.Columns, channel.Format);
 
         foreach (int number in new UsageMap(channel, definition).DataPages())
         {
@@ -197,7 +195,7 @@ public class CompressedTextAccessTests : TempDatabaseTest
                 byte[] bytes = page.GetRow(row).ToArray();
                 if (column.Type == JetDataType.Memo)
                 {
-                    foreach (var raw in decoder.LongValueRaw(bytes))
+                    foreach (var raw in RowDecoder.LongValueDescriptors(definition.Columns, channel.Format, bytes))
                         if (raw.Key == column.ColumnId)
                             return raw.Value[..12];
                     throw new InvalidOperationException("No long-value descriptor for the memo column.");

@@ -19,7 +19,7 @@ public class ComplexAutoNumberRoundTripTests
         JetFormatBase format = JetFormatBase.FromVersionByte(0x02); // ACE 12
         var specs = new[] { new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true) };
 
-        byte[] page = TdefBuilder.Build(format, TableType.User, specs, complexAutoNumber: 42).Page;
+        byte[] page = TdefBuilder.Build(format, TableType.User, specs, Collation.GeneralLegacy, complexAutoNumber: 42).Page;
 
         // Written explicitly at 0x1C…
         Assert.Equal(42, BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(format.TdefComplexAutoNumberOffset, 4)));
@@ -36,7 +36,7 @@ public class ComplexAutoNumberRoundTripTests
         JetFormatBase format = JetFormatBase.FromVersionByte(0x02);
         var specs = new[] { new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true) };
 
-        byte[] page = TdefBuilder.Build(format, TableType.User, specs).Page;
+        byte[] page = TdefBuilder.Build(format, TableType.User, specs, Collation.GeneralLegacy).Page;
 
         Assert.Equal(0, BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(format.TdefComplexAutoNumberOffset, 4)));
     }

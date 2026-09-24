@@ -25,6 +25,8 @@ public sealed class Transaction
         public int StartPageCount;
         // How many pages the transaction had staged for release at close when this frame opened.
         public int StartReleaseCount;
+        // How many read dependencies the transaction had recorded when this frame opened.
+        public int StartDependencyCount;
     }
 
     private readonly List<Frame> _frames;
@@ -48,9 +50,14 @@ public sealed class Transaction
 
     /// <summary>Opens a savepoint over the given current logical page count; returns a handle for
     /// <see cref="TakeForRollbackTo"/> / <see cref="Release"/>.</summary>
-    internal Savepoint Save(int currentPageCount, int currentReleaseCount = 0)
+    internal Savepoint Save(int currentPageCount, int currentReleaseCount = 0, int currentDependencyCount = 0)
     {
-        _frames.Add(new Frame { StartPageCount = currentPageCount, StartReleaseCount = currentReleaseCount });
+        _frames.Add(new Frame
+        {
+            StartPageCount = currentPageCount,
+            StartReleaseCount = currentReleaseCount,
+            StartDependencyCount = currentDependencyCount,
+        });
         return new Savepoint(_frames.Count - 1);
     }
 
@@ -60,6 +67,14 @@ public sealed class Transaction
     {
         ValidateFrame(sp.Index);
         return _frames[sp.Index].StartReleaseCount;
+    }
+
+    /// <summary>How many read dependencies had been recorded when <paramref name="sp"/> was created — the count
+    /// to truncate back to when rolling back to it, since undone writes depend on nothing.</summary>
+    internal int DependencyCountAt(Savepoint sp)
+    {
+        ValidateFrame(sp.Index);
+        return _frames[sp.Index].StartDependencyCount;
     }
 
     /// <summary>Collects the overlay before-images to restore (newest first, so the oldest image wins for a page

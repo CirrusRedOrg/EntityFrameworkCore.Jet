@@ -15,6 +15,18 @@ namespace LibRed.Storage;
 /// Jet 4 / ACE uses 2-byte variable offsets at any row size — there is no Jet 3-style
 /// jump table (1-byte offsets), so rows larger than 256 bytes decode the same way.
 /// </summary>
+/// <remarks>
+/// <para><b>Decoding a long value needs <paramref name="longValues"/>, and says so.</b> A memo or OLE column
+/// holds a 12-byte descriptor rather than its data, so without page access the decode can only hand back the
+/// pointer — a <c>byte[]</c> where the caller expects a string, which is an error nowhere and arrives at an
+/// index key encoder as one. Rather than return it, <see cref="Decode"/> refuses. The reader stays optional
+/// because a row with no long value in it needs no pages, which is what lets the row codec be tested without
+/// a file; it is only the value that cannot be faked.</para>
+/// <para>The two operations that want the stored descriptors rather than the values —
+/// <see cref="LongValueDescriptors"/> and <see cref="CalculatedSlots"/> — are static. They need no reader, so
+/// they are not reached through an instance that might lack one, and no caller has to decide what an
+/// instance "mode" means.</para>
+/// </remarks>
 public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase format, LongValueReader? longValues = null)
 {
     private readonly IReadOnlyList<ColumnDef> _columns = columns;
@@ -67,17 +79,17 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
             // arrives — ACE declares it Text, so the Memo branch below would never fire for it).
             if (column.IsCalculated)
             {
-                ReadOnlySpan<byte> envelope = column.HasLongValueMap && _longValues is not null
-                    ? _longValues.Resolve(raw)
+                ReadOnlySpan<byte> envelope = column.HasLongValueMap
+                    ? Reader(column).Resolve(raw)
                     : raw;
                 values[column.Index] = CalculatedValue.Decode(column, envelope);
                 continue;
             }
 
             // Memo / OLE columns store a long-value descriptor, not the data itself.
-            if (_longValues is not null && column.Type is JetDataType.Memo or JetDataType.Ole)
+            if (column.Type is JetDataType.Memo or JetDataType.Ole)
             {
-                byte[] data = _longValues.Resolve(raw);
+                byte[] data = Reader(column).Resolve(raw);
                 values[column.Index] = column.Type == JetDataType.Memo
                     ? JetTypeCodec.DecodeText(data)
                     : data;
@@ -94,17 +106,18 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     /// <see cref="ColumnDef.Index"/>), WITHOUT resolving the value. Used by UPDATE/DELETE to preserve an
     /// unchanged column's descriptor verbatim (avoiding a needless re-materialise) and to free a replaced or
     /// deleted value's LVAL pages.</summary>
-    public Dictionary<int, byte[]> LongValueRaw(ReadOnlySpan<byte> row)
+    public static Dictionary<int, byte[]> LongValueDescriptors(
+        IReadOnlyList<ColumnDef> columns, JetFormatBase format, ReadOnlySpan<byte> row)
     {
         var result = new Dictionary<int, byte[]>();
-        RowLayout layout = ParseLayout(row);
+        RowLayout layout = ParseLayout(columns, format, row);
         int nullBitmapSize = layout.NullBitmapSize;
 
         ReadOnlySpan<byte> nullBitmap = row[^nullBitmapSize..];
 
         // Keyed on owning a long-value map rather than on the declared type: a calculated Memo is declared
         // Text and still stores a descriptor, so a type test alone walks past its pages and orphans them.
-        foreach (ColumnDef column in _columns)
+        foreach (ColumnDef column in columns)
             if ((column.Type is JetDataType.Memo or JetDataType.Ole || column.HasLongValueMap)
                 && IsPresent(nullBitmap, layout.ColumnCount, column.ColumnId))
                 result[column.Index] = layout.VarChunk(column.VariableIndex).ToArray();
@@ -115,13 +128,14 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     /// <summary>Returns each calculated column's stored slot verbatim (keyed by <see cref="ColumnDef.Index"/>)
     /// — the envelope, or the long-value descriptor wrapping it — WITHOUT decoding or resolving it. An UPDATE
     /// that touches nothing the expression reads writes these back unchanged, which is what ACE does.</summary>
-    public Dictionary<int, byte[]> CalculatedRaw(ReadOnlySpan<byte> row)
+    public static Dictionary<int, byte[]> CalculatedSlots(
+        IReadOnlyList<ColumnDef> columns, JetFormatBase format, ReadOnlySpan<byte> row)
     {
         var result = new Dictionary<int, byte[]>();
-        RowLayout layout = ParseLayout(row);
+        RowLayout layout = ParseLayout(columns, format, row);
         ReadOnlySpan<byte> nullBitmap = row[^layout.NullBitmapSize..];
 
-        foreach (ColumnDef column in _columns)
+        foreach (ColumnDef column in columns)
             if (column.IsCalculated && !column.IsFixedLength
                 && IsPresent(nullBitmap, layout.ColumnCount, column.ColumnId)
                 && column.VariableIndex >= 0 && column.VariableIndex < layout.NumVar)
@@ -141,11 +155,23 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         return row.Slice(start, column.Length);
     }
 
-    private RowLayout ParseLayout(ReadOnlySpan<byte> row)
+    /// <summary>The long-value reader, or a refusal naming the column that needed it. Silently returning the
+    /// descriptor instead is the failure this exists to prevent: it is a <c>byte[]</c> that looks like a
+    /// value, and it travels — into an index key, into a comparison, into another row — before anything
+    /// notices.</summary>
+    private LongValueReader Reader(ColumnDef column) =>
+        _longValues ?? throw new InvalidOperationException(
+            $"Column '{column.Name}' stores its value on long-value pages, so decoding it needs a "
+            + $"{nameof(LongValueReader)}; this {nameof(RowDecoder)} was constructed without one. "
+            + $"Use {nameof(LongValueDescriptors)} to read the stored descriptors instead.");
+
+    private RowLayout ParseLayout(ReadOnlySpan<byte> row) => ParseLayout(_columns, _format, row);
+
+    private static RowLayout ParseLayout(IReadOnlyList<ColumnDef> columns, JetFormatBase format, ReadOnlySpan<byte> row)
     {
-        if (row.Length < _format.RowColumnCountSize)
+        if (row.Length < format.RowColumnCountSize)
             throw new InvalidDataException("Row is too short to be an inline record.");
-        return RowLayout.Parse(row, _format.RowColumnCountSize, RowLayout.HasVariableSection(row, _columns));
+        return RowLayout.Parse(row, format.RowColumnCountSize, RowLayout.HasVariableSection(row, columns));
     }
 
     private static bool IsPresent(ReadOnlySpan<byte> nullBitmap, int storedColumnCount, int columnId) =>

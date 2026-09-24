@@ -106,8 +106,8 @@ public class AllocatorAndLvalOwnershipTests
         PageBuffer page = table.Channel.ReadPage(id.Page);
         Assert.True(DataPage.TryReadRow(page, table.Channel.Format, id.Row, out _, out ReadOnlySpan<byte> row));
         ColumnDef memo = table.Definition.FindColumn("M")!;
-        byte[] descriptor = new RowDecoder(table.Definition.Columns, table.Channel.Format)
-            .LongValueRaw(row)[memo.Index];
+        byte[] descriptor = RowDecoder
+            .LongValueDescriptors(table.Definition.Columns, table.Channel.Format, row)[memo.Index];
         int firstPage = descriptor[5] | descriptor[6] << 8 | descriptor[7] << 16;
 
         var definition = new TableDefinitionPage();

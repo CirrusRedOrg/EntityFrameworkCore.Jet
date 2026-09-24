@@ -132,14 +132,25 @@ public static class TdefBuilder
 
     public sealed record Result(byte[] Page, IReadOnlyList<ColumnDef> Columns);
 
+    /// <param name="collation">The <b>database's</b> collating order, which every non-numeric column this
+    /// builds inherits — it is what decides how their index keys are encoded. Required, and deliberately not
+    /// defaulted: the old <c>?? GeneralLegacy</c> fallback was correct only for a database that happens to use
+    /// General-Legacy, and silently wrote v0 columns into a v1 file for every caller that forgot it.</param>
+    /// <param name="format">The on-disk format to build for.</param>
+    /// <param name="tableType">User or system.</param>
+    /// <param name="specs">The columns, in creation order.</param>
+    /// <param name="indexes">The table's indexes, or null for none.</param>
+    /// <param name="longValueColumns">The memo/OLE columns' usage-map pointers.</param>
+    /// <param name="logicalIndexes">Explicit logical-index blocks, or null to derive them from the indexes.</param>
+    /// <param name="complexAutoNumber">The complex-column counter (TDEF <c>0x1C</c>).</param>
     public static Result Build(
         JetFormatBase format,
         TableType tableType,
         IReadOnlyList<ColumnSpec> specs,
+        Collation collation,
         IReadOnlyList<IndexSpec>? indexes = null,
         IReadOnlyList<LongValueColumnSpec>? longValueColumns = null,
         IReadOnlyList<LogicalIndexSpec>? logicalIndexes = null,
-        Collation? collation = null,
         int complexAutoNumber = 0)
     {
         indexes ??= [];
@@ -150,7 +161,7 @@ public static class TdefBuilder
         if (indexes.Count > MaxIndexesPerTable)
             throw new NotSupportedException(
                 $"Table has {indexes.Count} indexes; a table can have at most {MaxIndexesPerTable} (including those backing keys and relationships).");
-        var columns = ResolveColumns(format, specs, collation ?? Collation.GeneralLegacy);
+        var columns = ResolveColumns(format, specs, collation);
         IReadOnlyList<LogicalIndexSpec> logical = logicalIndexes ?? indexes.Select((ix, i) => new LogicalIndexSpec(
             Number: i, DataOrdinal: i, FkType: 0, FkNumber: IndexBlockFormat.NoForeignKey, FkTablePage: 0,
             UpdateAction: IndexBlockFormat.PlainAction, DeleteAction: IndexBlockFormat.PlainAction,
@@ -181,6 +192,7 @@ public static class TdefBuilder
             throw new NotSupportedException(
                 $"A table may have only one AutoNumber column; {string.Join(", ", counters.Select(c => $"'{c.Name}'"))} are all declared as one.");
         ColumnSpec? counter = counters.FirstOrDefault();
+        if (counter is { Increment: 0 }) throw ZeroIncrement(counter.Name);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefAutoNumberIncrementOffset, 4), counter?.Increment ?? 1);
         // Complex-type AutoNumber high-water (0x1C) — 0 for a table with no complex column, carried through on
         // a rebuild for faithful round-trip.
@@ -573,6 +585,13 @@ public static class TdefBuilder
             BuildColumnDescriptor(columns[i], format).CopyTo(page.AsSpan(columnBlock + i * format.ColumnDescriptorSize));
     }
 
+    /// <summary>An AutoNumber counting by zero would hand every row the same id, and ACE's own DDL refuses it
+    /// ("Invalid argument" to <c>COUNTER(1, 0)</c>). An omitted increment is 1, all the way from the SQL
+    /// layer's <c>IdentitySpec</c>, so a zero here is one the caller asked for.</summary>
+    internal static NotSupportedException ZeroIncrement(string column) =>
+        new($"AutoNumber column '{column}' cannot have an increment of 0: every row would take the same id. "
+            + "ACE refuses the same COUNTER, and an omitted increment is 1.");
+
     /// <summary>Builds one column's fixed-size (25-byte Jet4) descriptor. Shared by CREATE TABLE and
     /// ALTER TABLE ADD COLUMN.</summary>
     public static byte[] BuildColumnDescriptor(ColumnDef c, JetFormatBase format)
@@ -636,6 +655,13 @@ public static class TdefBuilder
             // ACE does not clear them on a retype INTO decimal, so neither does LibRed.
             d[format.ColumnPrecisionOffset] = precision;
             d[format.ColumnScaleOffset] = scale;
+        }
+        else if (type == JetDataType.Complex)
+        {
+            // A complex (multi-value / attachment) column stores its MSysComplexColumns key here (page-02b
+            // §3.4) — there is nothing to collate, since the values are rows of the flat table and carry their
+            // own collations. Writing a LANGID over it severs the column from its values, which is what a
+            // rebuild of such a table used to do. The bytes come from the original descriptor and stay.
         }
         else if (type == JetDataType.DateTimeExtended)
         {

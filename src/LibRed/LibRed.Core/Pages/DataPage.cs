@@ -116,6 +116,13 @@ public sealed class DataPage : Page
                 $"Page {buffer.PageNumber} is type 0x{buffer.ReadByte(0):X2}, not a data page (0x01).");
 
         rowCount = buffer.ReadUInt16(format.DataRowCountOffset);
+        // An index addresses a row by a one-byte slot number, so a page can hold at most 255 and ACE stops
+        // there. Reading further is not tolerance, it is reading rows no index can name — including any this
+        // engine wrote past the cap, which is exactly the bug a strict reader is here to surface.
+        if (rowCount > RowPointer.MaxRowsPerPage)
+            throw new InvalidDataException(
+                $"Data page {buffer.PageNumber} declares {rowCount} rows; a page holds at most "
+                + $"{RowPointer.MaxRowsPerPage}, the most a one-byte slot number can address.");
         long end = (long)format.DataRowDirectoryOffset + rowCount * 2L;
         if (end > buffer.Length)
             throw new InvalidDataException(

@@ -43,7 +43,7 @@ public class TdefVariableRegionTests
                 ? [new("M", JetDataType.Memo, 0, IsFixedLength: false)]
                 : [new("C", JetDataType.Int32, 4, IsFixedLength: true)];
 
-        byte[] page = TdefBuilder.Build(Format, TableType.User, specs).Page;
+        byte[] page = TdefBuilder.Build(Format, TableType.User, specs, Collation.GeneralLegacy).Page;
         int columnBlock = Format.TdefRealIndexBlockOffset;
         int namePos = columnBlock + specs.Length * Format.ColumnDescriptorSize;
         int lvalPos = SkipNames(page, namePos, specs.Length);
@@ -113,7 +113,7 @@ public class TdefVariableRegionTests
     {
         ColumnSpec[] specs = [new("C", JetDataType.Int32, 4, IsFixedLength: true)];
         IndexSpec[] indexes = [new("I", ["C"], IsPrimaryKey: false, IsUnique: false, RootPage: 42)];
-        byte[] page = TdefBuilder.Build(Format, TableType.User, specs, indexes).Page;
+        byte[] page = TdefBuilder.Build(Format, TableType.User, specs, Collation.GeneralLegacy, indexes).Page;
 
         int pos = Format.TdefRealIndexBlockOffset + Format.RealIndexEntrySize
             + Format.ColumnDescriptorSize;
@@ -143,7 +143,7 @@ public class TdefVariableRegionTests
     public void Malformed_header_counts_and_lengths_are_rejected_before_region_allocation(string corruption)
     {
         byte[] page = TdefBuilder.Build(Format, TableType.User,
-            [new("C", JetDataType.Int32, 4, IsFixedLength: true)]).Page;
+            [new("C", JetDataType.Int32, 4, IsFixedLength: true)], Collation.GeneralLegacy).Page;
         int declaredLength = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(Format.TdefLengthOffset, 4));
 
         switch (corruption)
@@ -188,7 +188,7 @@ public class TdefVariableRegionTests
     {
         ColumnSpec[] specs = [new("M", JetDataType.Memo, 0, IsFixedLength: false)];
         LongValueColumnSpec[] maps = [new(ColumnId: 0, UsedRow: 2, FreeRow: 3, MapPage: 17)];
-        byte[] page = TdefBuilder.Build(Format, TableType.User, specs, longValueColumns: maps).Page;
+        byte[] page = TdefBuilder.Build(Format, TableType.User, specs, Collation.GeneralLegacy, longValueColumns: maps).Page;
         int declaredLength = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(Format.TdefLengthOffset, 4));
 
         var definition = new TableDefinitionPage();

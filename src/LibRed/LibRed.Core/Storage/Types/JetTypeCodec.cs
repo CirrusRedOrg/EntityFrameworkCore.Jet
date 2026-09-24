@@ -7,10 +7,11 @@ using System.Text;
 namespace LibRed.Storage.Types;
 
 /// <summary>
-/// Decodes individual column values from their on-disk byte representation. Centralises
+/// Decodes and encodes individual column values in their on-disk byte representation. Centralises
 /// the per-type quirks: the 1899-12-30 OLE date epoch, Jet CURRENCY (scaled int64),
-/// GUID byte order, and UTF-16LE text. Long values (memo/OLE) that live on LVAL pages
-/// are not resolved here yet.
+/// GUID byte order, and UTF-16LE text. A memo/OLE value that lives on LVAL pages is handled as its
+/// descriptor here — resolving the pages needs page access this codec deliberately does not have, and is
+/// <c>RowDecoder</c>'s job through its <c>LongValueReader</c>.
 /// </summary>
 public static class JetTypeCodec
 {
@@ -288,8 +289,9 @@ public static class JetTypeCodec
                 return EncodeNumeric(column, JetDecimalConverter.ToDecimal(value, c));
 
             // Long values (memo/OLE): store the payload inline after the 12-byte descriptor (memo
-            // text as UTF-16LE, OLE as raw bytes). LongValueReader reads this back via the inline
-            // flag. Chained LVAL pages for values too large to inline are not written yet.
+            // text as UTF-16LE, OLE as raw bytes). LongValueReader reads this back via the inline flag. Only a
+            // value the caller has already decided to inline reaches here; anything larger is written to LVAL
+            // pages, single or chained, by LongValueWriter before the row is encoded.
             case JetDataType.Memo:
                 {
                     // An inline memo compresses whether or not the column was declared WITH COMPRESSION — the

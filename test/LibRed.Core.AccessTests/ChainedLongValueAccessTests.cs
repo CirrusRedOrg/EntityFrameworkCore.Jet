@@ -76,14 +76,14 @@ public class ChainedLongValueAccessTests
 
             using var channel = LibRed.IO.PageChannel.Open(path);
             TableDef definition = new JetCatalog(channel).FindTable("Big")!;
-            var decoder = new RowDecoder(definition.Columns, channel.Format);
             int columnId = definition.Columns.First(c => c.Name == "M").ColumnId;
 
             byte[] descriptor = new UsageMap(channel, definition).DataPages()
                 .Select(p => { var page = new DataPage(); page.Read(channel.ReadPage(p), channel.Format); return page; })
                 .SelectMany(page => Enumerable.Range(0, page.RowCount)
                     .Where(row => !page.Rows[row].IsDeleted)
-                    .SelectMany(row => decoder.LongValueRaw(page.GetRow(row))))
+                    .SelectMany(row => RowDecoder.LongValueDescriptors(
+                        definition.Columns, channel.Format, page.GetRow(row))))
                 .Single(d => d.Key == columnId).Value[..12];
 
             Assert.Equal(0x00, descriptor[3] & 0xC0);   // chained, or the stamp would not apply
@@ -121,12 +121,13 @@ public class ChainedLongValueAccessTests
             using (var channel = LibRed.IO.PageChannel.Open(path, readOnly: false))
             {
                 TableDef definition = new JetCatalog(channel).FindTable("Big")!;
-                var decoder = new RowDecoder(definition.Columns, channel.Format);
                 int columnId = definition.Columns.First(c => c.Name == "M").ColumnId;
                 int dataPage = new UsageMap(channel, definition).DataPages().First();
                 var parsed = new DataPage();
                 parsed.Read(channel.ReadPage(dataPage), channel.Format);
-                byte[] descriptor = decoder.LongValueRaw(parsed.GetRow(0)).Single(d => d.Key == columnId).Value;
+                byte[] descriptor = RowDecoder
+                    .LongValueDescriptors(definition.Columns, channel.Format, parsed.GetRow(0))
+                    .Single(d => d.Key == columnId).Value;
                 firstChainPage = descriptor[5] | (descriptor[6] << 8) | (descriptor[7] << 16);
 
                 // Restamp the chain page alone, as a rewrite by another writer would.

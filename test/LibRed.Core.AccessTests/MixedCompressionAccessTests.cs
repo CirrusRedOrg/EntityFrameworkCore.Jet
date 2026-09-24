@@ -70,7 +70,6 @@ public class MixedCompressionAccessTests(ITestOutputHelper output) : TempDatabas
         using var channel = PageChannel.Open(path, readOnly: true);
         TableDef definition = new JetCatalog(channel).FindTable("MixedProbe")!;
         ColumnDef memo = definition.Columns.Single(c => c.Name == "M");
-        var decoder = new RowDecoder(definition.Columns, channel.Format);
         var reader = new LongValueReader(channel);
 
         foreach (int number in new UsageMap(channel, definition).DataPages())
@@ -80,7 +79,7 @@ public class MixedCompressionAccessTests(ITestOutputHelper output) : TempDatabas
             for (int row = 0; row < page.RowCount; row++)
             {
                 if (page.Rows[row].IsDeleted) continue;
-                foreach (var raw in decoder.LongValueRaw(page.GetRow(row)))
+                foreach (var raw in RowDecoder.LongValueDescriptors(definition.Columns, channel.Format, page.GetRow(row)))
                 {
                     if (raw.Key != memo.ColumnId) continue;
                     int stored = (int)(System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(raw.Value)
@@ -102,6 +101,64 @@ public class MixedCompressionAccessTests(ITestOutputHelper output) : TempDatabas
             }
         }
         Assert.Fail("No long-value descriptor was found for the memo column.");
+    }
+
+    // A value whose FIRST character is U+FEFF is the one input that collides with the scheme itself: in plain
+    // UTF-16LE it begins FF FE, which is the compression marker, so a reader cannot tell the two apart from
+    // the bytes alone. ACE is the only authority on which it writes, and the assertion that matters is the
+    // round-trip — whatever form it chose, the characters have to come back.
+    [Theory]
+    [InlineData("﻿abc")]
+    [InlineData("﻿")]
+    [InlineData("﻿﻿")]
+    [InlineData("a﻿b")]        // the control: not first, so no collision
+    public void A_leading_byte_order_mark_round_trips(string payload)
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "bom-comp-");
+        string? aceReadBack;
+        using (OleDbConnection connection = AceTestDatabase.Open(path))
+        {
+            using (OleDbCommand ddl = connection.CreateCommand())
+            {
+                ddl.CommandText = "CREATE TABLE BomProbe (Id LONG PRIMARY KEY, T TEXT(50) WITH COMP)";
+                ddl.ExecuteNonQuery();
+            }
+            using (OleDbCommand insert = connection.CreateCommand())
+            {
+                insert.CommandText = "INSERT INTO BomProbe (Id, T) VALUES (1, ?)";
+                insert.Parameters.Add("t", OleDbType.VarWChar, 50).Value = payload;
+                insert.ExecuteNonQuery();
+            }
+            using OleDbCommand read = connection.CreateCommand();
+            read.CommandText = "SELECT T FROM BomProbe WHERE Id = 1";
+            aceReadBack = read.ExecuteScalar() as string;
+        }
+        output.WriteLine($"ACE reads its own value back as "
+            + $"[{string.Join(" ", (aceReadBack ?? "").Select(c => $"U+{(int)c:X4}"))}]");
+
+        using var channel = PageChannel.Open(path, readOnly: true);
+        TableDef definition = new JetCatalog(channel).FindTable("BomProbe")!;
+        ColumnDef text = definition.Columns.Single(c => c.Name == "T");
+        var decoder = new RowDecoder(definition.Columns, channel.Format, new LongValueReader(channel));
+
+        foreach (int number in new UsageMap(channel, definition).DataPages())
+        {
+            var page = new DataPage();
+            page.Read(channel.ReadPage(number), channel.Format);
+            for (int row = 0; row < page.RowCount; row++)
+            {
+                if (page.Rows[row].IsDeleted) continue;
+                object?[] values = decoder.Decode(page.GetRow(row));
+                output.WriteLine($"[{string.Join(" ", payload.Select(c => $"U+{(int)c:X4}"))}] -> "
+                    + $"read back as [{string.Join(" ", ((string?)values[text.Index] ?? "").Select(c => $"U+{(int)c:X4}"))}]");
+                // LibRed reads what ACE reads. Whether that is the string that went in is ACE's business:
+                // the bytes it stores for a leading U+FEFF are the compression marker, so the format cannot
+                // represent the difference and neither engine can recover it.
+                Assert.Equal(aceReadBack, values[text.Index]);
+                return;
+            }
+        }
+        Assert.Fail("The probe row was not found.");
     }
 
     /// <summary>Mode toggles in a compressed payload — an embedded <c>0x00</c> after the <c>FF FE</c> marker

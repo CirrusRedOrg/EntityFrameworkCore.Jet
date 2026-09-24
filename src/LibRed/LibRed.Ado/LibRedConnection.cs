@@ -227,17 +227,29 @@ public sealed class LibRedConnection : DbConnection
             CurrentTransaction = null;
         }
 
-        _database?.Dispose();
-        _database = null;
-        Engine = null;
+        // The close-time work inside JetDatabase.Dispose can fail on a damaged or unwritable file, and it
+        // closes the channel either way — so the connection lets that exception out (a failed close is worth
+        // knowing about) but must not also keep pointing at a database that is now shut. Leaving the
+        // reference behind left a connection that reported itself Open and failed obscurely on every later
+        // call, including the Close that ADO.NET's own Dispose makes next.
+        try
+        {
+            _database?.Dispose();
+        }
+        finally
+        {
+            _database = null;
+            Engine = null;
 
-        // Only a real transition raises the event. Close() is not guarded against being called on an already
-        // closed connection - and Dispose() calls it - so firing unconditionally would report a second close
-        // that never happened. EF's connection diagnostics count these.
-        if (_state == ConnectionState.Closed) return;
-
-        _state = ConnectionState.Closed;
-        OnStateChange(new StateChangeEventArgs(ConnectionState.Open, ConnectionState.Closed));
+            // Only a real transition raises the event. Close() is not guarded against being called on an
+            // already closed connection - and Dispose() calls it - so firing unconditionally would report a
+            // second close that never happened. EF's connection diagnostics count these.
+            if (_state != ConnectionState.Closed)
+            {
+                _state = ConnectionState.Closed;
+                OnStateChange(new StateChangeEventArgs(ConnectionState.Open, ConnectionState.Closed));
+            }
+        }
     }
 
     /// <summary>The names of the metadata collections this provider serves.</summary>

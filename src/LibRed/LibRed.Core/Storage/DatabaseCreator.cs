@@ -494,8 +494,8 @@ public static class DatabaseCreator
         for (int j = 0; j < longValueCols.Count; j++)
             longValueSpecs.Add(new LongValueColumnSpec(longValueCols[j].id, UsedRow: 2 + 2 * j, FreeRow: 3 + 2 * j, MapPage: usageMapPage));
 
-        byte[] tdef = TdefBuilder.Build(format, TableType.System, columns, longValueColumns: longValueSpecs,
-            collation: collation).Page;
+        byte[] tdef = TdefBuilder.Build(format, TableType.System, columns, collation,
+            longValueColumns: longValueSpecs).Page;
         tdef[format.TdefOwnedPagesOffset] = 0; WriteInt24(tdef, format.TdefOwnedPagesOffset + 1, usageMapPage);
         tdef[format.TdefFreePagesOffset] = 1; WriteInt24(tdef, format.TdefFreePagesOffset + 1, usageMapPage);
         var tdefPage = new byte[format.PageSize];

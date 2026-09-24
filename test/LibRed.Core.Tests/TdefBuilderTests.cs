@@ -31,7 +31,7 @@ public class TdefBuilderTests
             new("Notes", JetDataType.Text, 510, IsFixedLength: false),
         };
 
-        var result = TdefBuilder.Build(Format, TableType.User, specs);
+        var result = TdefBuilder.Build(Format, TableType.User, specs, Collation.GeneralLegacy);
 
         var page = new TableDefinitionPage();
         page.Read(new PageBuffer(result.Page, 99), Format);
@@ -73,7 +73,7 @@ public class TdefBuilderTests
         };
         var indexes = new[] { new IndexSpec("PrimaryKey", ["Id"], IsPrimaryKey: true, IsUnique: true, RootPage: 42) };
 
-        var result = TdefBuilder.Build(Format, TableType.User, specs, indexes);
+        var result = TdefBuilder.Build(Format, TableType.User, specs, Collation.GeneralLegacy, indexes);
 
         var page = new TableDefinitionPage();
         page.Read(new PageBuffer(result.Page, 7), Format);
@@ -99,7 +99,7 @@ public class TdefBuilderTests
             new("Id", JetDataType.Int32, 4, IsFixedLength: true),
             new("Name", JetDataType.Text, 510, IsFixedLength: false),
         };
-        var result = TdefBuilder.Build(Format, TableType.User, specs);
+        var result = TdefBuilder.Build(Format, TableType.User, specs, Collation.GeneralLegacy);
 
         var encoder = new LibRed.Storage.RowEncoder(result.Columns, Format);
         var decoder = new LibRed.Storage.RowDecoder(result.Columns, Format);
@@ -115,7 +115,7 @@ public class TdefBuilderTests
             .Select(i => new ColumnSpec($"C{i}", JetDataType.Int32, 4, IsFixedLength: true))
             .ToArray();
 
-        Assert.Throws<NotSupportedException>(() => TdefBuilder.Build(Format, TableType.User, specs));
+        Assert.Throws<NotSupportedException>(() => TdefBuilder.Build(Format, TableType.User, specs, Collation.GeneralLegacy));
     }
 
     [Theory]
@@ -125,7 +125,7 @@ public class TdefBuilderTests
     {
         ColumnSpec[] specs = [new("C", JetDataType.Int32, length, IsFixedLength: true, ColumnId: columnId)];
 
-        Assert.Throws<NotSupportedException>(() => TdefBuilder.Build(Format, TableType.User, specs));
+        Assert.Throws<NotSupportedException>(() => TdefBuilder.Build(Format, TableType.User, specs, Collation.GeneralLegacy));
     }
 
     [Fact]
@@ -137,7 +137,7 @@ public class TdefBuilderTests
             new("B", JetDataType.Int32, 4, IsFixedLength: true, ColumnId: 3),
         ];
 
-        Assert.Throws<NotSupportedException>(() => TdefBuilder.Build(Format, TableType.User, specs));
+        Assert.Throws<NotSupportedException>(() => TdefBuilder.Build(Format, TableType.User, specs, Collation.GeneralLegacy));
     }
 
     [Fact]
@@ -145,7 +145,7 @@ public class TdefBuilderTests
     {
         ColumnSpec[] specs = [new("A", JetDataType.Binary, 40000, IsFixedLength: true)];
 
-        Assert.Throws<NotSupportedException>(() => TdefBuilder.Build(Format, TableType.User, specs));
+        Assert.Throws<NotSupportedException>(() => TdefBuilder.Build(Format, TableType.User, specs, Collation.GeneralLegacy));
     }
 
     // Every column within the per-field limit, yet the fixed region as a whole is past what a record can
@@ -156,7 +156,7 @@ public class TdefBuilderTests
         ColumnSpec[] specs = [.. Enumerable.Range(0, 252)
             .Select(i => new ColumnSpec($"G{i}", JetDataType.Guid, 16, IsFixedLength: true))];
 
-        Assert.Throws<NotSupportedException>(() => TdefBuilder.Build(Format, TableType.User, specs));
+        Assert.Throws<NotSupportedException>(() => TdefBuilder.Build(Format, TableType.User, specs, Collation.GeneralLegacy));
     }
 
     [Fact]
@@ -165,7 +165,7 @@ public class TdefBuilderTests
         ColumnSpec[] columns = Enumerable.Range(0, 255)
             .Select(i => new ColumnSpec($"C{i:D3}" + new string('N', 60), JetDataType.Boolean, 0, IsFixedLength: true))
             .ToArray();
-        var result = TdefBuilder.Build(Format, TableType.User, columns);
+        var result = TdefBuilder.Build(Format, TableType.User, columns, Collation.GeneralLegacy);
         int declared = BinaryPrimitives.ReadInt32LittleEndian(result.Page.AsSpan(Format.TdefLengthOffset, 4));
 
         var definition = new TableDefinitionPage();
@@ -179,11 +179,11 @@ public class TdefBuilderTests
     {
         string tooLong = new('N', 65);
         Assert.Throws<NotSupportedException>(() => TdefBuilder.Build(Format, TableType.User,
-            [new(tooLong, JetDataType.Int32, 4, IsFixedLength: true)]));
+            [new(tooLong, JetDataType.Int32, 4, IsFixedLength: true)], Collation.GeneralLegacy));
 
         ColumnSpec[] columns = [new("Id", JetDataType.Int32, 4, IsFixedLength: true)];
         IndexSpec[] indexes = [new(tooLong, ["Id"], true, true, RootPage: 2)];
-        Assert.Throws<NotSupportedException>(() => TdefBuilder.Build(Format, TableType.User, columns, indexes));
+        Assert.Throws<NotSupportedException>(() => TdefBuilder.Build(Format, TableType.User, columns, Collation.GeneralLegacy, indexes));
     }
 
     [Theory]
@@ -198,7 +198,7 @@ public class TdefBuilderTests
         LongValueColumnSpec[] longValues = [new(columnId, usedRow, freeRow, mapPage)];
 
         Assert.Throws<NotSupportedException>(() =>
-            TdefBuilder.Build(Format, TableType.User, columns, longValueColumns: longValues));
+            TdefBuilder.Build(Format, TableType.User, columns, Collation.GeneralLegacy, longValueColumns: longValues));
     }
 
     [Fact]
@@ -207,9 +207,9 @@ public class TdefBuilderTests
         ColumnSpec[] columns = [new("M", JetDataType.Memo, 0, IsFixedLength: false)];
         LongValueColumnSpec[] duplicate = [new(0, 1, 2, 5), new(0, 1, 2, 5)];
         Assert.Throws<NotSupportedException>(() =>
-            TdefBuilder.Build(Format, TableType.User, columns, longValueColumns: duplicate));
+            TdefBuilder.Build(Format, TableType.User, columns, Collation.GeneralLegacy, longValueColumns: duplicate));
 
         IndexSpec[] indexes = [new("IX", ["Missing"], false, false, RootPage: 2)];
-        Assert.Throws<NotSupportedException>(() => TdefBuilder.Build(Format, TableType.User, columns, indexes));
+        Assert.Throws<NotSupportedException>(() => TdefBuilder.Build(Format, TableType.User, columns, Collation.GeneralLegacy, indexes));
     }
 }

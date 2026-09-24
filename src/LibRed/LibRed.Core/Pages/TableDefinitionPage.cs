@@ -161,8 +161,14 @@ public sealed class TableDefinitionPage : Page
                 int entry = block + IndexBlockFormat.ColumnsOffset + slot * IndexBlockFormat.ColumnSlotSize;
                 short columnId = buffer.ReadInt16(entry);
                 if (columnId == IndexBlockFormat.ColumnUnused) continue;
-                if (byColumnId.TryGetValue(columnId, out ColumnDef? column))
-                    columns.Add((column, (buffer.ReadByte(entry + 2) & IndexBlockFormat.ColumnAscending) != 0));
+                // A used slot naming a column this table does not have is corruption, and a silent skip is the
+                // worst answer: the index reads back over FEWER columns than it was built on, so its keys are
+                // encoded differently from the ones on its pages and every seek quietly misses.
+                if (!byColumnId.TryGetValue(columnId, out ColumnDef? column))
+                    throw new InvalidDataException(
+                        $"Index {i} of the table at page {buffer.PageNumber} names column id {columnId} in slot "
+                        + $"{slot}, which the table does not have.");
+                columns.Add((column, (buffer.ReadByte(entry + 2) & IndexBlockFormat.ColumnAscending) != 0));
             }
 
             _indexes.Add(new IndexDef
@@ -267,7 +273,13 @@ public sealed class TableDefinitionPage : Page
             (string name, namePos) = ReadName(buffer, namePos, $"logical index {i}");
 
             (int dataNumber, bool isRelationship, byte type, byte fkType) = info[i];
-            if (dataNumber < 0 || dataNumber >= _indexes.Count) continue;
+            // Every logical index names the data block that holds its columns and root page. One that names a
+            // block the table does not have is corruption; skipping it used to make the index vanish from the
+            // table's schema while its B-tree stayed on disk, maintained by nobody.
+            if (dataNumber < 0 || dataNumber >= _indexes.Count)
+                throw new InvalidDataException(
+                    $"Logical index '{name}' of the table at page {buffer.PageNumber} names index-data block "
+                    + $"{dataNumber}, and the table has {_indexes.Count}.");
 
             _logicalIndexes.Add(new LogicalIndexDef(name, dataNumber, isRelationship,
                 !isRelationship && type == IndexBlockFormat.TypePrimary, fkType));
@@ -387,11 +399,17 @@ public sealed class TableDefinitionPage : Page
         // has five). Applying the header pair to those too reports a seed and increment that describe a
         // different counter, so skip them: their high-water is the table's ComplexAutoNumber.
         int increment = buffer.ReadInt32(format.TdefAutoNumberIncrementOffset);
-        if (increment == 0) increment = 1;
         int lastAuto = buffer.ReadInt32(format.TdefLastAutoNumberOffset);
         foreach (ColumnDef column in _columns)
             if (column.IsAutoNumber && column.Type != JetDataType.Complex)
             {
+                // Zero is not a counter ACE will write: its own DDL refuses COUNTER(seed, 0) with "Invalid
+                // argument", because every row would take the same id. A table carrying one is damaged, and
+                // reading it as 1 — which this did — hides that behind a counter that looks ordinary.
+                if (increment == 0)
+                    throw new InvalidDataException(
+                        $"The table at page {buffer.PageNumber} has AutoNumber column '{column.Name}' and an "
+                        + "increment of 0, which would hand every row the same id.");
                 column.Increment = increment;
                 column.Seed = lastAuto + increment;
             }

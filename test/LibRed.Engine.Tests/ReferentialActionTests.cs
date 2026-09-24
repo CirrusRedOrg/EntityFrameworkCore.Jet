@@ -95,6 +95,70 @@ public class ReferentialActionTests
         });
     }
 
+    // SET NULL on a SELF-referencing table, where the row being nulled and the row being deleted are rows of
+    // one table. The action reads each child from the snapshot it took before the delete, so a child that the
+    // delete has already removed — or that an earlier child's nulling has already rewritten — is looked up by
+    // a key the table no longer holds, and the index says "entry not found".
+    [Fact]
+    public void Set_null_delete_on_a_self_referencing_table_nulls_the_children()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery(
+                "CREATE TABLE T (Id long PRIMARY KEY, ParentId long, "
+                + "CONSTRAINT FK_T FOREIGN KEY (ParentId) REFERENCES T (Id) ON DELETE SET NULL)");
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (1, NULL)");   // the root
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (2, 1)");      // three children of it
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (3, 1)");
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (4, 1)");
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (5, 2)");      // and a grandchild
+
+            Assert.Equal(1, e.ExecuteNonQuery("DELETE FROM T WHERE Id = 1"));
+
+            // The root is gone, its three children point at nothing, and the grandchild is untouched.
+            var rows = e.ExecuteQuery("SELECT Id, ParentId FROM T ORDER BY Id").Rows
+                .Select(r => (Convert.ToInt32(r[0]), r[1] is null ? -1 : Convert.ToInt32(r[1]))).ToArray();
+            Assert.Equal([(2, -1), (3, -1), (4, -1), (5, 2)], rows);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // The harder half: the row the action nulls is ALSO one the statement is deleting. Deleting the parent
+    // rewrites the child's FK, and the statement then reaches that child carrying the values it read before —
+    // whose key no longer names anything in the index.
+    [Fact]
+    public void Set_null_delete_reaches_a_child_the_same_statement_is_deleting()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery(
+                "CREATE TABLE T (Id long PRIMARY KEY, ParentId long, "
+                + "CONSTRAINT FK_T FOREIGN KEY (ParentId) REFERENCES T (Id) ON DELETE SET NULL)");
+            e.ExecuteNonQuery("CREATE INDEX IX_Parent ON T (ParentId)");
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (1, NULL)");
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (2, 1)");
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (3, 2)");
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (4, 1)");
+
+            // 1 and 2 go together, and 2 is 1's child — so the action rewrites a row the delete also removes.
+            Assert.Equal(2, e.ExecuteNonQuery("DELETE FROM T WHERE Id = 1 OR Id = 2"));
+
+            var rows = e.ExecuteQuery("SELECT Id, ParentId FROM T ORDER BY Id").Rows
+                .Select(r => (Convert.ToInt32(r[0]), r[1] is null ? -1 : Convert.ToInt32(r[1]))).ToArray();
+            Assert.Equal([(3, -1), (4, -1)], rows);
+
+            // And the index agrees with the rows: a seek on the nulled column finds both survivors.
+            Assert.Equal(2, e.ExecuteQuery("SELECT Id FROM T WHERE ParentId IS NULL").Rows.Count());
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     // ON UPDATE SET NULL is a pathway only — its Jet storage bytes are unverified (ACE's OLE DB provider
     // rejects the DDL), so creating one throws NotImplemented rather than guessing the bytes.
     [Fact]

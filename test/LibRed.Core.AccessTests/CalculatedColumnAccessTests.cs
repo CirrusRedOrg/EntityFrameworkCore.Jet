@@ -699,7 +699,6 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
         Table t = db.OpenTable(table);
         int index = t.Definition.FindColumn(column)!.Index;
         ColumnDef id = t.Definition.FindColumn("Id")!;
-        var decoder = new RowDecoder(t.Definition.Columns, t.Channel.Format);
 
         // Deliberately NOT t.Rows(): decoding a row whose calculated column holds a cached error throws by
         // design, and the probes that need those bytes are exactly the ones that produce them. Only the raw
@@ -712,7 +711,8 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
             {
                 if (page.Rows[row].IsDeleted) continue;
                 byte[] raw = page.GetRow(row).ToArray();
-                byId[BitConverter.ToInt32(raw, 2 + id.FixedOffset)] = decoder.CalculatedRaw(raw)[index];
+                byId[BitConverter.ToInt32(raw, 2 + id.FixedOffset)] =
+                    RowDecoder.CalculatedSlots(t.Definition.Columns, t.Channel.Format, raw)[index];
             }
         }
         return (byId[1], byId[2]);

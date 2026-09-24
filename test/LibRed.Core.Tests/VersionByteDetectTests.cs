@@ -77,4 +77,58 @@ public class VersionByteDetectTests
         Assert.Equal(JetVersion.Version4, format.Version);
         Assert.False(format.IsAccdb);
     }
+
+    // The fallback has to hold for the whole life of the channel, not just its open. Every rollback re-derives
+    // the format from the version byte then on disk, and re-deriving it STRICTLY contradicts the open: a file
+    // that opened and read perfectly well threw on its first rollback, because 0x07 has no format class.
+    [Fact]
+    public void A_future_version_byte_survives_a_rollback()
+    {
+        string path = TemporaryDatabase.CreatePath("future-version-");
+        try
+        {
+            Storage.DatabaseCreator.CreateEmpty(path);
+            byte[] file = File.ReadAllBytes(path);
+            file[JetFormatBase.VersionOffset] = 0x07;      // an ACE this build has never heard of
+            File.WriteAllBytes(path, file);
+
+            using var db = JetDatabase.Open(path, readOnly: false);
+            Assert.Equal(JetVersion.Version17_2019, db.Format.Version);   // read as the latest known layout
+
+            db.BeginTransaction();
+            db.CreateTable("T", [new Catalog.ColumnSpec("Id", Catalog.JetDataType.Int32, 4, IsFixedLength: true)]);
+            db.Rollback();
+
+            Assert.Null(db.Catalog.FindTable("T"));
+            Assert.Equal(JetVersion.Version17_2019, db.Format.Version);   // and still reads the same way
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // A raise is something ANOTHER connection can do to the file, and the version it leaves decides which
+    // types this one will accept. A handle open across that change used to keep reporting the version the
+    // file had when it opened, so it would refuse a column the file had just been made able to hold.
+    [Fact]
+    public void A_raise_by_another_handle_is_picked_up()
+    {
+        string path = TemporaryDatabase.CreatePath("raise-other-handle-");
+        try
+        {
+            Storage.DatabaseCreator.CreateEmpty(path, version: 0x02);   // ACE 12
+
+            using var watcher = JetDatabase.Open(path, readOnly: false);
+            Assert.Equal(JetVersion.Version12_2007, watcher.Format.Version);
+
+            using (var raiser = JetDatabase.Open(path, readOnly: false))
+            {
+                Assert.True(raiser.EnsureFormatAtLeast(JetVersion.Version16_2016));
+                raiser.CreateTable("Big", [new Catalog.ColumnSpec("N", Catalog.JetDataType.Int64, 8, IsFixedLength: true)]);
+            }
+
+            // The other handle sees the new table, and the version that came with it.
+            Assert.NotNull(watcher.Catalog.FindTable("Big"));
+            Assert.Equal(JetVersion.Version16_2016, watcher.Format.Version);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
 }

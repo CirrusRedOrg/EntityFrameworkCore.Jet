@@ -70,6 +70,15 @@ public sealed class TableDef
     /// definition, say).</summary>
     public uint ObjectFlags { get; internal set; }
 
+    /// <summary>
+    /// One <see cref="IndexDef"/> per B-tree the table actually has: those with a root page, deduplicated by
+    /// it. Several logical indexes can name one index-data block — a primary key that also backs a
+    /// relationship is the everyday case — and they are the same tree, so anything that maintains index
+    /// entries must visit it once. Doing it per <see cref="Indexes"/> entry writes the same key twice.
+    /// </summary>
+    public IEnumerable<IndexDef> RealIndexes =>
+        Indexes.Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First());
+
     public ColumnDef? FindColumn(string name) =>
         Columns.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
 }

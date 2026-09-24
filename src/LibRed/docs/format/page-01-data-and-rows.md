@@ -135,6 +135,11 @@ exception** on ACE x64, the **ACE 2010 runtime on x86**, and LibRed's own writer
 shrinking text, repeated re-relocation of the same rows, page fragmentation by interleaved deletes and
 re-inserts, and an OLE column going from NULL to a value.
 
+**A relocated row that grows past its new page moves again**, and the second move is the first one repeated
+rather than a chain: the pointer in the source slot is re-aimed at the row's third home, and the page it is
+leaving keeps a **zero-length deleted+overflow tombstone** where the hidden row was, its bytes returned to the
+page. There is never a pointer that points at a pointer.
+
 Longer slots exist in real files all the same — e.g. live overflow slots of 45–63 bytes in
 `MSysAccessStorage`. Their content is the row **as it was before it moved**, with only the leading 4 bytes
 replaced by the pointer:

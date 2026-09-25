@@ -329,8 +329,9 @@ was written**, not what is true now.
 **Do not edit source files through the shell.** No `sed -i`, no redirects or `tee` into `.cs`/`.md`/`.csproj`/
 `.props`/`.json`/`.ps1`/`.g4`, and no Python scripts that rewrite files. Shell edits bypass the agent's file
 checkpointing, so the change cannot be rolled back. Use your editor/patch tooling instead. (Claude Code enforces
-this with `PreToolUse` hooks in `.claude/settings.json`, which also block reading files via `cat`/`grep`/`ls` in
-favour of its own file tools; the underlying convention applies to any agent working here.)
+this with `PreToolUse` hooks in `.claude/settings.json`, which also block reading files via `cat`/`grep`/`ls` —
+and via `git grep`/`git cat-file`, which read the same way but slip past the read-only-git allowance — in favour
+of its own file tools; the underlying convention applies to any agent working here.)
 
 Writing scratch files and logs outside the repo is fine. `dotnet build`/`test`/`restore` and read-only `git`
 commands are the expected shell usage.

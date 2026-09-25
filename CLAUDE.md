@@ -346,13 +346,18 @@ here, because it sends the work off in a direction that has to be unwound later.
 verify against the code rather than quoting the list; and a **memory or summary records what was true when it
 was written**, not what is true now.
 
-`.claude/settings.json` installs `PreToolUse` hooks that **deny** two things in `Bash`/`PowerShell`:
+`.claude/settings.json` installs `PreToolUse` hooks that **deny** three things in `Bash`/`PowerShell`:
 
 - **Reading files through the shell** (`cat`, `head`, `grep`, `ls`, `find`, `Get-Content`, `Select-String`, …) —
   use `Read`, `Grep`, `Glob` instead. Shell text tools stay allowed on paths containing `scratchpad`, `.log` or `/tmp/`.
+  `git grep` and `git cat-file` are denied with them: read-only `git` is otherwise pre-allowed, which made them a
+  way to spell the same read and skip the prompt. `git diff`/`log`/`show` stay allowed for reviewing history.
 - **Editing source files through the shell** (`sed -i`, redirects/`tee` into `.cs`/`.md`/`.csproj`/`.props`/`.json`/
   `.ps1`/`.g4`, and any `python` invocation) — these bypass file checkpointing, so `/rewind` cannot undo them.
   Use `Edit`/`Write`.
+- **`LibRed.Core.AccessTests` or `LibRed.Engine.AccessTests` in the foreground with no `--filter`** — they are
+  ~7 and ~1.5 minutes, and waiting on them is dead session time. Add a `--filter` naming the tests that cover
+  the change, or pass `run_in_background` and carry on working while they run. The other suites are unaffected.
 
 `dotnet build`/`test`/`restore` and read-only `git` commands are pre-allowed, so don't work around the hooks — the
 denial message is telling you which tool to use, not that the action is forbidden.

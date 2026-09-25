@@ -13,7 +13,7 @@
 | `0x14` | 1 | Version byte (see below). mdbtools reads `jet_version` as a 4-byte word at `0x14`; the version is its low byte |
 | `0x15` | 1 | Version **minor** byte: **`0x01` on a database created in the 2010 format (version `0x03`)**, `0x00` when created in any other. **A version raise writes `0x00`** whatever the target — including a raise *onto* `0x03`. Purpose otherwise unknown |
 | `0x16` | 2 | Unknown (zero observed) |
-| `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with a fixed 128-byte mask (§2.1). Jet 3 masks 126 bytes. Fields below are offsets into it. |
+| `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with the RC4 keystream of the key `C7 DA 39 6B` (§2.1). Jet 3 masks 126 bytes. Fields below are offsets into it. |
 | `0x18` | 4 | **Global free-pages map pointer** — `[row:1][page:3]`; `0x00000100` = page 1 row 0 in every file ACE writes ([page-05 §9.1](page-05-usage-maps.md)) |
 | `0x1C` | 4 | **Global released-pages map pointer** — `[row:1][page:3]`; `0x00000101` = page 1 row 1 ([page-05 §9.1](page-05-usage-maps.md)) |
 | `0x20`–`0x2C` | 4×4 | **System-catalog bootstrap pointers**: TDEF pages of `MSysObjects` / `MSysACEs` / `MSysQueries` / `MSysRelationships` = `2, 3, 4, 5`. `0x20` is the **catalog root** (how the engine finds `MSysObjects`). |
@@ -178,13 +178,14 @@ service-pack build.
 ### 2.1 The obfuscated header (`0x18`–`0x98`)
 
 From `0x18` for **128 bytes** (Jet 4 / ACE; 126 for Jet 3), page 0 is obfuscated by XOR-ing the
-plaintext with a **fixed byte mask** — a constant baked into the format, not a per-file salt. Past
-the window the bytes are in the clear: a fixed constant `0x00000654` at `0x98`, the NUL-terminated
-ASCII engine-version string **`"4.0"`** at `0x9C` (the Jet 4.0 version — identical in `.mdb` and
-`.accdb`), then zero padding.
+plaintext with an **RC4 keystream under the fixed 4-byte key `C7 DA 39 6B`** — the same for every file,
+not a per-file salt. Past the window the bytes are in the clear: a fixed constant `0x00000654` at `0x98`,
+the NUL-terminated ASCII engine-version string **`"4.0"`** at `0x9C` (the Jet 4.0 version — identical in
+`.mdb` and `.accdb`), then zero padding.
 
-**The mask.** LibRed uses the 128-byte mask below (`JetFormatBase.PageZeroHeaderMask`), de-obfuscating
-the whole region once in `DatabaseDefinitionPage.Read`:
+**The mask.** The keystream's first 128 bytes are below; LibRed holds them as a constant
+(`JetFormatBase.PageZeroHeaderMask`) and de-obfuscates the whole region once in
+`DatabaseDefinitionPage.Read`. RC4 under `C7 DA 39 6B` reproduces them exactly (verified):
 
 ```
 B5 6F 03 62 61 08 C2 55 EB A9 67 72 43 3F 00 9C   ; 0x18
@@ -338,37 +339,47 @@ values Access shows in the `SID` column:
 | `Users` | group | `02-01` |
 | `Engine` | — | `02-03` |
 | `Creator` | — | `02-04` |
-| `Admins` | group | `01-DB-87-93-20-81-4F-AB-38-…` (long, per-workgroup-unique) |
+| `Admins` | group | `01-DB-87-93-20-81-4F-AB-38-…` (102 bytes) |
 
 These short SIDs are the well-known Access defaults (identical on every stock install — which is why a captured
 SID cluster opens cross-PC). Object ownership in a database uses the **"user" form** (byte0 `0x03`) of
 `Engine`/`Creator`.
 
-The 2-byte on-disk SIDs in `MSysACEs.SID` / `MSysObjects.Owner` are each a **workgroup account SID XOR'd with a
-per-file 2-byte mask**. Verified, e.g. with mask `24-CC`: `Users 02-01 ^ 24-CC = 26-CD`,
-`admin 03-01 ^ 24-CC = 27-CD` (read grantee), `Engine 03-03 ^ 24-CC = 27-CF` (system-object owner),
-`Creator 03-04 ^ 24-CC = 27-C8` (inheritable container grant). The long `Admins` SID isn't emitted — Access
-materialises it (as a 98-byte SID) on first open.
+An on-disk SID in `MSysACEs.SID` / `MSysObjects.Owner` is the **workgroup account SID XOR'd with a per-file
+keystream**, from the keystream's first byte (verified). Every SID in a file shares the one keystream, so a
+2-byte SID always meets its first two bytes, and against the short SIDs the keystream reads as a **2-byte
+mask**. E.g. with mask `24-CC`: `Users 02-01 ^ 24-CC = 26-CD`, `admin 03-01 ^ 24-CC = 27-CD` (read grantee),
+`Engine 03-03 ^ 24-CC = 27-CF` (system-object owner), `Creator 03-04 ^ 24-CC = 27-C8` (inheritable container
+grant).
+
+Access adds **102-byte SIDs** on first open, and they use the same keystream: under the file's short-SID mask
+their first two bytes read `00 DB`, and two of them in one file differ by the same bytes in files from different
+installs, which only a shared keystream allows (verified). Beyond byte 1 neither their plaintext nor the
+keystream is established, so only the first two keystream bytes are recoverable from a file.
 
 **The mask is recoverable from the file, even though it is stored nowhere (verified).** `MSysObjects` is owned
-by the `Engine` account (`03-03`) in every file, so `mask = MSysObjects.Owner ^ 03-03`, and every other account
-follows from it: an owner of `680E` gives mask `6B-0D`, under which that file's `690C` / `680C` / `6809` are
-`Users` / `admin` / `Creator`. That is how a writer adding an object to a file it did not create gets the SIDs
-right ([system-catalog §11](system-catalog.md)); the pair baked in below fits only the files this engine
+by the `Engine` account (`03-03`) in every file, so `mask = MSysObjects.Owner ^ 03-03`, and every other short
+account follows from it: an owner of `680E` gives mask `6B-0D`, under which that file's `690C` / `680C` / `6809`
+are `Users` / `admin` / `Creator`. That is how a writer adding an object to a file it did not create gets the
+SIDs right ([system-catalog §11](system-catalog.md)); the pair baked in below fits only the files this engine
 creates itself.
 
-That mask is **bound to the exact millisecond-precise creation-date `double`** at `0x72`: a file with
+The keystream is **bound to the exact millisecond-precise creation-date `double`** at `0x72`: a file with
 self-consistent SIDs but a *different* creation date is rejected with *"Record(s) cannot be read; no read
 permission on 'MSysObjects'/'MSysACEs'"* (Jet 3112). Grafting a real file's date **and** SIDs together opens
-clean; either alone fails. There is **no known closed-form `date → mask` function** — word XOR/sum, CRC-16,
-MSVCRT `rand`, the VBA LCG and multiplicative hashes do not fit, and files created in the same second have
-unrelated masks; Access most likely draws both the mask and the sub-second creation bits from one
-PRNG state, so they correlate but neither derives from the other. `DatabaseCreator` therefore **bakes one
-verified `(SeedCreationDateBits, SidMask)` pair** (`0x40E68F1E8943D217` + `24-CC`) rather than computing it —
-the from-scratch analogue of the account-SID constants. Limitations (deferred): every LibRed-created file
-reports the same creation instant, and only the **default** workgroup is supported; per-file-random dates and
-custom/secured workgroups both need the date↔mask coupling cracked (reading a custom `System.mdw` itself
-works — §2.4).
+clean; either alone fails. Dates within the same second give unrelated keystreams.
+
+How the keystream derives from the date is **not known**. It is not RC4 under a 4-byte key made from the date's
+low half, high half, their XOR or its day count combined with any constant by XOR, addition or subtraction; nor
+RC4, MD5 or SHA-1 keyed by the date (its `double` in either byte order, either half, its day, second or
+millisecond count, its `FILETIME` or `SYSTEMTIME`, or the date as stored), by any span of page 0 decoded or raw,
+or by the header's `C7 DA 39 6B` key combined with the date; nor MSVCRT `rand` or the VB `Rnd` generator seeded
+from page 0.
+`DatabaseCreator` therefore **bakes one verified `(SeedCreationDateBits, SidMask)` pair** (`0x40E68F1E8943D217`
++ `24-CC`) rather than computing it — the from-scratch analogue of the account-SID constants. Limitations
+(deferred): every LibRed-created file reports the same creation instant, and only the **default** workgroup is
+supported; per-file-random dates and custom/secured workgroups both need the date↔keystream derivation (reading
+a custom `System.mdw` itself works — §2.4).
 
 ### 2.4 Legacy Jet 3/4 RC4 page encryption (verified)
 

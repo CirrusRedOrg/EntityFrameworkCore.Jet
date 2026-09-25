@@ -50,7 +50,8 @@ public abstract class JetFormatBase
     public const string JetSystemIdentifier = "Jet System DB";
 
     // --- Page 0 obfuscated header (0x18..0x98) ---
-    // The header is XOR-obfuscated with a fixed 128-byte mask (below). Field offsets and the mask
+    // The header is XOR-obfuscated with a fixed 128-byte mask (below): the RC4 keystream of the key
+    // C7 DA 39 6B, the same for every file. Field offsets and the mask
     // are corroborated by mdbtools and Jackcess AND verified against real files here: the mask
     // reproduces the code page (0x3C), collation LCID (0x6E) and creation date (0x72) bytes we
     // recovered independently by known-plaintext, and it decodes every fixture's header to sensible

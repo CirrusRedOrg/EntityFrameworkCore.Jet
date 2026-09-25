@@ -206,19 +206,20 @@ public static class DatabaseCreator
 
     private const int SystemFlag = unchecked((int)0x80000000);
 
-    // Per-file SID cluster. A database's on-disk 2-byte SIDs are the DEFAULT WORKGROUP's account SIDs XOR'd with
-    // a per-file 2-byte mask. The account SIDs were read verbatim from a real System.mdw (the file Access opens
-    // first to authenticate): admin(user)=03-01, Users(group)=02-01, Engine=02-03, Creator=02-04; the Admins
-    // group alone has a long per-workgroup SID (which Access materialises as a 98-byte SID on first open, so we
-    // don't emit it). Object ownership uses the "user" form (byte0 0x03) of Engine/Creator, matching real DAO
-    // files. Verified against WideTable with mask 24-CC: Users 02-01^24-CC = 26-CD, admin 03-01^24-CC = 27-CD,
-    // Engine-as-user 03-03^24-CC = 27-CF (system-object owner), Creator-as-user 03-04^24-CC = 27-C8.
+    // Per-file SID cluster. A database's on-disk SIDs are the DEFAULT WORKGROUP's account SIDs XOR'd with a
+    // per-file keystream, whose first two bytes are all a 2-byte SID meets — so it reads as a 2-byte mask. The
+    // account SIDs were read verbatim from a real System.mdw (the file Access opens first to authenticate):
+    // admin(user)=03-01, Users(group)=02-01, Engine=02-03, Creator=02-04; the Admins group alone has a 102-byte
+    // SID, which Access adds on first open, so we don't emit it. Object ownership uses the "user" form (byte0
+    // 0x03) of Engine/Creator, matching real DAO files. Verified against WideTable with mask 24-CC: Users
+    // 02-01^24-CC = 26-CD, admin 03-01^24-CC = 27-CD, Engine-as-user 03-03^24-CC = 27-CF (system-object owner),
+    // Creator-as-user 03-04^24-CC = 27-C8.
     //
-    // The mask is bound to the millisecond-precise creation date: Access derives both from a shared PRNG state
-    // at create time, so there is NO closed-form date->mask function (144 files, no checksum/PRNG fit) and the
-    // two MUST travel together. We bake one verified, self-consistent (creation-date, mask) pair — the from-
-    // scratch analogue of the account-SID constants — giving an Access-openable file with no template/graft.
-    // TODO: per-file-random dates (and custom/secured workgroups) need the date<->mask coupling cracked.
+    // The keystream is bound to the millisecond-precise creation date, and how it derives from the date is not
+    // known (docs/format/page-00-database.md §2.3), so the two MUST travel together. We bake one verified,
+    // self-consistent (creation-date, mask) pair — the from-scratch analogue of the account-SID constants —
+    // giving an Access-openable file with no template/graft.
+    // TODO: per-file-random dates (and custom/secured workgroups) need the date<->keystream derivation.
     internal const long SeedCreationDateBits = 0x40E68F1E8943D217L; // 2026-06-27 22:54:07.716 (WideTable) — pairs with SidMask
     private static readonly byte[] SidMask = [0x24, 0xCC];           // WideTable's per-file mask (pairs with SeedCreationDateBits)
     private static byte[] Masked(byte b0, byte b1) => [(byte)(b0 ^ SidMask[0]), (byte)(b1 ^ SidMask[1])];

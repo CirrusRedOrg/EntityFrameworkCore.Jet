@@ -63,7 +63,7 @@ public sealed class DatabaseDefinitionPage : Page
         FormatIdentifier = Formats.JetFormatBase.ReadFormatIdentifier(buffer.Span);
         JetVersion = buffer.ReadByte(Formats.JetFormatBase.VersionOffset);
 
-        // The header from 0x18 is XOR-obfuscated with the fixed 128-byte mask; de-obfuscate the
+        // The header from 0x18 is XOR-obfuscated with a fixed RC4 keystream; de-obfuscate the
         // whole region once, then read the fields out of the clear copy.
         Span<byte> clear = stackalloc byte[Formats.JetFormatBase.PageZeroHeaderMask.Length];
         Demask(buffer.Span, clear);

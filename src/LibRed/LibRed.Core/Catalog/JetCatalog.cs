@@ -184,6 +184,12 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
     public TableDef? FindTable(string name) =>
         Tables.FirstOrDefault(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>A catalog table the caller cannot proceed without — <c>MSysObjects</c>, <c>MSysACEs</c> and
+    /// the rest. Their absence is a broken database rather than a case to handle, so this throws where
+    /// <see cref="FindTable"/> returns null.</summary>
+    public TableDef RequireTable(string name) =>
+        FindTable(name) ?? throw new InvalidOperationException($"{name} catalog table was not found.");
+
     private List<TableDef> LoadTables()
     {
         // Build a TableDef for MSysObjects from its own (fixed) TDEF page, then scan its rows.
@@ -226,27 +232,28 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
             // Attach column DefaultValue and table CHECK properties from the extended-properties (LvProp) blob.
             if (row[lvpropIndex] is byte[] { Length: > 0 } blob)
             {
-                var defaults = PropertyBlob.ReadColumnDefaults(blob);
-                var required = PropertyBlob.ReadRequiredColumns(blob);
+                IReadOnlyList<PropertyBlob.Property> properties = PropertyBlob.Read(blob);
+                var defaults = PropertyBlob.ReadColumnDefaults(properties);
+                var required = PropertyBlob.ReadRequiredColumns(properties);
                 foreach (ColumnDef column in definition.Columns)
                 {
                     if (defaults.TryGetValue(column.Name, out string? value))
                         column.DefaultValue = value;
                     if (required.Contains(column.Name))
                         column.IsNullable = false;
-                    (column.ValidationRule, column.ValidationText) = PropertyBlob.ReadValidation(blob, column.Name);
+                    (column.ValidationRule, column.ValidationText) = PropertyBlob.ReadValidation(properties, column.Name);
                     // A calculated column's expression and REAL result type live here, not in the descriptor
                     // (§3.4a). Without them the stored payload can only be guessed from its width, which is
                     // wrong whenever the declared and expression types differ.
                     if (column.IsCalculated)
                         (column.CalculatedExpression, column.CalculatedResultType) =
-                            PropertyBlob.ReadCalculated(blob, column.Name);
+                            PropertyBlob.ReadCalculated(properties, column.Name);
                 }
 
-                var checks = PropertyBlob.ReadCheckConstraints(blob);
+                var checks = PropertyBlob.ReadCheckConstraints(properties);
                 if (checks.Count > 0) definition.CheckConstraints = checks;
 
-                (definition.ValidationRule, definition.ValidationText) = PropertyBlob.ReadValidation(blob, "");
+                (definition.ValidationRule, definition.ValidationText) = PropertyBlob.ReadValidation(properties, "");
             }
             tables.Add(definition);
         }

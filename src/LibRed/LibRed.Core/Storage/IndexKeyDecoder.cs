@@ -56,7 +56,7 @@ public static class IndexKeyDecoder
                 continue;
             }
 
-            int size = FixedKeySize(column.Type);
+            int size = IndexKeyFlags.FixedKeySize(column.Type);
             if (size <= 0 || pos + size > key.Length)
                 break; // text/binary/unsupported (lossy) — cannot reliably continue
 
@@ -67,17 +67,6 @@ public static class IndexKeyDecoder
 
         return values;
     }
-
-    private static int FixedKeySize(JetDataType type) => type switch
-    {
-        JetDataType.Byte => 1,
-        JetDataType.Int16 => 2,
-        JetDataType.Int32 => 4,
-        JetDataType.Single => 4,
-        JetDataType.Double or JetDataType.DateTime => 8,
-        JetDataType.Currency or JetDataType.Int64 => 8,
-        _ => -1,
-    };
 
     private static object DecodeFixed(JetDataType type, Span<byte> raw, bool ascending)
     {

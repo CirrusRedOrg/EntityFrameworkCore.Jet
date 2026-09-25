@@ -423,23 +423,7 @@ public sealed class OfficeStandardEncryption : IPageCodec
         result.CopyTo(page);
     }
 
-    private static void Rc4(ReadOnlySpan<byte> key, Span<byte> data)
-    {
-        Span<byte> s = stackalloc byte[256];
-        for (int i = 0; i < 256; i++) s[i] = (byte)i;
-        for (int i = 0, j = 0; i < 256; i++)
-        {
-            j = (j + s[i] + key[i % key.Length]) & 0xFF;
-            (s[i], s[j]) = (s[j], s[i]);
-        }
-        for (int n = 0, a = 0, b = 0; n < data.Length; n++)
-        {
-            a = (a + 1) & 0xFF;
-            b = (b + s[a]) & 0xFF;
-            (s[a], s[b]) = (s[b], s[a]);
-            data[n] ^= s[(s[a] + s[b]) & 0xFF];
-        }
-    }
+    private static void Rc4(ReadOnlySpan<byte> key, Span<byte> data) => Rc4Cipher.Apply(key, data);
 
     private static byte[] Fix(byte[] b, int len)
     {

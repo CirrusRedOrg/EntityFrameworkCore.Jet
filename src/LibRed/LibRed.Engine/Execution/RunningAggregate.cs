@@ -80,10 +80,17 @@ internal sealed class RunningAggregate
     }
 
     /// <summary>Whether <paramref name="name"/> (upper case) is an aggregate this computes.</summary>
-    public static bool Supports(string name) =>
-        Canonical(name) is "COUNT" or "SUM" or "AVG" or "MIN" or "MAX" or "VAR" or "VARP" or "STDEV" or "STDEVP"
-            or "STDDEV" or "STDDEVP"
-        || IsPair(name);
+    public static bool Supports(string name) => ScalarNames.Contains(Canonical(name)) || IsPair(name);
+
+    /// <summary>The aggregates this computes, under every name they answer to. One list, which
+    /// <see cref="Supports"/> derives from, so a name cannot be added to the computation and missed by the
+    /// test that binds this set to the planner and to the declared result types.</summary>
+    public static IEnumerable<string> SupportedNames => ScalarNames.Concat(PairNames).Concat(StandardNames.Keys);
+
+    private static readonly HashSet<string> ScalarNames =
+    [
+        "COUNT", "SUM", "AVG", "MIN", "MAX", "VAR", "VARP", "STDEV", "STDEVP", "STDDEV", "STDDEVP",
+    ];
 
     /// <summary>Whether <paramref name="name"/> (upper case) is a binary set function, fed by <see cref="AddPair"/>.</summary>
     public static bool IsPair(string name) => PairNames.Contains(name);

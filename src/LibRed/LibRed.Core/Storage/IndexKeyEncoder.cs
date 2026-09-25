@@ -195,7 +195,7 @@ public static class IndexKeyEncoder
                 continue;
             }
 
-            int size = FixedKeySize(column.Type);
+            int size = IndexKeyFlags.FixedKeySize(column.Type);
             if (size <= 0)
                 throw new NotSupportedException(
                     $"Index key encoding for {column.Type} (binary collation) is not supported yet.");
@@ -259,24 +259,6 @@ public static class IndexKeyEncoder
         }
         while (offset < data.Length);
     }
-
-    private static int FixedKeySize(JetDataType type) => type switch
-    {
-        JetDataType.Byte => 1,
-        JetDataType.Int16 => 2,
-        JetDataType.Int32 => 4,
-        // A complex (multi-value / attachment) column's key is its Int32 complex id, encoded exactly as an
-        // Int32 — verified against ACE over 43 entries across 9 such indexes in two files, covering
-        // attachment, Text and Long element types, with no difference in any byte.
-        JetDataType.Complex => 4,
-        JetDataType.Single => 4,
-        JetDataType.Double or JetDataType.DateTime => 8,
-        // Int64/BIGINT keys like Currency — both are an int64, sign bit flipped, big-endian. Its VARIABLE
-        // storage does not change that: this dispatch is on the type, not on where the row keeps it.
-        JetDataType.Currency or JetDataType.Int64 => 8,
-        JetDataType.FixedPoint => 17, // sign byte + 16-byte big-endian magnitude
-        _ => -1,
-    };
 
     private static byte[] EncodeFixed(ColumnDef column, object value)
     {

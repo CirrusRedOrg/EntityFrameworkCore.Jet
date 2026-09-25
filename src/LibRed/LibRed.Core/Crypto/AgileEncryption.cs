@@ -92,15 +92,7 @@ public sealed class AgileEncryption : IPageCodec
             VerifyDeclaredSizes(keyData, hash, keyDataSalt.Length);
             VerifyDeclaredSizes(encKey, hash, pwdSalt.Length);
 
-            // H_spin = Hash(salt ‖ UTF16LE(password)), then spinCount iterations of Hash(LE32(i) ‖ H).
-            byte[] hspin = Hash(hash, pwdSalt, Encoding.Unicode.GetBytes(password));
-            Span<byte> iter = stackalloc byte[4];
-            for (int i = 0; i < spinCount; i++)
-            {
-                BinaryPrimitives.WriteInt32LittleEndian(iter, i);
-                hspin = Hash(hash, iter.ToArray(), hspin);
-            }
-
+            byte[] hspin = SpinHash(hash, pwdSalt, password, spinCount);
             byte[] DeriveKey(byte[] blockKey) => Fit(Hash(hash, hspin, blockKey), keyBytes);
 
             // Verify the password before trusting anything: SHA(verifierInput) must equal verifierValue.
@@ -143,10 +135,7 @@ public sealed class AgileEncryption : IPageCodec
         const int keyBytes = 32, blockSize = 16, spinCount = 100000;
         byte[] keyDataSalt = RandomBytes(16), pwdSalt = RandomBytes(16), secretKey = RandomBytes(keyBytes);
 
-        // H_spin = Hash(pwdSalt ‖ UTF16LE(password)), then spinCount folds of Hash(LE32(i) ‖ H).
-        byte[] hspin = Hash(hash, pwdSalt, Encoding.Unicode.GetBytes(password));
-        byte[] iter = new byte[4];
-        for (int i = 0; i < spinCount; i++) { BinaryPrimitives.WriteInt32LittleEndian(iter, i); hspin = Hash(hash, iter, hspin); }
+        byte[] hspin = SpinHash(hash, pwdSalt, password, spinCount);
         byte[] DeriveKey(byte[] blockKey) => Fit(Hash(hash, hspin, blockKey), keyBytes);
 
         byte[] verifierInput = RandomBytes(16);
@@ -333,6 +322,20 @@ public sealed class AgileEncryption : IPageCodec
             _ => throw new NotSupportedException()
         };
 #pragma warning restore CA5350
+    }
+
+    /// <summary><c>H_spin</c>: <c>Hash(salt ‖ UTF16LE(password))</c>, then <paramref name="spinCount"/>
+    /// iterations of <c>Hash(LE32(i) ‖ H)</c>. Opening a file and creating one both start here.</summary>
+    private static byte[] SpinHash(HashKind hash, byte[] salt, string password, int spinCount)
+    {
+        byte[] hspin = Hash(hash, salt, Encoding.Unicode.GetBytes(password));
+        byte[] iter = new byte[4];
+        for (int i = 0; i < spinCount; i++)
+        {
+            BinaryPrimitives.WriteInt32LittleEndian(iter, i);
+            hspin = Hash(hash, iter, hspin);
+        }
+        return hspin;
     }
 
     private static byte[] Concat(params byte[][] parts)

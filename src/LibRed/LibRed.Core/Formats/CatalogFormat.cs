@@ -12,6 +12,9 @@ internal static class CatalogFormat
     /// another relationship (verified vs ACE).</summary>
     public const int RelationshipContainerParentId = 0x0F000003;
 
+    /// <summary><c>MSysObjects.Type</c> value for a table object.</summary>
+    public const short ObjectTypeTable = 1;
+
     /// <summary><c>MSysObjects.Type</c> value for a relationship object.</summary>
     public const short ObjectTypeRelationship = 8;
 }

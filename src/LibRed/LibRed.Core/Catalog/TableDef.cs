@@ -81,4 +81,10 @@ public sealed class TableDef
 
     public ColumnDef? FindColumn(string name) =>
         Columns.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The column, or the error naming the table that is missing it — the partner of
+    /// <see cref="JetCatalog.RequireTable"/>, for a column the caller's own correctness depends on rather than
+    /// one the schema may or may not have.</summary>
+    public ColumnDef RequireColumn(string name) =>
+        FindColumn(name) ?? throw new InvalidOperationException($"'{Name}' is missing the '{name}' column.");
 }

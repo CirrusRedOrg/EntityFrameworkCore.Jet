@@ -70,12 +70,19 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
     }
 
     /// <summary>The highest-numbered data page the table owns, or -1 when it owns none.</summary>
+    public int MaxDataPage() => EdgeDataPage(fromEnd: true);
+
+    /// <summary>The lowest-numbered data page the table owns, or -1 when it owns none.</summary>
+    public int MinDataPage() => EdgeDataPage(fromEnd: false);
+
+    /// <summary>The owned-pages map's last (<paramref name="fromEnd"/>) or first page.</summary>
     /// <remarks>
-    /// Scans the bitmap backwards rather than enumerating <see cref="DataPages"/> and taking the maximum:
-    /// callers ask this on every page allocation, and materializing every owned page each time would make a
-    /// bulk load quadratic. Cost here is bounded by the bitmap size, not the table's page count.
+    /// Scans the bitmap from one end rather than enumerating <see cref="DataPages"/> and taking the extreme:
+    /// callers ask this on every page allocation and on every delete that empties a page, and materializing
+    /// every owned page each time would make a bulk load quadratic. Cost here is bounded by the bitmap size,
+    /// not the table's page count. Both ends share this walk so only the scan direction differs.
     /// </remarks>
-    public int MaxDataPage()
+    private int EdgeDataPage(bool fromEnd)
     {
         byte[] record = ReadMapRecord(_channel.Format.TdefOwnedPagesOffset);
 
@@ -87,7 +94,7 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
             if (record.Length < 5)
                 throw new InvalidDataException("An inline usage-map record must contain its 5-byte header.");
             int startPage = BinaryPrimitives.ReadInt32LittleEndian(record.AsSpan(1, 4));
-            int bit = HighestSetBit(record.AsSpan(5));
+            int bit = EdgeSetBit(record.AsSpan(5), fromEnd);
             return bit < 0 ? -1 : startPage + bit;
         }
 
@@ -97,27 +104,32 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
         ValidateReferenceRecord(record);
 
         int pagesPerBitmap = (_channel.PageSize - BitmapPageHeaderSize) * 8;
-        for (int e = ReferenceMapSlots - 1; e >= 0; e--)
+        for (int k = 0; k < ReferenceMapSlots; k++)
         {
+            int e = fromEnd ? ReferenceMapSlots - 1 - k : k;
             int bitmapPage = BinaryPrimitives.ReadInt32LittleEndian(record.AsSpan(1 + e * 4, 4));
             if (bitmapPage == 0) continue;
 
-            int bit = HighestSetBit(ReadBitmapPage(bitmapPage));
+            int bit = EdgeSetBit(ReadBitmapPage(bitmapPage), fromEnd);
             if (bit >= 0) return e * pagesPerBitmap + bit;
         }
 
         return -1;
     }
 
-    /// <summary>Index of the highest set bit in <paramref name="bitmap"/>, or -1 if it is all zeros.</summary>
-    private static int HighestSetBit(ReadOnlySpan<byte> bitmap)
+    /// <summary>Index of the highest (<paramref name="fromEnd"/>) or lowest set bit in
+    /// <paramref name="bitmap"/>, or -1 if it is all zeros.</summary>
+    private static int EdgeSetBit(ReadOnlySpan<byte> bitmap, bool fromEnd)
     {
-        for (int i = bitmap.Length - 1; i >= 0; i--)
+        for (int n = 0; n < bitmap.Length; n++)
         {
+            int i = fromEnd ? bitmap.Length - 1 - n : n;
             if (bitmap[i] == 0) continue;
-            for (int bit = 7; bit >= 0; bit--)
-                if ((bitmap[i] & (1 << bit)) != 0)
-                    return i * 8 + bit;
+            for (int m = 0; m < 8; m++)
+            {
+                int bit = fromEnd ? 7 - m : m;
+                if ((bitmap[i] & (1 << bit)) != 0) return i * 8 + bit;
+            }
         }
         return -1;
     }
@@ -176,7 +188,7 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
             throw new InvalidDataException("An inline usage-map record must contain its 5-byte header.");
         int startPage = BinaryPrimitives.ReadInt32LittleEndian(map.Slice(1, 4));
         var pages = new List<int>();
-        AppendSetBits(pages, map[5..], startPage);
+        UsageMapBits.Append(pages, map[5..], startPage, _channel.PageCount, "A usage map");
         return pages;
     }
 
@@ -196,7 +208,7 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
 
             int rangeBase = e * pagesPerBitmap;
             ReadOnlySpan<byte> bitmap = ReadBitmapPage(bitmapPage);
-            AppendSetBits(pages, bitmap, rangeBase);
+            UsageMapBits.Append(pages, bitmap, rangeBase, _channel.PageCount, "A usage map");
         }
 
         return pages;
@@ -220,32 +232,4 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
         return page[BitmapPageHeaderSize..];
     }
 
-    /// <summary>Expands a bitmap's set bits into page numbers, rejecting any that cannot exist in this file.
-    /// The base page comes out of the map record, so an unchecked expansion turns corrupt bytes into ownership
-    /// data — and these lists feed straight into page reads (TableCursor, FindPageWithRoom), where a bad number
-    /// would surface as an out-of-range or end-of-stream error instead. The long-value map's twin of this loop
-    /// in RowInserter already range-checks; this is the same check.</summary>
-    private void AppendSetBits(List<int> pages, ReadOnlySpan<byte> bitmap, int basePage)
-    {
-        // Read the bound ONCE: this loop runs per set bit on every insert. PageChannel.PageCount used to be a
-        // file-length syscall outside a transaction, which made a per-bit test cost a non-transactional insert
-        // ~1.9x; it is a cached field now, but one read is still all the loop needs. Nothing in the loop writes,
-        // so the count cannot move under it.
-        int pageCount = _channel.PageCount;
-
-        for (int i = 0; i < bitmap.Length; i++)
-        {
-            byte b = bitmap[i];
-            if (b == 0) continue;
-            for (int bit = 0; bit < 8; bit++)
-            {
-                if ((b & (1 << bit)) == 0) continue;
-                long page = (long)basePage + i * 8 + bit;
-                if (page <= 1 || page >= pageCount)
-                    throw new InvalidDataException(
-                        $"A usage map names page {page}, outside the file's 2..{pageCount - 1} range.");
-                pages.Add((int)page);
-            }
-        }
-    }
 }

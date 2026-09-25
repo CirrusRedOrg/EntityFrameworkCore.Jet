@@ -322,11 +322,12 @@ public static class DatabaseCreator
         Table msysAces = db.OpenTableAt(acesPage, "MSysACEs");
         void Ace(int objectId, byte[] sid, int acm, bool inherit = false)
         {
-            var v = new object?[msysAces.Definition.Columns.Count];
-            v[msysAces.Definition.FindColumn("ObjectId")!.Index] = objectId;
-            v[msysAces.Definition.FindColumn("SID")!.Index] = sid;
-            v[msysAces.Definition.FindColumn("ACM")!.Index] = acm;
-            v[msysAces.Definition.FindColumn("FInheritable")!.Index] = inherit;
+            TableDef aces = msysAces.Definition;
+            var v = new object?[aces.Columns.Count];
+            CatalogWriter.Set(aces, v, "ObjectId", objectId);
+            CatalogWriter.Set(aces, v, "SID", sid);
+            CatalogWriter.Set(aces, v, "ACM", acm);
+            CatalogWriter.Set(aces, v, "FInheritable", inherit);
             msysAces.Insert(v);
         }
 
@@ -443,8 +444,9 @@ public static class DatabaseCreator
 
     private static void InsertCatalogRow(Table msysObjects, int id, string name, short type, int flags, int parentId = 0, byte[]? owner = null)
     {
-        var values = new object?[msysObjects.Definition.Columns.Count];
-        void Set(string col, object? v) => values[msysObjects.Definition.FindColumn(col)!.Index] = v;
+        TableDef objects = msysObjects.Definition;
+        var values = new object?[objects.Columns.Count];
+        void Set(string col, object? v) => CatalogWriter.Set(objects, values, col, v);
         Set("Id", id);
         Set("ParentId", parentId);
         Set("Name", name);

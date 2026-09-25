@@ -612,32 +612,16 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     /// <summary>Walks the stitched definition (stats → column descriptors → column names → data blocks) to
     /// the index's 52-byte data block, returning the buffer, its continuation pages, and the block's absolute
     /// offset. A wide table's blocks sit past the column names, well beyond the first page.</summary>
-    /// <remarks>
-    /// Every region is bounded, because this walk decides where <see cref="UpdateIndexRoot"/> writes. The
-    /// counts and name lengths all come out of the file, and unchecked they can carry <c>pos</c> past the
-    /// buffer — or, when the multiply overflows, back inside it at the wrong place, which would repoint some
-    /// other index's B-tree root with no error at all. The read side bounds the identical regions.
-    /// </remarks>
     private (byte[] Definition, IReadOnlyList<int> Continuations, int BlockOffset) LocateIndexBlock(IndexDef index)
     {
-        JetFormatBase format = _channel.Format;
         (byte[] tdef, IReadOnlyList<int> continuations) = ReadDefinition();
-        int dataCount = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefIndexCountOffset, 4));
-        int colCount = BinaryPrimitives.ReadUInt16LittleEndian(tdef.AsSpan(format.TdefColumnCountOffset, 2));
+        TdefRegions regions = TdefRegions.Of(tdef, _channel.Format);
 
-        int columnBlock = TableDefinitionPage.CheckedRegionEnd(
-            format.TdefRealIndexBlockOffset, dataCount, format.RealIndexEntrySize, tdef.Length, "index statistics");
-        int pos = TableDefinitionPage.CheckedRegionEnd(
-            columnBlock, colCount, format.ColumnDescriptorSize, tdef.Length, "column descriptors");
-        for (int i = 0; i < colCount; i++)
-        {
-            int nameEnd = TableDefinitionPage.CheckedRegionEnd(pos, 1, 2, tdef.Length, "a column-name length");
-            pos = TableDefinitionPage.CheckedRegionEnd(
-                nameEnd, 1, BinaryPrimitives.ReadUInt16LittleEndian(tdef.AsSpan(pos, 2)), tdef.Length, "a column name");
-        }
-
+        // Bounded like every region before it, because this offset decides where UpdateIndexRoot writes: an
+        // ordinal past the blocks would otherwise repoint whatever follows them.
         int block = TableDefinitionPage.CheckedRegionEnd(
-            pos, index.RealIndexOrdinal + 1, IndexBlockFormat.DataBlockSize, tdef.Length, "index-data blocks")
+            regions.DataBlocks, index.RealIndexOrdinal + 1, IndexBlockFormat.DataBlockSize, tdef.Length,
+            "index-data blocks")
             - IndexBlockFormat.DataBlockSize;
         return (tdef, continuations, block);
     }

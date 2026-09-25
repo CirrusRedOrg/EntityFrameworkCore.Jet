@@ -85,11 +85,10 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
     /// append / data-definition.</summary>
     private int AllocateObject(string name, short type, int parentId, int flags, int ownerAcm, int adminAcm)
     {
-        TableDef msysObjects = _catalog.FindTable("MSysObjects")
-            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
-        int idIndex = ColumnIndex(msysObjects, "Id");
-        int nameIndex = ColumnIndex(msysObjects, "Name");
-        int parentIndex = ColumnIndex(msysObjects, "ParentId");
+        TableDef msysObjects = _catalog.RequireTable("MSysObjects");
+        int idIndex = msysObjects.RequireColumn("Id").Index;
+        int nameIndex = msysObjects.RequireColumn("Name").Index;
+        int parentIndex = msysObjects.RequireColumn("ParentId").Index;
 
         // A query's name must be unique among all objects (it also cannot equal an existing table name); a
         // relationship's only among the relationships, as ACE has it. Find the next free negative id (they
@@ -106,52 +105,15 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
             if (row[idIndex] is int id && id < 0 && id >= nextId) nextId = id + 1;
         }
 
-        AddObjectRow(msysObjects, name, nextId, type, parentId, flags);
-        AddPermissionRows(nextId, ownerAcm, adminAcm);
+        var writer = new CatalogWriter(_channel, _catalog);
+        writer.AddObjectRow(name, nextId, type, parentId, flags);
+        writer.AddPermissionRows(nextId, ownerAcm, adminAcm);
         return nextId;
-    }
-
-    /// <summary>
-    /// Adds the two MSysACEs permission rows Access writes for a new query/view or relationship object — owner
-    /// (0x690C) and admin/users (0x680C) — maintaining the ObjectId index so Access's security check finds them.
-    /// Without these Access warns about permissions when opening a query.
-    /// </summary>
-    private void AddPermissionRows(int objectId, int ownerAcm, int adminAcm)
-    {
-        TableDef msysAces = _catalog.FindTable("MSysACEs")
-            ?? throw new InvalidOperationException("MSysACEs catalog table was not found.");
-
-        (byte[] users, byte[] admin) = _catalog.SecuritySids;
-        foreach ((byte[] sid, int acm) in new[] { (users, ownerAcm), (admin, adminAcm) })
-        {
-            var values = new object?[msysAces.Columns.Count];
-            SetByName(msysAces, values, "ACM", acm);
-            SetByName(msysAces, values, "FInheritable", false);
-            SetByName(msysAces, values, "ObjectId", objectId);
-            SetByName(msysAces, values, "SID", sid);
-            new RowInserter(_channel, msysAces).Insert(values, updateIndexes: true);
-        }
-    }
-
-    private void AddObjectRow(TableDef msysObjects, string name, int objectId, short type, int parentId, int flags)
-    {
-        DateTime now = DateTime.Now;
-        var values = new object?[msysObjects.Columns.Count];
-        SetByName(msysObjects, values, "Id", objectId);
-        SetByName(msysObjects, values, "ParentId", parentId);
-        SetByName(msysObjects, values, "Type", type);
-        SetByName(msysObjects, values, "Name", name);
-        SetByName(msysObjects, values, "Flags", flags);
-        SetByName(msysObjects, values, "Owner", _catalog.SecuritySids.Users);
-        SetByName(msysObjects, values, "DateCreate", now);
-        SetByName(msysObjects, values, "DateUpdate", now);
-        new RowInserter(_channel, msysObjects).Insert(values, updateIndexes: true);
     }
 
     private void AddActionRows(int objectId, ActionQuerySpec spec)
     {
-        TableDef mq = _catalog.FindTable("MSysQueries")
-            ?? throw new InvalidOperationException("MSysQueries catalog table was not found.");
+        TableDef mq = _catalog.RequireTable("MSysQueries");
 
         Row(mq, objectId, StoredQueryFormat.AttrType, order: 1, flag: StoredQueryFormat.QueryTypeSelect);
         Row(mq, objectId, StoredQueryFormat.AttrEnd, order: 1);
@@ -265,8 +227,7 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
 
     private void AddQueryRows(int objectId, ViewSpec spec)
     {
-        TableDef mq = _catalog.FindTable("MSysQueries")
-            ?? throw new InvalidOperationException("MSysQueries catalog table was not found.");
+        TableDef mq = _catalog.RequireTable("MSysQueries");
 
         // ACE's row order (verified against every Northwind view): type, end, distinct, TABLES, COLUMNS,
         // joins, where. Tables must precede columns — a derived-table source defines an alias that the
@@ -306,27 +267,17 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         int? lvExtra = null)
     {
         var values = new object?[mq.Columns.Count];
-        SetByName(mq, values, "ObjectId", objectId);
-        SetByName(mq, values, "Attribute", attribute);
+        CatalogWriter.Set(mq, values, "ObjectId", objectId);
+        CatalogWriter.Set(mq, values, "Attribute", attribute);
         var orderBytes = new byte[4];
         BinaryPrimitives.WriteInt32BigEndian(orderBytes, order); // 4-byte big-endian per-attribute counter
-        SetByName(mq, values, "Order", orderBytes);
-        if (flag is { } f) SetByName(mq, values, "Flag", f);
-        if (expression is not null) SetByName(mq, values, "Expression", expression);
-        if (name1 is not null) SetByName(mq, values, "Name1", name1);
-        if (name2 is not null) SetByName(mq, values, "Name2", name2);
+        CatalogWriter.Set(mq, values, "Order", orderBytes);
+        if (flag is { } f) CatalogWriter.Set(mq, values, "Flag", f);
+        if (expression is not null) CatalogWriter.Set(mq, values, "Expression", expression);
+        if (name1 is not null) CatalogWriter.Set(mq, values, "Name1", name1);
+        if (name2 is not null) CatalogWriter.Set(mq, values, "Name2", name2);
         // A declared parameter's length; ACE writes it here and renders the PARAMETERS clause from it.
-        if (lvExtra is { } extra) SetByName(mq, values, "LvExtra", extra);
+        if (lvExtra is { } extra) CatalogWriter.Set(mq, values, "LvExtra", extra);
         new RowInserter(_channel, mq).Insert(values, updateIndexes: true);
     }
-
-    private static void SetByName(TableDef table, object?[] values, string column, object value)
-    {
-        ColumnDef def = table.FindColumn(column)
-            ?? throw new InvalidOperationException($"'{table.Name}' is missing the '{column}' column.");
-        values[def.Index] = value;
-    }
-
-    private static int ColumnIndex(TableDef table, string column) =>
-        (table.FindColumn(column) ?? throw new InvalidOperationException($"'{table.Name}' is missing the '{column}' column.")).Index;
 }

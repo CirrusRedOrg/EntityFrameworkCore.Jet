@@ -214,35 +214,23 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     /// <summary>For a self-referencing FK, whether the row's own referenced-column values equal the FK
     /// target — i.e. the row points at itself (or at its own composite key), which satisfies the FK.</summary>
-    private static bool RowSatisfiesOwnKey(ForeignKey fk, Table table, object?[] values, object?[] target)
-    {
-        for (int i = 0; i < fk.Columns.Count; i++)
-        {
-            ColumnDef refCol = table.Definition.FindColumn(fk.Columns[i].ReferencedColumn)
-                ?? throw new InvalidOperationException($"Column '{fk.Columns[i].ReferencedColumn}' does not exist in '{table.Name}'.");
-            if (ExpressionEvaluator.CompareForSort(values[refCol.Index], target[i]) != 0) return false;
-        }
-        return true;
-    }
+    private static bool RowSatisfiesOwnKey(ForeignKey fk, Table table, object?[] values, object?[] target) =>
+        KeyEquals(values, ReferencedColumnsOf(fk, table), target);
 
     /// <summary>Scans the parent table for a row whose referenced columns equal the child key values.</summary>
     private bool ParentRowExists(ForeignKey fk, object?[] target)
     {
         Table parent = _database.OpenTable(fk.ReferencedTable);
-        int[] parentCols = fk.Columns.Select(c =>
-            (parent.Definition.FindColumn(c.ReferencedColumn)
-                ?? throw new InvalidOperationException($"Column '{c.ReferencedColumn}' does not exist in '{fk.ReferencedTable}'.")).Index)
-            .ToArray();
-
-        foreach (object?[] row in parent.Rows())
-        {
-            bool match = true;
-            for (int i = 0; i < parentCols.Length; i++)
-                if (ExpressionEvaluator.CompareForSort(row[parentCols[i]], target[i]) != 0) { match = false; break; }
-            if (match) return true;
-        }
-        return false;
+        int[] parentCols = ReferencedColumnsOf(fk, parent);
+        return parent.Rows().Any(row => KeyEquals(row, parentCols, target));
     }
+
+    /// <summary>The positions the relationship's referenced columns occupy in a row of the parent table.</summary>
+    private static int[] ReferencedColumnsOf(ForeignKey fk, Table parent) =>
+        [.. fk.Columns.Select(c =>
+            (parent.Definition.FindColumn(c.ReferencedColumn)
+                ?? throw new InvalidOperationException(
+                    $"Column '{c.ReferencedColumn}' does not exist in '{parent.Name}'.")).Index)];
 
     /// <summary>The enforced relationships for which <paramref name="parentTable"/> is the referenced
     /// (parent) side — i.e. those whose child rows a delete/key-update of a parent row must handle.</summary>
@@ -257,21 +245,13 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         return fk.Columns.Select(c => parentValues[parent.Definition.FindColumn(c.ReferencedColumn)!.Index]).ToArray();
     }
 
-    /// <summary>Child rows whose FK columns equal <paramref name="key"/> (a null FK column never matches).</summary>
+    /// <summary>Child rows whose FK columns equal <paramref name="key"/>. Both callers skip a key with a null
+    /// in it — nothing references one — so a null FK column simply fails the comparison.</summary>
     private List<(RowId Id, object?[] Values)> FindChildRows(ForeignKey fk, object?[] key)
     {
         Table child = _database.OpenTable(fk.Table);
-        int[] childCols = fk.Columns.Select(c => child.Definition.FindColumn(c.Column)!.Index).ToArray();
-        var result = new List<(RowId, object?[])>();
-        foreach ((RowId id, object?[] values) in child.Rows().WithIds())
-        {
-            bool match = true;
-            for (int i = 0; i < childCols.Length; i++)
-                if (values[childCols[i]] is null || ExpressionEvaluator.CompareForSort(values[childCols[i]], key[i]) != 0)
-                { match = false; break; }
-            if (match) result.Add((id, values));
-        }
-        return result;
+        int[] childCols = [.. fk.Columns.Select(c => child.Definition.FindColumn(c.Column)!.Index)];
+        return [.. child.Rows().WithIds().Where(r => KeyEquals(r.Values, childCols, key))];
     }
 
     /// <summary>
@@ -398,7 +378,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         {
             object?[] oldKey = ReferencedKey(fk, oldValues);
             object?[] newKey = ReferencedKey(fk, newValues);
-            if (oldKey.Any(k => k is null) || KeyEquals(oldKey, newKey)) continue;
+            if (oldKey.Any(k => k is null) || KeyEquals(oldKey, columns: null, newKey)) continue;
             var children = FindChildRows(fk, oldKey);
             if (children.Count == 0) continue;
 
@@ -410,10 +390,17 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         }
     }
 
-    private static bool KeyEquals(object?[] a, object?[] b)
+    /// <summary>Whether <paramref name="values"/> holds <paramref name="key"/> — through
+    /// <paramref name="columns"/> when the values are a whole row the key sits in columns of, position for
+    /// position when they are a key already.</summary>
+    /// <remarks>Compared on the evaluator's terms rather than the CLR's, so referential integrity reaches the
+    /// same rows a query predicate over the same key would: a LONG 1 and a DOUBLE 1.0 are one key, and text
+    /// folds case and trailing spaces as Access does.</remarks>
+    private static bool KeyEquals(object?[] values, int[]? columns, object?[] key)
     {
-        for (int i = 0; i < a.Length; i++)
-            if (ExpressionEvaluator.CompareForSort(a[i], b[i]) != 0) return false;
+        for (int i = 0; i < key.Length; i++)
+            if (ExpressionEvaluator.CompareForSort(values[columns is null ? i : columns[i]], key[i]) != 0)
+                return false;
         return true;
     }
 

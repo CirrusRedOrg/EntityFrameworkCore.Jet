@@ -451,20 +451,13 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// number past it — a self-reference's incoming block, numbered after its outgoing one.</summary>
     private int NextLogicalIndexNumber(int tdefPage, int above = -1)
     {
-        JetFormatBase format = _channel.Format;
         (LibRed.IO.PageBuffer buf, _) = ReadDefinition(tdefPage);
-        int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);
-        int logicalCount = buf.ReadInt32(format.TdefLogicalIndexCountOffset);
-        int colCount = buf.ReadUInt16(format.TdefColumnCountOffset);
-
-        int pos = format.TdefRealIndexBlockOffset + dataCount * format.RealIndexEntrySize
-                  + colCount * format.ColumnDescriptorSize;
-        for (int i = 0; i < colCount; i++) pos += 2 + buf.ReadUInt16(pos);
-        int infoStart = pos + dataCount * IndexBlockFormat.DataBlockSize;
+        TdefRegions regions = TdefRegions.Of(buf.Span, _channel.Format);
 
         var used = new HashSet<int>();
-        for (int i = 0; i < logicalCount; i++)
-            used.Add(buf.ReadInt32(infoStart + i * IndexBlockFormat.InfoBlockSize + IndexBlockFormat.InfoNumberOffset));
+        for (int i = 0; i < regions.LogicalCount; i++)
+            used.Add(buf.ReadInt32(
+                regions.InfoBlocks + i * IndexBlockFormat.InfoBlockSize + IndexBlockFormat.InfoNumberOffset));
         int next = above + 1;
         while (used.Contains(next)) next++;
         return next;
@@ -535,8 +528,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// </summary>
     private void AddRelationshipRows(string childTable, RelationshipSpec fk)
     {
-        TableDef msys = _catalog.FindTable("MSysRelationships")
-            ?? throw new InvalidOperationException("MSysRelationships catalog table was not found.");
+        TableDef msys = _catalog.RequireTable("MSysRelationships");
         new ViewCreator(_channel, _catalog).CreateRelationshipObject(fk.Name);
 
         int grbit = 0;
@@ -549,14 +541,14 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         {
             var (column, referencedColumn) = fk.Columns[i];
             var values = new object?[msys.Columns.Count];
-            SetByName(msys, values, "szRelationship", fk.Name);
-            SetByName(msys, values, "szObject", childTable);
-            SetByName(msys, values, "szColumn", column);
-            SetByName(msys, values, "szReferencedObject", fk.ReferencedTable);
-            SetByName(msys, values, "szReferencedColumn", referencedColumn);
-            SetByName(msys, values, "ccolumn", fk.Columns.Count);
-            SetByName(msys, values, "icolumn", i);
-            SetByName(msys, values, "grbit", grbit);
+            CatalogWriter.Set(msys, values, "szRelationship", fk.Name);
+            CatalogWriter.Set(msys, values, "szObject", childTable);
+            CatalogWriter.Set(msys, values, "szColumn", column);
+            CatalogWriter.Set(msys, values, "szReferencedObject", fk.ReferencedTable);
+            CatalogWriter.Set(msys, values, "szReferencedColumn", referencedColumn);
+            CatalogWriter.Set(msys, values, "ccolumn", fk.Columns.Count);
+            CatalogWriter.Set(msys, values, "icolumn", i);
+            CatalogWriter.Set(msys, values, "grbit", grbit);
             new RowInserter(_channel, msys).Insert(values, updateIndexes: true);
         }
     }
@@ -666,24 +658,18 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         if ((unique || required) && existingRowCount != 0)
             EnsureExistingRowsFitIndex(table, indexName, slots, unique, required);
 
-        int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);
-        int logicalCount = buf.ReadInt32(format.TdefLogicalIndexCountOffset);
-        int colCount = buf.ReadUInt16(format.TdefColumnCountOffset);
+        TdefRegions regions = TdefRegions.Of(buf.Span, format);
+        int dataCount = regions.DataCount;
+        int logicalCount = regions.LogicalCount;
+        int afterStats = regions.ColumnDescriptors;
+        int infoStart = regions.InfoBlocks;
 
         // A plain index or an outgoing FK adds one of each. Checked before a byte moves, like the
         // duplicate-key scan above, so a rejection leaves the file exactly as it was.
         EnsureIndexCapacity(table.Name, $"index '{indexName}'", dataCount + 1, logicalCount + 1);
 
-        // Walk the TDEF regions: stats -> column descriptors -> column names -> data blocks -> info blocks.
-        int afterStats = format.TdefRealIndexBlockOffset + dataCount * format.RealIndexEntrySize;
-        int pos = afterStats + colCount * format.ColumnDescriptorSize;
-        for (int i = 0; i < colCount; i++) pos += 2 + buf.ReadUInt16(pos);
-        int afterColumns = pos;                                   // start of the data blocks
-        int afterDataBlocks = afterColumns + dataCount * IndexBlockFormat.DataBlockSize;
-        int infoStart = afterDataBlocks;
-
         // Existing logical blocks and names; the new block takes the lowest free index_num.
-        int namePos = infoStart + logicalCount * IndexBlockFormat.InfoBlockSize;
+        int namePos = regions.IndexNames;
         var blocks = new List<byte[]>(logicalCount + 1);
         for (int i = 0; i < logicalCount; i++)
             blocks.Add(buf.Slice(infoStart + i * IndexBlockFormat.InfoBlockSize, IndexBlockFormat.InfoBlockSize).ToArray());
@@ -760,7 +746,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         Append(src[..afterStats]);                              // header + existing stats blocks
         Append(new byte[format.RealIndexEntrySize]);            // new (zero) stats block
-        Append(src[afterStats..afterDataBlocks]);               // columns + names + existing data blocks
+        Append(src[afterStats..infoStart]);                     // columns + names + existing data blocks
         Append(newData);                                        // new index-data block
         foreach (byte[] b in blocks) Append(b);                 // logical blocks (new inserted, sorted)
         foreach (byte[] n in nameBytes) Append(n);              // their names, same order
@@ -1295,11 +1281,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// or null when there is none.</summary>
     private int? FindObjectId(string name, short type)
     {
-        TableDef mo = _catalog.FindTable("MSysObjects")
-            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
-        int idIdx = (mo.FindColumn("Id") ?? throw new InvalidOperationException("MSysObjects is missing 'Id'.")).Index;
-        int nameIdx = (mo.FindColumn("Name") ?? throw new InvalidOperationException("MSysObjects is missing 'Name'.")).Index;
-        int typeIdx = (mo.FindColumn("Type") ?? throw new InvalidOperationException("MSysObjects is missing 'Type'.")).Index;
+        TableDef mo = _catalog.RequireTable("MSysObjects");
+        int idIdx = mo.RequireColumn("Id").Index;
+        int nameIdx = mo.RequireColumn("Name").Index;
+        int typeIdx = mo.RequireColumn("Type").Index;
 
         foreach (object?[] values in new Table(_channel, mo).Rows())
             if (string.Equals(values[nameIdx] as string, name, StringComparison.OrdinalIgnoreCase)
@@ -1355,8 +1340,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         TableDef? def = _catalog.FindTable("MSysRelationships");
         if (def is null) return; // a database with no relationships has no catalog table to fix up
 
-        int childIndex = ColumnIndexOf(def, "szObject");
-        int parentIndex = ColumnIndexOf(def, "szReferencedObject");
+        int childIndex = def.RequireColumn("szObject").Index;
+        int parentIndex = def.RequireColumn("szReferencedObject").Index;
         var table = new Table(_channel, def);
 
         foreach ((RowId id, object?[] values) in table.Rows().WithIds().ToList())
@@ -1457,8 +1442,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// table's own — or null when it has none.</summary>
     private byte[]? ReadObjectProperties(int objectId)
     {
-        (TableDef msys, Table table, ColumnDef lvProp) = ObjectProperties();
-        return RowsKeyed(table, ColumnIndexOf(msys, "Id", "MSysObjects"), objectId)
+        (_, Table table, int idIdx, ColumnDef lvProp) = ObjectProperties();
+        return RowsKeyed(table, idIdx, objectId)
             .Select(r => r.Values[lvProp.Index] as byte[]).FirstOrDefault();
     }
 
@@ -1467,8 +1452,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// own page first and the row given the descriptor that names it.</summary>
     private void WriteObjectProperties(int objectId, byte[] properties)
     {
-        (TableDef msys, Table table, ColumnDef lvProp) = ObjectProperties();
-        foreach ((RowId id, object?[] values) in RowsKeyed(table, ColumnIndexOf(msys, "Id", "MSysObjects"), objectId))
+        (TableDef msys, Table table, int idIdx, ColumnDef lvProp) = ObjectProperties();
+        foreach ((RowId id, object?[] values) in RowsKeyed(table, idIdx, objectId))
         {
             byte[] descriptor = new RowInserter(_channel, msys).StorePackedLongValue(lvProp.ColumnId, properties);
             values[lvProp.Index] = new LongValueDescriptor(descriptor);
@@ -1477,13 +1462,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         }
     }
 
-    private (TableDef Definition, Table Table, ColumnDef LvProp) ObjectProperties()
+    /// <summary><c>MSysObjects</c> and the two columns every extended-property path works through: the
+    /// <c>Id</c> it matches an object by, and the <c>LvProp</c> holding the blob.</summary>
+    private (TableDef Definition, Table Table, int IdIndex, ColumnDef LvProp) ObjectProperties()
     {
-        TableDef msys = _catalog.FindTable("MSysObjects")
-            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
-        ColumnDef lvProp = msys.FindColumn("LvProp")
-            ?? throw new InvalidOperationException("MSysObjects is missing 'LvProp'.");
-        return (msys, new Table(_channel, msys), lvProp);
+        TableDef msys = _catalog.RequireTable("MSysObjects");
+        return (msys, new Table(_channel, msys), msys.RequireColumn("Id").Index, msys.RequireColumn("LvProp"));
     }
 
     /// <summary>The calculated columns of <paramref name="table"/> whose expression reads
@@ -1537,10 +1521,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         TableDef? def = _catalog.FindTable("MSysRelationships");
         if (def is null) return;
 
-        int childTable = ColumnIndexOf(def, "szObject");
-        int childColumn = ColumnIndexOf(def, "szColumn");
-        int parentTable = ColumnIndexOf(def, "szReferencedObject");
-        int parentColumn = ColumnIndexOf(def, "szReferencedColumn");
+        int childTable = def.RequireColumn("szObject").Index;
+        int childColumn = def.RequireColumn("szColumn").Index;
+        int parentTable = def.RequireColumn("szReferencedObject").Index;
+        int parentColumn = def.RequireColumn("szReferencedColumn").Index;
         var table = new Table(_channel, def);
 
         foreach ((RowId id, object?[] values) in table.Rows().WithIds().ToList())
@@ -1567,11 +1551,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// </summary>
     private bool ObjectNameExists(string name, int exceptObjectId)
     {
-        TableDef mo = _catalog.FindTable("MSysObjects")
-            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
-        int idIndex = ColumnIndexOf(mo, "Id");
-        int nameIndex = ColumnIndexOf(mo, "Name");
-        int typeIndex = ColumnIndexOf(mo, "Type");
+        TableDef mo = _catalog.RequireTable("MSysObjects");
+        int idIndex = mo.RequireColumn("Id").Index;
+        int nameIndex = mo.RequireColumn("Name").Index;
+        int typeIndex = mo.RequireColumn("Type").Index;
 
         foreach (object?[] values in new Table(_channel, mo).Rows())
         {
@@ -1588,9 +1571,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
     private static bool NameMatches(object? value, string name) =>
         value is string s && string.Equals(s, name, StringComparison.OrdinalIgnoreCase);
-
-    private static int ColumnIndexOf(TableDef def, string column) =>
-        (def.FindColumn(column) ?? throw new InvalidOperationException($"'{def.Name}' is missing '{column}'.")).Index;
 
     /// <summary>Rewrites some columns of one catalog row, keeping any index whose key covers a changed column in
     /// step — MSysObjects is uniquely indexed on (ParentId, Name), so a rename has to move that entry rather
@@ -1638,8 +1618,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             throw new InvalidOperationException($"{catalogTable} catalog table was not found.");
         }
 
-        int key = ColumnIndexOf(t, keyColumn, catalogTable);
-        var columns = updates.Select(u => (Column: ColumnIndexOf(t, u.Column, catalogTable), u.Value)).ToArray();
+        int key = t.RequireColumn(keyColumn).Index;
+        var columns = updates.Select(u => (Column: t.RequireColumn(u.Column).Index, u.Value)).ToArray();
         var table = new Table(_channel, t);
 
         foreach ((RowId id, object?[] values) in RowsKeyed(table, key, keyValue))
@@ -1653,14 +1633,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             .Where(r => r.Values[keyColumn] is not null
                 && Convert.ToInt32(r.Values[keyColumn], CultureInfo.InvariantCulture) == keyValue)];
 
-    private static int ColumnIndexOf(TableDef table, string column, string tableName) =>
-        (table.FindColumn(column) ?? throw new InvalidOperationException($"{tableName} is missing '{column}'.")).Index;
-
     private void DeleteCatalogRows(string catalogTable, string keyColumn, int keyValue)
     {
-        TableDef t = _catalog.FindTable(catalogTable)
-            ?? throw new InvalidOperationException($"{catalogTable} catalog table was not found.");
-        int idx = ColumnIndexOf(t, keyColumn, catalogTable);
+        TableDef t = _catalog.RequireTable(catalogTable);
+        int idx = t.RequireColumn(keyColumn).Index;
         var table = new Table(_channel, t);
 
         var rows = table.Rows().WithIds()
@@ -2040,11 +2016,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
         int tdefPage = target.DefinitionPage;
 
-        TableDef msys = _catalog.FindTable("MSysObjects")
-            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
-        int idIdx = (msys.FindColumn("Id") ?? throw new InvalidOperationException("MSysObjects is missing 'Id'.")).Index;
-        ColumnDef lvProp = msys.FindColumn("LvProp") ?? throw new InvalidOperationException("MSysObjects is missing 'LvProp'.");
-        var table = new Table(_channel, msys);
+        (TableDef msys, Table table, int idIdx, ColumnDef lvProp) = ObjectProperties();
 
         foreach ((RowId id, object?[] values) in table.Rows().WithIds())
         {
@@ -2066,11 +2038,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <see cref="RemoveColumnProperties"/>.</summary>
     private void SetColumnProperties(int tdefPage, string columnName, IReadOnlyList<PropertyBlob.Property> props)
     {
-        TableDef msys = _catalog.FindTable("MSysObjects")
-            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
-        int idIdx = (msys.FindColumn("Id") ?? throw new InvalidOperationException("MSysObjects is missing 'Id'.")).Index;
-        ColumnDef lvProp = msys.FindColumn("LvProp") ?? throw new InvalidOperationException("MSysObjects is missing 'LvProp'.");
-        var table = new Table(_channel, msys);
+        (TableDef msys, Table table, int idIdx, ColumnDef lvProp) = ObjectProperties();
 
         foreach ((RowId id, object?[] values) in table.Rows().WithIds())
         {
@@ -2096,18 +2064,14 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
         int tdefPage = target.DefinitionPage;
 
-        TableDef msys = _catalog.FindTable("MSysObjects")
-            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
-        int idIdx = (msys.FindColumn("Id") ?? throw new InvalidOperationException("MSysObjects is missing 'Id'.")).Index;
-        ColumnDef lvProp = msys.FindColumn("LvProp") ?? throw new InvalidOperationException("MSysObjects is missing 'LvProp'.");
-        var table = new Table(_channel, msys);
+        (TableDef msys, Table table, int idIdx, ColumnDef lvProp) = ObjectProperties();
 
         foreach ((RowId id, object?[] values) in table.Rows().WithIds())
         {
             if (values[idIdx] is null || Convert.ToInt32(values[idIdx], CultureInfo.InvariantCulture) != tdefPage) continue;
             byte[] blob = values[lvProp.Index] as byte[] ?? [];
 
-            var checks = PropertyBlob.ReadCheckConstraints(blob).ToList();
+            var checks = PropertyBlob.ReadCheckConstraints(PropertyBlob.Read(blob)).ToList();
             checks.Add((checkName, expression));
 
             // Replace only the CheckConstraints entry. Dropping the whole table-owned block and re-adding one
@@ -2136,18 +2100,14 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
         int tdefPage = target.DefinitionPage;
 
-        TableDef msys = _catalog.FindTable("MSysObjects")
-            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
-        int idIdx = (msys.FindColumn("Id") ?? throw new InvalidOperationException("MSysObjects is missing 'Id'.")).Index;
-        ColumnDef lvProp = msys.FindColumn("LvProp") ?? throw new InvalidOperationException("MSysObjects is missing 'LvProp'.");
-        var table = new Table(_channel, msys);
+        (TableDef msys, Table table, int idIdx, ColumnDef lvProp) = ObjectProperties();
 
         foreach ((RowId id, object?[] values) in table.Rows().WithIds())
         {
             if (values[idIdx] is null || Convert.ToInt32(values[idIdx], CultureInfo.InvariantCulture) != tdefPage) continue;
             byte[] blob = values[lvProp.Index] as byte[] ?? [];
 
-            var checks = PropertyBlob.ReadCheckConstraints(blob).ToList();
+            var checks = PropertyBlob.ReadCheckConstraints(PropertyBlob.Read(blob)).ToList();
             if (checks.RemoveAll(c => string.Equals(c.Name, checkName, StringComparison.OrdinalIgnoreCase)) == 0)
                 return false; // no CHECK of that name — let the caller try FK/PK/unique
 
@@ -3141,11 +3101,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// an LvProp page and updates the row. No-op when the column had no properties.</summary>
     private void RemoveColumnProperties(int tdefPage, string columnName)
     {
-        TableDef msys = _catalog.FindTable("MSysObjects")
-            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
-        int idIdx = (msys.FindColumn("Id") ?? throw new InvalidOperationException("MSysObjects is missing 'Id'.")).Index;
-        ColumnDef lvProp = msys.FindColumn("LvProp") ?? throw new InvalidOperationException("MSysObjects is missing 'LvProp'.");
-        var table = new Table(_channel, msys);
+        (TableDef msys, Table table, int idIdx, ColumnDef lvProp) = ObjectProperties();
 
         foreach ((RowId id, object?[] values) in table.Rows().WithIds())
         {
@@ -3205,10 +3161,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <summary>Soft-deletes every MSysRelationships row for the named relationship.</summary>
     private void DeleteRelationshipRows(string name)
     {
-        TableDef msys = _catalog.FindTable("MSysRelationships")
-            ?? throw new InvalidOperationException("MSysRelationships catalog table was not found.");
-        int nameIdx = (msys.FindColumn("szRelationship")
-            ?? throw new InvalidOperationException("MSysRelationships is missing the 'szRelationship' column.")).Index;
+        TableDef msys = _catalog.RequireTable("MSysRelationships");
+        int nameIdx = msys.RequireColumn("szRelationship").Index;
 
         // A real delete, as the other catalog rows take (and as ACE's own DROP CONSTRAINT leaves the page —
         // measured by whole-file diff: the row's space back in the page's free count and the table's row count
@@ -3250,17 +3204,14 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // surgery below works the same for single- and multi-page definitions.
         (LibRed.IO.PageBuffer buf, IReadOnlyList<int> continuations) = ReadDefinition(tdefPage);
 
-        int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);
-        int logicalCount = buf.ReadInt32(format.TdefLogicalIndexCountOffset);
-        int colCount = buf.ReadUInt16(format.TdefColumnCountOffset);
-
-        int statsStart = format.TdefRealIndexBlockOffset;
-        int afterStats = statsStart + dataCount * format.RealIndexEntrySize;
-        int pos = afterStats + colCount * format.ColumnDescriptorSize;
-        for (int i = 0; i < colCount; i++) pos += 2 + buf.ReadUInt16(pos);
-        int afterColumns = pos;
-        int infoStart = afterColumns + dataCount * IndexBlockFormat.DataBlockSize;
-        int namePos = infoStart + logicalCount * IndexBlockFormat.InfoBlockSize;
+        TdefRegions regions = TdefRegions.Of(buf.Span, format);
+        int dataCount = regions.DataCount;
+        int logicalCount = regions.LogicalCount;
+        int statsStart = regions.Stats;
+        int afterStats = regions.ColumnDescriptors;
+        int afterColumns = regions.DataBlocks;
+        int infoStart = regions.InfoBlocks;
+        int namePos = regions.IndexNames;
         int defEnd = buf.ReadInt32(format.TdefLengthOffset);
 
         var stats = new List<byte[]>(dataCount);
@@ -3540,9 +3491,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         JetFormatBase format = _channel.Format;
         (LibRed.IO.PageBuffer buf, IReadOnlyList<int> existingContinuations) = ReadDefinition(inc.ParentPage);
 
-        int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);        // 0x33 real data blocks
-        int logicalCount = buf.ReadInt32(format.TdefLogicalIndexCountOffset); // 0x2F logical blocks
-        int colCount = buf.ReadUInt16(format.TdefColumnCountOffset);
+        TdefRegions regions = TdefRegions.Of(buf.Span, format);
+        int dataCount = regions.DataCount;                                 // 0x33 real data blocks
+        int logicalCount = regions.LogicalCount;                           // 0x2F logical blocks
+        int infoStart = regions.InfoBlocks;
 
         // An incoming relationship adds a logical block and no data block, so this is the path a referenced
         // table overruns: 0x33 stays where it was while 0x2F climbs with every table that points here.
@@ -3550,17 +3502,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             _catalog.Tables.FirstOrDefault(t => t.DefinitionPage == inc.ParentPage)?.Name ?? $"page {inc.ParentPage}",
             "an incoming relationship", dataCount, logicalCount + 1);
 
-        // Walk to the logical index-info blocks: stats + column descriptors -> column names -> data blocks.
-        int pos = format.TdefRealIndexBlockOffset + dataCount * format.RealIndexEntrySize
-                  + colCount * format.ColumnDescriptorSize;
-        for (int i = 0; i < colCount; i++) pos += 2 + buf.ReadUInt16(pos);
-        int infoStart = pos + dataCount * IndexBlockFormat.DataBlockSize;
-
         var blocks = new List<byte[]>(logicalCount + 1);
         for (int i = 0; i < logicalCount; i++)
             blocks.Add(buf.Slice(infoStart + i * IndexBlockFormat.InfoBlockSize, IndexBlockFormat.InfoBlockSize).ToArray());
 
-        int namePos = infoStart + logicalCount * IndexBlockFormat.InfoBlockSize;
+        int namePos = regions.IndexNames;
         var names = new List<string>(logicalCount + 1);
         var nameBytes = new List<byte[]>(logicalCount + 1);
         for (int i = 0; i < logicalCount; i++)
@@ -3693,20 +3639,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         IReadOnlyList<PropertyBlob.Property> columnProps,
         IReadOnlyList<(string Name, string Expression)> checkConstraints)
     {
-        TableDef msysObjects = _catalog.FindTable("MSysObjects")
-            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
-
-        DateTime now = DateTime.Now;
-        var values = new object?[msysObjects.Columns.Count];
-        SetByName(msysObjects, values, "Id", tdefPage);
-        SetByName(msysObjects, values, "ParentId", CatalogFormat.ObjectContainerParentId);
-        SetByName(msysObjects, values, "Type", (short)1); // table object
-        SetByName(msysObjects, values, "Name", name);
-        SetByName(msysObjects, values, "Flags", 0);
-        SetByName(msysObjects, values, "Owner", _catalog.SecuritySids.Users);
-        SetByName(msysObjects, values, "DateCreate", now);
-        SetByName(msysObjects, values, "DateUpdate", now);
-
         // Per-column properties (DefaultValue / Required) and CHECK constraints (a table property) both
         // live in the object's extended-properties (LvProp) blob.
         var props = columnProps.ToList();
@@ -3714,18 +3646,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             props.Add(new PropertyBlob.Property("", PropertyBlob.CheckConstraintsProperty,
                 PropertyBlob.WriteCheckList(checkConstraints)));
 
-        var inserter = new RowInserter(_channel, msysObjects);
-        if (props.Count > 0)
-        {
-            // Access reads object properties only from an LVAL-page long value, not an inline one, so
-            // store the blob on a page (packed onto a shared LvProp page like Access) and keep the descriptor.
-            int lvPropColumn = (msysObjects.FindColumn("LvProp")
-                ?? throw new InvalidOperationException("MSysObjects is missing the 'LvProp' column.")).ColumnId;
-            byte[] reference = inserter.StorePackedLongValue(lvPropColumn, PropertyBlob.Write(props));
-            SetByName(msysObjects, values, "LvProp", new LongValueDescriptor(reference));
-        }
-
-        inserter.Insert(values, updateIndexes: true);
+        new CatalogWriter(_channel, _catalog).AddObjectRow(
+            name, tdefPage, CatalogFormat.ObjectTypeTable, CatalogFormat.ObjectContainerParentId, flags: 0, props);
     }
 
     // A new user table's two permission masks. Both rows get the same full access — measured against ACE's own
@@ -3734,35 +3656,16 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     private const int UserTableUsersMask = 0x0FFEFF;
     private const int UserTableAdminMask = 0x0FFEFF;
 
-    /// <summary>
-    /// Adds the two MSysACEs permission rows Access writes for a new user table (Users + Admin, with the
-    /// user-table masks), maintaining the table's ObjectId index so Access's security check sees them.
-    /// </summary>
-    private void AddPermissionRows(int objectId)
-    {
-        TableDef msysAces = _catalog.FindTable("MSysACEs")
-            ?? throw new InvalidOperationException("MSysACEs catalog table was not found.");
-
-        (byte[] users, byte[] admin) = _catalog.SecuritySids;
-        foreach ((byte[] sid, int acm) in new[] { (users, UserTableUsersMask), (admin, UserTableAdminMask) })
-        {
-            var values = new object?[msysAces.Columns.Count];
-            SetByName(msysAces, values, "ACM", acm);
-            SetByName(msysAces, values, "FInheritable", false);
-            SetByName(msysAces, values, "ObjectId", objectId);
-            SetByName(msysAces, values, "SID", sid);
-            new RowInserter(_channel, msysAces).Insert(values, updateIndexes: true);
-        }
-    }
+    private void AddPermissionRows(int objectId) =>
+        new CatalogWriter(_channel, _catalog).AddPermissionRows(objectId, UserTableUsersMask, UserTableAdminMask);
 
     /// <summary>An object's <c>MSysACEs</c> rows, whole. A table need not carry only the pair
     /// <see cref="AddPermissionRows"/> writes: a workgroup-secured database grants to as many accounts as it
     /// likes, and those rows are the grants themselves, not a description of them.</summary>
     private List<object?[]> ReadPermissionRows(int objectId)
     {
-        TableDef msysAces = _catalog.FindTable("MSysACEs")
-            ?? throw new InvalidOperationException("MSysACEs catalog table was not found.");
-        int idIndex = ColumnIndexOf(msysAces, "ObjectId");
+        TableDef msysAces = _catalog.RequireTable("MSysACEs");
+        int idIndex = msysAces.RequireColumn("ObjectId").Index;
         return [.. new Table(_channel, msysAces).Rows()
             .Where(r => r[idIndex] is not null
                 && Convert.ToInt32(r[idIndex], CultureInfo.InvariantCulture) == objectId)
@@ -3775,9 +3678,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     private void RestorePermissionRows(int objectId, List<object?[]> rows)
     {
         if (rows.Count == 0) return;
-        TableDef msysAces = _catalog.FindTable("MSysACEs")
-            ?? throw new InvalidOperationException("MSysACEs catalog table was not found.");
-        int idIndex = ColumnIndexOf(msysAces, "ObjectId");
+        TableDef msysAces = _catalog.RequireTable("MSysACEs");
+        int idIndex = msysAces.RequireColumn("ObjectId").Index;
 
         DeleteCatalogRows("MSysACEs", "ObjectId", objectId);
         var inserter = new RowInserter(_channel, msysAces);
@@ -3787,13 +3689,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             values[idIndex] = objectId;
             inserter.Insert(values, updateIndexes: true);
         }
-    }
-
-    private static void SetByName(TableDef table, object?[] values, string column, object value)
-    {
-        ColumnDef def = table.FindColumn(column)
-            ?? throw new InvalidOperationException($"MSysObjects is missing the '{column}' column.");
-        values[def.Index] = value;
     }
 
     private static void WriteInt24(byte[] buffer, int offset, int value)

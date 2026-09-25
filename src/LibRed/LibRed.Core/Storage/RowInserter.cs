@@ -135,8 +135,10 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // Long-value (memo/OLE) columns: keep an unchanged column's on-disk descriptor verbatim (so it is not
         // needlessly re-materialised onto fresh LVAL pages), and free a changed column's old chained pages.
         byte[] oldRow = ReadRowBytes(id);
-        var oldDescriptors = RowDecoder.LongValueDescriptors(_table.Columns, format, oldRow);
-        var oldCalculated = RowDecoder.CalculatedSlots(_table.Columns, format, oldRow);
+        // One layout for both: the trailer arithmetic is the same for either selection off this row.
+        RowLayout oldLayout = RowDecoder.ParseLayout(_table.Columns, format, oldRow);
+        var oldDescriptors = RowDecoder.LongValueDescriptors(_table.Columns, oldLayout, oldRow);
+        var oldCalculated = RowDecoder.CalculatedSlots(_table.Columns, oldLayout, oldRow);
         foreach (ColumnDef column in _table.Columns)
         {
             if (column.Type is not (JetDataType.Memo or JetDataType.Ole)) continue;
@@ -514,7 +516,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// <remarks>Read as the lowest page in the owned map, which in every file measured is also the page the
     /// table was created with — the two readings are not distinguished here.</remarks>
     private bool IsFirstDataPage(int pageNumber) =>
-        new UsageMap(_channel, _table).DataPages().FirstOrDefault() == pageNumber;
+        new UsageMap(_channel, _table).MinDataPage() == pageNumber;
 
     /// <summary>True when no live row is left on the page: every slot a zero-length deleted tombstone. Slot
     /// offsets are non-increasing, so a slot is zero-length exactly when it repeats the previous one's offset
@@ -662,7 +664,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // Inline (0x80) keeps its payload in the row, so there is nothing to give back.
         if (flags == LongValueFormat.FlagInline) return;
 
-        TableDefinitionPage definition = ReadDefinition();
+        TableDefinitionPage definition = LongValueMaps;
         definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) owned);
         definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) free);
 
@@ -917,8 +919,11 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     }
 
 
-    /// <summary>Pins the fixed-region length to an existing row anywhere in the table (so the layout
-    /// matches Access), or returns null for an empty table (the encoder then derives it).</summary>
+    /// <summary>Pins the fixed-region length to an existing row (so the layout matches Access), or returns
+    /// null for the encoder to derive it from the columns.</summary>
+    /// <remarks>The region may never shrink below what existing rows carry (page-02a §3.1), and a retired
+    /// column id — dropped, or burned by a retype — leaves its bytes as a hole nothing points at, so the live
+    /// descriptors can under-count where the region ends. Only then is a row worth reading.</remarks>
     private int? InferFixedDataLength(JetFormatBase format)
     {
         // The current fixed-region end from the column descriptors — this includes a just-added fixed column,
@@ -930,6 +935,9 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // can't pin the fixed length — and the schema fully determines it. Let the encoder derive it.
         if (_table.Columns.All(c => c.IsFixedLength))
             return null;
+
+        // 0x29 counts ids ever handed out and never decrements, so equality means none was retired.
+        if (_table.Columns.Count == _table.ColumnIdHighWater) return null;
 
         foreach (int pageNumber in new UsageMap(_channel, _table).DataPages())
         {
@@ -1028,7 +1036,6 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     {
         const int maxInline = LongValueFormat.MaxInlineValue;
         LongValueWriter? writer = null;
-        TableDefinitionPage? definition = null;
 
         foreach (ColumnDef column in _table.Columns)
         {
@@ -1050,7 +1057,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
                 payload = compressed;
 
             writer ??= new LongValueWriter(_channel);
-            definition ??= ReadDefinition();
+            TableDefinitionPage definition = LongValueMaps;
             definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) owned);
             definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) free);
             values[column.Index] = new LongValueDescriptor(StoreLongValue(writer, payload, owned, free));
@@ -1165,7 +1172,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (map.Length < 5)
                 throw new InvalidDataException("Inline long-value usage map is shorter than its 5-byte header.");
             int startPage = BinaryPrimitives.ReadInt32LittleEndian(map.Slice(1, 4));
-            AppendMapBits(result, map[5..], startPage);
+            UsageMapBits.Append(result, map[5..], startPage, _channel.PageCount, "Long-value usage map");
             return result;
         }
 
@@ -1183,27 +1190,25 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             ReadOnlySpan<byte> bitmap = _channel.ReadPageShared(bitmapPage).Span;
             if (bitmap[0] != (byte)PageType.PageUsageBitmap || bitmap[1] != 0x01 || bitmap[2] != 0 || bitmap[3] != 0)
                 throw new InvalidDataException($"Long-value usage-map pointer {bitmapPage} is not a bitmap page.");
-            AppendMapBits(result, bitmap[4..], i * pagesPerBitmap);
+            UsageMapBits.Append(result, bitmap[4..], i * pagesPerBitmap, _channel.PageCount, "Long-value usage map");
         }
         return result;
     }
 
-    private void AppendMapBits(List<int> result, ReadOnlySpan<byte> bitmap, int startPage)
-    {
-        // Bound read once, as UsageMap.AppendSetBits does: the loop runs per bit on a hot path. Nothing here writes.
-        int pageCount = _channel.PageCount;
+    /// <summary>
+    /// The table's definition, read once and kept — for the <b>long-value map pointers</b> only, which are what
+    /// every caller of this wants and which no row write can move.
+    /// </summary>
+    /// <remarks>
+    /// Freeing or storing a long value writes the map holder page and the global map;
+    /// <see cref="UsageMapWriter"/> never writes the definition page, and an inline-to-reference conversion
+    /// rewrites the record inside the same map row. So the §3.3.2 pointers are fixed for the life of this
+    /// inserter, where the row count and AutoNumber high-water on the same page are not — read those from the
+    /// page, never from here.
+    /// </remarks>
+    private TableDefinitionPage LongValueMaps => _longValueMaps ??= ReadDefinition();
 
-        for (int i = 0; i < bitmap.Length; i++)
-            for (int bit = 0; bit < 8; bit++)
-                if ((bitmap[i] & (1 << bit)) != 0)
-                {
-                    int page = startPage + i * 8 + bit;
-                    if (page <= 1 || page >= pageCount)
-                        throw new InvalidDataException(
-                            $"Long-value usage map names page {page}, outside the physical reusable range.");
-                    result.Add(page);
-                }
-    }
+    private TableDefinitionPage? _longValueMaps;
 
     private TableDefinitionPage ReadDefinition()
     {

@@ -1274,7 +1274,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             : typeof(int),
         "AVG" => argument == typeof(decimal) ? typeof(decimal) : typeof(double),
         "VAR" or "VARP" or "STDEV" or "STDEVP" or "STDDEV" or "STDDEVP" => typeof(double),
-        _ => argument,   // MIN, MAX, FIRST and LAST keep the argument's type
+        // MIN, MAX, FIRST and LAST keep the argument's type. Everything else needs a case above: a new
+        // aggregate that reached a `_ => argument` default would be declared as whatever it was fed, which is
+        // right for these four and wrong for any statistic. Null says "not typed" instead, and
+        // AggregateSurfaceTests holds every name RunningAggregate computes to having one.
+        "MIN" or "MAX" or "FIRST" or "LAST" => argument,
+        _ => null,
     };
 
     private Type? DeclaredFunctionType(FunctionCall function, IReadOnlyList<OutputColumn> columns)
@@ -2421,9 +2426,16 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         _ => [],
     };
 
-    /// <summary>Groups by structural equality of the key value tuple.</summary>
-    // DISTINCT / GROUP BY / INTERSECT / EXCEPT key. String keys use Access text semantics — case-insensitive
-    // and trailing-space-insensitive — so 'London' and 'LONDON ' group together as Access does.
+    /// <summary>The DISTINCT / GROUP BY / INTERSECT / EXCEPT key: a value tuple compared on exactly the terms
+    /// the evaluator compares values on, and hashed on its matching <see cref="ExpressionEvaluator.KeyHash"/>.
+    /// </summary>
+    /// <remarks>
+    /// Two keys are the same key when <c>=</c> would call them equal: text folds case and trailing spaces,
+    /// and a number folds across its CLR types, so a LONG 1 and a DOUBLE 1.0 arriving under one key are one
+    /// group. Both are measured — ACE returns a single group for either (GroupKeyEqualityProbeTest) — and a
+    /// column alone never mixes numeric types, so the second only shows up through an expression, e.g. an
+    /// <c>IIF</c> whose arms are typed differently.
+    /// </remarks>
     internal sealed class GroupKey(object?[] values) : IEquatable<GroupKey>
     {
         private readonly object?[] _values = values;
@@ -2437,17 +2449,25 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         {
             var hash = new HashCode();
             foreach (object? v in _values)
-                hash.Add(v is string s ? StringComparer.InvariantCultureIgnoreCase.GetHashCode(s.TrimEnd(' ')) : v?.GetHashCode() ?? 0);
+                hash.Add(v is null ? 0 : ExpressionEvaluator.KeyHash(v));
             return hash.ToHashCode();
         }
 
-        // Grouping has to agree with ExpressionEvaluator's text comparison, which is linguistic on purpose;
-        // ordinal (CA1309) would split groups ACE puts together, and would disagree with GetHashCode above.
+        // Folds within a kind, because GetHashCode partitions by kind: calling a number and its text spelling
+        // one key would bucket them apart and split the group anyway. Text keeps the invariant comparison the
+        // hash is built on rather than taking CompareForSort's database collation — the collation key
+        // (JetTextCollation.TryEncode) is far too heavy to build per row just to hash, and an equality the
+        // hash does not follow splits groups at random. Ordinal (CA1309) would be wrong for both.
 #pragma warning disable CA1309
-        private static bool KeyEquals(object? a, object? b) =>
-            a is string sa && b is string sb
-                ? string.Equals(sa.TrimEnd(' '), sb.TrimEnd(' '), StringComparison.InvariantCultureIgnoreCase)
-                : Equals(a, b);
+        private static bool KeyEquals(object? a, object? b) => (a, b) switch
+        {
+            (null, null) => true,
+            (null, _) or (_, null) => false,
+            (string sa, string sb) =>
+                string.Equals(sa.TrimEnd(' '), sb.TrimEnd(' '), StringComparison.InvariantCultureIgnoreCase),
+            (string, _) or (_, string) => false,
+            _ => ExpressionEvaluator.KeyEqual(a, b),
+        };
 #pragma warning restore CA1309
     }
 

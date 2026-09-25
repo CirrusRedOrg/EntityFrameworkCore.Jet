@@ -33,28 +33,10 @@ public sealed class JetLegacyEncryption : IPageCodec
 
         Span<byte> key = stackalloc byte[4];
         BinaryPrimitives.WriteInt32LittleEndian(key, pageNumber ^ _databaseKey);
-        Rc4(key, page);
+        Rc4Cipher.Apply(key, page);
     }
 
     // RC4 is a symmetric XOR keystream, so encryption is the identical operation.
     public void EncryptPage(int pageNumber, Span<byte> page) => DecryptPage(pageNumber, page);
 
-    /// <summary>Standard RC4: KSA then PRGA, XOR'ing the keystream over <paramref name="data"/> in place.</summary>
-    private static void Rc4(ReadOnlySpan<byte> key, Span<byte> data)
-    {
-        Span<byte> s = stackalloc byte[256];
-        for (int i = 0; i < 256; i++) s[i] = (byte)i;
-        for (int i = 0, j = 0; i < 256; i++)
-        {
-            j = (j + s[i] + key[i % key.Length]) & 0xFF;
-            (s[i], s[j]) = (s[j], s[i]);
-        }
-        for (int n = 0, a = 0, b = 0; n < data.Length; n++)
-        {
-            a = (a + 1) & 0xFF;
-            b = (b + s[a]) & 0xFF;
-            (s[a], s[b]) = (s[b], s[a]);
-            data[n] ^= s[(s[a] + s[b]) & 0xFF];
-        }
-    }
 }

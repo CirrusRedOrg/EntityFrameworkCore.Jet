@@ -225,41 +225,44 @@ public static class PropertyBlob
     }
 
     /// <summary>Parses every property (owner, name, value) from a blob. Empty owner = a table property.</summary>
+    /// <summary>Every property in the blob. The accessors below select from the result rather than taking the
+    /// blob themselves, so a caller wanting several of them parses once — <see cref="Catalog.JetCatalog"/>
+    /// wants five per table, two of them per column.</summary>
     public static IReadOnlyList<Property> Read(ReadOnlySpan<byte> blob)
     {
         if (blob.Length == 0) return [];
         return Parse(blob).Properties;
     }
 
-    /// <summary>Extracts each column's <c>DefaultValue</c> (column name → value text) from a blob.</summary>
-    public static IReadOnlyDictionary<string, string> ReadColumnDefaults(ReadOnlySpan<byte> blob)
+    /// <summary>Extracts each column's <c>DefaultValue</c> (column name → value text).</summary>
+    public static IReadOnlyDictionary<string, string> ReadColumnDefaults(IReadOnlyList<Property> properties)
     {
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (Property p in Read(blob))
+        foreach (Property p in properties)
             if (p.Owner.Length > 0 && p.Name == DefaultValueProperty)
                 result[p.Owner] = p.Value;
         return result;
     }
 
-    /// <summary>The set of columns marked <c>Required</c> (NOT NULL) in a blob — a column has the property
+    /// <summary>The set of columns marked <c>Required</c> (NOT NULL) — a column has the property
     /// only when it is required (Access omits it for a nullable column).</summary>
-    public static IReadOnlySet<string> ReadRequiredColumns(ReadOnlySpan<byte> blob)
+    public static IReadOnlySet<string> ReadRequiredColumns(IReadOnlyList<Property> properties)
     {
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (Property p in Read(blob))
+        foreach (Property p in properties)
             if (p.Owner.Length > 0 && p.Name == RequiredProperty && p.Value == "1")
                 result.Add(p.Owner);
         return result;
     }
 
     /// <summary>Extracts the <c>ValidationRule</c>/<c>ValidationText</c> designer properties for the given
-    /// owner (a column name, or "" for the table) from a blob; each is null if absent. Access stores these as
+    /// owner (a column name, or "" for the table); each is null if absent. Access stores these as
     /// ordinary text properties in the <c>LvProp</c> blob, which is what EFCore.Jet's ADOX surfaces as
     /// <c>Jet OLEDB:{Column,Table} Validation Rule/Text</c>.</summary>
-    public static (string? Rule, string? Text) ReadValidation(ReadOnlySpan<byte> blob, string owner)
+    public static (string? Rule, string? Text) ReadValidation(IReadOnlyList<Property> properties, string owner)
     {
         string? rule = null, text = null;
-        foreach (Property p in Read(blob))
+        foreach (Property p in properties)
         {
             if (!string.Equals(p.Owner, owner, StringComparison.OrdinalIgnoreCase)) continue;
             if (p.Name == ValidationRuleProperty) rule = p.Value.Length > 0 ? p.Value : null;
@@ -272,11 +275,11 @@ public static class PropertyBlob
     /// given column; each is null if absent. <c>ResultType</c> is a single byte holding the Jet type code
     /// the payload is encoded in — the type the column was declared with, which is NOT the descriptor's
     /// type (see page-02b §3.4a).</summary>
-    public static (string? Expression, JetDataType? ResultType) ReadCalculated(ReadOnlySpan<byte> blob, string owner)
+    public static (string? Expression, JetDataType? ResultType) ReadCalculated(IReadOnlyList<Property> properties, string owner)
     {
         string? expression = null;
         JetDataType? resultType = null;
-        foreach (Property p in Read(blob))
+        foreach (Property p in properties)
         {
             if (!string.Equals(p.Owner, owner, StringComparison.OrdinalIgnoreCase)) continue;
             if (p.Name == ExpressionProperty) expression = p.Value.Length > 0 ? p.Value : null;
@@ -286,12 +289,12 @@ public static class PropertyBlob
         return (expression, resultType);
     }
 
-    /// <summary>Extracts the table's CHECK constraints (name, expression) from a blob. The
+    /// <summary>Extracts the table's CHECK constraints (name, expression). The
     /// <c>CheckConstraints</c> table property stores them as a <c>name\0expression\0</c> list, terminated
     /// by an empty entry.</summary>
-    public static IReadOnlyList<(string Name, string Expression)> ReadCheckConstraints(ReadOnlySpan<byte> blob)
+    public static IReadOnlyList<(string Name, string Expression)> ReadCheckConstraints(IReadOnlyList<Property> properties)
     {
-        foreach (Property p in Read(blob))
+        foreach (Property p in properties)
             if (p.Owner.Length == 0 && p.Name == CheckConstraintsProperty)
                 return ParseCheckList(p.Value);
         return [];

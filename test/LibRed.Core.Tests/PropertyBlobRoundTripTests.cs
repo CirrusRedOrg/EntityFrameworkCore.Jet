@@ -71,10 +71,11 @@ public class PropertyBlobRoundTripTests
             "", PropertyBlob.CheckConstraintsProperty, PropertyBlob.WriteCheckList([("CK_T", "V < 100")])));
         byte[] updated = PropertyBlob.Write(properties, blob.AsSpan(0, 4));
 
-        (string? rule, string? text) = PropertyBlob.ReadValidation(updated, "");
+        IReadOnlyList<PropertyBlob.Property> reread = PropertyBlob.Read(updated);
+        (string? rule, string? text) = PropertyBlob.ReadValidation(reread, "");
         Assert.Equal("[V]>0", rule);
         Assert.Equal("V must be positive", text);
-        Assert.Contains(PropertyBlob.ReadCheckConstraints(updated), c => c.Name == "CK_T");
+        Assert.Contains(PropertyBlob.ReadCheckConstraints(reread), c => c.Name == "CK_T");
         Assert.Contains(PropertyBlob.Read(updated), p => p.Owner == "V" && p.Value == "0");
         Assert.Equal(blob[..4], updated[..4]);          // and the signature is carried across, not restamped
     }

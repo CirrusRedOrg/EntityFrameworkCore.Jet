@@ -23,9 +23,10 @@ namespace LibRed.Storage;
 /// because a row with no long value in it needs no pages, which is what lets the row codec be tested without
 /// a file; it is only the value that cannot be faked.</para>
 /// <para>The two operations that want the stored descriptors rather than the values —
-/// <see cref="LongValueDescriptors"/> and <see cref="CalculatedSlots"/> — are static. They need no reader, so
+/// <c>LongValueDescriptors</c> and <c>CalculatedSlots</c> — are static. They need no reader, so
 /// they are not reached through an instance that might lack one, and no caller has to decide what an
-/// instance "mode" means.</para>
+/// instance "mode" means. Each takes either the row alone or a <see cref="RowLayout"/> the caller has already
+/// parsed, so a caller wanting both off one row derives the trailer arithmetic once.</para>
 /// </remarks>
 public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase format, LongValueReader? longValues = null)
 {
@@ -107,10 +108,17 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     /// unchanged column's descriptor verbatim (avoiding a needless re-materialise) and to free a replaced or
     /// deleted value's LVAL pages.</summary>
     public static Dictionary<int, byte[]> LongValueDescriptors(
-        IReadOnlyList<ColumnDef> columns, JetFormatBase format, ReadOnlySpan<byte> row)
+        IReadOnlyList<ColumnDef> columns, JetFormatBase format, ReadOnlySpan<byte> row) =>
+        LongValueDescriptors(columns, ParseLayout(columns, format, row), row);
+
+    /// <inheritdoc cref="LongValueDescriptors(IReadOnlyList{ColumnDef}, JetFormatBase, ReadOnlySpan{byte})"/>
+    /// <remarks>Takes a layout the caller has already parsed — an UPDATE wants this and
+    /// <see cref="CalculatedSlots(IReadOnlyList{ColumnDef}, RowLayout, ReadOnlySpan{byte})"/> off one row, and
+    /// <see cref="RowLayout"/> exists so that arithmetic is done once.</remarks>
+    internal static Dictionary<int, byte[]> LongValueDescriptors(
+        IReadOnlyList<ColumnDef> columns, RowLayout layout, ReadOnlySpan<byte> row)
     {
         var result = new Dictionary<int, byte[]>();
-        RowLayout layout = ParseLayout(columns, format, row);
         int nullBitmapSize = layout.NullBitmapSize;
 
         ReadOnlySpan<byte> nullBitmap = row[^nullBitmapSize..];
@@ -129,10 +137,16 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     /// — the envelope, or the long-value descriptor wrapping it — WITHOUT decoding or resolving it. An UPDATE
     /// that touches nothing the expression reads writes these back unchanged, which is what ACE does.</summary>
     public static Dictionary<int, byte[]> CalculatedSlots(
-        IReadOnlyList<ColumnDef> columns, JetFormatBase format, ReadOnlySpan<byte> row)
+        IReadOnlyList<ColumnDef> columns, JetFormatBase format, ReadOnlySpan<byte> row) =>
+        CalculatedSlots(columns, ParseLayout(columns, format, row), row);
+
+    /// <inheritdoc cref="CalculatedSlots(IReadOnlyList{ColumnDef}, JetFormatBase, ReadOnlySpan{byte})"/>
+    /// <remarks>Takes a layout the caller has already parsed; see the
+    /// <see cref="LongValueDescriptors(IReadOnlyList{ColumnDef}, RowLayout, ReadOnlySpan{byte})"/> overload.</remarks>
+    internal static Dictionary<int, byte[]> CalculatedSlots(
+        IReadOnlyList<ColumnDef> columns, RowLayout layout, ReadOnlySpan<byte> row)
     {
         var result = new Dictionary<int, byte[]>();
-        RowLayout layout = ParseLayout(columns, format, row);
         ReadOnlySpan<byte> nullBitmap = row[^layout.NullBitmapSize..];
 
         foreach (ColumnDef column in columns)
@@ -167,7 +181,7 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
 
     private RowLayout ParseLayout(ReadOnlySpan<byte> row) => ParseLayout(_columns, _format, row);
 
-    private static RowLayout ParseLayout(IReadOnlyList<ColumnDef> columns, JetFormatBase format, ReadOnlySpan<byte> row)
+    internal static RowLayout ParseLayout(IReadOnlyList<ColumnDef> columns, JetFormatBase format, ReadOnlySpan<byte> row)
     {
         if (row.Length < format.RowColumnCountSize)
             throw new InvalidDataException("Row is too short to be an inline record.");

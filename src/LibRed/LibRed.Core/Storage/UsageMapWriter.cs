@@ -151,18 +151,8 @@ public sealed class UsageMapWriter(PageChannel channel)
         int newEnd = newStart + InlineWindowPages;
 
         var marked = new List<int>();
-        bool fitsWindow = true;
-        for (int i = 0; i < bitmap.Length; i++)
-        {
-            if (bitmap[i] == 0) continue;
-            for (int bit = 0; bit < 8; bit++)
-            {
-                if ((bitmap[i] & (1 << bit)) == 0) continue;
-                int markedPage = startPage + i * 8 + bit;
-                if (markedPage < newStart || markedPage >= newEnd) fitsWindow = false;
-                marked.Add(markedPage);
-            }
-        }
+        UsageMapBits.Append(marked, bitmap, startPage, rejectBeyond: null, "A free-pages map");
+        bool fitsWindow = marked.TrueForAll(p => p >= newStart && p < newEnd);
 
         // A window that has already moved above the target cannot slide back down without dropping the pages
         // it still advertises, so it widens instead: the start drops to the lowest page it must cover (rounded
@@ -277,11 +267,9 @@ public sealed class UsageMapWriter(PageChannel channel)
         int startPage = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(slot.Offset + 1, 4));
         ReadOnlySpan<byte> bitmap = page.AsSpan(slot.Offset + InlineMapHeaderSize, slot.Length - InlineMapHeaderSize);
 
+        // Every bit kept, as above: this is re-expressing a map the file already holds, not reading one.
         var marked = new List<int>();
-        for (int i = 0; i < bitmap.Length; i++)
-            for (int bit = 0; bit < 8; bit++)
-                if ((bitmap[i] & (1 << bit)) != 0)
-                    marked.Add(startPage + i * 8 + bit);
+        UsageMapBits.Append(marked, bitmap, startPage, rejectBeyond: null, "An inline usage map");
 
         var record = new byte[ReferenceMapRecordSize];
         record[0] = ReferenceMapType;

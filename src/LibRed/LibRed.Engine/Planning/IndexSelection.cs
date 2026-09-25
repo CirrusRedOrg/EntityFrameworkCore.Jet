@@ -336,6 +336,19 @@ internal static class IndexSelection
 
     internal enum TypeKind { Numeric, Text, Binary, Temporal, Guid }
 
+    /// <summary>The kind a value compares as — the value-side partner of <see cref="Classify(JetDataType)"/>.
+    /// Null for <c>Null</c>, which has no kind of its own.</summary>
+    internal static TypeKind? KindOf(object? value) => value switch
+    {
+        null => null,
+        string or char => TypeKind.Text,
+        DateTime => TypeKind.Temporal,
+        Guid => TypeKind.Guid,
+        byte[] => TypeKind.Binary,
+        _ when ExpressionEvaluator.IsNumeric(value) => TypeKind.Numeric,
+        _ => null,
+    };
+
     internal static TypeKind? Classify(JetDataType t) => t switch
     {
         JetDataType.Boolean or JetDataType.Byte or JetDataType.Int16 or JetDataType.Int32 or JetDataType.Int64

@@ -1,4 +1,6 @@
 using EntityFrameworkCore.Jet.Data;
+using LibRed.Catalog;
+using LibRed.Engine.Planning;
 using LibRed.Sql.Ast;
 using LibRed.Storage;
 using System.Globalization;
@@ -2296,6 +2298,28 @@ internal sealed partial class ExpressionEvaluator(
         if (rightOperand is ParameterExpression && left is string && right is not string) right = ConcatText(right);
         (object l, object r) = Comparable(left, right);
         return Compare(l, r);
+    }
+
+    /// <summary>The key an index seek must use for <c>column = value</c> to select exactly the rows the
+    /// comparison selects, or false when there is no such key and the caller has to scan instead.</summary>
+    /// <remarks>
+    /// An index answers only in its column's own kind — its keys are encoded and ordered as that type — so a
+    /// comparison that happens in a different kind has no key range to seek. <c>S = 1</c> on text compares as
+    /// a number (see <see cref="Comparable"/>), matching <c>' 1 '</c>, <c>'1.0'</c> and <c>'+1'</c> as well as
+    /// <c>'1'</c>, which are scattered through the index rather than adjacent in it. The one cross-kind case
+    /// that IS seekable is a parameter against text, which <see cref="CompareAsKinds"/> converts to text before
+    /// comparing; the seek converts it the same way and so asks the index the same question.
+    /// </remarks>
+    internal static bool TryGetSeekKey(ColumnDef column, Expression operand, object? value, out object? key)
+    {
+        key = value;
+        if (value is null) return true;
+
+        IndexSelection.TypeKind? columnKind = IndexSelection.Classify(column.Type);
+        if (columnKind == IndexSelection.TypeKind.Text && value is not string
+            && (operand is ParameterExpression || value is char))
+            key = ConcatText(value);
+        return IndexSelection.KindOf(key) == columnKind;
     }
 
     private static object Serial(object value) => value is DateTime d ? d.ToOADate() : value;

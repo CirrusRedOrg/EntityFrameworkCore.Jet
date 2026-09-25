@@ -595,10 +595,19 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     // row); a single-table seek's key is a constant/parameter.
                     var evaluator = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session);
                     var keyValues = new object?[table.Definition.Columns.Count];
-                    for (int i = 0; i < seek.Keys.Count; i++)
-                        keyValues[seek.Index.Columns[i].Column.Index] = evaluator.Evaluate(seek.Keys[i]);
+                    bool seekable = true;
+                    for (int i = 0; i < seek.Keys.Count && seekable; i++)
+                    {
+                        var keyColumn = seek.Index.Columns[i].Column;
+                        seekable = ExpressionEvaluator.TryGetSeekKey(
+                            keyColumn, seek.Keys[i], evaluator.Evaluate(seek.Keys[i]), out keyValues[keyColumn.Index]);
+                    }
 
-                    return (columns, table.SeekRows(seek.Index, keyValues));
+                    // A value of another kind is not a key this index can be searched by, so the rows are found
+                    // by scanning instead. The FilterNode this seek was planned under is kept whatever happens
+                    // (see IndexSelection), so it re-checks every row either way and the answer is the same one
+                    // the table would give with no index on it at all.
+                    return (columns, seekable ? table.SeekRows(seek.Index, keyValues) : table.Rows());
                 }
 
             case IndexRangeSeekNode range:
@@ -1538,11 +1547,17 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 foreach (object?[] left in leftRows)
                 {
                     keyScope.Rebind(left);
-                    for (int i = 0; i < seek.Keys.Count; i++)
-                        keyValues[keyCols[i]] = keyEval.Evaluate(seek.Keys[i]);
+                    // As the single-table seek above: a key of another kind cannot be looked up in this index,
+                    // and the join's ON is kept whole as the residual, so scanning the inner table for that
+                    // outer row gives the same rows the seek would have had to find.
+                    bool seekable = true;
+                    for (int i = 0; i < seek.Keys.Count && seekable; i++)
+                        seekable = ExpressionEvaluator.TryGetSeekKey(
+                            seek.Index.Columns[i].Column, seek.Keys[i], keyEval.Evaluate(seek.Keys[i]),
+                            out keyValues[keyCols[i]]);
 
                     bool matched = false;
-                    foreach (object?[] right in innerTable.SeekRows(seek.Index, keyValues))
+                    foreach (object?[] right in seekable ? innerTable.SeekRows(seek.Index, keyValues) : innerTable.Rows())
                     {
                         object?[] combined = [.. left, .. right];
                         if (on is null || onEval.Rebind(combined).IsTrue(on))
@@ -2432,7 +2447,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// <remarks>
     /// Two keys are the same key when <c>=</c> would call them equal: text folds case and trailing spaces,
     /// and a number folds across its CLR types, so a LONG 1 and a DOUBLE 1.0 arriving under one key are one
-    /// group. Both are measured — ACE returns a single group for either (GroupKeyEqualityProbeTest) — and a
+    /// group. Both are measured — ACE returns a single group for either — and a
     /// column alone never mixes numeric types, so the second only shows up through an expression, e.g. an
     /// <c>IIF</c> whose arms are typed differently.
     /// </remarks>

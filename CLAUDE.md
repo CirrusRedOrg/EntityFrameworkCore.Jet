@@ -8,6 +8,15 @@ EntityFrameworkCore.Jet is an EF Core provider for Microsoft Jet/ACE databases (
 
 Current version: `11.0.0-alpha.4` (`Version.props`) targeting EF Core 11 and `net11.0`; `global.json` pins the 11.0.100 RC1 SDK with `rollForward: latestFeature`. The test projects use **xunit v3**.
 
+**One exception to `net11.0`:** `LibRed.Core`, `LibRed.Sql`, `LibRed.Engine` and `LibRed.Ado` multi-target
+`$(LibRedTargetFrameworks)` = `net10.0;net11.0`, because none of them depends on an EF Core package. `LibRed.EFCore`
+is deliberately **not** in that list — EF Core 11 is `net11.0`-only — and neither is anything under `src/EFCore.Jet*`.
+
+**Every test project stays single-target `net11.0`, and that is deliberate — don't "fix" it.** The `net10.0`
+leg is *compiled*, never run: multi-targeting the suites would double every run locally and on all five CI
+platforms, and would need the .NET 10 runtime installed in CI, which the SDK `global.json` pins does not carry.
+So `dotnet test` on any suite builds both frameworks and runs only `net11.0`.
+
 ### Which layer am I touching?
 
 - `src/EFCore.Jet.Data`, `src/EFCore.Jet`, `src/EFCore.Jet.Odbc`, `src/EFCore.Jet.OleDb` — Windows-only, ACE driver

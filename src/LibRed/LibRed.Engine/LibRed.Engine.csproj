@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>$(JetTargetFramework)</TargetFramework>
+    <TargetFrameworks>$(LibRedTargetFrameworks)</TargetFrameworks>
     <RootNamespace>LibRed.Engine</RootNamespace>
     <AssemblyName>LibRed.Engine</AssemblyName>
     <Description>Query engine: plans and executes bound SQL statements (select/insert/update/delete, joins, filters, expressions) against the LibRed.Core storage layer.</Description>

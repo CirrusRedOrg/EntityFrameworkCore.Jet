@@ -111,7 +111,8 @@ public class CoalesceTests
     public void Numeric_arguments_widen_to_the_larger_type()
         => Assert.Equal(typeof(double), ColumnType("COALESCE(1, 2.5E0)"));
 
+    // Text beside a number is a Mixed choice, which declares text as ACE's IIF does.
     [Fact]
-    public void Irreconcilable_arguments_declare_nothing()
-        => Assert.Equal(typeof(object), ColumnType("COALESCE('a', 1)"));
+    public void Text_beside_a_number_declares_text()
+        => Assert.Equal(typeof(string), ColumnType("COALESCE('a', 1)"));
 }

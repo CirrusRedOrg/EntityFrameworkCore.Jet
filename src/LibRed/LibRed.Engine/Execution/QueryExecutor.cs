@@ -22,9 +22,13 @@ internal enum ColumnOrigin { Expression, Aggregate, SetOperation }
 /// caller describing a query (the schema rowsets, for a view's columns) can report the declared type and its
 /// length rather than only the CLR type. Null for anything computed.</param>
 /// <param name="Origin">What computes the column, where <paramref name="Source"/> does not stand behind it.</param>
+/// <param name="Variant">Marks a column of Variants (<c>CVar</c> and what keeps one): its values keep their own types
+/// until a result, a scalar subquery or a set operation writes them out as text; <paramref name="ClrType"/> is that
+/// text.</param>
 internal readonly record struct OutputColumn(
     string? Qualifier, string Name, Type? ClrType = null, bool Currency = false, int? Scale = null,
-    bool Null = false, LibRed.Catalog.ColumnDef? Source = null, ColumnOrigin Origin = ColumnOrigin.Expression)
+    bool Null = false, LibRed.Catalog.ColumnDef? Source = null, ColumnOrigin Origin = ColumnOrigin.Expression,
+    bool Variant = false)
 {
     /// <summary>The output of a stored column.</summary>
     public static OutputColumn Of(string? qualifier, LibRed.Catalog.ColumnDef column) =>
@@ -87,8 +91,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     // for every outer row of a correlated subquery / nested-loop inner.
     private readonly Dictionary<ProjectNode, ProjectionSchema> _projectionSchemas = new(ReferenceEqualityComparer.Instance);
 
-    // The type each scalar subquery declares, keyed by AST node: described once, however often DeclaredType asks.
-    private readonly Dictionary<SqlStatement, Type?> _scalarSubqueryTypes = new(ReferenceEqualityComparer.Instance);
+    // Each scalar subquery's column, keyed by AST node: described once, however often DeclaredType asks.
+    private readonly Dictionary<SqlStatement, OutputColumn?> _scalarSubqueryColumns = new(ReferenceEqualityComparer.Instance);
 
     // Decorrelated EXISTS subqueries, keyed by AST node. A present-but-null value records "analysed, not
     // decorrelatable", so an unsound-to-rewrite subquery isn't re-analysed on every outer row.
@@ -156,6 +160,13 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     public ResultSet ExecuteQuery(PlanNode plan)
     {
         var (columns, rows) = Execute(plan, null);
+        // A result writes its Variants out as text, as ACE's expression service does (verified vs ACE).
+        if (columns.Any(c => c.Variant))
+        {
+            List<OutputColumn> written = [.. columns.Select(c => c with { Variant = false })];
+            rows = ToColumnTypes(rows, columns, written);
+            columns = written;
+        }
         return new ResultSet(
             columns.Select(c => c.Name).ToList(),
             rows,
@@ -218,6 +229,15 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     }
 
     object? IScalarSubqueryRunner.ExecuteScalar(SqlStatement query, EvalScope outerScope)
+    {
+        object? value = ScalarValue(query, outerScope);
+        // A scalar subquery writes a Variant out as text (verified vs ACE: one added to itself concatenates).
+        return value is not null && ScalarSubqueryColumn(query) is { Variant: true }
+            ? ExpressionEvaluator.ConcatText(value)
+            : value;
+    }
+
+    private object? ScalarValue(SqlStatement query, EvalScope outerScope)
     {
         if (_hoistedScalar.TryGetValue(query, out object? hoisted))
             return hoisted;
@@ -758,14 +778,15 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// A set operation's column: the left query's, typed as ACE types it (verified vs ACE). A bare <c>NULL</c> takes
     /// the other query's type. Numbers widen on <see cref="CommonNumericType"/>, a Boolean counting as an Integer
     /// (-1); a GUID or binary value with anything else makes a binary column; any other mix — text, or a date with a
-    /// number or a Boolean — makes a text column. An unknown type on either side leaves the column untyped.
+    /// number or a Boolean — makes a text column. An unknown type on either side leaves the column untyped. A column
+    /// of Variants counts as text, and the set operation writes its values out as text (verified vs ACE).
     /// </summary>
     private static OutputColumn SetOperationColumn(OutputColumn left, OutputColumn right)
     {
         // Whatever the arms hold, the combined column is no longer any one stored column, so it carries no
         // source: a caller describing the query sees a computed column, which is what it is.
         if (right.Null)
-            return left with { Source = null, Origin = ColumnOrigin.SetOperation };
+            return left with { Source = null, Origin = ColumnOrigin.SetOperation, Variant = false };
         if (left.Null)
             return left with
             {
@@ -775,6 +796,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 Null = false,
                 Source = null,
                 Origin = ColumnOrigin.SetOperation,
+                Variant = false,
             };
 
         // A Decimal column is Currency unless one side is a Decimal of its own, and keeps a scale both sides share.
@@ -794,18 +816,20 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 : leftDecimal ? left.Scale : rightDecimal ? right.Scale : null,
             Source = null,
             Origin = ColumnOrigin.SetOperation,
+            Variant = false,
         };
-
-        static Type AsInteger(Type type) => type == typeof(bool) ? typeof(short) : type;
     }
 
+    /// <summary>A Boolean as the Integer (-1 or 0) it counts as beside a number; any other type as it is.</summary>
+    private static Type AsInteger(Type type) => type == typeof(bool) ? typeof(short) : type;
+
     /// <summary>The rows with each value converted to its output column's type, where the query's own column had
-    /// another.</summary>
+    /// another — or held Variants, whose values are still their own types until written out.</summary>
     private static IEnumerable<object?[]> ToColumnTypes(
         IEnumerable<object?[]> rows, IReadOnlyList<OutputColumn> from, List<OutputColumn> to)
     {
         int[] changed = Enumerable.Range(0, to.Count)
-            .Where(i => to[i].ClrType is { } type && !from[i].Null && from[i].ClrType != type)
+            .Where(i => to[i].ClrType is { } type && !from[i].Null && (from[i].ClrType != type || from[i].Variant))
             .ToArray();
         if (changed.Length == 0)
             return rows;
@@ -901,11 +925,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 OutputColumn? referenced = item.Value is ColumnReference reference
                     ? OutputColumn.Find(columns, reference)
                     : null;
+                (Type? convertTo, bool variant) = ItemConversion(item.Value, columns);
                 plan.Add((
                     OutputColumn.Computed(name, DeclaredType(item.Value, columns), type, item.Value, referenced?.Source)
                         with
-                    { Origin = referenced?.Origin ?? ColumnOrigin.Expression },
-                    -1, item.Value, type, ChoiceConversion(item.Value, columns)));
+                    { Origin = referenced?.Origin ?? ColumnOrigin.Expression, Variant = variant },
+                    -1, item.Value, type, convertTo));
             }
         }
 
@@ -916,6 +941,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     private Type? DeclaredType(Expression expression, IReadOnlyList<OutputColumn> columns)
     {
+        // A Variant or a Mixed value is text wherever it is written out.
+        if (VarianceOf(expression, columns) != Variance.None)
+            return typeof(string);
+
         switch (expression)
         {
             case LiteralExpression { Value: { } value }:
@@ -937,11 +966,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case ExistsExpression or InSubqueryExpression or InListExpression or BetweenExpression:
                 return typeof(bool);
             case ScalarSubquery subquery:
-                return ScalarSubqueryType(subquery.Query);
+                return ScalarSubqueryColumn(subquery.Query)?.ClrType;
             case UnaryExpression unary:
                 return unary.Operator is UnaryOperator.Not or UnaryOperator.IsNull or UnaryOperator.IsNotNull
                     or UnaryOperator.IsTrue or UnaryOperator.IsNotTrue or UnaryOperator.IsFalse or UnaryOperator.IsNotFalse
-                    ? typeof(bool) : DeclaredUnaryType(unary.Operator, DeclaredType(unary.Operand, columns));
+                    ? typeof(bool) : DeclaredUnaryType(unary.Operator, OperandType(unary.Operand, columns));
             case BinaryExpression binary:
                 if (binary.Operator is BinaryOperator.Equal or BinaryOperator.NotEqual
                     or BinaryOperator.LessThan or BinaryOperator.LessThanOrEqual
@@ -952,8 +981,14 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     return typeof(bool);
                 if (binary.Operator == BinaryOperator.Concat)
                     return typeof(string);
-                Type? left = DeclaredType(binary.Left, columns);
-                Type? right = DeclaredType(binary.Right, columns);
+                // A Mixed value beside text may concatenate, so the two add as text (verified vs ACE: '8' and '8' are
+                // '88', and 2 and '9' are '11').
+                if (binary.Operator == BinaryOperator.Add
+                    && (VarianceOf(binary.Left, columns) == Variance.Mixed && IsPlainText(binary.Right, columns)
+                        || VarianceOf(binary.Right, columns) == Variance.Mixed && IsPlainText(binary.Left, columns)))
+                    return typeof(string);
+                Type? left = OperandType(binary.Left, columns);
+                Type? right = OperandType(binary.Right, columns);
                 // A date plus or less a span is a date — ExpressionEvaluator.IsSpan, which the evaluator moves it by.
                 if (left == typeof(DateTime) && IsSpan(binary.Right)
                     && binary.Operator is BinaryOperator.Add or BinaryOperator.Subtract
@@ -969,17 +1004,134 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
     }
 
-    /// <summary>The type a scalar subquery declares: that of its one column, found by describing its plan. Describing
-    /// reads no row and evaluates nothing, so a correlated subquery never needs the outer row it cannot have here; a
-    /// column only that row could type is left untyped. Its values already come back in this type — each is the
-    /// subquery's own projected value.</summary>
-    private Type? ScalarSubqueryType(SqlStatement query)
+    /// <summary>
+    /// What ACE's expression service makes of a value beyond its type (verified vs ACE, over OLE DB, for IIF, SWITCH
+    /// and CHOOSE; CASE, COALESCE, GREATEST and LEAST, which ACE does not have, take IIF's rule).
+    /// <para>A <b>Variant</b> — <c>CVar(x)</c>, a Variant plus a Variant, a Mixed value or text, a negated one, a
+    /// column or scalar subquery holding them, and a choice whose values all are — keeps its own type through an
+    /// expression and through a derived table, so <c>X + X</c> over <c>CVar(B) AS X</c> still adds. A result, a
+    /// scalar subquery and a set operation write it out as text, as CStr writes it.</para>
+    /// <para>A <b>Mixed</b> value is a choice whose values disagree in kind — text beside anything else, or a Variant
+    /// beside anything that is not one — or a negated one. It is text wherever it is written out, a derived table
+    /// included, so <c>X + X</c> over <c>IIF(…, T, 2) AS X</c> concatenates.</para>
+    /// <para>Both sort, group and take Min, Max, First and Last as their text, so 10 sorts before 3. As the operand of
+    /// anything else — arithmetic, a function, an aggregate, another choice — each counts as a Double.</para>
+    /// </summary>
+    private enum Variance { None, Variant, Mixed }
+
+    private Variance VarianceOf(Expression expression, IReadOnlyList<OutputColumn> columns)
     {
-        if (!_scalarSubqueryTypes.TryGetValue(query, out Type? type))
-            _scalarSubqueryTypes[query] = type =
+        switch (expression)
+        {
+            // CVar(Null) is left untyped, as a bare Null is. ACE makes it a Variant, and a union with an arm of them a
+            // text column; EFCore.Jet writes it for every projected Null, and LibRed keeps such a union typed from its
+            // other arm.
+            case FunctionCall { Arguments: [var argument] } function
+                when function.Name.TrimEnd('$').Equals("CVAR", StringComparison.OrdinalIgnoreCase):
+                return argument is LiteralExpression { Value: null } ? Variance.None : Variance.Variant;
+            case ColumnReference reference:
+                return OutputColumn.Find(columns, reference) is { Variant: true } ? Variance.Variant : Variance.None;
+            case ScalarSubquery subquery:
+                return ScalarSubqueryColumn(subquery.Query) is { Variant: true } ? Variance.Variant : Variance.None;
+            case UnaryExpression { Operator: UnaryOperator.Negate } negation:
+                return VarianceOf(negation.Operand, columns);
+            // Only + keeps a Variant, and only beside something that may concatenate; the other operators, and +
+            // beside a number, make a number.
+            case BinaryExpression { Operator: BinaryOperator.Add } add:
+                {
+                    Variance left = VarianceOf(add.Left, columns), right = VarianceOf(add.Right, columns);
+                    if (left != Variance.Variant && right != Variance.Variant)
+                        return Variance.None;
+                    (Variance other, Expression otherSide) = left == Variance.Variant ? (right, add.Right) : (left, add.Left);
+                    return other != Variance.None || DeclaredType(otherSide, columns) == typeof(string)
+                        ? Variance.Variant : Variance.None;
+                }
+            case CaseExpression @case:
+                return ChoiceVariance(CaseResults(@case), columns);
+            case FunctionCall function when ChoiceArms(function) is { } arms:
+                return ChoiceVariance(arms, columns);
+            default:
+                return Variance.None;
+        }
+    }
+
+    /// <summary>A choice's variance: a Variant when every value is one, Mixed when only some are, or when text stands
+    /// beside another known kind. A bare Null is no value, and a Mixed value counts as the Double it is as an operand
+    /// — so a choice between one and a number is a number.</summary>
+    private Variance ChoiceVariance(IEnumerable<Expression> arms, IReadOnlyList<OutputColumn> columns)
+    {
+        List<Expression> values = [.. arms.Where(a => a is not LiteralExpression { Value: null })];
+        if (values.Count == 0)
+            return Variance.None;
+        List<Variance> variances = [.. values.Select(a => VarianceOf(a, columns))];
+        if (variances.TrueForAll(v => v == Variance.Variant))
+            return Variance.Variant;
+        if (variances.Contains(Variance.Variant))
+            return Variance.Mixed;
+        List<Type?> types = [.. values.Select((a, i) => variances[i] == Variance.Mixed ? typeof(double) : DeclaredType(a, columns))];
+        return types.TrueForAll(t => t is not null) && types.Contains(typeof(string)) && types.Exists(t => t != typeof(string))
+            ? Variance.Mixed : Variance.None;
+    }
+
+    /// <summary>The values a choice picks among, or null for a function that is not one.</summary>
+    private static IEnumerable<Expression>? ChoiceArms(FunctionCall function) =>
+        function.Name.TrimEnd('$').ToUpperInvariant() switch
+        {
+            "IIF" when function.Arguments.Count == 3 => function.Arguments.Skip(1),
+            "SWITCH" => function.Arguments.Where((_, i) => i % 2 == 1),
+            "CHOOSE" => function.Arguments.Skip(1),
+            "COALESCE" or "GREATEST" or "LEAST" => function.Arguments,
+            _ => null,
+        };
+
+    /// <summary>The type an expression counts as where it is an operand: a Variant or a Mixed value as a Double.</summary>
+    private Type? OperandType(Expression expression, IReadOnlyList<OutputColumn> columns) =>
+        VarianceOf(expression, columns) != Variance.None ? typeof(double) : DeclaredType(expression, columns);
+
+    /// <summary>Whether <paramref name="expression"/> is text that is neither a Variant nor a Mixed value.</summary>
+    private bool IsPlainText(Expression expression, IReadOnlyList<OutputColumn> columns) =>
+        VarianceOf(expression, columns) == Variance.None && DeclaredType(expression, columns) == typeof(string);
+
+    /// <summary>Whether a choice, a Variant or a Mixed value appears anywhere in <paramref name="expression"/> — each
+    /// of which can hold a value of another type than the one it declares.</summary>
+    private bool HoldsChoiceOrVariance(Expression expression, IReadOnlyList<OutputColumn> columns) =>
+        expression is CaseExpression
+        || expression is FunctionCall function && ChoiceArms(function) is not null
+        || VarianceOf(expression, columns) != Variance.None
+        || (expression.Operands()?.Any(o => HoldsChoiceOrVariance(o, columns)) ?? false);
+
+    /// <summary>
+    /// What a projected value is converted to, and whether its column holds Variants. A Variant is left as it is and
+    /// written out later. Anything else holding a choice, a Variant or a Mixed value becomes the type it declares,
+    /// which its values need not already have — a Mixed value becomes text, a Variant date plus 1 a Double, and
+    /// <c>IIF(…, D, 2) + 1</c> a date where the choice picks the 2. A choice with an arm of unknown type declares
+    /// nothing, so nothing is converted.
+    /// </summary>
+    private (Type? ConvertTo, bool Variant) ItemConversion(Expression expression, IReadOnlyList<OutputColumn> columns) =>
+        VarianceOf(expression, columns) == Variance.Variant
+            ? (null, true)
+            : (HoldsChoiceOrVariance(expression, columns) ? DeclaredType(expression, columns) : null, false);
+
+    /// <summary>Which of <paramref name="keys"/> compare as text: a Variant or a Mixed value sorts, groups and takes
+    /// Min, Max, First and Last as its text.</summary>
+    private bool[] ComparedAsText(IEnumerable<Expression> keys, IReadOnlyList<OutputColumn> columns) =>
+        [.. keys.Select(k => VarianceOf(k, columns) != Variance.None)];
+
+    /// <summary>A value as it compares: its text, where <paramref name="asText"/>.</summary>
+    private static object? Compared(object? value, bool asText) =>
+        asText && value is not null ? ExpressionEvaluator.ConcatText(value) : value;
+
+    /// <summary>A scalar subquery's one column, found by describing its plan: the type it declares, and whether it
+    /// holds Variants. Describing reads no row and evaluates nothing, so a correlated subquery never needs the outer
+    /// row it cannot have here; a column only that row could type is left untyped. Its values already come back in
+    /// this type — each is the subquery's own projected value, and a Variant is written out as text.</summary>
+    private OutputColumn? ScalarSubqueryColumn(SqlStatement query)
+    {
+        if (!_scalarSubqueryColumns.TryGetValue(query, out OutputColumn? column))
+            _scalarSubqueryColumns[query] = column =
                 new QueryExecutor(_database, _parameterValues, _session, describing: true)
-                    .DescribeQuery(QueryPlanner.PlanStatement(query)) is [var first, ..] ? first.ClrType : null;
-        return type;
+                    .DescribeQuery(QueryPlanner.PlanStatement(query)) is [var first, ..] ? first : null;
+        return column;
     }
 
     /// <summary>
@@ -989,9 +1141,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// too. Any other arm whose type is unknown leaves the whole choice unknown, since it may hold anything —
     /// letting the known arms declare alone made <c>IIF(x IS NULL, 0, x)</c> over an untyped Decimal
     /// <c>x</c> declare Integer, and the value was then converted to it. Numeric branches
-    /// widen on <see cref="CommonNumericType"/>, so <c>THEN 1 ELSE 2.5</c> declares Double. A genuine mix
-    /// (a string branch and a numeric one) declares nothing rather than guessing, leaving the column untyped
-    /// exactly as it was before CASE was understood at all.
+    /// widen on <see cref="CommonNumericType"/>, so <c>THEN 1 ELSE 2.5</c> declares Double. Text beside another kind
+    /// is Mixed (<see cref="Variance"/>) and declares text, as IIF does in ACE.
     /// </summary>
     private Type? DeclaredCaseType(CaseExpression @case, IReadOnlyList<OutputColumn> columns)
         => UnifiedType(CaseResults(@case), columns);
@@ -1017,12 +1168,26 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
         foreach (Expression alternative in alternatives)
         {
-            Type? branchType = IsWrittenDecimal(alternative) ? typeof(decimal) : DeclaredType(alternative, columns);
+            Type? branchType = IsWrittenDecimal(alternative) ? typeof(decimal) : OperandType(alternative, columns);
             if (branchType is null)
             {
                 if (alternative is LiteralExpression { Value: null })
                     continue;
                 return null;
+            }
+            // A date beside a number is a date, the number read as a serial; a Boolean beside one counts as the
+            // Integer -1 or 0 (verified vs ACE: IIF(…, D, 2) is 1900-01-01 where it picks the 2).
+            if (result is not null && result != branchType)
+            {
+                if (result == typeof(DateTime) && IsNumeric(AsInteger(branchType))
+                    || branchType == typeof(DateTime) && IsNumeric(AsInteger(result)))
+                {
+                    result = typeof(DateTime);
+                    currency = false;
+                    continue;
+                }
+                result = AsInteger(result);
+                branchType = AsInteger(branchType);
             }
             bool branchCurrency = branchType == typeof(decimal)
                 && ExpressionEvaluator.NumberTypeOf(alternative, columns, e => DeclaredType(e, columns)).Class
@@ -1051,30 +1216,6 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         while (expression is UnaryExpression { Operator: UnaryOperator.Negate } negation)
             expression = negation.Operand;
         return expression is LiteralExpression { Written: decimal };
-    }
-
-    /// <summary>
-    /// The type an expression that picks one of several alternatives (<see cref="UnifiedType"/>) converts its value
-    /// to, so the value has the type the column declares; null when nothing is converted. Only when every
-    /// alternative's type is known is the declared type sure to hold each of them.
-    /// </summary>
-    private Type? ChoiceConversion(Expression expression, IReadOnlyList<OutputColumn> columns)
-    {
-        IEnumerable<Expression>? alternatives = expression switch
-        {
-            CaseExpression @case => CaseResults(@case),
-            FunctionCall function => function.Name.TrimEnd('$').ToUpperInvariant() switch
-            {
-                "IIF" when function.Arguments.Count == 3 => function.Arguments.Skip(1),
-                "COALESCE" or "GREATEST" or "LEAST" => function.Arguments,
-                _ => null,
-            },
-            _ => null,
-        };
-        if (alternatives is null
-            || alternatives.Any(a => a is not LiteralExpression { Value: null } && DeclaredType(a, columns) is null))
-            return null;
-        return DeclaredType(expression, columns);
     }
 
     /// <summary>
@@ -1140,7 +1281,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     {
         string name = function.Name.TrimEnd('$').ToUpperInvariant();
         Type? argument = function.Arguments.Count == 0 ? null
-            : DeclaredType(function.Arguments[function.WithinGroup is null ? 0 : ^1], columns);
+            : OperandType(function.Arguments[function.WithinGroup is null ? 0 : ^1], columns);
+        // Min, Max, First and Last take a Variant's or a Mixed value's text, and give it (verified vs ACE).
+        if (name is "MIN" or "MAX" or "FIRST" or "LAST" && function.Arguments.Count == 1
+            && VarianceOf(function.Arguments[0], columns) != Variance.None)
+            return typeof(string);
         if (QueryPlanner.IsAggregate(name))
             return AggregateResultType(name, argument);
         return name switch
@@ -1175,6 +1320,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             // IIF chooses between two values as CASE does, so it takes CASE's rule rather than ACE's own (which
             // makes every whole number a Long and lets Currency beat Double).
             "IIF" when function.Arguments.Count == 3 => UnifiedType(function.Arguments.Skip(1), columns),
+            // SWITCH and CHOOSE pick one of their values as IIF does, and take its rule.
+            "SWITCH" or "CHOOSE" => UnifiedType(ChoiceArms(function)!, columns),
             // The standard makes COALESCE shorthand for a CASE over its arguments, so it takes the same rule:
             // the highest-precedence type among them. Unified the same way, which also means a bare NULL
             // argument contributes no type rather than erasing the others.
@@ -1674,13 +1821,14 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         // which is what lets the bounded path below be stable without relying on a stable algorithm.
         var decorated = new List<(object?[] Row, object?[] Keys, int Index)>();
         var index = 0;
+        bool[] byText = ComparedAsText(keys.Select(k => k.Value), columns);
         foreach (object?[] row in rows)
         {
             ExpressionEvaluator eval = Eval(columns, row, outer);
             var rowKeys = new object?[keys.Count];
             for (var i = 0; i < keys.Count; i++)
             {
-                rowKeys[i] = eval.Evaluate(keys[i].Value);
+                rowKeys[i] = Compared(eval.Evaluate(keys[i].Value), byText[i]);
             }
 
             decorated.Add((row, rowKeys, index++));
@@ -1964,6 +2112,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
         var outTypes = node.Projection
             .Select(item => ExpressionEvaluator.NumberTypeOf(item.Value, columns, e => DeclaredType(e, columns))).ToList();
+        var conversions = node.Projection.Select(item => ItemConversion(item.Value, columns)).ToList();
         var outColumns = node.Projection
             .Select((item, i) => OutputColumn.Computed(
                     item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{i + 1}"),
@@ -1981,9 +2130,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 Origin = Aggregates(item.Value).Any() || item.Value is ColumnReference
                         ? ColumnOrigin.Aggregate
                         : ColumnOrigin.Expression,
+                Variant = conversions[i].Variant,
             })
             .ToList();
-        var conversions = node.Projection.Select(item => ChoiceConversion(item.Value, columns)).ToList();
 
         // A bare `SELECT COUNT(*)` wants the number of rows, not the rows. Everything below materialises the
         // whole input first — which for this shape is the entire cost, and pure waste: holding every decoded row
@@ -2041,6 +2190,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         // matching Access, which returns GROUP BY results ascending by the grouping columns — by the group key
         // (this also makes a TOP-1-over-a-GROUP-BY deterministic, as Access/SQL Server do).
         var outRows = new List<(object?[] Row, object?[] SortKeys, object?[] GroupKeys)>();
+        bool[] sortByText = ComparedAsText(node.OrderBy.Select(k => k.Value), columns);
+        bool[] groupByText = ComparedAsText(node.GroupBy, inColumns);
         for (int g = 0; g < groups.Count; g++)
         {
             var (keyRow, values, eval) = groups[g];
@@ -2050,10 +2201,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
             object?[] row = node.Projection
                 .Select((item, i) => ExpressionEvaluator.ToResultPlaces(
-                    ExpressionEvaluator.AsColumnType(eval.Evaluate(item.Value), conversions[i], currency: false), outTypes[i]))
+                    ExpressionEvaluator.AsColumnType(eval.Evaluate(item.Value), conversions[i].ConvertTo, currency: false), outTypes[i]))
                 .ToArray();
-            object?[] sortKeys = node.OrderBy.Select(k => eval.Evaluate(k.Value)).ToArray();
-            object?[] groupKeys = node.GroupBy.Select(k => eval.Evaluate(k)).ToArray();
+            object?[] sortKeys = node.OrderBy.Select((k, i) => Compared(eval.Evaluate(k.Value), sortByText[i])).ToArray();
+            object?[] groupKeys = node.GroupBy.Select((k, i) => Compared(eval.Evaluate(k), groupByText[i])).ToArray();
             outRows.Add((row, sortKeys, groupKeys));
         }
 
@@ -2110,10 +2261,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
         var order = new List<GroupKey>();
         var groups = new Dictionary<GroupKey, List<object?[]>>();
+        bool[] byText = ComparedAsText(keys, columns);
         foreach (object?[] row in rows)
         {
             var eval = Eval(columns, row, outer);
-            var key = new GroupKey(keys.Select(k => eval.Evaluate(k)).ToArray());
+            var key = new GroupKey(keys.Select((k, i) => Compared(eval.Evaluate(k), byText[i])).ToArray());
             if (!groups.TryGetValue(key, out var list))
             {
                 groups[key] = list = [];
@@ -2150,12 +2302,16 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (name == "COUNT" && arg is StarExpression or null)
             return group.Count;
 
+        // Min, Max, First and Last take a Variant's or a Mixed value's text (verified vs ACE: Max of 3, 10 and 25
+        // held as Variants is "3").
+        bool byText = name is "MIN" or "MAX" or "FIRST" or "LAST" && VarianceOf(arg!, columns) != Variance.None;
+
         // FIRST/LAST return the argument's value from the first/last row of the group in scan order — NOT
         // null-filtered (verified vs ACE: First over a leading NULL row returns NULL).
         if (name == "FIRST")
-            return group.Count == 0 ? null : Eval(columns, group[0], outer).Evaluate(arg!);
+            return group.Count == 0 ? null : Compared(Eval(columns, group[0], outer).Evaluate(arg!), byText);
         if (name == "LAST")
-            return group.Count == 0 ? null : Eval(columns, group[^1], outer).Evaluate(arg!);
+            return group.Count == 0 ? null : Compared(Eval(columns, group[^1], outer).Evaluate(arg!), byText);
 
         // A list aggregate, ordered or not: STRING_AGG may go without its WITHIN GROUP, in which case the
         // values list in the order the rows arrive (no keys, no directions — the sort is stable).
@@ -2201,7 +2357,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             return pair.Result;
         }
 
-        IEnumerable<object?> values = group.Select(r => Eval(columns, r, outer).Evaluate(arg!));
+        IEnumerable<object?> values = group.Select(r => Compared(Eval(columns, r, outer).Evaluate(arg!), byText));
         // COUNT(DISTINCT)/SUM(DISTINCT)/… aggregate the distinct set of the argument's values. MIN/MAX are
         // unaffected by dedup, but applying it uniformly keeps the one code path.
         if (call.Distinct)

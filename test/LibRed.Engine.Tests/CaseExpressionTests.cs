@@ -168,8 +168,7 @@ public class CaseExpressionTests
         => Assert.Equal(typeof(double), ColumnType("CASE WHEN 1 = 1 THEN 1 ELSE 2.5E0 END"));
 
     [Fact]
-    public void Irreconcilable_branches_declare_nothing()
-        // A string arm and a numeric arm have no common type; declaring one would be a guess, so the column
-        // stays untyped rather than claiming something wrong.
-        => Assert.Equal(typeof(object), ColumnType("CASE WHEN 1 = 1 THEN 'a' ELSE 1 END"));
+    public void Text_beside_a_number_declares_text()
+        // A string arm beside a numeric one is a Mixed choice, which declares text as ACE's IIF does.
+        => Assert.Equal(typeof(string), ColumnType("CASE WHEN 1 = 1 THEN 'a' ELSE 1 END"));
 }

@@ -224,7 +224,8 @@ internal sealed partial class ExpressionEvaluator(
             // does: text as a number, a date as its serial, True as -1 — so CByte(True) overflows. CInt/CLng/CByte
             // round half to even, as Convert.ToInt16/Int32/Byte do, and a value past the type is an overflow. ACE
             // raises "Invalid use of Null" for a Null argument; LibRed returns Null. CVar passes its argument
-            // through (LibRed has no Variant type; ACE hands the value back as text).
+            // through: a Variant keeps its own type while an expression uses it, and the executor writes it out as
+            // text where ACE does (QueryExecutor.Variance).
             "CCUR" => DecimalArgument(f, ToCurrency),
             "CBOOL" => Convert1(f, v => VbaBool(v)),
             "CBYTE" => Convert1(f, v => Convert.ToByte(ConversionNumber(v), CultureInfo.InvariantCulture)),
@@ -2485,9 +2486,9 @@ internal sealed partial class ExpressionEvaluator(
 
     /// <summary>
     /// A value converted to the type its result column declares, when it has another: a number to a wider number
-    /// (a Boolean as -1 or 0, a Double into a Decimal the OLE Automation way), anything to text as <c>&amp;</c> writes
-    /// it, and anything to binary as its bytes (<see cref="ColumnBytes"/>). Null, or no <paramref name="type"/>, leaves
-    /// the value as it is.
+    /// (a Boolean as -1 or 0, a Double into a Decimal the OLE Automation way), a date to a number as its serial and a
+    /// number to a date as CDate reads it, anything to text as <c>&amp;</c> writes it, and anything to binary as its
+    /// bytes (<see cref="ColumnBytes"/>). Null, or no <paramref name="type"/>, leaves the value as it is.
     /// </summary>
     internal static object? AsColumnType(object? value, Type? type, bool currency)
     {
@@ -2495,8 +2496,9 @@ internal sealed partial class ExpressionEvaluator(
             return value;
         if (type == typeof(string)) return ConcatText(value);
         if (type == typeof(byte[])) return ColumnBytes(value, currency);
-        if (type == typeof(decimal)) return Dec(value);
-        if (type == typeof(double)) return Dbl(value);
+        if (type == typeof(decimal)) return ArithmeticDecimal(value);
+        if (type == typeof(double)) return Oa(value);
+        if (type == typeof(DateTime)) return ToDate(value);
         return Convert.ChangeType(Numeric(value), type, CultureInfo.InvariantCulture);
     }
 

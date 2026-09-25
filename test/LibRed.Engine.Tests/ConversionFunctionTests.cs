@@ -276,11 +276,14 @@ public class ConversionFunctionTests(ConversionFunctionTests.Database database)
     public void Only_seconds_take_a_short_fraction(string expression) =>
         Assert.Throws<InvalidCastException>(() => Scalar(expression));
 
+    // A Variant keeps its argument's own type through an expression, and a result writes it out as text.
     [Theory]
-    [InlineData("CVAR(1)", 1)]
+    [InlineData("CVAR(1)", "1")]
     [InlineData("CVAR('abc')", "abc")]
-    [InlineData("CVAR(TRUE)", true)]
-    public void Cvar_passes_its_argument_through(string expression, object expected) =>
+    [InlineData("CVAR(TRUE)", "-1")]
+    [InlineData("CVAR(1) + CVAR(1)", "2")]
+    [InlineData("CVAR(1) + 1", 2.0)]
+    public void Cvar_keeps_its_argument_and_is_written_out_as_text(string expression, object expected) =>
         Assert.Equal(expected, Scalar(expression));
 
     [Theory]

@@ -164,6 +164,39 @@ public class ResultColumnTypeTests(ResultColumnTypeTests.Database database)
             database.Query("SELECT IIF(Id = 1, 0, (SELECT o.M FROM T i WHERE i.Id = 1)) FROM T o",
                 CultureInfo.GetCultureInfo("en-US")).ColumnTypes[0]);
 
+    // A Variant keeps its own type through an expression and is written out as text; a Mixed choice — text beside
+    // another kind — is text; either as an operand counts as a Double (verified vs ACE in VariantAccessTests).
+    [Theory]
+    [InlineData("CVar(B)", typeof(string), "3", "4")]
+    [InlineData("CVar(B) + CVar(B)", typeof(string), "6", "8")]
+    [InlineData("CVar(B) + 1", typeof(double), 4.0, 5.0)]
+    [InlineData("CVar(B) * CVar(B)", typeof(double), 9.0, 16.0)]
+    [InlineData("IIF(Id = 1, CVar(B), 5)", typeof(string), "3", "5")]
+    [InlineData("IIF(Id = 1, X, 2)", typeof(string), "abc", "2")]
+    [InlineData("IIF(Id = 1, Y, 2)", typeof(int), -1, 2)]
+    public void A_variant_or_a_mixed_choice_is_typed_as_ace_types_it(string expression, Type declared, object? first, object? second)
+    {
+        (Type type, object?[] values) = Column($"SELECT Id, {expression} AS c FROM T ORDER BY Id");
+        Assert.Equal(declared, type);
+        Assert.Equal([first, second], values);
+    }
+
+    // A Variant sorts, groups and takes Max as its text, so 200000 comes before 70000.
+    [Fact]
+    public void A_variant_sorts_and_takes_max_as_its_text()
+    {
+        var culture = CultureInfo.GetCultureInfo("en-US");
+        Assert.Equal([2, 1], database.Query("SELECT Id FROM T ORDER BY CVar(L)", culture).Rows.Select(r => r[0]));
+        Assert.Equal("70000", database.Query("SELECT MAX(CVar(L)) FROM T", culture).Rows.Single()[0]);
+    }
+
+    // CVar(Null) is left untyped, as a bare Null is. ACE makes a union with an arm of them text, but EFCore.Jet writes
+    // one for every projected Null, and LibRed keeps the union's values as the other arm has them.
+    [Fact]
+    public void A_union_with_a_cvar_null_arm_keeps_the_other_arms_values() =>
+        Assert.Equal([null, (byte)3],
+            database.Query(Union("CVar(NULL)", "B"), CultureInfo.GetCultureInfo("en-US")).Rows.Select(r => r[0]));
+
     [Fact]
     public void Values_keep_their_widened_value()
     {

@@ -67,9 +67,38 @@ close but *not proven exhaustive* — re-run the sweep when in doubt.
   runtime proper would say `"True"`.
 - `CBool` accepts a numeric string (`"-1"`) and a non-integral number.
 - `CCur` rounds to 4 decimal places, and is ACE's route to a decimal.
-- `CVar` is a pass-through — LibRed has no distinct Variant type.
+- `CVar` makes a **Variant** — see below.
 
 (Verified against ACE in `LibRed.Core.Tests.AceVbaConversionProbeTest`.)
+
+#### Variants and choices of mixed kind
+
+`CVar(x)` gives a **Variant**, and so do `-v`, `v` plus a Variant, a mixed value or text, and an `IIf`, `Switch`
+or `Choose` whose values are all Variants. A Variant keeps its own type while an expression uses it:
+`CVar(3) + CVar(3)` is 6, `CVar(3) + '1'` is 4, and `CVar('10') > 9` compares as numbers. A derived table passes
+it on unchanged.
+
+An `IIf`, `Switch` or `Choose` whose values are of different kinds is **mixed**: text beside a number, a date, a
+Boolean, a GUID or a binary value, or a Variant beside anything that is not one — a nested choice of Variants
+included. A derived table holds a mixed value as text, so `X + X` over `IIf(…, '8', 2) AS X` is `'88'`.
+
+A Variant or a mixed value is **text** when it is written out, rendered as `CStr` renders it (a date in the
+regional format):
+
+- in a result column, and in the Text(255) column a make-table query creates for it;
+- from a scalar subquery and from a union — so a Variant subquery added to itself concatenates.
+
+Both **sort, group and take `Max`, `Min`, `First` and `Last` as their text**: `ORDER BY CVar(n)` puts 10 before 3,
+and `Max` over 3, 10 and 25 as Variants is `'3'`. Anywhere else each counts as a **Double** — beside a number in
+`+`, and in `-`, `*`, `/`, `^`, a numeric function, `Sum` or `Avg` — so `CVar(date) + 1` is a serial number; a
+mixed value counts as one in another choice too. `\` and `Mod` give a Long.
+
+Mixed is only a matter of kind: beside a number, a date makes a **date** (`IIf(…, date, 2)` is 1900-01-01 where it
+takes the 2) and a Boolean a **Long**.
+
+LibRed's `CASE`, `Coalesce`, `Greatest` and `Least`, which ACE does not have, follow `IIf`. It also leaves
+`CVar(Null)` untyped, as a bare Null is, where ACE makes it a Variant and so a union with an arm of them a text
+column: EFCore.Jet writes `CVar(Null)` for every projected Null, and the union keeps its other arm's types.
 
 ### Math
 

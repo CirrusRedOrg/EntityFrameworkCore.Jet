@@ -75,6 +75,14 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     private readonly JetDatabase _database;
     private readonly ParameterBag _parameters;
     private readonly SessionState? _session;
+    private LibRed.Storage.JetTextComparer? _textComparer;
+
+    /// <summary>How text compares in this database: in its page-0 collation, for every comparison a query makes
+    /// (page-02b §3.4) — never a column's own, and never the runtime's culture.</summary>
+    internal LibRed.Storage.JetTextComparer TextComparer =>
+        _textComparer ??= LibRed.Storage.JetTextComparer.For(_database.Collation);
+
+    LibRed.Storage.JetTextComparer IScalarSubqueryRunner.TextComparer => TextComparer;
 
     // Every cache below is keyed by reference identity, so IDE0028 is suppressed across the block: its only
     // fix is a collection expression, which would drop ReferenceEqualityComparer and key these on the AST
@@ -375,8 +383,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     internal (HashSet<object?[]> Keys, HashSet<object?[]> NullTailKeys) BuildSemiJoinKeys(
         SelectStatement keyQuery, int keyWidth, IReadOnlyList<bool> nullSafe, bool trackNullTail = false)
     {
-        var keys = new HashSet<object?[]>(HashKeyComparer.Instance);
-        var nullTail = new HashSet<object?[]>(HashKeyComparer.Instance);
+        var keys = new HashSet<object?[]>(new HashKeyComparer(TextComparer));
+        var nullTail = new HashSet<object?[]>(new HashKeyComparer(TextComparer));
         var (_, rows) = Execute(SubqueryPlan(keyQuery, new EvalScope([], [], null)), null);
         foreach (object?[] row in rows)
         {
@@ -424,7 +432,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     internal Dictionary<object?[], object?> BuildGroupedAggregate(
         SelectStatement keyQuery, int keyWidth, IReadOnlyList<bool> nullSafe)
     {
-        var values = new Dictionary<object?[], object?>(HashKeyComparer.Instance);
+        var values = new Dictionary<object?[], object?>(new HashKeyComparer(TextComparer));
         var (_, rows) = Execute(SubqueryPlan(keyQuery, new EvalScope([], [], null)), null);
         foreach (object?[] row in rows)
         {
@@ -500,7 +508,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         {
             // Built here rather than lazily on first probe: this is the one place that knows the body was
             // hoisted, and the set is only ever worth building for a body that runs once.
-            _hoistedInSets[query] = HoistedInSet.TryBuild(once!);
+            _hoistedInSets[query] = HoistedInSet.TryBuild(once!, TextComparer);
             return _hoistedColumn[query] = once!;
         }
 
@@ -880,7 +888,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         });
     }
 
-    private static IEnumerable<object?[]> ExecuteSetOp(SetOperator op, IEnumerable<object?[]> left, IEnumerable<object?[]> right)
+    private IEnumerable<object?[]> ExecuteSetOp(SetOperator op, IEnumerable<object?[]> left, IEnumerable<object?[]> right)
     {
         switch (op)
         {
@@ -890,13 +898,13 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 return Distinct(left.Concat(right));
             case SetOperator.Intersect:
                 {
-                    var keep = new HashSet<GroupKey>(right.Select(r => new GroupKey(r)));
-                    return Distinct(left).Where(r => keep.Contains(new GroupKey(r)));
+                    var keep = new HashSet<GroupKey>(right.Select(r => new GroupKey(r, TextComparer)));
+                    return Distinct(left).Where(r => keep.Contains(new GroupKey(r, TextComparer)));
                 }
             case SetOperator.Except:
                 {
-                    var remove = new HashSet<GroupKey>(right.Select(r => new GroupKey(r)));
-                    return Distinct(left).Where(r => !remove.Contains(new GroupKey(r)));
+                    var remove = new HashSet<GroupKey>(right.Select(r => new GroupKey(r, TextComparer)));
+                    return Distinct(left).Where(r => !remove.Contains(new GroupKey(r, TextComparer)));
                 }
             default:
                 throw new NotSupportedException($"Set operator {op} is not supported.");
@@ -904,24 +912,24 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     }
 
     /// <summary>Yields rows with duplicates removed by structural (value-wise) equality.</summary>
-    private static IEnumerable<object?[]> Distinct(IEnumerable<object?[]> rows)
+    private IEnumerable<object?[]> Distinct(IEnumerable<object?[]> rows)
     {
         var seen = new HashSet<GroupKey>();
         foreach (object?[] row in rows)
-            if (seen.Add(new GroupKey(row)))
+            if (seen.Add(new GroupKey(row, TextComparer)))
                 yield return row;
     }
 
     /// <summary>Yields the first row for each distinct combination of the values at <paramref name="indexes"/>
     /// (the columns of the DISTINCTROW contributing tables), preserving order.</summary>
-    private static IEnumerable<object?[]> DistinctByIndexes(IEnumerable<object?[]> rows, int[] indexes)
+    private IEnumerable<object?[]> DistinctByIndexes(IEnumerable<object?[]> rows, int[] indexes)
     {
         var seen = new HashSet<GroupKey>();
         foreach (object?[] row in rows)
         {
             var key = new object?[indexes.Length];
             for (int i = 0; i < indexes.Length; i++) key[i] = row[indexes[i]];
-            if (seen.Add(new GroupKey(key)))
+            if (seen.Add(new GroupKey(key, TextComparer)))
                 yield return row;
         }
     }
@@ -1704,7 +1712,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         {
             // Build phase: hash the build side by its keys. A row with any null key can never satisfy an
             // equi-join (SQL null = null is not true), so it is dropped from the table.
-            var table = new Dictionary<object?[], List<object?[]>>(HashKeyComparer.Instance);
+            var table = new Dictionary<object?[], List<object?[]>>(new HashKeyComparer(TextComparer));
             var buildScope = new EvalScope(buildColumns, [], outer);
             var buildEval = new ExpressionEvaluator(buildScope, this, parameters: _parameters, session: _session);
             // A null-key build row can never match, so it is normally dropped outright. Under FULL the build
@@ -1804,10 +1812,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     /// <summary>Hash/equality over a composite join key that mirrors the evaluator's <c>=</c> within a type kind
     /// (the planner only builds a hash join over same-kind key columns). Key elements are never null.</summary>
-    private sealed class HashKeyComparer : IEqualityComparer<object?[]>
+    private sealed class HashKeyComparer(LibRed.Storage.JetTextComparer text) : IEqualityComparer<object?[]>
     {
-        public static readonly HashKeyComparer Instance = new();
-
         // A null element equals only a null element. KeyEqual/KeyHash are documented for non-null keys, and for a
         // plain `=` correlation no null ever reaches here (such rows are dropped from the build and short-circuit
         // on probe). A null-safe correlation — EF's `a = b OR (a IS NULL AND b IS NULL)` — does hash nulls, so the
@@ -1824,7 +1830,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     continue;
                 }
 
-                if (!ExpressionEvaluator.KeyEqual(a[i]!, b[i]!)) return false;
+                if (!ExpressionEvaluator.KeyEqual(a[i]!, b[i]!, text)) return false;
             }
             return true;
         }
@@ -1832,7 +1838,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         public int GetHashCode(object?[] a)
         {
             var h = new HashCode();
-            foreach (object? v in a) h.Add(v is null ? 0 : ExpressionEvaluator.KeyHash(v));
+            foreach (object? v in a) h.Add(v is null ? 0 : ExpressionEvaluator.KeyHash(v, text));
             return h.ToHashCode();
         }
     }
@@ -1887,7 +1893,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             var rowKeys = new object?[keys.Count];
             for (var i = 0; i < keys.Count; i++)
             {
-                rowKeys[i] = Compared(eval.Evaluate(keys[i].Value), byText[i]);
+                rowKeys[i] = ExpressionEvaluator.SortKey(Compared(eval.Evaluate(keys[i].Value), byText[i]), TextComparer);
             }
 
             decorated.Add((row, rowKeys, index++));
@@ -1895,7 +1901,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             {
                 // Keep only the best `max` so far. Doing this in batches (rather than per row) amortises the sort
                 // over the rows it discards, so the list never grows past 2·max however large the input is.
-                Trim(decorated, keys, max);
+                Trim(decorated, keys, max, TextComparer);
             }
         }
 
@@ -1914,28 +1920,32 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
         int Compare((object?[] Row, object?[] Keys, int Index) a, (object?[] Row, object?[] Keys, int Index) b)
         {
-            int c = CompareEvaluatedKeys(keys, a.Keys, b.Keys);
+            int c = CompareEvaluatedKeys(keys, a.Keys, b.Keys, TextComparer);
             // Ties fall back to input order, reproducing a stable sort's result exactly.
             return c != 0 ? c : a.Index.CompareTo(b.Index);
         }
 
-        static void Trim(List<(object?[] Row, object?[] Keys, int Index)> list, IReadOnlyList<OrderByItem> keys, int max)
+        static void Trim(
+            List<(object?[] Row, object?[] Keys, int Index)> list, IReadOnlyList<OrderByItem> keys, int max,
+            LibRed.Storage.JetTextComparer text)
         {
             list.Sort((a, b) =>
             {
-                int c = CompareEvaluatedKeys(keys, a.Keys, b.Keys);
+                int c = CompareEvaluatedKeys(keys, a.Keys, b.Keys, text);
                 return c != 0 ? c : a.Index.CompareTo(b.Index);
             });
             list.RemoveRange(max, list.Count - max);
         }
     }
 
-    /// <summary>Compares two rows' already-evaluated ORDER BY key values, honouring each key's direction.</summary>
-    private static int CompareEvaluatedKeys(IReadOnlyList<OrderByItem> keys, object?[] a, object?[] b)
+    /// <summary>Compares two rows' already-evaluated ORDER BY key values, honouring each key's direction, with
+    /// text in <paramref name="text"/>'s collation.</summary>
+    private static int CompareEvaluatedKeys(
+        IReadOnlyList<OrderByItem> keys, object?[] a, object?[] b, LibRed.Storage.JetTextComparer text)
     {
         for (var i = 0; i < keys.Count; i++)
         {
-            int c = ExpressionEvaluator.CompareForSort(a[i], b[i]);
+            int c = ExpressionEvaluator.CompareForSort(a[i], b[i], text);
             if (keys[i].Direction == SortDirection.Descending)
             {
                 c = -c;
@@ -2063,7 +2073,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             for (int k = 0; k < key.Length; k++)
                 key[k] = eval.Evaluate(fn.Over.PartitionBy[k]);
 
-            var groupKey = new GroupKey(key);
+            var groupKey = new GroupKey(key, TextComparer);
             if (!partitions.TryGetValue(groupKey, out List<int>? members))
                 partitions[groupKey] = members = [];
             members.Add(i);
@@ -2099,7 +2109,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             if (fn.Over.OrderBy.Count > 0)
                 members.Sort((a, b) =>
                 {
-                    int c = CompareEvaluatedKeys(fn.Over.OrderBy, sortKeys[a], sortKeys[b]);
+                    int c = CompareEvaluatedKeys(fn.Over.OrderBy, sortKeys[a], sortKeys[b], TextComparer);
                     return c != 0 ? c : a.CompareTo(b);
                 });
 
@@ -2109,7 +2119,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             {
                 // With no ORDER BY every row of the partition is a peer of every other.
                 bool samePeer = fn.Over.OrderBy.Count == 0
-                    || CompareEvaluatedKeys(fn.Over.OrderBy, sortKeys[members[i - 1]], sortKeys[members[i]]) == 0;
+                    || CompareEvaluatedKeys(fn.Over.OrderBy, sortKeys[members[i - 1]], sortKeys[members[i]], TextComparer) == 0;
                 peerStart[i] = samePeer ? peerStart[i - 1] : i;
                 peerOrdinal[i] = samePeer ? peerOrdinal[i - 1] : peerOrdinal[i - 1] + 1;
             }
@@ -2123,7 +2133,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
             var output = new object?[members.Count];
             def.Evaluate(
-                new WindowPartition(peerStart, peerOrdinal, members.Select(m => arguments[m]).ToList(), call, frameInput,
+                new WindowPartition(peerStart, peerOrdinal, members.Select(m => arguments[m]).ToList(), TextComparer, call, frameInput,
                     included is null ? null : members.Select(m => included[m]).ToList()),
                 output);
 
@@ -2262,22 +2272,25 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 .Select((item, i) => ExpressionEvaluator.ToResultPlaces(
                     ExpressionEvaluator.AsColumnType(eval.Evaluate(item.Value), conversions[i].ConvertTo, currency: false), outTypes[i]))
                 .ToArray();
-            object?[] sortKeys = node.OrderBy.Select((k, i) => Compared(eval.Evaluate(k.Value), sortByText[i])).ToArray();
-            object?[] groupKeys = node.GroupBy.Select((k, i) => Compared(eval.Evaluate(k), groupByText[i])).ToArray();
+            // Only compared, never returned — so text keys carry their collation keys (see SortKey).
+            object?[] sortKeys = node.OrderBy.Select((k, i) =>
+                ExpressionEvaluator.SortKey(Compared(eval.Evaluate(k.Value), sortByText[i]), TextComparer)).ToArray();
+            object?[] groupKeys = node.GroupBy.Select((k, i) =>
+                ExpressionEvaluator.SortKey(Compared(eval.Evaluate(k), groupByText[i]), TextComparer)).ToArray();
             outRows.Add((row, sortKeys, groupKeys));
         }
 
         if (node.OrderBy.Count > 0)
             // Stable (see SortNode): groups with equal ORDER BY keys keep their input (first-appearance) order.
             outRows = outRows.OrderBy(x => x, Comparer<(object?[] Row, object?[] SortKeys, object?[] GroupKeys)>.Create(
-                (a, b) => CompareEvaluatedKeys(node.OrderBy, a.SortKeys, b.SortKeys))).ToList();
+                (a, b) => CompareEvaluatedKeys(node.OrderBy, a.SortKeys, b.SortKeys, TextComparer))).ToList();
         else if (node.GroupBy.Count > 0)
             // No explicit ORDER BY: Access orders GROUP BY output ascending by the grouping columns.
             outRows.Sort((a, b) =>
             {
                 for (int i = 0; i < node.GroupBy.Count; i++)
                 {
-                    int c = ExpressionEvaluator.CompareForSort(a.GroupKeys[i], b.GroupKeys[i]);
+                    int c = ExpressionEvaluator.CompareForSort(a.GroupKeys[i], b.GroupKeys[i], TextComparer);
                     if (c != 0) return c;
                 }
                 return 0;
@@ -2331,7 +2344,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 keyValues[i] = Compared(eval.Evaluate(keys[i]), byText[i]);
             }
 
-            var key = new GroupKey(keyValues);
+            var key = new GroupKey(keyValues, TextComparer);
             if (!groups.TryGetValue(key, out var list))
             {
                 groups[key] = list = [];
@@ -2344,12 +2357,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     /// <summary>The distinct set of scalar values, using the same value-equality (<see cref="GroupKey"/>) as
     /// SELECT DISTINCT / GROUP BY, so <c>COUNT(DISTINCT col)</c> dedupes exactly as ACE groups. Order preserved.</summary>
-    private static List<object?> DistinctValues(IEnumerable<object?> values)
+    private List<object?> DistinctValues(IEnumerable<object?> values)
     {
         var seen = new HashSet<GroupKey>();
         var result = new List<object?>();
         foreach (object? v in values)
-            if (seen.Add(new GroupKey([v])))
+            if (seen.Add(new GroupKey([v], TextComparer)))
                 result.Add(v);
         return result;
     }
@@ -2399,7 +2412,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 }),
                 call.Arguments.Count - keys.Count == 2 ? (string)((LiteralExpression)call.Arguments[1]).Value! : "",
                 order,
-                call.Distinct);
+                call.Distinct,
+                TextComparer);
         }
 
         if (call.WithinGroup is { } directions)
@@ -2410,7 +2424,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             return Percentile.Of(name,
                 group.Select(r => eval.Rebind(r).Evaluate(call.Arguments[1])),
                 eval.Rebind(group[0]).Evaluate(call.Arguments[0]),
-                directions[0]);
+                directions[0],
+                TextComparer);
         }
 
         // A binary set function reads a pair from each row; the standard gives it no DISTINCT.
@@ -2418,7 +2433,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         {
             if (call.Distinct)
                 throw new NotSupportedException($"{call.Name} takes no DISTINCT.");
-            var pair = new RunningAggregate(name, countRows: false, currency: false);
+            var pair = new RunningAggregate(name, countRows: false, currency: false, TextComparer);
             foreach (object?[] row in group)
             {
                 ExpressionEvaluator rowEval = eval.Rebind(row);
@@ -2433,7 +2448,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (call.Distinct)
             values = DistinctValues(values.Where(v => v is not null));
 
-        var aggregate = new RunningAggregate(name, countRows: false, currency: IsCurrency(arg!, columns));
+        var aggregate = new RunningAggregate(name, countRows: false, currency: IsCurrency(arg!, columns), TextComparer);
         foreach (object? value in values)
             aggregate.Add(value);
         return aggregate.Result;
@@ -2495,45 +2510,48 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// the evaluator compares values on, and hashed on its matching <see cref="ExpressionEvaluator.KeyHash"/>.
     /// </summary>
     /// <remarks>
-    /// Two keys are the same key when <c>=</c> would call them equal: text folds case and trailing spaces,
-    /// and a number folds across its CLR types, so a LONG 1 and a DOUBLE 1.0 arriving under one key are one
-    /// group. Both are measured — ACE returns a single group for either — and a
-    /// column alone never mixes numeric types, so the second only shows up through an expression, e.g. an
-    /// <c>IIF</c> whose arms are typed differently.
+    /// Two keys are the same key when <c>=</c> would call them equal: text is one value when the database's
+    /// collation says so (case and trailing spaces fold, and so does whatever else that order folds — <c>ß</c>
+    /// and <c>ss</c>), and a number folds across its CLR types, so a LONG 1 and a DOUBLE 1.0 arriving under one
+    /// key are one group. Both are measured — ACE returns a single group for either — and a column alone never
+    /// mixes numeric types, so the second only shows up through an expression, e.g. an <c>IIF</c> whose arms
+    /// are typed differently.
     /// </remarks>
-    internal sealed class GroupKey(object?[] values) : IEquatable<GroupKey>
+    internal sealed class GroupKey(object?[] values, LibRed.Storage.JetTextComparer text) : IEquatable<GroupKey>
     {
-        private readonly object?[] _values = values;
+        // Text is held as its collation key, made once: every Equals and hash then works on bytes, and agrees
+        // with the text comparison exactly because it is that comparison's own key.
+        private readonly object?[] _values = [.. values.Select(v => ExpressionEvaluator.SortKey(v, text))];
+        private readonly LibRed.Storage.JetTextComparer _text = text;
 
         public bool Equals(GroupKey? other) =>
             other is not null && _values.Length == other._values.Length
-            && _values.Zip(other._values).All(p => KeyEquals(p.First, p.Second));
+            && _values.Zip(other._values).All(p => KeyEquals(p.First, p.Second, _text));
 
         public override bool Equals(object? obj) => Equals(obj as GroupKey);
         public override int GetHashCode()
         {
             var hash = new HashCode();
             foreach (object? v in _values)
-                hash.Add(v is null ? 0 : ExpressionEvaluator.KeyHash(v));
+            {
+                if (v is ExpressionEvaluator.CollatedText collated)
+                    hash.AddBytes(collated.Key);
+                else
+                    hash.Add(v is null ? 0 : ExpressionEvaluator.KeyHash(v, _text));
+            }
             return hash.ToHashCode();
         }
 
         // Folds within a kind, because GetHashCode partitions by kind: calling a number and its text spelling
-        // one key would bucket them apart and split the group anyway. Text keeps the invariant comparison the
-        // hash is built on rather than taking CompareForSort's database collation — the collation key
-        // (JetTextCollation.TryEncode) is far too heavy to build per row just to hash, and an equality the
-        // hash does not follow splits groups at random. Ordinal (CA1309) would be wrong for both.
-#pragma warning disable CA1309
-        private static bool KeyEquals(object? a, object? b) => (a, b) switch
+        // one key would bucket them apart and split the group anyway.
+        private static bool KeyEquals(object? a, object? b, LibRed.Storage.JetTextComparer text) => (a, b) switch
         {
             (null, null) => true,
             (null, _) or (_, null) => false,
-            (string sa, string sb) =>
-                string.Equals(sa.TrimEnd(' '), sb.TrimEnd(' '), StringComparison.InvariantCultureIgnoreCase),
-            (string, _) or (_, string) => false,
-            _ => ExpressionEvaluator.KeyEqual(a, b),
+            (ExpressionEvaluator.CollatedText x, ExpressionEvaluator.CollatedText y) => x.Key.AsSpan().SequenceEqual(y.Key),
+            (ExpressionEvaluator.CollatedText, _) or (_, ExpressionEvaluator.CollatedText) => false,
+            _ => ExpressionEvaluator.KeyEqual(a, b, text),
         };
-#pragma warning restore CA1309
     }
 
     private sealed class ReferenceComparer : IEqualityComparer<FunctionCall>

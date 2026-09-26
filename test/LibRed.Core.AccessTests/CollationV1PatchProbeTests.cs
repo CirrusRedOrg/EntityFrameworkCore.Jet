@@ -216,24 +216,30 @@ public class CollationV1PatchProbeTests(ITestOutputHelper output)
         finally { TemporaryDatabase.Delete(path); }
     }
 
-    /// <summary>Writes <paramref name="target"/> into the page-0 header and into one column's descriptor.
-    /// </summary>
-    private static void Stamp(string path, string tableName, string columnName, Collation target)
+    /// <summary>Writes <paramref name="target"/> into the page-0 header and into one column's descriptor —
+    /// or only one of the two: <paramref name="header"/> false leaves page 0 alone, and a null
+    /// <paramref name="columnName"/> leaves every column alone.</summary>
+    internal static void Stamp(string path, string tableName, string? columnName, Collation target, bool header = true)
     {
         using var channel = PageChannel.Open(path, readOnly: false);
         JetFormatBase format = channel.Format;
 
         // Page 0: LANGID at 0x6E, sort id at 0x70, version at 0x71 — but everything from 0x18 is
         // XOR-obfuscated with a fixed 128-byte mask, so the value has to be masked on the way in.
-        byte[] page0 = channel.ReadPage(0).Span.ToArray();
-        byte[] mask = JetFormatBase.PageZeroHeaderMask.ToArray();
-        int maskStart = JetFormatBase.PageZeroHeaderMaskStart;
-        ushort langId = (ushort)target.Order;
-        page0[0x6E] = (byte)((langId & 0xFF) ^ mask[0x6E - maskStart]);
-        page0[0x6F] = (byte)((langId >> 8) ^ mask[0x6F - maskStart]);
-        page0[0x70] = (byte)(target.SortId ^ mask[0x70 - maskStart]);
-        page0[0x71] = (byte)(target.Version ^ mask[0x71 - maskStart]);
-        channel.WritePage(0, page0);
+        if (header)
+        {
+            byte[] page0 = channel.ReadPage(0).Span.ToArray();
+            byte[] mask = JetFormatBase.PageZeroHeaderMask.ToArray();
+            int maskStart = JetFormatBase.PageZeroHeaderMaskStart;
+            ushort langId = (ushort)target.Order;
+            page0[0x6E] = (byte)((langId & 0xFF) ^ mask[0x6E - maskStart]);
+            page0[0x6F] = (byte)((langId >> 8) ^ mask[0x6F - maskStart]);
+            page0[0x70] = (byte)(target.SortId ^ mask[0x70 - maskStart]);
+            page0[0x71] = (byte)(target.Version ^ mask[0x71 - maskStart]);
+            channel.WritePage(0, page0);
+        }
+
+        if (columnName is null) return;
 
         TableDef table = new JetCatalog(channel).FindTable(tableName)!;
         int columnIndex = table.Columns.Single(c => c.Name == columnName).Index;

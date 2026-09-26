@@ -263,6 +263,45 @@ internal static class JetTextCollation
     public static bool TryEncode(string value, List<byte> output, LocaleTailoring? tailoring = null) =>
         TryEncode(value, output, tailoring, out _);
 
+    /// <summary>The word-sort inline code ACE gives a control character other than NUL and tab through carriage
+    /// return: the 60 of them — U+0001–0008, U+000E–001F, DEL and U+0080–009F — take consecutive codes
+    /// <c>0x03</c>–<c>0x3D</c> in code-point order (measured against ACE, every one).</summary>
+    private static bool TryGetControlInlineCode(char c, out byte code)
+    {
+        int? value = c switch
+        {
+            >= '\u0001' and <= '\u0008' => c + 0x02,    // 0x03–0x0A
+            >= '\u000E' and <= '\u001F' => c - 0x03,    // 0x0B–0x1C
+            '\u007F' => 0x1D,
+            >= '\u0080' and <= '\u009F' => c - 0x62,    // 0x1E–0x3D
+            _ => null,
+        };
+        code = (byte)(value ?? 0);
+        return value is not null;
+    }
+
+    [ThreadStatic] private static EncodeScratch? t_scratch;
+
+    /// <summary>The lists <see cref="TryEncode(string, List{byte}, LocaleTailoring?, out bool)"/> builds a key in,
+    /// kept per thread and reused.</summary>
+    private sealed class EncodeScratch
+    {
+        public List<byte> Primaries { get; } = [];
+        public List<byte> Secondaries { get; } = [];
+        public List<(int Position, byte Code)> Inline { get; } = [];
+        public List<bool> Kana { get; } = [];
+        public List<bool> Prolonged { get; } = [];
+
+        public void Clear()
+        {
+            Primaries.Clear();
+            Secondaries.Clear();
+            Inline.Clear();
+            Kana.Clear();
+            Prolonged.Clear();
+        }
+    }
+
     /// <param name="value">The text to encode.</param>
     /// <param name="output">The key body is appended to this.</param>
     /// <param name="tailoring">Per-character overrides for a locale order other than General; null for General.</param>
@@ -278,21 +317,27 @@ internal static class JetTextCollation
         hasWordSortRecord = false;
         ReadOnlySpan<char> s = value.AsSpan().TrimEnd(' ');
 
+        // The working lists are this thread's, cleared rather than allocated: a text comparison encodes both
+        // sides every time, and building five lists per string made a GROUP BY over a text column spend most of
+        // its time collecting them. Safe because nothing here re-enters TryEncode.
+        EncodeScratch scratch = t_scratch ??= new EncodeScratch();
+        scratch.Clear();
+
         // Build the primary weight bytes and a parallel secondary weight per byte (0x02 = no accent).
-        var primaries = new List<byte>();
-        var secondaries = new List<byte>();
+        List<byte> primaries = scratch.Primaries;
+        List<byte> secondaries = scratch.Secondaries;
         // Apostrophe/hyphen carry no primary weight; they record (position, code) for the inline section,
         // where position is the count of primary **WEIGHTS** emitted before them — not bytes. A two-byte
         // weight counts once: ACE puts the hyphen of "£-" at 0x0B (0x07 + 4x1) though £ is 34 A7, while
         // "ß-" is 0x0F because ß expands to two one-byte weights. Latin-only strings cannot tell the two
         // rules apart, which is why this read as "bytes" for so long. secondaries.Count is the weight count,
         // since every weight contributes exactly one secondary slot.
-        var inline = new List<(int Position, byte Code)>();
+        List<(int Position, byte Code)> inline = scratch.Inline;
         // One entry per kana in the string: true for a small form. Emitted as a section of its own.
-        var kana = new List<bool>();
+        List<bool> kana = scratch.Kana;
         // True where that kana is a prolonged sound mark. Packed like the small flags but with its own
         // codes, into a section of its own.
-        var prolonged = new List<bool>();
+        List<bool> prolonged = scratch.Prolonged;
         // Index of the weight the last kana produced, so a following halfwidth voicing mark can reach it,
         // together with the vowel and small flag a following prolonged mark inherits.
         int kanaWeight = -1;
@@ -318,10 +363,23 @@ internal static class JetTextCollation
             // Neither half contributes, so both are skipped and an astral character vanishes from the key.
             if (char.IsSurrogate(c)) continue;
 
+            // The control characters, DEL and U+FEFF are in neither table; ACE keys all 66 (page-03-04 §10.4).
+            // NUL and U+FEFF vanish from the key altogether, as an astral character does.
+            if (c is '\0' or '﻿') continue;
+
+            // Tab, line feed, vertical tab, form feed and carriage return each weigh a two-byte primary.
+            if (c is >= '\t' and <= '\r')
+            {
+                AddWeight([0x08, (byte)(c - '\t' + 0x03)], DefaultSecondary);
+                continue;
+            }
+
             // The 20 hand-verified ignorables first, then the 40 measured ones — 60 across the BMP, every dash
-            // and quotation form, the Arabic harakat, and the CJK and fullwidth punctuation.
+            // and quotation form, the Arabic harakat, and the CJK and fullwidth punctuation — then the 60
+            // remaining controls, which are word-sort ignorables too.
             if (Ignorables.TryGetValue(c, out byte code) ||
-                JetTextCollationTableV0.TryGetInlineCode(c, out code))
+                JetTextCollationTableV0.TryGetInlineCode(c, out code) ||
+                TryGetControlInlineCode(c, out code))
             {
                 inline.Add((secondaries.Count, code));
                 lastWeight = [InlineMid, code];

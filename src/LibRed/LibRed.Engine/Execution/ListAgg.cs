@@ -13,17 +13,17 @@ internal static class ListAgg
     /// The list over <paramref name="rows"/> — each a value and its WITHIN GROUP key values — or Null when no value
     /// is present. Each value is written as <c>&amp;</c> writes it. Rows whose keys tie keep their order. Under
     /// <paramref name="distinct"/> a value repeated — equal as GROUP BY takes values to be equal — is listed once,
-    /// where it first comes.
+    /// where it first comes. Text is ordered and compared in <paramref name="text"/>'s collation.
     /// </summary>
     public static string? Of(
         IEnumerable<(object? Value, object?[] Keys)> rows, string separator, IReadOnlyList<SortDirection> directions,
-        bool distinct)
+        bool distinct, LibRed.Storage.JetTextComparer text)
     {
         var comparer = Comparer<object?[]>.Create((a, b) =>
         {
             for (int k = 0; k < directions.Count; k++)
             {
-                int c = ExpressionEvaluator.CompareForSort(a[k], b[k]);
+                int c = ExpressionEvaluator.CompareForSort(a[k], b[k], text);
                 if (c != 0)
                     return directions[k] == SortDirection.Descending ? -c : c;
             }
@@ -33,10 +33,10 @@ internal static class ListAgg
         if (distinct)
         {
             var seen = new HashSet<QueryExecutor.GroupKey>();
-            values = values.Where(v => seen.Add(new QueryExecutor.GroupKey([v])));
+            values = values.Where(v => seen.Add(new QueryExecutor.GroupKey([v], text)));
         }
 
-        var text = values.Select(ExpressionEvaluator.ConcatText).ToList();
-        return text.Count == 0 ? null : string.Join(separator, text);
+        var listed = values.Select(ExpressionEvaluator.ConcatText).ToList();
+        return listed.Count == 0 ? null : string.Join(separator, listed);
     }
 }

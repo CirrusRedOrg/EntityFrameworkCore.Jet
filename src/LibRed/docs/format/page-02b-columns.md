@@ -288,6 +288,14 @@ as 20 bytes of raw UTF-16LE.
 > their own language's v0 order (measured across all known LCIDs). LibRed does **not** implement that
 > fallback: it is real behaviour, but on input that no supported tool can produce.
 >
+> **A query compares text in the DATABASE's collation, never the column's.** The column's collation goes
+> into its index keys and nowhere else. Verified against ACE with Croatian v1 against General v1, stamped on
+> one side at a time: a column stamped Croatian in a General database sorts, groups, compares against a
+> literal either way round, and yields `MIN`/`MAX` in **General** order, and a General column in a database
+> stamped Croatian does all of those in **Croatian** order — as do a comparison of two literals and an
+> expression over the column (`S & ''`, `UCASE(S)`). So the order every query-time text comparison uses is the
+> page-0 one (`0x6E`/`0x70`/`0x71`), whatever the operands are.
+>
 > **Format-version coupling.** Access sets the file format to the lowest version that supports the features
 > used, so choosing General Legacy in the UI *downgrades the file to the 2007 format*, while General (v1)
 > forces 2010+. But the format byte is a **ceiling**, not a fingerprint — a 2016/2019 file (bumped by BigInt

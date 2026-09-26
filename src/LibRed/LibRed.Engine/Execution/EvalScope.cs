@@ -128,6 +128,10 @@ internal sealed class EvalScope(
 /// <summary>Executes a subquery, correlating it to an enclosing query's scope.</summary>
 internal interface IScalarSubqueryRunner
 {
+    /// <summary>How text compares in this database: its page-0 collation, which every query-time text
+    /// comparison uses whatever its operands (see <see cref="LibRed.Storage.JetTextComparer"/>).</summary>
+    LibRed.Storage.JetTextComparer TextComparer { get; }
+
     /// <summary>The subquery's single value, correlated to <paramref name="outerScope"/>.</summary>
     object? ExecuteScalar(SqlStatement query, EvalScope outerScope);
 

@@ -72,12 +72,16 @@ internal sealed class RunningAggregate
     /// <param name="countRows">Whether this is COUNT(*), which counts rows rather than values.</param>
     /// <param name="currency">Whether the argument is a Currency, which the statistical aggregates square
     /// exactly.</param>
-    public RunningAggregate(string name, bool countRows, bool currency)
+    /// <param name="text">How MIN and MAX order text: the database's collation.</param>
+    public RunningAggregate(string name, bool countRows, bool currency, LibRed.Storage.JetTextComparer text)
     {
         _name = Supports(name) ? Canonical(name) : throw new NotSupportedException($"Aggregate {name} is not supported.");
         _countRows = countRows;
         _currency = currency;
+        _text = text;
     }
+
+    private readonly LibRed.Storage.JetTextComparer _text;
 
     /// <summary>Whether <paramref name="name"/> (upper case) is an aggregate this computes.</summary>
     public static bool Supports(string name) => ScalarNames.Contains(Canonical(name)) || IsPair(name);
@@ -138,8 +142,8 @@ internal sealed class RunningAggregate
         {
             if (_extreme is null or string { Length: 0 }
                 || (_name == "MAX"
-                    ? ExpressionEvaluator.CompareForSort(value, _extreme) > 0
-                    : ExpressionEvaluator.CompareForSort(value, _extreme) < 0))
+                    ? ExpressionEvaluator.CompareForSort(value, _extreme, _text) > 0
+                    : ExpressionEvaluator.CompareForSort(value, _extreme, _text) < 0))
                 _extreme = value;
             return;
         }

@@ -216,7 +216,11 @@ internal static class IndexSelection
         };
         if (!sameKind)
             return null;
-        return ExpressionEvaluator.CompareForSort(low, high) <= 0
+
+        // Text bounds are put in the index's order, which is its column's collation — the order the seek walks.
+        if (def.FindColumn(colName) is not { } indexed || low is string && !indexed.Collation.IsIndexKeyEncodable)
+            return null;
+        return ExpressionEvaluator.CompareForSort(low, high, LibRed.Storage.JetTextComparer.For(indexed.Collation)) <= 0
             ? (between.Low, between.High)
             : (between.High, between.Low);
     }

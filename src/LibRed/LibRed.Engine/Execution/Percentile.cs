@@ -29,7 +29,9 @@ internal static class Percentile
     /// either side of it; text cannot be interpolated. The fraction is read as the Decimal it was written as, so
     /// that <c>0.7</c> of 10 values is the 7th rather than the 8th, as a Double's <c>7.000000000000001</c> would make it.
     /// </remarks>
-    public static object? Of(string name, IEnumerable<object?> values, object? fraction, SortDirection direction)
+    public static object? Of(
+        string name, IEnumerable<object?> values, object? fraction, SortDirection direction,
+        LibRed.Storage.JetTextComparer text)
     {
         if (fraction is null)
             return null;
@@ -38,7 +40,7 @@ internal static class Percentile
             throw new ArgumentException($"Invalid procedure call: a percentile fraction must be from 0 to 1, not {p}.");
 
         // A stable sort, so values that compare equal but differ — 'a' and 'A' — keep their order.
-        var comparer = Comparer<object?>.Create(ExpressionEvaluator.CompareForSort);
+        var comparer = Comparer<object?>.Create((a, b) => ExpressionEvaluator.CompareForSort(a, b, text));
         var present = values.Where(v => v is not null);
         List<object?> sorted = direction == SortDirection.Descending
             ? [.. present.OrderByDescending(v => v, comparer)]

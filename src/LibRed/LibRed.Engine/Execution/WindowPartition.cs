@@ -94,13 +94,18 @@ internal readonly record struct FrameRows(int Start, int End, int ExcludeStart =
 /// <param name="peerStart">Per row, the position the row's peer group starts at.</param>
 /// <param name="peerOrdinal">Per row, the zero-based ordinal of the row's peer group within the partition.</param>
 /// <param name="arguments">Per row, the already-evaluated arguments of the window call.</param>
+/// <param name="text">How text orders and compares in this database.</param>
 /// <param name="call">How the call is written; null for a plain one.</param>
 /// <param name="frame">The frame clause; null for the default frame.</param>
 /// <param name="included">Which rows an aggregate's FILTER lets in; null when it has none.</param>
 internal sealed class WindowPartition(
     IReadOnlyList<int> peerStart, IReadOnlyList<int> peerOrdinal, IReadOnlyList<object?[]> arguments,
+    LibRed.Storage.JetTextComparer text,
     WindowCall? call = null, WindowFrameInput? frame = null, IReadOnlyList<bool>? included = null)
 {
+    /// <summary>How text orders and compares in this database, for the aggregates and lists computed here.</summary>
+    public LibRed.Storage.JetTextComparer Text { get; } = text;
+
     /// <summary>Whether an aggregate takes in the row at <paramref name="position"/>: its FILTER holds there.</summary>
     public bool Includes(int position) => included is null || included[position];
 

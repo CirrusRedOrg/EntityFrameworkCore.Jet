@@ -186,7 +186,7 @@ internal static class WindowFunctions
     /// equal as GROUP BY takes values to be equal.</summary>
     private sealed class FrameAggregate(string name, WindowPartition p)
     {
-        private readonly RunningAggregate _aggregate = new(name, countRows: p.Call.Star, currency: p.Call.Currency);
+        private readonly RunningAggregate _aggregate = new(name, countRows: p.Call.Star, currency: p.Call.Currency, p.Text);
         private readonly HashSet<QueryExecutor.GroupKey>? _seen = p.Call.Distinct ? [] : null;
 
         public object? Result => _aggregate.Result;
@@ -201,7 +201,7 @@ internal static class WindowFunctions
                 return;
             }
             object? value = p.Call.Star ? null : p.Argument(position, 0);
-            if (_seen is not null && (value is null || !_seen.Add(new QueryExecutor.GroupKey([value]))))
+            if (_seen is not null && (value is null || !_seen.Add(new QueryExecutor.GroupKey([value], p.Text))))
                 return;
             _aggregate.Add(value);
         }
@@ -224,7 +224,7 @@ internal static class WindowFunctions
                 o[i] = i > 0 && frame == previous && Equals(p.Argument(i, 0), p.Argument(i - 1, 0))
                     ? o[i - 1]
                     : Percentile.Of(name, frame.Positions().Where(p.Includes).Select(k => p.Argument(k, 1)),
-                        p.Argument(i, 0), p.Call.WithinGroup![0]);
+                        p.Argument(i, 0), p.Call.WithinGroup![0], p.Text);
                 previous = frame;
             }
         },
@@ -249,7 +249,7 @@ internal static class WindowFunctions
                 : ListAgg.Of(
                     frame.Positions().Where(p.Includes).Select(k =>
                         (p.Argument(k, 0), Enumerable.Range(p.ArgumentCount - keys, keys).Select(a => p.Argument(k, a)).ToArray())),
-                    separator, directions, p.Call.Distinct);
+                    separator, directions, p.Call.Distinct, p.Text);
             previous = frame;
         }
     }

@@ -214,7 +214,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     /// <summary>For a self-referencing FK, whether the row's own referenced-column values equal the FK
     /// target — i.e. the row points at itself (or at its own composite key), which satisfies the FK.</summary>
-    private static bool RowSatisfiesOwnKey(ForeignKey fk, Table table, object?[] values, object?[] target) =>
+    private bool RowSatisfiesOwnKey(ForeignKey fk, Table table, object?[] values, object?[] target) =>
         KeyEquals(values, ReferencedColumnsOf(fk, table), target);
 
     /// <summary>Scans the parent table for a row whose referenced columns equal the child key values.</summary>
@@ -230,7 +230,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// can be sought (every value in its column's kind, as a query's <c>column = value</c> seek requires), else
     /// scanned. A relationship's parent side always has one — its referenced columns are a primary or unique
     /// key — so the check every child INSERT makes, which scanned the whole parent table, is a seek.</summary>
-    private static IEnumerable<(RowId Id, object?[] Values)> RowsHoldingKey(Table table, int[] columns, object?[] key)
+    private IEnumerable<(RowId Id, object?[] Values)> RowsHoldingKey(Table table, int[] columns, object?[] key)
     {
         bool Holds(object?[] values) => KeyEquals(values, columns, key);
 
@@ -419,12 +419,12 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// <paramref name="columns"/> when the values are a whole row the key sits in columns of, position for
     /// position when they are a key already.</summary>
     /// <remarks>Compared on the evaluator's terms rather than the CLR's, so referential integrity reaches the
-    /// same rows a query predicate over the same key would: a LONG 1 and a DOUBLE 1.0 are one key, and text
-    /// folds case and trailing spaces as Access does.</remarks>
-    private static bool KeyEquals(object?[] values, int[]? columns, object?[] key)
+    /// same rows a query predicate over the same key would: a LONG 1 and a DOUBLE 1.0 are one key, and text is
+    /// compared in the database's collation.</remarks>
+    private bool KeyEquals(object?[] values, int[]? columns, object?[] key)
     {
         for (int i = 0; i < key.Length; i++)
-            if (ExpressionEvaluator.CompareForSort(values[columns is null ? i : columns[i]], key[i]) != 0)
+            if (ExpressionEvaluator.CompareForSort(values[columns is null ? i : columns[i]], key[i], _scalarRunner.TextComparer) != 0)
                 return false;
         return true;
     }
@@ -1364,7 +1364,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 {
                     for (int i = 0; i < a.Length; i++)
                     {
-                        int order = ExpressionEvaluator.CompareForSort(a[i], b[i]);
+                        int order = ExpressionEvaluator.CompareForSort(a[i], b[i], _scalarRunner.TextComparer);
                         if (order != 0)
                             return select.OrderBy[i].Direction == SortDirection.Descending ? -order : order;
                     }

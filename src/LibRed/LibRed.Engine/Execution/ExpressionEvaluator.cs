@@ -45,6 +45,9 @@ internal sealed partial class ExpressionEvaluator(
         return this;
     }
 
+    /// <summary>How text compares here: the database's collation, for every comparison whatever its operands.</summary>
+    private JetTextComparer Text => subqueries.TextComparer;
+
     public object? Evaluate(Expression expression) => expression switch
     {
         LiteralExpression l => l.Value,
@@ -130,7 +133,7 @@ internal sealed partial class ExpressionEvaluator(
                 foreach (object? item in items)
                 {
                     if (item is null) hasNull = true;
-                    else if (Compare(val, item) == 0) { found = true; break; }
+                    else if (Compare(val, item, Text) == 0) { found = true; break; }
                 }
             }
         }
@@ -154,7 +157,7 @@ internal sealed partial class ExpressionEvaluator(
         foreach (Expression itemExpr in inl.Items)
         {
             if (Evaluate(itemExpr) is not { } item) hasNull = true;
-            else if (CompareAsKinds(inl.Value, val, itemExpr, item) == 0) { found = true; break; }
+            else if (CompareAsKinds(inl.Value, val, itemExpr, item, Text) == 0) { found = true; break; }
         }
         return !found && hasNull ? null : found != inl.Negated;
     }
@@ -167,7 +170,7 @@ internal sealed partial class ExpressionEvaluator(
         object? val = Evaluate(be.Value), low = Evaluate(be.Low), high = Evaluate(be.High);
         if (val is null || low is null || high is null) return null;
 
-        int toLow = CompareAsKinds(be.Value, val, be.Low, low), toHigh = CompareAsKinds(be.Value, val, be.High, high);
+        int toLow = CompareAsKinds(be.Value, val, be.Low, low, Text), toHigh = CompareAsKinds(be.Value, val, be.High, high, Text);
         bool inside = (toLow >= 0 && toHigh <= 0) || (toLow <= 0 && toHigh >= 0);
         return inside != be.Negated;
     }
@@ -517,7 +520,7 @@ internal sealed partial class ExpressionEvaluator(
         if (left is null) return null;
 
         object? right = Evaluate(f.Arguments[1]);
-        return right is not null && Compare(left, right) == 0 ? null : left;
+        return right is not null && Compare(left, right, Text) == 0 ? null : left;
     }
 
     /// <summary>
@@ -564,7 +567,7 @@ internal sealed partial class ExpressionEvaluator(
             object? value = Evaluate(argument);
             if (value is null)
                 continue;
-            if (result is null || (greatest ? Compare(value, result) > 0 : Compare(value, result) < 0))
+            if (result is null || (greatest ? Compare(value, result, Text) > 0 : Compare(value, result, Text) < 0))
                 result = value;
         }
 
@@ -674,9 +677,9 @@ internal sealed partial class ExpressionEvaluator(
     /// a position and length, or (-1, 0). A textual match compares in the database sort order, so 'SS' finds 'ß' and
     /// the matched length can differ from <paramref name="find"/>'s.
     /// </summary>
-    private static (int Index, int Length) FindText(string text, string find, int start, bool binary)
+    private static (int Index, int Length) FindText(string text, string find, int start, bool binary, JetTextComparer order)
     {
-        if (binary || IsPlainText(text) && IsPlainText(find))
+        if (binary || order.IsUntailoredGeneral && IsPlainText(text) && IsPlainText(find))
         {
             int index = text.IndexOf(find, start, binary ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase);
             return (index, find.Length);
@@ -686,17 +689,19 @@ internal sealed partial class ExpressionEvaluator(
         {
             for (int length = shortest; length <= Math.Min(text.Length - i, find.Length * 2); length++)
             {
-                if (CompareText(text.Substring(i, length), find) == 0)
+                if (order.Compare(text.Substring(i, length), find) == 0)
                     return (i, length);
             }
         }
         return (-1, 0);
     }
 
-    /// <summary>Text whose database order is plain case-insensitive order: ASCII with no hyphen or apostrophe,
-    /// which the order weighs apart, and no trailing space, which it ignores.</summary>
+    /// <summary>Text an untailored General order compares as plain case-insensitive text: printable ASCII with no
+    /// hyphen or apostrophe, which the order weighs apart, and no trailing space, which it ignores (held for both
+    /// versions by <c>PlainTextCollationTests</c>). A tailored order gives such letters weights of its own, so the
+    /// caller asks <see cref="JetTextComparer.IsUntailoredGeneral"/> first.</summary>
     private static bool IsPlainText(string text) =>
-        text.All(c => c < 0x80 && c is not ('-' or '\'')) && !text.EndsWith(' ');
+        text.All(c => c is >= ' ' and <= '~' and not ('-' or '\'')) && !text.EndsWith(' ');
 
     /// <summary>
     /// Access <c>String(count, character)</c>: the character repeated. A text gives its first character (an empty
@@ -726,7 +731,7 @@ internal sealed partial class ExpressionEvaluator(
         string left = ConcatText(a), right = ConcatText(b);
         if (binary)
             return Math.Sign(string.CompareOrdinal(left, right));
-        int order = CompareText(left, right);
+        int order = Text.Compare(left, right);
         return order != 0 ? order : Math.Sign(TrailingSpaces(left) - TrailingSpaces(right));
 
         static int TrailingSpaces(string s) => s.Length - s.TrimEnd(' ').Length;
@@ -761,7 +766,7 @@ internal sealed partial class ExpressionEvaluator(
         string window = s1[..start];                        // search within Left(string1, start)
         if (s2.Length == 0) return start;                   // empty needle → the effective start position
         int last = -1;
-        for ((int index, int _) = FindText(window, s2, 0, binary); index >= 0; (index, _) = FindText(window, s2, index + 1, binary))
+        for ((int index, int _) = FindText(window, s2, 0, binary, Text); index >= 0; (index, _) = FindText(window, s2, index + 1, binary, Text))
             last = index;
         return last + 1;
     }
@@ -1545,7 +1550,7 @@ internal sealed partial class ExpressionEvaluator(
         if (s1.Length == 0) return 0;
         if (s2.Length == 0) return start;
         if (start > s1.Length) return 0;
-        return FindText(s1, s2, start - 1, binary).Index + 1;
+        return FindText(s1, s2, start - 1, binary, Text).Index + 1;
     }
 
     /// <summary>Access REPLACE(string, find, replace[, start[, count[, compare]]]) — the text from start on, with
@@ -1574,7 +1579,7 @@ internal sealed partial class ExpressionEvaluator(
         int pos = 0, replaced = 0;
         while (true)
         {
-            (int j, int length) = count >= 0 && replaced >= count ? (-1, 0) : FindText(s, find, pos, binary);
+            (int j, int length) = count >= 0 && replaced >= count ? (-1, 0) : FindText(s, find, pos, binary, Text);
             if (j < 0) { sb.Append(s.AsSpan(pos)); break; }
             sb.Append(s, pos, j - pos).Append(repl);
             pos = j + length;
@@ -2034,7 +2039,7 @@ internal sealed partial class ExpressionEvaluator(
         {
             bool distinct = left is null || right is null
                 ? (left is null) != (right is null)
-                : CompareAsKinds(b.Left, left, b.Right, right) != 0;
+                : CompareAsKinds(b.Left, left, b.Right, right, Text) != 0;
             return distinct == (b.Operator == BinaryOperator.IsDistinctFrom);
         }
 
@@ -2084,12 +2089,12 @@ internal sealed partial class ExpressionEvaluator(
 
         return b.Operator switch
         {
-            BinaryOperator.Equal => CompareAsKinds(b.Left, left, b.Right, right) == 0,
-            BinaryOperator.NotEqual => CompareAsKinds(b.Left, left, b.Right, right) != 0,
-            BinaryOperator.LessThan => CompareAsKinds(b.Left, left, b.Right, right) < 0,
-            BinaryOperator.LessThanOrEqual => CompareAsKinds(b.Left, left, b.Right, right) <= 0,
-            BinaryOperator.GreaterThan => CompareAsKinds(b.Left, left, b.Right, right) > 0,
-            BinaryOperator.GreaterThanOrEqual => CompareAsKinds(b.Left, left, b.Right, right) >= 0,
+            BinaryOperator.Equal => CompareOperands(b, left, right) == 0,
+            BinaryOperator.NotEqual => CompareOperands(b, left, right) != 0,
+            BinaryOperator.LessThan => CompareOperands(b, left, right) < 0,
+            BinaryOperator.LessThanOrEqual => CompareOperands(b, left, right) <= 0,
+            BinaryOperator.GreaterThan => CompareOperands(b, left, right) > 0,
+            BinaryOperator.GreaterThanOrEqual => CompareOperands(b, left, right) >= 0,
             // LIKE reads any other value as the text CStr gives it (verified vs ACE: TRUE LIKE '-1' is True). A binary
             // value becomes text too, so LIKE is case-insensitive over a binary column even though '=' on the same
             // column is byte-wise: `B LIKE 'A%'` matches both 0x4100 ('A') and 0x6100 ('a').
@@ -2289,15 +2294,50 @@ internal sealed partial class ExpressionEvaluator(
         return (leftText ? TextAsNumber((string)left) : Serial(left), rightText ? TextAsNumber((string)right) : Serial(right));
     }
 
+    /// <summary>The order of a comparison operator's two operands. Two texts compare by collation key, as
+    /// <see cref="CompareAsKinds"/> would compare them, with two shortcuts that change no answer: texts identical
+    /// once trailing spaces go are equal in any order, and the key of a literal or parameter side is made once for
+    /// this evaluator — which is reused across rows — rather than for every row it is compared with.</summary>
+    private int CompareOperands(BinaryExpression b, object left, object right)
+    {
+        if (left is string l && right is string r)
+        {
+            if (l.AsSpan().TrimEnd(' ').SequenceEqual(r.AsSpan().TrimEnd(' ')))
+                return 0;
+            if (b.Right is LiteralExpression or ParameterExpression)
+                return Text.Compare(l, ConstantKey(b.Right, r));
+            if (b.Left is LiteralExpression or ParameterExpression)
+                return -Text.Compare(r, ConstantKey(b.Left, l));
+        }
+
+        return CompareAsKinds(b.Left, left, b.Right, right, Text);
+    }
+
+    // Collation keys of the literal and parameter operands met so far, by node: a statement's constants do not
+    // change between the rows its evaluator is rebound to.
+    private Dictionary<Expression, byte[]>? _constantKeys;
+
+    private byte[] ConstantKey(Expression constant, string text)
+    {
+        // IDE0028's only fix here is `[]`, which would drop the comparer and key the nodes structurally.
+#pragma warning disable IDE0028
+        _constantKeys ??= new Dictionary<Expression, byte[]>(ReferenceEqualityComparer.Instance);
+#pragma warning restore IDE0028
+        if (!_constantKeys.TryGetValue(constant, out byte[]? key))
+            _constantKeys[constant] = key = Text.Key(text);
+        return key;
+    }
+
     /// <summary>The order of two values once <see cref="Comparable"/> has brought them to a common kind. A parameter
     /// compared with text takes the text's type (verified vs ACE: a numeric parameter against a text column compares
     /// as text, so <c>[S] &gt; ?</c> with 100 counts 'abc' and '11').</summary>
-    private static int CompareAsKinds(Expression leftOperand, object left, Expression rightOperand, object right)
+    private static int CompareAsKinds(
+        Expression leftOperand, object left, Expression rightOperand, object right, JetTextComparer text)
     {
         if (leftOperand is ParameterExpression && right is string && left is not string) left = ConcatText(left);
         if (rightOperand is ParameterExpression && left is string && right is not string) right = ConcatText(right);
         (object l, object r) = Comparable(left, right);
-        return Compare(l, r);
+        return Compare(l, r, text);
     }
 
     /// <summary>The key an index seek must use for <c>column = value</c> to select exactly the rows the
@@ -2872,7 +2912,7 @@ internal sealed partial class ExpressionEvaluator(
     // For date arithmetic: a DateTime becomes its OLE Automation serial; a number is taken verbatim (as days).
     private static double Oa(object v) => v is DateTime d ? d.ToOADate() : Dbl(v);
 
-    private static int Compare(object left, object right)
+    private static int Compare(object left, object right, JetTextComparer text)
     {
         if (IsNumeric(left) && IsNumeric(right))
         {
@@ -2901,7 +2941,7 @@ internal sealed partial class ExpressionEvaluator(
             return CompareBytes(lb, rb);
 
         if (left is string || right is string)
-            return CompareText(left.ToString()!, right.ToString()!);
+            return text.Compare(left.ToString()!, right.ToString()!);
 
         // Dates compare by their OLE Automation serial rather than chronologically. Below the epoch
         // (1899-12-30) the day count is negative while the time fraction stays positive, so 1899-12-29 06:00 is
@@ -2928,22 +2968,22 @@ internal sealed partial class ExpressionEvaluator(
         if (left is IComparable c && left.GetType() == right.GetType())
             return c.CompareTo(right);
 
-        return CompareText(left.ToString()!, right.ToString()!);
+        return text.Compare(left.ToString()!, right.ToString()!);
     }
 
     /// <summary>Whether two non-null values are equal under the same coercions as <c>=</c> (used by the hash
     /// join to re-check a bucket candidate). Only meaningful within one type kind — see <see cref="KeyHash"/>.</summary>
-    public static bool KeyEqual(object a, object b) => Compare(a, b) == 0;
+    public static bool KeyEqual(object a, object b, JetTextComparer text) =>
+        a is string sa && b is string sb ? text.Equals(sa, sb) : Compare(a, b, text) == 0;
 
     /// <summary>A hash for a non-null join key that agrees with <see cref="KeyEqual"/> within a type kind: values
-    /// the evaluator treats as equal hash the same (numeric via double, text via Access's case-insensitive/
-    /// trailing-space-trimmed collation, binary structurally). The planner only builds a hash join over
-    /// same-kind key columns, so this is total over the keys it actually sees.</summary>
-    public static int KeyHash(object v) => v switch
+    /// the evaluator treats as equal hash the same (numeric via double, text by its collation key, binary
+    /// structurally). The planner only builds a hash join over same-kind key columns, so this is total over the
+    /// keys it actually sees.</summary>
+    public static int KeyHash(object v, JetTextComparer text) => v switch
     {
         byte[] b => BinaryHash(b),
-        string s => System.Globalization.CultureInfo.InvariantCulture.CompareInfo
-            .GetHashCode(s.TrimEnd(' '), System.Globalization.CompareOptions.IgnoreCase),
+        string s => text.GetHashCode(s),
         _ when IsNumeric(v) => Dbl(v).GetHashCode(),
         _ => v.GetHashCode(),
     };
@@ -2964,26 +3004,34 @@ internal sealed partial class ExpressionEvaluator(
         return a.Length.CompareTo(b.Length);
     }
 
-    /// <summary>Access text comparison, in the database sort order (<see cref="JetTextComparer"/>): case-insensitive,
-    /// trailing spaces ignored, an accented letter beside its base letter but not equal to it (verified vs ACE:
-    /// <c>'é' &lt; 'f'</c>, <c>'café' ≠ 'cafe'</c>), <c>'ß' = 'ss'</c>, and a hyphen weighed after the letters. A
-    /// character that order does not cover compares case-insensitively.</summary>
-    // The linguistic comparison is the point: ordinal (CA1309) would put 'é' after 'z' and make 'ß' ≠ 'ss',
-    // neither of which is what ACE does.
-#pragma warning disable CA1309
-    private static int CompareText(string a, string b) =>
-        JetTextComparer.Compare(a, b)
-        ?? Math.Sign(string.Compare(a.TrimEnd(' '), b.TrimEnd(' '), StringComparison.InvariantCultureIgnoreCase));
-#pragma warning restore CA1309
-
-    /// <summary>Orders two values for SORT (nulls first), using the same coercion as comparisons.</summary>
-    public static int CompareForSort(object? a, object? b) => (a, b) switch
+    /// <summary>Orders two values for SORT (nulls first), using the same coercion as comparisons, and text in
+    /// <paramref name="text"/>'s collation.</summary>
+    public static int CompareForSort(object? a, object? b, JetTextComparer text) => (a, b) switch
     {
         (null, null) => 0,
         (null, _) => -1,
         (_, null) => 1,
-        _ => Compare(a, b),
+        // Two sort keys compare their collation keys, which is what comparing the texts would encode again;
+        // one against anything else unwraps to its text and compares as text always does.
+        (CollatedText x, CollatedText y) => Math.Sign(x.Key.AsSpan().SequenceCompareTo(y.Key)),
+        (CollatedText x, _) => CompareForSort(x.Text, b, text),
+        (_, CollatedText y) => CompareForSort(a, y.Text, text),
+        _ => Compare(a, b, text),
     };
+
+    /// <summary>A value as a sort key: text carries its collation key, made once, so sorting n rows encodes n
+    /// strings rather than two per comparison; anything else is itself. Only for values that are compared with
+    /// <see cref="CompareForSort"/> in the same collation and never returned.</summary>
+    internal static object? SortKey(object? value, JetTextComparer text) =>
+        value is string s ? new CollatedText(s, text.Key(s)) : value;
+
+    /// <summary>A text sort key and its collation key (<see cref="JetTextComparer.Key"/>).</summary>
+    internal sealed class CollatedText(string text, byte[] key)
+    {
+        public string Text { get; } = text;
+        public byte[] Key { get; } = key;
+        public override string ToString() => Text;
+    }
 
     // Booleans count as numeric for comparison: EF maps CLR bool to a numeric (smallint) column, and
     // a boolean predicate (e.g. IS NOT NULL) must compare equal to that stored value. The comparison

@@ -431,6 +431,18 @@ Then the value, transformed:
 
   > **General v0 covers the whole Basic Multilingual Plane.** Every character ACE stores a key for, LibRed
   > encodes identically.
+  >
+  > **The control characters, DEL and `U+FEFF` are outside the measured table** and follow three rules,
+  > verified against ACE for all 66, alone and between two letters:
+  >
+  > | | v0 key |
+  > |---|---|
+  > | `U+0000`, `U+FEFF` | wholly ignorable — no weight and no record, so `a␀b` keys as `ab` |
+  > | tab, LF, VT, FF, CR (`U+0009`–`000D`) | a two-byte primary `08 03`–`08 07`, default secondary |
+  > | the other 60 (`U+0001`–`0008`, `U+000E`–`001F`, `U+007F`, `U+0080`–`009F`) | word-sort ignorables: an inline record `80 <pos> 06 <code>`, codes `0x03`–`0x3D` consecutive in code-point order |
+  >
+  > So `U+0001` is `7F 01 01 01 01 80 07 06 03 00` alone and tab is `7F 08 03 01 00`. General v1 keys all 66
+  > from the published table, also verified against ACE.
   > The weights are in an embedded resource (`SortKeyTableV0.bin`, 74 KB): 63,105 of them, 19,186 ignorable,
   > plus 40 word-sort ignorables and 276 kana — far past anything hand-maintainable. Most of v1's table can
   > be embedded from a published Microsoft file; v0's cannot at all, since its primaries are a Jet compaction

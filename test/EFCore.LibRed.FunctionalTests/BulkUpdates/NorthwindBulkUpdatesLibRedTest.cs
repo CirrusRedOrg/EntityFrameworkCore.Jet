@@ -1609,18 +1609,14 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 
         AssertExecuteUpdateSql(
             """
-UPDATE `Customers` AS `c2`
-INNER JOIN (
-    SELECT `c`.`CustomerID`, `c1`.`City` AS `City0`
-    FROM `Customers` AS `c`,
-    (
-        SELECT `c0`.`City`
-        FROM `Customers` AS `c0`
-        WHERE `c0`.`CustomerID` = 'ALFKI'
-    ) AS `c1`
-    WHERE `c`.`CustomerID` LIKE 'F%'
-) AS `s` ON `c2`.`CustomerID` = `s`.`CustomerID`
-SET `c2`.`City` = `s`.`City0`
+UPDATE `Customers` AS `c`,
+(
+    SELECT `c0`.`City`
+    FROM `Customers` AS `c0`
+    WHERE `c0`.`CustomerID` = 'ALFKI'
+) AS `c1`
+SET `c`.`City` = `c1`.`City`
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 

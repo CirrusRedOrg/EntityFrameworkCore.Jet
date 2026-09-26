@@ -477,15 +477,26 @@ internal static class JetTextCollationV1
         }
     }
 
-    /// <summary>Code points sorted ascending with their weights in parallel arrays — a binary search over
-    /// ~58k entries, rather than a dictionary, to keep the table near 300 KB resident instead of several MB.</summary>
+    /// <summary>Weights in parallel arrays, reached through a slot per BMP code point — the entry's index plus
+    /// one, zero for none. Arrays rather than a dictionary keep the table near 400 KB resident instead of several
+    /// MB; the slots, 128 KB of it, replaced a binary search that every character of every comparison paid.</summary>
     private sealed class WeightTable(
         ushort[] codePoints, byte[] scriptMembers, byte[] alphabetics, byte[] diacritics,
         Dictionary<char, char[]> expansions)
     {
+        private readonly ushort[] _slots = Slots(codePoints);
+
+        private static ushort[] Slots(ushort[] codePoints)
+        {
+            var slots = new ushort[char.MaxValue + 1];
+            for (int i = 0; i < codePoints.Length; i++)
+                slots[codePoints[i]] = checked((ushort)(i + 1));
+            return slots;
+        }
+
         public bool TryGetWeight(char character, out byte scriptMember, out byte alphabetic, out byte diacritic)
         {
-            int index = Array.BinarySearch(codePoints, (ushort)character);
+            int index = _slots[character] - 1;
             if (index < 0)
             {
                 scriptMember = alphabetic = diacritic = 0;

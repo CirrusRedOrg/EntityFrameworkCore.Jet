@@ -27,6 +27,27 @@ public sealed class Table
     /// left out reads as null. For a reader that never looks at it — see <see cref="RowDecoder"/>.</param>
     public TableCursor Rows(bool[]? decode = null) => new(this, decode);
 
+    /// <summary>A decode mask for <see cref="Rows"/> and the seeks that reads only <paramref name="columns"/>
+    /// (by <see cref="ColumnDef.Index"/>): for a reader that looks at nothing else, such as a key comparison,
+    /// which would otherwise decode every other column of every row it passes over for nothing.</summary>
+    public bool[] DecodeOnly(IEnumerable<int> columns)
+    {
+        var mask = new bool[Definition.Columns.Count];
+        foreach (int column in columns) mask[column] = true;
+        return mask;
+    }
+
+    /// <summary>The rows whose <paramref name="keyColumns"/> satisfy <paramref name="match"/>, each read in full.
+    /// The search decodes only the key; a match is read again whole, because a caller looking a row up by key
+    /// is usually about to rewrite or delete it, which takes every value. Lazy, as <see cref="Rows"/> is.</summary>
+    public IEnumerable<(RowId Id, object?[] Values)> RowsWhere(IEnumerable<int> keyColumns, Func<object?[], bool> match)
+    {
+        foreach ((RowId id, object?[] key) in Rows(DecodeOnly(keyColumns)).WithIds())
+            if (match(key))
+                yield return (id, GetRow(id)
+                    ?? throw new InvalidDataException($"Row {id.Page}:{id.Row} of '{Name}' was read a moment ago and is gone."));
+    }
+
     /// <summary>A row decoder over this table's columns — reuse one across a seek/scan rather than allocating
     /// per row (each carries a shared <see cref="LongValueReader"/>).</summary>
     private RowDecoder NewDecoder(bool[]? decode = null) =>

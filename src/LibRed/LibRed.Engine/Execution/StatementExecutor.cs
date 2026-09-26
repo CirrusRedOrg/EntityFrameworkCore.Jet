@@ -222,16 +222,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         Table parent = _database.OpenTable(fk.ReferencedTable);
         int[] parentCols = ReferencedColumnsOf(fk, parent);
-        return parent.Rows(KeyMask(parent, parentCols)).Any(row => KeyEquals(row, parentCols, target));
-    }
-
-    /// <summary>A decode mask for just <paramref name="columns"/> of <paramref name="table"/>: a key comparison
-    /// reads nothing else, and every other column of every row it passes over would be decoded for nothing.</summary>
-    private static bool[] KeyMask(Table table, int[] columns)
-    {
-        var mask = new bool[table.Definition.Columns.Count];
-        foreach (int column in columns) mask[column] = true;
-        return mask;
+        return parent.Rows(parent.DecodeOnly(parentCols)).Any(row => KeyEquals(row, parentCols, target));
     }
 
     /// <summary>The positions the relationship's referenced columns occupy in a row of the parent table.</summary>
@@ -261,10 +252,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         Table child = _database.OpenTable(fk.Table);
         int[] childCols = [.. fk.Columns.Select(c => child.Definition.FindColumn(c.Column)!.Index)];
         // The search reads the key alone; a match is then read whole, because the cascade rewrites or deletes it.
-        return [.. child.Rows(KeyMask(child, childCols)).WithIds()
-            .Where(r => KeyEquals(r.Values, childCols, key))
-            .Select(r => (r.Id, child.GetRow(r.Id)
-                ?? throw new InvalidOperationException($"Row {r.Id} of '{child.Name}' vanished while it was being read.")))];
+        return [.. child.RowsWhere(childCols, values => KeyEquals(values, childCols, key))];
     }
 
     /// <summary>
@@ -331,7 +319,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             Table flat = _database.OpenTable(complex.FlatTable.Name);
             // Read for the owner link and the index keys to remove, and nothing else: Delete reads the row itself.
             int[] read = [complex.OwnerLink.Index, .. flat.Definition.RealIndexes.SelectMany(i => i.Columns).Select(c => c.Column.Index)];
-            foreach ((RowId flatId, object?[] flatValues) in flat.Rows(KeyMask(flat, read)).WithIds().ToList())
+            foreach ((RowId flatId, object?[] flatValues) in flat.Rows(flat.DecodeOnly(read)).WithIds().ToList())
             {
                 if (flatValues[complex.OwnerLink.Index] is not { } link
                     || Convert.ToInt32(link, System.Globalization.CultureInfo.InvariantCulture) != recordId)

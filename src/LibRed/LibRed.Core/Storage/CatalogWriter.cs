@@ -69,7 +69,8 @@ internal sealed class CatalogWriter(PageChannel channel, JetCatalog catalog)
         (byte[] users, _, byte[] creator) = catalog.SecuritySids;
 
         var grants = new List<(byte[] Sid, int Acm)>();
-        foreach (object?[] row in new Table(channel, msysAces).Rows())
+        var aces = new Table(channel, msysAces);
+        foreach (object?[] row in aces.Rows(aces.DecodeOnly([idIndex, sidIndex, acmIndex, inheritIndex])))
         {
             if (row[idIndex] is not int id || id != containerId || row[inheritIndex] is not true) continue;
             byte[] sid = (byte[])row[sidIndex]!;

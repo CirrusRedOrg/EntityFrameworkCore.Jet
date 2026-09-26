@@ -429,10 +429,9 @@ public static class DatabaseCreator
         int flagsIndex = objectsDef.FindColumn("Flags")!.Index;
         int ownerIndex = objectsDef.FindColumn("Owner")!.Index;
 
-        foreach ((RowId rowId, object?[] values) in msysObjects.Rows().WithIds())
+        foreach ((RowId rowId, object?[] values) in msysObjects.RowsWhere([idIndex], row => row[idIndex] is { } id
+            && Convert.ToInt32(id, CultureInfo.InvariantCulture) == definition.DefinitionPage))
         {
-            if (values[idIndex] is not { } id
-                || Convert.ToInt32(id, CultureInfo.InvariantCulture) != definition.DefinitionPage) continue;
             values[flagsIndex] = flags;
             values[ownerIndex] = SidEngine;
             msysObjects.Update(rowId, values, new HashSet<int> { flagsIndex, ownerIndex });

@@ -79,7 +79,8 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         // increment from 0x80000000) in the same scan.
         bool relationship = parentId == CatalogFormat.RelationshipContainerParentId;
         int nextId = unchecked((int)0x80000000);
-        foreach (object?[] row in new Table(_channel, msysObjects).Rows())
+        var objects = new Table(_channel, msysObjects);
+        foreach (object?[] row in objects.Rows(objects.DecodeOnly([idIndex, nameIndex, parentIndex])))
         {
             if ((!relationship || row[parentIndex] is int parent && parent == parentId)
                 && string.Equals(row[nameIndex] as string, name, StringComparison.OrdinalIgnoreCase))

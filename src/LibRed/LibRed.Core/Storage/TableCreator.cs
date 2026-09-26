@@ -807,7 +807,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             .ToArray();
 
         var seen = new HashSet<string>();
-        foreach (object?[] values in new Table(_channel, table).Rows())
+        var rows = new Table(_channel, table);
+        foreach (object?[] values in rows.Rows(rows.DecodeOnly(keyColumns.Select(k => k.Column.Index))))
         {
             if (keyColumns.Any(k => values[k.Column.Index] is null))
             {
@@ -853,7 +854,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     {
         var keyColumnIds = index.Columns.Select(c => c.Column.Index).ToArray();
         var entries = new List<(byte[] Key, int Pointer, bool NullKey)>();
-        foreach ((RowId id, object?[] values) in new Table(_channel, table).Rows().WithIds())
+        // The key is all an entry is made from, so it is all that is decoded: a wide row, or one whose memo the
+        // index cannot even hold, would otherwise be read whole for every entry.
+        var rows = new Table(_channel, table);
+        foreach ((RowId id, object?[] values) in rows.Rows(rows.DecodeOnly(keyColumnIds)).WithIds())
         {
             bool hasNullKey = keyColumnIds.Any(i => values[i] is null);
             if (ignoreNulls && hasNullKey) continue;
@@ -1303,7 +1307,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int nameIdx = mo.RequireColumn("Name").Index;
         int typeIdx = mo.RequireColumn("Type").Index;
 
-        foreach (object?[] values in new Table(_channel, mo).Rows())
+        var objects = new Table(_channel, mo);
+        foreach (object?[] values in objects.Rows(objects.DecodeOnly([idIdx, nameIdx, typeIdx])))
             if (string.Equals(values[nameIdx] as string, name, StringComparison.OrdinalIgnoreCase)
                 && Convert.ToInt16(values[typeIdx] ?? (short)0, CultureInfo.InvariantCulture) == type)
                 return Convert.ToInt32(values[idIdx], CultureInfo.InvariantCulture);
@@ -1361,7 +1366,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int parentIndex = def.RequireColumn("szReferencedObject").Index;
         var table = new Table(_channel, def);
 
-        foreach ((RowId id, object?[] values) in table.Rows().WithIds().ToList())
+        foreach ((RowId id, object?[] values) in table.RowsWhere([childIndex, parentIndex],
+            v => NameMatches(v[childIndex], oldName) || NameMatches(v[parentIndex], oldName)).ToList())
         {
             var updates = new List<(int Column, object? Value)>(2);
             if (NameMatches(values[childIndex], oldName)) updates.Add((childIndex, newName));
@@ -1544,7 +1550,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int parentColumn = def.RequireColumn("szReferencedColumn").Index;
         var table = new Table(_channel, def);
 
-        foreach ((RowId id, object?[] values) in table.Rows().WithIds().ToList())
+        foreach ((RowId id, object?[] values) in table.RowsWhere([childTable, childColumn, parentTable, parentColumn],
+            v => (NameMatches(v[childTable], tableName) && NameMatches(v[childColumn], oldName))
+                || (NameMatches(v[parentTable], tableName) && NameMatches(v[parentColumn], oldName))).ToList())
         {
             var updates = new List<(int Column, object? Value)>(2);
             if (NameMatches(values[childTable], tableName) && NameMatches(values[childColumn], oldName))
@@ -1573,7 +1581,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int nameIndex = mo.RequireColumn("Name").Index;
         int typeIndex = mo.RequireColumn("Type").Index;
 
-        foreach (object?[] values in new Table(_channel, mo).Rows())
+        var objects = new Table(_channel, mo);
+        foreach (object?[] values in objects.Rows(objects.DecodeOnly([idIndex, nameIndex, typeIndex])))
         {
             if (!NameMatches(values[nameIndex], name)) continue;
             // Skip the object being renamed — it can't collide with itself (same-name and case-only renames).
@@ -1646,9 +1655,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <summary>The rows of a catalog table whose key column holds <paramref name="keyValue"/>, materialised
     /// before the caller writes any of them back.</summary>
     private static List<(RowId Id, object?[] Values)> RowsKeyed(Table table, int keyColumn, int keyValue) =>
-        [.. table.Rows().WithIds()
-            .Where(r => r.Values[keyColumn] is not null
-                && Convert.ToInt32(r.Values[keyColumn], CultureInfo.InvariantCulture) == keyValue)];
+        [.. table.RowsWhere([keyColumn], values => values[keyColumn] is not null
+            && Convert.ToInt32(values[keyColumn], CultureInfo.InvariantCulture) == keyValue)];
 
     private void DeleteCatalogRows(string catalogTable, string keyColumn, int keyValue)
     {
@@ -1656,11 +1664,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int idx = t.RequireColumn(keyColumn).Index;
         var table = new Table(_channel, t);
 
-        var rows = table.Rows().WithIds()
-            .Where(r => r.Values[idx] is not null
-                && Convert.ToInt32(r.Values[idx], CultureInfo.InvariantCulture) == keyValue)
-            .ToList();
-        foreach ((RowId id, object?[] values) in rows)
+        foreach ((RowId id, object?[] values) in RowsKeyed(table, idx, keyValue))
         {
             foreach (IndexDef index in t.RealIndexes)
                 table.RemoveIndexEntry(index, values, id);
@@ -2049,9 +2053,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         (TableDef msys, Table table, int idIdx, ColumnDef lvProp) = ObjectProperties();
 
-        foreach ((RowId id, object?[] values) in table.Rows().WithIds())
+        foreach ((RowId id, object?[] values) in RowsKeyed(table, idIdx, tdefPage))
         {
-            if (values[idIdx] is null || Convert.ToInt32(values[idIdx], CultureInfo.InvariantCulture) != tdefPage) continue;
             byte[] blob = values[lvProp.Index] as byte[] ?? [];
             var props = PropertyBlob.Read(blob).ToList();
             mutate(props);
@@ -2071,9 +2074,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     {
         (TableDef msys, Table table, int idIdx, ColumnDef lvProp) = ObjectProperties();
 
-        foreach ((RowId id, object?[] values) in table.Rows().WithIds())
+        foreach ((RowId id, object?[] values) in RowsKeyed(table, idIdx, tdefPage))
         {
-            if (values[idIdx] is null || Convert.ToInt32(values[idIdx], CultureInfo.InvariantCulture) != tdefPage) continue;
             byte[] blob = values[lvProp.Index] as byte[] ?? [];
             byte[] updated = PropertyBlob.AddColumnProperties(blob, columnName, props);
             byte[] descriptor = new RowInserter(_channel, msys).StorePackedLongValue(lvProp.ColumnId, updated);
@@ -2097,9 +2099,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         (TableDef msys, Table table, int idIdx, ColumnDef lvProp) = ObjectProperties();
 
-        foreach ((RowId id, object?[] values) in table.Rows().WithIds())
+        foreach ((RowId id, object?[] values) in RowsKeyed(table, idIdx, tdefPage))
         {
-            if (values[idIdx] is null || Convert.ToInt32(values[idIdx], CultureInfo.InvariantCulture) != tdefPage) continue;
             byte[] blob = values[lvProp.Index] as byte[] ?? [];
 
             var checks = PropertyBlob.ReadCheckConstraints(PropertyBlob.Read(blob)).ToList();
@@ -2133,9 +2134,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         (TableDef msys, Table table, int idIdx, ColumnDef lvProp) = ObjectProperties();
 
-        foreach ((RowId id, object?[] values) in table.Rows().WithIds())
+        foreach ((RowId id, object?[] values) in RowsKeyed(table, idIdx, tdefPage))
         {
-            if (values[idIdx] is null || Convert.ToInt32(values[idIdx], CultureInfo.InvariantCulture) != tdefPage) continue;
             byte[] blob = values[lvProp.Index] as byte[] ?? [];
 
             var checks = PropertyBlob.ReadCheckConstraints(PropertyBlob.Read(blob)).ToList();
@@ -2287,7 +2287,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     private void EnsureExistingValuesFit(TableDef table, ColumnDef column, int newLength)
     {
         bool text = column.Type == JetDataType.Text;
-        foreach (object?[] values in new Table(_channel, table).Rows())
+        var rows = new Table(_channel, table);
+        foreach (object?[] values in rows.Rows(rows.DecodeOnly([column.Index])))
         {
             int stored = values[column.Index] switch
             {
@@ -3135,9 +3136,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     {
         (TableDef msys, Table table, int idIdx, ColumnDef lvProp) = ObjectProperties();
 
-        foreach ((RowId id, object?[] values) in table.Rows().WithIds())
+        foreach ((RowId id, object?[] values) in RowsKeyed(table, idIdx, tdefPage))
         {
-            if (values[idIdx] is null || Convert.ToInt32(values[idIdx], CultureInfo.InvariantCulture) != tdefPage) continue;
             if (values[lvProp.Index] is not byte[] { Length: > 0 } blob) return;
 
             byte[] cleaned = PropertyBlob.RemoveOwner(blob, columnName);
@@ -3200,9 +3200,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // measured by whole-file diff: the row's space back in the page's free count and the table's row count
         // down). Flagging the slot alone also left the index entries standing, pointing at a dead row.
         var table = new Table(_channel, msys);
-        var rows = table.Rows().WithIds()
-            .Where(r => string.Equals(r.Values[nameIdx] as string, name, StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        var rows = table.RowsWhere([nameIdx],
+            values => string.Equals(values[nameIdx] as string, name, StringComparison.OrdinalIgnoreCase)).ToList();
         foreach ((RowId id, object?[] values) in rows)
         {
             foreach (IndexDef index in msys.RealIndexes)
@@ -3693,10 +3692,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     {
         TableDef msysAces = _catalog.RequireTable("MSysACEs");
         int idIndex = msysAces.RequireColumn("ObjectId").Index;
-        return [.. new Table(_channel, msysAces).Rows()
-            .Where(r => r[idIndex] is not null
-                && Convert.ToInt32(r[idIndex], CultureInfo.InvariantCulture) == objectId)
-            .Select(r => (object?[])r.Clone())];
+        return [.. RowsKeyed(new Table(_channel, msysAces), idIndex, objectId).Select(r => r.Values)];
     }
 
     /// <summary>Makes <paramref name="rows"/> the object's only <c>MSysACEs</c> rows, re-pointed at it — for a

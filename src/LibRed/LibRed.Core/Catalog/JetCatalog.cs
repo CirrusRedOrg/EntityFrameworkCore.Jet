@@ -359,11 +359,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
                     var (size, precision, scale) = type is { } t
                         ? StoredQueryFormat.UnpackParameterFacets(t, r[lvExtra] as int?)
                         : (null, null, null);
-                    // ACE stores the name as declared, its brackets included ('[@firstName]'); the name bound to is
-                    // inside them, as the parser reads the declaration.
-                    string declared = (string)r[n1]!;
-                    string name = declared is ['[', .., ']'] ? declared[1..^1] : declared;
-                    return new StoredQueryParameter(name, type, size, precision, scale);
+                    return new StoredQueryParameter(DeclaredParameterName((string)r[n1]!), type, size, precision, scale);
                 })
                 .ToList();
             if (parameters.Count > 0) _queryParameters[name] = parameters;
@@ -544,6 +540,31 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
 
         // Joins whose two tables were both already in scope become extra WHERE conditions (a cyclic graph).
         return (from.ToString(), pending.Select(j => j.Cond).ToList());
+    }
+
+    /// <summary>The name a stored parameter binds to, from the name ACE stored — which is the name as declared, its
+    /// brackets included: <c>[@firstName]</c> binds as <c>@firstName</c>. A form control is declared as a chain,
+    /// <c>[Forms]![frmSelector]![txtTo]</c>, and binds as its parts undelimited and joined by bangs,
+    /// <c>Forms!frmSelector!txtTo</c>, a period counting as a bang; the parser names a reference to it the same
+    /// way. A period or bang inside delimiters is part of the name.</summary>
+    private static string DeclaredParameterName(string declared)
+    {
+        var parts = new List<string>();
+        var part = new System.Text.StringBuilder();
+        char close = '\0';
+        foreach (char c in declared)
+        {
+            if (close != '\0')
+            {
+                if (c == close) close = '\0';
+                else part.Append(c);
+            }
+            else if (c is '[' or '`') close = c == '[' ? ']' : '`';
+            else if (c is '!' or '.') { parts.Add(part.ToString()); part.Clear(); }
+            else part.Append(c);
+        }
+        parts.Add(part.ToString());
+        return string.Join('!', parts);
     }
 
     /// <summary>The leading <c>PARAMETERS name Type, …;</c> clause a query with declared parameters (its

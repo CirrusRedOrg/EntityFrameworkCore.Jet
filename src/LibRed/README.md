@@ -174,6 +174,11 @@ Treat the number as of its date — an EF Core version bump moves it.
   (`INSERT INTO … SELECT`, the append query) — `SELECT … INTO` (the make-table query), `UPDATE`, `DELETE`,
   `EXECUTE`, `IF … THEN`, and `SELECT` with `WHERE`, joins, `GROUP BY`/aggregates, `HAVING`, `ORDER BY`,
   `TOP [PERCENT]`, `ALL`/`DISTINCT`/`DISTINCTROW`, `UNION`/`INTERSECT`/`EXCEPT`, subqueries, and parameters.
+  Access's bang notation: `[Table]![Column]` is `Table.Column`, and an unaliased one is named as written, as
+  ACE names it. A form control such as `[Forms]![frmMenu]![txtCity]` is reachable only as a parameter the
+  query declares; unlike ACE, LibRed does not make an undeclared one an implicit parameter. `Yes`/`On` and
+  `No`/`Off` are `True` and `False`; any word, reserved or not, names a column after a `.` or `!`
+  (`qryHistory.Key`); and an unbracketed name may be in any script (`Bevételek.Datum`, `Номер`).
   `WITH COMPRESSION` on a Text column is honoured end to end — it maps onto `SupportsCompressedUnicode`,
   `TdefBuilder` writes the `0x01` extended-flag bit, and `JetTypeCodec` gates compressed encoding on it.
   Function arguments are arity-checked against a per-function range table, so a wrong count raises rather
@@ -258,9 +263,6 @@ Format-level detail on each on-disk gap lives in `docs/format/`.
   kinds (INSERT…SELECT, UPDATE, DELETE, make-table, crosstab, UNION, pass-through) read back as a *named*
   refusal rather than executing, and a view carrying `HAVING` (attribute `0x0A`) is refused rather than
   rebuilt. The gap is the write-back, not the grammar: all of these parse and execute as plain statements.
-- **`!` bang notation** (`[Table]![Col]`, `Forms![f]![ctl]`) — grammar gap, and the reason ~13% of the
-  stored queries LibRed rebuilds are then rejected by its own parser. Nearly all of those reference a form
-  control, which has no meaning outside Access anyway.
 - **Function surface** — the evaluator's whitelist isn't proven identical to ACE's JES, and `Format`'s named
   date/currency formats are locale-dependent by design (not byte-identical cross-locale).
 - **Non-unique index statistics** — only unique indexes advance the live unique-entry count (`+4`) today.

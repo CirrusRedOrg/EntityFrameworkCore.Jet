@@ -391,6 +391,14 @@
   > to a declared name are lowered into engine parameters, so LibRed's own engine executes the stored procedure
   > when values are supplied.
   >
+  > **A form control is declared as a bang chain and stored as written.** `PARAMETERS [Forms]![frmMenu]![txtCity]
+  > Text ( 20 )`, saved through DAO, stores `Name1=[Forms]![frmMenu]![txtCity]` — each part in its own brackets,
+  > so a `Name1` that starts with `[` need not be one bracketed name. LibRed writes the same `Name1`, and the
+  > query runs in ACE with the value supplied. The name binds by its parts, undelimited and joined by `!`
+  > (`Forms!frmMenu!txtCity`): ACE takes `Forms!f!c`, `[Forms]![f]![c]` and `Forms!F!C` as one parameter, and
+  > a `.` between parts counts as a `!` — with `Forms!x` declared, `Forms.x` takes its value, and with
+  > `Forms!f!c` declared, so do `Forms!f.c` and `Forms.f!c`.
+  >
   > **A declared name wins over a column of the same name — and a `@` prefix does not distinguish them.**
   > Measured against ACE 12 on Northwind: *every* unqualified occurrence of a declared parameter name is the
   > parameter, whether written bare or as `@name`, even where the query's own table has a column by that name.

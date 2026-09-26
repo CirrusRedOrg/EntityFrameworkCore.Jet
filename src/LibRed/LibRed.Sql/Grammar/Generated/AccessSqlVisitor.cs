@@ -915,6 +915,12 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitColumnRef([NotNull] AccessSqlParser.ColumnRefContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.memberName"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitMemberName([NotNull] AccessSqlParser.MemberNameContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.identifier"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
@@ -1046,6 +1052,12 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitNonReservedKeyword([NotNull] AccessSqlParser.NonReservedKeywordContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.reservedKeyword"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitReservedKeyword([NotNull] AccessSqlParser.ReservedKeywordContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.filterClause"/>.
 	/// </summary>

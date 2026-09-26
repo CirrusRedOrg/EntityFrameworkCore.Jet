@@ -5,7 +5,8 @@
 // LibRed.Sql.Ast by AstBuilder, so the rest of the engine never sees these generated types.
 //
 // Dialect notes (vs ANSI): '&' string concat; MOD / '\' operators; TOP n (no OFFSET);
-// #1/1/2020# date literals; [bracketed] and `backtick` identifiers; booleans -1/0.
+// #1/1/2020# date literals; [bracketed] and `backtick` identifiers; Table!Column bang references;
+// booleans -1/0.
 
 grammar AccessSql;
 
@@ -98,9 +99,10 @@ procParamList
     : LPAREN procParam (COMMA procParam)* RPAREN
     | procParam (COMMA procParam)*
     ;
-// A parameter name is an identifier or an @-prefixed parameter token (e.g. @Beginning_Date).
+// A parameter name is an identifier or an @-prefixed parameter token (e.g. @Beginning_Date), or a chain naming a form
+// control — `PARAMETERS [Forms]![frmSelector]![txtTo] DateTime`, the commonest thing an Access query declares.
 procParam : pname=procParamName dataType ;
-procParamName : identifier | PARAM ;
+procParamName : columnRef | PARAM ;
 
 // ALTER TABLE table { ADD [COLUMN] field type … | ADD CONSTRAINT … | ALTER COLUMN field type | DROP … }
 // (Access allows exactly one action per statement.) The CONSTRAINT clause reuses CREATE TABLE's
@@ -496,7 +498,15 @@ functionCall
 // followed by '(' and `PARTITION BY` never is, so the two never collide.
 functionName : identifier | LEFT | RIGHT | ASC | FIRST | PARTITION ;
 
-columnRef : (qualifier=identifier DOT)? name=identifier ;
+// A name, or a chain of them joined by '.' or Access's bang '!'. Two parts are table and column whichever joins them
+// (verified vs ACE: Customers!CustomerID reads as Customers.CustomerID in every clause). A longer chain names nothing
+// a query can reach — a form control such as Forms!frmMenu!cmbGroup, or [Forms]![f]![sub].[Form]![ctl] — and is
+// only ever a parameter the query declares. ACE refuses whitespace either side of a bang, which the builder checks.
+// After a separator any word names a column, reserved or not (verified vs ACE: t.Key, t.Select, t.From, t.And and
+// t.Mod all read the column; only Union and When are refused there, and after a bang the operator words as well,
+// which LibRed accepts all the same).
+columnRef : first=identifier (separators+=(DOT | BANG) rest+=memberName)* ;
+memberName : identifier | reservedKeyword ;
 
 identifier : IDENTIFIER | BRACKET_ID | BACKTICK_ID | nonReservedKeyword ;
 
@@ -507,8 +517,10 @@ literal
     | STRING_LITERAL    # StringLiteral
     | DATE_LITERAL      # DateLiteral
     | GUID_LITERAL      # GuidLiteral
-    | TRUE              # TrueLiteral
-    | FALSE             # FalseLiteral
+    // Yes and On are True, No and Off False, all four even where a column has that name — only a qualified
+    // reference reaches the column (verified vs ACE).
+    | (TRUE | YES | ON) # TrueLiteral
+    | (FALSE | NO | OFF) # FalseLiteral
     | NULL              # NullLiteral
     ;
 
@@ -559,6 +571,20 @@ frameExclusion : CURRENT ROW | GROUP | TIES | NO OTHERS ;
 nonReservedKeyword
     : RANGE | GROUPS | UNBOUNDED | PRECEDING | FOLLOWING | CURRENT | EXCLUDE | TIES | OTHERS
     | WITHIN | LAST | RESPECT | NULLS | FILTER
+    | YES | OFF
+    ;
+
+// Every other keyword, which a name may be only after a separator — see columnRef.
+reservedKeyword
+    : SELECT | FROM | WHERE | TOP | AS | AND | OR | NOT | XOR | EQV | IMP | BAND | BOR | BXOR | BNOT | LIKE | MOD
+    | INNER | LEFT | RIGHT | FULL | OUTER | JOIN | IN | ON | ORDER | GROUP | IS | BY | HAVING | EXISTS | IF | THEN
+    | DISTINCTROW | DISTINCT | PERCENT | CROSS | APPLY | OVER | PARTITION | CASE | WHEN | ELSE | END | OFFSET
+    | FETCH | NEXT | FIRST | ROWS | ROW | ONLY | BETWEEN | UNION | ALL | INTERSECT | EXCEPT | CREATE | TABLE
+    | BEGIN | COMMIT | ROLLBACK | TRANSACTION | WORK | ALTER | RENAME | TO | ADD | DROP | COLUMN | INSERT | INTO
+    | VALUES | PRIMARY | KEY | CONSTRAINT | FOREIGN | REFERENCES | DELETE | UPDATE | CASCADE | RESTRICT | ACTION
+    | SET | DEFAULT | NO | UNIQUE | CLUSTERED | IDENTITY | NONCLUSTERED | INDEX | TEMPORARY | WITH | COMPRESSION
+    | COMP | DISALLOW | IGNORE | CHECK | VIEW | PROCEDURE | PARAMETERS | EXECUTE | EXEC | ASC | DESC | TRUE
+    | FALSE | NULL
     ;
 
 // An aggregate's FILTER: only the rows for which the condition is true go into it.
@@ -683,6 +709,9 @@ ASC    : [Aa][Ss][Cc] ;
 DESC   : [Dd][Ee][Ss][Cc] ;
 TRUE   : [Tt][Rr][Uu][Ee] ;
 FALSE  : [Ff][Aa][Ll][Ss][Ee] ;
+// Access's other spellings of True and False — not reserved; see nonReservedKeyword. ON is already a keyword.
+YES    : [Yy][Ee][Ss] ;
+OFF    : [Oo][Ff][Ff] ;
 NULL   : [Nn][Uu][Ll][Ll] ;
 // The window clauses' words — not reserved; see nonReservedKeyword.
 RANGE     : [Rr][Aa][Nn][Gg][Ee] ;
@@ -717,6 +746,8 @@ LPAREN : '(' ;
 RPAREN : ')' ;
 COMMA  : ',' ;
 DOT    : '.' ;
+// Access's bang, between the parts of a name. '!=' still lexes as NEQ, the longer match.
+BANG   : '!' ;
 SEMI   : ';' ;
 // A connection-scoped system variable: @@ROWCOUNT (rows affected by the last statement) and
 // @@IDENTITY (the last AutoNumber generated on this connection). Must precede PARAM so the '@@'
@@ -744,7 +775,9 @@ BACKTICK_ID     : '`' ~[`]+ '`' ;
 // A trailing '$' is allowed so VBA "$" string-function variants (Left$, UCase$, Chr$, …) lex as a single
 // identifier. Longest-match makes "Left$" an IDENTIFIER (5 chars) rather than the LEFT keyword (4); the
 // evaluator strips the '$' and dispatches to the base function.
-IDENTIFIER      : [A-Za-z_][A-Za-z_0-9]* '$'? ;
+// Any script's letters, not just ASCII (verified vs ACE: Név, Номер, 名前, ΑΒΓ, straße and Ñandú all read unbracketed),
+// with a combining mark allowed after the first, as Devanagari and Thai spell a letter.
+IDENTIFIER      : [\p{L}_][\p{L}\p{M}\p{Nd}_]* '$'? ;
 
 WS      : [ \t\r\n]+ -> skip ;
 // SQL comments — EF Core query tags prepend a `-- tag` line comment to the statement; also block comments.

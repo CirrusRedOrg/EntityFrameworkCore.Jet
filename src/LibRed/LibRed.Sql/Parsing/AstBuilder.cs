@@ -91,8 +91,11 @@ internal static class AstBuilder
     private static UpdateStatement BuildUpdate(UpdateStatementContext ctx)
     {
         var assignments = ctx.assignment()
-            .Select(a => new Assignment(
-                OptionalIdentifier(a.target.qualifier), Identifier(a.target.name), BuildExpression(a.expression())))
+            .Select(a =>
+            {
+                ColumnReference target = BuildColumn(a.target);
+                return new Assignment(target.Table, target.Column, BuildExpression(a.expression()));
+            })
             .ToList();
         Expression? where = ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null;
         return new UpdateStatement(BuildTableSources(ctx.tableSource()), assignments, where);
@@ -554,16 +557,17 @@ internal static class AstBuilder
     }
 
     /// <summary>A declared parameter's name, with any leading <c>@</c> stripped — Access stores the bare
-    /// name (e.g. <c>@Beginning_Date</c> is stored as <c>Beginning_Date</c>).</summary>
+    /// name (e.g. <c>@Beginning_Date</c> is stored as <c>Beginning_Date</c>). A chain naming a form control is
+    /// one name, as <see cref="ChainName"/> spells it.</summary>
     private static string ParamName(ProcParamContext p) => p.pname.PARAM() is { } at
         ? at.GetText().TrimStart('@')
-        : Identifier(p.pname.identifier());
+        : ChainName(p.pname.columnRef());
 
     /// <summary>A declared parameter's name as Access stores it: a name written in brackets keeps them
-    /// (verified vs ACE: <c>[@firstName]</c> is stored as <c>[@firstName]</c>), anything else as
-    /// <see cref="ParamName"/> reads it.</summary>
+    /// (verified vs ACE: <c>[@firstName]</c> is stored as <c>[@firstName]</c>, and a form control as
+    /// <c>[Forms]![f]![c]</c>), anything else as <see cref="ParamName"/> reads it.</summary>
     private static string StoredParamName(ProcParamContext p) =>
-        p.pname.identifier()?.GetText() is ['[', ..] bracketed ? bracketed : ParamName(p);
+        p.pname.columnRef()?.GetText() is ['[', ..] bracketed ? bracketed : ParamName(p);
 
     /// <summary>The declared type name of a data type — up to three words (e.g. "national character varying")
     /// joined by single spaces.</summary>
@@ -572,7 +576,7 @@ internal static class AstBuilder
             .Concat(new[] { type.typeName, type.extra, type.extra2 }.Where(t => t is not null).Select(Identifier))
             .Where(t => t is not null));
 
-    // ---- PARAMETERS-clause lowering: unqualified references to a declared parameter become parameters ----
+    // ---- PARAMETERS-clause lowering: references to a declared parameter become parameters ----
 
     private static SqlStatement LowerParameters(SqlStatement s, HashSet<string> names) => s switch
     {
@@ -609,7 +613,12 @@ internal static class AstBuilder
 
     private static SelectStatement LowerSelect(SelectStatement sel, HashSet<string> names) => sel with
     {
-        Projection = sel.Projection.Select(i => i with { Value = LowerExpr(i.Value, names) }).ToList(),
+        // A column that lowers to a parameter keeps the name it had as a column: its last part, unless a bang
+        // named it already (verified vs ACE: with PARAMETERS Forms!x, a bare Forms.x is named x; Forms!f.c is c).
+        Projection = sel.Projection.Select(i => LowerExpr(i.Value, names) is var value && i.Value is ColumnReference c
+                && value is ParameterExpression
+            ? i with { Value = value, Alias = i.Alias ?? c.Column[(c.Column.LastIndexOf('!') + 1)..] }
+            : i with { Value = value }).ToList(),
         From = LowerFrom(sel.From, names),
         Where = sel.Where is null ? null : LowerExpr(sel.Where, names),
         GroupBy = sel.GroupBy.Select(e => LowerExpr(e, names)).ToList(),
@@ -633,6 +642,9 @@ internal static class AstBuilder
     private static Expression LowerExpr(Expression e, HashSet<string> names) => e switch
     {
         ColumnReference { Table: null, Column: var c } when names.Contains(c) => new ParameterExpression(c),
+        // A two-part form control (Forms!ctl) reads as a table and a column. Its declaration still wins over a real
+        // column of that name (verified vs ACE: with PARAMETERS Customers!City Long, Customers!City is the parameter).
+        ColumnReference { Table: { } t, Column: var c } when names.Contains($"{t}!{c}") => new ParameterExpression($"{t}!{c}"),
         // A window function lowers like any other call — arguments AND the OVER clause, since a PARAMETERS name
         // can appear in a PARTITION BY or ORDER BY expression just as readily as in an argument.
         WindowFunction w => w with
@@ -988,7 +1000,8 @@ internal static class AstBuilder
     private static SelectItem BuildSelectItem(SelectItemContext ctx) => ctx switch
     {
         QualifiedStarSelectItemContext q => new SelectItem(new QualifiedStarExpression(Identifier(q.qualifier)), null),
-        ExpressionSelectItemContext e => new SelectItem(BuildExpression(e.expression()), OptionalIdentifier(e.alias)),
+        ExpressionSelectItemContext e => new SelectItem(
+            BuildExpression(e.expression()), OptionalIdentifier(e.alias) ?? BangColumnName(e.expression())),
         _ => throw new SqlParseException($"Unsupported select item: {ctx.GetText()}"),
     };
 
@@ -1258,14 +1271,60 @@ internal static class AstBuilder
     /// appear in an Access object name, which is what makes the split unambiguous: a dot inside the
     /// delimiters is always the qualifier. An undelimited <c>a.b</c> never reaches here as one name — the
     /// grammar has already split it — so this only ever rewrites what was bracketed or backticked.
+    /// A bang joins two parts exactly as a period does. A chain of three or more parts is one name — see
+    /// <see cref="ChainName"/> — that no column can have, so it resolves only as a declared parameter.
     /// </summary>
     private static ColumnReference BuildColumn(ColumnRefContext ctx)
     {
-        string? qualifier = OptionalIdentifier(ctx.qualifier);
-        string name = Identifier(ctx.name);
-        if (qualifier is null && name.IndexOf('.', StringComparison.Ordinal) is var dot && dot > 0 && dot < name.Length - 1)
-            return new ColumnReference(name[..dot], name[(dot + 1)..]);
-        return new ColumnReference(qualifier, name);
+        List<Antlr4.Runtime.ParserRuleContext> parts = [ctx.first, .. ctx._rest];
+        if (parts.Count == 1)
+        {
+            string name = Identifier(ctx.first);
+            if (name.IndexOf('.', StringComparison.Ordinal) is var dot && dot > 0 && dot < name.Length - 1)
+                return new ColumnReference(name[..dot], name[(dot + 1)..]);
+            return new ColumnReference(null, name);
+        }
+
+        // ACE refuses a space either side of a bang (verified: 'Invalid use of '.', '!', or '()'').
+        foreach (var (bang, i) in ctx._separators.Select((s, i) => (s, i)).Where(s => s.s.Type == BANG))
+            if (parts[i].Stop.StopIndex + 1 != bang.StartIndex || parts[i + 1].Start.StartIndex != bang.StopIndex + 1)
+                throw new SqlParseException(
+                    $"Invalid use of '!' in '{OriginalText(ctx)}': a bang takes no space either side.",
+                    bang.Line, bang.Column);
+
+        return parts.Count == 2
+            ? new ColumnReference(Identifier(ctx.first), MemberName(ctx._rest[0]))
+            : new ColumnReference(null, ChainName(ctx));
+    }
+
+    /// <summary>A name after a separator: an identifier as <see cref="Identifier"/> reads it, or a reserved word
+    /// as written.</summary>
+    private static string MemberName(MemberNameContext ctx) =>
+        ctx.identifier() is { } id ? Identifier(id) : ctx.GetText();
+
+    /// <summary>A chain of names as one name: its parts undelimited and joined by bangs, whether a period or a bang
+    /// joined them — ACE binds either spelling to the same declared parameter (verified: with <c>PARAMETERS
+    /// Forms!x</c>, both <c>Forms!x</c> and <c>Forms.x</c> take its value, and <c>[Forms]![f]![c]</c> is
+    /// <c>Forms!f!c</c>). A single part is just that name.</summary>
+    private static string ChainName(ColumnRefContext ctx) =>
+        string.Join('!', ctx._rest.Select(MemberName).Prepend(Identifier(ctx.first)));
+
+    /// <summary>The name ACE gives an unaliased column written with a bang: the text after the chain's last period,
+    /// with its first and last characters dropped when they are a pair of delimiters (verified:
+    /// <c>Customers!CustomerID</c> is named <c>Customers!CustomerID</c>, <c>[Customers]![CustomerID]</c>
+    /// <c>Customers]![CustomerID</c>, <c>[c]!CustomerID</c> <c>[c]!CustomerID</c>, and <c>Forms!f.c</c> just
+    /// <c>c</c>). A derived table's column goes by that name too. Null when there is no bang after the last period,
+    /// which keeps the name the column's own.</summary>
+    private static string? BangColumnName(ExpressionContext ctx)
+    {
+        if (ctx is not PrimaryExprContext p || p.primary() is not ColumnPrimaryContext primary) return null;
+        ColumnRefContext column = primary.columnRef();
+        int lastDot = column._separators.ToList().FindLastIndex(s => s.Type == DOT);
+        if (!column._separators.Skip(lastDot + 1).Any(s => s.Type == BANG)) return null;
+
+        int start = lastDot < 0 ? column.first.Start.StartIndex : column._rest[lastDot].Start.StartIndex;
+        string text = column.Start.InputStream.GetText(Antlr4.Runtime.Misc.Interval.Of(start, column.Stop.StopIndex));
+        return text is ['[', .., ']'] or ['`', .., '`'] ? text[1..^1] : text;
     }
 
     /// <summary><c>x IN (a, b, …)</c> becomes a flat <see cref="InListExpression"/> evaluated iteratively — NOT a

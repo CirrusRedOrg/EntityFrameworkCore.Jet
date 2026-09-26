@@ -7,9 +7,12 @@ namespace LibRed.Storage;
 /// A forward-only cursor over the rows of a table. Walks the table's data pages,
 /// decodes each inline row, and yields one value array per row.
 /// </summary>
-public sealed class TableCursor(Table table) : IEnumerable<object?[]>
+/// <param name="table">The table to read.</param>
+/// <param name="decode">Which columns to decode, or null for all; see <see cref="RowDecoder"/>.</param>
+public sealed class TableCursor(Table table, bool[]? decode = null) : IEnumerable<object?[]>
 {
     private readonly Table _table = table;
+    private readonly bool[]? _decode = decode;
 
     public IEnumerator<object?[]> GetEnumerator()
     {
@@ -24,7 +27,8 @@ public sealed class TableCursor(Table table) : IEnumerable<object?[]>
         var decoder = new RowDecoder(
             _table.Definition.Columns,
             _table.Channel.Format,
-            new LongValueReader(_table.Channel));
+            new LongValueReader(_table.Channel),
+            _decode);
 
         foreach (int pageNumber in _table.UsageMap.DataPages())
         {

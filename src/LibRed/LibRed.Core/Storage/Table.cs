@@ -23,11 +23,14 @@ public sealed class Table
     public string Name => Definition.Name;
 
     /// <summary>Returns a forward-only cursor over all rows in the table.</summary>
-    public TableCursor Rows() => new(this);
+    /// <param name="decode">Which columns to decode, by <see cref="ColumnDef.Index"/>, or null for all; a column
+    /// left out reads as null. For a reader that never looks at it — see <see cref="RowDecoder"/>.</param>
+    public TableCursor Rows(bool[]? decode = null) => new(this, decode);
 
     /// <summary>A row decoder over this table's columns — reuse one across a seek/scan rather than allocating
     /// per row (each carries a shared <see cref="LongValueReader"/>).</summary>
-    private RowDecoder NewDecoder() => new(Definition.Columns, Channel.Format, new LongValueReader(Channel));
+    private RowDecoder NewDecoder(bool[]? decode = null) =>
+        new(Definition.Columns, Channel.Format, new LongValueReader(Channel), decode);
 
     /// <summary>Decodes the row at <paramref name="id"/> (following an overflow forward-pointer to a
     /// relocated row), or <see langword="null"/> if the slot is empty/deleted. Used by an index seek, which
@@ -58,20 +61,22 @@ public sealed class Table
 
     /// <summary>Yields the rows whose <paramref name="index"/> key equals <paramref name="values"/> — an index
     /// seek (equality) instead of a full scan. May over-return (lossy text/binary keys); the caller re-checks
-    /// the predicate.</summary>
-    public IEnumerable<object?[]> SeekRows(IndexDef index, object?[] values)
+    /// the predicate. <paramref name="decode"/> is as for <see cref="Rows"/>.</summary>
+    public IEnumerable<object?[]> SeekRows(IndexDef index, object?[] values, bool[]? decode = null)
     {
-        var decoder = NewDecoder();
+        var decoder = NewDecoder(decode);
         foreach (RowId id in new IndexWriter(Channel, Definition).Seek(index, values))
             if (GetRow(id, decoder) is { } row)
                 yield return row;
     }
 
     /// <summary>Like <see cref="SeekRows"/> but yields each matching row together with its <see cref="RowId"/> —
-    /// for an UPDATE/DELETE join that must know which physical row to rewrite/remove, not just its values.</summary>
-    public IEnumerable<(RowId Id, object?[] Values)> SeekRowsWithIds(IndexDef index, object?[] values)
+    /// for an UPDATE/DELETE join that must know which physical row to rewrite/remove, not just its values.
+    /// <paramref name="decode"/> is as for <see cref="Rows"/>: a row that is then written has to be read again
+    /// in full.</summary>
+    public IEnumerable<(RowId Id, object?[] Values)> SeekRowsWithIds(IndexDef index, object?[] values, bool[]? decode = null)
     {
-        var decoder = NewDecoder();
+        var decoder = NewDecoder(decode);
         foreach (RowId id in new IndexWriter(Channel, Definition).Seek(index, values))
             if (GetRow(id, decoder) is { } row)
                 yield return (id, row);
@@ -79,10 +84,10 @@ public sealed class Table
 
     /// <summary>Yields the rows whose <paramref name="index"/> key lies in [<paramref name="low"/>,
     /// <paramref name="high"/>] (either bound null = open) — an index range scan. May over-return at the
-    /// boundaries; the caller re-checks the predicate.</summary>
-    public IEnumerable<object?[]> SeekRangeRows(IndexDef index, object?[]? low, object?[]? high)
+    /// boundaries; the caller re-checks the predicate. <paramref name="decode"/> is as for <see cref="Rows"/>.</summary>
+    public IEnumerable<object?[]> SeekRangeRows(IndexDef index, object?[]? low, object?[]? high, bool[]? decode = null)
     {
-        var decoder = NewDecoder();
+        var decoder = NewDecoder(decode);
         foreach (RowId id in new IndexWriter(Channel, Definition).SeekRange(index, low, high))
             if (GetRow(id, decoder) is { } row)
                 yield return row;

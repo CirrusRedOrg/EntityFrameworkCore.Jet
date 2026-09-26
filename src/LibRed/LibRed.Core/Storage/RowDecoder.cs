@@ -29,8 +29,17 @@ namespace LibRed.Storage;
 /// instance "mode" means. Each takes either the row alone or a <see cref="RowLayout"/> the caller has already
 /// parsed, so a caller wanting both off one row derives the trailer arithmetic once.</para>
 /// </remarks>
-public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase format, LongValueReader? longValues = null)
+/// <param name="columns">The table's columns.</param>
+/// <param name="format">The file's format.</param>
+/// <param name="longValues">Page access for memo/OLE values; see the remarks.</param>
+/// <param name="decode">Which columns to decode, by <see cref="ColumnDef.Index"/>, or null for all of them. A
+/// column left out is null in every row, whatever is stored — so this is only for a reader that provably never
+/// looks at it (a query that does not name it), never for a row that is going to be written back.</param>
+public sealed class RowDecoder(
+    IReadOnlyList<ColumnDef> columns, JetFormatBase format, LongValueReader? longValues = null, bool[]? decode = null)
 {
+    private readonly bool[]? _decode = decode;
+
     private readonly JetFormatBase _format = format;
     private readonly LongValueReader? _longValues = longValues;
 
@@ -73,6 +82,9 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
 
         foreach (ColumnDef column in _columnArray)
         {
+            if (_decode is not null && !_decode[column.Index])
+                continue;
+
             bool present = IsPresent(nullBitmap, layout.ColumnCount, column.ColumnId);
 
             // Jet stores Boolean (YesNo) columns with no fixed/variable data: the value

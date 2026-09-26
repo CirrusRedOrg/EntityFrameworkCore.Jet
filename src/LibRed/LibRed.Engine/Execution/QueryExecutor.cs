@@ -530,7 +530,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         {
             var outerAliases = outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase);
             _subqueryPlans[query] = plan =
-                Planning.IndexSelection.Apply(QueryPlanner.PlanStatement(query), _database.Catalog, outerAliases);
+                ColumnPruning.Apply(
+                    Planning.IndexSelection.Apply(QueryPlanner.PlanStatement(query), _database.Catalog, outerAliases));
         }
         return plan;
     }
@@ -581,7 +582,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     var table = _database.OpenTable(scan.Table);
                     string alias = scan.Alias ?? scan.Table;
                     var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, c)).ToList();
-                    return (columns, _describing ? [] : table.Rows());
+                    return (columns, _describing ? [] : table.Rows(ColumnPruning.Mask(table.Definition, scan.Decode)));
                 }
 
             case IndexSeekNode seek:
@@ -607,7 +608,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     // by scanning instead. The FilterNode this seek was planned under is kept whatever happens
                     // (see IndexSelection), so it re-checks every row either way and the answer is the same one
                     // the table would give with no index on it at all.
-                    return (columns, seekable ? table.SeekRows(seek.Index, keyValues) : table.Rows());
+                    bool[]? decode = ColumnPruning.Mask(table.Definition, seek.Decode);
+                    return (columns, seekable ? table.SeekRows(seek.Index, keyValues, decode) : table.Rows(decode));
                 }
 
             case IndexRangeSeekNode range:
@@ -626,7 +628,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                         v[col] = evaluator.Evaluate(e);
                         return v;
                     }
-                    return (columns, table.SeekRangeRows(range.Index, Bound(range.Low), Bound(range.High)));
+                    return (columns, table.SeekRangeRows(range.Index, Bound(range.Low), Bound(range.High),
+                        ColumnPruning.Mask(table.Definition, range.Decode)));
                 }
 
             case DerivedTableNode derived:
@@ -1564,6 +1567,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             var seekColumns = innerTable.Definition.Columns.Select(c => OutputColumn.Of(innerAlias, c)).ToList();
             var joinColumns = leftColumns.Concat(seekColumns).ToList();
             int[] keyCols = seek.Index.Columns.Select(c => c.Column.Index).ToArray();
+            bool[]? decode = ColumnPruning.Mask(innerTable.Definition, seek.Decode);
 
             IEnumerable<object?[]> SeekRows()
             {
@@ -1589,7 +1593,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                             out keyValues[keyCols[i]]);
 
                     bool matched = false;
-                    foreach (object?[] right in seekable ? innerTable.SeekRows(seek.Index, keyValues) : innerTable.Rows())
+                    foreach (object?[] right in seekable
+                        ? innerTable.SeekRows(seek.Index, keyValues, decode)
+                        : innerTable.Rows(decode))
                     {
                         object?[] combined = [.. left, .. right];
                         if (on is null || onEval.Rebind(combined).IsTrue(on))

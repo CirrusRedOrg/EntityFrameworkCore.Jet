@@ -4,7 +4,12 @@ using LibRed.Sql.Ast;
 namespace LibRed.Engine.Plan;
 
 /// <summary>Full-table scan of a base table, exposing its columns under <paramref name="Alias"/>.</summary>
-public sealed record ScanNode(string Table, string? Alias) : PlanNode;
+public sealed record ScanNode(string Table, string? Alias) : PlanNode
+{
+    /// <summary>The column names the query reads, when <c>ColumnPruning</c> has shown nothing else can reach the
+    /// output; every other column is left undecoded and reads as null. Null decodes them all.</summary>
+    public IReadOnlySet<string>? Decode { get; init; }
+}
 
 /// <summary>A FROM-less SELECT source: yields exactly one row with no columns, so a constant projection like
 /// <c>SELECT 2</c> evaluates once. ACE accepts a bare <c>SELECT 2</c> (verified) — this matches that.</summary>
@@ -17,7 +22,11 @@ public sealed record SingleRowNode : PlanNode;
 /// is lossy for text/binary), so the residual predicate is re-checked by the <see cref="FilterNode"/> above.
 /// A key may reference an outer row (index-nested-loop join).
 /// </summary>
-public sealed record IndexSeekNode(string Table, string? Alias, IndexDef Index, IReadOnlyList<Expression> Keys) : PlanNode;
+public sealed record IndexSeekNode(string Table, string? Alias, IndexDef Index, IReadOnlyList<Expression> Keys) : PlanNode
+{
+    /// <summary>As <see cref="ScanNode.Decode"/>.</summary>
+    public IReadOnlySet<string>? Decode { get; init; }
+}
 
 /// <summary>
 /// An index range scan: reads the rows of <paramref name="Table"/> whose single-column <paramref name="Index"/>
@@ -30,7 +39,11 @@ public sealed record IndexSeekNode(string Table, string? Alias, IndexDef Index, 
 /// That is the one case where the index may have several columns: the bounds are what the executor reads a
 /// single column for, and there are none.</para>
 /// </summary>
-public sealed record IndexRangeSeekNode(string Table, string? Alias, IndexDef Index, Expression? Low, Expression? High) : PlanNode;
+public sealed record IndexRangeSeekNode(string Table, string? Alias, IndexDef Index, Expression? Low, Expression? High) : PlanNode
+{
+    /// <summary>As <see cref="ScanNode.Decode"/>.</summary>
+    public IReadOnlySet<string>? Decode { get; init; }
+}
 
 /// <summary>A derived table: the output of <paramref name="Input"/> re-exposed under an alias. The alias
 /// is optional (Access permits an aliasless derived table); its columns are then unqualified.</summary>

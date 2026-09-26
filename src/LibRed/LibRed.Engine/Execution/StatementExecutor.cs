@@ -222,7 +222,16 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         Table parent = _database.OpenTable(fk.ReferencedTable);
         int[] parentCols = ReferencedColumnsOf(fk, parent);
-        return parent.Rows().Any(row => KeyEquals(row, parentCols, target));
+        return parent.Rows(KeyMask(parent, parentCols)).Any(row => KeyEquals(row, parentCols, target));
+    }
+
+    /// <summary>A decode mask for just <paramref name="columns"/> of <paramref name="table"/>: a key comparison
+    /// reads nothing else, and every other column of every row it passes over would be decoded for nothing.</summary>
+    private static bool[] KeyMask(Table table, int[] columns)
+    {
+        var mask = new bool[table.Definition.Columns.Count];
+        foreach (int column in columns) mask[column] = true;
+        return mask;
     }
 
     /// <summary>The positions the relationship's referenced columns occupy in a row of the parent table.</summary>
@@ -251,7 +260,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         Table child = _database.OpenTable(fk.Table);
         int[] childCols = [.. fk.Columns.Select(c => child.Definition.FindColumn(c.Column)!.Index)];
-        return [.. child.Rows().WithIds().Where(r => KeyEquals(r.Values, childCols, key))];
+        // The search reads the key alone; a match is then read whole, because the cascade rewrites or deletes it.
+        return [.. child.Rows(KeyMask(child, childCols)).WithIds()
+            .Where(r => KeyEquals(r.Values, childCols, key))
+            .Select(r => (r.Id, child.GetRow(r.Id)
+                ?? throw new InvalidOperationException($"Row {r.Id} of '{child.Name}' vanished while it was being read.")))];
     }
 
     /// <summary>
@@ -316,7 +329,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             int recordId = Convert.ToInt32(raw, System.Globalization.CultureInfo.InvariantCulture);
 
             Table flat = _database.OpenTable(complex.FlatTable.Name);
-            foreach ((RowId flatId, object?[] flatValues) in flat.Rows().WithIds().ToList())
+            // Read for the owner link and the index keys to remove, and nothing else: Delete reads the row itself.
+            int[] read = [complex.OwnerLink.Index, .. flat.Definition.RealIndexes.SelectMany(i => i.Columns).Select(c => c.Column.Index)];
+            foreach ((RowId flatId, object?[] flatValues) in flat.Rows(KeyMask(flat, read)).WithIds().ToList())
             {
                 if (flatValues[complex.OwnerLink.Index] is not { } link
                     || Convert.ToInt32(link, System.Globalization.CultureInfo.InvariantCulture) != recordId)
@@ -803,8 +818,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // Run the query first — with INTO stripped, or planning would recurse back into this method — and
         // materialise it. The rows have to exist before the table does: the source may read a table this
         // statement is about to change, and the row count is not known until the read completes.
-        ResultSet source = _scalarRunner.ExecuteQuery(Planning.IndexSelection.Apply(
-            Planning.QueryPlanner.PlanSelect(statement with { Into = null }), _database.Catalog));
+        ResultSet source = _scalarRunner.ExecuteQuery(Planning.ColumnPruning.Apply(Planning.IndexSelection.Apply(
+            Planning.QueryPlanner.PlanSelect(statement with { Into = null }), _database.Catalog)));
         var rows = source.Rows.ToList();
 
         // A result column that IS a source column keeps that column's DEFINITION — its type and its declared
@@ -993,8 +1008,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             // a table to itself otherwise feeds its own output back into the scan and never terminates.
             // Access's INSERT INTO t SELECT * FROM t doubles the table and stops, so the read completes
             // before the write begins.
-            ResultSet source = _scalarRunner.ExecuteQuery(
-                Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(statement.Source), _database.Catalog));
+            ResultSet source = _scalarRunner.ExecuteQuery(Planning.ColumnPruning.Apply(
+                Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(statement.Source), _database.Catalog)));
             var rows = source.Rows.ToList();
 
             // With no column list the source's output NAMES choose the target columns — ACE resolves by name,
@@ -1154,9 +1169,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             // correlated predicate becomes a seek rather than a rescan, which matters here more than anywhere
             // because the body runs once per outer row.
             var outerColumns = tables.SelectMany(t => t.Columns).ToList();
-            Plan.PlanNode plan = Planning.IndexSelection.Apply(
+            Plan.PlanNode plan = Planning.ColumnPruning.Apply(Planning.IndexSelection.Apply(
                 Planning.QueryPlanner.PlanStatement(sq.Query), _database.Catalog,
-                tables.Select(t => t.Alias).ToHashSet(StringComparer.OrdinalIgnoreCase));
+                tables.Select(t => t.Alias).ToHashSet(StringComparer.OrdinalIgnoreCase)));
 
             // The rows vary per outer row but the schema does not, and JoinRows needs it before reading any row.
             // Probe once against an all-null outer row and drop the rows unread, as QueryExecutor.ExecuteApply does.
@@ -1399,7 +1414,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // PlanStatement, not PlanSelect: EF puts a set operation here for Union/Except/Intersect/Concat before
         // an ExecuteUpdate, and a table value constructor for an inline collection. Same widening as the
         // subquery predicates needed, for the same reason - a derived table is a query expression.
-        var plan = Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(query), _database.Catalog);
+        var plan = Planning.ColumnPruning.Apply(
+            Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(query), _database.Catalog));
         ResultSet result = _scalarRunner.ExecuteQuery(plan);
         var columns = result.ColumnNames.Select((name, i) => new OutputColumn(alias, name, result.ColumnTypes[i])).ToList();
         return (columns, result.Rows.ToList());
@@ -1438,6 +1454,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // single-table case: with a join, an UNQUALIFIED column in the WHERE could belong to another table.
         if (tables.Count == 1)
             seekPlan[0] = SeekPlanFor(0, tables, where);
+
+        // Only the columns the statement names are decoded; the rows it then writes are read again in full by
+        // CompleteRows before anything is written.
+        bool[]?[] decode = [.. tables.Select(t => t.Table is { } table ? Planning.ColumnPruning.Mask(table.Definition, _readNames) : null)];
 
         // Precompute the accumulated columns visible when seeking/evaluating an ON at each depth.
         var colsUpTo = new List<OutputColumn>[tables.Count + 1];
@@ -1527,11 +1547,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 var keyEval = new ExpressionEvaluator(new EvalScope(colsUpTo[i], Flatten(acc, i), null), _scalarRunner, _parameters, _session);
                 var keyValues = new object?[tables[i].Table!.Definition.Columns.Count];
                 keyValues[p.Index.Columns[0].Column.Index] = keyEval.Evaluate(p.Key);
-                rows = tables[i].Table!.SeekRowsWithIds(p.Index, keyValues);
+                rows = tables[i].Table!.SeekRowsWithIds(p.Index, keyValues, decode[i]);
             }
             else
             {
-                rows = tables[i].Table!.Rows().WithIds();
+                rows = tables[i].Table!.Rows(decode[i]).WithIds();
             }
 
             // The ON (also the seek's residual re-check — index keys can over-return) gates each candidate.
@@ -1556,6 +1576,33 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
         Recurse(0);
         return result;
+    }
+
+    // The column names the UPDATE or DELETE being executed reads anywhere (ON, WHERE, SET values, subqueries, a
+    // derived source), which is all JoinRows decodes; null decodes every column.
+    private HashSet<string>? _readNames;
+
+    /// <summary>
+    /// Reads each row the statement is about to write in full. JoinRows decoded only the columns the statement
+    /// names, which is all that choosing the rows and evaluating the SETs look at — but a row is rewritten, its
+    /// constraints checked and its index entries moved from all of its values. The rest are filled into the same
+    /// array, which every joined row of that physical row shares, before any of it is read.
+    /// </summary>
+    private void CompleteRows(List<(RowId Id, object?[] Values)[]> joinRows, List<SourceTable> tables, IEnumerable<int> targets)
+    {
+        int[] pruned = [.. targets.Distinct().Where(t =>
+            tables[t].Table is { } table && Planning.ColumnPruning.Mask(table.Definition, _readNames) is not null)];
+        if (pruned.Length == 0) return;
+
+        var done = new HashSet<object?[]>(ReferenceEqualityComparer.Instance);
+        foreach (var combo in joinRows)
+            foreach (int ti in pruned)
+            {
+                if (IsNullExtended(combo[ti]) || !done.Add(combo[ti].Values)) continue;
+                object?[] full = tables[ti].Table!.GetRow(combo[ti].Id)
+                    ?? throw new InvalidOperationException($"Row {combo[ti].Id} of '{tables[ti].Table!.Name}' vanished while it was being read.");
+                Array.Copy(full, combo[ti].Values, full.Length);
+            }
     }
 
     /// <summary>Concatenates the value arrays of the first <paramref name="count"/> accumulated join rows.</summary>
@@ -1653,6 +1700,19 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// </summary>
     private int ExecuteUpdate(UpdateStatement statement)
     {
+        _readNames = Planning.ColumnPruning.ReferencedNames(statement);
+        try
+        {
+            return Update(statement);
+        }
+        finally
+        {
+            _readNames = null;
+        }
+    }
+
+    private int Update(UpdateStatement statement)
+    {
         var (tables, kinds, ons, groupBases) = ResolveSource(statement.From);
         var columns = tables.SelectMany(t => t.Columns).ToList();
         List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, kinds, ons, groupBases, statement.Where, columns);
@@ -1683,6 +1743,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         if (targets.GroupBy(t => (t.TableIndex, t.Column.Index)).FirstOrDefault(g => g.Count() > 1) is { } duplicate)
             throw new InvalidOperationException(
                 $"Duplicate output destination '{tables[duplicate.Key.TableIndex].Alias}.{duplicate.First().Column.Name}'.");
+
+        CompleteRows(joinRows, tables, targets.Select(t => t.TableIndex));
 
         // Apply SETs to the shared value arrays; snapshot each touched row's original bytes on first touch.
         var dirty = new Dictionary<(string, RowId), (Table Table, RowId Id, object?[] Original, object?[] Values)>();
@@ -1803,12 +1865,26 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// </summary>
     private int ExecuteDelete(DeleteStatement statement)
     {
+        _readNames = Planning.ColumnPruning.ReferencedNames(statement);
+        try
+        {
+            return Delete(statement);
+        }
+        finally
+        {
+            _readNames = null;
+        }
+    }
+
+    private int Delete(DeleteStatement statement)
+    {
         var (tables, kinds, ons, groupBases) = ResolveSource(statement.From);
         var columns = tables.SelectMany(t => t.Columns).ToList();
         List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, kinds, ons, groupBases, statement.Where, columns);
 
         int ti = DeleteTarget(tables, statement.TargetTable);
         Table target = TargetTable(tables, ti);
+        CompleteRows(joinRows, tables, [ti]);
 
         var deleted = new Dictionary<RowId, object?[]>();
         int withoutRow = 0;

@@ -13,11 +13,13 @@ using LibRed.Benchmarks.Harness;
 //   dotnet run -c Release -- --long                publishable iteration counts, not the quick loop
 //   dotnet run -c Release -- --validate            run every corpus case once and report rows/failures
 //   dotnet run -c Release -- --filter "*Ace*"      head-to-head against ACE OLE DB (Windows + ACE only)
+//   dotnet run -c Release -- --record              also append the results to History.tsv
 //
 // Results land in Results/ as GitHub markdown and CSV; commit them when you want a run to be diffable later.
 
 bool longRun = false;
 bool validate = false;
+bool record = false;
 var passthrough = new List<string>();
 
 for (int i = 0; i < args.Length; i++)
@@ -29,6 +31,9 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--validate":
             validate = true;
+            break;
+        case "--record":
+            record = true;
             break;
         case "--scale" when i + 1 < args.Length:
             BenchmarkOptions.ScaleFactors = ParseScales(args[++i]);
@@ -47,11 +52,13 @@ if (validate) return CorpusValidator.Run(BenchmarkOptions.SmallestScale);
 // take a while, and it must not land inside a measured setup.
 foreach (int scale in BenchmarkOptions.ScaleFactors) Corpus.EnsureBuilt(scale);
 
-// Every benchmark that produced a number is appended to History.tsv, which is tracked — see RunHistory.
-RunHistory.Append(
-    BenchmarkSwitcher
-        .FromAssembly(Assembly.GetExecutingAssembly())
-        .Run([.. passthrough], new BenchmarkConfig(longRun)));
+var summaries = BenchmarkSwitcher
+    .FromAssembly(Assembly.GetExecutingAssembly())
+    .Run([.. passthrough], new BenchmarkConfig(longRun));
+
+// History.tsv is tracked, so only a run asked to be recorded goes into it — a quick check of one case is not a
+// baseline. See RunHistory.
+if (record) RunHistory.Append(summaries);
 
 return 0;
 

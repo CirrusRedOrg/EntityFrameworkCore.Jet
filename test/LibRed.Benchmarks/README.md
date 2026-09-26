@@ -12,6 +12,7 @@ dotnet run --project test\LibRed.Benchmarks -c Release -- --filter "*Pipeline*" 
 dotnet run --project test\LibRed.Benchmarks -c Release -- --scale 10000,200000  # growth, not a constant
 dotnet run --project test\LibRed.Benchmarks -c Release -- --long                # publishable iteration counts
 dotnet run --project test\LibRed.Benchmarks -c Release -- --filter "*Ace*"      # head-to-head vs ACE OLE DB
+dotnet run --project test\LibRed.Benchmarks -c Release -- --record              # also append to History.tsv
 ```
 
 `-c Release` is not optional — BenchmarkDotNet refuses to run an unoptimised build.
@@ -78,7 +79,8 @@ Two numbers together usually say more than either alone:
 
 ## Keeping a history
 
-Every run appends one row per benchmark to **`History.tsv`**, which *is* tracked:
+A run passed **`--record`** appends one row per benchmark to **`History.tsv`**, which *is* tracked. Without it
+nothing is written there, so a quick check of one case while working never becomes part of the baseline:
 
 ```
 utc  commit  dirty  host  suite  benchmark  params  mean_us  stddev_us  alloc_kb

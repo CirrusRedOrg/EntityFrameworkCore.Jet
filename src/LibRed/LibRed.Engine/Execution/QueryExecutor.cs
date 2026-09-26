@@ -639,7 +639,19 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case FilterNode filter:
                 {
                     var (columns, rows) = Execute(filter.Input, outer);
-                    return (columns, rows.Where(row => Eval(columns, row, outer).IsTrue(filter.Predicate)));
+                    return (columns, FilteredRows());
+
+                    // One scope/evaluator per enumeration, rebound per row, as in ExecuteJoin. Created inside the
+                    // iterator so two enumerations of the result cannot move each other's row.
+                    IEnumerable<object?[]> FilteredRows()
+                    {
+                        ExpressionEvaluator eval = Eval(columns, [], outer);
+                        foreach (object?[] row in rows)
+                        {
+                            if (eval.Rebind(row).IsTrue(filter.Predicate))
+                                yield return row;
+                        }
+                    }
                 }
 
             // A lateral join re-runs its right side per left row, so it cannot go through ExecuteJoin (which
@@ -679,16 +691,30 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     ProjectionSchema schema = ProjectionSchemaFor(project, columns);
                     var plan = schema.Plan;
 
-                    var projected = rows.Select(row =>
-                    {
-                        var eval = Eval(columns, row, outer);
-                        return plan.Select(p => p.InputIndex >= 0
-                            ? row[p.InputIndex]
-                            : ExpressionEvaluator.ToResultPlaces(
-                                ExpressionEvaluator.AsColumnType(eval.Evaluate(p.Expr!), p.ConvertTo, currency: false), p.Type)).ToArray();
-                    });
+                    return (schema.Columns, ProjectedRows());
 
-                    return (schema.Columns, projected);
+                    // One scope/evaluator per enumeration, rebound per row, as in FilteredRows above.
+                    IEnumerable<object?[]> ProjectedRows()
+                    {
+                        ExpressionEvaluator eval = Eval(columns, [], outer);
+                        foreach (object?[] row in rows)
+                        {
+                            eval.Rebind(row);
+                            var values = new object?[plan.Count];
+                            for (int i = 0; i < plan.Count; i++)
+                            {
+                                var p = plan[i];
+                                values[i] = p.InputIndex >= 0
+                                    ? row[p.InputIndex]
+                                    : ExpressionEvaluator.ToResultPlaces(
+                                        ExpressionEvaluator.AsColumnType(
+                                            p.Slot >= 0 ? row[p.Slot] : eval.Evaluate(p.Expr!), p.ConvertTo, currency: false),
+                                        p.Type);
+                            }
+
+                            yield return values;
+                        }
+                    }
                 }
 
             case SetOperationNode setOp:
@@ -903,8 +929,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// <summary>A ProjectNode's flattened output: the per-item plan (source input index, or an expression to
     /// evaluate, with the type its values are converted to, if any) and the resulting output columns.
     /// Structural — the same for every outer row.</summary>
+    /// <remarks><c>Slot</c> is where an item that is just a column of the input finds its value, so a row reads
+    /// it rather than resolving the name again; it still takes the item's conversions, which a passed-through
+    /// <c>InputIndex</c> column does not. -1 sends the item through the evaluator.</remarks>
     private sealed record ProjectionSchema(
-        List<(OutputColumn Column, int InputIndex, Expression? Expr, NumberType Type, Type? ConvertTo)> Plan,
+        List<(OutputColumn Column, int InputIndex, Expression? Expr, NumberType Type, Type? ConvertTo, int Slot)> Plan,
         List<OutputColumn> Columns);
 
     /// <summary>Builds — or reuses — a ProjectNode's schema. Flattens the projection, expanding a qualified star
@@ -915,14 +944,14 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (_projectionSchemas.TryGetValue(project, out ProjectionSchema? cached))
             return cached;
 
-        var plan = new List<(OutputColumn Column, int InputIndex, Expression? Expr, NumberType Type, Type? ConvertTo)>();
+        var plan = new List<(OutputColumn Column, int InputIndex, Expression? Expr, NumberType Type, Type? ConvertTo, int Slot)>();
         foreach (SelectItem item in project.Projection)
         {
             if (item.Value is QualifiedStarExpression star)
             {
                 for (int ci = 0; ci < columns.Count; ci++)
                     if (string.Equals(columns[ci].Qualifier, star.Table, StringComparison.OrdinalIgnoreCase))
-                        plan.Add((columns[ci], ci, null, default, null));
+                        plan.Add((columns[ci], ci, null, default, null, -1));
             }
             else
             {
@@ -939,7 +968,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     OutputColumn.Computed(name, DeclaredType(item.Value, columns), type, item.Value, referenced?.Source)
                         with
                     { Origin = referenced?.Origin ?? ColumnOrigin.Expression, Variant = variant },
-                    -1, item.Value, type, convertTo));
+                    -1, item.Value, type, convertTo,
+                    // The evaluator resolves this scope's columns before any outer one, so a name that is one
+                    // column here is that column on every row. None, or more than one, stays with the evaluator.
+                    item.Value is ColumnReference own ? EvalScope.Locate(columns, own, throwIfAmbiguous: false) : -1));
             }
         }
 
@@ -1842,9 +1874,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         var decorated = new List<(object?[] Row, object?[] Keys, int Index)>();
         var index = 0;
         bool[] byText = ComparedAsText(keys.Select(k => k.Value), columns);
+        ExpressionEvaluator eval = Eval(columns, [], outer); // one evaluator, rebound per row
         foreach (object?[] row in rows)
         {
-            ExpressionEvaluator eval = Eval(columns, row, outer);
+            eval.Rebind(row);
             var rowKeys = new object?[keys.Count];
             for (var i = 0; i < keys.Count; i++)
             {
@@ -2282,10 +2315,17 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         var order = new List<GroupKey>();
         var groups = new Dictionary<GroupKey, List<object?[]>>();
         bool[] byText = ComparedAsText(keys, columns);
+        ExpressionEvaluator eval = Eval(columns, [], outer); // one evaluator, rebound per row
         foreach (object?[] row in rows)
         {
-            var eval = Eval(columns, row, outer);
-            var key = new GroupKey(keys.Select((k, i) => Compared(eval.Evaluate(k), byText[i])).ToArray());
+            eval.Rebind(row);
+            var keyValues = new object?[keys.Count];
+            for (int i = 0; i < keys.Count; i++)
+            {
+                keyValues[i] = Compared(eval.Evaluate(keys[i]), byText[i]);
+            }
+
+            var key = new GroupKey(keyValues);
             if (!groups.TryGetValue(key, out var list))
             {
                 groups[key] = list = [];
@@ -2314,9 +2354,13 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         ExpressionEvaluator.ValidateArity(name, call.Arguments.Count);
         Expression? arg = call.Arguments.Count > 0 ? call.Arguments[0] : null;
 
+        // One evaluator, rebound per row. Every sequence below is consumed before this method returns, and one
+        // at a time, so no two of them are ever positioned on different rows at once.
+        ExpressionEvaluator eval = Eval(columns, [], outer);
+
         // FILTER (WHERE …) narrows the group before anything else looks at it — COUNT(*) included.
         if (call.Filter is { } filter)
-            group = group.Where(r => Eval(columns, r, outer).IsTrue(filter)).ToList();
+            group = group.Where(r => eval.Rebind(r).IsTrue(filter)).ToList();
 
         // COUNT(*) counts rows; DISTINCT is meaningless there (and EF never emits it).
         if (name == "COUNT" && arg is StarExpression or null)
@@ -2329,9 +2373,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         // FIRST/LAST return the argument's value from the first/last row of the group in scan order — NOT
         // null-filtered (verified vs ACE: First over a leading NULL row returns NULL).
         if (name == "FIRST")
-            return group.Count == 0 ? null : Compared(Eval(columns, group[0], outer).Evaluate(arg!), byText);
+            return group.Count == 0 ? null : Compared(eval.Rebind(group[0]).Evaluate(arg!), byText);
         if (name == "LAST")
-            return group.Count == 0 ? null : Compared(Eval(columns, group[^1], outer).Evaluate(arg!), byText);
+            return group.Count == 0 ? null : Compared(eval.Rebind(group[^1]).Evaluate(arg!), byText);
 
         // A list aggregate, ordered or not: STRING_AGG may go without its WITHIN GROUP, in which case the
         // values list in the order the rows arrive (no keys, no directions — the sort is stable).
@@ -2344,7 +2388,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             return ListAgg.Of(
                 group.Select(r =>
                 {
-                    ExpressionEvaluator e = Eval(columns, r, outer);
+                    ExpressionEvaluator e = eval.Rebind(r);
                     return (e.Evaluate(call.Arguments[0]), keys.Select(k => e.Evaluate(k)).ToArray());
                 }),
                 call.Arguments.Count - keys.Count == 2 ? (string)((LiteralExpression)call.Arguments[1]).Value! : "",
@@ -2358,8 +2402,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 return null;
             // The fraction is the group's, so any row gives it; the standard makes it a constant.
             return Percentile.Of(name,
-                group.Select(r => Eval(columns, r, outer).Evaluate(call.Arguments[1])),
-                Eval(columns, group[0], outer).Evaluate(call.Arguments[0]),
+                group.Select(r => eval.Rebind(r).Evaluate(call.Arguments[1])),
+                eval.Rebind(group[0]).Evaluate(call.Arguments[0]),
                 directions[0]);
         }
 
@@ -2371,13 +2415,13 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             var pair = new RunningAggregate(name, countRows: false, currency: false);
             foreach (object?[] row in group)
             {
-                ExpressionEvaluator rowEval = Eval(columns, row, outer);
+                ExpressionEvaluator rowEval = eval.Rebind(row);
                 pair.AddPair(rowEval.Evaluate(call.Arguments[0]), rowEval.Evaluate(call.Arguments[1]));
             }
             return pair.Result;
         }
 
-        IEnumerable<object?> values = group.Select(r => Compared(Eval(columns, r, outer).Evaluate(arg!), byText));
+        IEnumerable<object?> values = group.Select(r => Compared(eval.Rebind(r).Evaluate(arg!), byText));
         // COUNT(DISTINCT)/SUM(DISTINCT)/… aggregate the distinct set of the argument's values. MIN/MAX are
         // unaffected by dedup, but applying it uniformly keeps the one code path.
         if (call.Distinct)

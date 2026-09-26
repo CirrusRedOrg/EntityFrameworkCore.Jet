@@ -53,7 +53,7 @@ internal sealed class EvalScope(
         {
             _resolved ??= [];
             if (!_resolved.TryGetValue(reference, out found))
-                _resolved[reference] = found = Locate(reference);
+                _resolved[reference] = found = Locate(schema, reference);
         }
 
         if (found >= 0)
@@ -69,10 +69,11 @@ internal sealed class EvalScope(
         return false;
     }
 
-    /// <summary>The index of the one column of this scope's schema that <paramref name="reference"/> names, or
-    /// -1 for none. Scans to the end whether or not it has matched, because finding a second match is what
-    /// makes the reference ambiguous.</summary>
-    private int Locate(ColumnReference reference)
+    /// <summary>The index of the one column of <paramref name="schema"/> that <paramref name="reference"/> names,
+    /// or -1 for none. Scans to the end whether or not it has matched, because finding a second match is what
+    /// makes the reference ambiguous — which throws, or with <paramref name="throwIfAmbiguous"/> false is -1 too,
+    /// for a caller planning ahead that must leave the error to the row that would raise it.</summary>
+    internal static int Locate(IReadOnlyList<OutputColumn> schema, ColumnReference reference, bool throwIfAmbiguous = true)
     {
         int found = -1;
         for (int i = 0; i < schema.Count; i++)
@@ -83,7 +84,9 @@ internal sealed class EvalScope(
             if (!nameMatch || !qualifierMatch) continue;
 
             if (found >= 0)
-                throw new InvalidOperationException($"Column reference '{Describe(reference)}' is ambiguous.");
+                return throwIfAmbiguous
+                    ? throw new InvalidOperationException($"Column reference '{Describe(reference)}' is ambiguous.")
+                    : -1;
             found = i;
         }
         return found;

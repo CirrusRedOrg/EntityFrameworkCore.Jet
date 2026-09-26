@@ -94,3 +94,7 @@ utc	commit	dirty	host	suite	benchmark	params	mean_us	stddev_us	alloc_kb
 2026-09-26 17:08	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=predicate.pk_point	22.36	0.13	23.97
 2026-09-26 17:08	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sort.top_10_indexed	3850.75	45.49	2.63
 2026-09-26 17:08	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10_indexed	17.93	0.49	19.30
+2026-09-26 17:20	35a85556	dirty	DESKTOP-D1RBTPV	DdlBenchmarks	CreateEmptyDatabase	-	10893.04	1326.03	10206.94
+2026-09-26 17:20	35a85556	dirty	DESKTOP-D1RBTPV	DdlBenchmarks	CreateTable	-	699.60	135.58	1504.63
+2026-09-26 17:20	35a85556	dirty	DESKTOP-D1RBTPV	DdlBenchmarks	CreateIndexOverExistingRows	-	1346.20	220.81	2045.45
+2026-09-26 17:20	35a85556	dirty	DESKTOP-D1RBTPV	DdlBenchmarks	AddColumn	-	156.54	10.89	403.62

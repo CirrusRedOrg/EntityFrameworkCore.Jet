@@ -366,7 +366,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         foreach (string version in CalculatedVersionProperties)
             yield return new PropertyBlob.Property(
                 column.Name, version, CalculatedMinimumVersion, JetDataType.Text)
-            { IsDdl = false };
+            { Flags = 0 };
     }
 
     private static readonly string[] CalculatedVersionProperties =
@@ -1981,8 +1981,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     public void SetColumnDefault(string tableName, string columnName, string defaultSql)
         => MutateLvPropForColumn(tableName, columnName, props =>
         {
-            props.RemoveAll(p => string.Equals(p.Owner, columnName, StringComparison.OrdinalIgnoreCase)
-                && p.Name == PropertyBlob.DefaultValueProperty);
+            props.RemoveAll(p => p.IsOwnedBy(columnName) && p.Name == PropertyBlob.DefaultValueProperty);
             props.Add(new PropertyBlob.Property(columnName, PropertyBlob.DefaultValueProperty, defaultSql));
         });
 
@@ -1991,8 +1990,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <c>Required</c> (NOT NULL) property survive — ACE-verified. A no-op if the column had no default.</summary>
     public void DropColumnDefault(string tableName, string columnName)
         => MutateLvPropForColumn(tableName, columnName, props =>
-            props.RemoveAll(p => string.Equals(p.Owner, columnName, StringComparison.OrdinalIgnoreCase)
-                && p.Name == PropertyBlob.DefaultValueProperty));
+            props.RemoveAll(p => p.IsOwnedBy(columnName) && p.Name == PropertyBlob.DefaultValueProperty));
 
     /// <summary>Sets or clears a column's <c>Required</c> (NOT NULL) property in the table's
     /// <c>MSysObjects.LvProp</c> blob — ALTER TABLE … ALTER COLUMN … NOT NULL / NULL. A required column carries
@@ -2003,8 +2001,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     public void SetColumnRequired(string tableName, string columnName, bool required)
         => MutateLvPropForColumn(tableName, columnName, props =>
         {
-            props.RemoveAll(p => string.Equals(p.Owner, columnName, StringComparison.OrdinalIgnoreCase)
-                && p.Name == PropertyBlob.RequiredProperty);
+            props.RemoveAll(p => p.IsOwnedBy(columnName) && p.Name == PropertyBlob.RequiredProperty);
             if (required) props.Add(PropertyBlob.Bool(columnName, PropertyBlob.RequiredProperty, true));
         });
 
@@ -2245,7 +2242,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     private static byte[] ReplaceTableProperty(byte[] blob, string name, string? value)
     {
         var props = PropertyBlob.Read(blob).ToList();
-        props.RemoveAll(p => p.Owner.Length == 0 && p.Name == name);
+        props.RemoveAll(p => p.IsOwnedBy("") && p.Name == name);
         if (value is not null)
             props.Add(new PropertyBlob.Property("", name, value));
         return PropertyBlob.Write(props, blob.Length >= 4 ? blob.AsSpan(0, 4) : default);

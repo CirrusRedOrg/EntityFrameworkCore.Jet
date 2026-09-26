@@ -11,9 +11,10 @@ namespace LibRed.Catalog;
 /// Layout (verified against an ACE-created table, §11): a 4-byte signature (<c>MR2\0</c> for ACE,
 /// <c>KKD\0</c> for older MDB) followed by blocks. Each block is <c>[int length][short type][body]</c>,
 /// the length covering the whole block. Type <c>0x80</c> is the property-name pool
-/// (<c>[short len][UTF-16 name]</c> repeated); other blocks are a per-owner value map:
+/// (<c>[short len][UTF-16 name]</c> repeated); other blocks are a per-owner value map, whose type says what
+/// owns it — <c>0x0000</c> the table, <c>0x0001</c> a column, and by mdbtools' account <c>0x0002</c> an index:
 /// <c>[short ownerRecLen][short 0][short nameLen][owner name]</c> then property entries
-/// <c>[short entryLen][byte DDL flag][byte dataType][short nameIndex][short valueLen][UTF-16 value]</c>.
+/// <c>[short entryLen][byte flags][byte dataType][short nameIndex][short valueLen][UTF-16 value]</c>.
 /// </remarks>
 public static class PropertyBlob
 {
@@ -45,16 +46,31 @@ public static class PropertyBlob
     /// <c>DecimalPlaces</c>, a designer <c>ValidationRule</c>/<c>Format</c>, …) round-trips byte-for-byte even
     /// though its <see cref="Value"/> string is only a best-effort UTF-16 decode. It is <c>null</c> for a
     /// property LibRed constructs, which is then encoded from <see cref="Value"/>/<see cref="Type"/>.</para>
-    /// <para><see cref="IsDdl"/> preserves the entry's DDL-property flag. DDL properties are protected as
-    /// part of the object's definition and some are only recognised correctly by Access when flagged. It
-    /// defaults to <see langword="true"/> because the properties LibRed currently creates are schema
-    /// properties such as <c>DefaultValue</c>, <c>Required</c>, and <c>CheckConstraints</c>.</para></summary>
+    /// <para><see cref="Flags"/> is the entry's flag byte, kept whole and written back unchanged. It is a bit
+    /// field: <c>0x01</c> marks a DDL property, protected as part of the object's definition, and Access writes
+    /// <c>0x80</c> on its own account (seen on stored queries). It defaults to <c>0x01</c> because the properties
+    /// LibRed creates are schema properties such as <c>DefaultValue</c>, <c>Required</c> and
+    /// <c>CheckConstraints</c>.</para>
+    /// <para><see cref="Block"/> is the type of the value block the property was read from — by mdbtools' account an
+    /// index's properties sit in a block of their own, under the index's name, which is usually its column's — and
+    /// is written back as that type. It is null for a property LibRed constructs, which goes in the table's block or its column's.</para></summary>
 #pragma warning disable CA1716 // "Property" is the format's own name for this record, and it is nested in PropertyBlob.
     public readonly record struct Property(
         string Owner, string Name, string Value, JetDataType Type = JetDataType.Memo, byte[]? RawValue = null)
     {
-        /// <summary>Whether this entry is a DDL/property-definition property.</summary>
-        public bool IsDdl { get; init; } = true;
+        /// <summary>The entry's flag byte.</summary>
+        public byte Flags { get; init; } = DdlFlag;
+
+        /// <summary>The type of the value block the property was read from; null for a constructed one.</summary>
+        public ushort? Block { get; init; }
+
+        /// <summary>Whether this is a property of the column named <paramref name="owner"/>, or of the table for
+        /// <c>""</c> — and not of an index that shares the name.</summary>
+        public bool IsOwnedBy(string owner) =>
+            BlockType == (owner.Length == 0 ? TableBlock : ColumnBlock)
+            && string.Equals(Owner, owner, StringComparison.OrdinalIgnoreCase);
+
+        internal ushort BlockType => Block ?? (Owner.Length == 0 ? TableBlock : ColumnBlock);
     }
 #pragma warning restore CA1716
 
@@ -82,7 +98,7 @@ public static class PropertyBlob
         AppendBlock(blob, NameListBlock, namesBody);
 
         foreach (var group in GroupByOwnerPreservingOrder(properties))
-            AppendOwnerBlock(blob, group.Owner, group.Properties, nameIndex);
+            AppendOwnerBlock(blob, group.Block, group.Owner, group.Properties, nameIndex);
 
         return [.. blob];
     }
@@ -117,12 +133,14 @@ public static class PropertyBlob
         foreach (string n in names) AppendString(namesBody, n);
         AppendBlock(result, NameListBlock, namesBody);
         foreach (byte[] b in otherBlocks) result.AddRange(b);
-        AppendOwnerBlock(result, owner, newProps, nameIndex);
+        AppendOwnerBlock(result, owner.Length == 0 ? TableBlock : ColumnBlock, owner, newProps, nameIndex);
         return [.. result];
     }
 
-    /// <summary>Appends one owner's value block: the owner record then a property entry per property.</summary>
-    private static void AppendOwnerBlock(List<byte> blob, string owner, IEnumerable<Property> props, Dictionary<string, int> nameIndex)
+    /// <summary>Appends one owner's value block of the given type: the owner record then a property entry per
+    /// property.</summary>
+    private static void AppendOwnerBlock(
+        List<byte> blob, ushort type, string owner, IEnumerable<Property> props, Dictionary<string, int> nameIndex)
     {
         Property[] propertyArray = props.ToArray();
         ValidateOwnerProperties(owner, propertyArray, nameIndex);
@@ -140,15 +158,14 @@ public static class PropertyBlob
             byte[] value = PropertyValue(p);
             var entry = new List<byte>();
             AppendUInt16(entry, (ushort)(2 + 1 + 1 + 2 + 2 + value.Length)); // entry length
-            entry.Add(p.IsDdl ? DdlFlag : (byte)0x00);
+            entry.Add(p.Flags);
             entry.Add((byte)p.Type);
             AppendUInt16(entry, (ushort)nameIndex[p.Name]);
             AppendUInt16(entry, (ushort)value.Length);
             entry.AddRange(value);
             body.AddRange(entry);
         }
-        // A table-level map (empty owner) uses block type 0x00; a column map uses 0x01.
-        AppendBlock(blob, owner.Length == 0 ? TableBlock : ColumnBlock, body);
+        AppendBlock(blob, type, body);
     }
 
     /// <summary>
@@ -168,9 +185,9 @@ public static class PropertyBlob
         result.AddRange(blob[..4]); // signature
         foreach (ParsedBlock block in parsed.Blocks)
         {
-            bool drop = false;
-            if (block.Type != NameListBlock)
-                drop = string.Equals(ReadOwner(block.Body), owner, StringComparison.OrdinalIgnoreCase);
+            // Only the column's own block: an index's can carry the same name.
+            bool drop = block.Type == ColumnBlock
+                && string.Equals(ReadOwner(block.Body), owner, StringComparison.OrdinalIgnoreCase);
             if (!drop) result.AddRange(block.Raw);
         }
         return [.. result];
@@ -193,7 +210,7 @@ public static class PropertyBlob
         result.AddRange(blob[..4]); // signature
         foreach (ParsedBlock block in parsed.Blocks)
         {
-            if (block.Type == NameListBlock
+            if (block.Type != ColumnBlock
                 || !string.Equals(ReadOwner(block.Body), oldOwner, StringComparison.OrdinalIgnoreCase))
             {
                 result.AddRange(block.Raw);
@@ -239,7 +256,7 @@ public static class PropertyBlob
     {
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (Property p in properties)
-            if (p.Owner.Length > 0 && p.Name == DefaultValueProperty)
+            if (p.BlockType == ColumnBlock && p.Name == DefaultValueProperty)
                 result[p.Owner] = p.Value;
         return result;
     }
@@ -250,7 +267,7 @@ public static class PropertyBlob
     {
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (Property p in properties)
-            if (p.Owner.Length > 0 && p.Name == RequiredProperty && p.Value == "1")
+            if (p.BlockType == ColumnBlock && p.Name == RequiredProperty && p.Value == "1")
                 result.Add(p.Owner);
         return result;
     }
@@ -264,7 +281,7 @@ public static class PropertyBlob
         string? rule = null, text = null;
         foreach (Property p in properties)
         {
-            if (!string.Equals(p.Owner, owner, StringComparison.OrdinalIgnoreCase)) continue;
+            if (!p.IsOwnedBy(owner)) continue;
             if (p.Name == ValidationRuleProperty) rule = p.Value.Length > 0 ? p.Value : null;
             else if (p.Name == ValidationTextProperty) text = p.Value.Length > 0 ? p.Value : null;
         }
@@ -281,7 +298,7 @@ public static class PropertyBlob
         JetDataType? resultType = null;
         foreach (Property p in properties)
         {
-            if (!string.Equals(p.Owner, owner, StringComparison.OrdinalIgnoreCase)) continue;
+            if (!p.IsOwnedBy(owner)) continue;
             if (p.Name == ExpressionProperty) expression = p.Value.Length > 0 ? p.Value : null;
             else if (p.Name == ResultTypeProperty && p.RawValue is { Length: > 0 } raw)
                 resultType = (JetDataType)raw[0];
@@ -295,7 +312,7 @@ public static class PropertyBlob
     public static IReadOnlyList<(string Name, string Expression)> ReadCheckConstraints(IReadOnlyList<Property> properties)
     {
         foreach (Property p in properties)
-            if (p.Owner.Length == 0 && p.Name == CheckConstraintsProperty)
+            if (p.IsOwnedBy("") && p.Name == CheckConstraintsProperty)
                 return ParseCheckList(p.Value);
         return [];
     }
@@ -364,7 +381,7 @@ public static class PropertyBlob
 
         var properties = new List<Property>();
         foreach (ParsedBlock block in blocks)
-            if (block.Type != NameListBlock) ReadProperties(block.Body, names, properties);
+            if (block.Type != NameListBlock) ReadProperties(block.Type, block.Body, names, properties);
 
         return new ParsedBlob(blocks, names, properties);
     }
@@ -398,7 +415,7 @@ public static class PropertyBlob
         return Encoding.Unicode.GetString(body.Slice(6, ownerLength));
     }
 
-    private static void ReadProperties(ReadOnlySpan<byte> body, List<string> names, List<Property> properties)
+    private static void ReadProperties(ushort block, ReadOnlySpan<byte> body, List<string> names, List<Property> properties)
     {
         string owner = ReadOwner(body);
         int pos = BinaryPrimitives.ReadUInt16LittleEndian(body[..2]);
@@ -412,9 +429,6 @@ public static class PropertyBlob
             if (entryLength < 8 || entryLength > body.Length - pos || valueLength != entryLength - 8)
                 throw new InvalidDataException(
                     $"Property entry at {pos} has inconsistent entry/value lengths {entryLength}/{valueLength}.");
-            byte ddlFlag = body[pos + 2];
-            if (ddlFlag is not (0x00 or DdlFlag))
-                throw new InvalidDataException($"Property entry at {pos} has unsupported flag 0x{body[pos + 2]:X2}.");
             if (nameIndex >= names.Count)
                 throw new InvalidDataException(
                     $"Property entry at {pos} names pool index {nameIndex}, but the pool has {names.Count} entries.");
@@ -424,7 +438,11 @@ public static class PropertyBlob
             string value = dataType == JetDataType.Boolean
                 ? (raw.Length > 0 && raw[0] != 0 ? "1" : "0")
                 : Encoding.Unicode.GetString(raw);
-            properties.Add(new Property(owner, names[nameIndex], value, dataType, raw.ToArray()) { IsDdl = ddlFlag != 0 });
+            properties.Add(new Property(owner, names[nameIndex], value, dataType, raw.ToArray())
+            {
+                Flags = body[pos + 2],
+                Block = block,
+            });
             pos += entryLength;
         }
     }
@@ -481,16 +499,20 @@ public static class PropertyBlob
             ? [(byte)(property.Value is "1" or "true" or "True" ? 1 : 0)]
             : Encoding.Unicode.GetBytes(property.Value));
 
-    private static IEnumerable<(string Owner, List<Property> Properties)> GroupByOwnerPreservingOrder(IReadOnlyList<Property> properties)
+    /// <summary>The properties grouped into value blocks — one per block type and owner, since an index's block
+    /// can carry the same name as a column's — in the order each block first appears.</summary>
+    private static IEnumerable<(ushort Block, string Owner, List<Property> Properties)> GroupByOwnerPreservingOrder(
+        IReadOnlyList<Property> properties)
     {
-        var order = new List<string>();
-        var byOwner = new Dictionary<string, List<Property>>();
+        var order = new List<(ushort, string)>();
+        var byOwner = new Dictionary<(ushort, string), List<Property>>();
         foreach (Property p in properties)
         {
-            if (!byOwner.TryGetValue(p.Owner, out var list)) { byOwner[p.Owner] = list = []; order.Add(p.Owner); }
+            var key = (p.BlockType, p.Owner);
+            if (!byOwner.TryGetValue(key, out var list)) { byOwner[key] = list = []; order.Add(key); }
             list.Add(p);
         }
-        return order.Select(o => (o, byOwner[o]));
+        return order.Select(k => (k.Item1, k.Item2, byOwner[k]));
     }
 
     private static void AppendBlock(List<byte> blob, ushort type, List<byte> body)

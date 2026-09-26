@@ -260,7 +260,7 @@ Global maps, located by page 0: free pages at `0x18` (page 1 row 0 as ACE writes
 - **MSysACEs** (4 cols): `ObjectId`, `SID`, `ACM`, `FInheritable` — two rows per object.
 - **MSysQueries** (8 cols): `ObjectId`, `Attribute`, `Flag`, `Name1`, `Name2`, `Expression`, `Order`, `LvExtra`; PK `(ObjectId, Attribute, Order)`.
 - **MSysRelationships**: `szRelationship`, `szObject`, `szColumn`, `szReferencedObject`, `szReferencedColumn`, `icolumn`, `ccolumn`, `grbit` (`0x02` don't-enforce, `0x100` cascade-update, `0x1000` cascade-delete, `0x2000` delete-set-null).
-- **LvProp blob:** `MR2\0` signature, then `[int len][short type][body]` blocks; type `0x80` = name pool; per-owner entries are `[short entryLen][byte DDL flag][byte dataType][short nameIndex][short valueLen][value]`. DDL flag `0x01` marks a definition-protected/schema property and `0x00` an ordinary property; it is preserved per entry. Values include `DefaultValue`, `Required`, and `CheckConstraints`.
+- **LvProp blob:** `MR2\0` signature, then `[int len][short type][body]` blocks; type `0x80` = name pool; value-block type `0x00` = table, `0x01` = column (`0x02` = index, unverified); per-owner entries are `[short entryLen][byte flags][byte dataType][short nameIndex][short valueLen][value]`. The flag byte is a bit field — `0x01` marks a definition-protected/schema property, and `0x80` also occurs in Access-written files — preserved whole per entry. Values include `DefaultValue`, `Required`, and `CheckConstraints`.
 
 ---
 

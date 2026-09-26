@@ -7,8 +7,8 @@ namespace LibRed.Core.Tests;
 // The LvProp property blob must round-trip EVERY property faithfully — including ones LibRed does not model
 // (a numeric DecimalPlaces, a designer ValidationRule/Format) — because an ALTER that edits a table's defaults
 // or nullability rewrites the whole blob (TableCreator.MutateLvPropForColumn does Read -> Write). Property.RawValue
-// and IsDdl preserve each entry's exact stored value bytes and DDL classification, so an unmodelled property
-// survives rather than being mangled or silently converted into a definition-protected property.
+// and Flags preserve each entry's exact stored value bytes and flag byte, so an unmodelled property survives
+// rather than being mangled or silently converted into a definition-protected property.
 public class PropertyBlobRoundTripTests
 {
     [Fact]
@@ -20,7 +20,7 @@ public class PropertyBlobRoundTripTests
             new("Price", "DecimalPlaces", "", JetDataType.Byte, [2]),                          // unmodelled, numeric
             new("Price", "Format", "Currency", JetDataType.Text, Encoding.Unicode.GetBytes("Currency")), // unmodelled, text
             new("Price", "Caption", "Retail price", JetDataType.Memo,
-                Encoding.Unicode.GetBytes("Retail price")) { IsDdl = false },                    // ordinary designer property
+                Encoding.Unicode.GetBytes("Retail price")) { Flags = 0 },                        // ordinary designer property
             PropertyBlob.Bool("Price", PropertyBlob.RequiredProperty, true),                   // modelled
         };
         byte[] blob = PropertyBlob.Write(original);
@@ -43,7 +43,7 @@ public class PropertyBlobRoundTripTests
         Assert.Equal("Currency", format.Value);
 
         PropertyBlob.Property caption = Assert.Single(after, p => p.Name == "Caption");
-        Assert.False(caption.IsDdl);
+        Assert.Equal(0, caption.Flags);
         Assert.Equal(Encoding.Unicode.GetBytes("Retail price"), caption.RawValue);
 
         Assert.Equal("42", Assert.Single(after, p => p.Name == PropertyBlob.DefaultValueProperty).Value);
@@ -78,5 +78,47 @@ public class PropertyBlobRoundTripTests
         Assert.Contains(PropertyBlob.ReadCheckConstraints(reread), c => c.Name == "CK_T");
         Assert.Contains(PropertyBlob.Read(updated), p => p.Owner == "V" && p.Value == "0");
         Assert.Equal(blob[..4], updated[..4]);          // and the signature is carried across, not restamped
+    }
+
+    // The flag byte is a bit field, not a DDL boolean: Access writes 0x80 on its own account (every stored query
+    // in one of the example databases carries it). And an index's properties sit in a block of type 0x0002 under
+    // the index's name, which is usually its column's. Reading such a blob used to throw on the flag, and writing
+    // it back re-typed the index's block as the column's, where the column's accessors — and a DROP or RENAME of
+    // the column — took it for the column's own.
+    [Fact]
+    public void A_flag_byte_and_an_index_block_round_trip_and_stay_the_indexs()
+    {
+        const ushort IndexBlock = 0x0002;
+        byte[] blob = PropertyBlob.Write(
+        [
+            new PropertyBlob.Property("", "Replicable", "T", JetDataType.Text) { Flags = 0x80 },
+            new PropertyBlob.Property("CustomerID", PropertyBlob.DefaultValueProperty, "'X'"),
+            new PropertyBlob.Property("CustomerID", "Caption", "Customer", JetDataType.Text) { Flags = 0x81 },
+            PropertyBlob.Bool("CustomerID", PropertyBlob.RequiredProperty, true) with { Block = IndexBlock },
+        ]);
+
+        IReadOnlyList<PropertyBlob.Property> read = PropertyBlob.Read(blob);
+        Assert.Equal(0x80, Assert.Single(read, p => p.Name == "Replicable").Flags);
+        Assert.Equal(0x81, Assert.Single(read, p => p.Name == "Caption").Flags);
+        Assert.Equal(IndexBlock, Assert.Single(read, p => p.Name == PropertyBlob.RequiredProperty).Block);
+        Assert.Equal(blob, PropertyBlob.Write([.. read], blob.AsSpan(0, 4)));
+
+        // The index's Required is not the column's.
+        Assert.Empty(PropertyBlob.ReadRequiredColumns(read));
+        Assert.Equal("'X'", PropertyBlob.ReadColumnDefaults(read)["CustomerID"]);
+
+        // Clearing the column's Required, as ALTER COLUMN … NULL does, leaves the index's alone.
+        var edited = read.ToList();
+        edited.RemoveAll(p => p.IsOwnedBy("CustomerID") && p.Name == PropertyBlob.RequiredProperty);
+        Assert.Equal(blob, PropertyBlob.Write(edited, blob.AsSpan(0, 4)));
+
+        // Dropping or renaming the column moves only the column's block.
+        IReadOnlyList<PropertyBlob.Property> dropped = PropertyBlob.Read(PropertyBlob.RemoveOwner(blob, "CustomerID"));
+        Assert.DoesNotContain(dropped, p => p.Name == PropertyBlob.DefaultValueProperty);
+        Assert.Contains(dropped, p => p.Owner == "CustomerID" && p.Block == IndexBlock);
+
+        IReadOnlyList<PropertyBlob.Property> renamed = PropertyBlob.Read(PropertyBlob.RenameOwner(blob, "CustomerID", "CustID"));
+        Assert.Equal("CustID", Assert.Single(renamed, p => p.Name == PropertyBlob.DefaultValueProperty).Owner);
+        Assert.Equal("CustomerID", Assert.Single(renamed, p => p.Block == IndexBlock).Owner);
     }
 }

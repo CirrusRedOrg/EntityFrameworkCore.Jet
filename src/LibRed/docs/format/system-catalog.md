@@ -67,22 +67,27 @@
   > length covering the whole block. Type `0x80` is the **property-name pool** (`[short len][UTF-16
   > name]` repeated, indexed 0,1,…). Other blocks are a **per-owner value map** (owner = a column name,
   > or `""` for the table): `[short ownerRecLen][short 0][short nameLen][owner name]` then property
-  > entries `[short entryLen][byte DDL flag][byte dataType][short nameIndex][short valueLen][value]`.
+  > entries `[short entryLen][byte flags][byte dataType][short nameIndex][short valueLen][value]`.
   > The owner record's second field is **always zero** (verified).
-  > The per-entry flag is `0x01` for a **DDL/property-definition property** and `0x00` for an ordinary
-  > property. A set flag makes the property definition-protected (`dbSecWriteDef` permission is needed to
-  > change/delete it), and Access only recognises some properties when the classification is correct
-  > (both unverified against ACE). Observed in files: `DefaultValue`, `Required`, `CheckConstraints`, `GUID`,
-  > and `ResultType` are `0x01`, while `Title`, `Author`, `AccessVersion`, and datasheet-layout properties
-  > are `0x00`. `ValidationRule`/`ValidationText` are classed as DDL and `Caption`/`Description` as ordinary
-  > (unverified). The flag is independent per entry; it is not a file-version, encryption, owner, or
-  > data-type marker. LibRed accepts the two observed values, preserves both the flag and raw value read for every property,
-  > and defaults newly constructed schema properties to `0x01`. The
+  > The per-entry flag byte is a **bit field**. Bit `0x01` marks a **DDL/property-definition property**; an
+  > ordinary property has it clear. A set bit makes the property definition-protected (`dbSecWriteDef`
+  > permission is needed to change/delete it), and Access only recognises some properties when the
+  > classification is correct (both unverified against ACE). Observed in files: `DefaultValue`, `Required`,
+  > `CheckConstraints`, `GUID`, and `ResultType` are `0x01`, while `Title`, `Author`, `AccessVersion`, and
+  > datasheet-layout properties are `0x00`. `ValidationRule`/`ValidationText` are classed as DDL and
+  > `Caption`/`Description` as ordinary (unverified). Bit **`0x80`** also occurs in Access-written files: every
+  > stored query of one example database carries a `0x80` entry in its own (`0x00`) block. mdbtools reads it as
+  > "store the value without running the property's handler", set by Access itself and by no DAO call
+  > (unverified). The flag is independent per entry; it is not a file-version, encryption, owner, or data-type
+  > marker. LibRed accepts any flag byte, writes it back unchanged, and defaults newly constructed schema
+  > properties to `0x01`. The
   > `dataType` is an ordinary **`JetDataType` code** (the same byte used by column descriptors and
   > MSysQueries): **`0x0C`** (Memo) for a text value stored as **UTF-16**, **`0x01`** (Boolean) for a single
   > **0/1 byte**, and — on the `MSysDb` object's UI/nav settings only — `0x0A` (Text), `0x02`/`0x03`/`0x04`
   > (Byte/Int16/Int32). The value-block **type** is `0x01` for a column-owned map and `0x00` for the
-  > table-owned map (empty owner name). A `DefaultValue` (column property) is the expression's **source
+  > table-owned map (empty owner name). mdbtools gives `0x02` as an **index**-owned map, named for the index —
+  > which Access usually names for its column — though no example file has one (unverified). LibRed keeps each
+  > block's type as read, so a column's properties are only ever those in a `0x01` block of its name. A `DefaultValue` (column property) is the expression's **source
   > text** (e.g. `42`, `'hi'`) — its evaluation semantics (what an expression may contain, the
   > DDL-parser-vs-expression-service split) are in [page-02c-default-values.md](page-02c-default-values.md);
   > table-level `CHECK` constraints are a single **table** property named `CheckConstraints` whose value is a

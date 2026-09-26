@@ -17,13 +17,29 @@
 | `0x0D` | 1 | Collation **sort id** — the LCID's high word; `0` except for an alternate sort order (see the note below) |
 | `0x0E` | 1 | Collation **sort-order version**: `0` = General Legacy (Access 2000–2007), `1` = the "General" order Access 2010+ made default (a different key encoding, §10.4) |
 | `0x0F` | 1 | Flags (see below) |
-| `0x10` | 1 | Extended flags: `0x01` compressed-Unicode capable, `0xC0` calculated column |
+| `0x10` | 1 | Extended flags: `0x01` compressed-Unicode capable, `0x10` attachment value column, `0xC0` calculated column; a complex column's flat table also sets `0x04` and `0x08` (see below) |
 | `0x11` | 4 | Unknown (zero observed) |
 | `0x15` | 2 | Fixed-data offset within the row's fixed region |
 | `0x17` | 2 | Length (bytes) |
 
 **Flags (`0x0F`):** `0x01` fixed-length, `0x02` updatable, `0x04` auto-number,
-`0x40` auto-number GUID, `0x80` hyperlink (on a Memo column).
+`0x10` system-catalog column, `0x20` security-identifier column, `0x40` auto-number GUID, `0x80` hyperlink
+(on a Memo column). `0x08` is set on no column seen.
+
+> **`0x10` and `0x20` mark the engine's own catalog (verified).** `0x10` is set on every column of
+> `MSysObjects`, `MSysACEs`, `MSysQueries`, `MSysRelationships` and `MSysComplexColumns`, and on no other —
+> not on the other `MSys*` tables Access creates (`MSysAccessStorage`, `MSysResources`, `MSysNavPane*`,
+> `MSysNameMap`, the `MSysComplexType_*` templates) and not on any user column. `0x20` is set on exactly the
+> two columns that hold a Windows SID, `MSysObjects.Owner` and `MSysACEs.SID`, always together with `0x10`.
+> mdbtools also gives `0x10` to replication columns (`s_…`, `Gen_…`), which no file seen has (unverified).
+
+> **Extended flags beyond `0x01`/`0xC0` belong to the complex columns (verified where set).** `0x10` is set on
+> exactly the six attachment value columns — `FileData`, `FileFlags`, `FileName`, `FileTimeStamp`, `FileType`,
+> `FileURL` — in the `MSysComplexType_Attachment` template and in every attachment flat table, and on no other
+> column. A flat table (`f_<GUID>_…`) also sets `0x08` on its `_<column>` column and `0x04` on its
+> `<table>_<column>` column. mdbtools reads `0x08` as the flat table's foreign key to the complex id, which
+> Access refuses to open a flat table without; what `0x04` means is unknown (both unverified). mdbtools also
+> gives `0x20` to a version-history column, which no file seen has.
 
 > **A `Complex` column (type `0x12`) is an AutoNumber, and its `0x0B` names its `MSysComplexColumns` row.**
 > Verified on all six complex columns across two files: `0x0F` = `0x07` on every one — fixed `0x01`,
@@ -90,12 +106,13 @@
 > Every sort order Access offers has a primary id below `0xFF`, so "low byte" and Windows' `PRIMARYLANGID`
 > (mask `0x3FF`) cannot be told apart here.
 
-> **Every documented flag is modelled — nothing rides through raw except the reserved/unknown.** LibRed reads
-> each `0x0F` bit and the whole `0x10` byte into `ColumnDef` (`IsUpdatable`/`IsGuidAutoNumber`/`IsHyperlink`,
+> **Every flag a user column carries is modelled; the rest ride through raw.** LibRed reads the user-column
+> bits of `0x0F` and `0x10` into `ColumnDef` (`IsUpdatable`/`IsGuidAutoNumber`/`IsHyperlink`,
 > `SupportsCompressedUnicode`/`IsCalculated`) and composes them back on write, so they round-trip explicitly.
-> The only bytes preserved verbatim through `ColumnDef.RawDescriptor` are the genuinely reserved/unknown ones:
-> the reserved words at `0x03` and `0x11`, and any *undocumented* bits of `0x0F`/`0x10` (zero in every file
-> observed).
+> It writes the catalog bits `0x10`/`0x20` on the system tables it creates. Everything else is preserved
+> verbatim through `ColumnDef.RawDescriptor` on a rewrite: the reserved words at `0x03` and `0x11`, the catalog
+> bits of an existing column, and the `0x10` bits it does not model, which the complex columns' flat tables
+> set.
 
 > **Nullability, defaults and checks are *not* in the descriptor.** The column's *Required* (NOT NULL)
 > property is **not** encoded anywhere in the 25-byte descriptor — verified: a nullable column and a

@@ -24,9 +24,10 @@ public sealed record ColumnSpec(
     // so a rebuild preserves unmodeled bytes. Both null for an ordinary CREATE/ADD column. See ColumnDef.RawDescriptor.
     int? ColumnId = null,
     byte[]? RawDescriptor = null,
-    // Undocumented flag bits (0x0F) Access sets on system-table columns: 0x10 marks a system-catalog column,
-    // 0x20 additionally marks a security-identifier column (MSysObjects.Owner, MSysACEs.SID). User-table
-    // columns leave these clear. Verified against real files; the desktop engine expects them on MSys* columns.
+    // The catalog flag bits (0x0F) Access sets on the columns of its own catalog — MSysObjects, MSysACEs,
+    // MSysQueries, MSysRelationships and MSysComplexColumns: 0x10 on every one, and 0x20 as well on the two that
+    // hold a security identifier (MSysObjects.Owner, MSysACEs.SID). Every other column leaves them clear, the
+    // other MSys* tables' included (verified; see page-02b-columns.md).
     byte SystemFlags = 0,
     // WITH COMPRESSION on a Text/Memo column: the 0x10 extended flag bit 0x01. Off unless asked for, which
     // is what ACE does for a column declared without it (LongTextStorageAccessTests).
@@ -35,7 +36,14 @@ public sealed record ColumnSpec(
     // ordinary column. They are separate from Type because Type carries the descriptor's *promoted* storage
     // type, which need not be the result type at all — build one with Calculated() rather than by hand.
     string? CalculatedExpression = null,
-    JetDataType? CalculatedResultType = null)
+    JetDataType? CalculatedResultType = null,
+    // A column of a table the engine creates for itself, which leaves 0x09 — the second copy of the column id —
+    // zero. A catalog column (SystemFlags) is one already; this marks the rest, such as the MSysComplexType_*
+    // templates, which carry no catalog flag.
+    bool IsEngineColumn = false,
+    // Extended flag bits (0x10) LibRed does not model, to set on a created column: 0x10 on an attachment value
+    // column (FileData, FileFlags, FileName, FileTimeStamp, FileType, FileURL).
+    byte ExtendedFlags = 0)
 {
     /// <summary>A calculated column of <paramref name="resultType"/> computing <paramref name="expression"/>.
     /// ACE stores one **always variable-length**, with the descriptor carrying the *promoted* type and a
@@ -568,6 +576,8 @@ public static class TdefBuilder
                 CalculatedExpression = s.CalculatedExpression,
                 CalculatedResultType = s.CalculatedResultType,
                 SystemFlags = s.SystemFlags,
+                IsEngineColumn = s.IsEngineColumn || s.SystemFlags != 0,
+                ExtendedFlags = s.ExtendedFlags,
                 Precision = EffectivePrecision(s),
                 Scale = s.Scale,
                 // Numeric columns carry no collation (their 0x0B/0x0C bytes are precision/scale); every
@@ -615,14 +625,15 @@ public static class TdefBuilder
         // tracking 0x05 once an ALTER COLUMN type change burns a new id there (§3.8).
         if (c.RawDescriptor is null or { Length: 0 })
             BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnSecondaryNumberOffset, 2),
-                (ushort)(c.SystemFlags != 0 ? 0 : c.ColumnId));
+                (ushort)(c.IsEngineColumn ? 0 : c.ColumnId));
         // Offset 7 = variable-table index (count of variable columns with a smaller id), stored on fixed columns
         // too. Prefer the precomputed value; fall back to the legacy rule (0 for fixed) when unset (ADD COLUMN).
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnVariableIndexOffset, 2),
             (ushort)(c.VariableTableIndex >= 0 ? c.VariableTableIndex : (c.IsFixedLength ? 0 : c.VariableIndex)));
         WriteLocaleUnion(d, c.Type, c.Precision, c.Scale, c.Collation, format);
-        // Compose the flag byte (0x0F) from EVERY documented bit; only the undocumented bits survive from the
-        // original (zero in every file observed). Likewise the extended-flag byte (0x10).
+        // Compose the flag byte (0x0F) from every bit a user column models, plus the catalog bits a created system
+        // column asks for; the rest — an existing column's catalog bits — survive from the original. Likewise the
+        // extended-flag byte (0x10), whose unmodelled bits the complex columns' flat tables set.
         byte flags = (byte)(
             (c.IsUpdatable ? JetFormatBase.ColumnFlagUpdatable : 0)
             | (c.IsFixedLength ? JetFormatBase.ColumnFlagFixedLength : 0)
@@ -634,7 +645,7 @@ public static class TdefBuilder
         byte extFlags = (byte)(
             (c.SupportsCompressedUnicode ? JetFormatBase.ColumnExtFlagCompressedUnicode : 0)
             | (c.IsCalculated ? JetFormatBase.ColumnExtFlagCalculated : 0));
-        d[format.ColumnExtendedFlagsOffset] = (byte)((d[format.ColumnExtendedFlagsOffset] & ~JetFormatBase.ColumnExtFlagsDocumented) | extFlags);
+        d[format.ColumnExtendedFlagsOffset] = (byte)((d[format.ColumnExtendedFlagsOffset] & ~JetFormatBase.ColumnExtFlagsDocumented) | extFlags | c.ExtendedFlags);
 
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnFixedOffsetOffset, 2), (ushort)c.FixedOffset);
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnLengthOffset, 2), (ushort)c.Length);

@@ -120,8 +120,8 @@ Variable section (`varOffsetTable`+`numVar`) omitted only when the table has nev
 | `0x0C` | 1 | Scale (Decimal) — else collation LANGID high byte (`0x04` en-US) |
 | `0x0D` | 1 | Collation sort id — the LCID's high word (`0x01` = an alternate sort order, e.g. Hungarian Technical) |
 | `0x0E` | 1 | Sort-order version (`0` legacy table, `1` Access-2010) |
-| `0x0F` | 1 | Flags: `0x01` fixed, `0x02` updatable, `0x04` auto-number, `0x40` auto-number GUID, `0x80` hyperlink |
-| `0x10` | 1 | Extended flags: `0x01` compressed-Unicode capable, `0xC0` calculated |
+| `0x0F` | 1 | Flags: `0x01` fixed, `0x02` updatable, `0x04` auto-number, `0x10` system-catalog column, `0x20` security-identifier column, `0x40` auto-number GUID, `0x80` hyperlink |
+| `0x10` | 1 | Extended flags: `0x01` compressed-Unicode capable, `0x10` attachment value column, `0xC0` calculated; `0x04`/`0x08` on a complex flat table's columns |
 | `0x11` | 4 | Unknown (zero) |
 | `0x15` | 2 | Fixed-data offset within the row's fixed region |
 | `0x17` | 2 | Length (bytes) |

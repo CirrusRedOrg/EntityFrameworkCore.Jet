@@ -95,6 +95,9 @@ public static class DatabaseCreator
     // System-column flag bits: Sys = 0x10 (system-catalog column), SysSid = 0x10|0x20 (also a security id).
     private const byte Sys = 0x10, SysSid = 0x30;
 
+    // Extended flag 0x10: an attachment value column, in the attachment template as in every attachment flat table.
+    private const byte AttachmentValue = 0x10;
+
     // MSysObjects — the system catalog. Declared in the real physical (alphabetical) descriptor order with
     // explicit canonical ColumnIds and system flags, exactly as an Access-created file stores it.
     private static readonly ColumnSpec[] MSysObjectsColumns =
@@ -178,25 +181,26 @@ public static class DatabaseCreator
     ];
 
     /// <summary>The flat storage tables, in the order the engine creates them. Each holds a single
-    /// <c>Value</c> column of its element type; Attachment is the exception, carrying the file metadata.</summary>
+    /// <c>Value</c> column of its element type; Attachment is the exception, carrying the file metadata.
+    /// Engine tables, but not part of the catalog, so their columns carry no catalog flag.</summary>
     private static readonly (string Name, ColumnSpec[] Columns)[] MSysComplexTypeTables =
     [
-        ("MSysComplexType_UnsignedByte", [new("Value", JetDataType.Byte, 1, true, ColumnId: 0, SystemFlags: Sys)]),
-        ("MSysComplexType_Short", [new("Value", JetDataType.Int16, 2, true, ColumnId: 0, SystemFlags: Sys)]),
-        ("MSysComplexType_Long", [new("Value", JetDataType.Int32, 4, true, ColumnId: 0, SystemFlags: Sys)]),
-        ("MSysComplexType_IEEESingle", [new("Value", JetDataType.Single, 4, true, ColumnId: 0, SystemFlags: Sys)]),
-        ("MSysComplexType_IEEEDouble", [new("Value", JetDataType.Double, 8, true, ColumnId: 0, SystemFlags: Sys)]),
-        ("MSysComplexType_GUID", [new("Value", JetDataType.Guid, 16, true, ColumnId: 0, SystemFlags: Sys)]),
-        ("MSysComplexType_Decimal", [new("Value", JetDataType.FixedPoint, 9, false, ColumnId: 0, SystemFlags: Sys)]),
-        ("MSysComplexType_Text", [new("Value", JetDataType.Text, 510, false, ColumnId: 0, SystemFlags: Sys)]),
+        ("MSysComplexType_UnsignedByte", [new("Value", JetDataType.Byte, 1, true, ColumnId: 0, IsEngineColumn: true)]),
+        ("MSysComplexType_Short", [new("Value", JetDataType.Int16, 2, true, ColumnId: 0, IsEngineColumn: true)]),
+        ("MSysComplexType_Long", [new("Value", JetDataType.Int32, 4, true, ColumnId: 0, IsEngineColumn: true)]),
+        ("MSysComplexType_IEEESingle", [new("Value", JetDataType.Single, 4, true, ColumnId: 0, IsEngineColumn: true)]),
+        ("MSysComplexType_IEEEDouble", [new("Value", JetDataType.Double, 8, true, ColumnId: 0, IsEngineColumn: true)]),
+        ("MSysComplexType_GUID", [new("Value", JetDataType.Guid, 16, true, ColumnId: 0, IsEngineColumn: true)]),
+        ("MSysComplexType_Decimal", [new("Value", JetDataType.FixedPoint, 9, false, ColumnId: 0, IsEngineColumn: true)]),
+        ("MSysComplexType_Text", [new("Value", JetDataType.Text, 510, false, ColumnId: 0, IsEngineColumn: true)]),
         ("MSysComplexType_Attachment",
         [
-            new("FileData", JetDataType.Ole, 0, false, ColumnId: 3, SystemFlags: Sys),
-            new("FileFlags", JetDataType.Int32, 4, true, ColumnId: 5, SystemFlags: Sys),
-            new("FileName", JetDataType.Text, 510, false, ColumnId: 1, SystemFlags: Sys),
-            new("FileTimeStamp", JetDataType.DateTime, 8, true, ColumnId: 4, SystemFlags: Sys),
-            new("FileType", JetDataType.Text, 510, false, ColumnId: 2, SystemFlags: Sys),
-            new("FileURL", JetDataType.Memo, 0, false, ColumnId: 0, SystemFlags: Sys),
+            new("FileData", JetDataType.Ole, 0, false, ColumnId: 3, IsEngineColumn: true, ExtendedFlags: AttachmentValue),
+            new("FileFlags", JetDataType.Int32, 4, true, ColumnId: 5, IsEngineColumn: true, ExtendedFlags: AttachmentValue),
+            new("FileName", JetDataType.Text, 510, false, ColumnId: 1, IsEngineColumn: true, ExtendedFlags: AttachmentValue),
+            new("FileTimeStamp", JetDataType.DateTime, 8, true, ColumnId: 4, IsEngineColumn: true, ExtendedFlags: AttachmentValue),
+            new("FileType", JetDataType.Text, 510, false, ColumnId: 2, IsEngineColumn: true, ExtendedFlags: AttachmentValue),
+            new("FileURL", JetDataType.Memo, 0, false, ColumnId: 0, IsEngineColumn: true, ExtendedFlags: AttachmentValue),
         ]),
     ];
 

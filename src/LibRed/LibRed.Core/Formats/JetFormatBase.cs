@@ -245,7 +245,9 @@ public abstract class JetFormatBase
     public const byte ColumnFlagGuidAutoNumber = 0x40;
     /// <summary>Column flag: a hyperlink (a Memo column presented as a hyperlink).</summary>
     public const byte ColumnFlagHyperlink = 0x80;
-    /// <summary>Mask of the documented flag bits — the complement is undocumented and preserved from raw.</summary>
+    /// <summary>Mask of the flag bits a user column's <see cref="Catalog.ColumnDef"/> models. The complement — the
+    /// catalog bits <c>0x10</c>/<c>0x20</c> of a system column, and <c>0x08</c>, never seen set — is preserved from
+    /// raw.</summary>
     public const byte ColumnFlagsDocumented =
         ColumnFlagFixedLength | ColumnFlagUpdatable | ColumnFlagAutoNumber | ColumnFlagGuidAutoNumber | ColumnFlagHyperlink;
 

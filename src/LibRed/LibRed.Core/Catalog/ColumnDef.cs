@@ -123,7 +123,16 @@ public sealed class ColumnDef
     /// them (the faithful round-trip rule). Null for a freshly-built (never-read) column.</summary>
     public byte[]? RawDescriptor { get; init; }
 
-    /// <summary>Undocumented flag bits (byte 0x0F) to force-set — the system-catalog column marker (0x10) and
-    /// security-identifier marker (0x20) Access sets on MSys* columns. 0 for ordinary columns.</summary>
+    /// <summary>Catalog flag bits (byte 0x0F) to force-set on a created column — the system-catalog column marker
+    /// (0x10) and security-identifier marker (0x20) Access sets on the columns of its own catalog tables. 0 for
+    /// every other column.</summary>
     public byte SystemFlags { get; init; }
+
+    /// <summary>Whether a created column belongs to a table the engine makes for itself, which writes 0x09 — the
+    /// second copy of the column id — as zero.</summary>
+    internal bool IsEngineColumn { get; init; }
+
+    /// <summary>Extended flag bits (byte 0x10) LibRed does not model, to set on a created column — the attachment
+    /// value column marker (0x10). 0 for every other column.</summary>
+    internal byte ExtendedFlags { get; init; }
 }

@@ -28,6 +28,37 @@ public class DatabaseCreatorTests
         Assert.Equal(real[0x00..0xA0], synth[0x00..0xA0]);
     }
 
+    // Every column of the system tables a new database carries is described byte-for-byte as Access describes it:
+    // the catalog flags 0x10/0x20 on exactly the catalog tables' columns (and not on the complex templates, which
+    // once carried them), the attachment template's extended flag 0x10, and the zero 0x09 of an engine table.
+    [Fact]
+    public void Synthesized_system_columns_match_a_real_file()
+    {
+        string path = TemporaryDatabase.CreatePath("libred_syscols_");
+        try
+        {
+            DatabaseCreator.CreateEmpty(path);
+            using var created = JetDatabase.Open(path);
+            using var real = JetDatabase.Open(TestDatabases.NorthwindAccdb);
+
+            string[] systemTables =
+            [
+                "MSysObjects", "MSysACEs", "MSysQueries", "MSysRelationships", "MSysComplexColumns",
+                "MSysComplexType_Long", "MSysComplexType_Text", "MSysComplexType_Attachment",
+            ];
+            foreach (string name in systemTables)
+            {
+                TableDef expected = real.Catalog.FindTable(name)!;
+                TableDef actual = created.Catalog.FindTable(name)!;
+                foreach (ColumnDef column in expected.Columns)
+                    Assert.True(column.RawDescriptor!.AsSpan().SequenceEqual(actual.FindColumn(column.Name)!.RawDescriptor),
+                        $"{name}.{column.Name}: Access {Convert.ToHexString(column.RawDescriptor!)}, " +
+                        $"LibRed {Convert.ToHexString(actual.FindColumn(column.Name)!.RawDescriptor!)}");
+            }
+        }
+        finally { if (File.Exists(path)) TemporaryDatabase.Delete(path); }
+    }
+
     [Fact]
     public void Creates_an_empty_database_that_round_trips_a_user_table()
     {

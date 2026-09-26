@@ -73,7 +73,7 @@ count, and it is gated on the total:
 | `0x22` | 1 | Usage-map row |
 | `0x23` | 3 | Usage-map page |
 | `0x26` | 4 | **B-tree root page** |
-| `0x2A` | 4 | Unknown / reserved (zero observed). mdbtools places a 1-byte index-flags field at `+0x2A`, but ACE's effective flags are at `0x2E` and this is zero in every file checked |
+| `0x2A` | 4 | Unknown / reserved — zero in every file checked. mdbtools calls it uninitialised page residue (unverified) |
 | `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls (`WITH IGNORE NULL` — null-keyed rows excluded from the index), `0x08` required (`WITH DISALLOW NULL` / part of a primary key), `0x80` always-set (Access 2000+). Verified vs ACE: a plain index is `0x0080`, `IGNORE NULL` `0x0082`, `DISALLOW NULL` `0x0088`, a PK `0x0089`. There is **no clustered flag**: `CLUSTERED`/`NONCLUSTERED` after `PRIMARY KEY` or `UNIQUE` in a constraint is accepted and stores nothing (the file is byte-identical without it), and DAO's `Index.Clustered` reads `False` even on an index created with it set. |
 | `0x30` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 52-byte block |
 

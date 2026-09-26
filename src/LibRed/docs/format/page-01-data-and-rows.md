@@ -76,6 +76,11 @@ bytes for good.
 The **slot directory** is not reclaimed by either engine: a tombstoned slot is never reused, so a page that
 has seen thirteen rows carries thirteen slots whatever is live. Only the row bytes come back.
 
+**The freed bytes are not cleared, so the delete order shows (verified).** The space a delete frees keeps
+whatever the slide left in it — the old bytes of the lowest row that moved. A statement deleting several rows
+of a page deletes them **in the order it finds them**, lowest slot first; deleting the same rows the other way
+round leaves the same live rows and directory but different bytes in the free space.
+
 **A relocated row is reclaimed on both pages.** When a slot carries the overflow flag it holds a 4-byte
 forward pointer rather than the row, and the row itself sits on another page flagged deleted (§ relocation
 below). Deleting it reclaims the target first and then the pointer: ACE brings the target's page back to a

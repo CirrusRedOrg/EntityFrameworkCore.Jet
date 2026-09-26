@@ -257,7 +257,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         return true;
     }
 
-    private static bool HasNullKey(IndexDef index, object?[] values) =>
+    internal static bool HasNullKey(IndexDef index, object?[] values) =>
         index.Columns.Any(c => values[c.Column.Index] is null or DBNull);
 
     /// <summary>Descends to the leaf that should hold the key, recording the path from the root.</summary>
@@ -581,15 +581,16 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         return page;
     }
 
-    /// <summary>Repoints the index-data block's B-tree root (0x26) after the root grows a level. Walks
-    /// stats → column descriptors → column names → data blocks to the index's block.</summary>
+    /// <summary>Repoints the index-data block's B-tree root (0x26) — after the root grows a level, or when a new
+    /// table's foreign-key index is given its root. Walks stats → column descriptors → column names → data blocks
+    /// to the index's block.</summary>
     /// <remarks>
     /// A wide table's definition spans continuation pages, and the data blocks sit past the column names —
     /// well beyond the first page for a 255-column table. The walk therefore runs over the <i>stitched</i>
     /// definition (the absolute coordinate space the descriptors use), and only the 4 root bytes are written
     /// back, mapped to whichever page actually holds them. Nothing changes length, so no re-split is needed.
     /// </remarks>
-    private void UpdateIndexRoot(IndexDef index, int newRoot)
+    internal void UpdateIndexRoot(IndexDef index, int newRoot)
     {
         (_, IReadOnlyList<int> continuations, int block) = LocateIndexBlock(index);
         WriteInt32IntoDefinition(continuations, block + IndexBlockFormat.RootPageOffset, newRoot);
@@ -809,7 +810,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
             current.RemoveAt(current.Count - 1);
             keyBytes -= key.Length;
             int next = AllocateIndexPage(index);
-            WriteOrThrow(page, Build(PageType.LeafIndexPage, previous, next, tail: 0, level: 0, current));
+            WriteOrThrow(page, Build(PageType.LeafIndexPage, previous, next, tail: 0, level: 0, current, Prefix()));
             separators.Add((WithTrailer(current[^1].Key, current[^1].Trailer), page));
 
             previous = page;
@@ -819,7 +820,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
             compressed = 0;
         }
 
-        WriteOrThrow(page, Build(PageType.LeafIndexPage, previous, next: 0, tail: 0, level: 0, current));
+        WriteOrThrow(page, Build(PageType.LeafIndexPage, previous, next: 0, tail: 0, level: 0, current, Prefix()));
 
         // --- node levels, until one page covers the level --------------------------------------------------
         int level = 1;
@@ -831,6 +832,11 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
             UpdateIndexRoot(index, page);
             index.RootPage = page;
         }
+
+        // A leaf is written at the prefix its filling reached — compressed only once it had to be, as the
+        // incremental path writes it — and no further than its entries share (verified: ACE's CREATE INDEX over
+        // eleven keys sharing ten bytes writes them whole, at prefix 0).
+        int Prefix() => current.Count <= 1 ? 0 : Math.Min(compressed, CommonPrefixLength(current[0].Key, current[^1].Key));
     }
 
     /// <summary>Whether <paramref name="count"/> entries totalling <paramref name="keyBytes"/> of key data fit

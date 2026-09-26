@@ -32,8 +32,7 @@ public sealed record LongValueResult(byte[] Descriptor, IReadOnlyList<int> Owned
 /// </summary>
 /// <remarks>
 /// An LVAL page is a data page (type <c>0x01</c>) whose owner field is the ASCII marker "LVAL"; a chunk is
-/// stored as its row 0. Access's property loader (and general long-value reads) require this page form —
-/// an inline value is not recognised for object properties (<c>LvProp</c>).
+/// stored as its row 0. A value up to 64 bytes never comes here: it is inline in its row.
 /// </remarks>
 public sealed class LongValueWriter(PageChannel channel)
 {
@@ -124,7 +123,7 @@ public sealed class LongValueWriter(PageChannel channel)
         // exactly as an index entry addresses a data row — so the same 256-slot ceiling applies, and passing it
         // would alias one value's descriptor onto another's row with no error. Today it is unreachable: a
         // payload of 64 bytes or less inlines and never arrives here, and a page leaves the free-pages map once
-        // it has under MinLvalRow bytes left, which caps a page at roughly 108 rows even for the smallest thing
+        // it has under MinLvalRow bytes left, which caps a page at 104 rows even for the smallest thing
         // that can reach it (a 33-character memo compressed to 35 bytes — compression is applied AFTER the
         // inline test, so the floor is lower than the 65-byte inline limit suggests). That margin is emergent,
         // not stated: it moves if the inline limit or the free-map threshold changes. Refusing the page here

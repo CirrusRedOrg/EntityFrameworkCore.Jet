@@ -41,14 +41,21 @@
   > `ObjectId` (Int32, the object's id), `SID` (Binary, a security id), `ACM` (Int32, an access mask), and
   > `FInheritable` (Boolean). Each row sets `ObjectId` = the object id, `SID` = a 2-byte binary security id,
   > `ACM` = an access mask, `FInheritable` = false, and the object's `ObjectId` index must be maintained so
-  > Access's security check finds them. Access writes **two** rows per object — one for the **Users** account
-  > (which also owns the object) and one for **admin** — and the masks depend on the object and on the route
-  > that created it (verified):
-  > - **Table** (`CREATE TABLE`): both rows `ACM = 0xFFEFF` (1048319), full access.
-  > - **Query/view** (`CREATE VIEW`): both rows `0xFFEFF` as well.
-  > - **Relationship** (`ADD CONSTRAINT … FOREIGN KEY`): Users `0xF00FE` (983294), admin `0xFFFFF`.
-  > - A view created in the **Access UI** instead carries `0xF00FE` in its Users row. The narrower query mask
-  >   is the UI's, not the SQL path's, and Access reads either.
+  > Access's security check finds them.
+  >
+  > **A new object's rows are its container's inheritable grants (verified).** Each container —
+  > `Tables` (`0x0F000001`, which holds queries too) and `Relationships` (`0x0F000003`) — carries `MSysACEs`
+  > rows of its own, some marked `FInheritable`. A new object gets one row per account those inheritable rows
+  > name: the **Creator** account's grant becomes the grant to the object's **owner**, the Users account, and
+  > every other inheritable grant is copied for its own account — OR'd into the owner's row when it names
+  > Users too. The owner's row comes first. So the masks are the database's, not the object class's:
+  > - A fresh DAO/ACE database's `Tables` container grants Creator `0xF00FE` and admin `0xFFEFF` (its Users
+  >   row, `0x60001`, is not inheritable), so a new table, view or query gets Users `0xF00FE`, admin `0xFFEFF`.
+  > - Northwind's `Tables` container also grants Users `0xFFEFF`, inheritable, so there both rows are `0xFFEFF`.
+  > - The `Relationships` container grants Creator `0xF00FE` and admin `0xFFFFF` in both, so a relationship
+  >   gets Users `0xF00FE`, admin `0xFFFFF`.
+  >
+  > The route does not matter: ACE's SQL DDL and the Access UI give the same rows in the same database.
   >
   > (System-table `MSysACEs` rows in an existing file carry restricted masks like `0x60000`/`0x14` and a long
   > per-database owner SID; those are the pre-existing catalog's, not what a writer emits for a new object.)
@@ -273,8 +280,8 @@
   - **`Id`** is the next negative synthetic id: one past the highest in the file, from the sequence queries draw
     on, so relationships and queries interleave (`0x8000002C` relationship, `0x8000002D` view,
     `0x8000002E` relationship), and a dropped relationship's id is taken by the next object.
-  - **Two `MSysACEs` rows**: the Users SID with ACM `0xF00FE`, and admin's with `0xFFFFF` — the one object
-    class whose two masks differ from a table's (verified against ACE's `ADD CONSTRAINT`).
+  - **`MSysACEs` rows** from the `Relationships` container's inheritable grants (§11): the Users SID with ACM
+    `0xF00FE` and admin's with `0xFFFFF` in the databases examined (verified against ACE's `ADD CONSTRAINT`).
   - **Dropping it** — `DROP CONSTRAINT`, or `DROP TABLE` of the referencing table — removes the object and its
     two `MSysACEs` rows.
   - **Its name** must differ from every other relationship's (*"There is already a relationship named '…' in
@@ -534,8 +541,8 @@
   cascading both update and delete stores `grbit = 0x1100`.
 
   > **Writing a relationship.** An **enforced** relationship is `MSysRelationships` rows, an `MSysObjects`
-  > row of its own (`Type` = 8, under the relationship container, with the `MSysACEs` pair `0xF00FE` /
-  > `0xFFFFF` of §11) **and** a non-unique index on the
+  > row of its own (`Type` = 8, under the relationship container, with the `MSysACEs` rows that container
+  > grants, §11) **and** a non-unique index on the
   > child table's FK column(s) — enforcement requires the child FK to be indexed and the parent key to be
   > uniquely indexed (the parent PK). LibRed writes all of it, including the byte-faithful relationship
   > logical-index linkage in *both* tables' TDEFs (§3.6: outgoing block on the child, incoming block on the

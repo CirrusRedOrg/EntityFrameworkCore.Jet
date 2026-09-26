@@ -389,6 +389,28 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         finally { ArrayPool<byte>.Shared.Return(tdef); }
     }
 
+    /// <summary>Counts an UPDATE's key change in <paramref name="index"/>'s statistics as ACE does (verified): the
+    /// total drops by one, as on a delete, and the unique count is then held to no more than the total. Whether the
+    /// old key had another holder does not matter, and the new key advances nothing. A total already reading 0 is
+    /// left alone, as a delete leaves it.</summary>
+    public void CountKeyMoved(IndexDef index)
+    {
+        JetFormatBase format = _channel.Format;
+        byte[] tdef = ArrayPool<byte>.Shared.Rent(format.PageSize);
+        try
+        {
+            _channel.ReadPage(_table.DefinitionPage, tdef);
+            int at = format.TdefRealIndexBlockOffset + index.RealIndexOrdinal * format.RealIndexEntrySize;
+            int total = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(at, 4));
+            if (total == 0) return;
+            BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(at, 4), total - 1);
+            int unique = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(at + 4, 4));
+            BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(at + 4, 4), Math.Min(unique, total - 1));
+            _channel.WritePage(_table.DefinitionPage, tdef.AsSpan(0, format.PageSize));
+        }
+        finally { ArrayPool<byte>.Shared.Return(tdef); }
+    }
+
     /// <summary>
     /// The real-index ordinals for which the row at <paramref name="id"/> holds the only copy of its key, so
     /// removing the row also removes a distinct key. An index the row is excluded from (IgnoreNulls with a
@@ -1064,10 +1086,11 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         }
     }
 
-    // A page is dropped from the free-pages map once it cannot hold the smallest long value (a 65-byte
-    // payload — anything up to 64 inlines — plus its 2-byte row-directory entry). The largest such row is
-    // 4076 bytes on a Jet 4 page (Jackcess MAX_LONG_VALUE_ROW_SIZE), which nothing here needs to name.
-    private const int MinLvalRow = 65 + 2;
+    // A page is dropped from the free-pages map once it cannot hold a 256-byte value and its 2-byte row-directory
+    // entry (verified vs ACE, memo and OLE alike: a page left with 257 bytes free leaves the map, one with 258
+    // stays). Not the smallest long value a page could still take — anything over 64 bytes is one — but ACE's
+    // own cut-off, below which it stops offering the page.
+    private const int MinLvalRow = 256 + 2;
 
     /// <summary>Rejects a caller-supplied value for a calculated column, as ACE does — it refuses both an
     /// INSERT naming one and an UPDATE setting one, with <i>"Cannot update 'x'; field not updateable."</i>
@@ -1097,13 +1120,15 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     private byte[] SpillCalculated(ColumnDef column, byte[] envelope)
         => StorePackedLongValue(column.ColumnId, envelope);
 
-    /// <summary>Stores <paramref name="payload"/> on an LVAL page for long-value column
-    /// <paramref name="columnId"/> — packing onto a free page as usual — and returns the in-row descriptor.
-    /// For a caller that must use a page regardless of size (the MSysObjects <c>LvProp</c> property blob,
-    /// which Access reads only from a page, never inline). Call before <see cref="Insert(object?[], bool)"/>
-    /// so the row carries the returned descriptor as a <see cref="LongValueDescriptor"/>.</summary>
+    /// <summary>Stores <paramref name="payload"/> for long-value column <paramref name="columnId"/> and returns
+    /// the in-row descriptor: inline up to 64 bytes, as any long value is, else on an LVAL page — packing onto a
+    /// free page as usual. The MSysObjects <c>LvProp</c> property blob takes the same rule (verified: ACE inlines
+    /// a 63-byte blob and puts a 65-byte one on a page). Call before <see cref="Insert(object?[], bool)"/> so the
+    /// row carries the returned descriptor as a <see cref="LongValueDescriptor"/>.</summary>
     public byte[] StorePackedLongValue(int columnId, byte[] payload)
     {
+        if (payload.Length <= LongValueFormat.MaxInlineValue) return Types.JetTypeCodec.EncodeInlineLongValue(payload);
+
         TableDefinitionPage definition = ReadDefinition();
         definition.LongValueOwnedMaps.TryGetValue(columnId, out (int Row, int Page) owned);
         definition.LongValueFreeMaps.TryGetValue(columnId, out (int Row, int Page) free);

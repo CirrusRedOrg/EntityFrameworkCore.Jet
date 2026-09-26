@@ -132,6 +132,10 @@ omits. Reconstruct: `fullEntry = prefix ++ stored`.
 > End state alone misleads: a leaf that has never filled is uncompressed under ACE too. And recomputing the
 > prefix on split while keeping it on append is wrong — pages then fill uncompressed and split without ever
 > being compressed, giving 4 leaves and 11,820 bytes against ACE's 3 and 11,334.
+>
+> **Building an index follows the same rule** (verified): `CREATE INDEX` over a table's rows writes each leaf
+> at the prefix its filling reached, so an index whose entries all fit one page uncompressed is written
+> uncompressed — eleven text keys sharing ten bytes land at prefix `0` — however much they share.
 
 ### 10.4 Key encoding (order-preserving)
 

@@ -5,8 +5,8 @@ namespace LibRed.Storage;
 
 /// <summary>
 /// Writes the catalog rows every new object gets whatever it is: its <c>MSysObjects</c> entry, and the
-/// <c>MSysACEs</c> pair granting the Users and Admin accounts access to it (system-catalog §11). A table, a
-/// stored query and a relationship differ only in the type, container, flags and masks they pass.
+/// <c>MSysACEs</c> rows its container's inheritable grants give it (system-catalog §11). A table, a stored query
+/// and a relationship differ only in the type, container and flags they pass.
 /// </summary>
 /// <remarks>
 /// <see cref="DatabaseCreator"/> writes the same two tables and does not use this: it is populating them
@@ -43,8 +43,8 @@ internal sealed class CatalogWriter(PageChannel channel, JetCatalog catalog)
         var inserter = new RowInserter(channel, msysObjects);
         if (properties is { Count: > 0 })
         {
-            // Access reads object properties only from an LVAL-page long value, not an inline one, so store
-            // the blob on a page (packed onto a shared LvProp page as Access does) and keep the descriptor.
+            // Stored as any long value is: inline up to 64 bytes, else packed onto a shared LvProp page as
+            // Access does.
             byte[] reference = inserter.StorePackedLongValue(
                 msysObjects.RequireColumn("LvProp").ColumnId, PropertyBlob.Write(properties));
             Set(msysObjects, values, "LvProp", new LongValueDescriptor(reference));
@@ -53,14 +53,33 @@ internal sealed class CatalogWriter(PageChannel channel, JetCatalog catalog)
         inserter.Insert(values, updateIndexes: true);
     }
 
-    /// <summary>Inserts the object's two <c>MSysACEs</c> rows, Users then Admin, maintaining the ObjectId
-    /// index so Access's security check finds them — without them it warns about permissions on opening the
-    /// object. The two masks are per object class, so they come from the caller.</summary>
-    public void AddPermissionRows(int objectId, int usersAcm, int adminAcm)
+    /// <summary>Inserts the object's <c>MSysACEs</c> rows, maintaining the ObjectId index so Access's security
+    /// check finds them — without them it warns about permissions on opening the object.</summary>
+    /// <remarks>The grants are the ones the object's container passes down, derived as ACE derives them
+    /// (verified): the Creator account's inheritable grant becomes the owner's — the Users group — and every
+    /// other inheritable grant is copied for its own account, OR'd into the owner's row when it names the owner's
+    /// account. The owner's row comes first, the rest in the container's order. So the masks follow the database:
+    /// a table's owner gets 0xF00FE where the Tables container grants the Creator that alone, and 0xFFEFF where it
+    /// also grants Users 0xFFEFF, as Northwind's does.</remarks>
+    public void AddPermissionRows(int objectId, int containerId)
     {
         TableDef msysAces = catalog.RequireTable("MSysACEs");
-        (byte[] users, byte[] admin) = catalog.SecuritySids;
-        foreach ((byte[] sid, int acm) in new[] { (users, usersAcm), (admin, adminAcm) })
+        int idIndex = msysAces.RequireColumn("ObjectId").Index, sidIndex = msysAces.RequireColumn("SID").Index;
+        int acmIndex = msysAces.RequireColumn("ACM").Index, inheritIndex = msysAces.RequireColumn("FInheritable").Index;
+        (byte[] users, _, byte[] creator) = catalog.SecuritySids;
+
+        var grants = new List<(byte[] Sid, int Acm)>();
+        foreach (object?[] row in new Table(channel, msysAces).Rows())
+        {
+            if (row[idIndex] is not int id || id != containerId || row[inheritIndex] is not true) continue;
+            byte[] sid = (byte[])row[sidIndex]!;
+            if (sid.AsSpan().SequenceEqual(creator)) sid = users;
+            int at = grants.FindIndex(g => g.Sid.AsSpan().SequenceEqual(sid));
+            if (at < 0) grants.Add((sid, (int)row[acmIndex]!));
+            else grants[at] = (grants[at].Sid, grants[at].Acm | (int)row[acmIndex]!);
+        }
+
+        foreach ((byte[] sid, int acm) in grants.OrderBy(g => g.Sid.AsSpan().SequenceEqual(users) ? 0 : 1))
         {
             var values = new object?[msysAces.Columns.Count];
             Set(msysAces, values, "ACM", acm);

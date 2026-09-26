@@ -152,8 +152,8 @@ descriptor.
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 4 | Total entry count — compact-time only (`0` in a live-edited file) |
-| `0x04` | 4 | Unique entry count — maintained live, cumulative, never decremented |
+| `0x00` | 4 | Total entry count — set when the index is built or the file compacted; lowered by a delete and by an update that moves the entry, never raised by an insert |
+| `0x04` | 4 | Unique entry count — raised by an insert bringing a new key; lowered by a delete of a key's last holder, and held to the total by an update |
 | `0x08` | 4 | Reserved (zero) |
 
 ## Index-data block — 52 bytes, one per real index → [page-02d](page-02d-constraints.md)
@@ -296,7 +296,7 @@ table records how each ceiling is actually held, not merely that it exists.
 | Narrow field | Ceiling it imposes | How it is held |
 | --- | --- | --- |
 | Index leaf entry addresses a row as `page << 8 \| row` — 1 byte of slot | **255 rows per data page**: the pointer allows 256 but **ACE writes at most 255**, not for space (a filled page keeps ~2,297 of 4,096 bytes free) and it drops the page from the free-pages map on reaching it | **Enforced at ACE's 255.** `FindPageWithRoom` refuses a page at `RowPointer.MaxRowsPerPage`, covering both the insert path and `WriteHiddenRow` (a relocation target is named by the same pointer). Overfilling costs more than indexed reads — ACE parses the full 16-bit count but caps at 256 slots, so it silently cannot see the rest of the page's rows |
-| Long-value descriptor names its row in 1 byte (`d[4]`) | **256 rows per LVAL page** | **Enforced** in `TryAppend`. Unreachable in practice — a payload ≤ 64 bytes inlines, and the free-map drop at `MinLvalRow` caps a page near 108 rows even for the smallest thing that can arrive (a 33-character memo compressed to 35 bytes; compression is applied *after* the inline test, so the floor is below the 65 bytes the inline limit suggests) |
+| Long-value descriptor names its row in 1 byte (`d[4]`) | **256 rows per LVAL page** | **Enforced** in `TryAppend`. Unreachable in practice — a payload ≤ 64 bytes inlines, and the free-map drop at `MinLvalRow` (258 bytes free) caps a page at 104 rows even for the smallest thing that can arrive (a 33-character memo compressed to 35 bytes; compression is applied *after* the inline test, so the floor is below the 65 bytes the inline limit suggests) |
 | Page numbers are 3 bytes in the TDEF usage-map pointer, the long-value descriptor (`d[5..7]`) and an LVAL chunk's next-pointer | **page < 2²⁴** (16,777,216) | **Safe with 32× headroom**, because `PageChannel.WritePage` enforces the 2 GiB file limit at 524,288 pages. The 24-bit fields are never the binding constraint |
 | Usage-map pointer names its record row in 1 byte | **256 records per usage-map page** | **Safe by a louder guard.** A record is 69 bytes, so `AppendEmptyUsageMapRow`'s space check admits 57 and refuses the 58th — 4.5× tighter than the byte — and it throws rather than truncating |
 | Reference usage map holds 17 bitmap-page slots | **~2.28 GB of page coverage** | **Enforced** — `NotSupportedException` on both the set-bit and inline→reference conversion paths. Just past the 2 GiB file limit, by design |

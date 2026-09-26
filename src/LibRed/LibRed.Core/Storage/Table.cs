@@ -102,9 +102,15 @@ public sealed class Table
         Update(id, values, new HashSet<int>(System.Linq.Enumerable.Range(0, values.Length)));
 
     /// <summary>Moves a row's entry in one index when its key changes (remove old key, add new; row id
-    /// unchanged). Used by UPDATE of an indexed column.</summary>
-    public void MoveIndexEntry(IndexDef index, object?[] oldValues, object?[] newValues, RowId id) =>
+    /// unchanged), and counts the move in the index's statistics as ACE does. Used by UPDATE of an indexed
+    /// column.</summary>
+    public void MoveIndexEntry(IndexDef index, object?[] oldValues, object?[] newValues, RowId id)
+    {
         new IndexWriter(Channel, Definition).MoveEntry(index, oldValues, newValues, id);
+        // An IGNORE NULL index the row was absent from never counted it, so has nothing to count out.
+        if (!(index.IgnoreNulls && IndexWriter.HasNullKey(index, oldValues)))
+            new RowInserter(Channel, Definition).CountKeyMoved(index);
+    }
 
     /// <summary>Whether <paramref name="values"/>' key already exists in <paramref name="index"/> for a row
     /// other than <paramref name="excludeRow"/> — used to enforce a UNIQUE/PRIMARY index on UPDATE.</summary>

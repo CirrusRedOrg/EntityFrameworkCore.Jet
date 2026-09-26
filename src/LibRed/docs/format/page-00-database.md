@@ -132,7 +132,9 @@ TDEF page). LibRed reads `0x20` into `DatabaseDefinitionPage.CatalogRootPage` an
 > **How the reference engine lays out a new file** (DAO-created ACE 12, 42 pages).
 > Per table the allocation order is **TDEF → usage-map page → one page per index root**, in table-creation
 > order; both usage maps share one page (owned = row 0, free = row 1, inline), which is what every TDEF's
-> `0x37`/`0x3B` pointers show. **Data pages are allocated lazily on first insert**, so they appear out of
+> `0x37`/`0x3B` pointers show. A **foreign key's** index root comes after its relationship's
+> `MSysRelationships` rows (verified: a database's first relationship takes that table's first data page, and
+> the key's index root the page after). **Data pages are allocated lazily on first insert**, so they appear out of
 > sequence and an empty table has none at all.
 >
 > | pages | contents |

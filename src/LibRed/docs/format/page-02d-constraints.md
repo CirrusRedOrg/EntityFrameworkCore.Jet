@@ -16,7 +16,8 @@ statistics:
 **These two fields are maintained very differently (verified vs ACE):**
 
 - **Total entry count (`+0`) is *not* maintained on insert.** Access leaves it unchanged through live
-  inserts and updates — but **a delete decrements it** (see "On delete" below). It is written when the index
+  inserts — but **a delete decrements it** (see "On delete" below), and so does an **update that changes the
+  row's key** in that index (see "On update"). It is written when the index
   is **built over the rows present** —
   `CREATE INDEX` (unique or not), a foreign key's backing index, and the rebuild of an index whose column an
   `ALTER COLUMN` changes — to the **number of entries the index then holds** (the rows, less those an
@@ -32,7 +33,8 @@ statistics:
     collation-equal text (`'a'`, `'A'`) is one key; a **Null is a key** like any other (a second Null adds
     nothing), except in an **IGNORE NULL** index, which does not hold it and so never counts it. A key whose
     last row was deleted **counts again** when it returns. A multi-column index compares the whole tuple.
-  - An **UPDATE never advances it**, even one that gives a row a key no other row has.
+  - An **UPDATE never advances it**, even one that gives a row a key no other row has (it can lower it — see
+    "On update").
   - It is **one count per real index**: a relationship's logical index sharing a real index (a parent's
     primary key) does not advance it a second time.
   - **Building the index** — the same builds as `+0` above — sets it to the index's **distinct keys among
@@ -59,7 +61,22 @@ count, and it is gated on the total:
 > `3` after it: its total is `0`, so the delete skips it. The rule is visible only on an index that *was*
 > built over rows, where both fields move together.
 
-  LibRed maintains both this way — inserts and deletes in `RowInserter`, builds in `TableCreator`'s index
+**On update (verified).** An UPDATE that changes a row's key in an index — its entry moves — counts there
+differently from a delete:
+
+- **A block whose total reads `0` is left alone**, as on a delete.
+- **Otherwise the total drops by one** for each row whose entry moves, and **the unique count is then held to
+  no more than the total** — `unique = min(unique, total)`. Whether the old key had another holder does not
+  matter, and the new key advances nothing. So an index at 6/4 reads 5/4 after one row's key changes (to a key
+  it already held or to one it did not), one at 11/11 reads 6/6 after five rows' keys change, and changing
+  every key of a 6/4 index takes it to 0/0.
+- An index the row is absent from before the update — a Null key in an IGNORE NULL index — is not touched,
+  even when the update brings the row in.
+
+> The update rule could not be seen from an index built empty: its zero total leaves the pair alone whatever the
+> update does, which is how "an UPDATE changes neither count" looked right.
+
+  LibRed maintains both this way — inserts, deletes and updates in `RowInserter`, builds in `TableCreator`'s index
   back-fill, and the Memo/OLE retype (which LibRed does by rebuilding the whole table) restores every other
   index's counts afterwards — and exposes `+4` as `IndexDef.UniqueEntryCount`.
 

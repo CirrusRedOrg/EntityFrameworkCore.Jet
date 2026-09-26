@@ -230,17 +230,13 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         }
 
         // Each index is an empty leaf root, populated as rows are inserted. Its usage map is on the primary
-        // page, at the row the declaration order above gave it.
+        // page, at the row the declaration order above gave it. A foreign key's root is allocated later, after
+        // its relationship's rows (below); until then the definition names page 0.
         var indexes = new List<IndexSpec>(indexPlans.Count);
         for (int i = 0; i < indexPlans.Count; i++)
         {
             var plan = indexPlans[i];
-            int rootPage = _allocator.Allocate();
-            WriteEmptyLeafIndexPage(format, rootPage, owner: tdefPage);
-            // Record the root in the index's own pages usage map — Access does this at CREATE, before any
-            // row exists (verified: a freshly created empty index has exactly its root bit set). As the tree
-            // grows, IndexWriter adds each page it allocates, so the map covers the whole B-tree.
-            new UsageMapWriter(_channel).SetBit(indexRows[i], usageMapPage, rootPage, set: true);
+            int rootPage = plan.Fk is null ? AllocateIndexRoot(format, tdefPage, indexRows[i], usageMapPage) : 0;
             indexes.Add(new IndexSpec(plan.Name, plan.Columns, plan.IsPk, plan.IsUnique,
                 rootPage, UsageMapRow: indexRows[i], UsageMapPage: usageMapPage));
         }
@@ -339,10 +335,31 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         AddCatalogRow(name, tdefPage, columnProps, checkConstraints);
         AddPermissionRows(tdefPage);
-        foreach (RelationshipSpec fk in relationships)
+
+        // Each foreign key's index is built after its relationship's rows, as ACE builds it (verified: a database's
+        // first relationship takes MSysRelationships' first data page, and the key's index root the page after).
+        for (int i = 0; i < indexPlans.Count; i++)
+        {
+            if (indexPlans[i].Fk is not { } fk) continue;
             AddRelationshipRows(name, fk);
+            int rootPage = AllocateIndexRoot(format, tdefPage, indexRows[i], usageMapPage);
+            _catalog.Invalidate();
+            TableDef created = _catalog.RequireTable(name);
+            new IndexWriter(_channel, created).UpdateIndexRoot(created.Indexes.First(ix => ix.RealIndexOrdinal == i), rootPage);
+        }
         foreach (IncomingRelationship inc in incoming)
             AddIncomingRelationshipBlock(inc);
+    }
+
+    /// <summary>Allocates an index's root — an empty leaf — and records it in the index's own pages usage map, as
+    /// Access does at CREATE, before any row exists (verified: a freshly created empty index has exactly its root
+    /// bit set). As the tree grows, IndexWriter adds each page it allocates, so the map covers the whole B-tree.</summary>
+    private int AllocateIndexRoot(JetFormatBase format, int tdefPage, int mapRow, int mapPage)
+    {
+        int rootPage = _allocator.Allocate();
+        WriteEmptyLeafIndexPage(format, rootPage, owner: tdefPage);
+        new UsageMapWriter(_channel).SetBit(mapRow, mapPage, rootPage, set: true);
+        return rootPage;
     }
 
     /// <summary>The property-blob entries that make a column calculated (§3.4a), or nothing for an ordinary
@@ -1448,8 +1465,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     }
 
     /// <summary>Replaces an object's extended-property blob with <paramref name="properties"/>. Not an
-    /// <see cref="UpdateCatalogRows"/> call, because <c>LvProp</c> is a Memo: the blob has to be stored on its
-    /// own page first and the row given the descriptor that names it.</summary>
+    /// <see cref="UpdateCatalogRows"/> call, because <c>LvProp</c> is a long value: the blob has to be stored first
+    /// — inline or on a page — and the row given the descriptor for it.</summary>
     private void WriteObjectProperties(int objectId, byte[] properties)
     {
         (TableDef msys, Table table, int idIdx, ColumnDef lvProp) = ObjectProperties();
@@ -3647,14 +3664,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             name, tdefPage, CatalogFormat.ObjectTypeTable, CatalogFormat.ObjectContainerParentId, flags: 0, props);
     }
 
-    // A new user table's two permission masks. Both rows get the same full access — measured against ACE's own
-    // CREATE TABLE, row for row, and matching every table in Northwind (system-catalog §11). The 0x0F00FE the
-    // Users row used to take is the QUERY owner's mask, which is a different object class.
-    private const int UserTableUsersMask = 0x0FFEFF;
-    private const int UserTableAdminMask = 0x0FFEFF;
-
+    // A new table's permission rows: what the Tables container grants what it creates (system-catalog §11).
     private void AddPermissionRows(int objectId) =>
-        new CatalogWriter(_channel, _catalog).AddPermissionRows(objectId, UserTableUsersMask, UserTableAdminMask);
+        new CatalogWriter(_channel, _catalog).AddPermissionRows(objectId, CatalogFormat.ObjectContainerParentId);
 
     /// <summary>An object's <c>MSysACEs</c> rows, whole. A table need not carry only the pair
     /// <see cref="AddPermissionRows"/> writes: a workgroup-secured database grants to as many accounts as it

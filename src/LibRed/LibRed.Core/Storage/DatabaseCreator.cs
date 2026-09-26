@@ -230,7 +230,7 @@ public static class DatabaseCreator
     internal static readonly byte[] SidUsers = Masked(0x02, 0x01);   // Users group — read grantee / owner of user tables
     internal static readonly byte[] SidAdmin = Masked(0x03, 0x01);   // admin user  — full grantee
     private static readonly byte[] SidEngine = Masked(0x03, 0x03);   // Engine (user form) — owner of system tables + DAO containers
-    private static readonly byte[] SidCreator = Masked(0x03, 0x04);  // Creator (user form) — inheritable container grant
+    internal static readonly byte[] SidCreator = Masked(0x03, 0x04);  // Creator (user form) — inheritable container grant
 
     /// <summary>
     /// Creates a new, empty database at <paramref name="path"/> from scratch — no DAO/ADOX. Hand-builds the

@@ -268,7 +268,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         var order = new List<(Table Table, RowId Id, object?[] Values)>();
         var stack = new Stack<(Table Table, RowId Id, object?[] Values, bool ChildrenExpanded)>();
 
-        foreach (var (id, values) in roots)
+        // Pushed last first, so the roots come off the stack — and are deleted — in the order they were found, as
+        // ACE deletes them. The order shows in the file: a delete slides the rows below it up and leaves the old
+        // bytes in the space it frees, so deleting the same rows the other way round leaves different bytes.
+        foreach (var (id, values) in roots.Reverse())
             if (scheduled.Add((rootTable.Name, id)))
                 stack.Push((rootTable, id, values, false));
 

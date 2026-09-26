@@ -23,20 +23,6 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
     private const int AppendFlags = 0x10000040;         // an INSERT (append) query
     private const int MakeTableFlags = 0x10000050;
     private const int DataDefinitionFlags = 0x10000060; // a CREATE/DROP TABLE (data-definition) query
-    // The owner and the administrator grantee, read from the file being written: an on-disk SID is masked per
-    // file (page-00 §2.3), so a pair baked in here would name no account in any other file.
-
-    // MSysACEs permission rows a QUERY/VIEW object gets. ACE's own CREATE VIEW writes full access in both rows,
-    // as its CREATE TABLE does — measured row for row against it. (Northwind's views, made in the Access UI,
-    // carry 0xF00FE in the owner row instead: the UI grants a narrower set than the SQL path. Access reads
-    // either.) Without these rows at all, Access opens the file but warns about permissions on the query.
-    private const int QueryOwnerAcm = 0xFFEFF;  // 1048319
-    private const int QueryAdminAcm = 0xFFEFF;  // 1048319
-
-    // A relationship object's MSysACEs rows (verified vs ACE): owner 0xF00FE as a query's, admin 0xFFFFF.
-    private const int RelationshipOwnerAcm = 0xF00FE;  // 983294
-    private const int RelationshipAdminAcm = 0xFFFFF;  // 1048575
-
 
     private readonly PageChannel _channel = channel;
     private readonly JetCatalog _catalog = catalog;
@@ -70,20 +56,18 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
     /// another relationship has, as ACE does; a table or query may share it.
     /// </summary>
     public void CreateRelationshipObject(string name) =>
-        AllocateObject(name, CatalogFormat.ObjectTypeRelationship, CatalogFormat.RelationshipContainerParentId, flags: 0,
-            RelationshipOwnerAcm, RelationshipAdminAcm);
+        AllocateObject(name, CatalogFormat.ObjectTypeRelationship, CatalogFormat.RelationshipContainerParentId, flags: 0);
 
     private int AllocateQueryObject(string name, int flags)
     {
         JetName.Validate(name, "query name");
-        return AllocateObject(name, StoredQueryFormat.ObjectTypeQuery, CatalogFormat.ObjectContainerParentId, flags,
-            QueryOwnerAcm, QueryAdminAcm);
+        return AllocateObject(name, StoredQueryFormat.ObjectTypeQuery, CatalogFormat.ObjectContainerParentId, flags);
     }
 
     /// <summary>Reserves the next free high-bit object id, checks the name is free, and writes
-    /// the MSysObjects row and its two MSysACEs rows. For a query the <paramref name="flags"/> distinguish view /
-    /// append / data-definition.</summary>
-    private int AllocateObject(string name, short type, int parentId, int flags, int ownerAcm, int adminAcm)
+    /// the MSysObjects row and the MSysACEs rows its container grants it. For a query the <paramref name="flags"/>
+    /// distinguish view / append / data-definition.</summary>
+    private int AllocateObject(string name, short type, int parentId, int flags)
     {
         TableDef msysObjects = _catalog.RequireTable("MSysObjects");
         int idIndex = msysObjects.RequireColumn("Id").Index;
@@ -107,7 +91,7 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
 
         var writer = new CatalogWriter(_channel, _catalog);
         writer.AddObjectRow(name, nextId, type, parentId, flags);
-        writer.AddPermissionRows(nextId, ownerAcm, adminAcm);
+        writer.AddPermissionRows(nextId, parentId);
         return nextId;
     }
 

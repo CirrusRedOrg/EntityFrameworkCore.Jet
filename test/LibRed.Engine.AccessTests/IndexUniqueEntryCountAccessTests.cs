@@ -142,6 +142,50 @@ public class IndexUniqueEntryCountAccessTests(ITestOutputHelper output)
         }
     }
 
+    // An UPDATE that changes a row's key drops the index's total by one and then holds the unique count to no more
+    // than the total — whether the old key had another holder does not matter, and the new key advances nothing.
+    // Visible only on an index built over rows: one built empty has a zero total, which is left alone.
+    [Theory]
+    [InlineData("UPDATE S SET A = 9 WHERE Id = 6")]         // the last row holding A = 8
+    [InlineData("UPDATE S SET A = 9 WHERE Id = 3")]         // A = 6 is held by row 4 too
+    [InlineData("UPDATE S SET T = 'D' WHERE Id = 6")]       // a collation-equal key: 'd' and 'D' are one
+    [InlineData("UPDATE S SET N = NULL WHERE Id = 3")]      // leaves the IGNORE NULL index
+    [InlineData("UPDATE S SET N = 5 WHERE Id = 6")]         // enters it from Null
+    [InlineData("UPDATE S SET A = A + 10")]
+    public void An_update_counts_the_old_key_out_as_a_delete_does(string sql)
+    {
+        string northwind = Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb");
+        string start = TemporaryDatabase.CopyPath(northwind, "uniqcount-upd-start-");
+        string ace = "", libred = "";
+        try
+        {
+            foreach (string statement in (string[])
+            [
+                "CREATE TABLE S (Id LONG CONSTRAINT pkS PRIMARY KEY, A LONG, T TEXT(10), N LONG)",
+                "INSERT INTO S VALUES (1, 5, 'a', NULL)", "INSERT INTO S VALUES (2, 5, 'A', NULL)",
+                "INSERT INTO S VALUES (3, 6, 'b', 1)", "INSERT INTO S VALUES (4, 6, 'b', 1)",
+                "INSERT INTO S VALUES (5, 7, 'c', 2)", "INSERT INTO S VALUES (6, 8, 'd', NULL)",
+                "CREATE INDEX ixA ON S (A)", "CREATE INDEX ixT ON S (T)",
+                "CREATE INDEX ixNi ON S (N) WITH IGNORE NULL", "CREATE INDEX ixAN ON S (A, N)",
+            ])
+                Ace(start, statement);
+
+            ace = TemporaryDatabase.CopyPath(start, "uniqcount-upd-ace-");
+            libred = TemporaryDatabase.CopyPath(start, "uniqcount-upd-lib-");
+            Ace(ace, sql);
+            LibRed(libred, sql);
+            string before = Statistics(start), aceStats = Statistics(ace), libredStats = Statistics(libred);
+            output.WriteLine($"{sql}\n  before {before}\n  ACE    {aceStats}\n  LibRed {libredStats}");
+            Assert.Equal(aceStats, libredStats);
+        }
+        finally
+        {
+            TemporaryDatabase.Delete(start);
+            if (ace.Length > 0) TemporaryDatabase.Delete(ace);
+            if (libred.Length > 0) TemporaryDatabase.Delete(libred);
+        }
+    }
+
     // A retype to or from Memo/OLE, which LibRed does by rebuilding the whole table, leaves the counts as ACE's ALTER
     // does: only an index over the changed column is rebuilt (a primary key included), every other index here keeps
     // its cumulative counts, and so does the foreign-key index of a table referencing this one.

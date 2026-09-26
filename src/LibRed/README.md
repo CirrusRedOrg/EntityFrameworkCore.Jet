@@ -265,7 +265,6 @@ Format-level detail on each on-disk gap lives in `docs/format/`.
   rebuilt. The gap is the write-back, not the grammar: all of these parse and execute as plain statements.
 - **Function surface** — the evaluator's whitelist isn't proven identical to ACE's JES, and `Format`'s named
   date/currency formats are locale-dependent by design (not byte-identical cross-locale).
-- **Non-unique index statistics** — only unique indexes advance the live unique-entry count (`+4`) today.
 - **Single-writer concurrency** — LibRed is a **single-writer engine that merely tolerates extra open
   handles**, not a concurrent multi-user one. `PageChannel.Open` opens the file `FileShare.ReadWrite`
   (a Jet/ACE file is a shared-file database — Access/ODBC/OLE DB all open it with multiple handles, and

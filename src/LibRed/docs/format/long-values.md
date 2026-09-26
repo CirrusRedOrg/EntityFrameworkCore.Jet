@@ -222,12 +222,16 @@ the long values:
 > by column id) and the inline bitmap bit is set. **Pages are packed like Access:** a value up to one row
 > is appended to the first **free-map** page with room (many small values share a page as separate rows);
 > only when none has room is a fresh page allocated (owned + free). A page is dropped from the free map
-> once it can't hold the smallest long value (65-byte payload + its 2-byte slot). This reproduces Access's
+> once it can't hold a **256-byte** value and its 2-byte slot — **257 bytes free or fewer** (verified vs ACE,
+> memo and OLE alike: 257 free leaves the map, 258 stays) — not once it can't hold the smallest long value; a
+> page is also kept when a value too large for it goes elsewhere. This reproduces Access's
 > layout — a column **owns** every page it has filled but **frees** only the current append target, so
-> medium memos share a few pages (full ones owned-only, the current one owned+free), not one each. The same
-> packing is used for the MSysObjects **LvProp** property blob (via `RowInserter.StorePackedLongValue`) —
-> but always to a page, never inline (Access reads object properties only from a page), so two tables'
-> DEFAULT/CHECK blobs share one LvProp page. A chained value uses dedicated pages. A page outside the inline
+> medium memos share a few pages (full ones owned-only, the current one owned+free), not one each. The
+> MSysObjects **LvProp** property blob follows the same rules as any long value (via
+> `RowInserter.StorePackedLongValue`) — **inline up to 64 bytes**, packed onto a page above that, so two
+> tables' larger DEFAULT/CHECK blobs share one LvProp page. Verified against ACE: a table's blob of 51–63
+> bytes (a single `Required` or `DefaultValue`) is inline in its MSysObjects row, and one of 65 bytes or more
+> is on a page. A chained value uses dedicated pages. A page outside the inline
 > map's window is handled by the shared `UsageMapWriter.SetBit`, which grows the inline record in place and
 converts it to a reference map when it no longer fits — a long-value column's maps are not a special case,
 and `MapPages` reads either form back.

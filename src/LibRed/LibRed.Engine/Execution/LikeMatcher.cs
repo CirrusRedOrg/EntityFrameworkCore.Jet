@@ -20,9 +20,17 @@ namespace LibRed.Engine.Execution;
 /// <c>[]</c> matches nothing at all, so <c>[]]</c> is a plain <c>]</c> and <c>[[]]</c> the text <c>[]</c>. The
 /// Access documentation gives <c>^</c> as the ANSI-92 negation, but ACE does not treat it so: <c>[^ae]</c> lists
 /// <c>^</c>, <c>a</c> and <c>e</c>, and <c>!</c> negates as it does in ANSI-89.</item>
-/// <item>Case is ignored and accents are not. <c>ß</c> counts as <c>ss</c> and <c>æ</c> as <c>ae</c>, in the pattern,
-/// in a bracket list and in the value, so <c>'aßb' LIKE 'a[s]sb'</c> is True; <c>_</c> still takes the whole
-/// character.</item>
+/// <item>Case is ignored and accents are not, by ACE's own table rather than any runtime's casing: it folds 973
+/// case pairs and leaves out what a runtime would add — the micro sign, long s, final sigma, the Greek symbol
+/// variants, the titlecase digraphs and every letter Unicode added later. Four letters are spelt out: <c>ß</c> as
+/// <c>ss</c>, <c>æ</c> as <c>ae</c>, <c>œ</c> as <c>oe</c> and <c>þ</c> as <c>th</c>, capitals likewise — in the
+/// pattern, in a bracket list and in the value, so <c>'aßb' LIKE 'a[s]sb'</c> is True; <c>_</c> still takes the whole
+/// character. The table is measured (LikeFoldTableGeneratorTest) and embedded, so LIKE answers the same on every
+/// platform.</item>
+/// <item>None of it depends on the database's collation: the same pairs match in every one of the 405 orders LibRed
+/// can create, Turkish included (verified vs ACE). Width, kana, superscripts, hyphens and apostrophes, which the
+/// collation folds or ignores, all count here, and so do trailing spaces: <c>'a ' LIKE 'a'</c> is False where
+/// <c>'a ' = 'a'</c> is True.</item>
 /// <item>A bracket that is never closed, or a range written backwards, is an invalid pattern. It is only reported
 /// when the match reaches it with a character left to test: <c>'' LIKE '['</c> and <c>'z' LIKE 'x[z-a]'</c> are
 /// both False.</item>
@@ -35,14 +43,55 @@ namespace LibRed.Engine.Execution;
 /// </remarks>
 internal static class LikeMatcher
 {
-    /// <summary>The two characters a character counts as (ß as ss, æ and Æ as ae), or null for itself.</summary>
-    private static string? Expansion(char c) => c switch
+    /// <summary>What each character folds to, and the characters spelt out as several — ACE's own table.</summary>
+    private static readonly (char[] Fold, string?[] Expansions) Table = LoadTable();
+
+    /// <remarks>Laid out as the sort-key tables are: the two counts, then each section deflated on its own — the
+    /// case pairs as (character, what it folds to), the expansions as (character, letter count, letters). Both are
+    /// held as arrays indexed by character — the expansions only as far as the highest one — because every
+    /// character of every value tested is looked up in each.</remarks>
+    private static (char[] Fold, string?[] Expansions) LoadTable()
     {
-        'ß' => "ss",
-        'æ' => "ae",
-        'Æ' => "AE",
-        _ => null,
-    };
+        var fold = new char[char.MaxValue + 1];
+        for (int c = 0; c <= char.MaxValue; c++) fold[c] = (char)c;
+        var spelt = new Dictionary<char, string>();
+
+        using Stream stream = typeof(LikeMatcher).Assembly.GetManifestResourceStream("LibRed.Engine.Resources.LikeFold.bin")
+            ?? throw new InvalidOperationException("The LIKE fold table resource is missing from the assembly.");
+        var reader = new BinaryReader(stream);
+        int caseCount = reader.ReadInt32(), expansionCount = reader.ReadInt32();
+        var cases = new BinaryReader(new MemoryStream(Inflate(reader)));
+        var expansionStream = new BinaryReader(new MemoryStream(Inflate(reader)));
+
+        for (int i = 0; i < caseCount; i++)
+            fold[cases.ReadUInt16()] = (char)cases.ReadUInt16();
+        for (int i = 0; i < expansionCount; i++)
+        {
+            char c = (char)expansionStream.ReadUInt16();
+            var letters = new char[expansionStream.ReadByte()];
+            for (int k = 0; k < letters.Length; k++) letters[k] = (char)expansionStream.ReadUInt16();
+            spelt[c] = new string(letters);
+        }
+
+        var expansions = new string?[spelt.Count == 0 ? 0 : spelt.Keys.Max() + 1];
+        foreach ((char c, string letters) in spelt) expansions[c] = letters;
+        return (fold, expansions);
+
+        static byte[] Inflate(BinaryReader reader)
+        {
+            byte[] compressed = reader.ReadBytes(reader.ReadInt32());
+            var output = new MemoryStream();
+            using (var inflate = new System.IO.Compression.ZLibStream(new MemoryStream(compressed), System.IO.Compression.CompressionMode.Decompress))
+                inflate.CopyTo(output);
+            return output.ToArray();
+        }
+    }
+
+    /// <summary>The letters a character is spelt out as, already folded (ß as SS), or null for itself.</summary>
+    private static string? Expansion(char c) => c < Table.Expansions.Length ? Table.Expansions[c] : null;
+
+    /// <summary>A character folded by ACE's case table.</summary>
+    private static char FoldChar(char c) => Table.Fold[c];
 
     public static bool IsMatch(string value, string pattern)
     {
@@ -128,19 +177,35 @@ internal static class LikeMatcher
     private static bool Invalid(int first, string text) =>
         first < text.Length ? throw new ArgumentException("Invalid pattern string.") : false;
 
-    /// <summary>Text as the match compares it: expansions spelt out, then upper case. Upper-casing keeps the length,
-    /// so positions in the folded text line up with one another.</summary>
+    /// <summary>Text as the match compares it: expansions spelt out, every character folded. Folding keeps the
+    /// length, so positions in the folded text line up with one another.</summary>
     private static string Fold(string text)
     {
+        // Almost no text holds a character that is spelt out, and without one the folded text is the same length:
+        // written straight into the result, a table read per character.
+        bool spelt = false;
+        foreach (char c in text)
+        {
+            if (Expansion(c) is not null) { spelt = true; break; }
+        }
+        if (!spelt)
+        {
+            return string.Create(text.Length, text, static (span, source) =>
+            {
+                char[] fold = Table.Fold;
+                for (int i = 0; i < span.Length; i++) span[i] = fold[source[i]];
+            });
+        }
+
         var folded = new System.Text.StringBuilder(text.Length);
         foreach (char c in text)
         {
             if (Expansion(c) is { } expansion)
                 folded.Append(expansion);
             else
-                folded.Append(c);
+                folded.Append(FoldChar(c));
         }
-        return folded.ToString().ToUpperInvariant();
+        return folded.ToString();
     }
 
     private sealed class BracketList(bool negated, List<string> members, List<(char Low, char High)> ranges)
@@ -160,7 +225,7 @@ internal static class LikeMatcher
                 {
                     if (body[i] > body[i + 2])
                         return null;
-                    ranges.Add((char.ToUpperInvariant(body[i]), char.ToUpperInvariant(body[i + 2])));
+                    ranges.Add((FoldChar(body[i]), FoldChar(body[i + 2])));
                     i += 2;
                 }
                 else

@@ -111,6 +111,35 @@ public class JetTypeCodecBoundaryTests
         Assert.Equal("Å", JetTypeCodec.DecodeText(Encoding.Unicode.GetBytes("Å")));
     }
 
+    // Plain UTF-16 is copied rather than decoded when that cannot differ from the decoder, and compressed text
+    // with no switch byte is read as one Latin-1 run. Both must give exactly what the general paths give.
+    [Theory]
+    [InlineData("")]
+    [InlineData("plain ascii")]
+    [InlineData("café ñ ü")]
+    [InlineData("中文 text")]
+    [InlineData("pair \U0001F600 kept")]
+    public void Utf16_text_decodes_as_the_encoder_does(string text)
+    {
+        byte[] bytes = Encoding.Unicode.GetBytes(text);
+        Assert.Equal(Encoding.Unicode.GetString(bytes), JetTypeCodec.DecodeText(bytes));
+    }
+
+    [Theory]
+    [InlineData(new byte[] { 0x41, 0x00, 0x00, 0xD8 })]              // a lone high surrogate
+    [InlineData(new byte[] { 0x41, 0x00, 0x00, 0xDC, 0x42, 0x00 })]  // a lone low surrogate
+    [InlineData(new byte[] { 0x41, 0x00, 0x42 })]                    // an odd trailing byte
+    public void Malformed_utf16_is_still_handled_as_the_encoder_handles_it(byte[] bytes)
+        => Assert.Equal(Encoding.Unicode.GetString(bytes), JetTypeCodec.DecodeText(bytes));
+
+    [Theory]
+    [InlineData(new byte[] { 0xFF, 0xFE, 0x63, 0x61, 0x66, 0xE9 }, "café")]
+    [InlineData(new byte[] { 0xFF, 0xFE, 0x80, 0x9F, 0xFF }, "\u0080\u009Fÿ")]
+    [InlineData(new byte[] { 0xFF, 0xFE, 0x63, 0x61, 0x66, 0xE9, 0x00, 0x2D, 0x4E }, "café中")]
+    [InlineData(new byte[] { 0xFF, 0xFE, 0x61, 0x00, 0x2D, 0x4E, 0x00, 0x62 }, "a中b")]
+    public void Compressed_text_decodes_in_both_modes(byte[] bytes, string expected)
+        => Assert.Equal(expected, JetTypeCodec.DecodeText(bytes));
+
     // Padding short values is right — ACE stores fixed text space-padded to the full width. Over-long is NOT
     // truncation: this asserted that it was, which is where the bug lived. ACE refuses an over-long value on a
     // fixed column exactly as it does on a variable one (measured in FixedWidthOverflowAccessTests), so the

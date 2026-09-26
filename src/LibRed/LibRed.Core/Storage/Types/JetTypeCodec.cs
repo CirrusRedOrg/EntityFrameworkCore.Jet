@@ -66,7 +66,7 @@ public static class JetTypeCodec
             case JetDataType.DateTimeExtended: // ACE 17 DATETIME2
                 return DecodeExtendedDateTime(value);
             case JetDataType.Currency:
-                return BinaryPrimitives.ReadInt64LittleEndian(value) / 10000m;
+                return CurrencyFromScaled(BinaryPrimitives.ReadInt64LittleEndian(value));
             case JetDataType.Guid:
                 return new Guid(value[..16]);
             case JetDataType.Text:
@@ -196,22 +196,74 @@ public static class JetTypeCodec
     public static string DecodeText(ReadOnlySpan<byte> value)
     {
         if (value.Length < 2 || value[0] != 0xFF || value[1] != 0xFE)
-            return Encoding.Unicode.GetString(value);
+            return DecodeUtf16(value);
 
-        var text = new StringBuilder(value.Length - 2);
+        // With no switch byte the whole value stays in 1-byte mode, where each byte is the character of the
+        // same number — which is Latin-1 exactly. It is the common case by far, and one vectorised call.
+        ReadOnlySpan<byte> body = value[2..];
+        if (!body.Contains((byte)0x00))
+            return Encoding.Latin1.GetString(body);
+
+        // Every character takes at least one byte, so the body's length bounds the decoded length.
+        char[]? rented = null;
+        Span<char> chars = body.Length <= 256
+            ? stackalloc char[256]
+            : (rented = System.Buffers.ArrayPool<char>.Shared.Rent(body.Length));
+        int count = 0;
         bool oneByte = true;
-        for (int i = 2; i < value.Length;)
+        for (int i = 0; i < body.Length;)
         {
-            if (value[i] == 0x00) { oneByte = !oneByte; i++; continue; }
-            if (oneByte) { text.Append((char)value[i]); i++; }
+            if (body[i] == 0x00) { oneByte = !oneByte; i++; continue; }
+            if (oneByte) { chars[count++] = (char)body[i]; i++; }
             else
             {
-                if (i + 1 >= value.Length) break;   // a truncated trailing pair: take what is whole
-                text.Append((char)(value[i] | (value[i + 1] << 8)));
+                if (i + 1 >= body.Length) break;   // a truncated trailing pair: take what is whole
+                chars[count++] = (char)(body[i] | (body[i + 1] << 8));
                 i += 2;
             }
         }
-        return text.ToString();
+
+        string text = new(chars[..count]);
+        if (rented is not null)
+            System.Buffers.ArrayPool<char>.Shared.Return(rented);
+        return text;
+    }
+
+    /// <summary>A CURRENCY's stored int64 (the value × 10,000) as the decimal <c>raw / 10000m</c> gives — the same
+    /// value <b>and</b> the same scale, which shows in its text.</summary>
+    /// <remarks>Decimal division returns the smallest scale that holds the quotient exactly, so it amounts to
+    /// dropping the four places' trailing zeros. Doing that on the integer skips a full decimal divide per value,
+    /// which was a scan's single largest cost after text. <c>CurrencyDecodeTests</c> holds the two equal, bits
+    /// and all.</remarks>
+    internal static decimal CurrencyFromScaled(long raw)
+    {
+        byte scale = 4;
+        while (scale > 0 && raw % 10 == 0)
+        {
+            raw /= 10;
+            scale--;
+        }
+
+        // |long.MinValue| does not fit a long, so the magnitude is taken in unsigned arithmetic.
+        ulong magnitude = raw < 0 ? (ulong)(-(raw + 1)) + 1 : (ulong)raw;
+        return new decimal((int)(uint)magnitude, (int)(uint)(magnitude >> 32), 0, raw < 0, scale);
+    }
+
+    /// <summary>Plain UTF-16LE text, as <see cref="Encoding.Unicode"/> decodes it.</summary>
+    /// <remarks>Without a surrogate code unit, and at an even length, UTF-16LE bytes ARE the string's chars, so
+    /// they are copied rather than decoded — the decoder's validation pass, counting and then converting, was
+    /// most of a text column's cost. Anything it could treat differently (a lone surrogate it replaces, an odd
+    /// trailing byte) still goes through it.</remarks>
+    private static string DecodeUtf16(ReadOnlySpan<byte> value)
+    {
+        if (BitConverter.IsLittleEndian && (value.Length & 1) == 0)
+        {
+            ReadOnlySpan<char> chars = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, char>(value);
+            if (!chars.ContainsAnyInRange('\uD800', '\uDFFF'))
+                return new string(chars);
+        }
+
+        return Encoding.Unicode.GetString(value);
     }
 
     /// <summary>

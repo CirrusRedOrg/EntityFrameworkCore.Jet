@@ -1,6 +1,7 @@
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.Storage.Types;
+using System.Buffers.Binary;
 
 namespace LibRed.Storage;
 
@@ -30,26 +31,47 @@ namespace LibRed.Storage;
 /// </remarks>
 public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase format, LongValueReader? longValues = null)
 {
-    private readonly IReadOnlyList<ColumnDef> _columns = columns;
     private readonly JetFormatBase _format = format;
     private readonly LongValueReader? _longValues = longValues;
+
+    // Decode runs once per row, so it walks an array rather than enumerating the interface (a boxed
+    // enumerator per row), and answers RowLayout.HasVariableSection from the lowest variable column id
+    // instead of re-scanning the columns: a row has a variable section exactly when its stored count
+    // reaches past that id.
+    private readonly ColumnDef[] _columnArray = [.. columns];
+    private readonly int _lowestVariableId = LowestVariableId(columns);
+
+    private static readonly object BoxedTrue = true;
+    private static readonly object BoxedFalse = false;
+
+    private static int LowestVariableId(IReadOnlyList<ColumnDef> columns)
+    {
+        int lowest = int.MaxValue;
+        foreach (ColumnDef column in columns)
+            if (!column.IsFixedLength && column.ColumnId < lowest)
+                lowest = column.ColumnId;
+        return lowest;
+    }
 
     /// <summary>Decodes the row into one value per column (aligned to <see cref="ColumnDef.Index"/>).</summary>
     public object?[] Decode(ReadOnlySpan<byte> row)
     {
-        var values = new object?[_columns.Count];
+        var values = new object?[_columnArray.Length];
 
         // The null-bitmap width comes from the row's own leading count (= max id + 1), NOT the live column
         // count — they differ once ids have a gap (a burned type-change id / DROP COLUMN gap). Reading the
         // stored count is exactly how ACE sizes it, and is robust to any id scheme (spec §5). A real inline
         // row is at least: column count + an empty var table (1 entry) + var count + null bitmap; anything
         // shorter is an overflow/lookup pointer slot the caller should have skipped.
-        RowLayout layout = ParseLayout(row);
+        if (row.Length < _format.RowColumnCountSize)
+            throw new InvalidDataException("Row is too short to be an inline record.");
+        bool hasVar = _lowestVariableId < BinaryPrimitives.ReadUInt16LittleEndian(row);
+        RowLayout layout = RowLayout.Parse(row, _format.RowColumnCountSize, hasVar);
         int nullBitmapSize = layout.NullBitmapSize;
 
         ReadOnlySpan<byte> nullBitmap = row[^nullBitmapSize..];
 
-        foreach (ColumnDef column in _columns)
+        foreach (ColumnDef column in _columnArray)
         {
             bool present = IsPresent(nullBitmap, layout.ColumnCount, column.ColumnId);
 
@@ -61,7 +83,7 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
             // for a stored False too. Reading the bit here would report True for every row.
             if (column.Type == JetDataType.Boolean && !column.IsCalculated)
             {
-                values[column.Index] = present;
+                values[column.Index] = present ? BoxedTrue : BoxedFalse;
                 continue;
             }
 
@@ -178,8 +200,6 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
             $"Column '{column.Name}' stores its value on long-value pages, so decoding it needs a "
             + $"{nameof(LongValueReader)}; this {nameof(RowDecoder)} was constructed without one. "
             + $"Use {nameof(LongValueDescriptors)} to read the stored descriptors instead.");
-
-    private RowLayout ParseLayout(ReadOnlySpan<byte> row) => ParseLayout(_columns, _format, row);
 
     internal static RowLayout ParseLayout(IReadOnlyList<ColumnDef> columns, JetFormatBase format, ReadOnlySpan<byte> row)
     {

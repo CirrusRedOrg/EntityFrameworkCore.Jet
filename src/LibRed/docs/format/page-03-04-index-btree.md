@@ -13,8 +13,8 @@
 | `0x02` | 2 | Free space |
 | `0x04` | 4 | Owning table TDEF page |
 | `0x08` | 4 | **The 4-byte field Jet4 inserted** right after the owner — purpose unknown, **`0` observed** on every ACE- and LibRed-written index page. Inserting it here is what pushes prev/next/tail/compress down by 4 vs Jet3 (see the Jet3→Jet4 note under `0x1B`). |
-| `0x0C` | 4 | **Previous leaf page** (`0` on the first/leftmost leaf), little-endian. **Verified against ACE:** on an ACE-built split index the higher-key leaf's `0x0C` points back at the lower-key leaf. |
-| `0x10` | 4 | **Next leaf page** (`0` on the last/rightmost leaf), little-endian. **Verified against ACE — and load-bearing:** Access's full-table `COUNT(*)`/scan descends to the leftmost leaf and walks this forward chain. If it is wrong (e.g. `next` written at `0x0C`), Access stops after the first leaf and **silently sees only those rows** — a data-loss/corruption hazard, since it then treats the rest of the table's space as free. LibRed maintains `0x0C`/`0x10` across splits (§10.5). (This is **Jet3's `0x0C` next-pointer shifted +4**; the child-tail that mdbtools lists at `0x10` is the *Jet3* tail position — in Jet4 it too shifted to `0x14`.) |
+| `0x0C` | 4 | **Previous leaf page** (`0` on the first/leftmost leaf), little-endian. **Verified against ACE:** on an ACE-built split index the higher-key leaf's `0x0C` points back at the lower-key leaf. A node that has split carries the same link to its left sibling at the same level (§10.5); the root never has one. |
+| `0x10` | 4 | **Next leaf page** (`0` on the last/rightmost leaf), little-endian; on a split node, its right sibling. **Verified against ACE — and load-bearing:** Access's full-table `COUNT(*)`/scan descends to the leftmost leaf and walks this forward chain. If it is wrong (e.g. `next` written at `0x0C`), Access stops after the first leaf and **silently sees only those rows** — a data-loss/corruption hazard, since it then treats the rest of the table's space as free. LibRed maintains `0x0C`/`0x10` across splits (§10.5). (This is **Jet3's `0x0C` next-pointer shifted +4**; the child-tail that mdbtools lists at `0x10` is the *Jet3* tail position — in Jet4 it too shifted to `0x14`.) |
 | `0x14` | 4 | **Child-tail** page (node pages: the rightmost child, referenced by no entry). **Verified** for Jet4/ACE: the tail pointer read here drives correct multi-level traversal. This is **Jet3's `0x10` tail shifted +4** by the `0x08` insertion, which is exactly why mdbtools (Jet3) documents the tail at `0x10`. |
 | `0x18` | 2 | Compressed-byte count (shared key prefix length, §10.3). Jet3's `0x14`, shifted +4. |
 | `0x1A` | 1 | The **1-byte field Jet4 inserted** just before the bitmask. ACE writes `0` on leaves and `1` on the root of a two-level split index, consistent with a **B-tree level/height** — but **only `0` and `1` have been observed** (no 3-level tree was built against ACE, so `2`+ is a guess). **Required only for leaves (verified):** writing `0x01` on a *leaf* makes ACE fail to open the whole database (`"could not find the object 'Databases'"`). **Node value is cosmetic (verified):** with correct leaf-chain offsets, nodes written with `0x1A=0` *and* prefix-compressed still give ACE the right `COUNT`/`SUM`, so Access reads a node's tail child regardless; leaf vs node is told by the page-type byte at `0x00`. LibRed still writes the height to match ACE byte-for-byte, but the only hard requirements are the leaf-chain offsets and a *leaf's* `0x1A=0`. |
@@ -94,11 +94,13 @@ omits. Reconstruct: `fullEntry = prefix ++ stored`.
 
 > **Compression is optional on leaves.** A `compressedByteCount` of 0 (every entry stored in full)
 > is a valid *leaf* that Access reads without complaint — verified by rewriting a leaf uncompressed
-> and re-seeking it. **On node (`0x03`) pages, ACE writes them uncompressed (`0x18 = 0`)**, and
-> LibRed matches that. *Verified cosmetic:* compressing a node does **not** break Access — with correct
-> leaf-chain offsets, nodes compressed and `0x1A=0` still give the right `COUNT`/`SUM`. A broken tail descent
-> points at the leaf-chain offsets (§10.1), not at node compression. LibRed writes nodes uncompressed only to
-> stay byte-faithful with ACE, not because it's required.
+> and re-seeking it. **Node (`0x03`) pages follow the same cycle as leaves** (below): a node is written
+> uncompressed until it fills, compressed in place when it does, and split when that is not enough, both halves
+> then written at the largest prefix they share. So the node of a small two-level tree reads `0x18 = 0` — it has
+> never filled — while the halves of a split node carry a prefix (verified: 16 separators at prefix 0 with 176
+> bytes free, then a 17th splits it into two nodes of 8 at prefix 1). Compression is not load-bearing on a node
+> either: with correct leaf-chain offsets, nodes compressed and `0x1A=0` still give Access the right
+> `COUNT`/`SUM`, and a broken tail descent points at the leaf-chain offsets (§10.1), not at node compression.
 >
 > **A leaf with ≤ 1 entry writes `0x18 = 0`.** Prefix compression describes a prefix *shared across
 > entries*, so with zero or one entry there is nothing to share — ACE writes `compressedByteCount = 0`,
@@ -135,7 +137,8 @@ omits. Reconstruct: `fullEntry = prefix ++ stored`.
 >
 > **Building an index follows the same rule** (verified): `CREATE INDEX` over a table's rows writes each leaf
 > at the prefix its filling reached, so an index whose entries all fit one page uncompressed is written
-> uncompressed — eleven text keys sharing ten bytes land at prefix `0` — however much they share.
+> uncompressed — eleven text keys sharing ten bytes land at prefix `0` — however much they share. The whole
+> tree it writes is the one sequential inserts leave (§10.5).
 
 ### 10.4 Key encoding (order-preserving)
 
@@ -990,24 +993,50 @@ scan Access uses.
 
 The split mechanics:
 
-- **Leaf split:** partition the sorted entries in half; the lower half stays on the original page,
-  the upper half goes to a newly allocated page. **The half is taken over the entries the page held
-  *before* the insert, and the new entry then joins whichever side its key falls in** — so the cut sits at
-  `mid = preInsertCount / 2`, and the original page keeps `mid + 1` entries for a key landing below `mid`
-  but `mid` for one landing on or above it. (Halving the post-insert list instead always hands the odd entry
-  to the right page, which is the same cut only for a key in the upper half.) Measured against ACE on a
-  602-entry leaf split by one further key: ACE keeps **302** entries for a new key at position 1 or 50 and
-  **301** at position 301, 302 or 400 — so the midpoint itself goes right. The doubly-linked leaf chain is maintained — the
+- **Compress, then split.** A page the new entry does not fit is first rewritten **in place** with its old
+  entries at the largest prefix they share (§10.3), and only when that still leaves no room is it split — over
+  that compressed image. Nothing reads the image once the split is written, but it is what stands past each
+  half's live end (see *Dead bytes* below). Verified on leaves and nodes.
+- **Leaf split:** partition the sorted entries in two; the lower part stays on the original page,
+  the upper part goes to a newly allocated page. **The cut is taken over the entries the page held *before*
+  the insert — every old entry that *starts* before the byte midpoint of the compressed old page stays left,
+  so the entry straddling the midpoint does too — and the new entry then joins whichever side its key falls
+  in**: left when its position is below the number of old entries kept, right otherwise. With equal-length
+  entries that is the old entries halved, the odd one left. Measured against ACE:
+
+  | leaf | new key at | ACE keeps left |
+  | --- | --- | --- |
+  | 17 equal entries (root or not) | position 1–8 | 10 |
+  | 17 equal entries | position 9–16 | 9 |
+  | 602 equal entries | position 1 or 50 | 302 |
+  | 602 equal entries | position 301, 302 or 400 | 301 |
+  | 91 entries of 38–40 bytes | position 52 | **45** — a count would keep 46 |
+
+  **A new *first* entry is the exception**: then the entries *including* it are halved by count, rounding up
+  — 9 of 18 (keys of 207 and 211 bytes alike) and 302 of 603. Whether the parent node splits in the same
+  insert makes no difference. The doubly-linked leaf chain is maintained — the
   new right page's *prev* (`0x0C`) points at the left, its *next* (`0x10`) inherits the left's old
   next, the left's *next* becomes the right, and the old next leaf's *prev* is repointed to the
   right. **Getting these offsets right is essential** — Access's scan walks the `0x10` next-chain
   from the leftmost leaf, so a mis-placed pointer makes it lose every row past the first leaf. The
   promoted separator is the **left half's maximum full key**, which stays in the leaf (a copy is
-  promoted, B+tree-style). Leaves are prefix-compressed; LibRed also writes node pages uncompressed
-  with `0x1A` set to their height above the leaves to match ACE byte-for-byte, though (unlike the
-  leaf-chain offsets) neither is *verified* to be required — see §10.1 `0x1A` and §10.3.
+  promoted, B+tree-style). **The left half keeps the prefix the page was stored at** (after the
+  compress step) and the right half is written at the largest prefix its entries share — except that when
+  the new entry became the left half's first, the left half is written **whole, at prefix 0**, though its
+  entries still share bytes. This is specific to a split: a new first entry that fits keeps the page's prefix
+  (verified: a 410-entry leaf at prefix 3 takes a key below all of them and stays at 3).
 - **Node split:** partition on a **middle entry** whose key is *promoted* (removed from the node);
-  its child becomes the left node's child-tail, and the old tail stays the right node's tail.
+  its child becomes the left node's child-tail, and the old tail stays the right node's tail. A node
+  fills, compresses in place and splits exactly as a leaf does (§10.3), and both halves are written at the
+  largest prefix they share. Nodes carry **sibling links** too: the halves point at each other through
+  `0x0C`/`0x10` and the old right neighbour's `0x0C` is repointed, as on a leaf (verified on a node split
+  under a root). Before promoting it, the child that split is repointed to its new right half, and that
+  repointed node is what the compress step writes. **A node has a right-edge split too:** when the new
+  separator is the node's last entry — the child that split was its tail, as on every split of an ascending
+  load — the left node keeps every old entry but the last, that one is promoted (its child becoming the left
+  node's tail), and the new separator starts the right node alone. Verified: a node of 16 separators taking a
+  17th is cut 15, promote 1, 1. A node carries `0x1A` set to its height above the leaves,
+  as ACE writes it, though (unlike the leaf-chain offsets) that is not *verified* to be required — see §10.1.
 - **Right-edge split.** When the incoming key is the highest on the page, both engines leave that page full
   and start a new one holding the new entry alone, instead of halving it: nothing sorts below a maximum key,
   so a middle split there strands half a page for ever. A writer that always splits down the middle spends
@@ -1029,21 +1058,31 @@ The split mechanics:
   ascending backfill keeps meeting the right edge of a subtree. A *random* backfill into pre-packed pages is
   unmeasured.
 
-> **Open — the compressed length of a page whose FIRST entry is new.** A key that sorts below everything on
-> the page splits it at the same point as any other low key (verified: both engines keep 302 of 603), but ACE
-> then writes the left page with `compressedByteCount = 0` where the page had been stored at `3` and the
-> entries still share 3 bytes. Every other measured position keeps the `3`. Whether the trigger is "the new
-> entry became the page's first" or "a split writes its left page uncompressed unless the first entry is
-> unchanged" is **not** established — the two fit the measurements equally. Until it is, LibRed recomputes
-> the prefix and keeps compressing, which costs a byte difference only in this one case. The right page is
-> unaffected (its live bytes match exactly).
 - **Propagation:** the promoted separator `[key → left page]` is inserted into the parent, whose
   pointer to the just-split page is repointed to the new right page; if the parent overflows it
   splits in turn, up to the root.
-- **Root growth:** when the root itself splits, a new root node is allocated holding one entry
-  `[promoted → old root]` with the new page as its child-tail, and the index-data block's root
-  pointer (§3.5 `0x26`) is repointed to it. (The single-leaf → two-leaves case hits this on the
-  first overflow, changing the root page's type from leaf `0x04` to node `0x03`.)
+- **Root growth — the root never moves.** When the root itself splits, **both** halves go to newly allocated
+  pages, the left one allocated first, and the root page is rewritten in place as a node holding one entry
+  `[promoted → left]` with the right page as its child-tail. The index-data block's root pointer (§3.5
+  `0x26`) is therefore unchanged by any split — a leaf root turns node on its first overflow, keeping its page
+  number. Verified for a leaf root and for a node root.
+- **Dead bytes.** A split leaves bytes past each half's live end, and ACE's are reproducible:
+  - a page rewritten in place (the left half of an ordinary split, a root turned node) keeps what the
+    compressed image held there;
+  - the left half of a **root** split is a new page, but it too holds the root's compressed image past its
+    live end, as if the root had been copied there and cut;
+  - the right half is a new page's zeros — except when the new entry became the left half's first, when it
+    too holds the split page's image;
+  - a **node's** left half additionally holds the promoted middle entry just past its live end, stored at the
+    page's prefix: ACE writes it into the page and then ends the page before it.
+
+  Each verified byte for byte on a leaf root split (new key high and new key first), a node root split, and a
+  split of a non-root leaf by a new first key.
+- **`CREATE INDEX` over existing rows** writes the tree that inserting the keys one at a time in key order
+  would: every insert lands on the right edge, so the root keeps the page the index was created with, each
+  leaf fills uncompressed, is compressed in place when full and splits at the right edge, the nodes above do
+  the same, and pages are allocated in the order those splits happen, leaves and nodes interleaved. Verified
+  byte for byte, dead bytes included, on a tree of one node over three leaves and on one of two node levels.
 
 > Newly allocated split pages are taken from the global free-page map (§ page 1) and are registered in the
 > *index's own* owned-pages usage map as Access does — `IndexWriter.AllocateIndexPage` sets the bit for

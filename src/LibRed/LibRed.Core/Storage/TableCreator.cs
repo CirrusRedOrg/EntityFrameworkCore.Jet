@@ -1840,11 +1840,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             // Descriptor 0x07. A VARIABLE column carries its own variable index, which is the 0x2B high-water
             // (measured vs ACE in VariableColumnHighWaterAccessTests — NOT the count of live variable columns,
             // which is lower once one has been dropped), so leave it unset and let TdefBuilder use VariableIndex.
-            // A FIXED column carries the count of variable columns with a smaller id, the way the create path
-            // computes it; unset, the legacy fallback writes 0, the one value the spec says it must not be.
-            VariableTableIndex = spec.IsFixedLength
-                ? table.Columns.Count(c => !c.IsFixedLength && c.ColumnId < maxCols)
-                : -1,
+            // A FIXED column carries the same high-water: every variable column ever given a slot has a smaller
+            // id than the one being added, the dropped ones included (verified vs ACE: a LONG added after a
+            // TEXT was dropped takes 2 where two TEXT columns had been, one of them gone).
+            VariableTableIndex = spec.IsFixedLength ? varCount : -1,
             IsFixedLength = spec.IsFixedLength,
             IsAutoNumber = spec.IsAutoNumber,
             Precision = spec.Precision,
@@ -1859,7 +1858,25 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             CalculatedResultType = spec.CalculatedResultType,
         };
 
-        AppendColumnToParts(parts, colCount, TdefBuilder.BuildColumnDescriptor(newColumn, format), spec.Name, format);
+        // 0x09 is DAO's Field.OrdinalPosition — reported by DAO, never read by the engine, which presents columns
+        // in descriptor order. DAO moves a descriptor when it sets the value, so in any file it wrote the
+        // descriptors are in 0x09 order, ties allowed, and gaps open when a column is dropped. ADD COLUMN
+        // compacts it, walking the descriptors in that order: each distinct value becomes
+        // its rank, so tied columns stay tied, and the new column takes the next rank. DROP COLUMN, ALTER COLUMN
+        // and CREATE INDEX leave it alone (all verified vs ACE: ordinals 0, 0, 3, 7 become 0, 0, 1, 2 and the
+        // added column 3; with no ties, as after SQL DDL alone, that is simply each column's position).
+        int rank = -1, previous = -1;
+        for (int i = 0; i < colCount; i++)
+        {
+            Span<byte> ordinal = parts.Columns.AsSpan(i * format.ColumnDescriptorSize + format.ColumnSecondaryNumberOffset, 2);
+            int value = BinaryPrimitives.ReadUInt16LittleEndian(ordinal);
+            if (i == 0 || value != previous) rank++;
+            previous = value;
+            BinaryPrimitives.WriteUInt16LittleEndian(ordinal, (ushort)rank);
+        }
+        byte[] descriptor = TdefBuilder.BuildColumnDescriptor(newColumn, format);
+        BinaryPrimitives.WriteUInt16LittleEndian(descriptor.AsSpan(format.ColumnSecondaryNumberOffset, 2), (ushort)(rank + 1));
+        AppendColumnToParts(parts, colCount, descriptor, spec.Name, format);
 
         BinaryPrimitives.WriteUInt16LittleEndian(parts.Header.AsSpan(format.TdefColumnCountOffset, 2), (ushort)(colCount + 1));
         BinaryPrimitives.WriteUInt16LittleEndian(parts.Header.AsSpan(format.TdefMaxColumnsOffset, 2), (ushort)(maxCols + 1));
@@ -2633,7 +2650,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // The target's var-index (+0x07) becomes the old variable-column count — the next var slot — for BOTH a
         // fixed and a variable retype (verified vs ACE); a variable retype also bumps the 0x2B var-column count.
         BinaryPrimitives.WriteUInt16LittleEndian(d[format.ColumnVariableIndexOffset..], (ushort)varCount);
-        // The duplicate id at +0x09 is deliberately left unchanged — verified ACE does not update it.
+        // +0x09 is deliberately left unchanged: it is the column's ordinal position, which a retype does not
+        // move (verified: ACE does not update it).
         byte flags = d[format.ColumnFlagsOffset];
         flags = newSpec.IsFixedLength ? (byte)(flags | JetFormatBase.ColumnFlagFixedLength)
                                       : (byte)(flags & ~JetFormatBase.ColumnFlagFixedLength);

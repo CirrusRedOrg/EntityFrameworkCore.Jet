@@ -9,8 +9,8 @@ namespace LibRed.Storage;
 /// <summary>
 /// Maintains an index B-tree on row insert: descends from the root to the target leaf, inserts the key,
 /// and — when a page overflows — <b>splits</b> it, promoting a separator into the parent and propagating
-/// splits up the tree (growing a new root when the root itself splits, and repointing the index-data
-/// block's root). Leaf pages keep their doubly-linked prev/next chain; pages are written with prefix
+/// splits up the tree (the tree grows a level when the root itself splits, the root keeping its page).
+/// Leaf pages keep their doubly-linked prev/next chain; pages are written with prefix
 /// compression. A key column whose collating order LibRed cannot encode still throws — see
 /// <see cref="Collation.IsIndexKeyEncodable"/> for which orders it can.
 /// </summary>
@@ -221,7 +221,8 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
         int leafPage = path[^1];
         int parentPage = path[^2];
-        (List<Entry> entries, int tail) = Parse(ReadMutationPage(parentPage, PageType.IntermediateIndexPage));
+        CheckedIndexPage parent = ReadMutationPage(parentPage, PageType.IntermediateIndexPage);
+        (List<Entry> entries, int tail) = Parse(parent);
 
         int slot = entries.FindIndex(e => e.Trailer == leafPage);
         if (slot >= 0)
@@ -242,12 +243,14 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
                 $"Index '{index.Name}': node {parentPage} does not point at leaf {leafPage}.");
         }
 
-        if (leaf.Previous != 0) SetLeafLink(leaf.Previous, NextPageOffset, leaf.Next);
-        if (leaf.Next != 0) SetLeafLink(leaf.Next, PrevPageOffset, leaf.Previous);
+        if (leaf.Previous != 0) SetSiblingLink(leaf.Previous, NextPageOffset, leaf.Next, PageType.LeafIndexPage);
+        if (leaf.Next != 0) SetSiblingLink(leaf.Next, PrevPageOffset, leaf.Previous, PageType.LeafIndexPage);
 
-        // Dropping a separator only shrinks the node, so Build never overflows. A leaf's parent is one level
-        // above the leaves by definition.
-        WriteOrThrow(parentPage, Build(PageType.IntermediateIndexPage, 0, 0, tail, level: 1, entries));
+        // Dropping a separator only shrinks the node, so Build never overflows, and the node keeps its prefix
+        // as a leaf does on a delete (see RemoveEntry). A leaf's parent is one level above the leaves by
+        // definition.
+        WriteOrThrow(parentPage, Build(PageType.IntermediateIndexPage, parent.Previous, parent.Next, tail, level: 1,
+            entries, parent.CompressedByteCount));
 
         // The page leaves the index the way AllocateIndexPage brought it in: its bit out of the index's own
         // pages map, then released — held until this handle closes, the route ACE takes for a freed page.
@@ -388,23 +391,46 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         // AutoNumber and identity keys are ascending by construction, so this is the ordinary case. The
         // condition cannot fire on a random insert, which is why the general behaviour is unchanged.
         //
-        // Everywhere else ACE halves the entries the page held BEFORE this insert, and the new entry then
-        // joins whichever side its key falls in — so a key landing below the midpoint leaves one MORE entry
-        // behind than a key landing on or above it. Halving the post-insert list instead always hands the odd
-        // entry to the right page, which agrees with ACE only for the upper half. Measured on a 602-entry
-        // leaf split by one further key (§10.5): ACE keeps 302 entries for a key at position 1 or 50, and 301
-        // for one at 301, 302 or 400 — so the midpoint itself goes right.
-        int mid = (entries.Count - 1) / 2;                      // midpoint of the pre-insert entries
-        int splitAt = pos == entries.Count - 1
-            ? entries.Count - 1
-            : Math.Max(1, pos < mid ? mid + 1 : mid);           // never leave the left page empty
+        // Compressing did not make room, but ACE still compresses first: the page's old entries are rewritten
+        // in place at the prefix they share, and the split is made over that. It shows past each half's live
+        // end, where the compressed entries stand. The left half then stays at that prefix — unless the new
+        // entry became its first, when ACE writes it whole. (A new first entry that does not split the page
+        // keeps the prefix: verified both ways.)
+        var old = new List<Entry>(entries);
+        old.RemoveAt(pos);
+        int oldShare = old.Count <= 1 ? 0 : CommonPrefixLength(old[0].Key, old[^1].Key);
+        int stored = Math.Max(page.Compressed, oldShare);
+        if (oldShare > page.Compressed)
+            WriteOrThrow(leafPage, Build(PageType.LeafIndexPage, page.Previous, page.Next, 0, 0, old, oldShare));
+
+        // Everywhere else ACE cuts that compressed page at its byte midpoint — every old entry that STARTS before
+        // it stays left, so the entry straddling it does too — and the new entry joins whichever half its key
+        // falls in. A key landing below the cut therefore leaves one MORE entry behind than a key landing on or
+        // above it. With equal entries that is the old entries halved, the odd one left: a 17-entry leaf keeps
+        // 10 for a key at any position from 1 to 8 and 9 from 9 to 16, and a 602-entry one keeps 302 for a key at
+        // 1 or 50 and 301 at 301, 302 or 400. It is bytes, not entries, when keys differ in length: a 91-entry
+        // leaf of 38- to 40-byte entries keeps 45, not 46. A new FIRST entry is the exception: then the entries
+        // including it are halved by count, rounding up — 9 of 18, 302 of 603 (§10.5).
+        int splitAt;
+        if (pos == entries.Count - 1) splitAt = entries.Count - 1;
+        else if (pos == 0) splitAt = (entries.Count + 1) / 2;
+        else
+        {
+            long total = -(long)stored * (old.Count - 1);
+            foreach (Entry e in old) total += e.Key.Length + TrailerSize;
+            int oldLeft = 0;
+            for (long start = 0; oldLeft < old.Count && start * 2 < total; oldLeft++)
+                start += old[oldLeft].Key.Length + TrailerSize - (oldLeft == 0 ? 0 : stored);
+            splitAt = pos < oldLeft ? oldLeft + 1 : oldLeft;
+        }
+
         SplitAndPropagate(index, path, path.Count - 1, entries, PageType.LeafIndexPage,
-            page.Previous, page.Next, splitAt);
+            page.Previous, page.Next, splitAt, leftPrefix: pos == 0 ? 0 : stored, newFirst: pos == 0);
     }
 
     /// <summary>
     /// Splits the (leaf or node) page at <paramref name="level"/> into two, writes both, then promotes a
-    /// separator into the parent — splitting parents in turn, or growing a new root at the top.
+    /// separator into the parent — splitting parents in turn, or turning the root into the node over both halves.
     /// </summary>
     /// <param name="index">The index whose tree is being split.</param>
     /// <param name="path">The pages from the root down to the one being split, one per level.</param>
@@ -413,12 +439,19 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     /// <param name="type">Leaf or node — what the two halves are written as.</param>
     /// <param name="prev">The split page's left sibling, for the leaf chain.</param>
     /// <param name="next">Its right sibling.</param>
-    /// <param name="splitAt">How many entries stay on the left page; negative for the default half. Only a
-    /// leaf split sets it, to keep a page full when the new entry is its maximum (see InsertIntoLeaf).</param>
+    /// <param name="splitAt">How many entries stay on the left page; negative for the default half. A leaf split
+    /// always sets it (see InsertIntoLeaf); a node split sets it for its right-edge case (see InsertSeparator),
+    /// where the entry at <paramref name="splitAt"/> is the one promoted.</param>
+    /// <param name="leftPrefix">The prefix a leaf's left half is written at; null for the largest available,
+    /// which is what the right half and a node's halves are written at.</param>
+    /// <param name="newFirst">Whether the entry just inserted is a leaf's first.</param>
     private void SplitAndPropagate(IndexDef index, List<int> path, int level, List<Entry> entries,
-        PageType type, int prev, int next, int splitAt = -1)
+        PageType type, int prev, int next, int splitAt = -1, int? leftPrefix = null, bool newFirst = false)
     {
-        int leftPage = path[level];
+        // The root never moves: when it splits, both halves go to new pages, left first, and the root page is
+        // rewritten as the node over them — so the index-data block's root pointer stays as it is. The left half
+        // is the root's page carried over, so what lies past its live end is what the root held there.
+        int leftPage = level == 0 ? AllocateIndexPage(index) : path[level];
         int rightPage = AllocateIndexPage(index);
         int nodeLevel = path.Count - 1 - level; // height above the leaves of the page being split
 
@@ -432,32 +465,37 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
             var right = entries.GetRange(mid, entries.Count - mid);
             promoted = WithTrailer(left[^1].Key, left[^1].Trailer); // left's max full key
 
-            WriteOrThrow(leftPage, Build(type, prev, rightPage, tail: 0, nodeLevel, left));
-            WriteOrThrow(rightPage, Build(type, leftPage, next, tail: 0, nodeLevel, right));
-            if (next != 0) SetLeafLink(next, PrevPageOffset, rightPage); // fix the old next leaf's back-link
+            // Right first, so both halves read the page as it stood: the right half takes its dead bytes from it
+            // when the new entry became the left half's first, a new page's zeros otherwise (verified both ways).
+            WriteOrThrow(rightPage, Build(type, leftPage, next, tail: 0, nodeLevel, right),
+                tailFrom: newFirst ? path[level] : null);
+            WriteOrThrow(leftPage, Build(type, prev, rightPage, tail: 0, nodeLevel, left, leftPrefix),
+                tailFrom: path[level]);
         }
         else
         {
             // Node split: the middle entry's key is promoted; its child becomes the left node's tail.
-            int mid = entries.Count / 2;
+            int mid = splitAt < 0 ? entries.Count / 2 : splitAt;
             Entry middle = entries[mid];
             var left = entries.GetRange(0, mid);
             var right = entries.GetRange(mid + 1, entries.Count - mid - 1);
             promoted = middle.Key;
             int oldTail = _splitTail;
 
-            WriteOrThrow(leftPage, Build(type, 0, 0, tail: middle.Trailer, nodeLevel, left));
-            WriteOrThrow(rightPage, Build(type, 0, 0, tail: oldTail, nodeLevel, right));
+            byte[] leftBytes = KeepTail(path[level], Build(type, prev, rightPage, tail: middle.Trailer, nodeLevel, left)
+                ?? throw new NotSupportedException("An index node still overflows after a split."));
+            LeaveMiddleBehind(leftBytes, prev, rightPage, nodeLevel, left, middle);
+            _channel.WritePage(leftPage, leftBytes);
+            WriteOrThrow(rightPage, Build(type, leftPage, next, tail: oldTail, nodeLevel, right));
         }
+        if (next != 0) SetSiblingLink(next, PrevPageOffset, rightPage, type); // the old next page's back-link
 
         if (level == 0)
         {
-            // The root split: build a new root node [promoted -> old root] with the new page as its tail.
-            int newRoot = AllocateIndexPage(index);
-            WriteOrThrow(newRoot, Build(PageType.IntermediateIndexPage, 0, 0, tail: rightPage, nodeLevel + 1,
+            // The root split: the root becomes the node [promoted -> left] with the right page as its tail. Its
+            // bytes past the new live end stay as they were, as on any rewrite of a page in place.
+            WriteOrThrow(path[0], Build(PageType.IntermediateIndexPage, 0, 0, tail: rightPage, nodeLevel + 1,
                 [new Entry(promoted, leftPage)]));
-            UpdateIndexRoot(index, newRoot);
-            index.RootPage = newRoot; // keep the in-memory def in step for the next insert
             return;
         }
 
@@ -472,27 +510,46 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         CheckedIndexPage page = ReadMutationPage(parentPage, PageType.IntermediateIndexPage);
         (List<Entry> entries, int tail) = Parse(page);
 
+        // The old child's pointer is repointed first, so the page ACE compresses in place when the separator
+        // does not fit already carries it (see below).
         int slot = entries.FindIndex(e => e.Trailer == oldChild);
-        if (slot >= 0)
-        {
-            entries[slot] = entries[slot] with { Trailer = newRight };
-            entries.Insert(slot, new Entry(promoted, oldChild));
-        }
-        else // oldChild was the tail
-        {
-            tail = newRight;
-            entries.Add(new Entry(promoted, oldChild));
-        }
+        if (slot >= 0) entries[slot] = entries[slot] with { Trailer = newRight };
+        else tail = newRight; // oldChild was the tail
+        var old = new List<Entry>(entries);
+        entries.Insert(slot >= 0 ? slot : entries.Count, new Entry(promoted, oldChild));
 
+        // A node fills, compresses and splits exactly as a leaf does (see InsertIntoLeaf).
         int parentLevel = path.Count - 1 - level;
-        if (Build(PageType.IntermediateIndexPage, 0, 0, tail, parentLevel, entries) is { } built)
+        int share = CommonPrefixLength(entries[0].Key, entries[^1].Key);
+        int keep = Math.Min(page.CompressedByteCount, share);
+        if (Build(PageType.IntermediateIndexPage, page.Previous, page.Next, tail, parentLevel, entries, keep)
+            is { } asIs)
         {
-            _channel.WritePage(parentPage, KeepTail(parentPage, built));
+            _channel.WritePage(parentPage, KeepTail(parentPage, asIs));
             return;
         }
 
+        if (share > keep
+            && Build(PageType.IntermediateIndexPage, page.Previous, page.Next, tail, parentLevel, entries, share)
+                is { } compressed)
+        {
+            _channel.WritePage(parentPage, KeepTail(parentPage, compressed));
+            return;
+        }
+
+        // As a leaf does, the full node is compressed in place before it splits (see InsertIntoLeaf).
+        int oldShare = old.Count <= 1 ? 0 : CommonPrefixLength(old[0].Key, old[^1].Key);
+        if (oldShare > page.CompressedByteCount)
+            WriteOrThrow(parentPage,
+                Build(PageType.IntermediateIndexPage, page.Previous, page.Next, tail, parentLevel, old, oldShare));
+
+        // A node has a right-edge split too: when the new separator is its last entry — the child that split was
+        // the tail, as on every split of an ascending load — the left node keeps every old entry but the last,
+        // that one is promoted, and the new separator starts the right node alone (verified vs ACE: a node of 16
+        // separators taking a 17th is cut 15, promote 1, 1). Anywhere else it is cut in the middle.
         _splitTail = tail;
-        SplitAndPropagate(index, path, level, entries, PageType.IntermediateIndexPage, 0, 0);
+        SplitAndPropagate(index, path, level, entries, PageType.IntermediateIndexPage, page.Previous, page.Next,
+            splitAt: slot < 0 ? entries.Count - 2 : -1);
     }
 
     private int _splitTail; // carries a node's tail into SplitAndPropagate
@@ -517,13 +574,13 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         return page;
     }
 
-    /// <summary>Builds a page from entries; null if they overflow the page. Leaf pages are prefix-compressed;
-    /// node pages are stored uncompressed and carry their height above the leaves at <see cref="LevelOffset"/>,
-    /// both matching what Access writes. (An isolation test showed neither is strictly required — Access reads
-    /// a node with <c>0x1A=0</c> and compressed just fine; they are kept purely for byte-faithfulness. The one
-    /// hard requirement is a <b>leaf's</b> <c>0x1A=0</c> and the leaf-chain offsets at <c>0x0C</c>/<c>0x10</c>.)</summary>
+    /// <summary>Builds a page from entries; null if they overflow the page. Leaf and node pages alike are
+    /// prefix-compressed at the length the caller gives, and a node carries its height above the leaves at
+    /// <see cref="LevelOffset"/>, matching what Access writes. (An isolation test showed a node's height is not
+    /// required — Access reads a node with <c>0x1A=0</c> just fine; it is kept purely for byte-faithfulness. The
+    /// one hard requirement is a <b>leaf's</b> <c>0x1A=0</c> and the leaf-chain offsets at <c>0x0C</c>/<c>0x10</c>.)</summary>
     /// <param name="type">Leaf or node.</param>
-    /// <param name="prev">The page's left sibling, written into the leaf chain.</param>
+    /// <param name="prev">The page's left sibling at the same level.</param>
     /// <param name="next">Its right sibling.</param>
     /// <param name="tail">The page's trailing pointer — a node's rightmost child.</param>
     /// <param name="level">A node's height above the leaves; 0 on a leaf.</param>
@@ -533,7 +590,6 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     private byte[]? Build(PageType type, int prev, int next, int tail, int level, List<Entry> entries,
         int? prefix = null)
     {
-        bool isLeaf = type == PageType.LeafIndexPage;
         int pageSize = _channel.PageSize;
         var page = new byte[pageSize];
         page[0] = (byte)type;
@@ -544,10 +600,10 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         WriteInt32Le(page, NextPageOffset, next);
         WriteInt32Le(page, ChildTailOffset, tail);
 
-        // A single entry (or a node) has no common-prefix compression — ACE writes 0 here (the whole key with
-        // itself would otherwise "compress" to its full length, which ACE does not do for one entry).
-        // Otherwise the caller chooses: see InsertIntoLeaf for when a page is compressed at all.
-        int compress = !isLeaf || entries.Count <= 1
+        // A single entry has no common-prefix compression — ACE writes 0 here (the whole key with itself would
+        // otherwise "compress" to its full length, which ACE does not do for one entry). Otherwise the caller
+        // chooses, for a node as for a leaf: see InsertIntoLeaf for when a page is compressed at all.
+        int compress = entries.Count <= 1
             ? 0
             : prefix ?? CommonPrefixLength(entries[0].Key, entries[^1].Key);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(CompressedByteCountOffset, 2), (ushort)compress);
@@ -581,9 +637,9 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         return page;
     }
 
-    /// <summary>Repoints the index-data block's B-tree root (0x26) — after the root grows a level, or when a new
-    /// table's foreign-key index is given its root. Walks stats → column descriptors → column names → data blocks
-    /// to the index's block.</summary>
+    /// <summary>Repoints the index-data block's B-tree root (0x26) — when a new table's foreign-key index is given
+    /// its root (a split never moves one). Walks stats → column descriptors → column names → data blocks to the
+    /// index's block.</summary>
     /// <remarks>
     /// A wide table's definition spans continuation pages, and the data blocks sit past the column names —
     /// well beyond the first page for a 255-column table. The walk therefore runs over the <i>stitched</i>
@@ -595,8 +651,8 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         (_, IReadOnlyList<int> continuations, int block) = LocateIndexBlock(index);
         WriteInt32IntoDefinition(continuations, block + IndexBlockFormat.RootPageOffset, newRoot);
         // The root pointer is part of the definition every other handle caches: until they reload it they
-        // descend from the old root — by now only the leftmost page of the tree — and an insert through one
-        // splits that page as if it were the root and writes it over this one.
+        // descend from the old root — by now only a page inside the tree — and an insert through one would
+        // split that page as if it were the root and write it over this one.
         _channel.MarkSchemaChanged();
     }
 
@@ -688,21 +744,26 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         }
     }
 
-    /// <summary>Patches one end of a neighbouring leaf's chain link — <see cref="PrevPageOffset"/> or
-    /// <see cref="NextPageOffset"/> — without disturbing its entries. A split repairs the back-link of the leaf
-    /// it pushed right; unlinking an emptied leaf repairs both of its neighbours.</summary>
-    private void SetLeafLink(int pageNumber, int offset, int target)
+    /// <summary>Patches one end of a neighbouring page's sibling link — <see cref="PrevPageOffset"/> or
+    /// <see cref="NextPageOffset"/> — without disturbing its entries. A split repairs the back-link of the page
+    /// it pushed right, leaf or node; unlinking an emptied leaf repairs both of its neighbours.</summary>
+    private void SetSiblingLink(int pageNumber, int offset, int target, PageType type)
     {
         CheckedIndexPage checkedPage = IndexPageReader.Read(_channel, pageNumber, _table.DefinitionPage);
-        if (checkedPage.Type != PageType.LeafIndexPage)
-            throw new InvalidDataException($"Leaf chain pointer targets non-leaf page {pageNumber}.");
+        if (checkedPage.Type != type)
+            throw new InvalidDataException(
+                $"Sibling pointer targets page {pageNumber}, a {checkedPage.Type} where a {type} was expected.");
         byte[] page = checkedPage.Buffer.Span.ToArray();
         WriteInt32Le(page, offset, target);
         _channel.WritePage(pageNumber, page);
     }
 
-    private void WriteOrThrow(int pageNumber, byte[]? page) =>
-        _channel.WritePage(pageNumber, KeepTail(pageNumber, page ?? throw new NotSupportedException(
+    /// <param name="pageNumber">The page to write.</param>
+    /// <param name="page">The built page; null when its entries overflowed.</param>
+    /// <param name="tailFrom">The page whose dead bytes the write carries over — this page itself, unless the
+    /// content is moving here from another (a split root's left half).</param>
+    private void WriteOrThrow(int pageNumber, byte[]? page, int? tailFrom = null) =>
+        _channel.WritePage(pageNumber, KeepTail(tailFrom ?? pageNumber, page ?? throw new NotSupportedException(
             "An index page still overflows after a split (a key wider than half a page).")));
 
     /// <summary>
@@ -722,20 +783,43 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     /// <para>The bytes kept are dead: they sit past the free-space boundary, so no reader reaches them.
     /// Keeping them is for byte-faithfulness with ACE, not for meaning.</para>
     /// </remarks>
-    private byte[] KeepTail(int pageNumber, byte[] built)
+    private byte[] KeepTail(int pageNumber, byte[] built) => Merge(built, ImageOf(pageNumber));
+
+    /// <summary>What a rewrite of <paramref name="pageNumber"/> keeps past its live end: the page's bytes when it
+    /// is already one of this table's index pages, zeros otherwise (see <see cref="KeepTail"/>).</summary>
+    private byte[] ImageOf(int pageNumber)
     {
-        if (pageNumber >= _channel.PageCount) return built;
+        if (pageNumber >= _channel.PageCount) return new byte[_channel.PageSize];
 
+        // A leaf turning node — the root, when it splits — still counts as the same page rewritten.
         ReadOnlySpan<byte> existing = _channel.ReadPage(pageNumber).Span;
-        if (existing[0] != built[0]
+        if (existing[0] is not ((byte)PageType.LeafIndexPage or (byte)PageType.IntermediateIndexPage)
             || BinaryPrimitives.ReadInt32LittleEndian(existing[OwnerOffset..]) != _table.DefinitionPage)
-            return built;
+            return new byte[_channel.PageSize];
+        return existing.ToArray();
+    }
 
-        int liveEnd = _channel.PageSize
-            - BinaryPrimitives.ReadUInt16LittleEndian(built.AsSpan(FreeSpaceOffset, 2));
-        existing[liveEnd..].CopyTo(built.AsSpan(liveEnd));
+    /// <summary>Carries <paramref name="image"/>'s bytes past <paramref name="built"/>'s live end into it.</summary>
+    private byte[] Merge(byte[] built, byte[] image)
+    {
+        int liveEnd = LiveEnd(built);
+        image.AsSpan(liveEnd).CopyTo(built.AsSpan(liveEnd));
         return built;
     }
+
+    /// <summary>Stores a split node's promoted middle entry just past its left half's live end, at the page's
+    /// prefix: ACE writes it into the page and then ends the page before it.</summary>
+    private void LeaveMiddleBehind(byte[] leftBytes, int prev, int right, int level, List<Entry> left, Entry middle)
+    {
+        int prefix = BinaryPrimitives.ReadUInt16LittleEndian(leftBytes.AsSpan(CompressedByteCountOffset, 2));
+        byte[] withMiddle = Build(PageType.IntermediateIndexPage, prev, right, middle.Trailer, level, [.. left, middle], prefix)!;
+        int leftEnd = LiveEnd(leftBytes);
+        withMiddle.AsSpan(leftEnd, LiveEnd(withMiddle) - leftEnd).CopyTo(leftBytes.AsSpan(leftEnd));
+    }
+
+    /// <summary>Where a built page's entries end: everything past it is free space.</summary>
+    private int LiveEnd(byte[] page) =>
+        _channel.PageSize - BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(FreeSpaceOffset, 2));
 
     /// <summary>Width of the row/child pointer an entry carries after its key.</summary>
     private const int TrailerSize = 4;
@@ -749,26 +833,28 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     }
 
     /// <summary>
-    /// Fills an <b>empty</b> index from <paramref name="entries"/> by writing each page once, instead of
-    /// inserting the entries one at a time and rewriting a whole leaf per entry.
+    /// Fills an <b>empty</b> index from <paramref name="entries"/>, leaving exactly the pages that inserting them
+    /// one at a time in key order would leave, but building a page only when its layout changes rather than
+    /// rewriting it for every entry.
     /// </summary>
     /// <param name="index">The empty index to fill.</param>
     /// <param name="entries">(key, row pointer) pairs with a <c>NullKey</c> marker; any order. Sorted here.</param>
     /// <param name="rejectDuplicates">Enforce uniqueness — adjacent equal keys after the sort, null keys exempt
     /// (Jet's uniqueness is over the non-null keys only).</param>
     /// <remarks>
-    /// <para>This is not a different B-tree: it is the SAME fill <see cref="InsertIntoLeaf"/> performs, driven
-    /// over pre-sorted input so each page is finished before the next begins. A sequential load already took
-    /// the right-edge split — a new entry that is the page's maximum leaves the full page alone and starts a
-    /// fresh one — so feeding sorted entries reproduces the leaf partitioning ACE produces; the difference is
-    /// only that a page is built once rather than rebuilt per entry.</para>
+    /// <para>This is what ACE's <c>CREATE INDEX</c> writes: its tree is the incremental one for sorted input,
+    /// byte for byte — the root keeps its page, leaves fill uncompressed, are compressed in place when full and
+    /// split at the right edge, and the nodes above fill, compress and split the same way, all allocated in the
+    /// order those splits happen (verified vs ACE). Sorted input only ever reaches the right edge of the tree,
+    /// so the one page per level being filled there — the spine — is all that is held; every page to its left is
+    /// finished, and written, when it is split off.</para>
     /// <para>Whether an entry fits is decided by <b>arithmetic</b>, not by calling <see cref="Build"/>: Build
     /// allocates a page-sized array, so probing with it would allocate two pages per entry and lose exactly
     /// what this exists to save. <see cref="LeafFits"/> mirrors Build's layout — entry data starts at
     /// <c>0x1E0</c>, the first entry stores its whole key, the rest drop the shared prefix, and each carries a
-    /// 4-byte trailer (see page-01/page-03-04 §10.2–10.3).</para>
-    /// <para>Node levels are then built bottom-up, splitting at the middle and promoting the middle entry as
-    /// <see cref="InsertSeparator"/> does, so interior pages keep the shape the incremental path gives them.</para>
+    /// 4-byte trailer (see page-01/page-03-04 §10.2–10.3). A page is built only when the prefix it is stored at
+    /// changes, when it splits, and at the end: the incremental path's writes between those only extend the
+    /// same layout, so they leave nothing past the live end that a later write keeps.</para>
     /// </remarks>
     internal void BulkBuild(IndexDef index, List<(byte[] Key, int Pointer, bool NullKey)> entries, bool rejectDuplicates)
     {
@@ -784,101 +870,139 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
                     throw new InvalidOperationException(
                         $"Cannot create unique index '{index.Name}' on '{_table.Name}': duplicate key values exist.");
 
-        // --- leaves ---------------------------------------------------------------------------------------
-        var separators = new List<(byte[] Key, int Child)>();
-        int page = index.RootPage;         // the empty leaf the caller created; it becomes the first leaf
-        int previous = 0;
-        var current = new List<Entry>();
-        long keyBytes = 0;                 // running sum of the current page's key lengths
-        int compressed = 0;                // the prefix the page would be written at, as filling stands
-
+        // The empty leaf the caller created is the root, and stays the root however tall the tree grows.
+        var spine = new List<SpinePage> { new(index.RootPage, previous: 0, ImageOf(index.RootPage)) };
         foreach ((byte[] key, int pointer, _) in entries)
+            Append(index, spine, level: 0, new Entry(key, pointer));
+
+        for (int level = 0; level < spine.Count; level++)
         {
-            current.Add(new Entry(key, pointer));
-            keyBytes += key.Length;
-
-            int share = current.Count <= 1 ? 0 : CommonPrefixLength(current[0].Key, current[^1].Key);
-            if (LeafFits(current.Count, keyBytes, Math.Min(compressed, share)))
-                continue;
-            if (share > compressed && LeafFits(current.Count, keyBytes, share))
-            {
-                compressed = share;        // the compress-in-place step, without writing the page yet
-                continue;
-            }
-
-            // Full. The entry that did not fit starts the next leaf, as the right-edge split does.
-            current.RemoveAt(current.Count - 1);
-            keyBytes -= key.Length;
-            int next = AllocateIndexPage(index);
-            WriteOrThrow(page, Build(PageType.LeafIndexPage, previous, next, tail: 0, level: 0, current, Prefix()));
-            separators.Add((WithTrailer(current[^1].Key, current[^1].Trailer), page));
-
-            previous = page;
-            page = next;
-            current = [new Entry(key, pointer)];
-            keyBytes = key.Length;
-            compressed = 0;
+            SpinePage page = spine[level];
+            _channel.WritePage(page.Number, Merge(BuildSpine(page, level, next: 0, page.Entries, page.Stored), page.Image));
         }
-
-        WriteOrThrow(page, Build(PageType.LeafIndexPage, previous, next: 0, tail: 0, level: 0, current, Prefix()));
-
-        // --- node levels, until one page covers the level --------------------------------------------------
-        int level = 1;
-        while (separators.Count > 0)
-            (separators, page) = BuildNodeLevel(index, separators, tailChild: page, level++);
-
-        if (page != index.RootPage)
-        {
-            UpdateIndexRoot(index, page);
-            index.RootPage = page;
-        }
-
-        // A leaf is written at the prefix its filling reached — compressed only once it had to be, as the
-        // incremental path writes it — and no further than its entries share (verified: ACE's CREATE INDEX over
-        // eleven keys sharing ten bytes writes them whole, at prefix 0).
-        int Prefix() => current.Count <= 1 ? 0 : Math.Min(compressed, CommonPrefixLength(current[0].Key, current[^1].Key));
     }
+
+    /// <summary>The page being filled at one level of a <see cref="BulkBuild"/>: its entries, the prefix they
+    /// are stored at, and what the incremental path's writes would have left past the live end.</summary>
+    private sealed class SpinePage(int number, int previous, byte[] image)
+    {
+        public int Number { get; } = number;
+        public int Previous { get; } = previous;
+        public byte[] Image { get; set; } = image;
+        public List<Entry> Entries { get; } = [];
+        public long KeyBytes { get; set; }
+        public int Stored { get; set; }  // the prefix the page is stored at (0x18), as the last write left it
+        public int Tail { get; set; }    // a node's rightmost child
+    }
+
+    /// <summary>Appends an entry to the page at <paramref name="level"/> of the spine as an insert of the page's
+    /// new maximum would: at the prefix the page is stored at, compressed in place when that is what makes room,
+    /// and split at the right edge when nothing does (see <see cref="InsertIntoLeaf"/>, <see cref="InsertSeparator"/>).</summary>
+    private void Append(IndexDef index, List<SpinePage> spine, int level, Entry entry)
+    {
+        SpinePage page = spine[level];
+        page.Entries.Add(entry);
+        page.KeyBytes += entry.Key.Length;
+
+        int share = Share(page.Entries);
+        int keep = Math.Min(page.Stored, share);
+        if (LeafFits(page.Entries.Count, page.KeyBytes, keep)) { StoreAt(page, level, keep); return; }
+        if (share > keep && LeafFits(page.Entries.Count, page.KeyBytes, share)) { StoreAt(page, level, share); return; }
+
+        // Full: the page as it stood, compressed in place when its entries share more than it is stored at, and
+        // then split with the new entry starting the next page.
+        page.Entries.RemoveAt(page.Entries.Count - 1);
+        page.KeyBytes -= entry.Key.Length;
+        Materialize(page, level, page.Entries, page.Stored);
+        int oldShare = Share(page.Entries);
+        if (oldShare > page.Stored)
+        {
+            page.Stored = oldShare;
+            Materialize(page, level, page.Entries, oldShare);
+        }
+        SplitSpine(index, spine, level, entry);
+    }
+
+    /// <summary>Moves a spine page to <paramref name="prefix"/>. When that changes its layout, the write before
+    /// the entry just appended is what stands past the new live end, so it is made concrete first.</summary>
+    private void StoreAt(SpinePage page, int level, int prefix)
+    {
+        if (prefix == page.Stored) return;
+        Materialize(page, level, page.Entries.GetRange(0, page.Entries.Count - 1), page.Stored);
+        page.Stored = prefix;
+    }
+
+    /// <summary>What writing <paramref name="entries"/> at <paramref name="prefix"/> over the page leaves.</summary>
+    private void Materialize(SpinePage page, int level, List<Entry> entries, int prefix) =>
+        page.Image = Merge(BuildSpine(page, level, next: 0, entries, prefix), page.Image);
+
+    private byte[] BuildSpine(SpinePage page, int level, int next, List<Entry> entries, int prefix) =>
+        Build(level == 0 ? PageType.LeafIndexPage : PageType.IntermediateIndexPage, page.Previous, next, page.Tail,
+            level, entries, prefix)
+        ?? throw new NotSupportedException("An index page overflows (a key wider than half a page).");
+
+    /// <summary>The right-edge split of the spine page at <paramref name="level"/>, as
+    /// <see cref="SplitAndPropagate"/> makes it: the finished left half is written, the new entry starts the
+    /// right half, which takes the page's place on the spine, and the separator goes up a level — or, when the
+    /// page is the root, both halves move out and the root becomes the node over them.</summary>
+    private void SplitSpine(IndexDef index, List<SpinePage> spine, int level, Entry entry)
+    {
+        SpinePage page = spine[level];
+        bool root = level == spine.Count - 1;
+        int left = root ? AllocateIndexPage(index) : page.Number;
+        int right = AllocateIndexPage(index);
+
+        byte[] leftBytes, promoted;
+        int rightTail;
+        if (level == 0)
+        {
+            // Every old entry stays, at the prefix the page is stored at; a copy of the last is promoted.
+            Entry last = page.Entries[^1];
+            promoted = WithTrailer(last.Key, last.Trailer);
+            leftBytes = Merge(Build(PageType.LeafIndexPage, page.Previous, right, tail: 0, level: 0, page.Entries,
+                page.Stored)!, page.Image);
+            rightTail = 0;
+        }
+        else
+        {
+            // A node's right-edge split: its last entry is promoted, that entry's child becoming the left node's
+            // tail, and the new separator starts the right node under the old tail.
+            Entry middle = page.Entries[^1];
+            List<Entry> kept = page.Entries.GetRange(0, page.Entries.Count - 1);
+            promoted = middle.Key;
+            leftBytes = Merge(Build(PageType.IntermediateIndexPage, page.Previous, right, middle.Trailer, level, kept)!,
+                page.Image);
+            LeaveMiddleBehind(leftBytes, page.Previous, right, level, kept, middle);
+            rightTail = page.Tail;
+        }
+        _channel.WritePage(left, leftBytes);
+
+        var next = new SpinePage(right, previous: left, ImageOf(right)) { Tail = rightTail };
+        next.Entries.Add(entry);
+        next.KeyBytes = entry.Key.Length;
+        spine[level] = next;
+
+        if (root)
+        {
+            // The root keeps its page and becomes the node over both halves; its image stays past the live end.
+            var top = new SpinePage(page.Number, previous: 0, page.Image) { Tail = right };
+            top.Entries.Add(new Entry(promoted, left));
+            top.KeyBytes = promoted.Length;
+            spine.Add(top);
+            return;
+        }
+
+        spine[level + 1].Tail = right;
+        Append(index, spine, level + 1, new Entry(promoted, left));
+    }
+
+    private static int Share(List<Entry> entries) =>
+        entries.Count <= 1 ? 0 : CommonPrefixLength(entries[0].Key, entries[^1].Key);
 
     /// <summary>Whether <paramref name="count"/> entries totalling <paramref name="keyBytes"/> of key data fit
     /// one leaf at prefix <paramref name="prefix"/> — Build's layout, without building anything.</summary>
     private bool LeafFits(int count, long keyBytes, int prefix) =>
         EntryDataOffset + keyBytes + (long)TrailerSize * count - (long)prefix * (count - 1) <= _channel.PageSize;
-
-    /// <summary>Writes one level of interior nodes over <paramref name="children"/>, returning the separators
-    /// promoted to the level above and the page that is this level's rightmost (tail) child.</summary>
-    private (List<(byte[] Key, int Child)> Promoted, int Tail) BuildNodeLevel(
-        IndexDef index, List<(byte[] Key, int Child)> children, int tailChild, int level)
-    {
-        var promoted = new List<(byte[] Key, int Child)>();
-        var current = new List<Entry>();
-        long keyBytes = 0;
-        int page = AllocateIndexPage(index);
-
-        foreach ((byte[] key, int child) in children)
-        {
-            current.Add(new Entry(key, child));
-            keyBytes += key.Length;
-            if (EntryDataOffset + keyBytes + (long)TrailerSize * current.Count <= _channel.PageSize)
-                continue;
-
-            // Overflow: split at the middle and promote the middle entry, whose child becomes the left node's
-            // tail — the division InsertSeparator makes. Nodes are stored uncompressed.
-            int mid = current.Count / 2;
-            Entry middle = current[mid];
-            List<Entry> left = current.GetRange(0, mid);
-            List<Entry> right = current.GetRange(mid + 1, current.Count - mid - 1);
-
-            WriteOrThrow(page, Build(PageType.IntermediateIndexPage, 0, 0, middle.Trailer, level, left));
-            promoted.Add((middle.Key, page));
-
-            page = AllocateIndexPage(index);
-            current = right;
-            keyBytes = right.Sum(e => (long)e.Key.Length);
-        }
-
-        WriteOrThrow(page, Build(PageType.IntermediateIndexPage, 0, 0, tailChild, level, current));
-        return (promoted, page);
-    }
 
     /// <summary>Orders two entries as their stored <c>key ++ trailer</c> bytes compare, without building either.</summary>
     internal static int CompareEntries(byte[] aKey, int aTrailer, byte[] bKey, int bTrailer)

@@ -17,3 +17,4 @@ utc	commit	dirty	host	suite	benchmark	params	mean_us	stddev_us	alloc_kb
 2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10_indexed	44.66	0.19	22.81
 2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sub.scalar_correlated	1413.78	18.64	3.39
 2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sub.scalar_correlated	185.70	1.45	80.85
+2026-09-26 15:45	a08c9eb3	dirty	DESKTOP-D1RBTPV	DdlBenchmarks	CreateIndexOverExistingRows	-	3155.75	455.25	2792.75

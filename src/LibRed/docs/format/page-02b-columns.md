@@ -10,8 +10,8 @@
 | `0x01` | 2 | Record marker `0x0659` (see §3.1 note); ignored |
 | `0x03` | 2 | Unknown (zero observed) |
 | `0x05` | 2 | Column id |
-| `0x07` | 2 | Variable-table index. For a **fixed** column it is the running count of variable columns with a smaller id (**not** `0`) — ACE's own `ADD COLUMN` writes `2` for a LONG added to `(K LONG, A TEXT, B TEXT)`. For a **variable** column it is that column's own slot index, which is the `0x2B` **high-water** and *not* the count of live variable columns: after a variable column is dropped the next one goes above the abandoned slot, so the two part company. Verified byte-for-byte against DAO-written system tables and against ACE performing the same DDL. |
-| `0x09` | 2 | Column number — a second copy of the column id `0x05` on a **user** table, but **zero** on the tables the engine writes for itself (see the note below). It **diverges after an `ALTER COLUMN` type change**, which burns a new id into `0x05` yet leaves `0x09` at the *old* id; see §3.8 |
+| `0x07` | 2 | Variable-table index. For a **fixed** column it is the running count of variable columns with a smaller id (**not** `0`), dropped ones included — ACE's own `ADD COLUMN` writes `2` for a LONG added to `(K LONG, A TEXT, B TEXT)`, and still `2` when `B` was dropped first: an added column's count is the `0x2B` high-water. For a **variable** column it is that column's own slot index, which is the `0x2B` **high-water** and *not* the count of live variable columns: after a variable column is dropped the next one goes above the abandoned slot, so the two part company. Verified byte-for-byte against DAO-written system tables and against ACE performing the same DDL. |
+| `0x09` | 2 | Ordinal position — DAO's `Field.OrdinalPosition`. The engine presents columns in descriptor order, not by this; DAO keeps the two in step by moving the descriptor when it sets it. At creation a second copy of the column id `0x05` on a **user** table, but **zero** on the tables the engine writes for itself (see the note below). It **diverges** after an `ALTER COLUMN` type change, which burns a new id into `0x05` yet leaves `0x09` alone (§3.8), after a `DROP COLUMN`, whose gap the next `ADD COLUMN` closes by ranking the values, and whenever DAO sets it |
 | `0x0B` | 1 | Numeric **precision** (Decimal/Numeric columns); on a **Complex** column the `MSysComplexColumns.ComplexID` (see below); otherwise the low byte of the collation's LANGID (the database default, e.g. `0x09` for en-US) |
 | `0x0C` | 1 | Numeric **scale** (Decimal/Numeric columns); `0` on a **Complex** column; otherwise the high byte of the LANGID (`0x04` for en-US) |
 | `0x0D` | 1 | Collation **sort id** — the LCID's high word; `0` except for an alternate sort order (see the note below) |
@@ -82,9 +82,35 @@
 >
 > ACE's SQL DDL, DAO's object model (`CreateTableDef`/`CreateField`/`Append`, the path Access's UI uses)
 > and DAO-executed SQL all write the id. **Compacting a database preserves the field exactly** — before and
-> after are byte-identical — so it is fixed at creation and no later rewrite normalises it. A writer that
-> generalises from the system tables and writes zero everywhere is wrong; LibRed writes the id except on a
-> system column.
+> after are byte-identical. A writer that generalises from the system tables and writes zero everywhere is
+> wrong; LibRed writes the id except on a system column.
+>
+> **More exactly, `0x09` is DAO's `Field.OrdinalPosition`** — a presentation value that DAO reports, not the
+> order the engine presents in. At creation it counts 0, 1, 2 … and so equals the id. Verified against ACE
+> and DAO:
+>
+> - **The engine presents columns in descriptor order and ignores `0x09`.** With the two made to disagree by
+>   patching `0x09` alone, ACE's `SELECT *`, the OLE DB schema's `ORDINAL_POSITION` (1-based) and the order
+>   of DAO's `Fields` collection all follow the descriptors; only `Field.OrdinalPosition` reports `0x09`,
+>   verbatim.
+> - **Setting `OrdinalPosition` through DAO writes the value and moves the descriptor**, which is what keeps
+>   the two in step in any file DAO or Access wrote. Ties and gaps are allowed: on `(A, B, C, D, E)`, setting
+>   `E` to 0 and then `B` to 7 leaves descriptors in the order `A E C D B` with `0x09` = `0 0 2 3 7`. The moved
+>   descriptor lands before the first one with a larger `0x09` (after the last when there is none) — all
+>   three measured moves fit that; with a tie it went after the column already there. Only the definition page
+>   changes — the value is not a property in the LvProp blob.
+> - **`DROP COLUMN` leaves the others alone**, so a gap opens; so do `ALTER COLUMN` (a retype keeps `0x09`
+>   while `0x05` takes a new id, §3.8) and `CREATE INDEX`.
+> - **`ADD COLUMN` compacts it**: every distinct value is replaced by its rank, so tied columns stay tied,
+>   and the new column takes the next rank — `0 0 3 7` after dropping `C` becomes `0 0 1 2`, the added
+>   column `3`. After SQL DDL alone there are no ties, and this is simply each column's position:
+>   `(A, B, C, D, E)`, drop `B`, add `F` → `0x05` ids `0 2 3 4 5`, `0x09` `0 1 2 3 4`.
+>
+> So **descriptor order is display order**, and a reader needs nothing else — LibRed reads column order from
+> descriptor order and never reads `0x09`, and matches ACE even in a file where the two were made to disagree.
+> A reader that assumed descriptor order is id order would be wrong after a reorder: `E` (id 4) precedes `B`
+> (id 1). Row decoding is unaffected, since it goes by id (`0x05`), variable slot (`0x07`) and fixed offset,
+> never by descriptor position.
 
 > **Date/Time Extended carries only the primary language id.** For a `DATETIME2` column ACE writes the
 > **low byte** of the database's LANGID at `0x0B`/`0x0C` — the primary language with the sublanguage half
@@ -377,7 +403,7 @@ null bitmap is keyed by **id** and not by position (§5).
 | `0x00` | new data type |
 | `0x05` | **burned id** = the old `0x29` high-water (so the id ≥ every existing id; position is unchanged) |
 | `0x07` | variable-table index = the **old** variable-column count (the next free var slot) — set for **both** a fixed and a variable retype |
-| `0x09` | **left unchanged** — ACE does *not* update the duplicate id here (it keeps the *old* id), a deliberate quirk |
+| `0x09` | **left unchanged** — it is the column's ordinal position (§3.4), which a retype does not move; it only looked like the *old* id because the two coincide until a column is dropped or moved |
 | `0x0F` | fixed-length bit (`0x01`) set/cleared for the new type; auto-number bit likewise |
 | `0x0B`/`0x0C` | precision/scale for a `DECIMAL`/`NUMERIC` (`FixedPoint`) target |
 | `0x15` | fixed-data offset = **end of the current fixed region** (appended) for a fixed target, or `0` for a variable target. The old slot is left where it was as dead bytes. |

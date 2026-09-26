@@ -6,12 +6,13 @@ using System.Text;
 using LibRed;
 using LibRed.Catalog;
 using LibRed.Pages;
+using LibRed.Storage;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
 
 /// <summary>
-/// A hundred statements run through ACE over OLE DB and through LibRed on copies of one ACE-created empty database,
+/// About 140 statements run through ACE over OLE DB and through LibRed on copies of one ACE-created empty database,
 /// and the files compared byte for byte. It reports how far apart they are rather than asserting they match.
 /// </summary>
 /// <remarks>
@@ -21,7 +22,8 @@ namespace LibRed.Engine.Tests;
 /// and one early divergence does not leave every later page misaligned.
 /// <para>Only what differs for reasons other than the format is masked: page 0's user commit-byte table, which
 /// counts a lock-file user's writes and LibRed does not keep; the wall-clock DateCreate and DateUpdate of each
-/// MSysObjects row; and a data page's write stamp at 0x08. A copy opened and closed through ACE with nothing
+/// MSysObjects row; and a data page's write stamp at 0x08, with the copy of it a chained long value's descriptor
+/// carries. A copy opened and closed through ACE with nothing
 /// done to it shows what ACE writes merely for holding a session; a byte that alone changes is counted apart rather
 /// than as a difference. Calculated and complex columns are left out — ACE's OLE DB DDL cannot create either.</para>
 /// </remarks>
@@ -108,7 +110,10 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
 
     /// <summary>A hundred statements over six tables: creates with every ordinary column type and each kind of
     /// constraint, inserts, updates and deletes, more inserts into the space the deletes freed, a column added,
-    /// retyped and dropped, indexes made and dropped, and a table dropped and another made after it.</summary>
+    /// retyped and dropped, indexes made and dropped, and a table dropped and another made after it. Then what
+    /// spans pages: a thousand rows from one <c>INSERT … SELECT</c> over many data pages with a text index grown
+    /// past one leaf, a 253-column table whose definition runs onto continuation pages, and long values chained
+    /// across pages, grown, shrunk and deleted.</summary>
     private static string[] Statements()
     {
         var s = new List<string>
@@ -191,8 +196,60 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             "INSERT INTO Customer (Name, City, Joined, Credit, Active, Email) VALUES ('Late comer', 'Oslo', #2023-01-01#, 10, TRUE, 'late@example.com')",
         ]);
 
+        // A table over many data pages, filled by one INSERT … SELECT over a cross join, with an index that grows
+        // past one leaf; deletes across its pages; and updates that grow rows until they have to move.
+        s.Add("CREATE TABLE Digits (D BYTE)");
+        for (int d = 0; d <= 9; d++) s.Add($"INSERT INTO Digits (D) VALUES ({d})");
+        s.AddRange(
+        [
+            "CREATE TABLE Bulk (Id LONG CONSTRAINT pkBulk PRIMARY KEY, Grp LONG, Label TEXT(60), Payload TEXT(255), " +
+                "Code BINARY(8), Amount DECIMAL(10,2))",
+            "CREATE INDEX ixBulkLabel ON Bulk (Label)",
+            "INSERT INTO Bulk (Id, Grp, Label, Payload, Amount) SELECT a.D * 100 + b.D * 10 + c.D, a.D, " +
+                "'Bulk label number ' & (a.D * 100 + b.D * 10 + c.D) & ' ' & String(30, 'L'), String(150, 'p'), " +
+                "a.D + b.D * 0.5 FROM Digits AS a, Digits AS b, Digits AS c ORDER BY 1",
+            "DELETE FROM Bulk WHERE Id MOD 7 = 0",
+            "UPDATE Bulk SET Payload = Payload & String(100, 'g') WHERE Id MOD 10 = 1",
+            "UPDATE Bulk SET Label = 'R ' & Label WHERE Id < 50",
+            "UPDATE Bulk SET Code = 0x0102030405060708 WHERE Id < 5",
+            "INSERT INTO Bulk (Id, Grp, Label, Payload) VALUES (5000, 1, 'Late bulk', 'late')",
+        ]);
+
+        // A 253-column table, whose definition runs onto continuation pages, leaving room for one more column id
+        // after a drop — ids are never reused before a compact, and 255 is the lifetime limit.
+        string[] wideTypes = ["LONG", "TEXT(20)", "DOUBLE", "DATETIME", "CURRENCY", "BIT"];
+        s.Add("CREATE TABLE Wide (Id LONG CONSTRAINT pkWide PRIMARY KEY, " +
+              string.Join(", ", Enumerable.Range(1, 252).Select(i => $"Column{i:D3} {wideTypes[i % wideTypes.Length]}")) + ")");
+        for (int i = 1; i <= 3; i++)
+            s.Add($"INSERT INTO Wide (Id, Column001, Column002, Column252) VALUES ({i}, 'wide {i}', {i * 1.5}, {i})");
+        s.AddRange(
+        [
+            "ALTER TABLE Wide DROP COLUMN Column005",
+            "ALTER TABLE Wide ADD COLUMN Extra TEXT(10)",
+            "UPDATE Wide SET Extra = 'extra' WHERE Id = 2",
+        ]);
+
+        // Long values across pages, the other binary types, and compressed text.
+        s.AddRange(
+        [
+            "CREATE TABLE Doc (Id LONG CONSTRAINT pkDoc PRIMARY KEY, Body MEMO, Packed MEMO WITH COMPRESSION, " +
+                "Brief TEXT(100) WITH COMPRESSION, Blob LONGBINARY, Big BIGBINARY(500))",
+            $"INSERT INTO Doc VALUES (1, String(5000, 'b'), String(300, 'c'), 'short and compressed', 0x{Hex(6000, 1)}, 0x{Hex(400, 2)})",
+            $"INSERT INTO Doc VALUES (2, String(2500, 'd'), 'packed two', 'two', 0x{Hex(100, 3)}, 0x{Hex(50, 4)})",
+            "INSERT INTO Doc (Id, Body, Brief) VALUES (3, 'small', 'three')",
+            "UPDATE Doc SET Body = String(8000, 'e') WHERE Id = 2",
+            "UPDATE Doc SET Body = 'now small' WHERE Id = 1",
+            $"UPDATE Doc SET Blob = 0x{Hex(9000, 5)} WHERE Id = 3",
+            "DELETE FROM Doc WHERE Id = 2",
+            "INSERT INTO Doc (Id, Body) VALUES (4, String(4000, 'f'))",
+        ]);
+
         return [.. s];
     }
+
+    /// <summary><paramref name="bytes"/> bytes as hex, a repeating pattern seeded by <paramref name="seed"/>.</summary>
+    private static string Hex(int bytes, int seed) =>
+        Convert.ToHexString([.. Enumerable.Range(0, bytes).Select(i => (byte)((i * 7 + seed) % 251))]);
 
     private static string Notes(int i) => string.Concat(Enumerable.Repeat($"Note {i}. ", i * 12));
 
@@ -343,6 +400,28 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
                 int start = slot & 0x1FFF;
                 foreach (int offset in dates)
                     for (int i = 0; i < 8; i++) masks[page].Add(start + 2 + offset + i);
+            }
+        }
+
+        // A chained long value's descriptor carries the same write stamp as the chain's first page, bytes 8–11 of
+        // its twelve (long-values.md).
+        foreach (TableDef definition in database.Catalog.Tables)
+        {
+            if (!definition.Columns.Any(c => c.Type is JetDataType.Memo or JetDataType.Ole)) continue;
+            Table table = database.OpenTable(definition.Name);
+            foreach ((RowId id, _) in table.Rows().WithIds())
+            {
+                var page = new DataPage();
+                page.Read(table.Channel.ReadPageShared(id.Page), table.Channel.Format);
+                if (page.Rows[id.Row] is not { IsDeleted: false, HasOverflow: false } slot) continue;
+                ReadOnlySpan<byte> row = page.GetRow(id.Row);
+                foreach (byte[] descriptor in RowDecoder.LongValueDescriptors(definition.Columns, table.Channel.Format, row).Values)
+                {
+                    if (descriptor.Length < 12 || descriptor[3] != 0x00) continue;
+                    int at = row.IndexOf(descriptor);
+                    if (at >= 0)
+                        for (int i = 8; i < 12; i++) masks[id.Page].Add(slot.Offset + at + i);
+                }
             }
         }
     }

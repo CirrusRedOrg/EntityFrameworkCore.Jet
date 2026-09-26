@@ -114,8 +114,8 @@ Variable section (`varOffsetTable`+`numVar`) omitted only when the table has nev
 | `0x01` | 2 | Marker `0x0659` |
 | `0x03` | 2 | Unknown (zero) |
 | `0x05` | 2 | Column id |
-| `0x07` | 2 | Variable-table index — on a **fixed** column the running count of preceding variable columns, **NOT `0`**; on a variable column its own slot index, which follows the `0x2B` high-water ([page-02b §3.4](page-02b-columns.md)) |
-| `0x09` | 2 | Column number — a second copy of the id `0x05` on a **user** table, but **`0`** on the tables the engine writes for itself; unchanged by an `ALTER COLUMN` that burns a new id at `0x05` ([page-02b §3.4](page-02b-columns.md)) |
+| `0x07` | 2 | Variable-table index — on a **fixed** column the running count of preceding variable columns, dropped ones included (so the `0x2B` high-water for an added column), **NOT `0`**; on a variable column its own slot index, which follows the `0x2B` high-water ([page-02b §3.4](page-02b-columns.md)) |
+| `0x09` | 2 | Ordinal position (DAO `Field.OrdinalPosition`), ties allowed; the engine presents columns in descriptor order, which DAO keeps in step by moving the descriptor when it sets this. A second copy of the id `0x05` at creation on a **user** table, but **`0`** on the tables the engine writes for itself; unchanged by `DROP COLUMN` and by an `ALTER COLUMN` that burns a new id at `0x05`, ranked by `ADD COLUMN` ([page-02b §3.4](page-02b-columns.md)) |
 | `0x0B` | 1 | Precision (Decimal) — else collation LANGID low byte (`0x09` en-US) |
 | `0x0C` | 1 | Scale (Decimal) — else collation LANGID high byte (`0x04` en-US) |
 | `0x0D` | 1 | Collation sort id — the LCID's high word (`0x01` = an alternate sort order, e.g. Hungarian Technical) |
@@ -224,8 +224,8 @@ Global maps, located by page 0: free pages at `0x18` (page 1 row 0 as ACE writes
 | `0x02` | 2 | Free space |
 | `0x04` | 4 | Owning TDEF page |
 | `0x08` | 4 | Jet4-inserted field (zero); shifts the following fields +4 vs Jet3 |
-| `0x0C` | 4 | Previous leaf page (0 = leftmost) |
-| `0x10` | 4 | Next leaf page (0 = rightmost) — load-bearing for Access's scan |
+| `0x0C` | 4 | Previous leaf page (0 = leftmost); a split node's left sibling |
+| `0x10` | 4 | Next leaf page (0 = rightmost) — load-bearing for Access's scan; a split node's right sibling |
 | `0x14` | 4 | Child-tail page (node: rightmost child) |
 | `0x18` | 2 | Compressed-byte count (shared key-prefix length) |
 | `0x1A` | 1 | B-tree level/height (leaf must be `0`) |

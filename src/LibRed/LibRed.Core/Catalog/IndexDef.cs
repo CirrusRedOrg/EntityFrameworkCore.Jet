@@ -27,7 +27,7 @@ public sealed record IndexDef
     /// </summary>
     public int UniqueEntryCount { get; init; }
 
-    /// <summary>Page number of the index B-tree root. Updated in place when the root splits (grows a level).</summary>
+    /// <summary>Page number of the index B-tree root. Neither a split nor a bulk build moves it; a rebuild onto a fresh root does.</summary>
     public int RootPage { get; internal set; }
 
     /// <summary>

@@ -17,7 +17,7 @@
 | `0x18` | 4 | **Global free-pages map pointer** — `[row:1][page:3]`; `0x00000100` = page 1 row 0 in every file ACE writes ([page-05 §9.1](page-05-usage-maps.md)) |
 | `0x1C` | 4 | **Global released-pages map pointer** — `[row:1][page:3]`; `0x00000101` = page 1 row 1 ([page-05 §9.1](page-05-usage-maps.md)) |
 | `0x20`–`0x2C` | 4×4 | **System-catalog bootstrap pointers**: TDEF pages of `MSysObjects` / `MSysACEs` / `MSysQueries` / `MSysRelationships` = `2, 3, 4, 5`. `0x20` is the **catalog root** (how the engine finds `MSysObjects`). |
-| `0x30`–`0x3B` | 12 | Zero in every file seen, but **not merely reserved**: ACE range-checks `0x30` and `0x34` (see below) |
+| `0x30`–`0x3B` | 12 | Zero in every file seen, but **not merely reserved**: ACE range-checks `0x30` and `0x34` as `[row:1][page:3]` pointers, against the largest possible page only (see below) |
 | `0x3C` | 2 | **ANSI code page** — LE (`0x04E4` = 1252, `0x04E2` = 1250) |
 | `0x3E` | 4 | **Database (encryption) key** — 0 when there is no password |
 | `0x42` | 40 | **Password** (Jet 4; Jet 3 = 20 bytes) — additionally masked by a creation-date-derived value, so an empty password does not read as zeroes |
@@ -108,11 +108,15 @@ map is a record on a data page; the catalog pointers that follow are plain page 
 definition is a page. What the maps hold, and how ACE validates and follows the pointers, is
 [page-05 §9.1](page-05-usage-maps.md).
 
-**`0x30` and `0x34` are range-checked, `0x38` is not (verified).** A value in either of the first two naming a
-page past the end of the file makes the database unopenable — the same "page must exist" check `0x18` and
-`0x1C` get — while `0x38` takes any value. So `0x30` and `0x34` are **pointers**, sharing the bootstrap block's
-`[row:1][page:3]` shape at least as far as that check reaches; what they point at is **not known**, since every
-file examined carries zero and zero is accepted. A writer must leave all three as it found them.
+**`0x30` and `0x34` are range-checked, `0x38` is not (verified).** Read as `[row:1][page:3]`, either of the first
+two may name any page up to the largest a file can have: `0x080000FF` (page 524,288, row 255) opens and
+`0x08000100` (page 524,289) makes the database unopenable. The file's own length is **not** consulted — a page
+ten past the end of a 353-page file, or page 500,000, opens as readily — which is looser than the "page must
+exist" check `0x18` and `0x1C` get. `0x38` takes any value at all. The boundary sits where a `[row][page]`
+reading puts it, and read as a plain page number it would be meaningless, so `0x30` and `0x34` are most likely
+**record pointers** of the shape `0x18`/`0x1C` have, rather than page pointers like the catalog block after them.
+What they point at is **not known**: every file examined carries zero, zero is accepted, and a compact zeroes a
+poked value. A writer must leave all three as it found them.
 
 **Catalog bootstrap.** Reading the database is a two-step hop from page 0: the pointer at `0x20` gives the
 `MSysObjects` TDEF page (2), and `MSysObjects` then lists every other object (each table's row `Id` is *its*

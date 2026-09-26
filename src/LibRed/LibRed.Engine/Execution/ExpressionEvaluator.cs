@@ -903,8 +903,22 @@ internal sealed partial class ExpressionEvaluator(
     };
 
     /// <summary>Whether an expression is a Currency: a Currency column, CCur, or arithmetic that keeps one.</summary>
-    private bool IsCurrency(Expression expression) =>
-        NumberTypeOf(expression, scope.AllColumns(), _ => null).Class == NumberClass.Currency;
+    /// <remarks>Decided by the expression and the scope's columns, never the row, so it is worked out once per node
+    /// for this evaluator — which is reused across rows. Working it out walks the schema, and did so for every row
+    /// of every Currency-typed arithmetic result.</remarks>
+    private bool IsCurrency(Expression expression)
+    {
+        // IDE0028's only fix here is `[]`, which would drop the comparer and key the nodes structurally.
+#pragma warning disable IDE0028
+        _currency ??= new Dictionary<Expression, bool>(ReferenceEqualityComparer.Instance);
+#pragma warning restore IDE0028
+        if (!_currency.TryGetValue(expression, out bool currency))
+            _currency[expression] = currency =
+                NumberTypeOf(expression, scope.AllColumns(), _ => null).Class == NumberClass.Currency;
+        return currency;
+    }
+
+    private Dictionary<Expression, bool>? _currency;
 
     /// <summary>
     /// Access <c>StrConv(string, conversion, [LCID])</c> (verified vs ACE). 0 leaves the text as it is. 1, 2 and 3

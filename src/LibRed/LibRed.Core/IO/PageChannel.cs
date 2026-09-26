@@ -20,6 +20,10 @@ public sealed class PageChannel : IDisposable
     private readonly string _path;
     private readonly PageCache _cache;
 
+    // The file's identity (FileIdentity.Key), worked out once: it names this file in both shared registries, on
+    // the way in and on the way out, and each working-out is file-system calls on every open and close.
+    private readonly string _identity;
+
     // Page decryptor for a password-encrypted database (null when the file is unencrypted). Applied to
     // every page as it comes off disk; page 0 (the readable header) is a no-op inside the codec.
     private readonly IPageCodec? _codec;
@@ -70,10 +74,11 @@ public sealed class PageChannel : IDisposable
         Format = format;
         _path = path;
         _codec = codec;
+        _identity = FileIdentity.Key(path);
         // A test may inject its own manager; otherwise share the per-path one (refcounted, released on Dispose).
         _ownsLocks = locks is null;
-        _locks = locks ?? MonitorLockManager.Acquire(path);
-        _cache = PageCache.Acquire(path);
+        _locks = locks ?? MonitorLockManager.AcquireKey(_identity);
+        _cache = PageCache.AcquireKey(_identity);
         _cache.InitFileLength(stream.Length);
     }
 
@@ -707,7 +712,7 @@ public sealed class PageChannel : IDisposable
     {
         if (!_readOnly) _stream.Flush(flushToDisk: false);
         _stream.Dispose();
-        PageCache.Release(_path); // last channel on this file drops the shared pool
-        if (_ownsLocks) MonitorLockManager.Release(_path); // and the shared lock manager
+        PageCache.ReleaseKey(_identity); // last channel on this file drops the shared pool
+        if (_ownsLocks) MonitorLockManager.ReleaseKey(_identity); // and the shared lock manager
     }
 }

@@ -61,9 +61,12 @@ internal sealed class PageCache : IDisposable
     /// paired with a <see cref="Release"/>. The key is <see cref="FileIdentity"/>'s, so relative and absolute opens
     /// of one file share a pool (two pools for one file would reintroduce cross-handle staleness) while two files
     /// whose paths differ only in case, on a platform where that makes them two files, do not.</summary>
-    public static PageCache Acquire(string path)
+    public static PageCache Acquire(string path) => AcquireKey(FileIdentity.Key(path));
+
+    /// <summary><see cref="Acquire"/> by a key <see cref="FileIdentity"/> has already given — a channel works its
+    /// file's key out once and uses it for every registry it joins and leaves.</summary>
+    internal static PageCache AcquireKey(string key)
     {
-        string key = FileIdentity.Key(path);
         lock (RegistryGate)
         {
             if (Registry.TryGetValue(key, out var slot))
@@ -79,9 +82,11 @@ internal sealed class PageCache : IDisposable
 
     /// <summary>Drops one reference to the cache for <paramref name="path"/>; when the last channel closes, the
     /// pool is discarded so a later re-open re-reads from disk (picking up any external change).</summary>
-    public static void Release(string path)
+    public static void Release(string path) => ReleaseKey(FileIdentity.Key(path));
+
+    /// <summary><see cref="Release"/> by a key <see cref="FileIdentity"/> has already given.</summary>
+    internal static void ReleaseKey(string key)
     {
-        string key = FileIdentity.Key(path);
         lock (RegistryGate)
         {
             if (!Registry.TryGetValue(key, out var slot)) return;

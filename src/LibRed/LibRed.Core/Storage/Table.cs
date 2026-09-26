@@ -48,6 +48,28 @@ public sealed class Table
                     ?? throw new InvalidDataException($"Row {id.Page}:{id.Row} of '{Name}' was read a moment ago and is gone."));
     }
 
+    /// <summary>The rows whose <paramref name="columns"/> hold <paramref name="key"/> (position for position),
+    /// each read in full — seeked through an index on exactly those columns when the table has one, and found
+    /// by <see cref="RowsWhere"/>'s scan when it has none. <paramref name="match"/> decides every row either way:
+    /// an index key is lossy (text folds case and trailing spaces), so the seek only narrows.</summary>
+    /// <remarks>The key has to be in each column's own kind already, because an index answers only in its
+    /// column's kind; a caller that cannot promise that uses <see cref="RowsWhere"/>. A null in the key scans,
+    /// since how an index keys a null is not the question a key comparison asks.</remarks>
+    public IEnumerable<(RowId Id, object?[] Values)> RowsWithKey(
+        int[] columns, object?[] key, Func<object?[], bool> match)
+    {
+        IndexDef? index = key.Any(k => k is null) ? null : Definition.Indexes.FirstOrDefault(i =>
+            i.RootPage > 0 && i.Columns.Count == columns.Length && i.Columns.All(c => columns.Contains(c.Column.Index)));
+        if (index is null)
+            return RowsWhere(columns, match);
+
+        // A seek key is addressed by column ordinal, not by position in the index.
+        var seekKey = new object?[Definition.Columns.Count];
+        for (int i = 0; i < columns.Length; i++)
+            seekKey[columns[i]] = key[i];
+        return SeekRowsWithIds(index, seekKey).Where(r => match(r.Values));
+    }
+
     /// <summary>A row decoder over this table's columns — reuse one across a seek/scan rather than allocating
     /// per row (each carries a shared <see cref="LongValueReader"/>).</summary>
     private RowDecoder NewDecoder(bool[]? decode = null) =>

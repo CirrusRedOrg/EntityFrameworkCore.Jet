@@ -222,7 +222,27 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         Table parent = _database.OpenTable(fk.ReferencedTable);
         int[] parentCols = ReferencedColumnsOf(fk, parent);
-        return parent.Rows(parent.DecodeOnly(parentCols)).Any(row => KeyEquals(row, parentCols, target));
+        return RowsHoldingKey(parent, parentCols, target).Any();
+    }
+
+    /// <summary>The rows of <paramref name="table"/> whose <paramref name="columns"/> hold <paramref name="key"/>
+    /// on <see cref="KeyEquals"/>'s terms, read in full: seeked through an index on those columns when the key
+    /// can be sought (every value in its column's kind, as a query's <c>column = value</c> seek requires), else
+    /// scanned. A relationship's parent side always has one — its referenced columns are a primary or unique
+    /// key — so the check every child INSERT makes, which scanned the whole parent table, is a seek.</summary>
+    private static IEnumerable<(RowId Id, object?[] Values)> RowsHoldingKey(Table table, int[] columns, object?[] key)
+    {
+        bool Holds(object?[] values) => KeyEquals(values, columns, key);
+
+        var seekKey = new object?[key.Length];
+        for (int i = 0; i < key.Length; i++)
+        {
+            ColumnDef column = table.Definition.Columns.First(c => c.Index == columns[i]);
+            if (!ExpressionEvaluator.TryGetSeekKey(column, new LiteralExpression(key[i]), key[i], out seekKey[i]))
+                return table.RowsWhere(columns, Holds);
+        }
+
+        return table.RowsWithKey(columns, seekKey, Holds);
     }
 
     /// <summary>The positions the relationship's referenced columns occupy in a row of the parent table.</summary>
@@ -251,8 +271,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         Table child = _database.OpenTable(fk.Table);
         int[] childCols = [.. fk.Columns.Select(c => child.Definition.FindColumn(c.Column)!.Index)];
-        // The search reads the key alone; a match is then read whole, because the cascade rewrites or deletes it.
-        return [.. child.RowsWhere(childCols, values => KeyEquals(values, childCols, key))];
+        // Seeked where the child has an index on its key (ACE gives an enforced relationship one), else found by
+        // a scan of the key; a match is read whole either way, because the cascade rewrites or deletes it.
+        return [.. RowsHoldingKey(child, childCols, key)];
     }
 
     /// <summary>
@@ -317,14 +338,12 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             int recordId = Convert.ToInt32(raw, System.Globalization.CultureInfo.InvariantCulture);
 
             Table flat = _database.OpenTable(complex.FlatTable.Name);
-            // Read for the owner link and the index keys to remove, and nothing else: Delete reads the row itself.
-            int[] read = [complex.OwnerLink.Index, .. flat.Definition.RealIndexes.SelectMany(i => i.Columns).Select(c => c.Column.Index)];
-            foreach ((RowId flatId, object?[] flatValues) in flat.Rows(flat.DecodeOnly(read)).WithIds().ToList())
+            // Seeked by the owner link, whose index is what identifies it (see JetCatalog).
+            int linkColumn = complex.OwnerLink.Index;
+            foreach ((RowId flatId, object?[] flatValues) in flat.RowsWithKey([linkColumn], [recordId], values =>
+                values[linkColumn] is { } link
+                && Convert.ToInt32(link, System.Globalization.CultureInfo.InvariantCulture) == recordId).ToList())
             {
-                if (flatValues[complex.OwnerLink.Index] is not { } link
-                    || Convert.ToInt32(link, System.Globalization.CultureInfo.InvariantCulture) != recordId)
-                    continue;
-
                 foreach (IndexDef index in flat.Definition.RealIndexes)
                     flat.RemoveIndexEntry(index, flatValues, flatId);
                 flat.Delete(flatId);

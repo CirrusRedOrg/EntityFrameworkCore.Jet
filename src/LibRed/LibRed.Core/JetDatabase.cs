@@ -265,10 +265,11 @@ public sealed class JetDatabase : IDisposable
     public IReadOnlyList<object?[]> ReadComplexValues(ComplexColumn column, int complexId)
     {
         ArgumentNullException.ThrowIfNull(column);
-        // Found by the owner link alone, so another record's attachments are not read to find this one's.
+        // Seeked by the owner link, whose index is what identifies the link column in the first place (see
+        // JetCatalog), so no other record's values are read to find this one's.
         int link = column.OwnerLink.Index;
         return [.. OpenTable(column.FlatTable.Name)
-            .RowsWhere([link], row => row[link] is { } owner
+            .RowsWithKey([link], [complexId], row => row[link] is { } owner
                 && Convert.ToInt32(owner, System.Globalization.CultureInfo.InvariantCulture) == complexId)
             .Select(r => (object?[])[.. column.ValueColumns.Select(c => r.Values[c.Index])])];
     }

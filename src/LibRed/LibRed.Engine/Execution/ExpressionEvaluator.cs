@@ -45,6 +45,13 @@ internal sealed partial class ExpressionEvaluator(
         return this;
     }
 
+    /// <summary>Rebinds to another group of a grouped query: its key row and its aggregates' values.</summary>
+    public ExpressionEvaluator Rebind(object?[] row, IReadOnlyDictionary<FunctionCall, object?> aggregates)
+    {
+        scope.Rebind(row, aggregates);
+        return this;
+    }
+
     /// <summary>How text compares here: the database's collation, for every comparison whatever its operands.</summary>
     private JetTextComparer Text => subqueries.TextComparer;
 

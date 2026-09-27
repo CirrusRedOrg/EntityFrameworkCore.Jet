@@ -2255,13 +2255,17 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             GroupState? state = single;
             if (state is null)
             {
+                // Text is keyed here, once — as GroupKey would key it, so it holds these values as they are — and
+                // the group keeps them for ordering the output, where they used to be evaluated and keyed again.
                 var keyValues = new object?[node.GroupBy.Count];
                 for (int i = 0; i < keyValues.Length; i++)
-                    keyValues[i] = Compared(rowEval.Evaluate(node.GroupBy[i]), keyByText[i]);
+                    keyValues[i] = ExpressionEvaluator.SortKey(
+                        Compared(rowEval.Evaluate(node.GroupBy[i]), keyByText[i]), TextComparer);
                 var key = new GroupKey(keyValues, TextComparer);
                 if (!byKey.TryGetValue(key, out state))
                 {
                     byKey[key] = state = NewGroupState(row);
+                    state.Keys = key.Values;
                     groupStates.Add(state); // first-appearance order, which a stable ORDER BY keeps between ties
                 }
             }
@@ -2276,8 +2280,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             }
         }
 
-        // The groups HAVING keeps, each with the row that resolves its keys and its aggregates' values.
-        var groups = new List<(object?[] KeyRow, Dictionary<FunctionCall, object?> Values, ExpressionEvaluator Eval)>();
+        // The groups HAVING keeps, each with the row that resolves its keys, its aggregates' values, and its
+        // grouping key as compared. Every group is evaluated through one scope, rebound to it: HAVING, the windows
+        // and the projection each take the groups one at a time, and a scope per group made every group resolve its
+        // column references afresh.
+        var groups = new List<(object?[] KeyRow, Dictionary<FunctionCall, object?> Values, object?[] Keys)>();
+        ExpressionEvaluator groupEval = Eval(inColumns, [], outer);
         foreach (GroupState state in groupStates)
         {
             var values = new Dictionary<FunctionCall, object?>(ReferenceComparer.Instance);
@@ -2294,45 +2302,45 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             // reach an outer aggregate). An empty group only happens for an aggregate with no GROUP BY over
             // zero rows (e.g. COUNT(*) -> 0); there are no key columns to resolve, so a null row suffices.
             object?[] keyRow = state.KeyRow ?? new object?[inColumns.Count];
-            var eval = new ExpressionEvaluator(new EvalScope(inColumns, keyRow, outer, values), this, _parameters, _session);
 
             // HAVING filters whole groups after aggregation.
-            if (node.Having is not null && !eval.IsTrue(node.Having))
+            if (node.Having is not null && !groupEval.Rebind(keyRow, values).IsTrue(node.Having))
                 continue;
-            groups.Add((keyRow, values, eval));
+            groups.Add((keyRow, values, state.Keys));
         }
 
         // The windows see the groups as their rows, as the standard orders it: after HAVING, before the projection.
-        var windowValues = new object?[groups.Count][];
-        for (int i = 0; i < groups.Count; i++)
+        var windowValues = new object?[windows.Count > 0 ? groups.Count : 0][];
+        for (int i = 0; i < windowValues.Length; i++)
             windowValues[i] = new object?[windows.Count];
         for (int slot = 0; slot < windows.Count; slot++)
-            ComputeWindow(windows[slot].Function, groups.Count, i => groups[i].Eval, inColumns, windowValues, slot, windowTypes[slot]);
+            ComputeWindow(windows[slot].Function, groups.Count, i => groupEval.Rebind(groups[i].KeyRow, groups[i].Values),
+                inColumns, windowValues, slot, windowTypes[slot]);
 
-        // Each output row carries its ORDER BY key values AND its grouping-key values, evaluated in the same
-        // group scope as the projection, to sort the groups afterward: by ORDER BY if present, otherwise —
-        // matching Access, which returns GROUP BY results ascending by the grouping columns — by the group key
-        // (this also makes a TOP-1-over-a-GROUP-BY deterministic, as Access/SQL Server do).
-        var outRows = new List<(object?[] Row, object?[] SortKeys, object?[] GroupKeys)>();
+        // Each output row carries its ORDER BY key values AND its grouping-key values, to sort the groups
+        // afterward: by ORDER BY if present, otherwise — matching Access, which returns GROUP BY results ascending
+        // by the grouping columns — by the group key (this also makes a TOP-1-over-a-GROUP-BY deterministic, as
+        // Access/SQL Server do). The grouping key is the one the group was found by, already keyed.
+        var outRows = new List<(object?[] Row, object?[] SortKeys, object?[] GroupKeys)>(groups.Count);
         bool[] sortByText = ComparedAsText(node.OrderBy.Select(k => k.Value), columns);
-        bool[] groupByText = ComparedAsText(node.GroupBy, inColumns);
+        ExpressionEvaluator? windowEval = windows.Count > 0 ? Eval(columns, [], outer) : null;
         for (int g = 0; g < groups.Count; g++)
         {
-            var (keyRow, values, eval) = groups[g];
-            if (windows.Count > 0)
-                eval = new ExpressionEvaluator(
-                    new EvalScope(columns, [.. keyRow, .. windowValues[g]], outer, values), this, _parameters, _session);
+            var (keyRow, values, keys) = groups[g];
+            ExpressionEvaluator eval = windowEval is null
+                ? groupEval.Rebind(keyRow, values)
+                : windowEval.Rebind([.. keyRow, .. windowValues[g]], values);
 
-            object?[] row = node.Projection
-                .Select((item, i) => ExpressionEvaluator.ToResultPlaces(
-                    ExpressionEvaluator.AsColumnType(eval.Evaluate(item.Value), conversions[i].ConvertTo, currency: false), outTypes[i]))
-                .ToArray();
+            var row = new object?[node.Projection.Count];
+            for (int i = 0; i < row.Length; i++)
+                row[i] = ExpressionEvaluator.ToResultPlaces(
+                    ExpressionEvaluator.AsColumnType(eval.Evaluate(node.Projection[i].Value), conversions[i].ConvertTo, currency: false),
+                    outTypes[i]);
             // Only compared, never returned — so text keys carry their collation keys (see SortKey).
-            object?[] sortKeys = node.OrderBy.Select((k, i) =>
-                ExpressionEvaluator.SortKey(Compared(eval.Evaluate(k.Value), sortByText[i]), TextComparer)).ToArray();
-            object?[] groupKeys = node.GroupBy.Select((k, i) =>
-                ExpressionEvaluator.SortKey(Compared(eval.Evaluate(k), groupByText[i]), TextComparer)).ToArray();
-            outRows.Add((row, sortKeys, groupKeys));
+            var sortKeys = node.OrderBy.Count == 0 ? [] : new object?[node.OrderBy.Count];
+            for (int i = 0; i < sortKeys.Length; i++)
+                sortKeys[i] = ExpressionEvaluator.SortKey(Compared(eval.Evaluate(node.OrderBy[i].Value), sortByText[i]), TextComparer);
+            outRows.Add((row, sortKeys, keys));
         }
 
         if (node.OrderBy.Count > 0)
@@ -2387,6 +2395,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     {
         public object?[]? KeyRow;
         public required GroupAggregate?[] Calls;
+        /// <summary>The grouping key's values as compared, which order the groups when there is no ORDER BY;
+        /// empty without a GROUP BY.</summary>
+        public object?[] Keys = [];
     }
 
     /// <summary>
@@ -2643,9 +2654,16 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             return keyed;
         }
 
-        public bool Equals(GroupKey? other) =>
-            other is not null && _values.Length == other._values.Length
-            && _values.Zip(other._values).All(p => KeyEquals(p.First, p.Second, _text));
+        public bool Equals(GroupKey? other)
+        {
+            if (other is null || _values.Length != other._values.Length) return false;
+            for (int i = 0; i < _values.Length; i++)
+                if (!KeyEquals(_values[i], other._values[i], _text)) return false;
+            return true;
+        }
+
+        /// <summary>The values as compared — text as its collation key — which also order the groups.</summary>
+        public object?[] Values => _values;
 
         public override bool Equals(object? obj) => Equals(obj as GroupKey);
         public override int GetHashCode()

@@ -619,10 +619,14 @@ internal static class JetTextCollation
             // single-character measurement cannot tell one two-byte weight from two one-byte ones. ß is two
             // weights (S+S); the table records it as the two bytes 6B 6B and would make it one, which is
             // invisible until something counts weights — an accent after it, or an inline record's position.
-            else if (TryAddExplicit(upper, Add))
+            // Each expanded letter (ß=SS, Þ=TH, Æ=AE) is its own weight; an atomic accent (Ø, Ð) is its base
+            // letter with a secondary.
+            else if (Expansions.TryGetValue(upper, out string? expansion))
             {
-                // handled by the expansion / atomic-accent tables
+                foreach (char letter in expansion) Add(Letters[letter - 'A']);
             }
+            else if (AtomicAccents.TryGetValue(upper, out (char Base, byte Secondary) atomic))
+                Add(Letters[atomic.Base - 'A'], atomic.Secondary);
             // The measured table for the rest of the BMP — Greek, Cyrillic, Hebrew, Arabic, the Latin
             // extensions, punctuation, CJK and the rest. It covers nothing the hand-verified Latin-1 and
             // Latin Extended-A tables above do, so it cannot override anything already proven — but it DOES
@@ -639,7 +643,9 @@ internal static class JetTextCollation
             {
                 if (block is { } weight) AddWeight(weight.Primaries, weight.Secondary);
             }
-            else if (!TryAddAccented(upper, Add))
+            else if (TryDecomposeAccented(upper, out char baseLetter, out byte accent))
+                Add(Letters[baseLetter - 'A'], accent);
+            else
                 return false;
             return true;
         }
@@ -691,29 +697,14 @@ internal static class JetTextCollation
         }
     }
 
-    /// <summary>The explicit, hand-verified half: a multi-letter expansion (ß=SS, Þ=TH, Æ=AE) or an atomic
-    /// accent (Ø, Ð). Each expanded letter is its own <b>weight</b> — the part no single-character
-    /// measurement can capture, since a key cannot show whether two bytes are one weight or two — so this is
-    /// consulted ahead of the measured table.</summary>
-    private static bool TryAddExplicit(char u, Action<byte, byte> add)
-    {
-        if (Expansions.TryGetValue(u, out string? expansion))
-        {
-            foreach (char letter in expansion) add(Letters[letter - 'A'], DefaultSecondary);
-            return true;
-        }
-        if (AtomicAccents.TryGetValue(u, out (char Base, byte Secondary) atomic))
-        {
-            add(Letters[atomic.Base - 'A'], atomic.Secondary);
-            return true;
-        }
-        return false;
-    }
-
     /// <summary>The derived half: a Unicode canonical decomposition into a base A–Z letter plus one combining
     /// mark we hold a weight for. Guesswork beside a measurement, so it runs last of all.</summary>
-    private static bool TryAddAccented(char u, Action<byte, byte> add)
+    /// <remarks>It answers rather than adding, as the explicit tables above it do inline: handing the encoder's
+    /// own Add in as a delegate made its captured state a heap object, allocated for every key encoded.</remarks>
+    private static bool TryDecomposeAccented(char u, out char letter, out byte weight)
     {
+        letter = default;
+        weight = 0;
         // Normalize throws on anything that is not a well-formed scalar — an unpaired surrogate, or a
         // NONCHARACTER (U+FDD0..U+FDEF and any code point ending FFFE/FFFF). Those are legal in a .NET
         // string, so refuse them rather than letting an ArgumentException escape a Try- method.
@@ -722,9 +713,9 @@ internal static class JetTextCollation
 
         // Canonical decomposition: a base A–Z letter followed by one combining diacritic we know.
         string nfd = u.ToString().Normalize(System.Text.NormalizationForm.FormD);
-        if (nfd.Length == 2 && nfd[0] is >= 'A' and <= 'Z' && DiacriticWeights.TryGetValue(nfd[1], out byte weight))
+        if (nfd.Length == 2 && nfd[0] is >= 'A' and <= 'Z' && DiacriticWeights.TryGetValue(nfd[1], out weight))
         {
-            add(Letters[nfd[0] - 'A'], weight);
+            letter = nfd[0];
             return true;
         }
         return false;

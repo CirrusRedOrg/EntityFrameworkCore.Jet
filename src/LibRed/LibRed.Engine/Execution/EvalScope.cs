@@ -16,11 +16,23 @@ internal sealed class EvalScope(
     // the schema and outer link are fixed for the scope's lifetime.
     private object?[] row = row;
 
-    /// <summary>Points this scope at a new row of the same schema (see <see cref="Rebind"/>'s callers for why
+    /// <summary>Points this scope at a new row of the same schema (see <see cref="Rebind(object?[])"/>'s callers for why
     /// reuse is worthwhile). Returns the scope for fluent use.</summary>
     public EvalScope Rebind(object?[] newRow)
     {
         row = newRow;
+        return this;
+    }
+
+    // The precomputed aggregates, rebindable with the row: a grouped query evaluates every group through one
+    // scope, each group bringing its key row and its own aggregate values.
+    private IReadOnlyDictionary<FunctionCall, object?>? aggregates = aggregates;
+
+    /// <summary>Points this scope at another group: its key row and its aggregates' values.</summary>
+    public EvalScope Rebind(object?[] newRow, IReadOnlyDictionary<FunctionCall, object?> newAggregates)
+    {
+        row = newRow;
+        aggregates = newAggregates;
         return this;
     }
 

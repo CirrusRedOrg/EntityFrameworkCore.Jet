@@ -18,7 +18,7 @@
 | `0x1C` | 4 | **Global released-pages map pointer** — `[row:1][page:3]`; `0x00000101` = page 1 row 1 ([page-05 §9.1](page-05-usage-maps.md)) |
 | `0x20`–`0x2C` | 4×4 | **System-catalog bootstrap pointers**: TDEF pages of `MSysObjects` / `MSysACEs` / `MSysQueries` / `MSysRelationships` = `2, 3, 4, 5`. `0x20` is the **catalog root** (how the engine finds `MSysObjects`). |
 | `0x30`–`0x3B` | 12 | Zero in every file seen, but **not merely reserved**: ACE range-checks `0x30` and `0x34` as `[row:1][page:3]` pointers, against the largest possible page only (see below) |
-| `0x3C` | 2 | **ANSI code page** — LE (`0x04E4` = 1252, `0x04E2` = 1250) |
+| `0x3C` | 2 | **ANSI code page** of the collation's language — LE (`0x04E4` = 1252, `0x04E2` = 1250, `0` = none); see below |
 | `0x3E` | 4 | **Database (encryption) key** — 0 when there is no password |
 | `0x42` | 40 | **Password** (Jet 4; Jet 3 = 20 bytes) — additionally masked by a creation-date-derived value, so an empty password does not read as zeroes |
 | `0x6A` | 4 | **Creating engine's build number** — `0x000011A6` (4518) on everything ACE writes, but **not a constant**: Jet-4-authored files carry the build of the `msjet40.dll` that created them (see below) |
@@ -205,14 +205,22 @@ CF 65 ED FF 07 C7 46 A1 78 16 0C ED E9 2D 62 D4   ; 0x88
 ```
 
 **Verified** against real files: at the code page (`mask[0x3C]=7B,42`) the mask yields the canonical
-Windows code pages `0x04E4`/`0x04E2`; at the collation LCID (`mask[0x6E]=01,1B`) it agrees with each
+Windows code page of the collation's language; at the collation LCID (`mask[0x6E]=01,1B`) it agrees with each
 column descriptor's own locale at `0x0B`–`0x0C`; at the creation date (`mask[0x72]=12 4F 4A 94 6C 3E 60 26`)
 it matches `MSysObjects.DateCreate` to the second. Applied whole, it also yields a zero database key on
 no-password files and an empty password that unmasks to the creation-date-derived pattern (below).
 
 **Decoded fields** (all little-endian; `DatabaseDefinitionPage` → `JetDatabase`):
 
-- **Code page (`0x3C`, 2 bytes)** → `CodePage` (1252 / 1250).
+- **Code page (`0x3C`, 2 bytes)** → `CodePage`. The Windows ANSI code page of the **language** of the
+  database's collation (`0x6E`): 1252 for English and Western Europe, 1250 Central Europe, 1251 Cyrillic,
+  1253 Greek, 1254 Turkish and Azerbaijani, 1255 Hebrew, 1256 Arabic, 1257 Baltic, 1258 Vietnamese, 874 Thai,
+  932 Japanese, 936 Chinese Simplified, 949 Korean, 950 Chinese Traditional — and **`0`** for a language
+  with no ANSI code page (Georgian, Armenian, Hindi and the other Indic languages, Khmer, …). It follows the
+  LANGID alone: every sort id of a language stamps the same value (Chinese Pronunciation and Stroke Count
+  are both 936, Georgian and Georgian Modern both 0), and so do both collation versions. A creator does not
+  choose it — DAO's `CreateDatabase` takes a `CP=` in its locale string and ignores it, stamping the
+  language's code page whatever is passed.
 - **Database key (`0x3E`, 4 bytes)** → `DatabaseKey`. **Zero ⇒ the data pages are unencrypted;
   nonzero ⇒ the file is ACE-encrypted** (Access 2007+ "Set Database Password" encrypts the whole
   database). Verified: an unprotected file reads `0`; a password-protected `.accdb` reads a nonzero

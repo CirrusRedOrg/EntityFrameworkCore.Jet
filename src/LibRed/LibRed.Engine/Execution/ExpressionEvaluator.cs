@@ -330,7 +330,9 @@ internal sealed partial class ExpressionEvaluator(
             // More VBA/Access built-ins (verified vs ACE via the function-whitelist sweep). All NULL-propagating
             // via Convert1 unless noted; positions are 1-based.
             // Asc and Chr work in the system ANSI code page (Chr takes 0-255; Chr(128) is '€', Asc('Ā') is 65 by
-            // best fit); AscW and ChrW in UTF-16 code units, AscW signed and ChrW taking -32768 to 65535.
+            // best fit); AscW and ChrW in UTF-16 code units, AscW signed and ChrW taking -32768 to 65535. The
+            // machine's code page, NOT the database's: in a 1251, 1253 or 932 database ACE on a 1252 machine still
+            // gives Chr(192) = 'À', and Asc of a Cyrillic or Greek letter is 63.
             "ASC" => Convert1(f, v => (int)Ansi.GetBytes(FirstCharacter(v))[0]),
             "CHR" => Convert1(f, v => AnsiCharacter(InRange(AsLong(v), 0, 255)).ToString()),
             "SPACE" => Convert1(f, v => new string(' ', Count(v))),

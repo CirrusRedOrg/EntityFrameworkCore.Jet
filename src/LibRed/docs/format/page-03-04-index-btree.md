@@ -376,6 +376,11 @@ Then the value, transformed:
   > **Weights, not bytes.** The two agree for everything Latin, so only a two-byte weight tells them apart:
   > `£-` puts the hyphen at `0x0B` (`0x07 + 4×1`) although `£` is `34 A7`, and `©`, `½`, `Ω`, `б` all behave
   > the same, while `£A-` is `0x0F`. So both the secondary section and this one index by weight.
+  >
+  > **Except a version-1 Han character, which counts twice here.** Its four-byte `FD FF AW DW` primary takes
+  > two positions — `人-` puts the hyphen at `0x0F`, `人人-` at `0x17` — though it takes a single secondary
+  > slot. It is not a byte count halved: a one-byte version-1 primary (a Lao vowel) still counts once, and a
+  > Hangul syllable, a jamo and a kana once each. Version 0's Han weights are two bytes and count once.
 
   > **Why those two characters specifically:** this is Windows' documented **word sort**, the default for
   > the NLS sorting functions — *"all punctuation marks and other nonalphanumeric characters, except for the
@@ -498,8 +503,35 @@ Then the value, transformed:
   > あいー    [01,01,11]     10|01 01 11 = 97          あああー  [01,01,01,11] = 95 B0
   > ```
   >
-  > So the section is `01 01 <small flags> FF <prolonged flags> 02 80 FF 80`. With no kana before it, `ー` is
-  > nothing special and keeps the ordinary `FF FF` primary the table holds for it.
+  > So the section is `01 01 <small flags> FF <mark codes> 02 80 FF 80`. With no kana before it, `ー` is an
+  > iteration mark instead (below).
+  >
+  > **Iteration marks repeat the weight before them.** `々`, `ゝ`/`ヽ`/`〱` and their voiced forms
+  > `ゞ`/`ヾ`/`〲` — and, in version 1 only, `〻` and the Yi `ꀕ`, which version 0 ignores — weigh as a
+  > **copy of the one weight the character before them contributed**, carrying the mark's *own* secondary:
+  > `々` `05`, `ゝ` `02`, `ゞ` `03`, `〻` `05`, `ꀕ` `07`. The copy does not inherit the secondary it repeats:
+  > `がゝ` is `が` twice with secondaries `03 02`, `é々` is `e` twice with `0E 05`. `ー` is one wherever it has
+  > no kana to lengthen — `人ー` and `aー` double the character before. The rules, all measured against ACE
+  > under both versions:
+  >
+  > - **After a kana the copy is a kana**: it joins the kana section with mark code `10` (`かゝ` closes
+  >   `FF 98`, where `かー` closes `FF 9C`), inherits the small flag (`ゃゝ` packs small+small), and a
+  >   following halfwidth voicing mark or long vowel mark reaches it (`ｶヽﾞ` voices the copy, `かゝー`
+  >   lengthens it). `々` after a kana is a kana repeat too, with its own `05`.
+  > - **A mark leaves what it copies unchanged**, so a chain repeats the same weight (`人々々`, `かゝゝ`), and
+  >   a kana repeat after `ー` copies the last kana *letter*, not the vowel (`かーゝ` = `か`,`あ`,`か`).
+  > - **Only a character that contributed exactly one weight can be copied** — or one inline record, whose
+  >   `06 xx` pair then moves into the primaries (`'々`). After an expansion (`ß`, `æ`, a ligature), at the
+  >   start of the string, or after a mark that found nothing, the mark weighs alone as its table's `FF FF`
+  >   and leaves nothing to copy after it: `ß々`, `々々` and `ー々` keep `FF FF`. A character contributing
+  >   nothing — a combining accent folding into the letter before, or an astral character in version 0 — is
+  >   transparent: `e`+U+0301+`々` and `a𐀀々` copy the letter.
+  > - **Version 1 copies the table's (script member, alphabetic weight) pair**, which is the primary itself
+  >   except where the encoding rearranges it: a Han character encodes as `FD FF AW DW` and is copied as
+  >   `05 AW` (`人々` = `FDFF3D26 053D`), a jamo encodes as `AW DW` and is copied as `04 AW` (`ᄀ々` =
+  >   `C002 04C0`).
+  > - **A locale that weighs the mark as a character of its own wins**: Japanese radical/stroke order gives
+  >   `々` a radical weight, and `人々` is then two different weights.
   >
   > **Version 1 builds the kana section identically** — same sound weights, same framing, byte for byte:
   > ACE encodes `U+304C` as `7F 7F0A 01 03 0101 FF 02 80 FF 80 00` under both orders. The two versions
@@ -514,7 +546,7 @@ Then the value, transformed:
   >   sound and voicing. The one fact it does not supply is the small flag, and that cannot be inferred from
   >   reaching that path: script member 3 also collects the circled forms, which are *not* small, and the
   >   iteration marks, the lone prolonged mark and the double hyphen, which are not kana letters at all and
-  >   which ACE gives the unweighted `FF FF` primary and no kana section.
+  >   which ACE gives the unweighted `FF FF` primary and no kana section when they stand alone.
   >
   > What `02 80 FF 80` denotes is still not established; it never varies, so it is emitted as a literal.
   >
@@ -588,8 +620,9 @@ Then the value, transformed:
   the fixed-type keys.
 
   **Locale-specific orders.** A database can be created with a sort order other than General; Access exposes
-  them as the "New Database Sort Order" list. Verified against ACE for **every non-CJK entry in that list**,
-  each compared against General v0 (plus orders only DAO can name):
+  them as the "New Database Sort Order" list. Verified against ACE for **every entry in that list** but the
+  two Unicode CJK orders ACE will not open, each compared against General of its version (plus orders only
+  DAO can name):
 
   - The stored value is a **true LCID**, not a small enum — Spanish Traditional is `1034` (`0x040A`) and
     Spanish **Modern** is `3082` (`0x0C0A`). DAO's `CollatingOrderEnum` lists only `dbSortSpanish = 1034`;
@@ -822,20 +855,72 @@ Then the value, transformed:
   > Georgian is the live counterexample on the second axis — `1079` at sort id 0 is in the set, `1079` at
   > sort id 1 is Georgian Modern with a tailoring of its own.
 
+  **The Chinese, Japanese and Korean orders.** Access offers fourteen, told apart by LANGID, sort id and
+  version:
+
+  | order | LCID | versions |
+  |---|---|---|
+  | Chinese Pronunciation | `0x00000804` | 1, 0 (`- Legacy`) |
+  | Chinese Stroke Count | `0x00020804` | 1, 0 |
+  | Chinese (Taiwan) Bopomofo | `0x00030404` | 1, 0 |
+  | Chinese (Taiwan) Stroke Count | `0x00000404` | 1, 0 |
+  | Japanese | `0x00000411` | 1, 0 |
+  | Japanese Radical/Stroke Count | `0x00040411` | 1 |
+  | Japanese Unicode | `0x00010411` | 0 |
+  | Korean | `0x00000412` | 0 |
+  | Korean Unicode | `0x00010412` | 0 |
+
+  Measured character by character over the **whole BMP** against ACE, every character the twelve ACE opens
+  weigh differently from General of their own version gets **one weight** in place of General's:
+
+  - The **ideographs** move, into the order's own sequence — pronunciation, stroke count, Bopomofo,
+    radical. The Chinese orders move 16,679 to 20,935 characters at version 0 and 24,144 to 27,752 at
+    version 1; Japanese 7,072 at either version, and Japanese Radical/Stroke Count 13,094. A version-0 entry
+    is a two-byte primary; a version-1 entry a two-byte primary **and a secondary** (`一` in Chinese Stroke
+    Count is `C0 02` with `10`), replacing General v1's `FD FF` Han weight. Japanese v0 and v1 depart at the
+    same code points, the v0 primary being the v1 one with a compacted lead byte (`一` is `81 56` against
+    `C4 56`).
+  - A few **symbols** move with them. The Japanese orders weigh `\` as `¥` (fullwidth `＼` keeps General's
+    weight), and give `―` (U+2015) the unweighted `FF FF` where General records it as a word-sort
+    ignorable; Japanese also moves the kanbun marks (U+3192–319F), the parenthesised and circled ideographs
+    (`㈠` is `C4 59`, beside `一`'s `C4 56`) and the era squares (U+337B–337F). Japanese Radical/Stroke
+    Count gives `〃々〆〇` weights of their own ahead of `一` (`々` is `C0 04` with `0D`), so there `人々` is
+    two different weights and not an iteration.
+  - **A decomposition does not reach the table.** Version 1's base table expands the CJK radicals and the
+    compatibility ideographs to the unified ideograph they stand for (`⼀` U+2F00 to `一`), and ACE weighs
+    them as General does — never with the order's weight for that ideograph. A Latin locale is the opposite:
+    Croatian's `Ǆ` = `D` + *Croatian's* `Ž`.
+  - An **iteration mark** copies the tailored weight of the ideograph before it.
+
+  **Korean** is General v0 plus a table, but also a **reordering of scripts**: Hangul sorts first, so the
+  lead byte of every weight General contributes moves — `81`–`F2` down `0x37`, `4A`–`80` (Latin, Greek,
+  Cyrillic, the other scripts, kana, Bopomofo) up `0x72`, everything below `4A` in place. `A` is `BC`, `가`
+  is `4A 03`. It moves each **weight**, not each byte: `ᄀ` `81 02` is `4A 02`, and `Ĳ`'s two weights `59 5B`
+  are `CB CD`. Every weight General gives the BMP moves by that rule, with no exception in either band. The
+  table then holds the **hanja**, weighed by their Hangul reading — the syllable's primary, and a secondary
+  telling apart the hanja that share it (`一` is `66 57` with `41`, `㈠` `66 57` with `47`) — and gives `\`
+  the weight of `₩`. A tailored weight and an iteration mark's copy are already final and do not move
+  again.
+
+  **"Japanese Unicode" and "Korean Unicode" cannot be measured.** Access 365 creates a database in either —
+  creating a file needs no collation — but ACE refuses to open one: *"Selected collating sequence not
+  supported by the operating system"*, because Windows no longer supports those alternate sorts. With no
+  engine to measure against, they stay refused.
+
   What remains: **Irish 1084**, unmeasured — Jet accepts it, but not in a process that has loaded the ACE
-  OLE DB provider, so its ACE keys are unknown; and the **CJK** orders, deliberately out of scope. Three
+  OLE DB provider, so its ACE keys are unknown; and the two **Unicode** CJK orders above. Three
   orders — Serbian Latin 2074, Bosnian Latin 5146 and Hindi 1081 — are unreachable at version 0 by construction: Jet refuses them with *"Incorrect collating
   sequence."*, and they are exactly the three already implemented at version 1.
 
   > **Everything above is verified by creation too.** For every combination `IsIndexKeyEncodable` accepts —
-  > every accepted order at version 0 plus the six orders with a version-1 table — a database LibRed
+  > every accepted order at version 0 plus every order with a version-1 table — a database LibRed
   > synthesises in that order, indexed by ACE, holds keys matching LibRed's byte for byte. A wrong LCID
   > cannot pass quietly: ACE indexes with whatever order that LCID really names.
 
-  *Not yet handled:* **Irish 1084** and the **CJK** orders (above). **Six** version-1 collations are
-  implemented — General v1, Indic v1, Romanian v1, and Croatian / Bosnian / Serbian v1 sharing one table —
-  and those six are the only non-CJK orders that differ from General v1, so the rest are covered by falling
-  back to it. DAO writes version 0 for every LANGID it accepts, so a v1 database needs another authoring
+  *Not yet handled:* **Irish 1084** and the two **Unicode** CJK orders (above). **Six** version-1 collations
+  besides the CJK ones are implemented — General v1, Indic v1, Romanian v1, and Croatian / Bosnian / Serbian
+  v1 sharing one table — and those six are the only non-CJK orders that differ from General v1, so the rest
+  are covered by falling back to it. DAO writes version 0 for every LANGID it accepts, so a v1 database needs another authoring
   route.
 - **GUID:** the start flag `0x7F`, then the 16 GUID bytes in **canonical string order** (i.e.
   `guid.ToString("N")` bytes — **not** the mixed-endian `.ToByteArray()` storage layout), split into two

@@ -33,6 +33,9 @@
     <!-- The characters where ACE's v1 weights disagree with the published Server 2008 table — scripts added
          or reweighted since. Measured by SortKeyTableV1OverrideGeneratorTest (LIBRED_GENERATE_V1=1). -->
     <EmbeddedResource Include="Resources\SortKeyTableV1Overrides.bin" LogicalName="LibRed.Resources.SortKeyTableV1Overrides.bin" />
+    <!-- The Chinese, Japanese and Korean sort orders, one per order: the characters where each departs from
+         General of its version. Measured by CjkSortOrderGeneratorTest (LIBRED_GENERATE_CJK=1). -->
+    <EmbeddedResource Include="Resources\Cjk\*.bin" LogicalName="LibRed.Resources.Cjk.%(Filename).bin" />
   </ItemGroup>
 
 </Project>

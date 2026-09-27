@@ -92,12 +92,13 @@ public class CollationTests
     // This used to be asserted with Cyrillic (1049), on the reasoning that a non-English locale obviously
     // could not be encoded with the English table. The collation survey measured 1049 and found its keys
     // byte-identical to General v0, so the example stopped being an example. The two below are refused for
-    // reasons that will outlive a survey: CJK is deliberately out of scope, and Irish is the one order that
-    // could not be measured at all.
+    // reasons that will outlive a survey — there is no engine to measure them against. Access 365 creates a
+    // database in "Japanese - Unicode", but ACE refuses to open one, because Windows no longer supports that
+    // alternate sort; and Jet accepts Irish, but not in a process that has loaded ACE.
     [Theory]
-    [InlineData((int)CollatingOrder.Japanese, "a CJK order, deliberately out of scope")]
-    [InlineData(1084, "Irish - accepted by Jet, but never measured against ACE")]
-    public void Index_key_encoding_refuses_an_unmeasured_collation(int order, string why)
+    [InlineData((int)CollatingOrder.Japanese, 1, "Japanese - Unicode: created by Access, refused by ACE on open")]
+    [InlineData(1084, 0, "Irish - accepted by Jet, but never measured against ACE")]
+    public void Index_key_encoding_refuses_an_unmeasured_collation(int order, byte sortId, string why)
     {
         _ = why;   // names the case in the test output
 
@@ -105,7 +106,7 @@ public class CollationTests
         {
             Name = "C",
             Type = JetDataType.Text,
-            Collation = new Collation((CollatingOrder)order, 0),
+            Collation = new Collation((CollatingOrder)order, 0, sortId),
         };
         var ex = Assert.Throws<NotSupportedException>(() =>
             IndexKeyEncoder.Encode([(column, true)], ["abc"]));

@@ -30,13 +30,46 @@ internal sealed class LocaleTailoring
     public LocaleTailoring(
         IReadOnlyDictionary<string, TailoredWeight> entries,
         bool doublesDigraphs = false,
-        bool reverseDiacritics = false)
+        bool reverseDiacritics = false,
+        byte[]? leadBytes = null,
+        bool weighsDecompositions = true)
     {
         Entries = entries;
         DoublesDigraphs = doublesDigraphs;
         ReverseDiacritics = reverseDiacritics;
+        LeadBytes = leadBytes;
+        WeighsDecompositions = weighsDecompositions;
         MaxLength = entries.Count == 0 ? 0 : entries.Keys.Max(k => k.Length);
     }
+
+    /// <summary>
+    /// Whether the characters a General decomposition produces take this tailoring's weights.
+    /// </summary>
+    /// <remarks>
+    /// A Latin locale's letters reach into decompositions: Croatian's <c>Ǆ</c> expands to <c>D</c> + <c>Ž</c>,
+    /// and it is <i>Croatian's</i> <c>Ž</c> that ACE stores. A CJK table does not. Version 1's base table
+    /// expands the CJK radicals and compatibility ideographs to the unified ideograph they stand for —
+    /// <c>⼀</c> U+2F00 to <c>一</c>, <c>U+FA30</c> to <c>U+4FAE</c> — and ACE weighs them as General does,
+    /// never with the order's weight for that ideograph: 315 to 421 characters in each version-1 CJK order,
+    /// measured against ACE. The tables weigh the characters they list and nothing reached through a
+    /// decomposition.
+    /// </remarks>
+    public bool WeighsDecompositions { get; }
+
+    /// <summary>
+    /// A replacement for the lead byte of every weight the General table contributes, indexed by that byte —
+    /// or null for an order that keeps General's lead bytes, which is every order but one.
+    /// </summary>
+    /// <remarks>
+    /// Korean reorders whole scripts rather than letters: Hangul sorts first, so General's lead bytes
+    /// <c>81</c>–<c>F2</c> move down <c>0x37</c> and <c>4A</c>–<c>80</c> (Latin, Greek, Cyrillic, the other
+    /// scripts, kana, Bopomofo) move up <c>0x72</c> to make room — <c>A</c> is <c>BC</c>, <c>가</c> is
+    /// <c>4A 03</c>. It applies to each WEIGHT, not to each byte: the second byte of a two-byte weight keeps its
+    /// value (<c>ᄀ</c> <c>81 02</c> becomes <c>4A 02</c>), and an expansion has every weight moved (<c>Ĳ</c>
+    /// <c>59 5B</c> becomes <c>CB CD</c>). A tailored entry already states its final bytes and is not moved,
+    /// nor is a copy an iteration mark makes of a weight already moved.
+    /// </remarks>
+    public byte[]? LeadBytes { get; }
 
     public IReadOnlyDictionary<string, TailoredWeight> Entries { get; }
 
@@ -145,6 +178,7 @@ internal static class JetLocaleTailoring
     /// as null: it records that the order was measured to be indistinguishable from General.</summary>
     public static LocaleTailoring? For(Collation collation) =>
         Tailorings.GetValueOrDefault(collation)
+        ?? JetCjkSortOrders.For(collation)
         ?? (collation is { Version: 0, SortId: 0 } && GeneralV0.Contains(collation.Order) ? None : null);
 
     /// <summary>Shared by every order in <see cref="GeneralV0"/>: no entries, no reversal, nothing to do.

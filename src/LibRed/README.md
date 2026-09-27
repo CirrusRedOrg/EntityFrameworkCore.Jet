@@ -147,10 +147,15 @@ Treat the number as of its date — an EF Core version bump moves it.
   is retailored at all and a word needs two accents before the order diverges. Covered: French, German
   (incl. Phone Book), Spanish Traditional and Modern, Czech, Slovak, Polish, Hungarian (incl. Technical),
   Croatian, Bosnian, Serbian, Slovenian, Romanian, Turkish, Estonian, Latvian, Lithuanian, Icelandic,
-  Norwegian/Danish, Swedish/Finnish, Ukrainian, Macedonian, Vietnamese, Georgian Modern, Indic and Thai.
+  Norwegian/Danish, Swedish/Finnish, Ukrainian, Macedonian, Vietnamese, Georgian Modern, Indic and Thai —
+  and the **Chinese, Japanese and Korean** orders (Pronunciation, Stroke Count, Bopomofo, Radical/Stroke,
+  in both versions where Access offers both): General plus a measured table of ideograph weights, and for
+  Korean a reordering that sorts Hangul first. The two "Unicode" CJK orders stay refused — Access creates
+  them but ACE will not open them. Iteration marks (`々`, `ゝ`, …) repeat the weight before them, as ACE's do.
   The collation itself is **one 32-bit LCID** — LANGID plus a sort id that distinguishes an alternate order
   for the same language (Hungarian Technical from Hungarian, German Phone Book from German) — plus the
-  version byte. Five orders DAO still offers (Arabic, Greek, Hebrew, Dutch, Cyrillic) are **inert**: ACE
+  version byte. A database created in an order carries that language's ANSI code page on page 0, as
+  Access's do. Five orders DAO still offers (Arabic, Greek, Hebrew, Dutch, Cyrillic) are **inert**: ACE
   records them faithfully and then encodes General keys anyway, verified over 82 samples. Also handled:
   the 510-byte index-entry limit with ACE's own truncation checksum, characters above the BMP, and the
   16-bit inline word-sort position. See `docs/format/page-03-04-index-btree.md` and

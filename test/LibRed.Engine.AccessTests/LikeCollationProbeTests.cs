@@ -58,17 +58,20 @@ public class LikeCollationProbeTests(ITestOutputHelper output)
     }
 
     /// <summary>Every candidate pair asked of ACE in every collation LibRed can create, one query per database.
-    /// Opt-in via LIBRED_SCREEN_LIKE=1: it creates 405 databases and takes the better part of an hour.</summary>
+    /// Opt-in via LIBRED_SCREEN_LIKE=1: it creates 417 databases and takes the better part of an hour.</summary>
     [Fact]
     public void Screen_every_collation()
     {
         Assert.SkipUnless(Environment.GetEnvironmentVariable("LIBRED_SCREEN_LIKE") == "1",
-            "set LIBRED_SCREEN_LIKE=1 — this asks ACE 26,000 pairs in each of 405 collations");
+            "set LIBRED_SCREEN_LIKE=1 — this asks ACE 26,000 pairs in each of 417 collations");
 
         var pairs = LikeCandidates.Pairs;
         List<Collation> collations = [.. Enum.GetValues<CollatingOrder>().Distinct()
             .Where(o => o != CollatingOrder.Undefined)
-            .SelectMany(o => (Collation[])[new(o, 0), new(o, Collation.GeneralVersion), new(o, 0, 1)])
+            .SelectMany(o => (Collation[])[new(o, 0), new(o, Collation.GeneralVersion), new(o, 0, 1),
+                // the CJK orders reach sort id 4, at both versions
+                new(o, 0, 2), new(o, Collation.GeneralVersion, 2), new(o, 0, 3), new(o, Collation.GeneralVersion, 3),
+                new(o, Collation.GeneralVersion, 4)])
             .Where(c => c.IsIndexKeyEncodable)
             .Distinct()];
 

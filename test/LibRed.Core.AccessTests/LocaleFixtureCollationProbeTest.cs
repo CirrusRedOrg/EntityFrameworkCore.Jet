@@ -96,7 +96,13 @@ public class LocaleFixtureCollationProbeTest(ITestOutputHelper output)
             using (var db = JetDatabase.Open(path))
                 baselines[name] = db.DefaultCollationVersion == Collation.GeneralVersion ? "v1" : "v0";
             Dictionary<string, string> baseline = baselines[name] == "v1" ? generalV1 : generalV0;
-            Dictionary<string, string> theirs = KeysFor(path, name);
+            Dictionary<string, string> theirs;
+            try { theirs = KeysFor(path, name); }
+            catch (InvalidOperationException ex)
+            {
+                output.WriteLine($"  {name}: ACE refused it — {ex.InnerException?.Message ?? ex.Message}");
+                continue;
+            }
             differences[name] = Samples
                 .Where(s => baseline.GetValueOrDefault(s) != theirs.GetValueOrDefault(s))
                 .Select(s => $"{Describe(s),-16} General {baseline.GetValueOrDefault(s) ?? "(none)",-26} " +

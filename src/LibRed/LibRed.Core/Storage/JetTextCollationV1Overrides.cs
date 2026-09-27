@@ -124,7 +124,9 @@ internal static class JetTextCollationV1Overrides
             starts, lengths);
     }
 
-    private static byte[] ReadStream(BinaryReader reader)
+    /// <summary>Reads one length-prefixed zlib stream — the unit every generated collation resource is built
+    /// from.</summary>
+    internal static byte[] ReadStream(BinaryReader reader)
     {
         byte[] compressed = reader.ReadBytes(reader.ReadInt32());
         var output = new MemoryStream();
@@ -133,7 +135,9 @@ internal static class JetTextCollationV1Overrides
         return output.ToArray();
     }
 
-    private static int ReadVarInt(byte[] source, ref int offset)
+    /// <summary>Reads a little-endian base-128 integer, seven bits a byte, the high bit set on all but the last.
+    /// </summary>
+    internal static int ReadVarInt(byte[] source, ref int offset)
     {
         int value = 0, shift = 0;
         while (true)

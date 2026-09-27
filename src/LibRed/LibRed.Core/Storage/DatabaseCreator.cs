@@ -23,7 +23,8 @@ public static class DatabaseCreator
     /// </summary>
     /// <param name="version">Format version byte (e.g. 0x02 = ACE 12 / Access 2007).</param>
     /// <param name="isAccdb">true for the ACCDB identifier, false for the MDB (Jet) identifier.</param>
-    /// <param name="codePage">ANSI code page (1252 for en-US).</param>
+    /// <param name="codePage">ANSI code page of the collation's language (1252 for en-US, 0 for a language
+    /// with none) — see <see cref="JetCodePages"/>.</param>
     /// <param name="collation">The database's default collation — its LCID and sort-order version
     /// (1033 / version 0 is General Legacy en-US).</param>
     /// <param name="creationDays">Creation timestamp as an OLE-automation date (days since 1899-12-30), passed
@@ -249,9 +250,9 @@ public static class DatabaseCreator
     /// in it. Defaults to General-Legacy (LCID 1033, version 0), which is what the engine writes; pass
     /// <see cref="Collation.General"/> for the order Access 2010+ offers as "General".
     /// <para>
-    /// Any order <see cref="Collation.IsIndexKeyEncodable"/> accepts can be created — 405 configurations
-    /// (399 at version 0, and the six orders that have a version-1 table), the
-    /// two General orders and every locale in <c>JetLocaleTailoring</c>, each verified by having ACE build an
+    /// Any order <see cref="Collation.IsIndexKeyEncodable"/> accepts can be created — 417 configurations
+    /// (405 at version 0, and the twelve orders that have a version-1 table), the
+    /// two General orders, every locale in <c>JetLocaleTailoring</c> and the CJK orders, each verified by having ACE build an
     /// index in the created file and agree on the keys (<c>CreatedDatabaseCollationAccessTests</c>). It
     /// cannot be otherwise: the system-table indexes are built here, in this order, so creating a database
     /// REQUIRES encoding its collation. That is why a new locale is unavailable to this method until it is
@@ -273,6 +274,10 @@ public static class DatabaseCreator
                 + "databases use. Existing 0x04 files can still be opened for reading.");
 
         JetFormatBase format = JetFormatBase.FromVersionByte(version);
+
+        // Page 0 carries the ANSI code page of the order's language, as ACE writes it — not a fixed 1252.
+        int codePage = JetCodePages.For(sortOrder) ?? throw new NotSupportedException(
+            $"Cannot create a database in {sortOrder}: the code page ACE writes for it has not been measured.");
 
         // Jet 4 (0x01, the Access 2000 / 2002-2003 `.mdb`) and the ACCDB versions can both be created; the
         // identifier follows the version byte in BuildDefinitionPage, so the pair is always consistent and the
@@ -304,7 +309,7 @@ public static class DatabaseCreator
         const int seedPages = 10;   // page 0, page 1, 4 core TDEFs (2..5), 4 usage maps (6..9)
         byte[][] seed =
         [
-            BuildDefinitionPage(version, format.IsAccdb, 1252, sortOrder,
+            BuildDefinitionPage(version, format.IsAccdb, codePage, sortOrder,
                 BitConverter.Int64BitsToDouble(SeedCreationDateBits)),
             BuildFreeMapPage(format, seedPages),       // page 1: global free-pages map
             objTdef, acesTdef, queriesTdef, relTdef,   // pages 2..5: core TDEFs

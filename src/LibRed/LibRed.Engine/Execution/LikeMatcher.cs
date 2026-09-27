@@ -27,8 +27,8 @@ namespace LibRed.Engine.Execution;
 /// pattern, in a bracket list and in the value, so <c>'aßb' LIKE 'a[s]sb'</c> is True; <c>_</c> still takes the whole
 /// character. The table is measured (LikeFoldTableGeneratorTest) and embedded, so LIKE answers the same on every
 /// platform.</item>
-/// <item>None of it depends on the database's collation: the same pairs match in every one of the 405 orders LibRed
-/// can create, Turkish included (verified vs ACE). Width, kana, superscripts, hyphens and apostrophes, which the
+/// <item>None of it depends on the database's collation: the same pairs match in every one of the 405 non-CJK orders
+/// LibRed can create, Turkish included (verified vs ACE; the CJK orders are not yet screened). Width, kana, superscripts, hyphens and apostrophes, which the
 /// collation folds or ignores, all count here, and so do trailing spaces: <c>'a ' LIKE 'a'</c> is False where
 /// <c>'a ' = 'a'</c> is True.</item>
 /// <item>A bracket that is never closed, or a range written backwards, is an invalid pattern. It is only reported

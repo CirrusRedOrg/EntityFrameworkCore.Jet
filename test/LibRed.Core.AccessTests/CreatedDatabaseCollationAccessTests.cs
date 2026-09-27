@@ -27,7 +27,7 @@ public class CreatedDatabaseCollationAccessTests(ITestOutputHelper output)
         var data = new TheoryData<int, byte, byte>();
         foreach (CollatingOrder order in Enum.GetValues<CollatingOrder>())
             foreach (byte version in (byte[])[0, 1])
-                foreach (byte sortId in (byte[])[0, 1])
+                foreach (byte sortId in (byte[])[0, 1, 2, 3, 4])   // the CJK orders reach sort id 4
                     if (new Collation(order, version, sortId).IsIndexKeyEncodable)
                         data.Add((int)order, version, sortId);
         return data;
@@ -48,12 +48,15 @@ public class CreatedDatabaseCollationAccessTests(ITestOutputHelper output)
                 Assert.Equal(collation, db.Collation);
 
             // Words that exercise the tailorings across the set: accented Latin, the digraphs, a word-sort
-            // ignorable, and Thai's leading vowel. Any order encodes all of them; what differs is the keys.
+            // ignorable, Thai's leading vowel, and the CJK tables — ideographs, an iteration mark, hanja beside
+            // Hangul, and the backslash two of them reweigh. Any order encodes all of them; what differs is the
+            // keys.
             string[] samples =
             [
                 "apple", "café", "coté", "côte", "Ångström", "co-op", "O'Brien",
                 "ñ", "č", "ž", "lj", "dž", "ch", "ll", "ı", "İ", "å", "ø", "ß",
                 "เก", "ไทย", "Ω", "б", "א",
+                "一", "漢字", "人々", "カタカナ", "がくせい", "한국", "韓國", @"C:\",
             ];
 
             Dictionary<string, string> ace = AceKeys(path, samples);

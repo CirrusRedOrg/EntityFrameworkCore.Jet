@@ -96,19 +96,48 @@ internal static class JetTextCollationV1
         // Position is counted in primary *weights*, not bytes. In v0 the two coincide (one byte per weight);
         // here a weight is two bytes, and ACE still counts weights — verified against ACE (`O'Brien` puts the
         // apostrophe at 0x0B = 0x07 + 4x1 in both orders, though v1 has emitted twice as many bytes by then).
+        // A Han character is the exception: its FD FF marker counts as a weight of its own, so 人- puts the
+        // hyphen at 0x0F and 人人- at 0x17, though each Han character takes one secondary slot. A one-byte
+        // primary still counts once (a Lao vowel then a hyphen is 0x0B), so this is not a byte count halved.
         var inline = new List<(int Position, byte ScriptMember, byte AlphabeticWeight)>();
+        int hanMarkers = 0;
 
-        // The kana small/normal and prolonged-mark flags, and the running state the prolonged mark needs.
+        // The kana small/normal flags and mark codes, and the running state the prolonged mark needs.
         var kana = new List<bool>();
-        var prolonged = new List<bool>();
+        var marks = new List<byte>();
         int kanaWeight = -1;
         byte kanaVowel = 0;
         bool kanaSmall = false;
+
+        // What an iteration mark copies — the rule version 0 follows (see JetTextCollation), except in WHAT is
+        // copied: the table's (script member, alphabetic weight) pair, not the bytes the weight was encoded as.
+        // The two differ exactly where the encoding rearranges the table: a Han character encodes as FD FF AW DW
+        // and is copied as 05 AW (人々 is FDFF3D26 053D), a jamo encodes as AW DW and is copied as 04 AW (ᄀ々 is
+        // C002 04C0). Everywhere else the pair IS the primary, so a kana, a Hangul syllable, a measured
+        // override or a tailored letter is copied as it was written.
+        CopiedPrimary lastUnit = new([]);
+        bool lastUnitIsKana = false;
+        CopiedPrimary? repeatable = null;
+        bool repeatableIsKana = false;
+        bool keepRepeatable = true;
+        int weightsAtCharacter = 0, recordsAtCharacter = 0;
 
         // Indexed rather than foreach, because a tailoring entry can consume several characters: a
         // contraction is a digraph weighing as one letter (Croatian "dž", "lj", "nj").
         for (int position = 0; position < text.Length; position++)
         {
+            // A character contributing nothing is transparent, as in version 0: e + U+0301 + 々 copies the e.
+            int weights = secondaries.Count - weightsAtCharacter, records = inline.Count - recordsAtCharacter;
+            if (!keepRepeatable && (weights > 0 || records > 0))
+            {
+                bool single = weights == 1 && records == 0 || weights == 0 && records == 1;
+                repeatable = single ? lastUnit : null;
+                repeatableIsKana = single && lastUnitIsKana;
+            }
+            keepRepeatable = false;
+            weightsAtCharacter = secondaries.Count;
+            recordsAtCharacter = inline.Count;
+
             char character = text[position];
 
             // A locale tailoring overrides everything below it. The mechanism is v0's exactly — the entries
@@ -123,6 +152,8 @@ internal static class JetTextCollationV1
                     primaries.AddRange(tailored.Primaries);
                     secondaries.Add(tailored.Secondary);
                 }
+                lastUnit = new(tailored.Primaries);
+                lastUnitIsKana = false;
                 position += consumed - 1;
                 continue;
             }
@@ -155,8 +186,9 @@ internal static class JetTextCollationV1
                 primaries.Add(kanaVowel);
                 secondaries.Add(DefaultSecondary);
                 kana.Add(kanaSmall);
-                prolonged.Add(true);
+                marks.Add(JetKanaSection.Prolonged);
                 kanaWeight = secondaries.Count - 1;
+                keepRepeatable = true;
                 continue;
             }
 
@@ -169,7 +201,30 @@ internal static class JetTextCollationV1
                 kanaWeight == secondaries.Count - 1)
             {
                 secondaries[kanaWeight] = character == (char)0xFF9E ? (byte)0x03 : (byte)0x04;
+                keepRepeatable = true;
                 continue;
+            }
+
+            // An iteration mark: a copy of what came before, with the mark's own secondary — the same rule as
+            // version 0, with 〻 and ꀕ added (JetKanaSection.TryGetIterationMark). A tailoring that weighs the
+            // mark as a character of its own has already taken it above. With nothing to copy it is weighed
+            // alone below, as the FF FF the measured overrides hold — with no secondary slot, which is what the
+            // overrides carry — and leaves nothing to copy after it.
+            if (JetKanaSection.TryGetIterationMark(character, version1: true, out byte markSecondary))
+            {
+                keepRepeatable = true;
+                if (repeatable is { } copy)
+                {
+                    copy.AppendTo(primaries);
+                    secondaries.Add(markSecondary);
+                    if (repeatableIsKana)
+                    {
+                        kana.Add(kanaSmall);
+                        marks.Add(JetKanaSection.Repeat);
+                        kanaWeight = secondaries.Count - 1;
+                    }
+                    continue;
+                }
             }
 
             if (JetTextCollationTableV0.TryGetKana(
@@ -188,8 +243,10 @@ internal static class JetTextCollationV1
                 primaries.Add(JetKanaSection.KanaPage);
                 primaries.Add(sound);
                 secondaries.Add(voicing);
+                lastUnit = new(JetKanaSection.KanaPage, sound);
+                lastUnitIsKana = true;
                 kana.Add(small);
-                prolonged.Add(false);
+                marks.Add(JetKanaSection.Letter);
                 kanaWeight = secondaries.Count - 1;
                 kanaVowel = vowel;
                 kanaSmall = small;
@@ -216,6 +273,8 @@ internal static class JetTextCollationV1
             {
                 foreach (byte b in measuredPrimaries) primaries.Add(b);
                 foreach (byte b in measuredSecondaries) secondaries.Add(b);
+                lastUnit = new(measuredPrimaries.ToArray());
+                lastUnitIsKana = false;
                 continue;
             }
 
@@ -241,8 +300,10 @@ internal static class JetTextCollationV1
                 primaries.Add(JetKanaSection.KanaPage);
                 primaries.Add(tableSound);
                 secondaries.Add(tableVoicing);
+                lastUnit = new(JetKanaSection.KanaPage, tableSound);
+                lastUnitIsKana = true;
                 kana.Add(isSmall);
-                prolonged.Add(false);
+                marks.Add(JetKanaSection.Letter);
                 kanaWeight = secondaries.Count - 1;
                 kanaVowel = 0;
                 kanaSmall = isSmall;
@@ -260,11 +321,13 @@ internal static class JetTextCollationV1
                 // expanding a ligature could trip a digraph entry that the original text never contained.
                 foreach (char expanded in sequence)
                 {
-                    if (tailoring is not null &&
+                    if (tailoring is { WeighsDecompositions: true } &&
                         tailoring.TryMatchSingle(expanded, out TailoredWeight component))
                     {
                         primaries.AddRange(component.Primaries);
                         secondaries.Add(component.Secondary);
+                        lastUnit = new(component.Primaries);
+                        lastUnitIsKana = false;
                         continue;
                     }
                     if (!Append(expanded)) return false;
@@ -285,12 +348,18 @@ internal static class JetTextCollationV1
             // instead records inline as 0x83 — a real difference between the two weight tables).
             if (scriptMember == 0 && alphabetic == 0) return true;
 
+            // Whatever this character contributes, the pair is what an iteration mark after it would copy.
+            if (alphabetic != 0)
+            {
+                lastUnit = new(scriptMember, alphabetic);
+                lastUnitIsKana = false;
+            }
+
             if (scriptMember == WordSortScriptMember)
             {
-                // secondaries.Count is the weight count: every weight contributes exactly one secondary slot,
-                // whereas primaries.Count/2 assumed each weight is two bytes — which the four-byte Han
-                // primary above breaks.
-                inline.Add((secondaries.Count, scriptMember, alphabetic));
+                // secondaries.Count is the weight count — every weight contributes exactly one secondary slot —
+                // plus one for each Han marker (see the declaration of `inline`).
+                inline.Add((secondaries.Count + hanMarkers, scriptMember, alphabetic));
                 return true;
             }
 
@@ -305,6 +374,7 @@ internal static class JetTextCollationV1
                 primaries.Add(alphabetic);
                 primaries.Add(diacritic);
                 secondaries.Add(DefaultSecondary);
+                hanMarkers++;
                 return true;
             }
 
@@ -365,7 +435,7 @@ internal static class JetTextCollationV1
 
         hasWordSortRecord = inline.Count > 0;
 
-        if (kana.Count > 0) JetKanaSection.Append(output, kana, prolonged);
+        if (kana.Count > 0) JetKanaSection.Append(output, kana, marks);
 
         // Those three 0x01s are not an "introducer" but three SECTION SEPARATORS. [MS-UCODEREF] gives the key
         // as primaries SEP diacritics SEP case SEP extra SEP specials TERM, and Access emits the same frame
@@ -474,6 +544,30 @@ internal static class JetTextCollationV1
             value |= (b & 0x7F) << shift;
             if ((b & 0x80) == 0) return value;
             shift += 7;
+        }
+    }
+
+    /// <summary>The primary an iteration mark would copy, recorded for every character in case one follows. Almost
+    /// always a two-byte pair, held inline so the recording allocates nothing; a tailored or measured weight keeps
+    /// the array it already has.</summary>
+    private readonly struct CopiedPrimary
+    {
+        private readonly byte[]? bytes;
+        private readonly byte first, second;
+
+        public CopiedPrimary(byte[] bytes) => this.bytes = bytes;
+
+        public CopiedPrimary(byte first, byte second) => (this.first, this.second) = (first, second);
+
+        public void AppendTo(List<byte> primaries)
+        {
+            if (bytes is not null)
+            {
+                primaries.AddRange(bytes);
+                return;
+            }
+            primaries.Add(first);
+            primaries.Add(second);
         }
     }
 

@@ -36,6 +36,10 @@ public class LocaleCollationAccessTests(ITestOutputHelper output)
         "Croatian", "Bosnian", "Serbian",
         // Thai, whose contraction is built as a rule rather than a table of entries.
         "Thai",
+        // The Chinese, Japanese and Korean orders — tables of ideograph weights, and Korean's script reordering.
+        "ChinesePronunciation", "ChinesePronunciationLegacy", "ChineseStrokeCount", "ChineseStrokeCountLegacy",
+        "ChineseTradBopomofo", "ChineseTradBopomofoLegacy", "ChineseTradStrokeCount", "ChineseTradStrokeCountLegacy",
+        "Japanese", "JapaneseLegacy", "JapaneseRadicalStrokeCount", "Korean",
     ];
 
     [Theory]
@@ -117,6 +121,23 @@ public class LocaleCollationAccessTests(ITestOutputHelper output)
                     if (!char.IsControl((char)c) && !char.IsSurrogate((char)c))
                         samples.Add(((char)c).ToString());
 
+        // The CJK blocks, where the CJK orders put their weights: the symbols, Bopomofo, jamo and enclosed forms
+        // whole, and a stride through the large ones — every 7th ideograph, every 11th syllable — which crosses
+        // every page of their tables while keeping the suite to seconds. The whole BMP is what the generator
+        // measures; this keeps what it wrote honest.
+        if (extendedBlocks)
+        {
+            (int First, int Last, int Stride)[] cjk =
+            [
+                (0x1100, 0x11FF, 1), (0x3000, 0x303F, 1), (0x3100, 0x312F, 1), (0x3130, 0x318F, 1),
+                (0x3190, 0x31BF, 1), (0x3200, 0x33FF, 1), (0x3400, 0x4DBF, 7), (0x4E00, 0x9FFF, 7),
+                (0xAC00, 0xD7A3, 11), (0xF900, 0xFAFF, 1),
+            ];
+            foreach ((int first, int last, int stride) in cjk)
+                for (int c = first; c <= last; c += stride)
+                    samples.Add(((char)c).ToString());
+        }
+
         samples.AddRange([
             "apple", "Apple", "APPLE", "cafe", "café", "Ångström", "O'Brien", "Anne-Marie", "co-op", "coop",
             "Łódź", "Kraków", "İstanbul", "Isparta", "ırmak", "Ğğ", "München", "Grüße", "Bär", "Baer",
@@ -140,6 +161,22 @@ public class LocaleCollationAccessTests(ITestOutputHelper output)
             // The prolonged mark: alone, with nothing to lengthen, and after every kind of kana.
             "ー", "ーあ", "あー", "あいー", "あーい", "ああー", "あああー", "あーー", "あーあー",
             "ぁー", "がー", "ｱｰ", "アー", "コーヒー", "ｺｰﾋｰ", "サーバー",
+            // Iteration marks: a copy of what came before with the mark's own secondary — after a kana (joining
+            // the kana section as a repeat), a voiced or small one, an ideograph, a Latin letter, an accented one,
+            // an inline record, a combining accent; chained, after the long vowel mark, before it, and with
+            // nothing to copy (at the start, after an expansion, after a mark that found nothing).
+            "かゝ", "かゞ", "がゝ", "がゞ", "ぱゞ", "ゃゝ", "カヽ", "カヾ", "かヽ", "かゝゝ", "かーゝ", "かゝー",
+            "ｶヽﾞ", "ｶﾞゝ", "か〱", "か〲", "か々", "か々ゝ", "かー々", "ヴゞ", "㋐ゝ",
+            "人々", "人々々", "人々ー", "人ゝ", "人ー", "人ｰ", "人〱", "人〻", "a々", "é々", "é々", "aー",
+            "'々", "人-々", "½々", "\t々", "ß々", "æ々", "々", "々々", "ゝゝ", "ー々", "々人", "ꀀꀕ", "ꀀꀕꀕ",
+            "々が", "ーが", "ゝが", "ゞé", "〱é", "ｰが", "ß々é", "々々é", "ー々é",
+            // A Han character counts twice in version 1's inline section, a one-byte primary once.
+            "人-", "人人-", "人-a", "人'", "ະ-", "aະ-", "가-", "ᄀ-",
+            // Words through the CJK tables, beside Latin and kana: a tailored weight next to General's, and the
+            // context rules running over tailored weights (Korean moves the kana a long vowel mark copies).
+            "中文", "中国", "中國", "漢字", "日本語", "時々", "한글", "대한민국", "韓國", "ㄅㄆㄇ", "\\",
+            "―", "a中", "中a", "a한", "한a", "カー", "カタカナ", "中-文", "한-글", "가",
+            "東京タワー", "ソウル", "北京",
             "chico", "llama", "coche", "calle", "chata", "hodina", "cukr",
             "ljubav", "njegov", "džem", "meggy", "asszony", "nagy", "cukor", "csak",
         ]);

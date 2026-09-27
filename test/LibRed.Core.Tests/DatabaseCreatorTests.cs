@@ -28,6 +28,58 @@ public class DatabaseCreatorTests
         Assert.Equal(real[0x00..0xA0], synth[0x00..0xA0]);
     }
 
+    /// <summary>Every Access-authored fixture in Data\ whose order LibRed can create: one per locale.</summary>
+    public static TheoryData<string> LocaleFixtures()
+    {
+        var data = new TheoryData<string>();
+        foreach (string path in Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "Data"), "*.accdb").Order())
+        {
+            try
+            {
+                using var db = JetDatabase.Open(path);
+                if (db.DefinitionPage.DatabaseKey == 0 && db.Collation.IsIndexKeyEncodable)
+                    data.Add(Path.GetFileName(path));
+            }
+            catch (InvalidOperationException) { }   // password-encrypted
+        }
+        return data;
+    }
+
+    // The same, in every order: page 0 carries the code page of the order's language (1250 Czech, 936 Chinese,
+    // 0 for Georgian), so creating in an order has to stamp the one Access stamps — from LibRed's own table,
+    // not from the file being compared against.
+    [Theory]
+    [MemberData(nameof(LocaleFixtures))]
+    public void Synthesized_page0_header_matches_an_access_file_in_its_order(string fixture)
+    {
+        string path = TestDatabases.Data(fixture);
+        byte[] real = File.ReadAllBytes(path);
+        using var db = JetDatabase.Open(path);
+        var dp = db.DefinitionPage;
+
+        byte[] synth = DatabaseCreator.BuildDefinitionPage(
+            dp.JetVersion, isAccdb: true, JetCodePages.For(dp.Collation)!.Value, dp.Collation,
+            (dp.DatabaseCreationDate - new DateTime(1899, 12, 30)).TotalDays);
+
+        Assert.Equal(Convert.ToHexString(real[0x00..0xA0]), Convert.ToHexString(synth[0x00..0xA0]));
+    }
+
+    // Creation refuses an order without a measured code page, so every order LibRed can encode must have one.
+    [Fact]
+    public void Every_creatable_order_has_a_measured_code_page()
+    {
+        var missing = new List<string>();
+        foreach (CollatingOrder order in Enum.GetValues<CollatingOrder>())
+            foreach (byte version in (byte[])[0, 1])
+                foreach (byte sortId in (byte[])[0, 1, 2, 3, 4])
+                {
+                    var collation = new Collation(order, version, sortId);
+                    if (collation.IsIndexKeyEncodable && JetCodePages.For(collation) is null)
+                        missing.Add($"0x{collation.Lcid:X5} v{version}");
+                }
+        Assert.Empty(missing);
+    }
+
     // Every column of the system tables a new database carries is described byte-for-byte as Access describes it:
     // the catalog flags 0x10/0x20 on exactly the catalog tables' columns (and not on the complex templates, which
     // once carried them), the attachment template's extended flag 0x10, and the zero 0x09 of an engine table.

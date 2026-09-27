@@ -113,7 +113,7 @@ public sealed class ColumnDef
     /// Defaults to General legacy.</summary>
     /// <remarks>The version is at <c>0x0E</c>, not <c>0x0D</c>. Reading it from <c>0x0D</c> — which is 0 in
     /// both General orders — made LibRed report every database as v0, so the byte is worth naming exactly.
-    /// LibRed encodes index keys for 405 collation configurations, not only General legacy.</remarks>
+    /// LibRed encodes index keys for 417 collation configurations, not only General legacy.</remarks>
     public Collation Collation { get; init; } = Collation.GeneralLegacy;
 
     /// <summary>The column's original on-disk descriptor bytes (the 25-byte Jet4 record), captured verbatim on

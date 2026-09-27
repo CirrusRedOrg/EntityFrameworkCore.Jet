@@ -2526,8 +2526,21 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     {
         // Text is held as its collation key, made once: every Equals and hash then works on bytes, and agrees
         // with the text comparison exactly because it is that comparison's own key.
-        private readonly object?[] _values = [.. values.Select(v => ExpressionEvaluator.SortKey(v, text))];
+        private readonly object?[] _values = Keyed(values, text);
         private readonly LibRed.Storage.JetTextComparer _text = text;
+
+        /// <summary>The values with each text replaced by its sort key. Anything else is its own key, so values
+        /// holding no text are kept as passed rather than copied — a copy per key cost a numeric DISTINCT a
+        /// quarter of its time.</summary>
+        private static object?[] Keyed(object?[] values, LibRed.Storage.JetTextComparer text)
+        {
+            if (Array.FindIndex(values, v => v is string) < 0)
+                return values;
+            var keyed = new object?[values.Length];
+            for (int i = 0; i < values.Length; i++)
+                keyed[i] = ExpressionEvaluator.SortKey(values[i], text);
+            return keyed;
+        }
 
         public bool Equals(GroupKey? other) =>
             other is not null && _values.Length == other._values.Length

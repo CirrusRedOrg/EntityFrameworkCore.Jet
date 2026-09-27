@@ -468,7 +468,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     {
         try
         {
-            return ComputeAggregate(call, [], [], null);
+            return ComputeAggregate(new AggregateSpec(this, call, []), [], null);
         }
         catch (InvalidOperationException)
         {
@@ -2223,6 +2223,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             .Concat(node.Having is { } h ? Aggregates(h) : [])
             .Concat(node.OrderBy.SelectMany(k => Aggregates(k.Value)))
             .Concat(windows.SelectMany(w => w.Function.Expressions().SelectMany(Aggregates)))
+            .Select(call => new AggregateSpec(this, call, inColumns))
             .ToList();
 
         // The groups HAVING keeps, each with the row that resolves its keys and its aggregates' values.
@@ -2230,12 +2231,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         foreach (List<object?[]> group in GroupRows(inRows, node.GroupBy, inColumns, outer))
         {
             var values = new Dictionary<FunctionCall, object?>(ReferenceComparer.Instance);
-            foreach (FunctionCall call in aggregateCalls)
+            foreach (AggregateSpec spec in aggregateCalls)
             {
                 // An aggregate collected from a nested subquery may belong to that subquery (its argument
                 // references the subquery's own columns, not this group's) — it can't be computed here, so
                 // skip it; the subquery computes it itself. A genuine outer aggregate resolves fine.
-                try { values[call] = ComputeAggregate(call, group, inColumns, outer); }
+                try { values[spec.Call] = ComputeAggregate(spec, group, outer); }
                 catch (InvalidOperationException) { }
             }
 
@@ -2372,9 +2373,36 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         return result;
     }
 
-    private object? ComputeAggregate(FunctionCall call, List<object?[]> group, IReadOnlyList<OutputColumn> columns, EvalScope? outer)
+    /// <summary>
+    /// What an aggregate call decides from its input's columns alone — its name, whether it reads a Variant's text,
+    /// whether its argument is a Currency — made once per execution and read by every group.
+    /// </summary>
+    /// <remarks>Each of these walks the column list. Asked per group they cost a multi-aggregate GROUP BY over a
+    /// thousand groups more than a quarter of its time, for answers that never change between groups. Currency is
+    /// decided on first use rather than up front, so it is only ever asked where the computation reaches it, as
+    /// before.</remarks>
+    private sealed class AggregateSpec(QueryExecutor executor, FunctionCall call, IReadOnlyList<OutputColumn> columns)
     {
-        string name = call.Name.ToUpperInvariant();
+        private bool? _currency;
+        private bool? _byText;
+
+        public FunctionCall Call => call;
+        public IReadOnlyList<OutputColumn> Columns => columns;
+        public string Name { get; } = call.Name.ToUpperInvariant();
+
+        /// <summary>Min, Max, First and Last take a Variant's or a Mixed value's text (verified vs ACE: Max of 3, 10
+        /// and 25 held as Variants is "3").</summary>
+        public bool ByText => _byText ??= Name is "MIN" or "MAX" or "FIRST" or "LAST"
+            && executor.VarianceOf(call.Arguments[0], columns) != Variance.None;
+
+        public bool Currency => _currency ??= executor.IsCurrency(call.Arguments[0], columns);
+    }
+
+    private object? ComputeAggregate(AggregateSpec spec, List<object?[]> group, EvalScope? outer)
+    {
+        FunctionCall call = spec.Call;
+        IReadOnlyList<OutputColumn> columns = spec.Columns;
+        string name = spec.Name;
         ExpressionEvaluator.ValidateArity(name, call.Arguments.Count);
         Expression? arg = call.Arguments.Count > 0 ? call.Arguments[0] : null;
 
@@ -2390,9 +2418,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (name == "COUNT" && arg is StarExpression or null)
             return group.Count;
 
-        // Min, Max, First and Last take a Variant's or a Mixed value's text (verified vs ACE: Max of 3, 10 and 25
-        // held as Variants is "3").
-        bool byText = name is "MIN" or "MAX" or "FIRST" or "LAST" && VarianceOf(arg!, columns) != Variance.None;
+        bool byText = spec.ByText;
 
         // FIRST/LAST return the argument's value from the first/last row of the group in scan order — NOT
         // null-filtered (verified vs ACE: First over a leading NULL row returns NULL).
@@ -2453,7 +2479,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (call.Distinct)
             values = DistinctValues(values.Where(v => v is not null));
 
-        var aggregate = new RunningAggregate(name, countRows: false, currency: IsCurrency(arg!, columns), TextComparer);
+        var aggregate = new RunningAggregate(name, countRows: false, currency: spec.Currency, TextComparer);
         foreach (object? value in values)
             aggregate.Add(value);
         return aggregate.Result;

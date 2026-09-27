@@ -348,7 +348,7 @@ internal static class JetTextCollation
         // trailing record carries, since that is this character's whole contribution. Empty at the start of
         // the string and after a weight that folded into its predecessor — in both cases there is nothing to
         // double.
-        byte[] lastWeight = [];
+        CopiedPrimary lastWeight = default;
         bool lastWeightIsKana = false;
 
         // What an iteration mark copies: the one weight — or the one inline record — the character before it
@@ -358,7 +358,7 @@ internal static class JetTextCollation
         // letter before it, or an astral character, which version 0 ignores: e + U+0301 + 々 and a𐀀々 both copy
         // the letter. Recomputed from the counts at the start of each character, except after a mark or a
         // combining voicing, which leave it as it was — かゝゝ repeats か twice, and かーゝ repeats か, not the vowel.
-        byte[]? repeatable = null;
+        CopiedPrimary? repeatable = null;
         bool repeatableIsKana = false;
         bool keepRepeatable = true;
         int weightsAtCharacter = 0, recordsAtCharacter = 0;
@@ -409,7 +409,7 @@ internal static class JetTextCollation
                 tailoring?.TryMatchSingle(c, out _) != true)
             {
                 inline.Add((secondaries.Count, code));
-                lastWeight = [InlineMid, code];
+                lastWeight = new CopiedPrimary(InlineMid, code);
                 lastWeightIsKana = false;
                 continue;
             }
@@ -475,7 +475,7 @@ internal static class JetTextCollation
                     primaries.AddRange((byte[])[0xFF, 0xFF]);
                     continue;
                 }
-                AddWeight(repeatable, markSecondary, final: true);
+                AddWeight(repeatable.Value.ToArray(), markSecondary, final: true);
                 if (repeatableIsKana)
                 {
                     kana.Add(kanaSmall);
@@ -503,7 +503,7 @@ internal static class JetTextCollation
             if (c == Shadda)
             {
                 if (lastWeight.Length > 0)
-                    AddWeight(lastWeight, DefaultSecondary, final: true);
+                    AddWeight(lastWeight.ToArray(), DefaultSecondary, final: true);
                 else
                     primaries.AddRange((byte[])[0xFF, 0xFF]);
                 continue;
@@ -601,9 +601,7 @@ internal static class JetTextCollation
             char upper = char.ToUpperInvariant(character);
             // The locale still applies to a single character — only the contraction matcher is bypassed.
             // A ligature's components take the locale's letters: Slovenian's Ǆ is D plus SLOVENIAN's ž.
-            if (tailoring is not null &&
-                (tailoring.Entries.TryGetValue(character.ToString(), out TailoredWeight tailoredOne) ||
-                 tailoring.Entries.TryGetValue(upper.ToString(), out tailoredOne)))
+            if (tailoring is not null && tailoring.TryMatchSingle(character, out TailoredWeight tailoredOne))
                 AddWeight(tailoredOne.Primaries, tailoredOne.Secondary, final: true);
             else if (ExtraLetters.TryGetValue(character, out TailoredWeight own) ||
                      ExtraLetters.TryGetValue(upper, out own))
@@ -651,7 +649,7 @@ internal static class JetTextCollation
             if (tailoring?.LeadBytes is { } leads) primary = leads[primary];
             primaries.Add(primary);
             secondaries.Add(secondary);
-            lastWeight = [primary];
+            lastWeight = new CopiedPrimary(primary);
             lastWeightIsKana = false;
         }
 
@@ -688,7 +686,7 @@ internal static class JetTextCollation
 
             foreach (byte b in weight) primaries.Add(b);
             secondaries.Add(secondary);
-            lastWeight = weight.ToArray();
+            lastWeight = CopiedPrimary.Of(weight);
             lastWeightIsKana = false;
         }
     }

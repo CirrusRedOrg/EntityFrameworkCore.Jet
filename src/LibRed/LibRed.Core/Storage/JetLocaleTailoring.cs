@@ -40,7 +40,19 @@ internal sealed class LocaleTailoring
         LeadBytes = leadBytes;
         WeighsDecompositions = weighsDecompositions;
         MaxLength = entries.Count == 0 ? 0 : entries.Keys.Max(k => k.Length);
+
+        // Looked up by span, never by a string made for the purpose: every character of every key asks, and a
+        // string or two per question was most of what encoding a key allocated. Every table is an ordinal
+        // Dictionary, which takes the lookup as it is; anything else is copied into one.
+        Dictionary<string, TailoredWeight> table =
+            entries is Dictionary<string, TailoredWeight> dictionary
+            && dictionary.TryGetAlternateLookup<ReadOnlySpan<char>>(out _)
+                ? dictionary
+                : new Dictionary<string, TailoredWeight>(entries, StringComparer.Ordinal);
+        _bySpan = table.GetAlternateLookup<ReadOnlySpan<char>>();
     }
+
+    private readonly Dictionary<string, TailoredWeight>.AlternateLookup<ReadOnlySpan<char>> _bySpan;
 
     /// <summary>
     /// Whether the characters a General decomposition produces take this tailoring's weights.
@@ -136,16 +148,13 @@ internal sealed class LocaleTailoring
     /// text never contained.
     /// </remarks>
     public bool TryMatchSingle(char character, out TailoredWeight weight) =>
-        Entries.TryGetValue(character.ToString(), out weight) ||
-        Entries.TryGetValue(character.ToString().ToUpperInvariant(), out weight);
+        TryGet(new ReadOnlySpan<char>(in character), out weight);
 
     private bool TryLongest(ReadOnlySpan<char> text, int start, out TailoredWeight weight, out int consumed)
     {
         for (int length = Math.Min(MaxLength, text.Length - start); length >= 1; length--)
         {
-            ReadOnlySpan<char> candidate = text.Slice(start, length);
-            if (Entries.TryGetValue(candidate.ToString(), out weight) ||
-                Entries.TryGetValue(candidate.ToString().ToUpperInvariant(), out weight))
+            if (TryGet(text.Slice(start, length), out weight))
             {
                 consumed = length;
                 return true;
@@ -154,6 +163,16 @@ internal sealed class LocaleTailoring
         weight = default;
         consumed = 0;
         return false;
+    }
+
+    /// <summary>The entry for <paramref name="key"/> as written, else for its invariant uppercase — the order
+    /// the class remarks give, which lets a locale disagree with invariant casing.</summary>
+    private bool TryGet(ReadOnlySpan<char> key, out TailoredWeight weight)
+    {
+        if (_bySpan.TryGetValue(key, out weight)) return true;
+        Span<char> upper = stackalloc char[key.Length];
+        key.ToUpperInvariant(upper);
+        return _bySpan.TryGetValue(upper, out weight);
     }
 }
 

@@ -91,20 +91,26 @@ internal static class JetTextCollationV1
         WeightTable table = Table.Value;
         ReadOnlySpan<char> text = value.AsSpan().TrimEnd(' ');
 
-        var primaries = new List<byte>();
-        var secondaries = new List<byte>();
+        // The working lists are this thread's, cleared rather than allocated, as version 0's are: a comparison
+        // encodes both sides every time, and five new lists per string were most of what a key allocated. Safe
+        // because nothing here re-enters TryEncode.
+        EncodeScratch scratch = t_scratch ??= new EncodeScratch();
+        scratch.Clear();
+
+        List<byte> primaries = scratch.Primaries;
+        List<byte> secondaries = scratch.Secondaries;
         // Position is counted in primary *weights*, not bytes. In v0 the two coincide (one byte per weight);
         // here a weight is two bytes, and ACE still counts weights — verified against ACE (`O'Brien` puts the
         // apostrophe at 0x0B = 0x07 + 4x1 in both orders, though v1 has emitted twice as many bytes by then).
         // A Han character is the exception: its FD FF marker counts as a weight of its own, so 人- puts the
         // hyphen at 0x0F and 人人- at 0x17, though each Han character takes one secondary slot. A one-byte
         // primary still counts once (a Lao vowel then a hyphen is 0x0B), so this is not a byte count halved.
-        var inline = new List<(int Position, byte ScriptMember, byte AlphabeticWeight)>();
+        List<(int Position, byte ScriptMember, byte AlphabeticWeight)> inline = scratch.Inline;
         int hanMarkers = 0;
 
         // The kana small/normal flags and mark codes, and the running state the prolonged mark needs.
-        var kana = new List<bool>();
-        var marks = new List<byte>();
+        List<bool> kana = scratch.Kana;
+        List<byte> marks = scratch.KanaMarks;
         int kanaWeight = -1;
         byte kanaVowel = 0;
         bool kanaSmall = false;
@@ -475,6 +481,28 @@ internal static class JetTextCollationV1
         return true;
     }
 
+    [ThreadStatic] private static EncodeScratch? t_scratch;
+
+    /// <summary>The lists <see cref="TryEncode(string, List{byte}, LocaleTailoring?, out bool)"/> builds a key in,
+    /// kept per thread and reused.</summary>
+    private sealed class EncodeScratch
+    {
+        public List<byte> Primaries { get; } = [];
+        public List<byte> Secondaries { get; } = [];
+        public List<(int Position, byte ScriptMember, byte AlphabeticWeight)> Inline { get; } = [];
+        public List<bool> Kana { get; } = [];
+        public List<byte> KanaMarks { get; } = [];
+
+        public void Clear()
+        {
+            Primaries.Clear();
+            Secondaries.Clear();
+            Inline.Clear();
+            Kana.Clear();
+            KanaMarks.Clear();
+        }
+    }
+
     private static WeightTable Load()
     {
         using Stream stream = typeof(JetTextCollationV1).Assembly
@@ -544,30 +572,6 @@ internal static class JetTextCollationV1
             value |= (b & 0x7F) << shift;
             if ((b & 0x80) == 0) return value;
             shift += 7;
-        }
-    }
-
-    /// <summary>The primary an iteration mark would copy, recorded for every character in case one follows. Almost
-    /// always a two-byte pair, held inline so the recording allocates nothing; a tailored or measured weight keeps
-    /// the array it already has.</summary>
-    private readonly struct CopiedPrimary
-    {
-        private readonly byte[]? bytes;
-        private readonly byte first, second;
-
-        public CopiedPrimary(byte[] bytes) => this.bytes = bytes;
-
-        public CopiedPrimary(byte first, byte second) => (this.first, this.second) = (first, second);
-
-        public void AppendTo(List<byte> primaries)
-        {
-            if (bytes is not null)
-            {
-                primaries.AddRange(bytes);
-                return;
-            }
-            primaries.Add(first);
-            primaries.Add(second);
         }
     }
 

@@ -373,7 +373,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
         if (Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries, keep) is { } asIs)
         {
-            _channel.WritePage(leafPage, KeepTail(leafPage, asIs));
+            _channel.WritePage(leafPage, KeepTail(leafPage, asIs), AsBuilt(page, entries, keep));
             return;
         }
 
@@ -381,7 +381,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
             && Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries, share)
                 is { } compressed)
         {
-            _channel.WritePage(leafPage, KeepTail(leafPage, compressed));
+            _channel.WritePage(leafPage, KeepTail(leafPage, compressed), AsBuilt(page, entries, share));
             return;
         }
 
@@ -557,6 +557,43 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     }
 
     private int _splitTail; // carries a node's tail into SplitAndPropagate
+
+    /// <summary>
+    /// The parse of a leaf <see cref="Build"/> has just made from <paramref name="entries"/> at
+    /// <paramref name="prefix"/>, with <paramref name="read"/>'s links: what decoding the written page gives, so the
+    /// write can hand it to the channel rather than have the next insert into the leaf decode every entry again.
+    /// </summary>
+    /// <remarks>Consecutive inserts mostly land on one leaf, and each write dropped the parse the next one needed:
+    /// re-decoding the leaf — hundreds of entries, an array each — was two-fifths of what an insert allocated.
+    /// Every field is what Build writes: the leaf's own owner, no child tail, and a prefix of 0 for a lone entry.
+    /// The entry list becomes the shared parse, so the caller must not touch it again.
+    /// <c>CachedParseMatchesPage</c> is the check that the two agree.</remarks>
+    private ParsedIndexPage AsBuilt(ParsedIndexPage read, List<Entry> entries, int prefix) =>
+        read with
+        {
+            Type = PageType.LeafIndexPage,
+            Owner = _table.DefinitionPage,
+            Entries = entries,
+            Tail = 0,
+            Compressed = entries.Count <= 1 ? 0 : prefix,
+        };
+
+    /// <summary>Whether the parse cached for <paramref name="pageNumber"/> is exactly what decoding the page's bytes
+    /// gives now — the invariant <see cref="AsBuilt"/> relies on — or null when no parse of one of this table's
+    /// index pages is cached there. For tests.</summary>
+    internal bool? CachedParseMatchesPage(int pageNumber)
+    {
+        if (!_channel.TryGetParsedPage(pageNumber, out object? cached) || cached is not ParsedIndexPage hit
+            || hit.Owner != _table.DefinitionPage)
+            return null;
+        CheckedIndexPage page = IndexPageReader.Read(_channel, pageNumber, _table.DefinitionPage);
+        (List<Entry> entries, int tail) = Parse(page);
+        return hit.Type == page.Type && hit.Owner == page.Owner && hit.Tail == tail
+            && hit.Next == page.Next && hit.Previous == page.Previous && hit.Compressed == page.CompressedByteCount
+            && hit.Entries.Count == entries.Count
+            && hit.Entries.Zip(entries).All(p => p.First.Trailer == p.Second.Trailer
+                && p.First.Key.AsSpan().SequenceEqual(p.Second.Key));
+    }
 
     /// <summary>Parses a checked page's entries, decompressing their shared prefix.</summary>
     private static (List<Entry> Entries, int Tail) Parse(CheckedIndexPage page)

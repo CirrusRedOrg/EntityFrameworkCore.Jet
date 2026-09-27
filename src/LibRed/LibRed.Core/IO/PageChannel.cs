@@ -331,7 +331,15 @@ public sealed class PageChannel : IDisposable
     /// physical end (the map pre-accounts for growth, and allocation defers the physical write), and
     /// writing the page is what materialises it — the same growth Access performs on such a write.
     /// </summary>
-    public void WritePage(int pageNumber, ReadOnlySpan<byte> source)
+    public void WritePage(int pageNumber, ReadOnlySpan<byte> source) => WritePage(pageNumber, source, parsed: null);
+
+    /// <summary>
+    /// Writes a page as <see cref="WritePage(int, ReadOnlySpan{byte})"/> does, and keeps <paramref name="parsed"/>
+    /// as its parse (see <see cref="SetParsedPage"/>), so the next read of the page need not decode the bytes just
+    /// written. The caller vouches that it is exactly what parsing <paramref name="source"/> gives. Attached in the
+    /// same publication as the write, so no other channel's write of the page can come between the two.
+    /// </summary>
+    public void WritePage(int pageNumber, ReadOnlySpan<byte> source, object? parsed)
     {
         if (_readOnly)
             throw new InvalidOperationException("This channel was opened read-only.");
@@ -354,21 +362,26 @@ public sealed class PageChannel : IDisposable
             if (_active.NeedsBeforeImage(pageNumber))
                 _active.RecordBeforeImage(pageNumber, _overlay.TryGetValue(pageNumber, out byte[]? prior) ? prior : null);
             _overlay[pageNumber] = source[..PageSize].ToArray();
-            _overlayParsed.Remove(pageNumber);
+            if (parsed is null) _overlayParsed.Remove(pageNumber);
+            else _overlayParsed[pageNumber] = parsed;
             if (pageNumber >= _txPageCount) _txPageCount = pageNumber + 1;
             return;
         }
 
-        WriteThrough(pageNumber, source);
+        WriteThrough(pageNumber, source, parsed);
     }
 
     /// <summary>Writes a page to disk and the shared cache (the committed path): encrypts a copy on the way to
     /// disk for an encrypted file while caching plaintext, growing the file if the page lies past its end. Used
     /// for non-transactional writes and to publish each overlay page on commit.</summary>
-    private void WriteThrough(int pageNumber, ReadOnlySpan<byte> source)
+    private void WriteThrough(int pageNumber, ReadOnlySpan<byte> source, object? parsed)
     {
         byte[] copy = source[..PageSize].ToArray();
-        _cache.PublishLocked(() => WriteThroughUnderPublishLock(pageNumber, copy));
+        _cache.PublishLocked(() =>
+        {
+            WriteThroughUnderPublishLock(pageNumber, copy);
+            if (parsed is not null) _cache.SetParsed(pageNumber, parsed);
+        });
     }
 
     /// <summary>Runs a logical read against one committed page-set generation. Shared: other readers on this
@@ -431,7 +444,7 @@ public sealed class PageChannel : IDisposable
     }
 
     /// <summary>
-    /// Begins a page-level transaction. Subsequent <see cref="WritePage"/> calls snapshot the
+    /// Begins a page-level transaction. Subsequent <see cref="WritePage(int, ReadOnlySpan{byte})"/> calls snapshot the
     /// original bytes of each page they touch, so <see cref="RollbackTransaction"/> can undo them.
     /// Reads continue to see writes made within the transaction (read-your-writes). Nesting is not
     /// supported.
@@ -569,7 +582,7 @@ public sealed class PageChannel : IDisposable
     /// so callers can call this unconditionally.
     /// </summary>
     /// <remarks>
-    /// The write goes through <see cref="WritePage"/> rather than to the stream, so it joins the calling
+    /// The write goes through <see cref="WritePage(int, ReadOnlySpan{byte})"/> rather than to the stream, so it joins the calling
     /// statement's transaction overlay: the upgrade commits with the DDL that needed it, or is discarded with
     /// it. Page 0 is never page-encrypted, so the write is byte-transparent even on an encrypted file.
     /// Only those two bytes move. The ACE format classes above 0x02 override nothing but

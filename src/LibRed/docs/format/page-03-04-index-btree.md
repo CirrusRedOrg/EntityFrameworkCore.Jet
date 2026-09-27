@@ -63,6 +63,9 @@ Each entry ends with a **4-byte big-endian** trailing pointer:
 > the commit and the rollback all drop — so a hit carries what a re-read would, and the page's type and owning TDEF are still
 > checked before it is mutated. The copy is shallow by design: an entry is an immutable struct referencing its
 > key, so copying the list shares the key arrays and costs one array of structs rather than one array per entry.
+> A leaf rewritten in place (no split) is written together with the parse it was built from — its entries, the
+> prefix length stored, no child tail — so the next insert into it does not decode it again; that parse is what
+> decoding the written page gives, and the tests check it against a fresh decode after every insert.
 >
 > Because an overlay page is never served from the cache, this saves nothing for a page already written inside
 > the current transaction. Inserts outside a transaction, or early in one, gain the most; a long transaction

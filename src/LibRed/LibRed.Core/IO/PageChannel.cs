@@ -44,6 +44,11 @@ public sealed class PageChannel : IDisposable
     // lock. `_txPageCount` is the logical page count during a transaction (committed pages plus any the overlay
     // allocated), since deferred allocations do not grow the file until commit.
     private readonly Dictionary<int, byte[]> _overlay = [];
+    // Higher-layer parses of overlay pages (see SetParsedPage), private to the transaction as the bytes are. The
+    // shared cache's parse describes the committed image, so it cannot serve an overlay page; without this every
+    // read of a page the transaction had written decoded it again — an index leaf, ~600 entries, several times
+    // per index for every row inserted. A page's parse goes whenever its overlay bytes change.
+    private readonly Dictionary<int, object> _overlayParsed = [];
     // Committed plaintext image from which each transactional page was first derived. At commit, every image
     // must still match; otherwise another channel committed the same page and publishing this stale overlay
     // would silently lose that writer's change.
@@ -278,7 +283,7 @@ public sealed class PageChannel : IDisposable
             _stream.Seek(offset, SeekOrigin.Begin);
             _stream.ReadExactly(buffer);
             _codec?.DecryptPage(pageNumber, buffer);
-            _cache.Store(pageNumber, buffer);
+            _cache.Adopt(pageNumber, buffer); // handed back read-only, as a cache hit's array is
             return new PageBuffer(buffer, pageNumber);
         }
         finally { _locks?.ExitShared(pageNumber); }
@@ -349,6 +354,7 @@ public sealed class PageChannel : IDisposable
             if (_active.NeedsBeforeImage(pageNumber))
                 _active.RecordBeforeImage(pageNumber, _overlay.TryGetValue(pageNumber, out byte[]? prior) ? prior : null);
             _overlay[pageNumber] = source[..PageSize].ToArray();
+            _overlayParsed.Remove(pageNumber);
             if (pageNumber >= _txPageCount) _txPageCount = pageNumber + 1;
             return;
         }
@@ -373,7 +379,9 @@ public sealed class PageChannel : IDisposable
     /// publish as one unit.</summary>
     internal T WriteExclusive<T>(Func<T> action) => _cache.PublishLocked(action);
 
-    private void WriteThroughUnderPublishLock(int pageNumber, ReadOnlySpan<byte> source)
+    /// <remarks><paramref name="source"/> is a whole page the cache takes over as it stands — this channel's own
+    /// copy of a write, an overlay page, or a committed baseline — so it must be one nothing writes into again.</remarks>
+    private void WriteThroughUnderPublishLock(int pageNumber, byte[] source)
     {
         _locks?.EnterExclusive(pageNumber);
         try
@@ -381,11 +389,11 @@ public sealed class PageChannel : IDisposable
             // The cache holds plaintext and the disk holds ciphertext (for an encrypted file), so encrypt a copy
             // on the way to disk — the mirror of ReadPage's decrypt — while caching the plaintext. Page 0 is a
             // no-op inside the codec (never page-encrypted).
-            ReadOnlySpan<byte> toDisk = source[..PageSize];
+            ReadOnlySpan<byte> toDisk = source.AsSpan(0, PageSize);
             byte[]? encrypted = null;
             if (_codec is not null)
             {
-                encrypted = source[..PageSize].ToArray();
+                encrypted = source.AsSpan(0, PageSize).ToArray();
                 _codec.EncryptPage(pageNumber, encrypted);
                 toDisk = encrypted;
             }
@@ -401,7 +409,7 @@ public sealed class PageChannel : IDisposable
 
             // Write through: the pool now holds the just-written (plaintext) image, so a subsequent read (this
             // channel or any other on the file) sees it without touching disk.
-            _cache.Store(pageNumber, source[..PageSize]);
+            _cache.Adopt(pageNumber, source);
             _published = true;
         }
         finally { _locks?.ExitExclusive(pageNumber); }
@@ -548,6 +556,7 @@ public sealed class PageChannel : IDisposable
     private void ClearTransactionState()
     {
         _overlay.Clear();
+        _overlayParsed.Clear();
         _commitBaselines.Clear();
         _dependencies.Clear();
         _releasing.Clear();
@@ -654,6 +663,7 @@ public sealed class PageChannel : IDisposable
         {
             if (image is null) _overlay.Remove(page);
             else _overlay[page] = image;
+            _overlayParsed.Remove(page);
         }
         _txPageCount = pageCount;
         foreach (int page in _commitBaselines.Keys.Where(p => !_overlay.ContainsKey(p)).ToArray())
@@ -676,7 +686,7 @@ public sealed class PageChannel : IDisposable
             _stream.Seek((long)pageNumber * PageSize, SeekOrigin.Begin);
             _stream.ReadExactly(buffer);
             _codec?.DecryptPage(pageNumber, buffer);
-            _cache.Store(pageNumber, buffer);
+            _cache.Adopt(pageNumber, buffer); // a baseline is only ever compared or published, never written into
             return buffer;
         }
         finally { _locks?.ExitShared(pageNumber); }
@@ -691,8 +701,9 @@ public sealed class PageChannel : IDisposable
     public bool TryGetParsedPage(int pageNumber, out object? parsed)
     {
         // A page buffered in this transaction's overlay has uncommitted bytes; the shared parsed cache reflects
-        // the committed image, so don't serve it — force a re-parse of the overlay bytes instead.
-        if (_active is not null && _overlay.ContainsKey(pageNumber)) { parsed = null; return false; }
+        // the committed image, so it is served from the transaction's own parses instead.
+        if (_active is not null && _overlay.ContainsKey(pageNumber))
+            return _overlayParsed.TryGetValue(pageNumber, out parsed);
         return _cache.TryGetParsed(pageNumber, out parsed);
     }
 
@@ -701,8 +712,12 @@ public sealed class PageChannel : IDisposable
     /// afterwards, as it is shared with other readers of the same file.</summary>
     public void SetParsedPage(int pageNumber, object parsed)
     {
-        // Don't attach a transaction-local parse to the shared (committed) cache entry for an overlay page.
-        if (_active is not null && _overlay.ContainsKey(pageNumber)) return;
+        // A transaction-local parse goes with the transaction's bytes, never onto the shared (committed) entry.
+        if (_active is not null && _overlay.ContainsKey(pageNumber))
+        {
+            _overlayParsed[pageNumber] = parsed;
+            return;
+        }
         _cache.SetParsed(pageNumber, parsed);
     }
 

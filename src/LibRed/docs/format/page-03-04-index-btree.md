@@ -59,7 +59,8 @@ Each entry ends with a **4-byte big-endian** trailing pointer:
 > mutating it (the cached object is shared with every other reader of the file, so it must never be written
 > through). The guarantee is unchanged: a cached parse survives only while the bytes behind it are untouched —
 > any write from any channel drops it, eviction drops it, and a page buffered in an open transaction's overlay
-> is never served — so a hit carries what a re-read would, and the page's type and owning TDEF are still
+> is served only from that transaction's own parses, which its next write of the page, a savepoint rollback,
+> the commit and the rollback all drop — so a hit carries what a re-read would, and the page's type and owning TDEF are still
 > checked before it is mutated. The copy is shallow by design: an entry is an immutable struct referencing its
 > key, so copying the list shares the key arrays and costs one array of structs rather than one array per entry.
 >

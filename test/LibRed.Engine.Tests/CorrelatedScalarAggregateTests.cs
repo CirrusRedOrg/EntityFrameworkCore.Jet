@@ -103,6 +103,25 @@ public class CorrelatedScalarAggregateTests : TempDatabaseTest
             Ids(Fresh(), "SELECT o.Id FROM O AS o WHERE (SELECT COUNT(*) FROM I AS i WHERE i.K = o.K) > 1"));
 
     [Fact]
+    public void A_count_over_rows_that_exist_without_a_table_types_without_the_outer_row()
+    {
+        // EF's inline collection, with I standing in for its one-row #Dual: the body's rows come from a
+        // `SELECT COUNT(*)`, which has a row even with nothing read. Typing the scalar describes its plan with no
+        // outer row, so a count there that filtered those rows on o.Id asked for a column that does not exist yet.
+        const string sql =
+            """
+            SELECT o.Id FROM O AS o
+            WHERE (
+                SELECT COUNT(*)
+                FROM (SELECT CLNG(2) AS `Value` FROM (SELECT COUNT(*) FROM I) AS `v_0`
+                      UNION
+                      SELECT 999 AS `Value` FROM (SELECT COUNT(*) FROM I) AS `v_1`) AS `v`
+                WHERE `v`.`Value` > o.Id) = 1
+            """;
+        Assert.Equal([2, 3, 4, 5], Ids(Fresh(), sql));
+    }
+
+    [Fact]
     public void A_residual_predicate_still_applies()
     {
         // Keep = 0 on the partner of row 5, so its count drops to 0 while row 1's stays at 2.

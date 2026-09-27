@@ -2203,6 +2203,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             })
             .ToList();
 
+        // Describing evaluates nothing. An aggregate is the one node that has a row over no input — COUNT(*) is 0 —
+        // so letting it compute one hands the nodes above a row to evaluate, and a correlated subquery being
+        // described has no outer row for them to read.
+        if (_describing) return (outColumns, []);
+
         // A bare `SELECT COUNT(*)` wants the number of rows, not the rows. Everything below materialises the
         // whole input first — which for this shape is the entire cost, and pure waste: holding every decoded row
         // alive at once made counting a table cost more than reading it (measured, `scan.count_star` against

@@ -2003,6 +2003,12 @@ internal sealed partial class ExpressionEvaluator(
         };
     }
 
+    // A comparison's result as an object without boxing a new bool for every row it is asked of: a filter or a
+    // join's residual ON compares once per row, and each answer was an allocation.
+    private static readonly object BoxedTrue = true, BoxedFalse = false;
+
+    private static object Boxed(bool value) => value ? BoxedTrue : BoxedFalse;
+
     private object? EvaluateBinary(BinaryExpression b)
     {
         // AND/OR use Kleene three-valued logic, and short-circuit: `false AND x` is false and `true OR x`
@@ -2093,7 +2099,7 @@ internal sealed partial class ExpressionEvaluator(
             return null;
 
         if (b.Operator is BinaryOperator.Equal or BinaryOperator.NotEqual && TruthTest(b, left, right) is bool truth)
-            return b.Operator == BinaryOperator.Equal ? truth : !truth;
+            return Boxed(b.Operator == BinaryOperator.Equal ? truth : !truth);
 
         // A result that is a Currency (NumberTypeOf) is one at every step, not only in the result column: its four
         // places and its range apply to it where it is worked out, as CCur applies them (verified vs ACE: Currency
@@ -2112,12 +2118,12 @@ internal sealed partial class ExpressionEvaluator(
 
         return b.Operator switch
         {
-            BinaryOperator.Equal => CompareOperands(b, left, right) == 0,
-            BinaryOperator.NotEqual => CompareOperands(b, left, right) != 0,
-            BinaryOperator.LessThan => CompareOperands(b, left, right) < 0,
-            BinaryOperator.LessThanOrEqual => CompareOperands(b, left, right) <= 0,
-            BinaryOperator.GreaterThan => CompareOperands(b, left, right) > 0,
-            BinaryOperator.GreaterThanOrEqual => CompareOperands(b, left, right) >= 0,
+            BinaryOperator.Equal => Boxed(CompareOperands(b, left, right) == 0),
+            BinaryOperator.NotEqual => Boxed(CompareOperands(b, left, right) != 0),
+            BinaryOperator.LessThan => Boxed(CompareOperands(b, left, right) < 0),
+            BinaryOperator.LessThanOrEqual => Boxed(CompareOperands(b, left, right) <= 0),
+            BinaryOperator.GreaterThan => Boxed(CompareOperands(b, left, right) > 0),
+            BinaryOperator.GreaterThanOrEqual => Boxed(CompareOperands(b, left, right) >= 0),
             // LIKE reads any other value as the text CStr gives it (verified vs ACE: TRUE LIKE '-1' is True). A binary
             // value becomes text too, so LIKE is case-insensitive over a binary column even though '=' on the same
             // column is byte-wise: `B LIKE 'A%'` matches both 0x4100 ('A') and 0x6100 ('a').

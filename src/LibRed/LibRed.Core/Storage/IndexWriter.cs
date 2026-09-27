@@ -58,11 +58,11 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     public bool KeyExists(IndexDef index, object?[] values, int? excludePointer = null)
     {
         byte[] key = IndexKeyEncoder.Encode(index.Columns, values);
-        int leaf = Descend(index.RootPage, WithTrailer(key, 0))[^1];
-        var visitedLeaves = new HashSet<int>();
+        int leaf = Descend(index.RootPage, WithTrailer(key, 0), path: null);
+        int steps = 0;
         while (leaf != 0)
         {
-            if (!visitedLeaves.Add(leaf))
+            if (!InLeafChain(ref steps))
                 throw new InvalidDataException($"Index leaf chain contains a cycle at page {leaf}.");
             ParsedIndexPage page = ReadIndexPage(leaf);
             if (page.Type != PageType.LeafIndexPage)
@@ -91,11 +91,11 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     public IEnumerable<RowId> Seek(IndexDef index, object?[] values)
     {
         byte[] key = IndexKeyEncoder.Encode(index.Columns, values);
-        int leaf = Descend(index.RootPage, WithTrailer(key, 0))[^1];
-        var visitedLeaves = new HashSet<int>();
+        int leaf = Descend(index.RootPage, WithTrailer(key, 0), path: null);
+        int steps = 0;
         while (leaf != 0)
         {
-            if (!visitedLeaves.Add(leaf))
+            if (!InLeafChain(ref steps))
                 throw new InvalidDataException($"Index leaf chain contains a cycle at page {leaf}.");
             ParsedIndexPage page = ReadIndexPage(leaf);
             if (page.Type != PageType.LeafIndexPage)
@@ -128,11 +128,11 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         if (!index.Columns[0].Ascending)
             (lowKey, highKey) = (highKey, lowKey);
 
-        int leaf = Descend(index.RootPage, WithTrailer(lowKey ?? [], 0))[^1];
-        var visitedLeaves = new HashSet<int>();
+        int leaf = Descend(index.RootPage, WithTrailer(lowKey ?? [], 0), path: null);
+        int steps = 0;
         while (leaf != 0)
         {
-            if (!visitedLeaves.Add(leaf))
+            if (!InLeafChain(ref steps))
                 throw new InvalidDataException($"Index leaf chain contains a cycle at page {leaf}.");
             ParsedIndexPage page = ReadIndexPage(leaf);
             if (page.Type != PageType.LeafIndexPage)
@@ -267,15 +267,34 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     private List<int> Descend(int rootPage, byte[] fullKey)
     {
         var path = new List<int>();
-        var visited = new HashSet<int>();
+        Descend(rootPage, fullKey, path);
+        return path;
+    }
+
+    /// <summary>Counts one more leaf of a chain walk, and says whether the walk can still be a chain: it cannot
+    /// visit more leaves than the file has pages, so one that tries is going round a loop. Counting catches the
+    /// loop as surely as a set of the leaves visited did, without the set a seek allocated every time.</summary>
+    private bool InLeafChain(ref int steps) => ++steps <= _channel.PageCount;
+
+    /// <summary>The deepest a real B-tree can be. A node holds at least two children, and a file of at most 2 GB
+    /// has at most 2^20 pages even at 2 KB each, so no tree is 21 levels deep; this leaves room to spare.</summary>
+    private const int MaxDepth = 64;
+
+    /// <summary>Descends to the leaf that should hold the key, returning it, and recording the path from the
+    /// root in <paramref name="path"/> when there is one — a seek needs only the leaf.</summary>
+    /// <remarks>A descent that goes on past <see cref="MaxDepth"/> is circling through a corrupt node. Counting
+    /// levels catches that as surely as remembering every page visited did, without a set allocated per seek —
+    /// which an index-nested-loop join does once for every outer row.</remarks>
+    private int Descend(int rootPage, byte[] fullKey, List<int>? path)
+    {
         int pageNumber = rootPage;
-        while (true)
+        for (int depth = 0; ; depth++)
         {
-            if (!visited.Add(pageNumber))
+            if (depth > MaxDepth)
                 throw new InvalidDataException($"Index descent contains a cycle at page {pageNumber}.");
-            path.Add(pageNumber);
+            path?.Add(pageNumber);
             ParsedIndexPage page = ReadIndexPage(pageNumber);
-            if (page.Type == PageType.LeafIndexPage) return path;
+            if (page.Type == PageType.LeafIndexPage) return pageNumber;
             if (page.Type != PageType.IntermediateIndexPage)
                 throw new InvalidDataException($"Index descent reached non-index page {pageNumber}.");
 

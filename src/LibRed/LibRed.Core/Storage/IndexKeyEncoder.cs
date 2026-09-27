@@ -55,10 +55,17 @@ public static class IndexKeyEncoder
         IReadOnlyList<(ColumnDef Column, bool Ascending)> columns, object?[] values) =>
         Encode(columns, values, enforceLengthLimit: false);
 
+    // The lists a key is built in, this thread's, cleared rather than allocated — as the collation encoders keep
+    // theirs: an index-nested-loop join encodes a key for every outer row, and two growing lists per key were most
+    // of what the seek allocated. Safe because nothing here re-enters Encode.
+    [ThreadStatic] private static List<byte>? t_buffer;
+    [ThreadStatic] private static List<byte>? t_textKey;
+
     private static byte[] Encode(
         IReadOnlyList<(ColumnDef Column, bool Ascending)> columns, object?[] values, bool enforceLengthLimit)
     {
-        var buffer = new List<byte>();
+        List<byte> buffer = t_buffer ??= [];
+        buffer.Clear();
 
         for (int i = 0; i < columns.Count; i++)
         {
@@ -107,7 +114,9 @@ public static class IndexKeyEncoder
                 if (column.Type == JetDataType.Memo && text.Length > MemoKeyMaxChars)
                     text = text[..MemoKeyMaxChars];
 
-                var ascendingKey = new List<byte> { IndexKeyFlags.AscStart };
+                List<byte> ascendingKey = t_textKey ??= [];
+                ascendingKey.Clear();
+                ascendingKey.Add(IndexKeyFlags.AscStart);
                 LocaleTailoring? tailoring = JetLocaleTailoring.For(column.Collation);
                 // The word-sort flag is discarded: it existed only to refuse a key whose record the truncation
                 // would drop, and that refusal is gone — see the note at the truncation below.

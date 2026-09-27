@@ -75,6 +75,29 @@ public sealed class Table
     private RowDecoder NewDecoder(bool[]? decode = null) =>
         new(Definition.Columns, Channel.Format, new LongValueReader(Channel), decode);
 
+    /// <summary>The decoder a seek reads its rows with: the last one made, while it was made for the same column
+    /// mask (the same array — a caller works one out and passes it to every seek), else a new one.</summary>
+    /// <remarks>An index-nested-loop join seeks once per outer row, and building a decoder each time — its column
+    /// array copied, a long-value reader made — was a sixth of what such a join allocated. A decoder holds nothing
+    /// that changes as it decodes, so one serves every seek, interleaved or not. The mask and its decoder are held
+    /// as one object, so no reader can pair one with the other's partner.</remarks>
+    private RowDecoder SeekDecoder(bool[]? decode)
+    {
+        if (_seekDecoder is { } held && ReferenceEquals(held.Mask, decode)) return held.Decoder;
+        RowDecoder decoder = NewDecoder(decode);
+        _seekDecoder = new MaskedDecoder(decode, decoder);
+        return decoder;
+    }
+
+    private sealed record MaskedDecoder(bool[]? Mask, RowDecoder Decoder);
+
+    private MaskedDecoder? _seekDecoder;
+
+    /// <summary>The index reader every seek goes through, made once: seeking changes nothing about it.</summary>
+    private IndexWriter IndexReader => _indexReader ??= new IndexWriter(Channel, Definition);
+
+    private IndexWriter? _indexReader;
+
     /// <summary>Decodes the row at <paramref name="id"/> (following an overflow forward-pointer to a
     /// relocated row), or <see langword="null"/> if the slot is empty/deleted. Used by an index seek, which
     /// yields row ids.</summary>
@@ -107,8 +130,8 @@ public sealed class Table
     /// the predicate. <paramref name="decode"/> is as for <see cref="Rows"/>.</summary>
     public IEnumerable<object?[]> SeekRows(IndexDef index, object?[] values, bool[]? decode = null)
     {
-        var decoder = NewDecoder(decode);
-        foreach (RowId id in new IndexWriter(Channel, Definition).Seek(index, values))
+        RowDecoder decoder = SeekDecoder(decode);
+        foreach (RowId id in IndexReader.Seek(index, values))
             if (GetRow(id, decoder) is { } row)
                 yield return row;
     }
@@ -119,8 +142,8 @@ public sealed class Table
     /// in full.</summary>
     public IEnumerable<(RowId Id, object?[] Values)> SeekRowsWithIds(IndexDef index, object?[] values, bool[]? decode = null)
     {
-        var decoder = NewDecoder(decode);
-        foreach (RowId id in new IndexWriter(Channel, Definition).Seek(index, values))
+        RowDecoder decoder = SeekDecoder(decode);
+        foreach (RowId id in IndexReader.Seek(index, values))
             if (GetRow(id, decoder) is { } row)
                 yield return (id, row);
     }
@@ -130,8 +153,8 @@ public sealed class Table
     /// boundaries; the caller re-checks the predicate. <paramref name="decode"/> is as for <see cref="Rows"/>.</summary>
     public IEnumerable<object?[]> SeekRangeRows(IndexDef index, object?[]? low, object?[]? high, bool[]? decode = null)
     {
-        var decoder = NewDecoder(decode);
-        foreach (RowId id in new IndexWriter(Channel, Definition).SeekRange(index, low, high))
+        RowDecoder decoder = SeekDecoder(decode);
+        foreach (RowId id in IndexReader.SeekRange(index, low, high))
             if (GetRow(id, decoder) is { } row)
                 yield return row;
     }

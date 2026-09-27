@@ -475,7 +475,8 @@ internal static class AstBuilder
 
         // The multiple-record form: the values come from a SELECT, which is stored as the query's own source
         // — the same table / join / where rows a view stores — with each column row naming what it reads.
-        if (insert.source is { } source)
+        RowValuesContext[]? rows = InsertValues(insert);
+        if (rows is null && insert.source is { } source)
         {
             ViewDefinition body = BuildViewDefinition(source);
             if (body.Columns.Count != columns.Count)
@@ -492,8 +493,7 @@ internal static class AstBuilder
         // A stored append query keeps its columns and values as text pairs, which has room for exactly one
         // row — so a multi-row table value constructor cannot be stored as a procedure even though it is
         // perfectly valid in a plain INSERT.
-        var rows = insert.rowValues();
-        if (rows.Length != 1)
+        if (rows is null || rows.Length != 1)
             throw new NotSupportedException(
                 "An INSERT procedure body must supply exactly one VALUES row.");
 
@@ -815,17 +815,30 @@ internal static class AstBuilder
 
         var columns = ctx._columns.Select(Identifier).ToList();
 
-        // The multiple-record form: the rows come from a query rather than a VALUES list.
-        if (ctx.source is not null)
-            return new InsertStatement(table, columns, [], Source: BuildQueryExpression(ctx.source));
-
         // A table value constructor: one or more parenthesised rows. The AST and executor were already
         // row-list shaped, so a multi-row insert needs nothing beyond handing them every row.
-        var rows = ctx.rowValues()
-            .Select(r => (IReadOnlyList<Expression>)r.rowValue().Select(BuildRowValue).ToList())
-            .ToList();
-        return new InsertStatement(table, columns, rows);
+        if (InsertValues(ctx) is { } values)
+        {
+            var rows = values
+                .Select(r => (IReadOnlyList<Expression>)r.rowValue().Select(BuildRowValue).ToList())
+                .ToList();
+            return new InsertStatement(table, columns, rows);
+        }
+
+        // The multiple-record form: the rows come from a query rather than a VALUES list.
+        return new InsertStatement(table, columns, [], Source: BuildQueryExpression(ctx.source));
     }
+
+    /// <summary>The rows of an INSERT's VALUES list — a source that is one table value constructor and nothing
+    /// more — or null when the source is a query. The grammar has the single-record form only as a query term (see
+    /// insertStatement), so this is where the two forms part: a constructor inside a set operation, or with an
+    /// ordering, is a query like any other.</summary>
+    private static RowValuesContext[]? InsertValues(InsertStatementContext ctx) =>
+        ctx.source is { } source && source.setOperator().Length == 0
+        && source.orderByClause() is null && source.offsetFetchClause() is null
+        && source.queryTerm(0) is ValuesTermContext values
+            ? values.rowValues()
+            : null;
 
     /// <summary>One row value of a table value constructor: the <c>DEFAULT</c> keyword, or any expression
     /// (which covers the NULL the standard lists separately, since NULL is already a literal).</summary>

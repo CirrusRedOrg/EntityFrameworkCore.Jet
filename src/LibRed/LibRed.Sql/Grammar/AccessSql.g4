@@ -245,11 +245,15 @@ referentialAction
 //
 // The multiple-record source is a queryExpression rather than a bare selectStatement, so a UNION can feed an
 // append — the shape EF emits from a Concat — which is a superset of what Access documents.
+//
+// The single-record form has no alternative of its own: `VALUES (…)` is already a query term (the table value
+// constructor, ValuesTerm), so the builder reads a source that is a lone ValuesTerm as the VALUES list. Spelling
+// it out here as well gave every `INSERT … VALUES` two derivations, and the parser settled the ambiguity by
+// full-context prediction on every single statement — the most expensive thing it does, and most of an insert's
+// cost.
 insertStatement
     : INSERT INTO table=identifier
-      ( (LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN)?
-        ( VALUES rowValues (COMMA rowValues)*
-        | source=queryExpression )
+      ( (LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN)? source=queryExpression
       | DEFAULT VALUES )
     ;
 
@@ -262,7 +266,8 @@ rowValues : LPAREN rowValue (COMMA rowValue)* RPAREN ;
 
 // A row value is DEFAULT, NULL, or any expression. NULL needs no alternative of its own — it is already a
 // literal. DEFAULT takes the column's declared default (or NULL when it has none), and the standard permits
-// it only inside an INSERT, which falls out of `rowValue` appearing nowhere else in the grammar.
+// it only inside an INSERT. The grammar admits it wherever a table value constructor appears; the builder
+// refuses it in any constructor that is not an INSERT's VALUES list.
 rowValue : DEFAULT | expression ;
 
 // Set operations over SELECTs (left-associative). UNION dedupes; UNION ALL keeps

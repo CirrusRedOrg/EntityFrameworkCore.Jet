@@ -59,8 +59,9 @@ Each entry ends with a **4-byte big-endian** trailing pointer:
 > mutating it (the cached object is shared with every other reader of the file, so it must never be written
 > through). The guarantee is unchanged: a cached parse survives only while the bytes behind it are untouched —
 > any write from any channel drops it, eviction drops it, and a page buffered in an open transaction's overlay
-> is served only from that transaction's own parses, which its next write of the page, a savepoint rollback,
-> the commit and the rollback all drop — so a hit carries what a re-read would, and the page's type and owning TDEF are still
+> is served only from that transaction's own parses, which its next write of the page, a savepoint rollback and
+> the rollback all drop, and which the commit hands to the shared cache with the bytes they describe — so a hit
+> carries what a re-read would, and the page's type and owning TDEF are still
 > checked before it is mutated. The copy is shallow by design: an entry is an immutable struct referencing its
 > key, so copying the list shares the key arrays and costs one array of structs rather than one array per entry.
 > A leaf rewritten in place (no split) is written together with the parse it was built from — its entries, the

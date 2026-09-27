@@ -498,6 +498,10 @@ public sealed class PageChannel : IDisposable
                 foreach (int page in pages)
                 {
                     WriteThroughUnderPublishLock(page, _overlay[page]);
+                    // The overlay bytes are now the committed bytes, so a parse of them stays true: handed on, the
+                    // next statement's read of the page does not decode it again — each SQL statement is a
+                    // transaction of its own, and consecutive inserts write the same index leaves.
+                    if (_overlayParsed.TryGetValue(page, out object? parsed)) _cache.SetParsed(page, parsed);
                     published.Add(page);
                 }
             }
@@ -689,13 +693,16 @@ public sealed class PageChannel : IDisposable
         int committedPageCount = (int)(_cache.FileLength / PageSize);
         if (pageNumber < 0 || pageNumber >= committedPageCount) return null;
 
-        var buffer = new byte[PageSize];
-        if (_cache.TryRead(pageNumber, buffer)) return buffer;
+        // The cache's own array serves: it is never written into (a store replaces it), and a baseline is only
+        // compared and, on a failed publish, written back — so a copy of it bought nothing, once per page a
+        // transaction touched and again for each page at commit.
+        if (_cache.TryGetArray(pageNumber, out byte[] cached)) return cached;
 
         _locks?.EnterShared(pageNumber);
         try
         {
-            if (_cache.TryRead(pageNumber, buffer)) return buffer;
+            if (_cache.TryGetArray(pageNumber, out cached)) return cached;
+            var buffer = new byte[PageSize];
             _stream.Seek((long)pageNumber * PageSize, SeekOrigin.Begin);
             _stream.ReadExactly(buffer);
             _codec?.DecryptPage(pageNumber, buffer);
@@ -705,8 +712,11 @@ public sealed class PageChannel : IDisposable
         finally { _locks?.ExitShared(pageNumber); }
     }
 
+    // One array is one image: the cache replaces an array rather than writing into it, so a baseline that is still
+    // the committed array has not changed. Only a page reloaded since (evicted, read back) needs its bytes compared.
     private static bool SamePage(byte[]? left, byte[]? right) =>
-        left is null ? right is null : right is not null && left.AsSpan().SequenceEqual(right);
+        ReferenceEquals(left, right)
+        || left is not null && right is not null && left.AsSpan().SequenceEqual(right);
 
     /// <summary>Retrieves a higher-layer parse of a page previously stored via <see cref="SetParsedPage"/>
     /// (e.g. an index page's decoded entries), or false if none is cached. The parse is dropped automatically

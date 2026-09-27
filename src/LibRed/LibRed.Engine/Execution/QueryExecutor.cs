@@ -468,7 +468,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     {
         try
         {
-            return ComputeAggregate(new AggregateSpec(this, call, []), [], null);
+            return new GroupAggregate(this, new AggregateSpec(this, call, [])).Result(Eval([], [], null));
         }
         catch (InvalidOperationException)
         {
@@ -2215,7 +2215,6 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (IsBareCountStar(node))
             return (outColumns, [[CountRows(inRowsEnum)]]);
 
-        var inRows = inRowsEnum.ToList();
         // Aggregates can appear in the projection, HAVING (e.g. HAVING COUNT(*) > 30) and ORDER BY
         // (e.g. ORDER BY COUNT(*)); precompute all of them per group so each instance resolves.
         // A window's arguments and keys may hold aggregates too — RANK() OVER (ORDER BY SUM(x)).
@@ -2226,17 +2225,67 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             .Select(call => new AggregateSpec(this, call, inColumns))
             .ToList();
 
-        // The groups HAVING keeps, each with the row that resolves its keys and its aggregates' values.
-        var groups = new List<(object?[] KeyRow, Dictionary<FunctionCall, object?> Values, ExpressionEvaluator Eval)>();
-        foreach (List<object?[]> group in GroupRows(inRows, node.GroupBy, inColumns, outer))
+        GroupState NewGroupState(object?[]? firstRow)
         {
-            var values = new Dictionary<FunctionCall, object?>(ReferenceComparer.Instance);
-            foreach (AggregateSpec spec in aggregateCalls)
+            var calls = new GroupAggregate?[aggregateCalls.Count];
+            for (int i = 0; i < calls.Length; i++)
             {
                 // An aggregate collected from a nested subquery may belong to that subquery (its argument
-                // references the subquery's own columns, not this group's) — it can't be computed here, so
-                // skip it; the subquery computes it itself. A genuine outer aggregate resolves fine.
-                try { values[spec.Call] = ComputeAggregate(spec, group, outer); }
+                // references the subquery's own columns, not this group's) — it can't be computed here, so it is
+                // left out; the subquery computes it itself. A genuine outer aggregate resolves fine.
+                try { calls[i] = new GroupAggregate(this, aggregateCalls[i]); }
+                catch (InvalidOperationException) { }
+            }
+            return new GroupState { KeyRow = firstRow, Calls = calls };
+        }
+
+        // One pass over the input, each row fed to its group's aggregates as it arrives; no row is held beyond
+        // its group's first and, for LAST, its latest. Holding every row for the length of the grouping was most
+        // of what a GROUP BY allocated, and it kept all of them alive into the collector's older generations.
+        // An empty input still has its one group when there is no GROUP BY: COUNT(*) over nothing is 0.
+        ExpressionEvaluator rowEval = Eval(inColumns, [], outer); // one evaluator, rebound per row
+        var groupStates = new List<GroupState>();
+        GroupState? single = node.GroupBy.Count == 0 ? NewGroupState(null) : null;
+        if (single is not null) groupStates.Add(single);
+        var byKey = new Dictionary<GroupKey, GroupState>();
+        bool[] keyByText = ComparedAsText(node.GroupBy, inColumns);
+        foreach (object?[] row in inRowsEnum)
+        {
+            rowEval.Rebind(row);
+            GroupState? state = single;
+            if (state is null)
+            {
+                var keyValues = new object?[node.GroupBy.Count];
+                for (int i = 0; i < keyValues.Length; i++)
+                    keyValues[i] = Compared(rowEval.Evaluate(node.GroupBy[i]), keyByText[i]);
+                var key = new GroupKey(keyValues, TextComparer);
+                if (!byKey.TryGetValue(key, out state))
+                {
+                    byKey[key] = state = NewGroupState(row);
+                    groupStates.Add(state); // first-appearance order, which a stable ORDER BY keeps between ties
+                }
+            }
+            state.KeyRow ??= row;
+
+            GroupAggregate?[] calls = state.Calls;
+            for (int i = 0; i < calls.Length; i++)
+            {
+                if (calls[i] is not { } aggregate) continue;
+                try { aggregate.Add(row, rowEval); }
+                catch (InvalidOperationException) { calls[i] = null; }
+            }
+        }
+
+        // The groups HAVING keeps, each with the row that resolves its keys and its aggregates' values.
+        var groups = new List<(object?[] KeyRow, Dictionary<FunctionCall, object?> Values, ExpressionEvaluator Eval)>();
+        foreach (GroupState state in groupStates)
+        {
+            var values = new Dictionary<FunctionCall, object?>(ReferenceComparer.Instance);
+            for (int i = 0; i < aggregateCalls.Count; i++)
+            {
+                // A call that failed on one of this group's rows is left out, as one that fails here is.
+                if (state.Calls[i] is not { } aggregate) continue;
+                try { values[aggregateCalls[i].Call] = aggregate.Result(rowEval); }
                 catch (InvalidOperationException) { }
             }
 
@@ -2244,7 +2293,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             // calls resolve from the precomputed map (threaded via the scope so correlated subqueries can
             // reach an outer aggregate). An empty group only happens for an aggregate with no GROUP BY over
             // zero rows (e.g. COUNT(*) -> 0); there are no key columns to resolve, so a null row suffices.
-            object?[] keyRow = group.Count > 0 ? group[0] : new object?[inColumns.Count];
+            object?[] keyRow = state.KeyRow ?? new object?[inColumns.Count];
             var eval = new ExpressionEvaluator(new EvalScope(inColumns, keyRow, outer, values), this, _parameters, _session);
 
             // HAVING filters whole groups after aggregation.
@@ -2323,7 +2372,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         && string.Equals(call.Name, "COUNT", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Counts a row sequence without retaining it. COUNT is an Access Long Integer, so the count is an
-    /// <see cref="int"/> — the same type <see cref="ComputeAggregate"/> returns, which EF reads with GetInt32.</summary>
+    /// <see cref="int"/> — the same type <see cref="GroupAggregate"/> gives, which EF reads with GetInt32.</summary>
     private static int CountRows(IEnumerable<object?[]> rows)
     {
         int count = 0;
@@ -2332,45 +2381,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         return count;
     }
 
-    private List<List<object?[]>> GroupRows(List<object?[]> rows, IReadOnlyList<Expression> keys, IReadOnlyList<OutputColumn> columns, EvalScope? outer)
+    /// <summary>One group while the input streams past: the row that resolves its keys, and each aggregate call's
+    /// accumulator — null for a call that cannot be computed over this group.</summary>
+    private sealed class GroupState
     {
-        if (keys.Count == 0)
-            return [rows]; // a single group over all rows (even if empty)
-
-        var order = new List<GroupKey>();
-        var groups = new Dictionary<GroupKey, List<object?[]>>();
-        bool[] byText = ComparedAsText(keys, columns);
-        ExpressionEvaluator eval = Eval(columns, [], outer); // one evaluator, rebound per row
-        foreach (object?[] row in rows)
-        {
-            eval.Rebind(row);
-            var keyValues = new object?[keys.Count];
-            for (int i = 0; i < keys.Count; i++)
-            {
-                keyValues[i] = Compared(eval.Evaluate(keys[i]), byText[i]);
-            }
-
-            var key = new GroupKey(keyValues, TextComparer);
-            if (!groups.TryGetValue(key, out var list))
-            {
-                groups[key] = list = [];
-                order.Add(key);
-            }
-            list.Add(row);
-        }
-        return order.Select(k => groups[k]).ToList();
-    }
-
-    /// <summary>The distinct set of scalar values, using the same value-equality (<see cref="GroupKey"/>) as
-    /// SELECT DISTINCT / GROUP BY, so <c>COUNT(DISTINCT col)</c> dedupes exactly as ACE groups. Order preserved.</summary>
-    private List<object?> DistinctValues(IEnumerable<object?> values)
-    {
-        var seen = new HashSet<GroupKey>();
-        var result = new List<object?>();
-        foreach (object? v in values)
-            if (seen.Add(new GroupKey([v], TextComparer)))
-                result.Add(v);
-        return result;
+        public object?[]? KeyRow;
+        public required GroupAggregate?[] Calls;
     }
 
     /// <summary>
@@ -2387,7 +2403,6 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         private bool? _byText;
 
         public FunctionCall Call => call;
-        public IReadOnlyList<OutputColumn> Columns => columns;
         public string Name { get; } = call.Name.ToUpperInvariant();
 
         /// <summary>Min, Max, First and Last take a Variant's or a Mixed value's text (verified vs ACE: Max of 3, 10
@@ -2398,91 +2413,151 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         public bool Currency => _currency ??= executor.IsCurrency(call.Arguments[0], columns);
     }
 
-    private object? ComputeAggregate(AggregateSpec spec, List<object?[]> group, EvalScope? outer)
+    /// <summary>
+    /// One aggregate call over one group, fed the group's rows as they stream past (<see cref="Add"/>) and read
+    /// once they have all arrived (<see cref="Result"/>). It holds what the answer needs and no more: a count, a
+    /// running sum, the distinct values seen, the listed values — never the rows, except the one or two that
+    /// First, Last and a percentile's fraction are evaluated on.
+    /// </summary>
+    /// <remarks>Every rule of the old per-group computation carries over unchanged, and so does its order: FILTER
+    /// narrows before anything else looks at a row, COUNT(*) included; First and Last are evaluated on their row
+    /// only when read, so an argument that would fail on some other row still does not; values reach the running
+    /// aggregate in scan order, which SUM's type (its first value's) depends on.</remarks>
+    private sealed class GroupAggregate
     {
-        FunctionCall call = spec.Call;
-        IReadOnlyList<OutputColumn> columns = spec.Columns;
-        string name = spec.Name;
-        ExpressionEvaluator.ValidateArity(name, call.Arguments.Count);
-        Expression? arg = call.Arguments.Count > 0 ? call.Arguments[0] : null;
+        private enum Kind { CountRows, First, Last, List, Percentile, Pair, Running }
 
-        // One evaluator, rebound per row. Every sequence below is consumed before this method returns, and one
-        // at a time, so no two of them are ever positioned on different rows at once.
-        ExpressionEvaluator eval = Eval(columns, [], outer);
+        private readonly QueryExecutor _executor;
+        private readonly FunctionCall _call;
+        private readonly string _name;
+        private readonly Kind _kind;
+        private readonly bool _byText;
 
-        // FILTER (WHERE …) narrows the group before anything else looks at it — COUNT(*) included.
-        if (call.Filter is { } filter)
-            group = group.Where(r => eval.Rebind(r).IsTrue(filter)).ToList();
+        private int _count;
+        private object?[]? _first;
+        private object?[]? _last;
+        private readonly List<(object? Value, object?[] Keys)>? _listed;
+        private readonly List<object?>? _values;
+        private readonly RunningAggregate? _running;
+        private readonly HashSet<GroupKey>? _seen;
 
-        // COUNT(*) counts rows; DISTINCT is meaningless there (and EF never emits it).
-        if (name == "COUNT" && arg is StarExpression or null)
-            return group.Count;
-
-        bool byText = spec.ByText;
-
-        // FIRST/LAST return the argument's value from the first/last row of the group in scan order — NOT
-        // null-filtered (verified vs ACE: First over a leading NULL row returns NULL).
-        if (name == "FIRST")
-            return group.Count == 0 ? null : Compared(eval.Rebind(group[0]).Evaluate(arg!), byText);
-        if (name == "LAST")
-            return group.Count == 0 ? null : Compared(eval.Rebind(group[^1]).Evaluate(arg!), byText);
-
-        // A list aggregate, ordered or not: STRING_AGG may go without its WITHIN GROUP, in which case the
-        // values list in the order the rows arrive (no keys, no directions — the sort is stable).
-        if (FunctionCall.IsListAggregate(name))
+        public GroupAggregate(QueryExecutor executor, AggregateSpec spec)
         {
-            if (group.Count == 0)
-                return null;
-            IReadOnlyList<SortDirection> order = call.WithinGroup ?? [];
-            IReadOnlyList<Expression> keys = call.WithinGroupKeys;
-            return ListAgg.Of(
-                group.Select(r =>
-                {
-                    ExpressionEvaluator e = eval.Rebind(r);
-                    return (e.Evaluate(call.Arguments[0]), keys.Select(k => e.Evaluate(k)).ToArray());
-                }),
-                call.Arguments.Count - keys.Count == 2 ? (string)((LiteralExpression)call.Arguments[1]).Value! : "",
-                order,
-                call.Distinct,
-                TextComparer);
-        }
+            _executor = executor;
+            _call = spec.Call;
+            _name = spec.Name;
+            ExpressionEvaluator.ValidateArity(_name, _call.Arguments.Count);
+            Expression? arg = _call.Arguments.Count > 0 ? _call.Arguments[0] : null;
 
-        if (call.WithinGroup is { } directions)
-        {
-            if (group.Count == 0)
-                return null;
-            // The fraction is the group's, so any row gives it; the standard makes it a constant.
-            return Percentile.Of(name,
-                group.Select(r => eval.Rebind(r).Evaluate(call.Arguments[1])),
-                eval.Rebind(group[0]).Evaluate(call.Arguments[0]),
-                directions[0],
-                TextComparer);
-        }
-
-        // A binary set function reads a pair from each row; the standard gives it no DISTINCT.
-        if (RunningAggregate.IsPair(name))
-        {
-            if (call.Distinct)
-                throw new NotSupportedException($"{call.Name} takes no DISTINCT.");
-            var pair = new RunningAggregate(name, countRows: false, currency: false, TextComparer);
-            foreach (object?[] row in group)
+            // COUNT(*) counts rows; DISTINCT is meaningless there (and EF never emits it).
+            if (_name == "COUNT" && arg is StarExpression or null)
             {
-                ExpressionEvaluator rowEval = eval.Rebind(row);
-                pair.AddPair(rowEval.Evaluate(call.Arguments[0]), rowEval.Evaluate(call.Arguments[1]));
+                _kind = Kind.CountRows;
+                return;
             }
-            return pair.Result;
+
+            _byText = spec.ByText;
+            if (_name == "FIRST") _kind = Kind.First;
+            else if (_name == "LAST") _kind = Kind.Last;
+            else if (FunctionCall.IsListAggregate(_name))
+            {
+                _kind = Kind.List;
+                _listed = [];
+            }
+            else if (_call.WithinGroup is not null)
+            {
+                _kind = Kind.Percentile;
+                _values = [];
+            }
+            else if (RunningAggregate.IsPair(_name))
+            {
+                // A binary set function reads a pair from each row; the standard gives it no DISTINCT.
+                if (_call.Distinct)
+                    throw new NotSupportedException($"{_call.Name} takes no DISTINCT.");
+                _kind = Kind.Pair;
+                _running = new RunningAggregate(_name, countRows: false, currency: false, executor.TextComparer);
+            }
+            else
+            {
+                _kind = Kind.Running;
+                _running = new RunningAggregate(_name, countRows: false, currency: spec.Currency, executor.TextComparer);
+                // COUNT(DISTINCT)/SUM(DISTINCT)/… aggregate the distinct set of the argument's values, deduped on
+                // the same value-equality as SELECT DISTINCT and GROUP BY, so they dedupe exactly as ACE groups.
+                // MIN/MAX are unaffected by dedup, but applying it uniformly keeps the one code path.
+                if (_call.Distinct) _seen = [];
+            }
         }
 
-        IEnumerable<object?> values = group.Select(r => Compared(eval.Rebind(r).Evaluate(arg!), byText));
-        // COUNT(DISTINCT)/SUM(DISTINCT)/… aggregate the distinct set of the argument's values. MIN/MAX are
-        // unaffected by dedup, but applying it uniformly keeps the one code path.
-        if (call.Distinct)
-            values = DistinctValues(values.Where(v => v is not null));
+        /// <summary>Feeds one of the group's rows, with <paramref name="eval"/> already bound to it.</summary>
+        public void Add(object?[] row, ExpressionEvaluator eval)
+        {
+            // FILTER (WHERE …) narrows the group before anything else looks at it — COUNT(*) included.
+            if (_call.Filter is { } filter && !eval.IsTrue(filter))
+                return;
 
-        var aggregate = new RunningAggregate(name, countRows: false, currency: spec.Currency, TextComparer);
-        foreach (object? value in values)
-            aggregate.Add(value);
-        return aggregate.Result;
+            switch (_kind)
+            {
+                case Kind.CountRows:
+                    _count++;
+                    break;
+                // FIRST/LAST return the argument's value from the first/last row of the group in scan order — NOT
+                // null-filtered (verified vs ACE: First over a leading NULL row returns NULL).
+                case Kind.First:
+                    _first ??= row;
+                    break;
+                case Kind.Last:
+                    _last = row;
+                    break;
+                // A list aggregate, ordered or not: STRING_AGG may go without its WITHIN GROUP, in which case the
+                // values list in the order the rows arrive (no keys, no directions — the sort is stable).
+                case Kind.List:
+                    {
+                        IReadOnlyList<Expression> keys = _call.WithinGroupKeys;
+                        object? value = eval.Evaluate(_call.Arguments[0]);
+                        var keyValues = new object?[keys.Count];
+                        for (int i = 0; i < keyValues.Length; i++) keyValues[i] = eval.Evaluate(keys[i]);
+                        _listed!.Add((value, keyValues));
+                        break;
+                    }
+                case Kind.Percentile:
+                    _first ??= row;
+                    _values!.Add(eval.Evaluate(_call.Arguments[1]));
+                    break;
+                case Kind.Pair:
+                    _running!.AddPair(eval.Evaluate(_call.Arguments[0]), eval.Evaluate(_call.Arguments[1]));
+                    break;
+                default:
+                    {
+                        object? value = Compared(eval.Evaluate(_call.Arguments[0]), _byText);
+                        if (_seen is not null && (value is null || !_seen.Add(new GroupKey([value], _executor.TextComparer))))
+                            return;
+                        _running!.Add(value);
+                        break;
+                    }
+            }
+        }
+
+        /// <summary>The aggregate over every row fed. <paramref name="eval"/> is rebound to a held row where one
+        /// is evaluated.</summary>
+        public object? Result(ExpressionEvaluator eval) => _kind switch
+        {
+            Kind.CountRows => _count,
+            Kind.First => _first is null ? null : Compared(eval.Rebind(_first).Evaluate(_call.Arguments[0]), _byText),
+            Kind.Last => _last is null ? null : Compared(eval.Rebind(_last).Evaluate(_call.Arguments[0]), _byText),
+            Kind.List => _listed!.Count == 0 ? null : ListAgg.Of(
+                _listed,
+                _call.Arguments.Count - _call.WithinGroupKeys.Count == 2 ? (string)((LiteralExpression)_call.Arguments[1]).Value! : "",
+                _call.WithinGroup ?? [],
+                _call.Distinct,
+                _executor.TextComparer),
+            // The fraction is the group's, so any row gives it; the standard makes it a constant.
+            Kind.Percentile => _values!.Count == 0 ? null : Percentile.Of(_name,
+                _values,
+                eval.Rebind(_first!).Evaluate(_call.Arguments[0]),
+                _call.WithinGroup![0],
+                _executor.TextComparer),
+            _ => _running!.Result,
+        };
     }
 
     /// <summary>Whether an aggregate's argument is a Currency, which the statistical aggregates square exactly.</summary>

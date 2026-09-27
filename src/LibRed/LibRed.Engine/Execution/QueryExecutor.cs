@@ -203,6 +203,61 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// so describing a query costs only the planning. Used to report a view's columns in schema metadata.</summary>
     internal IReadOnlyList<OutputColumn> DescribeQuery(PlanNode plan) => Execute(plan, null).Columns;
 
+    /// <summary>
+    /// What a join passes on of its <c>[left.., right..]</c> rows: every column, or — where
+    /// <see cref="JoinNode.Keep"/> says which names the query reads — only the columns with those names, the
+    /// output built that narrow from the start rather than cut down afterwards.
+    /// </summary>
+    /// <remarks>A join's output row is a new array for every match, so its width is paid once per joined row.
+    /// Built whole, a grouped join over a ten-column table carried eight columns no expression ever looked at, in
+    /// every row. The kept positions of each side are worked out once, here.</remarks>
+    private sealed class JoinShape
+    {
+        private readonly int[]? _left, _right;
+        private readonly int _leftWidth, _rightWidth;
+
+        /// <param name="joined">The columns of the whole row, left side first.</param>
+        /// <param name="leftWidth">How many of them are the left side's.</param>
+        /// <param name="keep">The names the query reads, or null to pass on every column.</param>
+        public JoinShape(IReadOnlyList<OutputColumn> joined, int leftWidth, IReadOnlySet<string>? keep)
+        {
+            _leftWidth = leftWidth;
+            _rightWidth = joined.Count - leftWidth;
+            Columns = joined;
+            if (keep is null || joined.All(c => keep.Contains(c.Name))) return;
+
+            var left = new List<int>();
+            var right = new List<int>();
+            var columns = new List<OutputColumn>();
+            for (int i = 0; i < joined.Count; i++)
+            {
+                if (!keep.Contains(joined[i].Name)) continue;
+                columns.Add(joined[i]);
+                if (i < leftWidth) left.Add(i);
+                else right.Add(i - leftWidth);
+            }
+            (_left, _right, Columns) = ([.. left], [.. right], columns);
+        }
+
+        /// <summary>The columns the join passes on, in the order its rows hold them.</summary>
+        public IReadOnlyList<OutputColumn> Columns { get; }
+
+        /// <summary>One output row from a row of each side; a null side stands for a row of nulls, an outer join's
+        /// padding.</summary>
+        public object?[] Combine(object?[]? left, object?[]? right)
+        {
+            if (_left is null)
+                return [.. left ?? new object?[_leftWidth], .. right ?? new object?[_rightWidth]];
+
+            var row = new object?[_left.Length + _right!.Length];
+            if (left is not null)
+                for (int i = 0; i < _left.Length; i++) row[i] = left[_left[i]];
+            if (right is not null)
+                for (int i = 0; i < _right.Length; i++) row[_left.Length + i] = right[_right[i]];
+            return row;
+        }
+    }
+
     /// <summary>The columns a join publishes. Joining something already collapsed — an aggregate, a DISTINCT,
     /// a union — makes the whole join non-updatable, as Access counts updatability, so a stored column reached
     /// through one no longer stands for a row anybody can write back to.</summary>
@@ -1573,7 +1628,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             string innerAlias = seek.Alias ?? seek.Table;
             int innerWidth = innerTable.Definition.Columns.Count;
             var seekColumns = innerTable.Definition.Columns.Select(c => OutputColumn.Of(innerAlias, c)).ToList();
-            var joinColumns = leftColumns.Concat(seekColumns).ToList();
+            var seekShape = new JoinShape(leftColumns.Concat(seekColumns).ToList(), leftColumns.Count, join.Keep);
+            IReadOnlyList<OutputColumn> joinColumns = seekShape.Columns;
             int[] keyCols = seek.Index.Columns.Select(c => c.Column.Index).ToArray();
             bool[]? decode = ColumnPruning.Mask(innerTable.Definition, seek.Decode);
 
@@ -1605,7 +1661,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                         ? innerTable.SeekRows(seek.Index, keyValues, decode)
                         : innerTable.Rows(decode))
                     {
-                        object?[] combined = [.. left, .. right];
+                        object?[] combined = seekShape.Combine(left, right);
                         if (on is null || onEval.Rebind(combined).IsTrue(on))
                         {
                             matched = true;
@@ -1613,7 +1669,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                         }
                     }
                     if (leftOuter && !matched)
-                        yield return [.. left, .. new object?[innerWidth]];
+                        yield return seekShape.Combine(left, null);
                 }
             }
 
@@ -1622,7 +1678,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
         var (rightColumns, rightRowsEnum) = Execute(join.Right, outer);
 
-        var columns = JoinedColumns(leftColumns, rightColumns);
+        var shape = new JoinShape(JoinedColumns(leftColumns, rightColumns), leftColumns.Count, join.Keep);
+        IReadOnlyList<OutputColumn> columns = shape.Columns;
         var rightRows = rightRowsEnum.ToList(); // re-iterated per left row
         if (on is null && join.Kind != JoinKind.Cross)
             throw new NotSupportedException("Joins require an ON condition.");
@@ -1663,7 +1720,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 bool matched = false;
                 for (int r = 0; r < rightRows.Count; r++)
                 {
-                    object?[] combined = [.. left, .. rightRows[r]];
+                    object?[] combined = shape.Combine(left, rightRows[r]);
                     if (rowOn is null || onEval.Rebind(combined).IsTrue(rowOn))
                     {
                         matched = true;
@@ -1673,13 +1730,13 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 }
 
                 if (leftOuter && !matched)
-                    yield return [.. left, .. new object?[rightColumns.Count]];
+                    yield return shape.Combine(left, null);
             }
 
             // Right-preserving tail: every right row no left row matched, null-padded on the left.
             for (int r = 0; rightMatched is not null && r < rightMatched.Length; r++)
                 if (!rightMatched[r])
-                    yield return [.. new object?[leftColumns.Count], .. rightRows[r]];
+                    yield return shape.Combine(null, rightRows[r]);
         }
 
         return (columns, Rows());
@@ -1689,8 +1746,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     {
         var (leftColumns, leftRows) = Execute(join.Left, outer);
         var (rightColumns, rightRowsEnum) = Execute(join.Right, outer);
-        var joinColumns = JoinedColumns(leftColumns, rightColumns);
-        int leftWidth = leftColumns.Count, rightWidth = rightColumns.Count;
+        var shape = new JoinShape(JoinedColumns(leftColumns, rightColumns), leftColumns.Count, join.Keep);
+        IReadOnlyList<OutputColumn> joinColumns = shape.Columns;
         Expression on = join.On;
 
         // INNER/LEFT build the right side and probe with the left; RIGHT builds the left and probes with the
@@ -1752,7 +1809,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     {
                         object?[] left = buildRight ? p : b;
                         object?[] right = buildRight ? b : p;
-                        object?[] combined = [.. left, .. right];
+                        object?[] combined = shape.Combine(left, right);
                         if (onEval.Rebind(combined).IsTrue(on))
                         {
                             matched = true;
@@ -1763,8 +1820,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 }
                 if (preserveProbe && !matched)
                     yield return buildRight
-                        ? [.. p, .. new object?[rightWidth]]  // probe is the left side; right is null
-                        : [.. new object?[leftWidth], .. p];  // probe is the right side; left is null
+                        ? shape.Combine(p, null)   // probe is the left side; right is null
+                        : shape.Combine(null, p);  // probe is the right side; left is null
             }
 
             // FULL only: the build side is preserved as well, so every build row the probe never matched is
@@ -1773,8 +1830,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             if (preserveBuild)
             {
                 object?[] Unmatched(object?[] b) => buildRight
-                    ? [.. new object?[leftWidth], .. b]   // build is the right side; left is null
-                    : [.. b, .. new object?[rightWidth]]; // build is the left side; right is null
+                    ? shape.Combine(null, b)   // build is the right side; left is null
+                    : shape.Combine(b, null);  // build is the left side; right is null
 
                 foreach (List<object?[]> bucket in table.Values)
                     foreach (object?[] b in bucket)

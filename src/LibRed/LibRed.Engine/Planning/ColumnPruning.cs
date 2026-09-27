@@ -68,8 +68,21 @@ internal static class ColumnPruning
         DistinctNode d => d with { Input = Rewrite(d.Input, visible, names) },
         DerivedTableNode dt => dt with { Input = Rewrite(dt.Input, visible, names) },
         WindowNode w => w with { Input = Rewrite(w.Input, visible, names) },
-        JoinNode j => j with { Left = Rewrite(j.Left, visible, names), Right = Rewrite(j.Right, visible, names) },
-        HashJoinNode h => h with { Left = Rewrite(h.Left, visible, names), Right = Rewrite(h.Right, visible, names) },
+        // A join builds each output row anew, so where its rows cannot surface whole it builds them from the read
+        // columns alone. Dropping a column no reference names cannot change what any reference resolves to: the
+        // names are matched whatever their qualifier, so every column a reference could mean stays.
+        JoinNode j => j with
+        {
+            Left = Rewrite(j.Left, visible, names),
+            Right = Rewrite(j.Right, visible, names),
+            Keep = visible ? null : names,
+        },
+        HashJoinNode h => h with
+        {
+            Left = Rewrite(h.Left, visible, names),
+            Right = Rewrite(h.Right, visible, names),
+            Keep = visible ? null : names,
+        },
         SetOperationNode so => so with { Left = Rewrite(so.Left, visible, names), Right = Rewrite(so.Right, visible, names) },
 
         // DistinctRowNode compares whole underlying rows; anything else is unknown. Neither is pruned below.

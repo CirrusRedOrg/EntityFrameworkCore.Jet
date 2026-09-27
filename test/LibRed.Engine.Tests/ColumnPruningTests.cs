@@ -87,6 +87,47 @@ public class ColumnPruningTests : TempDatabaseTest
         Assert.Equal([(1, "D1"), (2, "D2"), (3, "D0")], rows);
     }
 
+    // --- a join passes on only the columns its statement names, and builds its rows that narrow -----------
+
+    [Fact]
+    public void An_aggregate_over_a_join_reads_what_it_names()
+    {
+        // Group sums of V over T.Grp = U.K: 0 → 300, 1 → 220, 2 → 260.
+        var rows = Rows(Seeded(), "SELECT U.Descr, SUM(T.V) FROM T INNER JOIN U ON T.Grp = U.K GROUP BY U.Descr")
+            .Select(r => ((string)r[0]!, Convert.ToInt32(r[1]))).ToArray();
+        Assert.Equal([("D0", 300), ("D1", 220), ("D2", 260)], rows);
+    }
+
+    [Fact]
+    public void A_narrowed_left_join_pads_its_unmatched_rows()
+    {
+        // Only V = 100 meets an X; every other T row comes back with a null Descr.
+        var rows = Rows(Seeded(), "SELECT T.Id, U.Descr FROM T LEFT JOIN U ON T.V = U.X")
+            .ToDictionary(r => Convert.ToInt32(r[0]), r => r[1]);
+        Assert.Equal(12, rows.Count);
+        Assert.Equal("D1", rows[10]);
+        Assert.All(rows.Where(p => p.Key != 10), p => Assert.Null(p.Value));
+    }
+
+    [Fact]
+    public void A_narrowed_full_join_pads_either_side()
+    {
+        // U rows 0 and 2 (X 0 and 200) meet no V, so they come back with a null Id; T row 10 meets K 1.
+        var rows = Rows(Seeded(), "SELECT T.Id, U.K FROM T FULL JOIN U ON T.V = U.X")
+            .Select(r => (r[0] is null ? (int?)null : Convert.ToInt32(r[0]), r[1] is null ? (int?)null : Convert.ToInt32(r[1])))
+            .ToList();
+        Assert.Equal(14, rows.Count);
+        Assert.Contains((10, 1), rows);
+        Assert.Contains((null, 0), rows);
+        Assert.Contains((null, 2), rows);
+    }
+
+    [Fact]
+    public void A_name_both_sides_share_is_still_ambiguous_when_the_join_is_narrowed()
+        // Every column a reference could mean is kept, so an unqualified Id still finds two.
+        => Assert.ThrowsAny<InvalidOperationException>(() =>
+            Rows(Seeded(), "SELECT Id FROM T AS a INNER JOIN T AS b ON a.Grp = b.Grp"));
+
     [Fact]
     public void A_column_named_only_in_an_in_subquery_is_read()
         => Assert.Equal([10], Ints(Seeded(), "SELECT Id FROM T WHERE V IN (SELECT X FROM U)"));
@@ -174,6 +215,33 @@ public class ColumnPruningTests : TempDatabaseTest
         Assert.Contains("Grp", decode);
         Assert.DoesNotContain("Note", decode);
     }
+
+    private static IReadOnlySet<string>? KeepOf(PlanNode join) => join switch
+    {
+        JoinNode j => j.Keep,
+        HashJoinNode h => h.Keep,
+        _ => throw new InvalidOperationException($"{join.GetType().Name} is not a join."),
+    };
+
+    [Fact]
+    public void A_join_under_an_aggregate_keeps_the_names_it_reads()
+    {
+        PlanNode join = Nodes(Seeded().PlanFor(
+            "SELECT U.Descr, SUM(T.V) FROM T INNER JOIN U ON T.Grp = U.K GROUP BY U.Descr"))
+            .Single(n => n is JoinNode or HashJoinNode);
+        IReadOnlySet<string>? keep = KeepOf(join);
+        Assert.NotNull(keep);
+        Assert.Superset(new HashSet<string>(["Descr", "V", "Grp", "K"]), new HashSet<string>(keep, StringComparer.OrdinalIgnoreCase));
+        Assert.DoesNotContain("Note", keep);
+    }
+
+    [Theory]
+    [InlineData("SELECT * FROM T INNER JOIN U ON T.Grp = U.K")]
+    [InlineData("SELECT T.*, U.Descr FROM T INNER JOIN U ON T.Grp = U.K")]
+    [InlineData("SELECT DISTINCTROW T.Grp FROM T INNER JOIN U ON U.K >= T.Grp")]
+    public void A_join_whose_rows_can_reach_the_output_whole_keeps_every_column(string sql)
+        => Assert.All(Nodes(Seeded().PlanFor(sql)).Where(n => n is JoinNode or HashJoinNode),
+            join => Assert.Null(KeepOf(join)));
 
     [Theory]
     [InlineData("SELECT * FROM T")]

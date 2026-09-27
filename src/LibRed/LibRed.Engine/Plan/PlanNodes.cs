@@ -74,6 +74,11 @@ public sealed record ProjectNode(PlanNode Input, IReadOnlyList<SelectItem> Proje
 public sealed record JoinNode(PlanNode Left, PlanNode Right, JoinKind Kind, Expression? On) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Left, Right];
+
+    /// <summary>The column names the query reads, when <c>ColumnPruning</c> has shown nothing else can reach the
+    /// output: the join passes on only the columns with those names, and builds its rows that narrow. Null
+    /// passes on every column of both sides.</summary>
+    public IReadOnlySet<string>? Keep { get; init; }
 }
 
 /// <summary>
@@ -89,6 +94,9 @@ public sealed record HashJoinNode(
     IReadOnlyList<Expression> LeftKeys, IReadOnlyList<Expression> RightKeys, Expression On) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Left, Right];
+
+    /// <summary>As <see cref="JoinNode.Keep"/>.</summary>
+    public IReadOnlySet<string>? Keep { get; init; }
 }
 
 /// <summary>

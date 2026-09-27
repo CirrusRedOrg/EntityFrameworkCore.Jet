@@ -535,15 +535,30 @@
 - **MSysRelationships** defines foreign keys (one row per relationship column): `szRelationship`
   (name), `szObject` (child/referencing table), `szColumn` (child column), `szReferencedObject`
   (parent table), `szReferencedColumn`, `icolumn` (0-based column order within the key),
-  `ccolumn` (total column count of the key, repeated on every row), `grbit` (flags: `0x02`
-  don't-enforce, `0x100` cascade-update, `0x1000` cascade-delete, `0x2000` delete-set-null). Verified: an
-  enforced, no-cascade single-column FK stores `ccolumn = 1`, `icolumn = 0`, `grbit = 0`; a relationship
-  cascading both update and delete stores `grbit = 0x1100`.
+  `ccolumn` (total column count of the key, repeated on every row), `grbit` (flags: `0x01` one-to-one,
+  `0x02` don't-enforce, `0x100` cascade-update, `0x1000` cascade-delete, `0x2000` delete-set-null,
+  `0x1000000` join type "all records from the parent" (`szReferencedObject`), `0x2000000` join type "all
+  records from the child" (`szObject`); an inner join sets neither). Verified: an enforced, no-cascade
+  single-column FK stores `ccolumn = 1`, `icolumn = 0`, `grbit = 0`; a relationship cascading both update
+  and delete stores `grbit = 0x1100`; Access's relationship dialog writes each bit above as its option says.
+
+  > **`grbit` records the relationship; ACE does not act on its cascade bits.** The update and delete actions
+  > ACE applies are the ones in the relationship's index-info blocks (§3.6, `0x15`/`0x16`): with the two made
+  > to disagree, a parent delete that `grbit` calls cascading but the blocks do not is refused, and one the
+  > blocks call cascading but `grbit` does not cascades (verified vs ACE).
+  >
+  > **`0x01` is set by whoever creates the relationship; ACE never derives it.** A SQL `FOREIGN KEY` stores
+  > `0x00` even from one primary key to another, and DAO's `CreateRelation` stores exactly the attributes it
+  > is given, `0x01` included on a child column that is not unique. Access's dialog sets it when both sides
+  > are unique. On an **enforced** relationship the child's backing index is created **unique** with it, and
+  > non-unique without it even when the child column is the table's primary key. What ACE then enforces is
+  > that index's unique flag (page-02d §3.5, `0x2E`), not this bit: made to disagree, ACE follows the flag
+  > (verified vs ACE). The bit is what Access and DAO report as the relationship's type.
 
   > **Writing a relationship.** An **enforced** relationship is `MSysRelationships` rows, an `MSysObjects`
   > row of its own (`Type` = 8, under the relationship container, with the `MSysACEs` rows that container
-  > grants, §11) **and** a non-unique index on the
-  > child table's FK column(s) — enforcement requires the child FK to be indexed and the parent key to be
+  > grants, §11) **and** an index of its own on the child table's FK column(s), non-unique unless the
+  > relationship is one-to-one (`0x01`) — enforcement requires the child FK to be indexed and the parent key to be
   > uniquely indexed (the parent PK). LibRed writes all of it, including the byte-faithful relationship
   > logical-index linkage in *both* tables' TDEFs (§3.6: outgoing block on the child, incoming block on the
   > parent, cross-referenced by `index_num`) at `CREATE TABLE` time.

@@ -6,6 +6,11 @@ namespace LibRed.Formats;
 /// </summary>
 internal static class RelationshipFlags
 {
+    /// <summary>A one-to-one relationship (DAO's <c>dbRelationUnique</c>). Set by whoever creates the relationship
+    /// — Access's dialog when both sides are unique — and never by ACE's SQL; on an enforced relationship it makes
+    /// the child's backing index unique.</summary>
+    public const int OneToOne = 0x00000001;
+
     /// <summary>Referential integrity is NOT enforced.</summary>
     public const int DontEnforce = 0x00000002;
 

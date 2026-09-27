@@ -265,8 +265,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
             RelationshipSpec fk = plan.Fk;
             if (fk.UpdateSetNull) throw UpdateSetNullNotImplemented();
-            byte upd = fk.CascadeUpdate ? CascadeAction : NoCascadeAction;
-            byte del = fk.CascadeDelete ? CascadeAction : fk.DeleteSetNull ? SetNullAction : NoCascadeAction;
+            byte upd = fk.CascadeUpdate ? IndexBlockFormat.CascadeAction : IndexBlockFormat.NoCascadeAction;
+            byte del = fk.CascadeDelete ? IndexBlockFormat.CascadeAction
+                : fk.DeleteSetNull ? IndexBlockFormat.SetNullAction : IndexBlockFormat.NoCascadeAction;
             byte outgoingType = fk.NoIndex ? FkTypeOutgoingNoIndex : FkTypeOutgoing;
 
             // A self-referencing FK: the table is not in the catalog yet (we are creating it), so resolve
@@ -392,12 +393,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <summary>Access 2010 (ACE 14) is the floor a calculated column declares, which is also the on-disk
     /// version byte it needs — see <see cref="RaiseFormatForCalculated"/>.</summary>
     private const string CalculatedMinimumVersion = "14.0.0000.0000";
-
-    // Index-info block field values (§3.6), verified against ACE-created relationships.
-    // (PlainAction and the index-type bytes are shared with the reader via IndexBlockFormat.)
-    private const byte NoCascadeAction = 0x00;    // relationship without ON UPDATE/DELETE CASCADE
-    private const byte CascadeAction = 0x01;       // relationship with cascade
-    private const byte SetNullAction = 0x02;       // ON DELETE SET NULL (verified vs ACE, index-info block +0x16)
 
     /// <summary>ON UPDATE SET NULL pathway: the docs list it, but the ACE OLE DB provider rejects it via SQL,
     /// so its on-disk storage (the grbit flag + the index-info +0x15 action byte) is unverified. Rather than
@@ -662,10 +657,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 $"Cannot create index '{indexName}' on '{table.Name}' over {slots.Count} columns: "
                 + $"an index holds at most {IndexBlockFormat.MaxColumns} fields.");
 
-        // Read the whole definition (stitching any existing continuation pages) so the surgical insert
-        // works in absolute coordinates; the old continuation pages are reused when we write it back.
-        (LibRed.IO.PageBuffer buf, IReadOnlyList<int> existingContinuations) = ReadDefinition(table.DefinitionPage);
-        int existingRowCount = buf.ReadInt32(format.TdefRowCountOffset);
+        TdefParts parts = ParseTdef(table.DefinitionPage); // stitches continuation pages for a multi-page TDEF
+        var header = new LibRed.IO.PageBuffer(parts.Header, table.DefinitionPage);
+        int existingRowCount = header.ReadInt32(format.TdefRowCountOffset);
 
         // A unique index over rows that already exist has to be rejected if those rows aren't unique, and a
         // required one if any row leaves a key column NULL — ACE refuses the DDL for both. Done *here*, before a
@@ -675,39 +669,19 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         if ((unique || required) && existingRowCount != 0)
             EnsureExistingRowsFitIndex(table, indexName, slots, unique, required);
 
-        TdefRegions regions = TdefRegions.Of(buf.Span, format);
-        int dataCount = regions.DataCount;
-        int logicalCount = regions.LogicalCount;
-        int afterStats = regions.ColumnDescriptors;
-        int infoStart = regions.InfoBlocks;
+        int dataCount = parts.DataBlocks.Count;
 
         // A plain index or an outgoing FK adds one of each. Checked before a byte moves, like the
         // duplicate-key scan above, so a rejection leaves the file exactly as it was.
-        EnsureIndexCapacity(table.Name, $"index '{indexName}'", dataCount + 1, logicalCount + 1);
+        EnsureIndexCapacity(table.Name, $"index '{indexName}'", dataCount + 1, parts.Logical.Count + 1);
 
-        // Existing logical blocks and names; the new block takes the lowest free index_num.
-        int namePos = regions.IndexNames;
-        var blocks = new List<byte[]>(logicalCount + 1);
-        for (int i = 0; i < logicalCount; i++)
-            blocks.Add(buf.Slice(infoStart + i * IndexBlockFormat.InfoBlockSize, IndexBlockFormat.InfoBlockSize).ToArray());
+        // The new block takes the lowest free index_num.
         int newNum = NextLogicalIndexNumber(table.DefinitionPage);
-        var names = new List<string>(logicalCount + 1);
-        var nameBytes = new List<byte[]>(logicalCount + 1);
-        for (int i = 0; i < logicalCount; i++)
-        {
-            int len = buf.ReadUInt16(namePos);
-            nameBytes.Add(buf.Slice(namePos, 2 + len).ToArray());
-            names.Add(System.Text.Encoding.Unicode.GetString(buf.Slice(namePos + 2, len)));
-            namePos += 2 + len;
-        }
-
-        int defEnd = buf.ReadInt32(format.TdefLengthOffset);
-        byte[] lvalRegion = buf.Slice(namePos, defEnd - namePos).ToArray(); // §3.3.2 list + 0xFFFF terminator
 
         // Allocate the new index's root (empty leaf) and its usage-map row (appended after existing rows).
         int rootPage = _allocator.Allocate();
         WriteEmptyLeafIndexPage(format, rootPage, owner: table.DefinitionPage);
-        int usageMapPage = ReadInt24(buf, format.TdefOwnedPagesOffset + 1);
+        int usageMapPage = ReadInt24(header, format.TdefOwnedPagesOffset + 1);
         // Where the new index's usage map goes: appended after the last row, as ACE does. A dropped index
         // leaves its row behind and ACE never hands it out again, so the row cannot be derived from the
         // table's shape — after a DROP INDEX that names a row already taken, on a table without long-value
@@ -739,42 +713,15 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // page until it splits, after which IndexWriter adds each page it allocates).
         new UsageMapWriter(_channel).SetBit(newIndexUsageRow, usageMapPage, rootPage, set: true);
 
-        // Assemble the new definition: header + existing stats, a new stats block, columns + names +
-        // existing data blocks, the new data block, then the logical blocks (new one inserted, name-sorted)
-        // and their names, and finally the unchanged long-value region.
-        byte[] newData = BuildIndexDataBlock(slots, rootPage, newIndexUsageRow, usageMapPage, unique, required, ignoreNulls);
-        byte[] newInfo = buildInfo(newNum, dataCount);
+        // The new index adds a (zero) stats block and its data block after the existing ones, and a logical
+        // block in name order. ACE's order ignores case (verified: a3 goes before IX2, and an FK named fk before
+        // IX2); how it orders punctuation and accented letters is not measured.
+        parts.Stats.Add(new byte[format.RealIndexEntrySize]);
+        parts.DataBlocks.Add(BuildIndexDataBlock(slots, rootPage, newIndexUsageRow, usageMapPage, unique, required, ignoreNulls));
+        int k = parts.Logical.Count(b => string.Compare(NameOf(b.Name), indexName, StringComparison.OrdinalIgnoreCase) < 0);
+        parts.Logical.Insert(k, (buildInfo(newNum, dataCount), EncodeName(indexName)));
 
-        // Name-sorted insert position. ACE's order ignores case (verified: a3 goes before IX2, and an FK
-        // named fk before IX2); how it orders punctuation and accented letters is not measured.
-        int k = names.Count(n => string.Compare(n, indexName, StringComparison.OrdinalIgnoreCase) < 0);
-        blocks.Insert(k, newInfo);
-        nameBytes.Insert(k, EncodeName(indexName));
-
-        int newDefEnd = infoStart + IndexBlockFormat.DataBlockSize          // one new data block shifts info start
-                        + blocks.Count * IndexBlockFormat.InfoBlockSize + nameBytes.Sum(n => n.Length) + lvalRegion.Length
-                        + format.RealIndexEntrySize;             // one new stats block at the front
-
-        // Build the full definition buffer (may exceed one page — split across continuation pages below).
-        var def = new byte[newDefEnd];
-        var src = buf.Span;
-        int w = 0;
-        void Append(ReadOnlySpan<byte> s) { s.CopyTo(def.AsSpan(w)); w += s.Length; }
-
-        Append(src[..afterStats]);                              // header + existing stats blocks
-        Append(new byte[format.RealIndexEntrySize]);            // new (zero) stats block
-        Append(src[afterStats..infoStart]);                     // columns + names + existing data blocks
-        Append(newData);                                        // new index-data block
-        foreach (byte[] b in blocks) Append(b);                 // logical blocks (new inserted, sorted)
-        foreach (byte[] n in nameBytes) Append(n);              // their names, same order
-        Append(lvalRegion);                                     // §3.3.2 list + terminator (unchanged)
-
-        // Bump the two index counts and the definition length in the header.
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefIndexCountOffset, 4), dataCount + 1);
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLogicalIndexCountOffset, 4), logicalCount + 1);
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLengthOffset, 4), newDefEnd);
-
-        WriteDefinition(table.DefinitionPage, def, existingContinuations, rewrite: true);
+        WriteTdef(table.DefinitionPage, parts);
         _catalog.Invalidate();
 
         // Back-fill the new (empty) index B-tree with an entry per existing row, so the index is complete.
@@ -962,8 +909,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             return;
         }
 
-        byte upd = fk.CascadeUpdate ? CascadeAction : NoCascadeAction;
-        byte del = fk.CascadeDelete ? CascadeAction : fk.DeleteSetNull ? SetNullAction : NoCascadeAction;
+        byte upd = fk.CascadeUpdate ? IndexBlockFormat.CascadeAction : IndexBlockFormat.NoCascadeAction;
+        byte del = fk.CascadeDelete ? IndexBlockFormat.CascadeAction
+            : fk.DeleteSetNull ? IndexBlockFormat.SetNullAction : IndexBlockFormat.NoCascadeAction;
         var slots = ResolveSlots(child, fk.Columns.Select(c => (c.Column, Ascending: true)));
 
         // A self-reference (child == parent) hosts both ends in the same TDEF: the outgoing block takes the
@@ -3515,59 +3463,23 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// Adds an incoming-relationship logical index-info block (§3.6) to a parent table's already-written
     /// TDEF: it reuses the parent's referenced-key data block (no new data block), links back to the
     /// child's outgoing block, and grows the logical-index list by one (kept name-sorted). The definition is
-    /// rewritten through <see cref="WriteDefinition"/>, so it may span or spill onto continuation pages.
+    /// rewritten through <see cref="WriteTdef"/>, so it may span or spill onto continuation pages.
     /// </summary>
     private void AddIncomingRelationshipBlock(IncomingRelationship inc)
     {
-        JetFormatBase format = _channel.Format;
-        (LibRed.IO.PageBuffer buf, IReadOnlyList<int> existingContinuations) = ReadDefinition(inc.ParentPage);
-
-        TdefRegions regions = TdefRegions.Of(buf.Span, format);
-        int dataCount = regions.DataCount;                                 // 0x33 real data blocks
-        int logicalCount = regions.LogicalCount;                           // 0x2F logical blocks
-        int infoStart = regions.InfoBlocks;
+        TdefParts parts = ParseTdef(inc.ParentPage); // stitches continuation pages for a multi-page TDEF
 
         // An incoming relationship adds a logical block and no data block, so this is the path a referenced
         // table overruns: 0x33 stays where it was while 0x2F climbs with every table that points here.
         EnsureIndexCapacity(
             _catalog.Tables.FirstOrDefault(t => t.DefinitionPage == inc.ParentPage)?.Name ?? $"page {inc.ParentPage}",
-            "an incoming relationship", dataCount, logicalCount + 1);
-
-        var blocks = new List<byte[]>(logicalCount + 1);
-        for (int i = 0; i < logicalCount; i++)
-            blocks.Add(buf.Slice(infoStart + i * IndexBlockFormat.InfoBlockSize, IndexBlockFormat.InfoBlockSize).ToArray());
-
-        int namePos = regions.IndexNames;
-        var names = new List<string>(logicalCount + 1);
-        var nameBytes = new List<byte[]>(logicalCount + 1);
-        for (int i = 0; i < logicalCount; i++)
-        {
-            int len = buf.ReadUInt16(namePos);
-            nameBytes.Add(buf.Slice(namePos, 2 + len).ToArray());
-            names.Add(System.Text.Encoding.Unicode.GetString(buf.Slice(namePos + 2, len)));
-            namePos += 2 + len;
-        }
-
-        int defEnd = buf.ReadInt32(format.TdefLengthOffset);
-        byte[] lvalRegion = buf.Slice(namePos, defEnd - namePos).ToArray(); // §3.3.2 list + 0xFFFF terminator
+            "an incoming relationship", parts.DataBlocks.Count, parts.Logical.Count + 1);
 
         string newName = HiddenRelationshipName(inc.Number);
-        int k = names.Count(n => string.Compare(n, newName, StringComparison.OrdinalIgnoreCase) < 0); // name-sorted, ignoring case
-        blocks.Insert(k, BuildIncomingInfoBlock(inc));
-        nameBytes.Insert(k, EncodeName(newName));
+        int k = parts.Logical.Count(b => string.Compare(NameOf(b.Name), newName, StringComparison.OrdinalIgnoreCase) < 0); // name-sorted, ignoring case
+        parts.Logical.Insert(k, (BuildIncomingInfoBlock(inc), EncodeName(newName)));
 
-        int newDefEnd = infoStart + blocks.Count * IndexBlockFormat.InfoBlockSize + nameBytes.Sum(n => n.Length) + lvalRegion.Length;
-
-        var def = new byte[newDefEnd];
-        buf.Span[..infoStart].CopyTo(def);
-        int w = infoStart;
-        foreach (byte[] b in blocks) { b.CopyTo(def.AsSpan(w)); w += b.Length; }
-        foreach (byte[] n in nameBytes) { n.CopyTo(def.AsSpan(w)); w += n.Length; }
-        lvalRegion.CopyTo(def.AsSpan(w));
-
-        BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLogicalIndexCountOffset, 4), logicalCount + 1);
-        BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLengthOffset, 4), newDefEnd);
-        WriteDefinition(inc.ParentPage, def, existingContinuations, rewrite: true);
+        WriteTdef(inc.ParentPage, parts);
     }
 
     private static byte[] BuildIncomingInfoBlock(IncomingRelationship inc)

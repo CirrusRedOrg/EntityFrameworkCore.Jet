@@ -235,8 +235,8 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
             DatabaseTable? referencingTable = Find(relation.Table);
             if (referencingTable is null) continue;
 
-            // Jet supports ON DELETE NO ACTION / CASCADE / SET NULL (read from MSysRelationships.grbit +
-            // the index-info action byte). EF's scaffolding models OnDelete only (no OnUpdate).
+            // Jet supports ON DELETE NO ACTION / CASCADE / SET NULL (read from the relationship's index-info action
+            // byte, which is what ACE acts on). EF's scaffolding models OnDelete only (no OnUpdate).
             ReferentialAction onDeleteAction = relation.CascadeDelete ? ReferentialAction.Cascade
                 : relation.DeleteSetNull ? ReferentialAction.SetNull
                 : ReferentialAction.NoAction;

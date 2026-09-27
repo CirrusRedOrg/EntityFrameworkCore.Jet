@@ -225,6 +225,40 @@ public class LibRedSchemaTests
         Assert.Equal(135, types["DateTime2"]);
     }
 
+    // ACE lists names in the database's collation, not ordinally: an apostrophe or hyphen counts only after the
+    // letters, case is ignored, digits compare one at a time. The expected order is ACE's own, over these names.
+    [Fact]
+    public void Tables_are_ordered_in_the_database_collation()
+    {
+        string path = TemporaryDatabase.CopyPath(Northwind, "collation-order-");
+        using var connection = new LibRedConnection($"Data Source={path}");
+        connection.Open();
+        string[] names = ["Order_X", "OrderT", "Order-Y", "OrderY", "O'Brien", "OBrien", "Order2", "Order10", "Ölmühle", "Olive", "order_lower"];
+        foreach (string name in names)
+        {
+            using DbCommand create = connection.CreateCommand();
+            create.CommandText = $"CREATE TABLE [{name}] (ID LONG PRIMARY KEY)";
+            create.ExecuteNonQuery();
+        }
+
+        List<string> listed = [.. connection.GetSchema("Tables").Rows.Cast<DataRow>()
+            .Select(r => (string)r["TABLE_NAME"]).Where(names.Contains)];
+        Assert.Equal(
+            ["OBrien", "O'Brien", "Olive", "Ölmühle", "order_lower", "Order_X", "Order10", "Order2", "OrderT", "OrderY", "Order-Y"],
+            listed);
+    }
+
+    // Access names many keys alike, and ACE breaks those ties by table name.
+    [Fact]
+    public void TableConstraints_sharing_a_name_are_ordered_by_table()
+    {
+        List<string> tables = [.. Schema("TableConstraints").Rows.Cast<DataRow>()
+            .Where(r => (string)r["CONSTRAINT_NAME"] == "Id").Select(r => (string)r["TABLE_NAME"])];
+        Assert.Equal(
+            ["MSysAccessStorage", "MSysNavPaneGroupCategories", "MSysNavPaneGroups", "MSysNavPaneGroupToObjects", "MSysResources"],
+            tables);
+    }
+
     // A type's CreateFormat declares a column the Columns collection reports as that same type. ACE leaves the
     // field empty for every type.
     [Fact]

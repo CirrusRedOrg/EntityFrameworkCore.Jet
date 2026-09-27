@@ -169,7 +169,75 @@ public class ForeignKeyLinkageTests
             Block incoming = parent.Single(b => b.FkType == 0x01);
             Assert.Equal(0x01, incoming.Upd);
             Assert.Equal(0x01, incoming.Del);
+
+            // And the catalog reads them back, on both ends.
+            var catalog = new JetCatalog(ch);
+            LogicalIndexDef childEnd = catalog.FindTable("C2")!.LogicalIndexes.Single(l => l.Name == "FKcas");
+            LogicalIndexDef parentEnd = catalog.FindTable("P2")!.LogicalIndexes.Single(l => l.IsIncomingRelationship);
+            Assert.Equal((0x01, 0x01), (childEnd.UpdateAction, childEnd.DeleteAction));
+            Assert.Equal((0x01, 0x01), (parentEnd.UpdateAction, parentEnd.DeleteAction));
+            Assert.Equal((0x04, 0x04), (catalog.FindTable("C2")!.LogicalIndexes.Single(l => l.IsPrimaryKey).UpdateAction,
+                                        catalog.FindTable("C2")!.LogicalIndexes.Single(l => l.IsPrimaryKey).DeleteAction));
         }
         finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // ACE cascades by the child's relationship block, not by MSysRelationships.grbit: made to disagree, a delete
+    // grbit calls cascading is refused and one grbit calls plain cascades (measured against ACE). So when the two
+    // disagree, the relationship LibRed reads must carry the block's actions.
+    [Fact]
+    public void Cascade_actions_are_read_from_the_relationship_block_not_grbit()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "fkblock-");
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("P4", [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true)], primaryKey: ["Id"]);
+                db.CreateTable("C4",
+                    [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                     new ColumnSpec("Pid", JetDataType.Int32, 4, IsFixedLength: true)],
+                    primaryKey: ["Id"],
+                    relationships: [new RelationshipSpec("FKblock", "P4", [("Pid", "Id")], true, CascadeUpdate: true, CascadeDelete: true)]);
+            }
+
+            // grbit keeps cascade update and delete; the child's block now says no update action and SET NULL.
+            using (var ch = PageChannel.Open(path, readOnly: false))
+            {
+                int page = new JetCatalog(ch).FindTable("C4")!.DefinitionPage;
+                byte[] buf = ch.ReadPage(page).Span.ToArray();
+                int block = LogicalBlockOffset(ch, new PageBuffer(buf, page), "FKblock");
+                buf[block + 0x15] = 0x00;
+                buf[block + 0x16] = 0x02;
+                ch.WritePage(page, buf);
+            }
+
+            using var reopened = JetDatabase.Open(path);
+            ForeignKey fk = reopened.Catalog.Relationships.Single(r => r.Name == "FKblock");
+            Assert.False(fk.CascadeUpdate);
+            Assert.False(fk.CascadeDelete);
+            Assert.True(fk.DeleteSetNull);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    private static int LogicalBlockOffset(PageChannel ch, PageBuffer buf, string name)
+    {
+        var fmt = ch.Format;
+        int dataCount = buf.ReadInt32(fmt.TdefIndexCountOffset);
+        int logicalCount = buf.ReadInt32(fmt.TdefLogicalIndexCountOffset);
+        int cols = buf.ReadUInt16(fmt.TdefColumnCountOffset);
+        int pos = fmt.TdefRealIndexBlockOffset + dataCount * fmt.RealIndexEntrySize + cols * fmt.ColumnDescriptorSize;
+        for (int i = 0; i < cols; i++) pos += 2 + buf.ReadUInt16(pos);
+        int infoStart = pos + dataCount * 52;
+        int namePos = infoStart + logicalCount * 28;
+        for (int i = 0; i < logicalCount; i++)
+        {
+            int len = buf.ReadUInt16(namePos);
+            string blockName = System.Text.Encoding.Unicode.GetString(buf.Slice(namePos + 2, len));
+            if (blockName == name) return infoStart + i * 28;
+            namePos += 2 + len;
+        }
+        throw new InvalidOperationException($"No logical index named {name}.");
     }
 }

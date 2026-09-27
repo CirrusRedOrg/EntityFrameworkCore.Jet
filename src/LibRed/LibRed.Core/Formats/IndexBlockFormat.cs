@@ -36,6 +36,12 @@ internal static class IndexBlockFormat
     /// <summary>Update/delete action byte on a plain (non-relationship) index.</summary>
     public const byte PlainAction = 0x04;
 
+    // Update/delete action bytes on a relationship's blocks, verified against ACE-created relationships. These,
+    // not MSysRelationships.grbit, are what ACE acts on: with the two made to disagree, it cascades by the block.
+    public const byte NoCascadeAction = 0x00;
+    public const byte CascadeAction = 0x01;
+    public const byte SetNullAction = 0x02;       // delete only: ON DELETE SET NULL
+
     // Index-info block type byte (at InfoTypeOffset).
     public const byte TypeSecondary = 0x00;
     public const byte TypePrimary = 0x01;

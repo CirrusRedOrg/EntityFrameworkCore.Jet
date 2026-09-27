@@ -295,15 +295,32 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
         }
 
         return groups
-            .Select(kvp => new ForeignKey(
-                kvp.Key,
-                kvp.Value.Child,
-                kvp.Value.Parent,
-                kvp.Value.Columns.OrderBy(x => x.Order).Select(x => (x.Column, x.ReferencedColumn)).ToList(),
-                IsEnforced: (kvp.Value.Flags & RelationshipFlags.DontEnforce) == 0,
-                CascadeUpdate: (kvp.Value.Flags & RelationshipFlags.UpdateCascade) != 0,
-                CascadeDelete: (kvp.Value.Flags & RelationshipFlags.DeleteCascade) != 0,
-                DeleteSetNull: (kvp.Value.Flags & RelationshipFlags.DeleteSetNull) != 0))
+            .Select(kvp =>
+            {
+                // The actions come from the child's relationship block in its TDEF (0x15/0x16), not from grbit:
+                // made to disagree, ACE cascades by the block (measured against ACE). grbit answers only for a
+                // relationship with no block — an unenforced one, which has nothing to cascade.
+                LogicalIndexDef? block = FindTable(kvp.Value.Child)?.LogicalIndexes.FirstOrDefault(l =>
+                    l.IsRelationship && !l.IsIncomingRelationship &&
+                    string.Equals(l.Name, kvp.Key, StringComparison.OrdinalIgnoreCase));
+                int flags = kvp.Value.Flags;
+                return new ForeignKey(
+                    kvp.Key,
+                    kvp.Value.Child,
+                    kvp.Value.Parent,
+                    kvp.Value.Columns.OrderBy(x => x.Order).Select(x => (x.Column, x.ReferencedColumn)).ToList(),
+                    IsEnforced: (flags & RelationshipFlags.DontEnforce) == 0,
+                    CascadeUpdate: block is null
+                        ? (flags & RelationshipFlags.UpdateCascade) != 0
+                        : block.UpdateAction == IndexBlockFormat.CascadeAction,
+                    CascadeDelete: block is null
+                        ? (flags & RelationshipFlags.DeleteCascade) != 0
+                        : block.DeleteAction == IndexBlockFormat.CascadeAction,
+                    DeleteSetNull: block is null
+                        ? (flags & RelationshipFlags.DeleteSetNull) != 0
+                        : block.DeleteAction == IndexBlockFormat.SetNullAction,
+                    IsOneToOne: (flags & RelationshipFlags.OneToOne) != 0);
+            })
             .ToList();
     }
 

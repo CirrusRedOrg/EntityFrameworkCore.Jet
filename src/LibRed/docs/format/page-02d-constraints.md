@@ -91,7 +91,10 @@ differently from a delete:
 | `0x23` | 3 | Usage-map page |
 | `0x26` | 4 | **B-tree root page** |
 | `0x2A` | 4 | Unknown / reserved — zero in every file checked. mdbtools calls it uninitialised page residue (unverified) |
-| `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls (`WITH IGNORE NULL` — null-keyed rows excluded from the index), `0x08` required (`WITH DISALLOW NULL` / part of a primary key), `0x80` always-set (Access 2000+). Verified vs ACE: a plain index is `0x0080`, `IGNORE NULL` `0x0082`, `DISALLOW NULL` `0x0088`, a PK `0x0089`. There is **no clustered flag**: `CLUSTERED`/`NONCLUSTERED` after `PRIMARY KEY` or `UNIQUE` in a constraint is accepted and stores nothing (the file is byte-identical without it), and DAO's `Index.Clustered` reads `False` even on an index created with it set. |
+| `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls (`WITH IGNORE NULL` — null-keyed rows excluded from the index), `0x08` required (`WITH DISALLOW NULL` / part of a primary key), `0x80` always-set (Access 2000+). Verified vs ACE: a plain index is `0x0080`, `IGNORE NULL` `0x0082`, `DISALLOW NULL` `0x0088`, a PK `0x0089`. A foreign key's child block (§3.6) carries `0x01` exactly when the relationship is one-to-one
+(`MSysRelationships.grbit` `0x01`), and **this bit, not `grbit`, is what ACE enforces**: made to disagree, a
+child index with the bit refuses a second child row with the same key although `grbit` says one-to-many, and
+one without it accepts the duplicate although `grbit` says one-to-one (verified vs ACE). There is **no clustered flag**: `CLUSTERED`/`NONCLUSTERED` after `PRIMARY KEY` or `UNIQUE` in a constraint is accepted and stores nothing (the file is byte-identical without it), and DAO's `Index.Clustered` reads `False` even on an index created with it set. |
 | `0x30` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 52-byte block |
 
 > **The 10-column cap must be enforced on the incremental path too**, as must the 32-index cap below.
@@ -155,8 +158,9 @@ something *references* it. So the budget is:
 0x2F = 0x33 + one entry per INCOMING relationship (this table as the referenced end)
 ```
 
-The child side of a foreign key is a real index and costs one from each count; only the parent end is free
-of storage, reusing the index already over the referenced columns. So being *referenced* is what spends the
+The child side of a foreign key is a real index and costs one from each count — its **own**, even when a
+primary key or unique index already covers exactly those columns; only the parent end is free of storage,
+reusing the index already over the referenced columns. So being *referenced* is what spends the
 budget invisibly. A self-reference lands both ends on one table: one data block, two logical blocks.
 
 Because a data block must be named by a logical block, `0x33 ≤ 0x2F` always holds — which makes `0x2F` the
@@ -193,7 +197,7 @@ isolation: 33 plain indexes push both counts to 33 together.
 | `0x0C` | 1 | Foreign-key index type: `0x00` = none, `0x01` = **incoming** (this table is the parent/referenced end), `0x02` = **outgoing** (this table is the child/referencing end), `0x03` = **outgoing, `FOREIGN KEY NO INDEX`** (verified vs ACE: identical to `0x02` — same data block and same parent incoming `0x01` block — only this type byte differs) |
 | `0x0D` | 4 | Foreign-key index number: the `index_num` (`0x04`) of the **matching logical block on the other table**; `0xFFFFFFFF` when not a relationship |
 | `0x11` | 4 | Foreign-key table page (the *other* table's TDEF page; non-zero ⇒ a relationship index) |
-| `0x15` | 1 | Update action: `0x04` plain index; on a relationship `0x00` = no cascade, `0x01` = cascade update |
+| `0x15` | 1 | Update action: `0x04` plain index; on a relationship `0x00` = no cascade, `0x01` = cascade update. With `0x16`, what ACE acts on — not `MSysRelationships.grbit` (verified vs ACE: made to disagree, ACE follows these bytes) |
 | `0x16` | 1 | Delete action: `0x04` plain index; on a relationship `0x00` = no cascade, `0x01` = cascade delete, `0x02` = **`ON DELETE SET NULL`** (verified vs ACE) |
 | `0x17` | 1 | Index type: `0x00` = plain secondary, `0x01` = primary, `0x02` = foreign/relationship |
 | `0x18` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 28-byte block |
@@ -205,6 +209,11 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > **Writing a relationship's logical blocks (verified byte-for-byte vs ACE).** The **child** (referencing)
 > table gives its FK-column index a *single* logical block that **is** the relationship: `index_num2` → the FK-column data
 > block, `0x0C = 0x02` (outgoing), `0x11` = parent page, `0x17 = 0x02`, name = the constraint name.
+> That FK-column data block is a real index of the relationship's own, never shared with a primary key or
+> unique index over the same columns, and it is **non-unique unless the relationship is one-to-one**
+> (`MSysRelationships.grbit` `0x01`, which SQL never sets): then its unique flag (§3.5, `0x2E` bit `0x01`)
+> is set, and ACE refuses a second child row with the same key (verified vs ACE, on a child primary-key column
+> and on a plain one).
 > The **parent** (referenced) table gains an **extra** logical block beyond its data blocks:
 > `index_num2` → its referenced-key (PK) data block, `0x0C = 0x01` (incoming), `0x11` = child page,
 > `0x17 = 0x02`, name = the hidden name **`.r` followed by the letter `'A' + index_num`** — `.rB` for block 1,

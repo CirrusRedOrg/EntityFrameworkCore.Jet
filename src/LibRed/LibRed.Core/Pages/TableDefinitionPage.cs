@@ -254,7 +254,7 @@ public sealed class TableDefinitionPage : Page
     private int ResolveIndexNames(PageBuffer buffer, int infoStart)
     {
         int logicalCount = LogicalIndexCount; // 0x2F — the logical-index (slot) count
-        var info = new (int DataNumber, bool IsRelationship, byte Type, byte FkType)[logicalCount];
+        var info = new (int DataNumber, bool IsRelationship, byte Type, byte FkType, byte UpdateAction, byte DeleteAction)[logicalCount];
         for (int i = 0; i < logicalCount; i++)
         {
             int block = infoStart + i * IndexBlockFormat.InfoBlockSize;
@@ -262,7 +262,9 @@ public sealed class TableDefinitionPage : Page
                 buffer.ReadInt32(block + IndexBlockFormat.InfoDataNumberOffset),
                 buffer.ReadInt32(block + IndexBlockFormat.InfoFkTablePageOffset) != 0,
                 buffer.ReadByte(block + IndexBlockFormat.InfoTypeOffset),
-                buffer.ReadByte(block + IndexBlockFormat.InfoFkTypeOffset));
+                buffer.ReadByte(block + IndexBlockFormat.InfoFkTypeOffset),
+                buffer.ReadByte(block + IndexBlockFormat.InfoUpdateActionOffset),
+                buffer.ReadByte(block + IndexBlockFormat.InfoDeleteActionOffset));
         }
 
         int namePos = infoStart + logicalCount * IndexBlockFormat.InfoBlockSize;
@@ -272,7 +274,7 @@ public sealed class TableDefinitionPage : Page
         {
             (string name, namePos) = ReadName(buffer, namePos, $"logical index {i}");
 
-            (int dataNumber, bool isRelationship, byte type, byte fkType) = info[i];
+            (int dataNumber, bool isRelationship, byte type, byte fkType, byte updateAction, byte deleteAction) = info[i];
             // Every logical index names the data block that holds its columns and root page. One that names a
             // block the table does not have is corruption; skipping it used to make the index vanish from the
             // table's schema while its B-tree stayed on disk, maintained by nobody.
@@ -282,7 +284,7 @@ public sealed class TableDefinitionPage : Page
                     + $"{dataNumber}, and the table has {_indexes.Count}.");
 
             _logicalIndexes.Add(new LogicalIndexDef(name, dataNumber, isRelationship,
-                !isRelationship && type == IndexBlockFormat.TypePrimary, fkType));
+                !isRelationship && type == IndexBlockFormat.TypePrimary, fkType, updateAction, deleteAction));
 
             // Prefer a real index name over a relationship's; prefer the primary among real ones.
             int p = isRelationship ? 1 : type == IndexBlockFormat.TypePrimary ? 3 : 2;

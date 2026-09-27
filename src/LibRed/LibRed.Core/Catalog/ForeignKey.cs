@@ -19,6 +19,8 @@ namespace LibRed.Catalog;
 /// <c>ON UPDATE SET NULL</c>).</param>
 /// <param name="UpdateSetNull">ON UPDATE SET NULL — pathway only; not read back yet (its storage is
 /// unverified: the ACE OLE DB provider rejects the DDL, so the grbit/info-block bytes could not be probed).</param>
+/// <param name="IsOneToOne">Whether the relationship is one-to-one (<c>grbit</c> <c>0x01</c>), as Access and DAO
+/// report it. Recorded, not derived: SQL cannot create one, and ACE never infers it from the indexes.</param>
 public sealed record ForeignKey(
     string Name,
     string Table,
@@ -29,4 +31,5 @@ public sealed record ForeignKey(
     bool CascadeDelete,
     bool IsInherited = false,
     bool DeleteSetNull = false,
-    bool UpdateSetNull = false);
+    bool UpdateSetNull = false,
+    bool IsOneToOne = false);

@@ -14,8 +14,13 @@ namespace LibRed.Catalog;
 /// <param name="ForeignKeyType">The relationship's direction as the info block records it: 0 none, 1 incoming
 /// (this table is the parent — the half Access names <c>.r…</c> and keeps out of its schema views), 2 outgoing
 /// (this table holds the foreign key).</param>
+/// <param name="UpdateAction">The info block's update action (<c>0x15</c>): <c>0x04</c> on a plain index; on a
+/// relationship <c>0x00</c> no cascade, <c>0x01</c> cascade update. Written on both ends of a relationship.</param>
+/// <param name="DeleteAction">The info block's delete action (<c>0x16</c>): <c>0x04</c> on a plain index; on a
+/// relationship <c>0x00</c> no cascade, <c>0x01</c> cascade delete, <c>0x02</c> <c>ON DELETE SET NULL</c>.</param>
 public sealed record LogicalIndexDef(
-    string Name, int RealIndexOrdinal, bool IsRelationship, bool IsPrimaryKey, byte ForeignKeyType)
+    string Name, int RealIndexOrdinal, bool IsRelationship, bool IsPrimaryKey, byte ForeignKeyType,
+    byte UpdateAction, byte DeleteAction)
 {
     /// <summary>True for the parent side of a relationship, which Access hides.</summary>
     public bool IsIncomingRelationship => ForeignKeyType == IncomingRelationship;

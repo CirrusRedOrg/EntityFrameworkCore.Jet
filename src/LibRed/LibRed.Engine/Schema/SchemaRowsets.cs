@@ -1,4 +1,5 @@
 using LibRed.Catalog;
+using LibRed.Storage;
 
 namespace LibRed.Engine.Schema;
 
@@ -148,7 +149,7 @@ public static class SchemaRowsets
                         rows.Add([null, null, t.Name, type, null, null, null, null, null]);
                 foreach (string name in ViewNames(catalog))
                     rows.Add([null, null, name, "VIEW", null, null, null, null, null]);
-                rows.Sort(ByName(2));
+                rows.Sort(ByName(database, 2));
                 break;
 
             case "Columns":
@@ -226,7 +227,7 @@ public static class SchemaRowsets
             case "Views":
                 foreach (string name in ViewNames(catalog))
                     rows.Add([null, null, name, catalog.Views[name], null, true, null, null, null]);
-                rows.Sort(ByName(2));
+                rows.Sort(ByName(database, 2));
                 break;
 
             case "Procedures":
@@ -238,7 +239,7 @@ public static class SchemaRowsets
                         rows.Add([null, null, name, ProcedureTypeReturnsRows, sql, null, null, null]);
                 foreach ((string name, StoredActionQuery query) in catalog.ActionQueries)
                     rows.Add([null, null, name, ProcedureTypeReturnsRows, query.Sql, null, null, null]);
-                rows.Sort(ByName(2));
+                rows.Sort(ByName(database, 2));
                 break;
 
             case "ForeignKeys":
@@ -264,8 +265,10 @@ public static class SchemaRowsets
                 break;
 
             case "TableConstraints":
+                // ACE orders the rows by constraint name, then — for the many keys Access names alike — by table.
                 foreach ((TableDef table, string name, string kind, IndexDef? _, ForeignKey? __) in Constraints(catalog))
                     rows.Add([null, null, name, null, null, table.Name, kind, false, false, null]);
+                rows.Sort(ByName(database, 2, thenBy: 5));
                 break;
 
             case "KeyColumnUsage":
@@ -318,7 +321,7 @@ public static class SchemaRowsets
                 foreach (TableDef t in catalog.Tables)
                     if (TableType(t) is not null)
                         rows.Add([null, null, t.Name, (decimal)t.RowCount]);
-                rows.Sort(ByName(2));
+                rows.Sort(ByName(database, 2));
                 break;
 
             case "ProcedureParameters":
@@ -342,7 +345,7 @@ public static class SchemaRowsets
                             p.Type is { } named ? ProviderTypeName(named) : null,
                             p.Type is { } local ? ProviderTypeName(local) : null]);
                     }
-                rows.Sort(ByName(2));
+                rows.Sort(ByName(database, 2));
                 break;
 
             case "ViewColumns":
@@ -550,8 +553,23 @@ public static class SchemaRowsets
     private static IEnumerable<string> ViewNames(JetCatalog catalog) =>
         catalog.Views.Keys.Where(name => !catalog.QueryParameters.ContainsKey(name));
 
-    private static Comparison<object?[]> ByName(int column) =>
-        (left, right) => string.Compare((string?)left[column], (string?)right[column], StringComparison.OrdinalIgnoreCase);
+    /// <summary>Orders rows by the name in <paramref name="column"/>, then by <paramref name="thenBy"/>, as ACE does: in
+    /// the database's collation — <c>Order_Details</c> before <c>Orders</c>, an underscore sorting before letters — not
+    /// ordinally. A database whose collation LibRed cannot encode keeps the ordinal, case-insensitive order rather
+    /// than failing to list its schema.</summary>
+    private static Comparison<object?[]> ByName(JetDatabase database, int column, int? thenBy = null)
+    {
+        Func<string, string, int> compare = database.Collation.IsIndexKeyEncodable
+            ? JetTextComparer.For(database.Collation).Compare
+            : (a, b) => string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
+        return (left, right) =>
+        {
+            int byName = compare((string?)left[column] ?? "", (string?)right[column] ?? "");
+            return byName != 0 || thenBy is not int next
+                ? byName
+                : compare((string?)left[next] ?? "", (string?)right[next] ?? "");
+        };
+    }
 
     /// <summary>The OLE DB type code ACE reports for a column. A memo and a text column share one code, as do an
     /// OLE and a binary column; what separates them is the long-value flag in <see cref="ColumnFlags"/>.</summary>

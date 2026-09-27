@@ -166,7 +166,7 @@ descriptor.
 | `0x23` | 3 | Usage-map page |
 | `0x26` | 4 | B-tree root page |
 | `0x2A` | 4 | Unknown / reserved (zero) |
-| `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls, `0x08` required, `0x80` always-set |
+| `0x2E` | 2 | Flags: `0x01` unique (on a foreign key's child block: the relationship is one-to-one), `0x02` ignore-nulls, `0x08` required, `0x80` always-set |
 | `0x30` | 4 | Unknown / reserved (zero) — trailing bytes of the 52-byte block |
 
 ## Index-info block — 28 bytes, one per logical index → [page-02d](page-02d-constraints.md)
@@ -259,7 +259,7 @@ Global maps, located by page 0: free pages at `0x18` (page 1 row 0 as ACE writes
 - **MSysObjects** (TDEF page 2): `Id`, `Name`, `Type` (1 table, 5 query/view), `Flags`, `ParentId`, `Owner`, `DateCreate`/`DateUpdate`, `LvProp` (property blob).
 - **MSysACEs** (4 cols): `ObjectId`, `SID`, `ACM`, `FInheritable` — two rows per object.
 - **MSysQueries** (8 cols): `ObjectId`, `Attribute`, `Flag`, `Name1`, `Name2`, `Expression`, `Order`, `LvExtra`; PK `(ObjectId, Attribute, Order)`.
-- **MSysRelationships**: `szRelationship`, `szObject`, `szColumn`, `szReferencedObject`, `szReferencedColumn`, `icolumn`, `ccolumn`, `grbit` (`0x02` don't-enforce, `0x100` cascade-update, `0x1000` cascade-delete, `0x2000` delete-set-null).
+- **MSysRelationships**: `szRelationship`, `szObject`, `szColumn`, `szReferencedObject`, `szReferencedColumn`, `icolumn`, `ccolumn`, `grbit` (`0x01` one-to-one, `0x02` don't-enforce, `0x100` cascade-update, `0x1000` cascade-delete, `0x2000` delete-set-null, `0x1000000`/`0x2000000` join type: all records from the parent / from the child). The cascades ACE applies come from the index-info blocks' `0x15`/`0x16`, not from these bits.
 - **LvProp blob:** `MR2\0` signature, then `[int len][short type][body]` blocks; type `0x80` = name pool; value-block type `0x00` = table, `0x01` = column (`0x02` = index, unverified); per-owner entries are `[short entryLen][byte flags][byte dataType][short nameIndex][short valueLen][value]`. The flag byte is a bit field — `0x01` marks a definition-protected/schema property, and `0x80` also occurs in Access-written files — preserved whole per entry. Values include `DefaultValue`, `Required`, and `CheckConstraints`.
 
 ---

@@ -337,7 +337,11 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
             throw new InvalidDataException(
                 $"Index mutation expected page {pageNumber} to be {expectedType}, but found {parsed.Type}.");
 
-        return parsed with { Entries = [.. parsed.Entries] };
+        // Room for the one entry InsertIntoLeaf inserts: copied at its exact size, the list doubled its array on that
+        // insert — about 19 KB per index per row on a full leaf, a fifth of everything an insert allocated.
+        var entries = new List<Entry>(parsed.Entries.Count + 1);
+        entries.AddRange(parsed.Entries);
+        return parsed with { Entries = entries };
     }
 
     private void InsertIntoLeaf(IndexDef index, List<int> path, byte[] key, int pointer)

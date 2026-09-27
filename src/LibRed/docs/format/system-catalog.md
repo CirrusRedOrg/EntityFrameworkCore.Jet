@@ -15,7 +15,8 @@
   > **Why the hidden bit / `#` prefix matter.** Missing them makes a hidden helper such as
   > EFCore.Jet's `#Dual` (`Flags = 0x08`) count as a *user* table, so a "has any user tables?" check
   > wrongly reports a schema-less database as populated — which makes EF Core's `EnsureCreated` skip
-  > creating the model's tables. Real user tables carry `Flags = 0x00000000`, so excluding the
+  > creating the model's tables. Real user tables carry `Flags = 0x00000000` — or `0x00040000`, the bit
+  > marking a table that has a complex column (§ *Catalog rows for the hidden tables*) — so excluding the
   > system/hidden bits never drops a genuine table.
 
   > **The same bits name the object kind in a schema rowset** (verified against ACE's `Tables`, which
@@ -695,7 +696,7 @@ tables as far as the catalog is concerned, distinguished only by `Flags` and `Ow
 
 | object | `Flags` | `Owner` |
 | --- | --- | --- |
-| an ordinary **user** table | `0x00040000` | user SID |
+| a **user** table with a complex column | `0x00040000` (`0` without one) | user SID |
 | **`f_<GUID>_<col>`** flat table | `0x800A0000` | **the same user SID** |
 | **`MSysComplexType_*`** template | `0x80030000` | `NULL` |
 | **`MSysComplexColumns`** | `0x80000000` | `NULL` |
@@ -703,8 +704,11 @@ tables as far as the catalog is concerned, distinguished only by `Flags` and `Ow
 
 A flat table is thus system-flagged (`0x80000000`) yet owned by the *user* SID, unlike a real system table —
 consistent with it holding user data. `0x00020000` is common to flat and template tables; flat adds
-`0x00080000` and templates `0x00010000`, while the plain user-table bit `0x00040000` is on neither. A flat
-table can carry its own `LvProp`. Verified in `complex1.accdb` and `LIBRARY.accdb`.
+`0x00080000` and templates `0x00010000`. **`0x00040000` marks the table that owns complex columns**: it is
+set on every table with a complex column and on no table without one, system tables included —
+`MSysResources`, whose `Data` is an attachment column, carries `0x0004000A` — and on neither the flat nor
+the template tables, which hold the values rather than the column (verified across Access-written ACE
+files). A flat table can carry its own `LvProp`.
 
 ### Attachment payload — `FileData`
 

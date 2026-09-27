@@ -109,7 +109,8 @@ public sealed class ColumnDef
 
     /// <summary>The text collation (LCID + sort id + sort-order version) for a non-numeric column — read from
     /// the descriptor's locale bytes (<c>0x0B/0x0C</c>), sort id (<c>0x0D</c>) and version byte
-    /// (<c>0x0E</c>). Numeric columns reuse the locale bytes for precision/scale and carry no collation.
+    /// (<c>0x0E</c>). Numeric columns reuse the locale bytes for precision/scale, and complex columns for their
+    /// <c>MSysComplexColumns</c> key; neither carries a collation.
     /// Defaults to General legacy.</summary>
     /// <remarks>The version is at <c>0x0E</c>, not <c>0x0D</c>. Reading it from <c>0x0D</c> — which is 0 in
     /// both General orders — made LibRed report every database as v0, so the byte is worth naming exactly.

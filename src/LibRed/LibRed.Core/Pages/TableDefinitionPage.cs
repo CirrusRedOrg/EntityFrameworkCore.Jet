@@ -322,9 +322,11 @@ public sealed class TableDefinitionPage : Page
             if (!columnIds.Add(columnId))
                 throw new InvalidDataException($"TDEF contains duplicate column id {columnId}.");
 
-            // Bytes 0x0B/0x0C are precision/scale for a Decimal/Numeric column and the text-collation LCID
-            // for everything else; 0x0D is the collation's sort-order version. Read whichever applies.
+            // Bytes 0x0B/0x0C are precision/scale for a Decimal/Numeric column, the MSysComplexColumns key for a
+            // Complex one (page-02b §3.4), and the text-collation LCID for everything else; 0x0D is the
+            // collation's sort-order version. Read whichever applies — a complex column has no collation to read.
             bool numeric = type == JetDataType.FixedPoint;
+            bool complex = type == JetDataType.Complex;
             descriptors[i] = (
                 type,
                 columnId,
@@ -339,7 +341,7 @@ public sealed class TableDefinitionPage : Page
                 // ACE's DROP COLUMN removes a descriptor but does NOT renumber the survivors or rewrite
                 // rows, so a survivor keeps its original variable index even though ranking would shift it.
                 buffer.ReadUInt16(entry + format.ColumnVariableIndexOffset),
-                numeric ? Collation.GeneralLegacy
+                numeric || complex ? Collation.GeneralLegacy
                     // 0x0B..0x0E are one 32-bit LCID with the sort-order version in the top byte: LANGID,
                     // then the sort id at 0x0D (non-zero only for a Windows alternate sort order, e.g.
                     // Hungarian Technical), then the version at 0x0E (0 = legacy table, 1 = Access-2010).

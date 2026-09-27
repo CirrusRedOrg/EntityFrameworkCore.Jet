@@ -60,6 +60,17 @@ public class CollationTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // A complex column's locale bytes hold its MSysComplexColumns key (page-02b §3.4), not a collation:
+    // MSysResources.Data's 0x0B is ComplexID 1, which read as an LCID is the Arabic neutral order.
+    [Fact]
+    public void A_complex_column_carries_no_collation()
+    {
+        using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
+        ColumnDef data = db.Catalog.FindTable("MSysResources")!.Columns.Single(c => c.Name == "Data");
+        Assert.Equal(JetDataType.Complex, data.Type);
+        Assert.Equal(Collation.GeneralLegacy, data.Collation);
+    }
+
     [Fact]
     public void The_written_locale_bytes_are_byte_identical_to_the_old_hardcoded_constant()
     {

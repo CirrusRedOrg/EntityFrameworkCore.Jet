@@ -1056,34 +1056,44 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// <inheritdoc cref="ToStorageValues"/>
     private void MaterializeLongValues(object?[] values)
     {
-        const int maxInline = LongValueFormat.MaxInlineValue;
         LongValueWriter? writer = null;
-
         foreach (ColumnDef column in _table.Columns)
+            if (column.Type is JetDataType.Memo or JetDataType.Ole)
+                values[column.Index] = MaterializeLongValue(column, values[column.Index], ref writer);
+    }
+
+    /// <summary>The storage form of one Memo/OLE value: a value over 64 bytes is written to an LVAL page and
+    /// becomes its <see cref="LongValueDescriptor"/>; anything else — a short value, null, a descriptor already
+    /// built — comes back as it was, for the row codec to inline. For a caller re-laying a single column.</summary>
+    internal object? MaterializeLongValue(ColumnDef column, object? value)
+    {
+        LongValueWriter? writer = null;
+        return MaterializeLongValue(column, value, ref writer);
+    }
+
+    private object? MaterializeLongValue(ColumnDef column, object? value, ref LongValueWriter? writer)
+    {
+        byte[]? payload = value switch
         {
-            if (column.Type is not (JetDataType.Memo or JetDataType.Ole)) continue;
-            byte[]? payload = values[column.Index] switch
-            {
-                string s => Encoding.Unicode.GetBytes(s), // memo: UTF-16LE
-                byte[] b => b,                             // OLE: raw bytes
-                _ => null,                                 // null, or an already-built LongValueDescriptor
-            };
-            if (payload is null || payload.Length <= maxInline) continue;
+            string s => Encoding.Unicode.GetBytes(s), // memo: UTF-16LE
+            byte[] b => b,                             // OLE: raw bytes
+            _ => null,                                 // null, or an already-built LongValueDescriptor
+        };
+        if (payload is null || payload.Length <= LongValueFormat.MaxInlineValue) return value;
 
-            // Compress before storing, but AFTER the inline test above and using the uncompressed length for
-            // the single-page test below: ACE decides the storage form on the uncompressed size and applies
-            // compression to whatever form results, never to a chained value (LongTextStorageAccessTests).
-            if (payload.Length <= LongValueFormat.MaxSinglePageValue
-                && values[column.Index] is string text
-                && Types.JetTypeCodec.TryCompressText(column, text) is { } compressed)
-                payload = compressed;
+        // Compress before storing, but AFTER the inline test above and using the uncompressed length for
+        // the single-page test below: ACE decides the storage form on the uncompressed size and applies
+        // compression to whatever form results, never to a chained value (LongTextStorageAccessTests).
+        if (payload.Length <= LongValueFormat.MaxSinglePageValue
+            && value is string text
+            && Types.JetTypeCodec.TryCompressText(column, text) is { } compressed)
+            payload = compressed;
 
-            writer ??= new LongValueWriter(_channel);
-            TableDefinitionPage definition = LongValueMaps;
-            definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) owned);
-            definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) free);
-            values[column.Index] = new LongValueDescriptor(StoreLongValue(writer, payload, owned, free));
-        }
+        writer ??= new LongValueWriter(_channel);
+        TableDefinitionPage definition = LongValueMaps;
+        definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) owned);
+        definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) free);
+        return new LongValueDescriptor(StoreLongValue(writer, payload, owned, free));
     }
 
     // A page is dropped from the free-pages map once it cannot hold a 256-byte value and its 2-byte row-directory
@@ -1398,10 +1408,10 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (advances)
                 BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefLastAutoNumberOffset, 4), assigned);
             // Keep the cached catalog seed in sync with the on-disk 0x14. The insert path itself reads the
-            // high-water from disk (AssignAutoNumbers), so this isn't needed for assigning ids — but RewriteColumn
-            // (an ALTER on a table that has an AutoNumber) reconstructs the counter from the cached
-            // ColumnDef.Seed; if left stale, a rebuild after the high rows were deleted resets the counter to its
-            // create-time value (verified: next id dropped to 1 instead of continuing past 6). Seed = next id.
+            // high-water from disk (AssignAutoNumbers), so this isn't needed for assigning ids — but anything that
+            // reconstructs the counter from the cached ColumnDef.Seed would, left stale, reset it to its
+            // create-time value after the high rows were deleted (seen once: next id dropped to 1 instead of
+            // continuing past 6). Seed = next id.
             column.Seed = unchecked(newHighWater + column.Increment);
         }
 

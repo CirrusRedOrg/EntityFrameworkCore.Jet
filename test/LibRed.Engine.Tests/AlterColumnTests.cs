@@ -35,6 +35,30 @@ public class AlterColumnTests : TempDatabaseTest
         e.ExecuteNonQuery("INSERT INTO T (K, V) VALUES (2, 'a much longer value than twenty chars')");
     }
 
+    // A Memo retype edits the definition in place, as ACE's does — it once rebuilt the table and recreated the primary
+    // key first. A key added after another index keeps its place, and so does every other index, and the
+    // relationship a child table holds to it.
+    [Fact]
+    public void A_memo_retype_keeps_the_indexes_in_their_order()
+    {
+        var (e, db) = Fresh();
+        e.ExecuteNonQuery("CREATE TABLE P ( ID LONG NOT NULL, A LONG, B TEXT(20) )");
+        e.ExecuteNonQuery("CREATE INDEX IX_A ON P (A)");
+        e.ExecuteNonQuery("ALTER TABLE P ADD CONSTRAINT PK_P PRIMARY KEY (ID)");
+        e.ExecuteNonQuery("CREATE INDEX IX_B ON P (B)");
+        e.ExecuteNonQuery("CREATE TABLE C ( CID LONG, PID LONG, CONSTRAINT FK_C_P FOREIGN KEY (PID) REFERENCES P (ID) )");
+        e.ExecuteNonQuery("INSERT INTO P (ID, A, B) VALUES (1, 10, 'x')");
+
+        e.ExecuteNonQuery("ALTER TABLE P ALTER COLUMN B MEMO");
+
+        var p = db.Catalog.FindTable("P")!;
+        Assert.Equal(["IX_A", "PK_P", "IX_B"], p.Indexes.Select(i => i.Name));
+        Assert.True(p.Indexes[1].IsPrimaryKey);
+        Assert.Equal(["A", "ID", "B"], p.RealIndexes.Select(i => i.Columns.Single().Column.Name));
+        Assert.Contains(db.Catalog.Relationships, r => r.Name == "FK_C_P" && r.ReferencedTable == "P");
+        Assert.Equal("x", e.ExecuteQuery("SELECT B FROM P WHERE ID = 1").Rows.Single()[0]);
+    }
+
     [Fact]
     public void Narrow_a_text_column_is_a_metadata_change()
     {

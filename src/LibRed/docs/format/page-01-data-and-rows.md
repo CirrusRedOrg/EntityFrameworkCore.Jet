@@ -231,9 +231,10 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
   the high-water, not the highest live id, which would have given 1. A writer that sizes these by the live
   count writes a bit ACE cannot find for any id ≥ live count → ACE reads that column null.
 - **A dead id's bit depends on which route wrote the row** (verified). The **ALTER COLUMN re-lay** carries the
-  old row's bit forward, so a retype's burned id reads **present** (`0x0F` above). A row **inserted
-  afterwards** leaves it **clear** (`0x0D` on the same table), as do the dropped ids after a `DROP COLUMN`
-  (`01` for a live column 0 with ids 1 and 2 dropped).
+  old row's bit forward unchanged: the retyped column's old id stays **present** where the row held a value
+  (`0x0F` above) and **clear** where it was NULL. A row **inserted afterwards** leaves it **clear** (`0x0D` on
+  the same table), as do the dropped ids after a `DROP COLUMN` (`01` for a live column 0 with ids 1 and 2
+  dropped).
 - **Null bitmap** is indexed by **column id**; a **set bit = the value is present** (non-null).
 - **Fixed** column value is at `rowStart + 2 + fixedOffset`, `length` bytes.
   - A **fixed-length text** column (`CHAR`/`NCHAR`, not `TEXT`/`VARCHAR`) fills its whole `length`: the value is

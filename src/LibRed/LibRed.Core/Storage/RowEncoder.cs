@@ -120,7 +120,7 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
             varChunks[column.VariableIndex] = v is null ? [] : JetTypeCodec.Encode(column, v);
         }
 
-        return AssembleRow(maxColumnId, fixedRegion, varChunks, _columns, values, deadIdsPresent: false);
+        return AssembleRow(maxColumnId, fixedRegion, varChunks, _columns, values);
     }
 
     /// <summary>The slot for a calculated column: the envelope holding the result, wrapped in a long-value
@@ -197,9 +197,10 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     /// <summary>Assembles the on-disk row bytes from a prepared fixed region and the ordered variable chunks:
     /// <c>[count][fixed][var data][var-offset table][numVar]</c> (the variable section is omitted entirely when
     /// there are none) then <c>[null bitmap]</c>. The count and bitmap width are <c>maxColumnId + 1</c>; a
-    /// column's bit is set when present (Boolean = its truthy value), and dead ids (gaps below the max, from a
-    /// burned/dropped id) are set present too — all verified vs ACE (§5). Shared by <c>Encode</c> and
-    /// the ALTER COLUMN row re-lay so the two can never drift.</summary>
+    /// column's bit is set when present (Boolean = its truthy value), and a dead id's (a gap below the max, from a
+    /// burned/dropped id) is taken from <paramref name="priorBitmap"/> — the row's bitmap before an ALTER COLUMN
+    /// re-lay — or left clear for a new row — all verified vs ACE (§5). Shared by <c>Encode</c> and the ALTER
+    /// COLUMN row re-lay so the two can never drift.</summary>
     /// <remarks>
     /// The declared-width check runs HERE rather than in <c>Encode</c>. It used to sit above this call,
     /// which meant the ALTER COLUMN re-lay — the other caller — never got it, and a narrowing retype could
@@ -207,7 +208,7 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     /// </remarks>
     internal static byte[] AssembleRow(int maxColumnId, ReadOnlySpan<byte> fixedRegion,
         IReadOnlyList<byte[]> varChunks, IReadOnlyList<ColumnDef> columns, object?[] values,
-        bool deadIdsPresent = true)
+        ReadOnlySpan<byte> priorBitmap = default)
     {
         // A calculated column is exempt from the declared-width check: its length field is a constant ACE
         // writes (39 for a value type, 509 for any Text, whatever size was asked for), not a limit — a
@@ -268,13 +269,12 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
             if (present) row[bitmapPos + (column.ColumnId >> 3)] |= (byte)(1 << (column.ColumnId & 7));
         }
         // A dead id's bit depends on which route wrote the row, and both are measured against ACE: the ALTER
-        // COLUMN re-lay carries the old row's bit forward (a retype's burned id reads present, §5), while a
-        // row INSERTED afterwards leaves it clear — the same statement pair gives ACE 0x0F for the re-laid row
-        // and 0x0D for the next insert.
-        if (deadIdsPresent)
-            for (int id = 0; id <= maxColumnId; id++)
-                if (!liveIds.Contains(id))
-                    row[bitmapPos + (id >> 3)] |= (byte)(1 << (id & 7));
+        // COLUMN re-lay carries the old row's bit forward — set where the retyped column held a value, clear
+        // where it was NULL — while a row INSERTED afterwards leaves it clear: the same statement pair gives
+        // ACE 0x0F for a re-laid row with a value and 0x0D for the next insert.
+        for (int id = 0; id <= maxColumnId && id < priorBitmap.Length * 8; id++)
+            if (!liveIds.Contains(id) && (priorBitmap[id >> 3] & (1 << (id & 7))) != 0)
+                row[bitmapPos + (id >> 3)] |= (byte)(1 << (id & 7));
         return row;
     }
 

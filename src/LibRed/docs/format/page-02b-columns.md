@@ -372,13 +372,12 @@ fixed↔variable, PK, indexed, multi-page and decimal shapes, including repeated
 This is **the same mechanism for every type/length change** — including a *widening* `TEXT(n)→TEXT(m)`;
 there is no cheap "just bump the length" path, ACE burns the id there too.
 
-LibRed's Memo/OLE logical rebuild has a different layout but enforces the same id high-water limit;
-see [§3.1](page-02a-tdef.md#31-header).
+The same holds for a Memo/OLE source or target (below); the id high-water limit is [§3.1](page-02a-tdef.md#31-header).
 
 > **Relationship columns cannot be altered.** ACE rejects a type or length change when the target is either
 > a referencing FK column or its referenced parent column: *"Cannot change field 'X'. It is part of one or
-> more relationships."* This is verified for both sides. LibRed performs this check before choosing an
-> in-place edit or logical rebuild, so no descriptor, row, or index page is changed on rejection.
+> more relationships."* This is verified for both sides. LibRed performs this check before the edit, so no
+> descriptor, row, or index page is changed on rejection.
 
 **TDEF header:** the max-column-id high-water (`0x29`, §3.1) bumps **+1** (this is the burned id). For a
 change **to a variable type**, the variable-column count (`0x2B`) also bumps **+1**. Every field burn is
@@ -395,14 +394,11 @@ null bitmap is keyed by **id** and not by position (§5).
 > one and is rejected at 255. ACE accepts the identity ALTER at 255 for a `NOT NULL` column as readily as a
 > nullable one, so
 > LibRed must not compare nullability when deciding an ALTER is a no-op — and no ALTER path carries it
-> anyway, since `Required` is applied separately and `RewriteColumn` discards the spec's value.
-
-> **Where LibRed's Memo/OLE rebuild diverges.** `RewriteColumn` preserves each untouched column's original
-> descriptor bytes except the fields LibRed models (the `RawDescriptor` passthrough) and keeps column order,
-> but it does **not** give the target the burned id: it rebuilds with **contiguous** ids and re-encodes rows
-> with null bits keyed by those, rather than retaining ACE's old ids and dead storage. The `0x29` high-water
-> is still preserved and incremented and an ALTER at 255 still rejected, so the lifetime cap matches ACE
-> even though the layout does not. The in-place path above retains the ids and dead storage as ACE does.
+> anyway, since `Required` is applied separately and the in-place edit keeps the column's own.
+>
+> Because the edit is in place, everything the ALTER does not touch stays where it was — every other column's
+> descriptor and id, and every index, the primary key included, in its place among the logical and index-data
+> blocks (verified).
 
 **Target column descriptor (§3.4)** — the *only* descriptor that changes; all others stay byte-identical:
 
@@ -426,7 +422,18 @@ from the schema (§5).
 the **old fixed region and old variable chunks are kept verbatim** (the dead old-target slot / chunk keeps
 its stale bytes), and the converted target is **appended** — a new fixed slot at the offset above, or a new
 variable chunk at variable-index = the old var count. The leading count, variable-offset table + `numVar`,
-and null bitmap are then rebuilt per §5 (count and bitmap width = max id + 1, dead ids' bits set present).
+and null bitmap are then rebuilt per §5 (count and bitmap width = max id + 1; each dead id's bit as the old
+row had it — so the retyped column's old id is present where it held a value and clear where it was NULL).
+A fixed target whose converted value is NULL gets no bytes written: its new slot holds whatever the old record
+had at those offsets (the start of its variable data, on a row with some), not zeros.
+
+**A Memo/OLE source or target** takes the same edit and re-lay, plus the long-value side of ADD and DROP
+COLUMN (verified, both directions and a Memo re-declared as Memo). A column becoming Memo/OLE gets its §3.3.2
+entry, and its owned and free map records appended to the table's usage-map page; each converted value is then
+stored as an insert stores it — inline (a memo compressed) up to 64 bytes, else on an LVAL page — and the row
+carries its descriptor as the appended chunk. A column ceasing to be one has its entry removed and its map
+records retired as a dropped column's are; its LVAL pages go back to the global free map with their bytes
+untouched, and each row keeps the old descriptor as its dead chunk.
 
 **Indexed target — full index rebuild.** When the modified column is in an index, ACE reconstructs that
 index (its keys change type). Verified:

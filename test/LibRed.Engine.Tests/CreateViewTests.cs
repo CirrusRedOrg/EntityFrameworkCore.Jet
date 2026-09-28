@@ -197,8 +197,27 @@ public class CreateViewTests
         {
             using var db = JetDatabase.Open(path, readOnly: false);
             // Northwind already has a Customers table.
-            Assert.Throws<SchemaObjectExistsException>(() =>
+            var ex = Assert.Throws<SchemaObjectExistsException>(() =>
                 new QueryEngine(db).ExecuteNonQuery("CREATE VIEW `Customers` AS SELECT `CustomerID` FROM `Customers`"));
+            Assert.Equal("Object 'Customers' already exists.", ex.Message);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // A view collides only with the tables, queries and linked tables of the Tables container, as in ACE — a
+    // relationship lives in another container, so its name is free for a view.
+    [Fact]
+    public void View_may_take_a_relationships_name()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE TABLE `Widget` (`Id` INTEGER PRIMARY KEY, `ShipperID` INTEGER, " +
+                              "CONSTRAINT `WidgetShipper` FOREIGN KEY (`ShipperID`) REFERENCES `Shippers` (`ShipperID`))");
+            e.ExecuteNonQuery("CREATE VIEW `WidgetShipper` AS SELECT `Id` FROM `Widget`");
+            Assert.Empty(e.ExecuteQuery("SELECT * FROM `WidgetShipper`").Rows);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

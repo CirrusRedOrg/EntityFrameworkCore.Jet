@@ -102,6 +102,18 @@ public class SelectIntoTests : TempDatabaseTest
         Assert.Equal("SiNew", error.ObjectName);
     }
 
+    // A query's name is taken too: tables and queries share the Tables container's name space.
+    [Fact]
+    public void A_query_named_like_the_target_is_an_error()
+    {
+        QueryEngine engine = WithSource();
+        engine.ExecuteNonQuery("CREATE VIEW SiView AS SELECT Id FROM SiSrc");
+
+        var error = Assert.Throws<SchemaObjectExistsException>(
+            () => engine.ExecuteNonQuery("SELECT Id INTO SiView FROM SiSrc"));
+        Assert.Equal("Table 'SiView' already exists.", error.Message);
+    }
+
     // An expression column is typed from the expression, since there is no source column to copy.
     [Fact]
     public void An_expression_column_is_typed_from_the_expression()

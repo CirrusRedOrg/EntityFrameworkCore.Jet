@@ -256,7 +256,7 @@ Global maps, located by page 0: free pages at `0x18` (page 1 row 0 as ACE writes
 
 ## Catalog tables → [system-catalog](system-catalog.md)
 
-- **MSysObjects** (TDEF page 2): `Id`, `Name`, `Type` (1 table, 5 query/view), `Flags`, `ParentId`, `Owner`, `DateCreate`/`DateUpdate`, `LvProp` (property blob).
+- **MSysObjects** (TDEF page 2): `Id`, `Name`, `Type` (1 table, 2 database, 3 container, 5 query/view, 6 linked table, 8 relationship; negative for Access documents — see system-catalog §11 *Object kinds*), `Flags`, `ParentId` (the container; `Name` is unique within it), `Owner`, `DateCreate`/`DateUpdate`, `LvProp` (property blob).
 - **MSysACEs** (4 cols): `ObjectId`, `SID`, `ACM`, `FInheritable` — two rows per object.
 - **MSysQueries** (8 cols): `ObjectId`, `Attribute`, `Flag`, `Name1`, `Name2`, `Expression`, `Order`, `LvExtra`; PK `(ObjectId, Attribute, Order)`.
 - **MSysRelationships**: `szRelationship`, `szObject`, `szColumn`, `szReferencedObject`, `szReferencedColumn`, `icolumn`, `ccolumn`, `grbit` (`0x01` one-to-one, `0x02` don't-enforce, `0x100` cascade-update, `0x1000` cascade-delete, `0x2000` delete-set-null, `0x1000000`/`0x2000000` join type: all records from the parent / from the child). The cascades ACE applies come from the index-info blocks' `0x15`/`0x16`, not from these bits.

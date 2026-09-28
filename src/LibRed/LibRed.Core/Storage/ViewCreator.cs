@@ -74,19 +74,21 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         int nameIndex = msysObjects.RequireColumn("Name").Index;
         int parentIndex = msysObjects.RequireColumn("ParentId").Index;
 
-        // A query's name must be unique among all objects (it also cannot equal an existing table name); a
-        // relationship's only among the relationships, as ACE has it. Find the next free negative id (they
-        // increment from 0x80000000) in the same scan.
+        // A name must be free within the object's own container — the rule MSysObjects' unique (ParentId, Name)
+        // index states, and the one ACE applies (measured): a query collides with a table, a query or a linked
+        // table, all in the Tables container, and not with a form, report, macro, module, relationship, database
+        // document or container; a relationship only with another relationship. Find the next free negative id
+        // (they increment from 0x80000000) in the same scan.
         bool relationship = parentId == CatalogFormat.RelationshipContainerParentId;
         int nextId = unchecked((int)0x80000000);
         var objects = new Table(_channel, msysObjects);
         foreach (object?[] row in objects.Rows(objects.DecodeOnly([idIndex, nameIndex, parentIndex])))
         {
-            if ((!relationship || row[parentIndex] is int parent && parent == parentId)
+            if (row[parentIndex] is int parent && parent == parentId
                 && string.Equals(row[nameIndex] as string, name, StringComparison.OrdinalIgnoreCase))
                 throw new SchemaObjectExistsException(relationship
                     ? $"There is already a relationship named '{name}' in the current database."
-                    : $"An object named '{name}' already exists.", name);
+                    : $"Object '{name}' already exists.", name);
             if (row[idIndex] is int id && id < 0 && id >= nextId) nextId = id + 1;
         }
 

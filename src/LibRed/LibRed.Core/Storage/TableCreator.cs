@@ -106,9 +106,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         foreach (UniqueIndexSpec u in uniqueConstraints) JetName.Validate(u.Name, "unique constraint name");
         foreach ((string checkName, _) in checkConstraints) JetName.Validate(checkName, "check constraint name");
 
-        // A table name is unique (case-insensitively) across the database; reject a duplicate rather
-        // than writing a second MSysObjects row that shadows the existing table.
-        if (_catalog.FindTable(name) is not null)
+        // A table's name is free only if no table, query or linked table has it (case-insensitively) — ACE's
+        // rule, reported as ACE reports it, rather than as the MSysObjects index violation writing the row hits.
+        if (ObjectNameExists(name, exceptObjectId: 0))
             throw new SchemaObjectExistsException($"Table '{name}' already exists.", name);
 
         // Jet/ACE caps a table at 255 columns. The count/id fields are 2 bytes wide so we could physically
@@ -1525,32 +1525,29 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         }
     }
 
-    /// <summary>MSysObjects.Type for a table object (queries use <see cref="StoredQueryFormat.ObjectTypeQuery"/>).</summary>
-    private const short ObjectTypeTable = 1;
-
     /// <summary>
-    /// Whether any <b>table or saved query</b> already uses this name. Access keeps tables and queries in a
-    /// single namespace: ACE rejects renaming a table onto either (verified — <c>RenameFanOutProbeTest</c>),
-    /// even though they live in different MSysObjects containers, so the unique <c>(ParentId, Name)</c> index
-    /// would <i>not</i> catch a table/query collision on its own. Scanned straight from MSysObjects rather than
-    /// the catalog's reconstructed <c>Views</c>/<c>ActionQueries</c>, which omit queries LibRed can't rebuild.
+    /// Whether a <b>table, saved query or linked table</b> already uses this name — the objects of the Tables
+    /// container, whose names MSysObjects' unique <c>(ParentId, Name)</c> index keeps distinct. That is ACE's rule
+    /// for a new or renamed table (measured, and <c>RenameFanOutProbeTest</c> for renames): a form, report, macro,
+    /// module, relationship or database document of the same name does not collide. Scanned straight from
+    /// MSysObjects rather than the catalog's reconstructed tables and <c>Views</c>, which omit linked tables and
+    /// queries LibRed can't rebuild.
     /// </summary>
     private bool ObjectNameExists(string name, int exceptObjectId)
     {
         TableDef mo = _catalog.RequireTable("MSysObjects");
         int idIndex = mo.RequireColumn("Id").Index;
         int nameIndex = mo.RequireColumn("Name").Index;
-        int typeIndex = mo.RequireColumn("Type").Index;
+        int parentIndex = mo.RequireColumn("ParentId").Index;
 
         var objects = new Table(_channel, mo);
-        foreach (object?[] values in objects.Rows(objects.DecodeOnly([idIndex, nameIndex, typeIndex])))
+        foreach (object?[] values in objects.Rows(objects.DecodeOnly([idIndex, nameIndex, parentIndex])))
         {
             if (!NameMatches(values[nameIndex], name)) continue;
             // Skip the object being renamed — it can't collide with itself (same-name and case-only renames).
             if (values[idIndex] is not null
                 && Convert.ToInt32(values[idIndex], CultureInfo.InvariantCulture) == exceptObjectId) continue;
-            short type = Convert.ToInt16(values[typeIndex] ?? (short)0, CultureInfo.InvariantCulture);
-            if (type is ObjectTypeTable or StoredQueryFormat.ObjectTypeQuery) return true;
+            if (values[parentIndex] is int parent && parent == CatalogFormat.ObjectContainerParentId) return true;
         }
 
         return false;

@@ -28,6 +28,34 @@
   > **`TABLE`**, which is why `MSysAccessStorage` (`Flags = 0`) appears among the user tables despite its
   > name. Stored queries are listed in the same rowset as **`VIEW`**.
 
+  **Object kinds.** `Type` names the kind and `ParentId` the **container** it sits in; the containers are
+  themselves rows, of `Type 3`. Measured across a corpus of Access-written files:
+
+  | `Type` | Kind | `ParentId` (container) | Non-null blob/link columns |
+  |---|---|---|---|
+  | `1` | local table | `Tables` (`0x0F000001`) | `LvProp`, `Owner` |
+  | `2` | the database object, `MSysDb` | `Databases` | — |
+  | `3` | container: `Tables`, `Databases`, `Relationships`, `Forms`, `Reports`, `Scripts`, `Modules`, `DataAccessPages`, `SysRel`; `Flags` `0` or `0x80000000` | `0x0F000000`, which has no row of its own | — |
+  | `5` | query | `Tables` | `Lv`, `LvExtra`, `LvProp` |
+  | `6` | linked table; `Flags` `0x00200000` or `0x00B00000` | `Tables` | `Connect`, `Database`, `ForeignName`, `Lv`, `LvProp` |
+  | `8` | relationship | `Relationships` (`0x0F000003`) | `LvProp` |
+  | `-32757` (`0x800B`) | database document: `SummaryInfo`, `UserDefined`, `AccessLayout` | `Databases` | `LvExtra`, `LvProp` |
+  | `-32758` (`0x800A`) | a row per user (`Admin`) | `SysRel` | `LvExtra` |
+  | `-32761` (`0x8007`) | module | `Modules` | — |
+  | `-32764` (`0x8004`) | report | `Reports` | — |
+  | `-32766` (`0x8002`) | macro | `Scripts` | — |
+  | `-32768` (`0x8000`) | form | `Forms` | — |
+
+  The last column lists what a row of that kind *can* carry, not what every one does: a query or relationship
+  written by ACE or LibRed leaves `LvProp` null (below), where Access fills it.
+
+  > **A name is unique within its container, and only there.** That is the rule the unique `(ParentId, Name)`
+  > index states, and the one ACE applies (verified, case-insensitively): a new table (`CREATE TABLE`,
+  > `SELECT … INTO`, a rename) or query (`CREATE VIEW` / `CREATE PROCEDURE`) is refused when a table, query or
+  > linked table already has its name — *"Table 'X' already exists."* and *"Object 'X' already exists."*
+  > respectively — and may take the name of a relationship, form, report, macro, module, database document or
+  > container. A relationship's name collides only with another relationship's (§ *Relationships* below).
+
   **Writing a table object** (verified against Access-written rows). A complete user-table row sets:
   `Id` = TDEF page; `ParentId` = `0x0F000001` (the database's "Tables" container, constant);
   `Type` = `1`; `Name`; `Flags` = `0`; `Owner` = the 2-byte binary SID of the **Users** account *as this file
@@ -289,7 +317,8 @@
   > (see §3.7).
 
 - **Views / queries** are `MSysObjects` rows of **Type 5** with a **negative synthetic `Id`** (queries
-  increment from `0x80000000`), `ParentId 0x0F000001`, `Flags 0x10000000`, `LvProp` null.
+  increment from `0x80000000`), `ParentId 0x0F000001`, `Flags 0x10000000`, `LvProp` null as ACE writes it
+  (Access fills it with the query's properties).
 
 - **Relationships** are `MSysObjects` rows of **Type 8** too — one per relationship, alongside its
   `MSysRelationships` rows (verified vs ACE: every relationship Access or ACE creates has one, whether from
@@ -297,7 +326,8 @@
   `ParentId 0x0F000003` (the Relationships container), `Flags 0`, `Owner` = the file's Users SID (the SID note
   above), `DateCreate` = `DateUpdate` =
   the creation time, and `LvProp`, `Lv`, `LvExtra`, `LvModule`, `Connect`, `Database`, `ForeignName`,
-  `RmtInfoShort`, `RmtInfoLong` all null.
+  `RmtInfoShort`, `RmtInfoLong` all null — for one ACE creates. An Access-written relationship can carry
+  `LvProp`, in the ordinary property-blob format (§11 *Property blob*).
   - **`Id`** is the next negative synthetic id: one past the highest in the file, from the sequence queries draw
     on, so relationships and queries interleave (`0x8000002C` relationship, `0x8000002D` view,
     `0x8000002E` relationship), and a dropped relationship's id is taken by the next object.
@@ -625,11 +655,10 @@
   > query"* (Name AutoCorrect is an Access *application* feature, so it never runs for an engine-level rename).
   > LibRed reproduces exactly this, deliberately including the dangling query.
   >
-  > **Name collisions.** Tables and saved queries share **one namespace**: ACE rejects renaming a table onto
-  > the name of an existing table *or* an existing query (both verified). Note the unique `(ParentId, Name)`
-  > index does **not** enforce the table/query half of that on its own — the two object kinds sit in different
-  > containers, so they differ in `ParentId`. A rename therefore has to pre-check `MSysObjects` for a matching
-  > `Name` with `Type` 1 (table) or 5 (query), which is what LibRed does — **excluding the object being
+  > **Name collisions.** A rename follows the container rule of §11 *Object kinds*: ACE rejects renaming a
+  > table onto the name of an existing table *or* an existing query (both verified), the two sharing the
+  > `Tables` container. The check has to come before the rename, since the unique `(ParentId, Name)` index
+  > would only object once the row is being rewritten — **excluding the object being
   > renamed**, which cannot collide with itself: ACE allows renaming a table to its own name, and allows a
   > case-only change (both verified). The self-rename case is not hypothetical — EF models "move a table to
   > another schema" as a rename, and on a schema-less engine that degrades to `RENAME TO` the *same* name.

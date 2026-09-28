@@ -818,9 +818,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// </remarks>
     private int ExecuteSelectInto(SelectStatement statement)
     {
+        // A taken name — a table's, a query's or a linked table's — is refused by CreateTable, before anything is
+        // written; the read below has no side effect to undo.
         string target = statement.Into!;
-        if (_database.Catalog.Tables.Any(t => string.Equals(t.Name, target, StringComparison.OrdinalIgnoreCase)))
-            throw new SchemaObjectExistsException($"Table '{target}' already exists.", target);
 
         // Run the query first — with INTO stripped, or planning would recurse back into this method — and
         // materialise it. The rows have to exist before the table does: the source may read a table this

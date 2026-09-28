@@ -830,11 +830,9 @@ ALTER TABLE `People` ALTER COLUMN `SomeColumn` varchar(255) NOT NULL DEFAULT '';
 
         AssertSql(
             """
-DROP INDEX `IX_People_SomeColumn` ON `People`;
 ALTER TABLE `People` ALTER COLUMN `SomeColumn` DROP DEFAULT;
 UPDATE `People` SET `SomeColumn` = '' WHERE `SomeColumn` IS NULL;
 ALTER TABLE `People` ALTER COLUMN `SomeColumn` varchar(255) NOT NULL DEFAULT '';
-CREATE INDEX `IX_People_SomeColumn` ON `People` (`SomeColumn`);
 """);
     }
 
@@ -845,11 +843,9 @@ CREATE INDEX `IX_People_SomeColumn` ON `People` (`SomeColumn`);
 
         AssertSql(
             """
-DROP INDEX `IX_People_FirstName_LastName` ON `People`;
 ALTER TABLE `People` ALTER COLUMN `FirstName` DROP DEFAULT;
 UPDATE `People` SET `FirstName` = '' WHERE `FirstName` IS NULL;
 ALTER TABLE `People` ALTER COLUMN `FirstName` varchar(255) NOT NULL DEFAULT '';
-CREATE INDEX `IX_People_FirstName_LastName` ON `People` (`FirstName`, `LastName`);
 """);
     }
 

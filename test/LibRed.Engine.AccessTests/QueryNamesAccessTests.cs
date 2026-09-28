@@ -24,8 +24,18 @@ public class QueryNamesAccessTests(ITestOutputHelper output) : TempDatabaseTest
         "Drop", "Column", "Insert", "Into", "Values", "Primary", "Key", "Constraint", "Foreign", "References", "Delete",
         "Update", "Cascade", "Restrict", "Action", "Set", "Default", "No", "Unique", "Clustered", "Identity",
         "Nonclustered", "Index", "Temporary", "With", "Compression", "Comp", "Disallow", "Ignore", "Check", "View",
-        "Procedure", "Parameters", "Execute", "Exec", "Asc", "Desc", "True", "False", "Null", "Yes", "Off",
+        "Procedure", "Parameters", "Execute", "Exec", "Asc", "Desc", "True", "False", "Null", "Yes", "Off", "Language",
     ];
+
+    // ANSI-92 reserved words Access's own SQL does not use. OLE DB runs ACE in ANSI-92 mode, and ACE before Access
+    // version 2311 (build 16.0.17029) refuses one as a name even qualified, with reserved error -1001, which has no
+    // message; 2311 fixed that, so the current engine takes each as any other name. The ACE 2016 redistributable and
+    // ACE 2010 are both older, and LibRed follows the current engine.
+    private static readonly HashSet<string> RefusedBefore2311 = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Full", "Then", "Cross", "End", "Fetch", "Next", "Rows", "Only", "Intersect", "Except", "Restrict", "Temporary",
+        "Language",
+    };
 
     // The operator words, which ACE refuses after a bang (as are Select and All).
     private static readonly HashSet<string> RefusedAfterBang = new(StringComparer.OrdinalIgnoreCase)
@@ -95,7 +105,8 @@ public class QueryNamesAccessTests(ITestOutputHelper output) : TempDatabaseTest
     [Theory]
     [MemberData(nameof(Queries))]
     public void A_query_reads_and_names_as_ace_does(string query) =>
-        Matches(query, command => { }, null);
+        Matches(query, command => { }, null,
+            refusedBefore2311: RefusedBefore2311.Any(k => query == $"SELECT K.{k} FROM K" || query == $"SELECT K!{k} FROM K"));
 
     [Theory]
     [MemberData(nameof(Declared))]
@@ -147,8 +158,10 @@ public class QueryNamesAccessTests(ITestOutputHelper output) : TempDatabaseTest
     }
 
     /// <summary>Runs the query through ACE and through LibRed, over a copy of Northwind with tables K and Árú made
-    /// by ACE, and compares each column's name and type and every value.</summary>
-    private void Matches(string query, Action<OleDbCommand> bind, IReadOnlyDictionary<string, object?>? parameters)
+    /// by ACE, and compares each column's name and type and every value. <paramref name="refusedBefore2311"/> marks a
+    /// query an ACE older than version 2311 refuses (<see cref="RefusedBefore2311"/>), which is skipped there.</summary>
+    private void Matches(string query, Action<OleDbCommand> bind, IReadOnlyDictionary<string, object?>? parameters,
+        bool refusedBefore2311 = false)
     {
         string path = Copy();
         try
@@ -165,7 +178,15 @@ public class QueryNamesAccessTests(ITestOutputHelper output) : TempDatabaseTest
                 using OleDbCommand command = connection.CreateCommand();
                 command.CommandText = query;
                 bind(command);
-                using OleDbDataReader reader = command.ExecuteReader();
+                OleDbDataReader executed;
+                try { executed = command.ExecuteReader(); }
+                catch (OleDbException) when (refusedBefore2311)
+                {
+                    Assert.Skip("This ACE predates Access version 2311 and refuses an unused ANSI-92 reserved word as a name "
+                        + "(reserved error -1001).");
+                    throw;
+                }
+                using OleDbDataReader reader = executed;
                 var columns = Enumerable.Range(0, reader.FieldCount).Select(i => $"{reader.GetName(i)}:{reader.GetFieldType(i).Name}").ToList();
                 var rows = new List<object?[]>();
                 while (reader.Read())

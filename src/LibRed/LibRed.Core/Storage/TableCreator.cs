@@ -1481,7 +1481,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             changed = true;
         }
         return changed
-            ? PropertyBlob.Write(properties, blob.Length >= 4 ? blob.AsSpan(0, 4) : default)
+            ? PropertyBlob.Write(properties, blob)
             : blob;
     }
 
@@ -2006,7 +2006,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             byte[] blob = values[lvProp.Index] as byte[] ?? [];
             var props = PropertyBlob.Read(blob).ToList();
             mutate(props);
-            byte[] updated = PropertyBlob.Write(props, blob.Length >= 4 ? blob.AsSpan(0, 4) : default);
+            byte[] updated = PropertyBlob.Write(props, blob);
             byte[] descriptor = new RowInserter(_channel, msys).StorePackedLongValue(lvProp.ColumnId, updated);
             values[lvProp.Index] = new LongValueDescriptor(descriptor);
             table.Update(id, values, new HashSet<int> { lvProp.Index });
@@ -2227,7 +2227,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         props.RemoveAll(p => p.IsOwnedBy("") && p.Name == name);
         if (value is not null)
             props.Add(new PropertyBlob.Property("", name, value));
-        return PropertyBlob.Write(props, blob.Length >= 4 ? blob.AsSpan(0, 4) : default);
+        return PropertyBlob.Write(props, blob);
     }
 
     /// <summary>Refuses a narrowing ALTER when a stored value would no longer fit, reporting the same way the

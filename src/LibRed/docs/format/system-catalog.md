@@ -90,9 +90,29 @@
   > marker. LibRed accepts any flag byte, writes it back unchanged, and defaults newly constructed schema
   > properties to `0x01`. The
   > `dataType` is an ordinary **`JetDataType` code** (the same byte used by column descriptors and
-  > MSysQueries): **`0x0C`** (Memo) for a text value stored as **UTF-16**, **`0x01`** (Boolean) for a single
-  > **0/1 byte**, and — on the `MSysDb` object's UI/nav settings only — `0x0A` (Text), `0x02`/`0x03`/`0x04`
-  > (Byte/Int16/Int32). The value-block **type** is `0x01` for a column-owned map and `0x00` for the
+  > MSysQueries), and any owner — the database, a table or its columns, a query, a relationship, Access's own
+  > document objects — can carry any of them (verified across Access-written files):
+  > - **Text `0x0A` and Memo `0x0C` both hold UTF-16 text**, split by property rather than by owner:
+  >   `Description`, `Format`, `InputMask`, `Title` and `ValidationText` are `0x0A`; `DefaultValue`,
+  >   `ValidationRule`, `CheckConstraints`, `Caption`, `RowSource` and `Expression` are `0x0C` (with
+  >   `DefaultValue` and `RowSource` occasionally `0x0A`).
+  > - Boolean `0x01` (`Required`, `AllowZeroLength`, `UnicodeCompression`, `ColumnHidden`), Byte `0x02`
+  >   (`ResultType`, `DecimalPlaces`, `IMEMode`), Int16 `0x03` (`ColumnWidth`, `ColumnOrder`, `DisplayControl`),
+  >   Int32 `0x04` (`CurrencyLCID`, `Build`), Single `0x06` (the theme `…Tint`/`…Shade` adjustments), DateTime
+  >   `0x08` (on `MSysDb`), Binary `0x09` (`GUID`, 16 bytes) and OLE `0x0B` (`NameMap`, `DOL`).
+  > - **The type does not fix the value's size; the entry's `valueLen` does.** Some Booleans are 4 bytes
+  >   (`TotalsRow` and `HideNewField` always, `AppendOnly` sometimes) and some Int16s are too (`ColumnWidth`
+  >   always, `ProjVer`, `ColumnOrder` sometimes). A reader takes the length from the entry, never from the type.
+  >   A four-byte Int16 is a signed 32-bit value (`ColumnWidth` `FFFFFFFF` is -1, `18060000` is 1560), and a
+  >   Boolean is true when any byte is non-zero — Access writes a one-byte true as both `01` and `FF`.
+  >
+  > **The name pool outlives its properties.** Access keeps a property's name in the pool after deleting the
+  > property itself, in the order the names were first defined — tables carrying `Description`, `Filter` and
+  > `OrderBy` names with no entry using them are common (verified across Access-written files). A writer
+  > rewriting a blob keeps the pool whole and appends new names; rebuilding it from the surviving entries
+  > changes the blob's bytes though nothing it means has changed.
+  >
+  > The value-block **type** is `0x01` for a column-owned map and `0x00` for the
   > table-owned map (empty owner name). mdbtools gives `0x02` as an **index**-owned map, named for the index —
   > which Access usually names for its column — though no example file has one (unverified). LibRed keeps each
   > block's type as read, so a column's properties are only ever those in a `0x01` block of its name. A `DefaultValue` (column property) is the expression's **source

@@ -1044,7 +1044,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// are, for the one caller that drops a table in order to put it back: <see cref="RewriteColumn"/>. Taking
     /// them would destroy the values it is rebuilding around, and it re-points each row at the new
     /// definition page instead.</param>
-    private bool DropTable(string tableName, bool keepComplexColumns)
+    /// <param name="keepPermissions">Leaves the table's <c>MSysACEs</c> rows behind, as ACE does for the flat table
+    /// and template of a version history it drops with the last append-only memo (measured) — see
+    /// <see cref="DropVersionHistory"/>.</param>
+    private bool DropTable(string tableName, bool keepComplexColumns, bool keepPermissions = false)
     {
         TableDef? table = _catalog.FindTable(tableName);
         if (table is null) return false;
@@ -1149,7 +1152,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             allocator.Release(page);   // reusable only after this handle closes, as ACE holds them
 
         DeleteCatalogRows("MSysObjects", "Id", tdefPage);
-        DeleteCatalogRows("MSysACEs", "ObjectId", tdefPage);
+        if (!keepPermissions) DeleteCatalogRows("MSysACEs", "ObjectId", tdefPage);
         _catalog.Invalidate();
         return true;
     }
@@ -3177,16 +3180,85 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         foreach (int page in owned)
             allocator.Release(page);   // reusable only after this handle closes, as ACE holds them
 
-        RemoveColumnProperties(table.DefinitionPage, columnName); // drop its DefaultValue/Required from LvProp (ACE does)
+        // An append-only memo's version history goes with it (DropVersionHistory). Found before the catalog moves on,
+        // and when this is the table's last append-only memo its table-level AppendOnly leaves in the same property
+        // rewrite as the memo's own block — one rewrite, as ACE makes it.
+        VersionHistory? history = VersionHistoryOf(tableName, columnName);
+        RemoveColumnProperties(table.DefinitionPage, columnName, history is { IsLast: true }); // ACE drops its properties
         _catalog.Invalidate();
+        if (history is { } h) DropVersionHistory(tableName, columnName, h);
         return true;
+    }
+
+    /// <summary>The element type of a table's version-history column: a per-table template named
+    /// <c>MSysComplexTypeVH_&lt;GUID&gt;</c>, holding one value column per append-only memo, named for the memo, and
+    /// a <c>Modified_&lt;GUID&gt;</c> timestamp.</summary>
+    private const string VersionHistoryTemplatePrefix = "MSysComplexTypeVH_";
+
+    private const string VersionHistoryTimestampPrefix = "Modified_";
+
+    /// <summary>The table-level property Access sets while a table has an append-only memo.</summary>
+    private const string AppendOnlyProperty = "AppendOnly";
+
+    /// <summary>A table's version-history column as it stands for one of its append-only memos: the complex column,
+    /// its template's name, and whether that memo is the last whose history it keeps.</summary>
+    private sealed record VersionHistory(string ColumnName, int ComplexId, string FlatTable, string Template, bool IsLast);
+
+    /// <summary>The version history keeping <paramref name="memoName"/>'s history, or null when the column is not an
+    /// append-only memo. A table has at most one version-history column; its template carries a value column named
+    /// for each append-only memo.</summary>
+    private VersionHistory? VersionHistoryOf(string tableName, string memoName)
+    {
+        if (_catalog.ComplexColumns.FirstOrDefault(c =>
+                string.Equals(c.OwnerTable.Name, tableName, StringComparison.OrdinalIgnoreCase)
+                && c.ElementTypeName?.StartsWith(VersionHistoryTemplatePrefix, StringComparison.Ordinal) == true) is not { } history)
+            return null;
+        var values = _catalog.RequireTable(history.ElementTypeName!).Columns
+            .Where(c => !c.Name.StartsWith(VersionHistoryTimestampPrefix, StringComparison.Ordinal)).ToList();
+        if (!values.Any(c => string.Equals(c.Name, memoName, StringComparison.OrdinalIgnoreCase))) return null;
+        return new VersionHistory(history.ColumnName, history.ComplexId, history.FlatTable.Name, history.ElementTypeName!,
+            IsLast: values.Count == 1);
+    }
+
+    /// <summary>
+    /// Takes a dropped append-only memo's version history with it, as ACE does (measured). A table keeps the history
+    /// of all its append-only memos in one hidden complex column, whose template and flat table carry a value column
+    /// per memo. While another append-only memo remains, only the dropped memo's value column goes, from both. When it
+    /// was the last, the history goes entirely: the hidden column and its index, its <c>MSysComplexColumns</c> row, the
+    /// flat table and the template — each released as a dropped table's is, but with its <c>MSysACEs</c> rows left
+    /// behind, as ACE leaves them — and, when no other complex column is left on the table, its complex-column flag.
+    /// (The table-level <c>AppendOnly</c> property has already gone, with the memo's own properties.) Unlike dropping
+    /// an attachment or multi-value column directly, which leaves its registration and flat table behind.
+    /// </summary>
+    private void DropVersionHistory(string tableName, string memoName, VersionHistory history)
+    {
+        if (!history.IsLast)
+        {
+            DropColumn(history.FlatTable, memoName);
+            DropColumn(history.Template, memoName);
+            return;
+        }
+
+        int tdefPage = _catalog.RequireTable(tableName).DefinitionPage;
+        DropColumn(tableName, history.ColumnName);   // the complex-column branch takes its index with it
+        DropTable(history.FlatTable, keepComplexColumns: false, keepPermissions: true);
+        DeleteCatalogRows("MSysComplexColumns", "ComplexID", history.ComplexId);
+        DropTable(history.Template, keepComplexColumns: false, keepPermissions: true);
+
+        if (!_catalog.ComplexColumns.Any(c => string.Equals(c.OwnerTable.Name, tableName, StringComparison.OrdinalIgnoreCase))
+            && ReadObjectFlags(tdefPage) is int flags && (flags & CatalogFormat.ObjectFlagOwnsComplexColumns) != 0)
+            UpdateCatalogRows("MSysObjects", "Id", tdefPage, required: true,
+                ("Flags", flags & ~CatalogFormat.ObjectFlagOwnsComplexColumns));
+        _catalog.Invalidate();
     }
 
     /// <summary>Removes a dropped column's extended-property block (DefaultValue, Required, …) from its
     /// table's <c>MSysObjects.LvProp</c> blob — what ACE does on DROP COLUMN (verified). Surgically removes
     /// just that column's block (keeps the name pool + other columns' blocks), re-stores the smaller blob on
-    /// an LvProp page and updates the row. No-op when the column had no properties.</summary>
-    private void RemoveColumnProperties(int tdefPage, string columnName)
+    /// an LvProp page and updates the row. No-op when the column had no properties. With
+    /// <paramref name="alsoTableAppendOnly"/> the table-level <c>AppendOnly</c> property leaves in the same rewrite —
+    /// for the table's last append-only memo.</summary>
+    private void RemoveColumnProperties(int tdefPage, string columnName, bool alsoTableAppendOnly = false)
     {
         (TableDef msys, Table table, int idIdx, ColumnDef lvProp) = ObjectProperties();
 
@@ -3195,7 +3267,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             if (values[lvProp.Index] is not byte[] { Length: > 0 } blob) return;
 
             byte[] cleaned = PropertyBlob.RemoveOwner(blob, columnName);
-            if (cleaned.Length == blob.Length) return; // the column had no property block — nothing to remove
+            if (alsoTableAppendOnly) cleaned = ReplaceTableProperty(cleaned, AppendOnlyProperty, null);
+            if (cleaned.Length == blob.Length) return; // nothing to remove
 
             byte[] descriptor = new RowInserter(_channel, msys).StorePackedLongValue(lvProp.ColumnId, cleaned);
             values[lvProp.Index] = new LongValueDescriptor(descriptor);

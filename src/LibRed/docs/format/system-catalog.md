@@ -812,6 +812,33 @@ set on every table with a complex column and on no table without one, system tab
 the template tables, which hold the values rather than the column (verified across Access-written ACE
 files). A flat table can carry its own `LvProp`.
 
+### Version history — the append-only memo
+
+A memo with the `AppendOnly` property (column-owned Boolean, DDL flag `0x01`; DAO's `Field2.AppendOnly`)
+keeps its earlier values in a complex column Access adds for it (verified — DAO setting the property creates
+all of the below). While a table has one, the table itself carries `AppendOnly` = 1 too, in its own block.
+
+- **One history per table, whatever its number of append-only memos.** The table gains a hidden `Complex`
+  column named **`VersionHistory_F5F8918F-0A3F-4DA9-AE71-184EE5012880`** — the same name in every table —
+  with its own complex index (flags `0x0289`), registered in `MSysComplexColumns` like any other.
+- Its element type is not one of the nine shared templates but a **template of the table's own**,
+  **`MSysComplexTypeVH_<GUID>`** (`Flags` `0x80030000`), holding **one value column per append-only memo,
+  named for the memo** (and of its type), plus `Modified_F9B5E312-4155-4c59-9AAE-391C1B295827` (DateTime).
+- Its flat table, `f_<GUID>_VersionHistory_F5F8918F-0A3F-` (the name is cut short), has the two bookkeeping
+  columns `_VersionHistory_…` and `<Table>_VersionHistory_…` and the template's columns.
+
+**`DROP COLUMN` of an append-only memo takes its history with it (verified).**
+
+- While **another** append-only memo remains, only the dropped memo's value column goes — from the template
+  and from the flat table. The history column, its registration and the table's `AppendOnly` stay.
+- When it was the **last**, the history goes entirely: the hidden column and its index, its
+  `MSysComplexColumns` row, and the flat table and the template, each released as a dropped table is
+  (`0x0108`) — **but their `MSysACEs` rows are left behind**. The table's `AppendOnly` goes, and so does its
+  `0x00040000` flag unless another complex column is left on it.
+
+That is unlike dropping an attachment or multi-value column itself, which leaves its `MSysComplexColumns` row
+and flat table behind. LibRed's `DROP COLUMN` does the same as ACE on both counts.
+
 ### Attachment payload — `FileData`
 
 An attachment's `FileData` is an OLE long value wrapping the file, with an 8-byte outer header, optional

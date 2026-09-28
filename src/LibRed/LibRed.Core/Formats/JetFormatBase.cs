@@ -243,19 +243,12 @@ public abstract class JetFormatBase
     public const byte ColumnFlagGuidAutoNumber = 0x40;
     /// <summary>Column flag: a hyperlink (a Memo column presented as a hyperlink).</summary>
     public const byte ColumnFlagHyperlink = 0x80;
-    /// <summary>Mask of the flag bits a user column's <see cref="Catalog.ColumnDef"/> models. The complement — the
-    /// catalog bits <c>0x10</c>/<c>0x20</c> of a system column, and <c>0x08</c>, never seen set — is preserved from
-    /// raw.</summary>
-    public const byte ColumnFlagsDocumented =
-        ColumnFlagFixedLength | ColumnFlagUpdatable | ColumnFlagAutoNumber | ColumnFlagGuidAutoNumber | ColumnFlagHyperlink;
 
     // Extended flag byte (0x10).
     /// <summary>Extended flag: the column can store compressed Unicode text (§7).</summary>
     public const byte ColumnExtFlagCompressedUnicode = 0x01;
     /// <summary>Extended flag: a calculated (computed) column (ACE 14+); the 0xC0 pair.</summary>
     public const byte ColumnExtFlagCalculated = 0xC0;
-    /// <summary>Mask of the documented extended-flag bits — the complement is preserved from raw.</summary>
-    public const byte ColumnExtFlagsDocumented = ColumnExtFlagCompressedUnicode | ColumnExtFlagCalculated;
     // Note: nullability is NOT in the column flag byte (bit 0x02 is set on every column). A NOT NULL column
     // is marked by a boolean `Required` property in the LvProp blob instead — see PropertyBlob / §11.
 

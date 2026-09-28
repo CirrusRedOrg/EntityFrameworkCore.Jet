@@ -375,13 +375,12 @@ public sealed class TableDefinitionPage : Page
                 Length = d.Length,
                 FixedOffset = d.FixedOffset,
                 VariableIndex = isFixed ? -1 : d.VariableIndex,
-                // Byte 7 is stored on fixed columns too (the running count of preceding variable columns); keep
-                // it so a faithful rebuild re-emits the exact value instead of clobbering fixed columns to 0.
+                // Byte 7 is stored on fixed columns too (the running count of preceding variable columns).
                 VariableTableIndex = d.VariableIndex,
                 IsFixedLength = isFixed,
                 IsAutoNumber = (d.Flags & JetFormatBase.ColumnFlagAutoNumber) != 0,
                 // Every documented flag bit is modelled (0x0F: updatable/GUID-autonumber/hyperlink; 0x10:
-                // compressed-Unicode / calculated) so it round-trips explicitly, not via RawDescriptor.
+                // compressed-Unicode / calculated).
                 IsUpdatable = (d.Flags & JetFormatBase.ColumnFlagUpdatable) != 0,
                 IsGuidAutoNumber = (d.Flags & JetFormatBase.ColumnFlagGuidAutoNumber) != 0,
                 IsHyperlink = (d.Flags & JetFormatBase.ColumnFlagHyperlink) != 0,
@@ -390,7 +389,7 @@ public sealed class TableDefinitionPage : Page
                 Precision = d.Precision,
                 Scale = d.Scale,
                 Collation = d.Collation,
-                // Keep the original 25 bytes so a rewrite preserves fields we don't model (faithful round-trip).
+                // The descriptor's bytes as read, fields LibRed does not model included.
                 RawDescriptor = buffer.Slice(columnBlock + i * format.ColumnDescriptorSize, format.ColumnDescriptorSize).ToArray(),
             });
         }

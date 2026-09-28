@@ -426,7 +426,7 @@ public sealed class JetDatabase : IDisposable
     }
 
     /// <summary>Changes a column's declared type — ALTER TABLE … ALTER COLUMN. A variable text/binary length
-    /// change is an in-place descriptor edit; a storage-type change rebuilds the table (converting values).</summary>
+    /// change is an in-place descriptor edit; a storage-type change is <see cref="AlterColumnTypeInPlace"/>.</summary>
     public void AlterColumn(string table, string column, ColumnSpec newSpec)
     {
         new Storage.TableCreator(_channel, Catalog, Collation).AlterColumn(table, column, newSpec);
@@ -434,8 +434,8 @@ public sealed class JetDatabase : IDisposable
     }
 
     /// <summary>Full in-place column type change, byte-for-byte like ACE for every shape (fixed/variable columns
-    /// and targets, fixed↔variable, and indexed targets): TDEF edit + row re-lay preserving the dead old slot +
-    /// index rebuild. Falls back to the logical rebuild only for a Memo/OLE (long-value) source or target.</summary>
+    /// and targets, fixed↔variable, indexed targets, and a Memo/OLE source or target): TDEF edit + row re-lay
+    /// preserving the dead old slot + a rebuild of the indexes over the column.</summary>
     public void AlterColumnTypeInPlace(string table, string column, ColumnSpec newSpec)
     {
         new Storage.TableCreator(_channel, Catalog, Collation).AlterColumnTypeInPlace(table, column, newSpec);

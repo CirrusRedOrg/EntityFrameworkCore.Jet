@@ -135,10 +135,10 @@
 > **Every flag a user column carries is modelled; the rest ride through raw.** LibRed reads the user-column
 > bits of `0x0F` and `0x10` into `ColumnDef` (`IsUpdatable`/`IsGuidAutoNumber`/`IsHyperlink`,
 > `SupportsCompressedUnicode`/`IsCalculated`) and composes them back on write, so they round-trip explicitly.
-> It writes the catalog bits `0x10`/`0x20` on the system tables it creates. Everything else is preserved
-> verbatim through `ColumnDef.RawDescriptor` on a rewrite: the reserved words at `0x03` and `0x11`, the catalog
-> bits of an existing column, and the `0x10` bits it does not model, which the complex columns' flat tables
-> set.
+> It writes the catalog bits `0x10`/`0x20` on the system tables it creates. Everything else — the reserved
+> words at `0x03` and `0x11`, the catalog bits of an existing column, and the `0x10` bits it does not model,
+> which the complex columns' flat tables set — survives because every ALTER edits the existing descriptor in
+> place, as ACE does, rather than re-emitting it.
 
 > **Nullability, defaults and checks are *not* in the descriptor.** The column's *Required* (NOT NULL)
 > property is **not** encoded anywhere in the 25-byte descriptor — verified: a nullable column and a

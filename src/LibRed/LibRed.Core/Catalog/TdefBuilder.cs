@@ -19,11 +19,9 @@ public sealed record ColumnSpec(
     // Default 1/1 (a plain COUNTER). Stored in the TDEF header: last-value 0x14 = Seed-Increment, 0x18 = Increment.
     int Seed = 1,
     int Increment = 1,
-    // Faithful-rebuild passthrough (ALTER COLUMN): an explicit column id (else the column's position is used)
-    // and the column's original 25-byte descriptor, re-emitted verbatim except for the fields LibRed manages
-    // so a rebuild preserves unmodeled bytes. Both null for an ordinary CREATE/ADD column. See ColumnDef.RawDescriptor.
+    // An explicit column id, else the column's position is used. Access's own catalog tables declare their
+    // columns in an order that is not their id order (DatabaseCreator); null for an ordinary CREATE/ADD column.
     int? ColumnId = null,
-    byte[]? RawDescriptor = null,
     // The catalog flag bits (0x0F) Access sets on the columns of its own catalog — MSysObjects, MSysACEs,
     // MSysQueries, MSysRelationships and MSysComplexColumns: 0x10 on every one, and 0x20 as well on the two that
     // hold a security identifier (MSysObjects.Owner, MSysACEs.SID). Every other column leaves them clear, the
@@ -150,7 +148,6 @@ public static class TdefBuilder
     /// <param name="indexes">The table's indexes, or null for none.</param>
     /// <param name="longValueColumns">The memo/OLE columns' usage-map pointers.</param>
     /// <param name="logicalIndexes">Explicit logical-index blocks, or null to derive them from the indexes.</param>
-    /// <param name="complexAutoNumber">The complex-column counter (TDEF <c>0x1C</c>).</param>
     public static Result Build(
         JetFormatBase format,
         TableType tableType,
@@ -158,8 +155,7 @@ public static class TdefBuilder
         Collation collation,
         IReadOnlyList<IndexSpec>? indexes = null,
         IReadOnlyList<LongValueColumnSpec>? longValueColumns = null,
-        IReadOnlyList<LogicalIndexSpec>? logicalIndexes = null,
-        int complexAutoNumber = 0)
+        IReadOnlyList<LogicalIndexSpec>? logicalIndexes = null)
     {
         indexes ??= [];
         longValueColumns ??= [];
@@ -191,9 +187,9 @@ public static class TdefBuilder
         // CREATE silently took the first and ignored the rest.
         //
         // Complex columns are exempt, and are not a second claimant: they carry the same 0x04 flag but are
-        // allocated from 0x1C, not from this pair. Counting them would refuse to rebuild any table that has an
-        // ordinary counter beside a complex column — complex1.accdb's Table1 has one of each kind — and could
-        // hand `counter` a complex spec whose seed/increment describe nothing.
+        // allocated from 0x1C, not from this pair. Counting them would refuse a table that has an ordinary
+        // counter beside a complex column — complex1.accdb's Table1 has one of each kind — and could hand
+        // `counter` a complex spec whose seed/increment describe nothing.
         var counters = specs.Where(s => s.IsAutoNumber && s.Type != JetDataType.Complex).ToList();
         if (counters.Count > 1)
             throw new NotSupportedException(
@@ -201,9 +197,8 @@ public static class TdefBuilder
         ColumnSpec? counter = counters.FirstOrDefault();
         if (counter is { Increment: 0 }) throw ZeroIncrement(counter.Name);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefAutoNumberIncrementOffset, 4), counter?.Increment ?? 1);
-        // Complex-type AutoNumber high-water (0x1C) — 0 for a table with no complex column, carried through on
-        // a rebuild for faithful round-trip.
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefComplexAutoNumberOffset, 4), complexAutoNumber);
+        // Complex-type AutoNumber high-water (0x1C): 0 for a new table, which has no complex column.
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefComplexAutoNumberOffset, 4), 0);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefNextPageOffset, 4), 0);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefRowCountOffset, 4), 0);
         if (counter is not null)
@@ -211,7 +206,7 @@ public static class TdefBuilder
                 page.AsSpan(format.TdefLastAutoNumberOffset, 4), counter.Seed - counter.Increment);
         page[format.TdefTableTypeOffset] = (byte)tableType;
         // The 0x29 high-water is the next column id to hand out = max existing id + 1. For contiguous ids this
-        // equals the column count; when a rebuild carries a burned id (ALTER COLUMN) it exceeds the count.
+        // equals the column count.
         int maxColumnId = columns.Select(c => c.ColumnId).DefaultIfEmpty(-1).Max();
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefMaxColumnsOffset, 2), (ushort)(maxColumnId + 1));
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefVariableColumnsOffset, 2),
@@ -292,9 +287,6 @@ public static class TdefBuilder
             ValidateNameLength(spec.Name, "Column");
             if (!names.Add(spec.Name))
                 throw new NotSupportedException($"Column name '{spec.Name}' is used more than once.");
-            if (spec.RawDescriptor is { } raw && raw.Length != format.ColumnDescriptorSize)
-                throw new NotSupportedException(
-                    $"Column '{spec.Name}' carries a {raw.Length}-byte raw descriptor; this format requires {format.ColumnDescriptorSize} bytes.");
             int id = spec.ColumnId ?? i;
             if (id is < 0 or >= MaxColumnsPerTable)
                 throw new NotSupportedException(
@@ -511,9 +503,8 @@ public static class TdefBuilder
 
     private static List<ColumnDef> ResolveColumns(JetFormatBase format, IReadOnlyList<ColumnSpec> specs, Collation collation)
     {
-        // A column's id is its declaration position unless the spec pins one explicitly (ALTER COLUMN burns a
-        // fresh id at the same position, so ids can be non-contiguous — the row codec reads var-index from the
-        // descriptor, not from id arithmetic). Variable columns are addressed in ascending column-id order.
+        // A column's id is its declaration position unless the spec pins one explicitly (the catalog tables
+        // DatabaseCreator writes). Variable columns are addressed in ascending column-id order.
         int EffectiveId(int i) => specs[i].ColumnId ?? i;
 
         var variableRank = new Dictionary<int, int>();
@@ -547,12 +538,6 @@ public static class TdefBuilder
             // Booleans live in the null bitmap and occupy no fixed-data bytes, so they don't
             // advance the fixed offset (matching how the row codec skips them).
             bool occupiesFixedData = s.IsFixedLength && s.Type != JetDataType.Boolean;
-            // The documented flag bits LibRed doesn't drive from the spec (updatable, GUID-autonumber, hyperlink,
-            // compressed-Unicode, calculated) are carried through a rebuild by reading them off the original
-            // descriptor. A fresh column (no raw) is updatable with the rest clear — the CREATE default.
-            bool hasRaw = s.RawDescriptor is { } r && r.Length == format.ColumnDescriptorSize;
-            byte rawFlags = hasRaw ? s.RawDescriptor![format.ColumnFlagsOffset] : JetFormatBase.ColumnFlagUpdatable;
-            byte rawExt = hasRaw ? s.RawDescriptor![format.ColumnExtendedFlagsOffset] : (byte)0;
             columns.Add(new ColumnDef
             {
                 Name = s.Name,
@@ -565,13 +550,8 @@ public static class TdefBuilder
                 VariableTableIndex = VarTableIndex(i),
                 IsFixedLength = s.IsFixedLength,
                 IsAutoNumber = s.IsAutoNumber,
-                IsUpdatable = (rawFlags & JetFormatBase.ColumnFlagUpdatable) != 0,
-                IsGuidAutoNumber = (rawFlags & JetFormatBase.ColumnFlagGuidAutoNumber) != 0,
-                IsHyperlink = (rawFlags & JetFormatBase.ColumnFlagHyperlink) != 0,
-                SupportsCompressedUnicode = s.SupportsCompressedUnicode
-                    || (rawExt & JetFormatBase.ColumnExtFlagCompressedUnicode) != 0,
-                IsCalculated = s.CalculatedExpression is not null
-                    || (rawExt & JetFormatBase.ColumnExtFlagCalculated) != 0,
+                SupportsCompressedUnicode = s.SupportsCompressedUnicode,
+                IsCalculated = s.CalculatedExpression is not null,
                 CalculatedExpression = s.CalculatedExpression,
                 CalculatedResultType = s.CalculatedResultType,
                 SystemFlags = s.SystemFlags,
@@ -582,7 +562,6 @@ public static class TdefBuilder
                 // Numeric columns carry no collation (their 0x0B/0x0C bytes are precision/scale); every
                 // other column inherits the database's collating order.
                 Collation = s.Type == JetDataType.FixedPoint ? Collation.GeneralLegacy : collation,
-                RawDescriptor = s.RawDescriptor,
             });
         }
         return columns;
@@ -605,14 +584,7 @@ public static class TdefBuilder
     /// ALTER TABLE ADD COLUMN.</summary>
     public static byte[] BuildColumnDescriptor(ColumnDef c, JetFormatBase format)
     {
-        // Faithful round-trip: when we have the column's original bytes (a rebuild of a read column that we're
-        // NOT retyping), start from them and overwrite every field LibRed models, so the only bytes that survive
-        // untouched are the genuinely reserved/unknown ones — the reserved words 0x03/0x11 and the undocumented
-        // bits of the two flag bytes. A fresh column (RawDescriptor null — CREATE, ADD COLUMN, or the
-        // deliberately-retyped ALTER target) builds from zero.
-        byte[] d = c.RawDescriptor is { } raw && raw.Length == format.ColumnDescriptorSize
-            ? (byte[])raw.Clone()
-            : new byte[format.ColumnDescriptorSize];
+        byte[] d = new byte[format.ColumnDescriptorSize];
         d[format.ColumnTypeOffset] = (byte)c.Type;
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(ColumnRecordMarkerOffset, 2), (ushort)JetFormatBase.TdefRecordMarker);
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnNumberOffset, 2), (ushort)c.ColumnId);
@@ -620,31 +592,29 @@ public static class TdefBuilder
         // model and DAO-executed SQL — and every user table in every fixture carries it, while only the
         // engine's own bootstrap tables (MSysObjects and friends) leave it zero, which is what a system
         // column keeps here. An earlier comment claimed real files store zero; that had been read off the
-        // system tables alone. On a rebuild the original value survives untouched, because it stops
-        // tracking 0x05 once an ALTER COLUMN type change burns a new id there (§3.8).
-        if (c.RawDescriptor is null or { Length: 0 })
-            BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnSecondaryNumberOffset, 2),
-                (ushort)(c.IsEngineColumn ? 0 : c.ColumnId));
+        // system tables alone.
+        BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnSecondaryNumberOffset, 2),
+            (ushort)(c.IsEngineColumn ? 0 : c.ColumnId));
         // Offset 7 = variable-table index (count of variable columns with a smaller id), stored on fixed columns
         // too. Prefer the precomputed value; fall back to the legacy rule (0 for fixed) when unset (ADD COLUMN).
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnVariableIndexOffset, 2),
             (ushort)(c.VariableTableIndex >= 0 ? c.VariableTableIndex : (c.IsFixedLength ? 0 : c.VariableIndex)));
         WriteLocaleUnion(d, c.Type, c.Precision, c.Scale, c.Collation, format);
         // Compose the flag byte (0x0F) from every bit a user column models, plus the catalog bits a created system
-        // column asks for; the rest — an existing column's catalog bits — survive from the original. Likewise the
-        // extended-flag byte (0x10), whose unmodelled bits the complex columns' flat tables set.
+        // column asks for; likewise the extended-flag byte (0x10), plus the unmodelled bits an attachment's
+        // value columns ask for.
         byte flags = (byte)(
             (c.IsUpdatable ? JetFormatBase.ColumnFlagUpdatable : 0)
             | (c.IsFixedLength ? JetFormatBase.ColumnFlagFixedLength : 0)
             | (c.IsAutoNumber ? JetFormatBase.ColumnFlagAutoNumber : 0)
             | (c.IsGuidAutoNumber ? JetFormatBase.ColumnFlagGuidAutoNumber : 0)
             | (c.IsHyperlink ? JetFormatBase.ColumnFlagHyperlink : 0));
-        d[format.ColumnFlagsOffset] = (byte)((d[format.ColumnFlagsOffset] & ~JetFormatBase.ColumnFlagsDocumented) | flags | c.SystemFlags);
+        d[format.ColumnFlagsOffset] = (byte)(flags | c.SystemFlags);
 
         byte extFlags = (byte)(
             (c.SupportsCompressedUnicode ? JetFormatBase.ColumnExtFlagCompressedUnicode : 0)
             | (c.IsCalculated ? JetFormatBase.ColumnExtFlagCalculated : 0));
-        d[format.ColumnExtendedFlagsOffset] = (byte)((d[format.ColumnExtendedFlagsOffset] & ~JetFormatBase.ColumnExtFlagsDocumented) | extFlags | c.ExtendedFlags);
+        d[format.ColumnExtendedFlagsOffset] = (byte)(extFlags | c.ExtendedFlags);
 
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnFixedOffsetOffset, 2), (ushort)c.FixedOffset);
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnLengthOffset, 2), (ushort)c.Length);
@@ -670,8 +640,7 @@ public static class TdefBuilder
         {
             // A complex (multi-value / attachment) column stores its MSysComplexColumns key here (page-02b
             // §3.4) — there is nothing to collate, since the values are rows of the flat table and carry their
-            // own collations. Writing a LANGID over it severs the column from its values, which is what a
-            // rebuild of such a table used to do. The bytes come from the original descriptor and stay.
+            // own collations. Writing a LANGID over it severs the column from its values, so the bytes stand.
         }
         else if (type == JetDataType.DateTimeExtended)
         {

@@ -14,14 +14,13 @@ namespace LibRed.Storage;
 /// Creates and alters tables in an existing database. <see cref="Create"/> allocates and writes the TDEF
 /// page, its indexes' B-tree roots and an owned-pages usage map, then records the table in MSysObjects so
 /// the catalog finds it. The rest of the class is the incremental DDL EF issues one statement at a time —
-/// ADD/DROP/ALTER/RENAME for columns, indexes, relationships and CHECK constraints — each a surgical edit
-/// of the existing TDEF rather than a rebuild, so unmodelled descriptor bytes survive.
+/// ADD/DROP/ALTER/RENAME for columns, indexes, relationships and CHECK constraints — each an edit of the
+/// existing TDEF in place, as ACE makes it, so unmodelled descriptor bytes survive.
 /// </summary>
 /// <param name="collation">The <b>database's</b> collating order, from page 0. Every non-numeric column this
 /// class writes inherits it, which is what decides how that column's index keys are encoded, so it is
-/// required rather than defaulted. It used to fall back to General-Legacy for "callers that don't create
-/// columns" — but ALTER COLUMN creates them, by rebuilding the table, and passed nothing: on a General (v1)
-/// database that silently produced v0 columns whose keys the rest of the file does not sort by.</param>
+/// required rather than defaulted: a General-Legacy fallback silently writes v0 columns into a General (v1)
+/// database, whose keys the rest of the file does not sort by.</param>
 /// <param name="channel">The database file.</param>
 /// <param name="catalog">The catalog to read and keep current.</param>
 public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collation collation)
@@ -138,9 +137,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int usageMapPage = _allocator.Allocate();
 
         // Key the long-value maps by the column's *id*, not its position. The two coincide on an ordinary
-        // CREATE TABLE, but a spec can carry an explicit id — the faithful-rebuild path does, and ids are
-        // never reused after a DROP COLUMN — and the TDEF's long-value map is read back by id, so using the
-        // position there silently points a Memo/OLE column's usage maps at the wrong column.
+        // CREATE TABLE, but a spec can carry an explicit id, and the TDEF's long-value map is read back by id,
+        // so using the position there silently points a Memo/OLE column's usage maps at the wrong column.
         // A calculated column with a Memo RESULT needs the maps too, and its declared type does not say so:
         // ACE declares such a column Text with length 0 and reaches the value through a long-value
         // descriptor, so keying off Type alone leaves it without maps and its result nowhere to go (§3.4a).
@@ -718,8 +716,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // block in name order. ACE's order ignores case (verified: a3 goes before IX2, and an FK named fk before
         // IX2); how it orders punctuation and accented letters is not measured.
         parts.Stats.Add(new byte[format.RealIndexEntrySize]);
-        // An index over a complex column carries the complex-column flag — every one Access writes does, which a
-        // rebuild restoring the index from its IndexDef would otherwise drop.
+        // An index over a complex column carries the complex-column flag — every one Access writes does.
         bool complexColumn = slots.Any(s => table.Columns.Any(c => c.ColumnId == s.Id && c.Type == JetDataType.Complex));
         parts.DataBlocks.Add(BuildIndexDataBlock(
             slots, rootPage, newIndexUsageRow, usageMapPage, unique, required, ignoreNulls, complexColumn));
@@ -786,7 +783,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <see cref="IndexWriter.KeyExists"/> descent is gone. The comparison is still on the encoded key, which
     /// is Access's uniqueness domain (see <see cref="EnsureExistingRowsFitIndex"/>).</para>
     /// <para>A built index's statistics are set as ACE sets them (verified, for CREATE INDEX, a foreign key's
-    /// backing index and an ALTER COLUMN's rebuild): the total entry count to the entries it now holds and the
+    /// backing index and an index an ALTER COLUMN rebuilds): the total entry count to the entries it now holds and the
     /// unique entry count to its distinct keys — both from the rows present, not from any earlier history.</para>
     /// </remarks>
     private void BackfillIndex(string tableName, string indexName, bool ignoreNulls, bool validateUnique)
@@ -2274,8 +2271,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             !col.IsFixedLength && !newSpec.IsFixedLength && col.Type == newSpec.Type &&
             newSpec.Type is JetDataType.Text or JetDataType.Binary or JetDataType.BigBinary;
         // A variable text/binary length change is a cheap in-place descriptor edit (below). A storage-type change
-        // (numeric type, fixed size, fixed↔variable) is a full column rewrite: the byte-faithful in-place edit
-        // where it applies (all-fixed non-indexed target), else the logical rebuild (AlterColumnTypeInPlace picks).
+        // (numeric type, fixed size, fixed↔variable, to or from a long value) edits the descriptor in place and
+        // re-lays every row, rebuilding only the indexes over the column.
         if (!variableLengthChange)
         {
             AlterColumnTypeInPlace(tableName, columnName, newSpec);
@@ -2371,8 +2368,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     }
 
     /// <summary>ACE rejects every type/length alteration of a relationship column, on either the
-    /// referencing or referenced side. Keep this check ahead of all specialized ALTER paths so an
-    /// in-place descriptor edit cannot bypass the same rule enforced by a logical table rebuild.</summary>
+    /// referencing or referenced side. Keep this check ahead of all specialized ALTER paths so none of
+    /// them can bypass it.</summary>
     private void EnsureColumnIsNotInRelationship(TableDef table, ColumnDef column)
     {
         if (ColumnIsInRelationship(table, column))
@@ -3577,8 +3574,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             props.Add(new PropertyBlob.Property("", PropertyBlob.CheckConstraintsProperty,
                 PropertyBlob.WriteCheckList(checkConstraints)));
 
-        // A table owning a complex column is flagged so — the rebuild recreates such tables, and Access marks
-        // every one it writes.
+        // A table owning a complex column is flagged so — Access marks every one it writes.
         new CatalogWriter(_channel, _catalog).AddObjectRow(
             name, tdefPage, CatalogFormat.ObjectTypeTable, CatalogFormat.ObjectContainerParentId,
             flags: ownsComplexColumns ? CatalogFormat.ObjectFlagOwnsComplexColumns : 0, props);

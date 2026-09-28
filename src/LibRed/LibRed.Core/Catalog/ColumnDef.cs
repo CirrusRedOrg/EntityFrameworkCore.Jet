@@ -117,11 +117,10 @@ public sealed class ColumnDef
     /// LibRed encodes index keys for 417 collation configurations, not only General legacy.</remarks>
     public Collation Collation { get; init; } = Collation.GeneralLegacy;
 
-    /// <summary>The column's original on-disk descriptor bytes (the 25-byte Jet4 record), captured verbatim on
-    /// read. Every documented field is now modelled explicitly, so this is carried only to re-emit the
-    /// genuinely <b>reserved/unknown</b> bytes on a rewrite — the reserved words at <c>0x03</c> and <c>0x11</c>,
-    /// and the undocumented bits of the two flag bytes (<c>0x0F</c>/<c>0x10</c>) — instead of stamping zero over
-    /// them (the faithful round-trip rule). Null for a freshly-built (never-read) column.</summary>
+    /// <summary>The column's on-disk descriptor bytes (the 25-byte Jet4 record), captured verbatim on read —
+    /// the reserved words at <c>0x03</c> and <c>0x11</c> and the undocumented flag bits included, which no
+    /// modelled property carries. Nothing writes from it: every DDL edits the descriptor in place, so those
+    /// bytes are never re-emitted. Null for a freshly-built (never-read) column.</summary>
     public byte[]? RawDescriptor { get; init; }
 
     /// <summary>Catalog flag bits (byte 0x0F) to force-set on a created column — the system-catalog column marker

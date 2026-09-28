@@ -120,7 +120,7 @@ LVAL pages are data pages (type `0x0101`) whose owner field (`0x04`) is the ASCI
 
 > **Reader and reclamation guardrails.** LibRed requires the complete 12-byte descriptor before reading
 > its fields, accepts only the three flags above, and bounds inline data against the bytes actually present.
-> Every external pointer must name an in-file type-`0x01` page with the `LVAL` owner marker and a live,
+> Every external pointer must name an in-file type-`0x0101` page with the `LVAL` owner marker and a live,
 > ordinary row slot. Chained rows must contain their 4-byte next pointer, make payload progress, never repeat
 > a `(page,row)`, terminate at zero exactly when the declared length is reached, and neither underfill nor
 > overrun that length. Before reclaiming a replaced chain, LibRed validates the complete chain and requires

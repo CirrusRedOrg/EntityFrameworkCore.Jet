@@ -285,6 +285,11 @@ per-user *overall status*; the lock file holds the actual page-level read/write 
 "accessed a corrupted page" — either one *without a matching user lock* makes Jet declare the database
 suspect and demand a repair before it will open.
 
+ACE writes `01 00` to the user's slot on two measured occasions: a global usage-map pointer at `0x18`/`0x1C`
+naming a page past the end of the file ([page-05 §9.1](page-05-usage-maps.md)), and a read of a row whose
+relocation pointer names a page the file does not hold ([page-01](page-01-data-and-rows.md), *Relocated
+rows*). Either way every later open fails with *"Unrecognized database format"*.
+
 #### The slot is a little-endian commit counter (verified)
 
 Above those low reserved values, a slot is **one 16-bit little-endian counter of that user's committed

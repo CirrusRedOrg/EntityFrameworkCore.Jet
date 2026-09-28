@@ -116,7 +116,7 @@ hundreds of bytes against the pointer's four.
 > does anything complain locally. A writer must therefore enforce 4060 rather than the page geometry;
 > LibRed does so in `RowInserter` from `JetFormatBase.MaxRecordSize`.
 
-> **Reader guardrails.** LibRed requires an exact format-sized type-`0x01` page before either a full
+> **Reader guardrails.** LibRed requires an exact format-sized type-`0x0101` page before either a full
 > scan or the O(1) index-seek slot path. The declared slot directory must fit before the heap; every
 > masked row offset must lie between the directory end and page end and must not increase relative to
 > the previous slot. Equal offsets remain valid because ALTER/relocation can deliberately leave a
@@ -126,7 +126,7 @@ hundreds of bytes against the pointer's four.
 ### Relocated rows
 
 A live slot with `0x4000` set **begins with** a 4-byte little-endian forward pointer,
-`(targetPage << 8) | targetRow`. The target is a nonempty inline row on a type-`0x01` page owned by
+`(targetPage << 8) | targetRow`. The target is a nonempty inline row on a type-`0x0101` page owned by
 the same table. Its target slot has `0x8000` (deleted/hidden) set and `0x4000` clear: ordinary scans
 skip the hidden physical row, while the original row id and its index entries continue to resolve
 through the live source slot. A zero-length slot with both flags set is a tombstone, not a relocation
@@ -162,10 +162,19 @@ the OLE-column transition the bytes themselves record; Access's own maintenance 
 which is not reachable through SQL DML, is unexamined. Readers must therefore take the pointer from the
 leading 4 bytes and ignore any remainder rather than requiring a width.
 
+**A pointer to a page the file does not hold is corruption, and ACE treats it as such (verified).** The
+source slot still counts as a row — `COUNT(*)` includes it, counting slots without following them — but
+any read of the row's data fails with *"Unrecognized database format"*, and ACE sets the reading user's
+commit slot to `01 00` ("accessed a corrupted page", [page-00 §2.2](page-00-database.md)), after which
+every open of the file fails until it is repaired. This is unlike a page missing from a table's owned-pages
+map, which ACE's scan skips silently ([README](README.md)): the owned map only lists where rows may be,
+while a relocation pointer asserts that one is there.
+
 LibRed follows relocations through one shared resolver used by scans, index seeks, and raw-row
 mutation helpers. It validates that the source begins with a 4-byte pointer, plus the in-file page
 number, target row, page owner, and source/target flag shapes before exposing target bytes;
-malformed pointers fail with `InvalidDataException`.
+malformed pointers — a missing target page among them — fail with `InvalidDataException`. LibRed does
+not set the commit slot: it keeps no user slot of its own (§2.2).
 
 ## 5. Row record format
 

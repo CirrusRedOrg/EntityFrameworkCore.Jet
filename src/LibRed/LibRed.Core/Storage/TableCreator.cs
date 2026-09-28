@@ -334,7 +334,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             columnProps.AddRange(CalculatedProperties(col));
         }
 
-        AddCatalogRow(name, tdefPage, columnProps, checkConstraints);
+        AddCatalogRow(name, tdefPage, columnProps, checkConstraints,
+            ownsComplexColumns: columns.Any(c => c.Type == JetDataType.Complex));
         AddPermissionRows(tdefPage);
 
         // Each foreign key's index is built after its relationship's rows, as ACE builds it (verified: a database's
@@ -717,7 +718,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // block in name order. ACE's order ignores case (verified: a3 goes before IX2, and an FK named fk before
         // IX2); how it orders punctuation and accented letters is not measured.
         parts.Stats.Add(new byte[format.RealIndexEntrySize]);
-        parts.DataBlocks.Add(BuildIndexDataBlock(slots, rootPage, newIndexUsageRow, usageMapPage, unique, required, ignoreNulls));
+        // An index over a complex column carries the complex-column flag — every one Access writes does, which a
+        // rebuild restoring the index from its IndexDef would otherwise drop.
+        bool complexColumn = slots.Any(s => table.Columns.Any(c => c.ColumnId == s.Id && c.Type == JetDataType.Complex));
+        parts.DataBlocks.Add(BuildIndexDataBlock(
+            slots, rootPage, newIndexUsageRow, usageMapPage, unique, required, ignoreNulls, complexColumn));
         int k = parts.Logical.Count(b => string.Compare(NameOf(b.Name), indexName, StringComparison.OrdinalIgnoreCase) < 0);
         parts.Logical.Insert(k, (buildInfo(newNum, dataCount), EncodeName(indexName)));
 
@@ -1416,6 +1421,14 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         (_, Table table, int idIdx, ColumnDef lvProp) = ObjectProperties();
         return RowsKeyed(table, idIdx, objectId)
             .Select(r => r.Values[lvProp.Index] as byte[]).FirstOrDefault();
+    }
+
+    /// <summary>The object's <c>MSysObjects.Flags</c>, or null when it has no row.</summary>
+    private int? ReadObjectFlags(int objectId)
+    {
+        (TableDef msys, Table table, int idIdx, _) = ObjectProperties();
+        int flags = msys.FindColumn("Flags")!.Index;
+        return RowsKeyed(table, idIdx, objectId).Select(r => r.Values[flags] as int?).FirstOrDefault();
     }
 
     /// <summary>Replaces an object's extended-property blob with <paramref name="properties"/>. Not an
@@ -2468,6 +2481,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // which is not necessarily the set of grants this one carried.
         var permissions = ReadPermissionRows(def.DefinitionPage);
 
+        // And its MSysObjects.Flags: recreating it writes a new table's, dropping anything else it carried — the
+        // hidden bit, or the complex-column bit Access sets on the table that owns one.
+        int? objectFlags = ReadObjectFlags(def.DefinitionPage);
+
         // 3. Pre-check: convert every target value in memory BEFORE touching disk. An unconvertible value
         //    (e.g. non-numeric text → INT) throws here, with nothing written — the caller sees a clean failure.
         foreach (object?[] row in rows)
@@ -2506,6 +2523,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             foreach (int complexId in complexColumns)
                 SetComplexColumnOwner(complexId, rebuiltPage);
             if (properties is { Length: > 0 }) WriteObjectProperties(rebuiltPage, properties);
+            if (objectFlags is int flags) UpdateCatalogRows("MSysObjects", "Id", rebuiltPage, required: true, ("Flags", flags));
             RestorePermissionRows(rebuiltPage, permissions);
             _catalog.Invalidate();
 
@@ -3416,7 +3434,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         }
     }
 
-    private static byte[] BuildIndexDataBlock(List<(int Id, bool Ascending)> columns, int rootPage, int usageRow, int usagePage, bool unique, bool required, bool ignoreNulls)
+    private static byte[] BuildIndexDataBlock(List<(int Id, bool Ascending)> columns, int rootPage, int usageRow, int usagePage,
+        bool unique, bool required, bool ignoreNulls, bool complexColumn)
     {
         var b = new byte[IndexBlockFormat.DataBlockSize];
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(0, 4), IndexBlockFormat.DataMarker);
@@ -3439,6 +3458,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         if (unique) flags |= IndexFlags.Unique;
         if (ignoreNulls) flags |= IndexFlags.IgnoreNulls;
         if (required) flags |= IndexFlags.Required;
+        if (complexColumn) flags |= IndexFlags.ComplexColumn;
         System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(b.AsSpan(IndexBlockFormat.FlagsOffset, 2), flags);
         return b;
     }
@@ -3580,7 +3600,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// </summary>
     private void AddCatalogRow(string name, int tdefPage,
         IReadOnlyList<PropertyBlob.Property> columnProps,
-        IReadOnlyList<(string Name, string Expression)> checkConstraints)
+        IReadOnlyList<(string Name, string Expression)> checkConstraints,
+        bool ownsComplexColumns)
     {
         // Per-column properties (DefaultValue / Required) and CHECK constraints (a table property) both
         // live in the object's extended-properties (LvProp) blob.
@@ -3589,8 +3610,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             props.Add(new PropertyBlob.Property("", PropertyBlob.CheckConstraintsProperty,
                 PropertyBlob.WriteCheckList(checkConstraints)));
 
+        // A table owning a complex column is flagged so — the rebuild recreates such tables, and Access marks
+        // every one it writes.
         new CatalogWriter(_channel, _catalog).AddObjectRow(
-            name, tdefPage, CatalogFormat.ObjectTypeTable, CatalogFormat.ObjectContainerParentId, flags: 0, props);
+            name, tdefPage, CatalogFormat.ObjectTypeTable, CatalogFormat.ObjectContainerParentId,
+            flags: ownsComplexColumns ? CatalogFormat.ObjectFlagOwnsComplexColumns : 0, props);
     }
 
     // A new table's permission rows: what the Tables container grants what it creates (system-catalog §11).

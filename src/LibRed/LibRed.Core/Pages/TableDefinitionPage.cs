@@ -171,13 +171,15 @@ public sealed class TableDefinitionPage : Page
                 columns.Add((column, (buffer.ReadByte(entry + 2) & IndexBlockFormat.ColumnAscending) != 0));
             }
 
+            ushort flags = buffer.ReadUInt16(block + IndexBlockFormat.FlagsOffset);
             _indexes.Add(new IndexDef
             {
                 Name = string.Empty,
                 Columns = columns,
-                IsUnique = (buffer.ReadUInt16(block + IndexBlockFormat.FlagsOffset) & IndexFlags.Unique) != 0,
-                IgnoreNulls = (buffer.ReadUInt16(block + IndexBlockFormat.FlagsOffset) & IndexFlags.IgnoreNulls) != 0,
-                Required = (buffer.ReadUInt16(block + IndexBlockFormat.FlagsOffset) & IndexFlags.Required) != 0,
+                IsUnique = (flags & IndexFlags.Unique) != 0,
+                IgnoreNulls = (flags & IndexFlags.IgnoreNulls) != 0,
+                Required = (flags & IndexFlags.Required) != 0,
+                Flags = flags,
                 IsPrimaryKey = false,
                 UniqueEntryCount = uniqueEntryCount,
                 RootPage = buffer.ReadInt32(block + IndexBlockFormat.RootPageOffset),

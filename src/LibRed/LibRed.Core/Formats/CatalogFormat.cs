@@ -15,6 +15,10 @@ internal static class CatalogFormat
     /// <summary><c>MSysObjects.Type</c> value for a table object.</summary>
     public const short ObjectTypeTable = 1;
 
+    /// <summary><c>MSysObjects.Flags</c> bit of a table that owns a complex column — set on exactly those tables,
+    /// and on no table without one (measured across Access-written files; system-catalog §11).</summary>
+    public const int ObjectFlagOwnsComplexColumns = 0x00040000;
+
     /// <summary><c>MSysObjects.Type</c> value for a relationship object.</summary>
     public const short ObjectTypeRelationship = 8;
 }

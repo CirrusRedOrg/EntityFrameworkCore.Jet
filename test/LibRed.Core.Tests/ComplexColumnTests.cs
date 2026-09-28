@@ -144,7 +144,7 @@ public class ComplexColumnTests
         try
         {
             string flatTable;
-            int complexId, counter;
+            int complexId, counter, objectFlags;
             List<(int Id, int Values)> before;
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
@@ -154,6 +154,9 @@ public class ComplexColumnTests
                 counter = db.Catalog.FindTable("MSysResources")!.ComplexAutoNumber;
                 before = RecordValueCounts(db, data);
                 Assert.NotEmpty(before);
+                objectFlags = ObjectFlags(db, "MSysResources");
+                Assert.Equal(0x0004000A, objectFlags);      // owns a complex column (0x40000), hidden (0x0A)
+                Assert.Equal(0x0289, ComplexIndexFlags(db));
 
                 // Text -> Memo is a storage-type change, which takes the full logical rebuild.
                 db.AlterColumn("MSysResources", "Name", new ColumnSpec("Name", JetDataType.Memo, 0, IsFixedLength: false));
@@ -172,9 +175,25 @@ public class ComplexColumnTests
             Assert.Equal(table.DefinitionPage, after.OwnerTable.DefinitionPage);
             Assert.Equal(counter, table.ComplexAutoNumber);
             Assert.Equal(before, RecordValueCounts(reopened, after));
+
+            // And the table and its index come back flagged as Access flags them: the table's MSysObjects.Flags
+            // whole (the complex-column bit and the hidden bits), the complex column's index with its 0x0200.
+            Assert.Equal(objectFlags, ObjectFlags(reopened, "MSysResources"));
+            Assert.Equal(0x0289, ComplexIndexFlags(reopened));
         }
         finally { TemporaryDatabase.Delete(path); }
     }
+
+    private static int ObjectFlags(JetDatabase db, string table)
+    {
+        var objects = db.OpenTable("MSysObjects");
+        var def = objects.Definition;
+        return (int)objects.Rows().Single(r =>
+            (string?)r[def.FindColumn("Name")!.Index] == table && (short)r[def.FindColumn("Type")!.Index]! == 1)[def.FindColumn("Flags")!.Index]!;
+    }
+
+    private static int ComplexIndexFlags(JetDatabase db) =>
+        db.Catalog.FindTable("MSysResources")!.Indexes.Single(i => i.Columns.Any(c => c.Column.Name == "Data")).Flags;
 
     // A complex column's catalog row names its column by NAME, and the catalog drops a row whose name the
     // owning table does not have — so a rename that left the row behind did not misname the column, it

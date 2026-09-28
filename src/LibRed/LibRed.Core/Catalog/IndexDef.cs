@@ -19,6 +19,10 @@ public sealed record IndexDef
     /// required (index flag <c>0x08</c>). Surfaced by scaffolding as the index <c>DISALLOW NULL</c> filter.</summary>
     public bool Required { get; init; }
 
+    /// <summary>The whole flags word at the index-data block's <c>0x2E</c> — the bits above included, and
+    /// <c>0x0200</c> on an index over a complex column.</summary>
+    public ushort Flags { get; init; }
+
     /// <summary>
     /// The index's unique-entry count from the TDEF statistics block. This is a cumulative
     /// count of distinct entries ever added that Access increments but <b>never decrements</b>,

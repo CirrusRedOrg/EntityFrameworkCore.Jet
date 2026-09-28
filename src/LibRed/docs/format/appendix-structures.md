@@ -166,7 +166,7 @@ descriptor.
 | `0x23` | 3 | Usage-map page |
 | `0x26` | 4 | B-tree root page |
 | `0x2A` | 4 | Unknown / reserved (zero) |
-| `0x2E` | 2 | Flags: `0x01` unique (on a foreign key's child block: the relationship is one-to-one), `0x02` ignore-nulls, `0x08` required, `0x80` always-set |
+| `0x2E` | 2 | Flags: `0x01` unique (on a foreign key's child block: the relationship is one-to-one), `0x02` ignore-nulls, `0x08` required, `0x80` always-set, `0x0200` complex column (always `0x0289` on one) |
 | `0x30` | 4 | Unknown / reserved (zero) — trailing bytes of the 52-byte block |
 
 ## Index-info block — 28 bytes, one per logical index → [page-02d](page-02d-constraints.md)

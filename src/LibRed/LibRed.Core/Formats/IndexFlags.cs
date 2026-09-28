@@ -20,4 +20,9 @@ internal static class IndexFlags
 
     /// <summary>Always set on Access 2000+ index-data blocks.</summary>
     public const ushort AlwaysSet = 0x0080;
+
+    /// <summary>The index is over a complex (multi-value / attachment) column. Set on every such index Access
+    /// writes — always as <c>0x0289</c>, with unique, required and always-set — and on no other (measured across
+    /// Access-written files).</summary>
+    public const ushort ComplexColumn = 0x0200;
 }

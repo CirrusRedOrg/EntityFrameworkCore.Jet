@@ -5,7 +5,6 @@ using LibRed.IO;
 using LibRed.Pages;
 using System.Buffers.Binary;
 using System.Globalization;
-using System.Text;
 using MapRetirement = ((int Row, int Page) Map, System.Collections.Generic.IReadOnlyList<(int Row, int Page)> Clear, System.Collections.Generic.IReadOnlyList<int> Pages);
 
 namespace LibRed.Storage;
@@ -2189,12 +2188,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         throw new InvalidOperationException($"MSysObjects row for table '{tableName}' (page {tdefPage}) was not found.");
     }
 
-    /// <summary>Changes a column's declared type — ALTER TABLE … ALTER COLUMN. A **variable text/binary
-    /// column's max length** is a descriptor-length edit at <c>ColumnLengthOffset</c>: variable columns store
-    /// each row's actual length, so widening rewrites no rows, and narrowing only scans them to check they
-    /// still fit. Every other change — numeric type, a fixed column's size, fixed↔variable — is a full column
-    /// rewrite, handled in place by <see cref="AlterColumnTypeInPlace"/> (byte-faithful with ACE), Memo/OLE
-    /// included. Nothing here throws NotSupported for a storage-type change.</summary>
+    /// <summary>Changes a column's declared type — ALTER TABLE … ALTER COLUMN. Apart from the counter edits and
+    /// a re-declaration that changes nothing, every type or length change — a text column's length included, as
+    /// ACE makes it — is a full column rewrite, handled in place by <see cref="AlterColumnTypeInPlace"/>
+    /// (byte-faithful with ACE), Memo/OLE included. Nothing here throws NotSupported for a storage-type
+    /// change.</summary>
     public void AlterColumn(string tableName, string columnName, ColumnSpec newSpec)
     {
         TableDef table = _catalog.FindTable(tableName)
@@ -2217,8 +2215,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 - (col.IsFixedLength && col.Type != JetDataType.Boolean ? col.Length : 0)
                 + (newSpec.IsFixedLength && newSpec.Type != JetDataType.Boolean ? newSpec.Length : 0),
             table.VariableColumnCount + (col.IsFixedLength && !newSpec.IsFixedLength ? 1 : 0),
-            // A type change burns a fresh column id, so the bitmap can widen by one.
-            HighWater(table) + (col.Type == newSpec.Type ? 0 : 1),
+            // A type or length change burns a fresh column id, so the bitmap can widen by one.
+            HighWater(table) + (col.Type == newSpec.Type && col.Length == newSpec.Length ? 0 : 1),
             _channel.Format);
 
         // A pure reseed of an existing counter — ALTER COLUMN c COUNTER(seed, increment) where c is already an
@@ -2267,40 +2265,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             && (col.Type != JetDataType.FixedPoint || (col.Precision == newSpec.Precision && col.Scale == newSpec.Scale)))
             return;
 
-        bool variableLengthChange =
-            !col.IsFixedLength && !newSpec.IsFixedLength && col.Type == newSpec.Type &&
-            newSpec.Type is JetDataType.Text or JetDataType.Binary or JetDataType.BigBinary;
-        // A variable text/binary length change is a cheap in-place descriptor edit (below). A storage-type change
-        // (numeric type, fixed size, fixed↔variable, to or from a long value) edits the descriptor in place and
-        // re-lays every row, rebuilding only the indexes over the column.
-        if (!variableLengthChange)
-        {
-            AlterColumnTypeInPlace(tableName, columnName, newSpec);
-            return;
-        }
-
-        // Widening needs no row work — a variable column stores each row's actual length. NARROWING does: the
-        // invariant "no stored value exceeds its column's declared width" is enforced on every insert and
-        // update, so the statement that changes the declaration has to hold it too. Without this the ALTER
-        // succeeds and leaves behind exactly the rows Access will not read back that the insert-time check
-        // exists to prevent. Scanned before the TDEF is touched, so a refusal changes nothing on disk.
-        if (newSpec.Length < col.Length)
-            EnsureExistingValuesFit(table, col, newSpec.Length);
-
-        JetFormatBase format = _channel.Format;
-        TdefParts parts = ParseTdef(table.DefinitionPage);
-        byte[] cols = parts.Columns;
-        int descSize = format.ColumnDescriptorSize;
-        for (int i = 0; i < table.Columns.Count; i++)
-        {
-            int entry = i * descSize;
-            int colId = BinaryPrimitives.ReadUInt16LittleEndian(cols.AsSpan(entry + format.ColumnNumberOffset, 2));
-            if (colId != col.ColumnId) continue;
-            BinaryPrimitives.WriteUInt16LittleEndian(cols.AsSpan(entry + format.ColumnLengthOffset, 2), (ushort)newSpec.Length);
-            WriteTdef(table.DefinitionPage, parts);
-            return;
-        }
-        throw new InvalidOperationException($"Descriptor for column '{columnName}' (id {col.ColumnId}) was not found.");
+        // Every other change — numeric type, a fixed size, fixed↔variable, to or from a long value, and a text or
+        // binary length, widening as much as narrowing — edits the descriptor in place under a fresh id and
+        // re-lays every row, rebuilding only the indexes over the column. ACE has no cheap length-only path.
+        AlterColumnTypeInPlace(tableName, columnName, newSpec);
     }
 
     /// <summary>Sets or removes one property in the blob's table-owned (empty-owner) block, leaving every
@@ -2314,28 +2282,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         if (value is not null)
             props.Add(new PropertyBlob.Property("", name, value));
         return PropertyBlob.Write(props, blob);
-    }
-
-    /// <summary>Refuses a narrowing ALTER when a stored value would no longer fit, reporting the same way the
-    /// insert-time width check does. Text declares characters and stores UTF-16, hence the halving.</summary>
-    private void EnsureExistingValuesFit(TableDef table, ColumnDef column, int newLength)
-    {
-        bool text = column.Type == JetDataType.Text;
-        var rows = new Table(_channel, table);
-        foreach (object?[] values in rows.Rows(rows.DecodeOnly([column.Index])))
-        {
-            int stored = values[column.Index] switch
-            {
-                string s => Encoding.Unicode.GetByteCount(s),
-                byte[] b => b.Length,
-                _ => 0,
-            };
-            if (stored <= newLength) continue;
-            throw new InvalidOperationException(
-                $"The field '{column.Name}' cannot be narrowed to {(text ? newLength / 2 : newLength)} "
-                + $"{(text ? "characters" : "bytes")}: the table holds a value of "
-                + $"{(text ? stored / 2 : stored)}.");
-        }
     }
 
     /// <summary>The table's fixed-data region: the high-water of where its live columns END, not the sum of
@@ -2530,7 +2476,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // Indexes that include the target column must be rebuilt (their keys change type) — captured now.
         var affectedIndexes = oldDef.Indexes
             .Where(i => i.Columns.Any(col => col.Column.Index == oldTarget.Index))
-            .Select(i => i.Name).ToList();
+            .GroupBy(i => i.RealIndexOrdinal).ToDictionary(g => g.Key, g => g.First());
         int oldTargetId = oldTarget.ColumnId;
 
         // 1. Materialize (id + raw bytes + values) before touching disk; conversion throws here on bad data.
@@ -2577,16 +2523,25 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             TdefParts parts = ParseTdef(oldDef.DefinitionPage);
             int newTargetId = EditTargetDescriptor(parts, oldTarget, newSpec, oldFixedLen, _collation, format);
 
-            var pending = new List<(string Name, int OldRoot, int NewRoot, bool IgnoreNulls)>();
-            foreach (string ixName in affectedIndexes)
-            {
-                IndexDef index = oldDef.Indexes.First(i => string.Equals(i.Name, ixName, StringComparison.OrdinalIgnoreCase));
-                int newRoot = PrepareIndexRebuild(parts, oldDef, index, oldTargetId, newTargetId);
-                pending.Add((ixName, index.RootPage, newRoot, index.IgnoreNulls));
-            }
+            // A column becoming a long value gets its entry, placed as ADD COLUMN places it, and its two map records
+            // ahead of the index rebuilds' records on the usage-map page (verified vs ACE).
+            if (toLongValue) WriteLongValueMaps(PlaceLongValueMaps(parts, newTargetId));
 
-            // The long-value side: the old column's maps, read before the TDEF loses them, as DROP COLUMN reads them;
-            // the new column's entry, placed as ADD COLUMN places it.
+            // ACE rebuilds the indexes over the target in logical-block (name) order, allocating their roots in that
+            // order, and hands them back the real-index slots they held in that order too.
+            List<int> rebuildOrder = parts.Logical
+                .Select(b => BinaryPrimitives.ReadInt32LittleEndian(b.Info.AsSpan(IndexBlockFormat.InfoDataNumberOffset, 4)))
+                .Distinct().Where(affectedIndexes.ContainsKey).ToList();
+            var pending = new List<(string Name, int OldRoot, int NewRoot, bool IgnoreNulls)>();
+            foreach (int ordinal in rebuildOrder)
+            {
+                IndexDef index = affectedIndexes[ordinal];
+                int newRoot = PrepareIndexRebuild(parts, oldDef, index, oldTargetId, newTargetId);
+                pending.Add((index.Name, index.RootPage, newRoot, index.IgnoreNulls));
+            }
+            ReassignRebuiltIndexSlots(parts, rebuildOrder);
+
+            // The old column's long-value maps, read before the TDEF loses them, as DROP COLUMN reads them.
             UsageMap? oldMaps = null;
             var released = new HashSet<int>();
             var retire = new List<MapRetirement>();
@@ -2598,12 +2553,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 QueueLongValueMaps(oldDefinition, oldTarget, oldMaps, released, retire);
                 RemoveLongValueMapEntry(parts, oldTargetId);
             }
-            LongValueMapPlacement? newMaps = toLongValue ? PlaceLongValueMaps(parts, newTargetId) : null;
 
             WriteTdef(oldDef.DefinitionPage, parts);
             _catalog.Invalidate();
 
-            if (newMaps is { } placed) WriteLongValueMaps(placed);
             if (oldMaps is not null)
             {
                 RetireMapRecords(retire, oldMaps, released);
@@ -2713,6 +2666,36 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         for (int j = 0; j < layout.NumVar; j++)
             chunks.Add(layout.VarChunk(j).ToArray());
         return chunks;
+    }
+
+    /// <summary>Hands the rebuilt indexes back the real-index slots they held, in the order they were rebuilt: the
+    /// lowest slot to the first rebuilt, and so on, their stats and data blocks moving together, and every logical
+    /// block's data ordinal (<c>+0x08</c>) following its index. The logical blocks over them hand their numbers
+    /// (<c>+0x04</c>) round the same way: pooled, sorted, and given back in logical-block order. An index the ALTER
+    /// does not touch keeps its slot and its number, so with <c>IX_Z</c>, <c>IX_E</c>, <c>IX_A</c> in slots 1–3 and
+    /// <c>E</c> unaffected, a retype of the column under <c>IX_Z</c> and <c>IX_A</c> leaves <c>IX_A</c>,
+    /// <c>IX_E</c>, <c>IX_Z</c> (all verified vs ACE, including logical indexes sharing one real index — the primary
+    /// key moves like any other index). Only plain indexes and the primary key get here: a relationship's column
+    /// cannot be retyped.</summary>
+    private static void ReassignRebuiltIndexSlots(TdefParts parts, List<int> rebuildOrder)
+    {
+        List<int> slots = [.. rebuildOrder.Order()];
+        byte[][] stats = [.. rebuildOrder.Select(o => parts.Stats[o])];
+        byte[][] blocks = [.. rebuildOrder.Select(o => parts.DataBlocks[o])];
+        for (int k = 0; k < slots.Count; k++)
+        {
+            parts.Stats[slots[k]] = stats[k];
+            parts.DataBlocks[slots[k]] = blocks[k];
+        }
+        List<byte[]> moved = [.. parts.Logical.Select(b => b.Info).Where(info =>
+            rebuildOrder.Contains(BinaryPrimitives.ReadInt32LittleEndian(info.AsSpan(IndexBlockFormat.InfoDataNumberOffset, 4))))];
+        List<int> numbers = [.. moved.Select(info => BinaryPrimitives.ReadInt32LittleEndian(info.AsSpan(IndexBlockFormat.InfoNumberOffset, 4))).Order()];
+        for (int i = 0; i < moved.Count; i++)
+        {
+            Span<byte> ordinal = moved[i].AsSpan(IndexBlockFormat.InfoDataNumberOffset, 4);
+            BinaryPrimitives.WriteInt32LittleEndian(ordinal, slots[rebuildOrder.IndexOf(BinaryPrimitives.ReadInt32LittleEndian(ordinal))]);
+            BinaryPrimitives.WriteInt32LittleEndian(moved[i].AsSpan(IndexBlockFormat.InfoNumberOffset, 4), numbers[i]);
+        }
     }
 
     /// <summary>Prepares one index rebuild over a just-modified column, matching ACE's reconstruction: allocate a

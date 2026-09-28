@@ -397,8 +397,9 @@ null bitmap is keyed by **id** and not by position (§5).
 > anyway, since `Required` is applied separately and the in-place edit keeps the column's own.
 >
 > Because the edit is in place, everything the ALTER does not touch stays where it was — every other column's
-> descriptor and id, and every index, the primary key included, in its place among the logical and index-data
-> blocks (verified).
+> descriptor and id, and every index not over the column, the primary key included, in its place among the
+> logical and index-data blocks (verified). The indexes over the column keep the slots they held between them,
+> but not necessarily their own (below).
 
 **Target column descriptor (§3.4)** — the *only* descriptor that changes; all others stay byte-identical:
 
@@ -431,7 +432,8 @@ had at those offsets (the start of its variable data, on a row with some), not z
 COLUMN (verified, both directions and a Memo re-declared as Memo). A column becoming Memo/OLE gets its §3.3.2
 entry, and its owned and free map records appended to the table's usage-map page; each converted value is then
 stored as an insert stores it — inline (a memo compressed) up to 64 bytes, else on an LVAL page — and the row
-carries its descriptor as the appended chunk. A column ceasing to be one has its entry removed and its map
+carries its descriptor as the appended chunk. Those two map records go onto the usage-map page ahead of the
+records an index rebuild appends there, when the column is indexed. A column ceasing to be one has its entry removed and its map
 records retired as a dropped column's are; its LVAL pages go back to the global free map with their bytes
 untouched, and each row keeps the old descriptor as its dead chunk.
 
@@ -447,6 +449,17 @@ index (its keys change type). Verified:
 - **Recycle the owned-pages usage-map row** the way ACE does — the append/move/tombstone dance, and the
   stale bytes it deliberately leaves behind, are [page-05 §9](page-05-usage-maps.md).
 - **Back-fill** the new B-tree with new-type keys (one `AddEntry` per row).
+- **Several indexes over the column are rebuilt in logical-block (name) order** — the primary key like any
+  other — each taking its fresh root in that order, and they are handed back the real-index slots they held
+  between them in that order: the lowest slot to the first rebuilt, and so on, stats and data block together,
+  every logical block's data ordinal (`+0x08`) following its index. The logical blocks over those indexes hand
+  their numbers (`+0x04`, a numbering of the logical blocks, distinct from the data ordinal once two share a real
+  index) round the same way: pooled, sorted, and given back in logical-block order. An index not over the column
+  keeps its slot and its number even when it sits between them. With `PK_I`, `IX_Z(B)`, `IX_E(E)`, `IX_A(B, ID)`
+  in slots 0–3, a retype of `B` leaves `PK_I`, `IX_A`, `IX_E`, `IX_Z`, and a retype of `ID` leaves `IX_A`,
+  `IX_Z`, `IX_E`, `PK_I`. With `IX_Y(B)` sharing `IX_Z`'s real index as well, numbered `IX_Z` 1, `IX_Y` 2,
+  `IX_E` 3, `IX_A` 4, the retype of `B` numbers them `IX_A` 1, `IX_Y` 2, `IX_E` 3, `IX_Z` 4. With one index over
+  the column nothing moves.
 
 The descriptor edit and the index-block re-point are applied to **one** parsed TDEF and written **once**.
 

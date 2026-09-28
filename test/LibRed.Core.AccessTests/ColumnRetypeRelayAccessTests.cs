@@ -133,8 +133,8 @@ public class ColumnRetypeRelayAccessTests(ITestOutputHelper output)
         finally { TemporaryDatabase.Delete(path); }
     }
 
-    // Narrowing a variable column was a bare descriptor edit that never looked at the rows, leaving values
-    // wider than the declaration — exactly what the insert-time check exists to prevent.
+    // Narrowing is a retype like any other, so the re-lay's width check refuses a value wider than the new
+    // declaration, with ACE's message — rather than leaving exactly what the insert-time check exists to prevent.
     [Fact]
     public void Narrowing_a_column_below_its_stored_values_is_refused()
     {
@@ -149,7 +149,7 @@ public class ColumnRetypeRelayAccessTests(ITestOutputHelper output)
             var error = Assert.Throws<InvalidOperationException>(() => db.AlterColumn(
                 "T", "V", new ColumnSpec("V", JetDataType.Text, 10, IsFixedLength: false)));
             output.WriteLine(error.Message);
-            Assert.Contains("cannot be narrowed", error.Message);
+            Assert.Contains("too small to accept", error.Message);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

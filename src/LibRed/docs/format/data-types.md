@@ -99,7 +99,7 @@ to add."* The permitted magnitude follows the standard rule: `p` total digits wi
 most `p − s` before it, and `DECIMAL(18,4)` accepts up to `99999999999999.9999` and refuses `10^14`.
 
 The enforcement covers **every path that can put a value in the column** — `INSERT`, `UPDATE`,
-`INSERT … SELECT`, and an `ALTER COLUMN` that *narrows* the declaration over rows already stored. That last one
+`INSERT … SELECT`, and an `ALTER COLUMN` that *narrows* or retypes the declaration over rows already stored. That last one
 is what makes it an invariant over the whole column rather than a filter on one statement: ACE will not shrink
 a declaration to something its existing data would violate.
 
@@ -283,7 +283,9 @@ Points verified against ACE that aren't obvious from that page:
   over-long case instead of refusing it. The width check therefore belongs on the encode path for fixed
   columns (`JetTypeCodec.EnsureFitsFixedWidth`, before padding) and on the shared row-assembly path for variable ones (`RowEncoder.AssembleRow`, so the ALTER re-lay passes it too).
 - **Narrowing an existing column is checked against its rows.** `ALTER TABLE … ALTER COLUMN c TEXT(5)` on a
-  column holding wider values is refused rather than leaving rows that violate the declaration.
+  column holding wider values is refused rather than leaving rows that violate the declaration — and so is a
+  retype whose converted values are too wide: a Memo or a `LONG` to `TEXT(1)`, a `LONG` to `BINARY(1)`. ACE
+  refuses every one with *"The field is too small to accept the amount of data you attempted to add."*
 - `DECIMAL(p,s)` / `NUMERIC(p,s)` use precision `1..28` and scale `0..p`, and these are **ACE's own bounds,
   refused at DDL with two distinct messages**: *"Invalid precision for decimal data type."* for `(0)`, `(0,0)`
   and `(29)`, *"Invalid scale for decimal data type."* for `(5,7)`. `(1,0)` and `(28,28)` are both accepted, so

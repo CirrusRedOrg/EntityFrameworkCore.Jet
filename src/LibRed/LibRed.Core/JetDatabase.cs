@@ -425,8 +425,8 @@ public sealed class JetDatabase : IDisposable
         return dropped;
     }
 
-    /// <summary>Changes a column's declared type — ALTER TABLE … ALTER COLUMN. A variable text/binary length
-    /// change is an in-place descriptor edit; a storage-type change is <see cref="AlterColumnTypeInPlace"/>.</summary>
+    /// <summary>Changes a column's declared type — ALTER TABLE … ALTER COLUMN. Any type or length change, a text
+    /// column's length included, is <see cref="AlterColumnTypeInPlace"/>.</summary>
     public void AlterColumn(string table, string column, ColumnSpec newSpec)
     {
         new Storage.TableCreator(_channel, Catalog, Collation).AlterColumn(table, column, newSpec);

@@ -122,9 +122,9 @@ public class DeleteAccessTests(ITestOutputHelper output) : TempDatabaseTest
         using var reopened = JetDatabase.Open(path);
         int[] left = [.. new UsageMap(reopened.Channel, reopened.OpenTable("Shape").Definition).DataPages()];
         Assert.Equal([owned[0]], left);
-        Assert.Equal((byte)PageType.DataPage, reopened.Channel.ReadPage(owned[0]).ReadByte(0));
+        Assert.Equal(PageType.DataPage, PageHeader.ReadType(reopened.Channel.ReadPage(owned[0]).Span));
         foreach (int page in owned[1..])
-            Assert.Equal((byte)PageType.ReleasedDataPage, reopened.Channel.ReadPage(page).ReadByte(0));
+            Assert.Equal(PageType.ReleasedDataPage, PageHeader.ReadType(reopened.Channel.ReadPage(page).Span));
     }
 
     private static void Exec(OleDbConnection connection, string sql)

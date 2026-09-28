@@ -16,7 +16,7 @@ page) pointing at a row on a data page. The first byte of that row is the map ty
 | `0x05` | … | Bitmap; bit `i` ⇒ page `startPage + i` is owned |
 
 **Reference map (type `0x01`, for very large tables):** the row is a list of 4-byte pointers
-to dedicated **bitmap pages** (type `0x05`). Pointer `k` (zero ⇒ none) points at a bitmap page
+to dedicated **bitmap pages** (page type `0x0105`). Pointer `k` (zero ⇒ none) points at a bitmap page
 covering the page range starting at `k × (pageSize − 4) × 8`; on a bitmap page the bitmap data
 begins at **offset 4**.
 
@@ -27,7 +27,8 @@ begins at **offset 4**.
 
 The record is exactly **69 bytes** (`1 + 17 × 4`). Seventeen slots is not arbitrary: each bitmap page
 covers `(4096 − 4) × 8 = 32,736` pages ≈ 134 MB, so 17 slots span ≈ 2.28 GB — just past Jet's 2 GB
-file ceiling. A bitmap page's header is `[0]=0x05`, `[1]=0x01`, `[2..3]=0`, bitmap from offset 4.
+file ceiling. A bitmap page's header is the page type `0x0105` (bytes `05 01`) then `[2..3]=0`, bitmap from
+offset 4.
 Bitmap pages are allocated **lazily**, only when a bit in their range is first set, and are *not*
 themselves marked as owned by the table.
 
@@ -240,7 +241,7 @@ An inline record that already covers them stays as it is. Otherwise, in order of
 
 A map already in reference form gains a bitmap page, allocated the same way, for each range holding a released
 page that it has none for — a released table-definition page among the free pages is taken like any other, its
-type byte becoming `0x05`. The merge then clears every bitmap page, each keeping its `05 01 00 00` header.
+type becoming `0x0105`. The merge then clears every bitmap page, each keeping its `05 01 00 00` header.
 
 So at rest the released-pages map has no bits set, though it may have grown, moved its start page or converted
 to reference form. A non-empty one is *inferred* to be a release interrupted before close.
@@ -259,7 +260,7 @@ usage map, etc.), and the only change to page 1 is one cleared bit per page take
 > allocations can therefore consume an ACE-authored run of future bits without creating a sparse file.
 > **Both map forms are handled.** For an inline (`0x00`) map it scans the record's
 > bitmap directly; for a **reference (`0x01`)** map — as a very large pre-existing ACE file carries —
-> it scans each slot's dedicated bitmap page (type `0x05`), where a **set bit is a free page** (the
+> it scans each slot's dedicated bitmap page (type `0x0105`), where a **set bit is a free page** (the
 > global map's sense), clears the bit on that bitmap page, and returns `slot × (pageSize−4)×8 + bit`.
 > `Free` is the inverse (sets the bit).
 >
@@ -346,9 +347,9 @@ zeroed and is freed, its `05 01 00 00` header left in place.
 > live page, which is corruption rather than a leak. It is also the case that *only* clearing the bits is
 > not enough on a shared holder: the row has to go, or the dropped table's map records outlive it.
 
-**The released definition page is marked.** Access sets the dropped table's TDEF page type to **`0x08`**
+**The released definition page is marked.** Access sets the dropped table's TDEF page type to **`0x0108`**
 and changes nothing else on it; the other pages a drop frees (data, long-value, map holders, bitmap pages, and
-a wide definition's continuation pages) keep their original type bytes. The marker, what survives on the page
+a wide definition's continuation pages) keep their original types. The marker, what survives on the page
 and how close a LibRed drop lands to an ACE one are in [page-08](page-08-released-tdef.md).
 
 #### A page emptied of its contents is released on its own terms

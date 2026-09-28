@@ -197,7 +197,7 @@ public class DropTableParityAccessTests(ITestOutputHelper output) : TempDatabase
                 continue;
             }
             if (BitConverter.ToInt32(ace, at + 4) == 2) continue;
-            if (ace[at] is (byte)LibRed.Pages.PageType.IntermediateIndexPage or (byte)LibRed.Pages.PageType.LeafIndexPage) continue;
+            if (LibRed.Pages.PageHeader.ReadType(ace.AsSpan(at)) is LibRed.Pages.PageType.IntermediateIndexPage or LibRed.Pages.PageType.LeafIndexPage) continue;
 
             for (int i = 0, shown = 0; i < PageSize && shown < 8; i++)
                 if (ace[at + i] != libred[at + i])

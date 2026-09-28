@@ -111,9 +111,9 @@ public sealed class DataPage : Page
         if (buffer.Length != format.PageSize)
             throw new InvalidDataException(
                 $"Data page {buffer.PageNumber} has {buffer.Length} bytes; expected {format.PageSize}.");
-        if (buffer.ReadByte(0) != (byte)PageType.DataPage)
+        if (PageHeader.ReadType(buffer.Span) != PageType.DataPage)
             throw new InvalidDataException(
-                $"Page {buffer.PageNumber} is type 0x{buffer.ReadByte(0):X2}, not a data page (0x01).");
+                $"Page {buffer.PageNumber} is type 0x{(ushort)PageHeader.ReadType(buffer.Span):X4}, not a data page (0x0101).");
 
         rowCount = buffer.ReadUInt16(format.DataRowCountOffset);
         // An index addresses a row by a one-byte slot number, so a page can hold at most 255 and ACE stops

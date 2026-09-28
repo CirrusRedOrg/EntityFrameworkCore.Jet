@@ -69,7 +69,7 @@ public class MultiPageTableDefinitionTests
             {
                 case "wrong-type":
                     byte[] wrongType = channel.ReadPage(continuation).Span.ToArray();
-                    wrongType[0] = (byte)PageType.DataPage;
+                    PageHeader.WriteType(wrongType, PageType.DataPage);
                     channel.WritePage(continuation, wrongType);
                     break;
                 case "outside-file":

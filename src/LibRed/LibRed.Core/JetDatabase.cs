@@ -570,6 +570,35 @@ public sealed class JetDatabase : IDisposable
         Catalog.Invalidate();
     }
 
+    /// <summary>Every <c>MSysNameMap</c> row — Access's Name AutoCorrect map, one row per object it tracks — with
+    /// its map decoded; empty when the file has no such table. The engine never maintains these: a row reflects
+    /// the names as Access last saw them (docs/format/system-catalog.md §11).</summary>
+    public IReadOnlyList<NameMapRow> ReadNameMaps() =>
+        new Storage.TableCreator(_channel, Catalog, Collation).ReadNameMapRows();
+
+    /// <summary>Replaces the map of the <c>MSysNameMap</c> row for the object whose <c>GUID</c> property is
+    /// <paramref name="objectGuid"/> — and the row's name when <paramref name="name"/> is given. Returns false
+    /// when there is no such row; one is never added.</summary>
+    public bool UpdateNameMap(Guid objectGuid, NameMap map, string? name = null)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        return new Storage.TableCreator(_channel, Catalog, Collation).WriteNameMapRow(objectGuid, map, name);
+    }
+
+    /// <summary>The <c>NameMap</c> property — the object's own copy of its Name AutoCorrect map — of the object
+    /// with this name and <c>MSysObjects.Type</c> (1 table, 6 linked table, -32768 form, -32764 report); null
+    /// when it has none. Throws when there is no such object.</summary>
+    public NameMap? ReadNameMapProperty(string objectName, short objectType) =>
+        new Storage.TableCreator(_channel, Catalog, Collation).ReadNameMapProperty(objectName, objectType);
+
+    /// <summary>Sets the object's <c>NameMap</c> property, or removes it when <paramref name="map"/> is null,
+    /// leaving every other property as it was. Throws when there is no such object.</summary>
+    public void UpdateNameMapProperty(string objectName, short objectType, NameMap? map)
+    {
+        new Storage.TableCreator(_channel, Catalog, Collation).WriteNameMapProperty(objectName, objectType, map);
+        Catalog.Invalidate();
+    }
+
     /// <summary>Opens a table directly from its TDEF page, bypassing the catalog — used during database
     /// creation to seed the system tables before they self-register in <c>MSysObjects</c>.</summary>
     public Storage.Table OpenTableAt(int tdefPage, string name, bool isSystem = true) =>

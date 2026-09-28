@@ -126,10 +126,8 @@ public abstract class JetFormatBase
     // Defaults below are for Jet 4 / ACE (verified against a real ACCDB). Jet 3 differs
     // (18-byte column entries, 1-byte ASCII name lengths) and will override these.
 
-    /// <summary>Offset of the 1-byte TDEF header flags (observed 0x01).</summary>
-    public virtual int TdefHeaderFlagsOffset => 0x01;
-
-    /// <summary>Offset of the 2-byte free-space-remaining-in-this-page field.</summary>
+    /// <summary>Offset of the 2-byte free-space count: the bytes still free in this page. (Before it, at 0x00,
+    /// the 2-byte page type — <see cref="Pages.PageHeader"/>.)</summary>
     public virtual int TdefFreeSpaceOffset => 0x02;
 
     /// <summary>Offset of the 4-byte pointer to the next TDEF page (0 if the definition fits one page).</summary>

@@ -13,7 +13,7 @@ namespace LibRed.Storage;
 /// The TDEF holds a pointer (row + page) to the usage-map record. An inline map
 /// (type 0x00) stores a start page and a bitmap where bit i marks page (startPage + i)
 /// as owned. A reference map (type 0x01, for very large tables) instead stores a list of
-/// pointers to dedicated bitmap pages (type 0x05); pointer k's bitmap covers the page
+/// pointers to dedicated bitmap pages (page type 0x0105); pointer k's bitmap covers the page
 /// range starting at k * (pageSize - 4) * 8.
 /// </remarks>
 public sealed class UsageMap(PageChannel channel, TableDef table)
@@ -23,7 +23,7 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
     private const int ReferenceMapSlots = 17;
     private const int ReferenceMapRecordSize = 1 + ReferenceMapSlots * 4;
 
-    /// <summary>Bytes preceding the bitmap on a dedicated usage-bitmap page (type 0x05).</summary>
+    /// <summary>Bytes preceding the bitmap on a dedicated usage-bitmap page (type 0x0105).</summary>
     private const int BitmapPageHeaderSize = 4;
 
     private readonly PageChannel _channel = channel;
@@ -43,7 +43,7 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
     /// pages holding a table's Memo/OLE content are invisible to <see cref="DataPages"/>.</summary>
     public IEnumerable<int> PagesInMap(int mapRow, int mapPage) => ReadMapAt(mapRow, mapPage);
 
-    /// <summary>The dedicated bitmap pages (type 0x05) a reference-form map record at the pointer names, each
+    /// <summary>The dedicated bitmap pages (type 0x0105) a reference-form map record at the pointer names, each
     /// validated; none for an inline record.</summary>
     public IReadOnlyList<int> BitmapPagesOf(int mapRow, int mapPage)
     {
@@ -227,7 +227,7 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
             throw new InvalidDataException($"Usage-map bitmap page {pageNumber} is outside the database.");
 
         ReadOnlySpan<byte> page = _channel.ReadPage(pageNumber).Span;
-        if (page[0] != (byte)PageType.PageUsageBitmap || page[1] != 0x01 || page[2] != 0 || page[3] != 0)
+        if (PageHeader.ReadType(page) != PageType.PageUsageBitmap || page[2] != 0 || page[3] != 0)
             throw new InvalidDataException($"Usage-map pointer {pageNumber} does not reference a valid bitmap page.");
         return page[BitmapPageHeaderSize..];
     }

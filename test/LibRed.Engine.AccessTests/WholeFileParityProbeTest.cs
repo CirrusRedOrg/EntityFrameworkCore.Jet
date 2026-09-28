@@ -353,9 +353,9 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     /// page its own table, where either file's catalog knows the name.</summary>
     private static string Owner(Dictionary<int, string> owners, byte[] file, int at)
     {
-        if ((PageType)file[at] is PageType.TableDefinition or PageType.ReleasedTableDefinition)
+        if (PageHeader.ReadType(file.AsSpan(at)) is PageType.TableDefinition or PageType.ReleasedTableDefinition)
             return owners.TryGetValue(at / PageSize, out string? self) ? $"({self})" : "";
-        if ((PageType)file[at] is not (PageType.DataPage or PageType.IntermediateIndexPage or PageType.LeafIndexPage))
+        if (PageHeader.ReadType(file.AsSpan(at)) is not (PageType.DataPage or PageType.IntermediateIndexPage or PageType.LeafIndexPage))
             return "";
         if (file.AsSpan(at + 4, 4).SequenceEqual("LVAL"u8)) return "(long values)";
         int owner = BinaryPrimitives.ReadInt32LittleEndian(file.AsSpan(at + 4, 4));
@@ -388,7 +388,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
         for (int page = 1; page < file.Length / PageSize; page++)
         {
             int at = page * PageSize;
-            if ((PageType)file[at] != PageType.DataPage) continue;
+            if (PageHeader.ReadType(file.AsSpan(at)) != PageType.DataPage) continue;
             for (int i = 0x08; i < 0x0C; i++) masks[page].Add(i);
             if (BinaryPrimitives.ReadInt32LittleEndian(file.AsSpan(at + 4, 4)) != objects.DefinitionPage) continue;
 

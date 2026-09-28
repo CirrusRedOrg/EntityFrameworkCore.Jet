@@ -302,7 +302,7 @@
   > LibRed also **enforces the LONG-only restriction at CREATE/ADD-COLUMN time** (`GenUniqueID()` on any other
   > type raises "Cannot place this validation expression on this field"), matching ACE.
 
-- **LVAL (long-value) page** — a data page (type `0x01`) whose owner field (`0x04`) is the ASCII marker
+- **LVAL (long-value) page** — a data page (type `0x0101`) whose owner field (`0x04`) is the ASCII marker
   `"LVAL"` instead of a TDEF page number. A single-page long value stores the whole payload in the
   referenced row (row 0 on a fresh page); the in-row reference descriptor is
   `[length-and-flags:4][row:1][page:3][4 reserved]`. The first word is little-endian, with a 30-bit byte
@@ -662,6 +662,59 @@
   > renamed**, which cannot collide with itself: ACE allows renaming a table to its own name, and allows a
   > case-only change (both verified). The self-rename case is not hypothetical — EF models "move a table to
   > another schema" as a rename, and on a schema-less engine that degrades to `RENAME TO` the *same* name.
+
+- **MSysNameMap** is Access's **Name AutoCorrect** map: for each object Access tracks, the names it and the
+  objects it depends on had when the map was last written. Five columns, no indexes: `GUID` (GUID), `Id`
+  (Long), `Name` (Text), `NameMap` (OLE), `Type` (Long). One row per object:
+  - **`Type`** is the object's `MSysObjects.Type` read as an unsigned 16-bit value — `1` table, `5` query,
+    `32768` form, `32772` report.
+  - **`Name`** is the object's name as it was when the row was written, stored **with a trailing NUL**.
+  - **`GUID`** is the object's own `GUID` property (the 16-byte Binary property in its `LvProp`) — in all but a
+    few rows, which Access has left stale.
+  - **`Id`** is **not** the `MSysObjects` Id: it is distinct within a file, not contiguous, and not decoded.
+  - **`NameMap`** is a long-value column with an owned-pages map and no free-pages map, so each map over 64
+    bytes has an LVAL page to itself ([long-values.md](long-values.md) §3.3.2).
+
+  **`NameMap` blob.** `[int32 version = 5][int32 fixedLen = 48]`, then records back to back, each
+  `[int32 length, excluding itself][48 fixed bytes][UTF-16 name, NUL-terminated]`; a map with no records is
+  the 8-byte header alone. Every blob in the corpus parses to its exact end under this rule. The fixed part:
+
+  | Offset | Size | Object record | Field record |
+  |---|---|---|---|
+  | `+0` | 4 | `0` | `0` |
+  | `+4` | 16 | the object's GUID | the field's GUID |
+  | `+20` | 4 | a record kind, not decoded (`0`, `1` or `2`) | a record kind, not decoded (`7` on almost every field; `4`, `6`, `13` seen) |
+  | `+24` | 16 | an OLE Automation date (`double`, zero in a few), then 8 zero bytes | a GUID — in most records the preceding object record's; not decoded |
+  | `+40` | 4 | the object's `MSysObjects.Type` (`1` table, `5` query, `6` linked table, …) | the field's data type code (`4` Long, `10` Text, `12` Memo, …) |
+  | `+44` | 4 | **uninitialised** — whatever was in memory; a reader must not interpret it | the same |
+
+  A **table's** blob begins with the table's own object record; where Access has refreshed it since the
+  table last changed, a field record per column follows, and nothing else. A **query's** blob never begins
+  with the query itself but with an object it reads; forms and reports mostly the same.
+
+  **The engine never maintains any of it (verified).** Through ACE, `CREATE TABLE`, `DROP TABLE`,
+  `ADD COLUMN` and `DROP COLUMN`, and a table or field rename through DAO, leave `MSysNameMap` untouched — a
+  dropped table's row stays, and a renamed one keeps its old `Name` — and leave the table's `GUID` and
+  `NameMap` properties as they were; a table created through SQL or DAO gets neither property. The two
+  per-column pieces ACE does keep in step are the column's own property block: `DROP COLUMN` removes it, a
+  field rename renames its owner. Updating the map is the Access application's work, done when it
+  next runs Name AutoCorrect; a writer below Access leaves it alone, as LibRed does.
+
+  > **The `NameMap` property holds the same records in a second layout.** Tables, linked tables, forms and
+  > reports carry a property named `NameMap` in their `LvProp` (OLE, `0x0B`, entry flag `0x00`). After the
+  > signature `0A CC 0E 55`, records follow back to back, each the first 40 bytes of an `MSysNameMap` fixed
+  > part — `[int32 0][GUID][int32 kind][16-byte slot]` — followed at once by the NUL-terminated UTF-16 name:
+  > no length prefix, no type field, no uninitialised field. The list ends with a record of **kind `12`**
+  > (`0x0C`) whose GUID is null, whose slot holds an int32 of `2` to `5` then zeros (`5` on every form,
+  > report and linked table), and whose name is empty; the blob ends with it. Every blob in the corpus
+  > parses to its exact end this way, bar one table in an MDB file that has no kind-12 record and ends after
+  > its last name with two zero bytes. Records with a **null GUID** occur inside the list too, so the end is
+  > the kind, never the GUID.
+  >
+  > Where an object has both, the property and its `MSysNameMap` blob usually list identical records; where
+  > they differ, it is in an object record's date or in a name — the two were written at different times. A
+  > table's property usually begins with the table itself (its `GUID` property), occasionally with another
+  > object. LibRed keeps the property byte for byte like any other; nothing in the engine reads it.
 
 
 ---

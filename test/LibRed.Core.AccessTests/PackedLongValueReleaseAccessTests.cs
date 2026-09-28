@@ -88,8 +88,8 @@ public class PackedLongValueReleaseAccessTests(ITestOutputHelper output) : TempD
         {
             channel.ReadPage(page, buffer);
             if (BitConverter.ToUInt32(buffer, channel.Format.DataOwnerOffset) != 0x4C41564C) continue;
-            if (buffer[0] == (byte)PageType.DataPage) live++;
-            else if (buffer[0] == (byte)PageType.ReleasedDataPage) released++;
+            if (PageHeader.ReadType(buffer) == PageType.DataPage) live++;
+            else if (PageHeader.ReadType(buffer) == PageType.ReleasedDataPage) released++;
         }
         return $"lval live={live} released={released}";
     }
@@ -113,7 +113,7 @@ public class PackedLongValueReleaseAccessTests(ITestOutputHelper output) : TempD
                 continue;
             }
             if (BitConverter.ToInt32(ace, at + 4) == 2) continue;
-            if (ace[at] is (byte)PageType.IntermediateIndexPage or (byte)PageType.LeafIndexPage) continue;
+            if (PageHeader.ReadType(ace.AsSpan(at)) is PageType.IntermediateIndexPage or PageType.LeafIndexPage) continue;
 
             for (int i = 0, shown = 0; i < PageSize && shown < 8; i++)
                 if (ace[at + i] != libred[at + i])

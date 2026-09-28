@@ -23,7 +23,7 @@ public sealed class PageAllocator(PageChannel channel)
 {
     private const byte InlineMapType = 0x00;
     private const byte ReferenceMapType = 0x01;
-    /// <summary>Bytes preceding the bitmap on a dedicated usage-bitmap page (type 0x05).</summary>
+    /// <summary>Bytes preceding the bitmap on a dedicated usage-bitmap page (type 0x0105).</summary>
     private const int BitmapPageHeaderSize = 4;
 
     /// <summary>A reference map is a fixed 69-byte record: the type byte + 17 bitmap-page pointers (17 being
@@ -272,8 +272,7 @@ public sealed class PageAllocator(PageChannel channel)
             if (BinaryPrimitives.ReadInt32LittleEndian(reference.AsSpan(1 + slot * 4)) != 0) continue;
             int bitmapPage = Allocate();
             var bitmap = new byte[_channel.PageSize];
-            bitmap[0] = (byte)PageType.PageUsageBitmap;
-            bitmap[1] = 1;
+            PageHeader.WriteType(bitmap, PageType.PageUsageBitmap);
             _channel.WritePage(bitmapPage, bitmap);
             BinaryPrimitives.WriteInt32LittleEndian(reference.AsSpan(1 + slot * 4), bitmapPage);
             added = true;
@@ -329,7 +328,7 @@ public sealed class PageAllocator(PageChannel channel)
     public void ValidateGlobalMaps() => ReadGlobalMaps();
 
     /// <summary>Allocates from a reference-type global free map (huge databases): the record is a list of
-    /// pointers to dedicated bitmap pages (type 0x05), pointer <c>k</c> covering the page range starting at
+    /// pointers to dedicated bitmap pages (type 0x0105), pointer <c>k</c> covering the page range starting at
     /// <c>k × (pageSize − 4) × 8</c>. A **set bit is a free page** (the global map's sense, opposite of a
     /// per-table owned map). Finds the first free page, clears its bit on the bitmap page, and returns it;
     /// grows the file when no bitmap records a free page.</summary>
@@ -469,8 +468,7 @@ public sealed class PageAllocator(PageChannel channel)
     private void WriteNewGlobalBitmap(int number, int range)
     {
         var bitmap = new byte[_channel.PageSize];
-        bitmap[0] = (byte)PageType.PageUsageBitmap;
-        bitmap[1] = 1;
+        PageHeader.WriteType(bitmap, PageType.PageUsageBitmap);
         int span = (_channel.PageSize - BitmapPageHeaderSize) * 8;
         int firstFree = Math.Clamp(_channel.PageCount - range * span, 0, span);
         for (int bit = firstFree; bit < span; bit++)
@@ -536,7 +534,7 @@ public sealed class PageAllocator(PageChannel channel)
             throw new InvalidDataException(
                 $"Page 0's global {name} map pointer names page {pointer.Page}, outside the file's pages 1..{_channel.PageCount - 1}.");
         PageBuffer buffer = _channel.ReadPage(pointer.Page);
-        if (buffer.Span[0] != (byte)PageType.DataPage)
+        if (PageHeader.ReadType(buffer.Span) != PageType.DataPage)
             throw new InvalidDataException(
                 $"Page 0's global {name} map pointer names page {pointer.Page}, which is not a data page.");
         var data = new DataPage();
@@ -593,7 +591,7 @@ public sealed class PageAllocator(PageChannel channel)
     {
         ValidateReusablePage(pageNumber, "usage-map bitmap pointer", free, released, _channel.PageCount - 1);
         byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
-        if (page[0] != (byte)PageType.PageUsageBitmap || page[1] != 0x01 || page[2] != 0 || page[3] != 0)
+        if (PageHeader.ReadType(page) != PageType.PageUsageBitmap || page[2] != 0 || page[3] != 0)
             throw new InvalidDataException($"Global map pointer {pageNumber} does not target a valid bitmap page.");
         return page;
     }

@@ -187,7 +187,7 @@ public sealed class UsageMapWriter(PageChannel channel)
         return true;
     }
 
-    /// <summary>Number of pages one dedicated bitmap page (type 0x05) covers.</summary>
+    /// <summary>Number of pages one dedicated bitmap page (type 0x0105) covers.</summary>
     private int PagesPerBitmapPage => (_channel.Format.PageSize - BitmapPageHeaderSize) * 8;
 
     /// <summary>Sets or clears <paramref name="targetPage"/>'s bit in a reference map: pointer slot
@@ -229,7 +229,7 @@ public sealed class UsageMapWriter(PageChannel channel)
                 $"Usage map names bitmap page {bitmapPage}, outside the file's 2..{_channel.PageCount - 1} range.");
 
         byte[] bitmap = _channel.ReadPage(bitmapPage).Span.ToArray();
-        if (bitmap[0] != (byte)PageType.PageUsageBitmap || bitmap[1] != 0x01 || bitmap[2] != 0 || bitmap[3] != 0)
+        if (PageHeader.ReadType(bitmap) != PageType.PageUsageBitmap || bitmap[2] != 0 || bitmap[3] != 0)
             throw new InvalidDataException(
                 $"Page {bitmapPage} is named as a usage bitmap but does not carry the [05 01 00 00] header.");
 
@@ -240,13 +240,12 @@ public sealed class UsageMapWriter(PageChannel channel)
         _channel.WritePage(bitmapPage, bitmap);
     }
 
-    /// <summary>Allocates and initialises an empty dedicated usage-bitmap page (type 0x05).</summary>
+    /// <summary>Allocates and initialises an empty dedicated usage-bitmap page (type 0x0105).</summary>
     private int AllocateBitmapPage()
     {
         int pageNumber = new PageAllocator(_channel).Allocate();
         var bitmap = new byte[_channel.Format.PageSize];
-        bitmap[0] = (byte)PageType.PageUsageBitmap;
-        bitmap[1] = 0x01; // page flags (observed constant, as on data pages)
+        PageHeader.WriteType(bitmap, PageType.PageUsageBitmap);
         _channel.WritePage(pageNumber, bitmap);
         return pageNumber;
     }

@@ -12,7 +12,7 @@ namespace LibRed.Crypto;
 /// </summary>
 /// <remarks>
 /// Verified against a real <c>System.mdw</c> (databaseKey <c>0xABBB315C</c>): with this key every page decrypts
-/// to a valid page-type byte (page 1 → <c>0x01</c> data, page 2/3 → <c>0x02</c> TDEF, index pages → <c>0x04</c>),
+/// to a valid page type (page 1 → <c>0x0101</c> data, page 2/3 → <c>0x0102</c> TDEF, index pages → <c>0x0104</c>),
 /// and the XOR (not ADD) page-number mixing is the one that yields valid types on pages where the two differ.
 /// Same per-page key derivation as <see cref="AgileEncryption"/> (<c>LE32(pageNumber) XOR encodingKey</c>), just
 /// feeding RC4 directly rather than an AES IV.

@@ -500,15 +500,15 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// reclaiming a hidden relocation target is kept, as ACE keeps it (see <see cref="ReclaimRelocationTarget"/>).
     /// </summary>
     /// <remarks>
-    /// <para>A page emptied by DELETE is stamped <see cref="PageType.ReleasedDataPage"/> (<c>0x09</c>), taken
+    /// <para>A page emptied by DELETE is stamped <see cref="PageType.ReleasedDataPage"/> (<c>0x0109</c>), taken
     /// out of the table's owned and free maps, and released — held until this handle closes, the route ACE
     /// takes for a delete's pages. Nothing else about the page changes: the row count stands and every slot
     /// stays the 0-length deleted+overflow tombstone <see cref="ReclaimRow"/> left, which is already what ACE
     /// writes, so the stamp is the only differing byte.</para>
     /// <para>Measured against ACE over a 1,200-row table with 699 rows deleted from the low end: 18 data pages
-    /// emptied, and on each one ACE changed exactly the type byte, cleared the page from both of the table's
+    /// emptied, and on each one ACE changed exactly the type's low byte, cleared the page from both of the table's
     /// maps, and set its bit in the global map. This is the same event as an emptied packed long-value page
-    /// (<see cref="ReleasePackedValue"/>) and carries the same stamp — <c>0x09</c> is not confined to
+    /// (<see cref="ReleasePackedValue"/>) and carries the same stamp — <c>0x0109</c> is not confined to
     /// long-value pages, and these carry the table's own owner at <c>0x04</c> rather than an <c>LVAL</c>
     /// signature.</para>
     /// <para>"Emptied" is every slot deleted <b>and</b> zero-length, not merely every slot deleted: a hidden
@@ -519,7 +519,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     private bool WriteReclaimedPage(JetFormatBase format, byte[] page, int pageNumber)
     {
         bool release = IsEmptied(format, page) && !IsFirstDataPage(pageNumber);
-        if (release) page[0] = (byte)PageType.ReleasedDataPage;
+        if (release) PageHeader.WriteType(page, PageType.ReleasedDataPage);
         _channel.WritePage(pageNumber, page.AsSpan(0, format.PageSize));
         if (!release) return false;
 
@@ -702,7 +702,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         var reader = new LongValueReader(_channel);
         _ = reader.ResolveWithPages(descriptor, out IReadOnlyList<int> pages);
         HashSet<int> ownedPages = MapPages(owned.Row, owned.Page).ToHashSet();
-        _ = MapPages(free.Row, free.Page); // validate both mutation targets before the first free
+        if (free.Page != 0) _ = MapPages(free.Row, free.Page); // validate both mutation targets before the first free
         foreach (int page in pages)
             if (!ownedPages.Contains(page))
                 throw new InvalidDataException(
@@ -716,7 +716,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (releaseAtClose) allocator.Release(page);
             else allocator.Free(page);
             _usageMaps.SetBit(owned.Row, owned.Page, page, set: false);
-            _usageMaps.SetBit(free.Row, free.Page, page, set: false);
+            if (free.Page != 0) _usageMaps.SetBit(free.Row, free.Page, page, set: false);
         }
     }
 
@@ -724,7 +724,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// Retires one value from a shared (single-page form) long-value page: its row becomes a <b>0-length
     /// deleted+overflow tombstone</b> and the page is re-laid, the surviving records packing from the page end
     /// in slot order so the freed space is reclaimed. When nothing live is left the page is given back — its
-    /// type byte set to <see cref="PageType.ReleasedDataPage"/>, its bit cleared from the column's owned
+    /// type set to <see cref="PageType.ReleasedDataPage"/>, its bit cleared from the column's owned
     /// and free maps, and the page returned to the global allocator.
     /// </summary>
     /// <remarks>
@@ -779,18 +779,19 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             (ushort)(offset - (dir + holder.RowCount * 2)));
 
         bool emptied = records.All(r => r.Length == 0);
-        if (emptied) page[0] = (byte)PageType.ReleasedDataPage;
+        if (emptied) PageHeader.WriteType(page, PageType.ReleasedDataPage);
         _channel.WritePage(pageNumber, page);
 
         // A page that survives has room again, so it goes back into the column's free-pages map — the same
-        // map TryAppend consults when looking for somewhere to pack the next small value.
+        // map TryAppend consults when looking for somewhere to pack the next small value. A column with no
+        // free-pages map packs nothing, so there it simply stays owned.
         if (!emptied)
         {
-            _usageMaps.SetBit(free.Row, free.Page, pageNumber, set: true);
+            if (free.Page != 0) _usageMaps.SetBit(free.Row, free.Page, pageNumber, set: true);
             return;
         }
         _usageMaps.SetBit(owned.Row, owned.Page, pageNumber, set: false);
-        _usageMaps.SetBit(free.Row, free.Page, pageNumber, set: false);
+        if (free.Page != 0) _usageMaps.SetBit(free.Row, free.Page, pageNumber, set: false);
         if (releaseAtClose) new PageAllocator(_channel).Release(pageNumber);
         else new PageAllocator(_channel).Free(pageNumber);
     }
@@ -915,8 +916,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         int pageNumber = new PageAllocator(_channel).Allocate();
 
         var page = new byte[format.PageSize];
-        page[0] = (byte)PageType.DataPage;
-        page[1] = 0x01; // page flags (observed constant)
+        PageHeader.WriteType(page, PageType.DataPage);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.DataOwnerOffset, 4), _table.DefinitionPage);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), 0);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
@@ -1141,19 +1141,23 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// free-pages map with room), the way Access shares a page across many small values; only when none has
     /// room is a fresh page allocated (owned + free). A value larger than one page is chained across
     /// dedicated pages.
+    /// <para>A column with an owned-pages map and <b>no free-pages map</b> (a free pointer to page 0) never shares
+    /// a page: each value takes a fresh one, recorded in the owned map alone. Access writes <c>MSysNameMap.NameMap</c>
+    /// and <c>MSysAccessXML.LValue</c> that way, and packs nothing into them — measured across every such file,
+    /// one LVAL page per stored value.</para>
     /// </summary>
     private byte[] StoreLongValue(LongValueWriter writer, byte[] payload, (int Row, int Page) owned, (int Row, int Page) free)
     {
-        if (owned.Page == 0 || free.Page == 0)
-            throw new InvalidDataException("Long-value column has no complete owned/free usage-map pointers.");
+        if (owned.Page == 0)
+            throw new InvalidDataException("Long-value column has no owned-pages usage-map pointer.");
         _ = MapPages(owned.Row, owned.Page); // validate both map targets before allocating or writing LVAL pages
-        IReadOnlyList<int> freePages = MapPages(free.Row, free.Page);
+        IReadOnlyList<int> freePages = free.Page == 0 ? [] : MapPages(free.Row, free.Page);
 
         if (payload.Length > LongValueFormat.MaxSinglePageValue)
         {
             LongValueResult chained = writer.Write(payload);
             foreach (int page in chained.OwnedPages) _usageMaps.SetBit(owned.Row, owned.Page, page, set: true);
-            if (chained.FreePage != 0)
+            if (chained.FreePage != 0 && free.Page != 0)
                 _usageMaps.SetBit(free.Row, free.Page, chained.FreePage, set: true, movableWindow: true);
             return chained.Descriptor;
         }
@@ -1170,7 +1174,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // No free page had room: a fresh page (owned, and free — it still has spare room).
         int newPage = writer.WriteNewPage(payload);
         _usageMaps.SetBit(owned.Row, owned.Page, newPage, set: true);
-        _usageMaps.SetBit(free.Row, free.Page, newPage, set: true, movableWindow: true);
+        if (free.Page != 0)
+            _usageMaps.SetBit(free.Row, free.Page, newPage, set: true, movableWindow: true);
         return LongValueWriter.SinglePageDescriptor(payload.Length, newPage, 0);
     }
 
@@ -1213,7 +1218,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (bitmapPage <= 1 || bitmapPage >= _channel.PageCount || !bitmapPages.Add(bitmapPage))
                 throw new InvalidDataException($"Long-value usage map has invalid bitmap-page pointer {bitmapPage}.");
             ReadOnlySpan<byte> bitmap = _channel.ReadPageShared(bitmapPage).Span;
-            if (bitmap[0] != (byte)PageType.PageUsageBitmap || bitmap[1] != 0x01 || bitmap[2] != 0 || bitmap[3] != 0)
+            if (PageHeader.ReadType(bitmap) != PageType.PageUsageBitmap || bitmap[2] != 0 || bitmap[3] != 0)
                 throw new InvalidDataException($"Long-value usage-map pointer {bitmapPage} is not a bitmap page.");
             UsageMapBits.Append(result, bitmap[4..], i * pagesPerBitmap, _channel.PageCount, "Long-value usage map");
         }

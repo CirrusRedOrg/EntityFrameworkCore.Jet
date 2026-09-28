@@ -1,4 +1,4 @@
-# Table-definition (TDEF) page — type 0x02
+# Table-definition (TDEF) page — type 0x0102
 
 > Part of the [LibRed Jet / ACE file-format reference](README.md). Cross-references use the original **§-numbers**; the [section map](README.md#section-map) says which file each lives in.
 
@@ -6,9 +6,8 @@
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 1 | Page type `0x02` |
-| `0x01` | 1 | Flags (observed `0x01`) |
-| `0x02` | 2 | Free space remaining in this page |
+| `0x00` | 2 | Page type `0x0102` (bytes `02 01`), on the first page and every continuation page |
+| `0x02` | 2 | Free-space count — bytes still free on this page |
 | `0x04` | 4 | Next TDEF page (0 if the definition fits one page) |
 | `0x08` | 4 | TDEF length (total logical bytes) |
 | `0x0C` | 4 | Unknown — a constant `0x00000659` (1625) observed in every file |
@@ -211,7 +210,7 @@ the documented 255-column, 32-index, and 64-character-name limits.
 
 > **Rewriting a multi-page TDEF (verified vs ACE: `ADD COLUMN`, `DROP COLUMN`, `CREATE INDEX`).** Growing or
 > shrinking, ACE rewrites the **first page in place** but writes the continuation data to **newly allocated
-> pages**, and releases the old continuation pages without touching a byte of them (they keep type `0x02`);
+> pages**, and releases the old continuation pages without touching a byte of them (they keep type `0x0102`);
 > they are back in the global free-pages map once the session closes. The new last page is zero past its
 > data. The **last continuation is allocated first**, each allocation taking the lowest free page: from free
 > pages `354…` a two-continuation chain became `first → 355 → 354`, and from the end of a file

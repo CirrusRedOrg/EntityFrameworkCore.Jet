@@ -53,7 +53,7 @@ public class DropTableReclamationTests
 
             // Access marks the released definition page and leaves the rest of it alone — measured, exactly
             // one byte of the 4,096 changes across an ACE drop. The pages it frees alongside keep their types.
-            Assert.Equal((byte)LibRed.Pages.PageType.ReleasedTableDefinition, releasedTdef[0]);
+            Assert.Equal(LibRed.Pages.PageType.ReleasedTableDefinition, LibRed.Pages.PageHeader.ReadType(releasedTdef));
 
             // 60 values of 3,000 characters is ~360 KB of UTF-16, well over a hundred 4 KB pages. Before the
             // fix this was 2 — the single data page plus the TDEF.

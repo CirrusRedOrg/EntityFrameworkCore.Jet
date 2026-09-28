@@ -163,8 +163,7 @@ public sealed class LongValueWriter(PageChannel channel)
     {
         JetFormatBase format = _channel.Format;
         var page = new byte[format.PageSize];
-        page[0] = (byte)PageType.DataPage;
-        page[1] = 0x01; // page flags (observed constant)
+        PageHeader.WriteType(page, PageType.DataPage);
         BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(format.DataOwnerOffset, 4), LongValueFormat.LvalMarker);
         BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(format.DataChainStampOffset, 4), stamp);
 

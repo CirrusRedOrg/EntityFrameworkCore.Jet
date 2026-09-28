@@ -23,10 +23,10 @@ internal static class IndexPageReader
     {
         ValidatePageNumber(channel, pageNumber, "index page");
         PageBuffer buffer = channel.ReadPageShared(pageNumber);
-        var type = (PageType)buffer.ReadByte(0);
+        var type = PageHeader.ReadType(buffer.Span);
         if (type is not (PageType.LeafIndexPage or PageType.IntermediateIndexPage))
             throw new InvalidDataException(
-                $"Page {pageNumber} is type 0x{(byte)type:X2}, not an index page (0x03/0x04).");
+                $"Page {pageNumber} is type 0x{(ushort)type:X4}, not an index page (0x0103/0x0104).");
 
         int owner = buffer.ReadInt32(OwnerOffset);
         if (expectedOwner is not null && owner != expectedOwner)

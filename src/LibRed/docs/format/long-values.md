@@ -17,7 +17,7 @@ Flags (byte `0x03` masked with `0xC0`; its low six bits belong to the length):
 - `0x80` **inline** — the payload follows the descriptor in the row.
 - `0x40` **single LVAL page** — the row at (page, row) *is* the whole payload. Several such values **share**
   a page; deleting one retires its row to a 0-length deleted + overflow tombstone and re-lays the page, and
-  the page is released as type `0x09` once the last of them is gone
+  the page is released as type `0x0109` once the last of them is gone
   ([page-05 §9](page-05-usage-maps.md)).
 - `0x00` **multi-page** — the payload is chained across LVAL pages; each chunk's row begins
   with a 4-byte pointer (`[row:1][page:3]`) to the next chunk (zero on the last), followed by chunk
@@ -116,7 +116,7 @@ character at both ends, 536,870,911 accepted and 536,870,912 refused.
 > chaining. What fixes the boundary at 3816, rather than the 4076 a row can actually hold, is **not
 > established**; the ~260-byte margin is unexplained.
 
-LVAL pages are data pages (type `0x01`) whose owner field (`0x04`) is the ASCII marker `LVAL`.
+LVAL pages are data pages (type `0x0101`) whose owner field (`0x04`) is the ASCII marker `LVAL`.
 
 > **Reader and reclamation guardrails.** LibRed requires the complete 12-byte descriptor before reading
 > its fields, accepts only the three flags above, and bounds inline data against the bytes actually present.
@@ -244,6 +244,15 @@ and `MapPages` reads either form back.
 > pointer, not these maps), but the terminator **must be written**. A table with memo/OLE columns must
 > additionally allocate the usage-map records and emit a real `{col_num, used, free}` entry per long-value
 > column — verified against ACE-authored tables.
+>
+> **An entry can carry an owned-pages map and no free-pages map** — its free pointer is page 0. Access writes
+> exactly two columns that way, `MSysNameMap.NameMap` and `MSysAccessXML.LValue`; every other long-value
+> column examined has both. Such a column **never shares a page**: each value over 64 bytes is on an LVAL
+> page of its own, recorded in the owned map alone (measured: one page per stored value in every such file).
+> LibRed writes to one the same way — a fresh page per value, owned bit only, nothing packed — and ACE reads
+> the result back and keeps it through a compact (verified, single-page and chained values). LibRed retires a
+> value from one by clearing its owned bit and releasing the page, there being no free map to update — not
+> measured against ACE.
 >
 > The §3.3.2 entry is only strictly *required* once a value spills to LVAL pages — an entry-less table
 > still round-trips inline values through both LibRed and Access, but Access fails *"Not a valid bookmark"*

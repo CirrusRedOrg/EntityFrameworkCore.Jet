@@ -476,8 +476,7 @@ public static class DatabaseCreator
     {
         const int mapLen = 1 + 4 + 64;   // inline map: type + start page + 64-byte bitmap (512 pages)
         var page = new byte[format.PageSize];
-        page[0] = (byte)PageType.DataPage;
-        page[1] = 0x01;
+        PageHeader.WriteType(page, PageType.DataPage);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.DataOwnerOffset, 4), 1);  // global-map owner (observed)
 
         int row0 = format.PageSize - mapLen;        // free map (highest offset — the one the allocator reads)
@@ -520,8 +519,7 @@ public static class DatabaseCreator
     {
         const int mapLen = 1 + 4 + 64;   // inline map record: type + start page + 64-byte bitmap
         var page = new byte[format.PageSize];
-        page[0] = (byte)PageType.DataPage;
-        page[1] = 0x01;
+        PageHeader.WriteType(page, PageType.DataPage);
         int offset = format.PageSize;
         for (int row = 0; row < mapCount; row++)
         {

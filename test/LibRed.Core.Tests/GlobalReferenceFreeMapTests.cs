@@ -7,7 +7,7 @@ using Xunit;
 namespace LibRed.Core.Tests;
 
 // PageAllocator handles the reference-type (0x01) global free-pages map on page 1: it finds a free page by
-// scanning the dedicated bitmap pages (type 0x05), clears its bit, and returns it — and Free() sets the bit
+// scanning the dedicated bitmap pages (type 0x0105), clears its bit, and returns it — and Free() sets the bit
 // back. A SET bit is a FREE page (the global map's sense, opposite of a per-table owned map). Verified here
 // against a hand-crafted two-slot reference map: a real reference-type global map only appears in a large
 // (>~130 MB) pre-existing ACE file, impractical to grow in a unit test, and the bit↔page math is the same
@@ -32,7 +32,7 @@ public class GlobalReferenceFreeMapTests
         // slot 1 → bitmap page 3. (The 69-byte record is packed at the page end, as ACE packs rows.) Row 1 is the
         // released-pages map page 0 points at (0x1C), empty, as every real file carries it.
         int p1 = pageSize;
-        file[p1] = 0x01; // page type: data page
+        LibRed.Pages.PageHeader.WriteType(file.AsSpan(p1), LibRed.Pages.PageType.DataPage);
         BinaryPrimitives.WriteUInt16LittleEndian(file.AsSpan(p1 + format.DataRowCountOffset, 2), 2);
         int mapOffset = pageSize - 69;
         BinaryPrimitives.WriteUInt16LittleEndian(file.AsSpan(p1 + format.DataRowDirectoryOffset, 2), (ushort)mapOffset);
@@ -64,12 +64,11 @@ public class GlobalReferenceFreeMapTests
         }
     }
 
-    /// <summary>Writes a type-0x05 usage-bitmap page at <paramref name="offset"/> with one free bit set (the
+    /// <summary>Writes a type-0x0105 usage-bitmap page at <paramref name="offset"/> with one free bit set (the
     /// bitmap starts 4 bytes past the page header; a set bit marks a free page).</summary>
     private static void WriteBitmapPage(byte[] file, int offset, int? inRangeBit)
     {
-        file[offset] = 0x05;
-        file[offset + 1] = 0x01;
+        LibRed.Pages.PageHeader.WriteType(file.AsSpan(offset), LibRed.Pages.PageType.PageUsageBitmap);
         if (inRangeBit is int bit)
             file[offset + 4 + bit / 8] |= (byte)(1 << (bit % 8));
     }

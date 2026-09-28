@@ -179,8 +179,7 @@ public static class TdefBuilder
         int definitionSize = DefinitionSize(format, columns, indexes, logical, longValueColumns);
         var page = new byte[Math.Max(format.PageSize, definitionSize)];
 
-        page[0] = (byte)PageType.TableDefinition;
-        page[format.TdefHeaderFlagsOffset] = 0x01;
+        PageHeader.WriteType(page, PageType.TableDefinition);
         BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(format.TdefRecordMarkerOffset, 4), JetFormatBase.TdefRecordMarker);
         // AutoNumber (COUNTER) config lives in the TDEF header: 0x18 = increment (default 1), and 0x14 =
         // the last-assigned value initialized to Seed-Increment so the first insert yields Seed. A table has

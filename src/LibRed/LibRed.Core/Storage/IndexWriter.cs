@@ -652,8 +652,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     {
         int pageSize = _channel.PageSize;
         var page = new byte[pageSize];
-        page[0] = (byte)type;
-        page[1] = 0x01; // page flags (observed constant)
+        PageHeader.WriteType(page, type);
         page[LevelOffset] = (byte)level; // 0 on a leaf; the node's height above the leaves otherwise
         WriteInt32Le(page, OwnerOffset, _table.DefinitionPage);
         WriteInt32Le(page, PrevPageOffset, prev);
@@ -853,7 +852,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
         // A leaf turning node — the root, when it splits — still counts as the same page rewritten.
         ReadOnlySpan<byte> existing = _channel.ReadPage(pageNumber).Span;
-        if (existing[0] is not ((byte)PageType.LeafIndexPage or (byte)PageType.IntermediateIndexPage)
+        if (PageHeader.ReadType(existing) is not (PageType.LeafIndexPage or PageType.IntermediateIndexPage)
             || BinaryPrimitives.ReadInt32LittleEndian(existing[OwnerOffset..]) != _table.DefinitionPage)
             return new byte[_channel.PageSize];
         return existing.ToArray();

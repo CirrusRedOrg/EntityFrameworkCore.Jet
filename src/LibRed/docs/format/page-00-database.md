@@ -6,8 +6,8 @@
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 1 | Page type, `0x00` |
-| `0x01` | 3 | Unknown (observed `01 00 00`, constant across Jet 4 and ACE; not decoded) |
+| `0x00` | 2 | Page type `0x0100` (bytes `00 01`) — the 16-bit type every page starts with ([README](README.md)) |
+| `0x02` | 2 | Unknown (zero on every file examined; not decoded) |
 | `0x04` | 15 | Format identifier ASCII: `Standard Jet DB` or `Standard ACE DB` |
 | `0x13` | 1 | NUL terminator of the identifier string |
 | `0x14` | 1 | Version byte (see below). mdbtools reads `jet_version` as a 4-byte word at `0x14`; the version is its low byte |
@@ -409,7 +409,7 @@ key = LE32(pageNumber XOR databaseKey)
 and the page bytes are the RC4 keystream XOR'd over the plaintext. This is the same per-page key mixing ACE
 Agile uses (`LE32(pageNumber) XOR encodingKey`), just feeding RC4 directly instead of deriving an AES IV.
 Verified against a real `System.mdw`: the page-number mixing is XOR, not ADD; every page decrypts to a valid
-page-type byte (page 1 → `01` data, pages 2/3 → `02` TDEF, index pages → `04`), `MSysObjects`/`MSysACEs`
+page type (page 1 → `0x0101` data, pages 2/3 → `0x0102` TDEF, index pages → `0x0104`), `MSysObjects`/`MSysACEs`
 parse, and `MSysAccounts` yields the account SIDs in §2.3. Implemented as `LibRed.Crypto.JetLegacyEncryption`;
 `PageChannel` selects it for non-ACE (`!IsAccdb`) files with a nonzero database key.
 

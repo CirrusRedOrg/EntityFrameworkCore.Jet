@@ -1,14 +1,13 @@
-# Data pages (type 0x01) and the row record
+# Data pages (type 0x0101) and the row record
 
 > Part of the [LibRed Jet / ACE file-format reference](README.md). Cross-references use the original **§-numbers**; the [section map](README.md#section-map) says which file each lives in.
 
-## 4. Data page — type `0x01`
+## 4. Data page — type `0x0101`
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 1 | Page type `0x01` |
-| `0x01` | 1 | Flags (observed constant `0x01`; the same byte appears on TDEF and index pages — verified) |
-| `0x02` | 2 | Free space |
+| `0x00` | 2 | Page type `0x0101` (bytes `01 01`). The whole word is the type — the second byte is not a separate flags field ([README](README.md)) |
+| `0x02` | 2 | Free-space count — bytes still free on the page |
 | `0x04` | 4 | Owning table's TDEF page — **or** the ASCII marker `LVAL` (`0x4C41564C`) for long-value pages |
 | `0x08` | 4 | Jet4-only. **Zero on every page except the FIRST page of a multi-page long-value chain**, where it carries a stamp that must equal the pointing descriptor's own `0x08` — see [long-values](long-values.md). Jet3 has the row count here instead (which is why Jet4's row count sits 4 bytes later). LibRed writes it and checks it. |
 | `0x0C` | 2 | Row count on this page. **ACE writes at most 255, whatever the free space** — see the slot-count limit below. |

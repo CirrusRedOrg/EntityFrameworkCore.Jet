@@ -15,6 +15,7 @@ public class PageAndRowCorruptionTests
 
     [Theory]
     [InlineData("wrong-page-type")]
+    [InlineData("wrong-page-type-high-byte")]
     [InlineData("short-page")]
     [InlineData("directory-past-page")]
     [InlineData("row-overlaps-directory")]
@@ -26,7 +27,12 @@ public class PageAndRowCorruptionTests
         switch (corruption)
         {
             case "wrong-page-type":
-                page[0] = (byte)PageType.TableDefinition;
+                PageHeader.WriteType(page, PageType.TableDefinition);
+                break;
+            case "wrong-page-type-high-byte":
+                // The type is the whole word: 01 02 is not a data page, though its low byte is. ACE skips such a
+                // page rather than reading it as rows.
+                page[1] = 0x02;
                 break;
             case "short-page":
                 page = page[..100];
@@ -145,8 +151,7 @@ public class PageAndRowCorruptionTests
     private static byte[] NewDataPage(int rowCount, int firstOffset, int secondOffset)
     {
         var page = new byte[Format.PageSize];
-        page[0] = (byte)PageType.DataPage;
-        page[1] = 1;
+        PageHeader.WriteType(page, PageType.DataPage);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(Format.DataRowCountOffset, 2), (ushort)rowCount);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(Format.DataRowDirectoryOffset, 2), (ushort)firstOffset);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(Format.DataRowDirectoryOffset + 2, 2), (ushort)secondOffset);

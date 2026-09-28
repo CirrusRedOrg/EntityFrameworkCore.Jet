@@ -17,10 +17,9 @@ internal static class TdefChainReader
         JetFormatBase format = channel.Format;
         ValidatePageNumber(channel, firstPage, "TDEF root");
         PageBuffer first = channel.ReadPage(firstPage);
-        if (first.ReadByte(0) != (byte)PageType.TableDefinition || first.ReadByte(1) != 0x01)
+        if (PageHeader.ReadType(first.Span) != PageType.TableDefinition)
             throw new InvalidDataException(
-                $"TDEF root page {firstPage} has header " +
-                $"[{first.ReadByte(0):X2} {first.ReadByte(1):X2}], expected [02 01].");
+                $"TDEF root page {firstPage} is type 0x{(ushort)PageHeader.ReadType(first.Span):X4}, expected 0x0102.");
 
         int definitionLength = first.ReadInt32(format.TdefLengthOffset);
         if (definitionLength < format.TdefRealIndexBlockOffset || definitionLength > MaxDefinitionLength)
@@ -53,10 +52,9 @@ internal static class TdefChainReader
                 throw new InvalidDataException($"TDEF page {firstPage} contains a continuation cycle at page {next}.");
 
             PageBuffer continuation = channel.ReadPage(next);
-            if (continuation.ReadByte(0) != (byte)PageType.TableDefinition || continuation.ReadByte(1) != 0x01)
+            if (PageHeader.ReadType(continuation.Span) != PageType.TableDefinition)
                 throw new InvalidDataException(
-                    $"TDEF continuation page {next} has header " +
-                    $"[{continuation.ReadByte(0):X2} {continuation.ReadByte(1):X2}], expected [02 01].");
+                    $"TDEF continuation page {next} is type 0x{(ushort)PageHeader.ReadType(continuation.Span):X4}, expected 0x0102.");
 
             continuationPages.Add(next);
             continuationBuffers.Add(continuation);

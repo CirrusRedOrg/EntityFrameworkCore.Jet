@@ -1137,12 +1137,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         RetireMapRecords(retire, maps, owned);
 
-        // Access marks the released definition page itself: its type byte becomes 0x08 and nothing else on
+        // Access marks the released definition page itself: its type becomes 0x0108 and nothing else on
         // the page changes, so the old definition is still sitting there when Compact comes to reclaim it.
-        // Measured across an ACE DROP TABLE: exactly one byte of the 4,096 differs. Only the TDEF is marked —
-        // the data, long-value and map-holder pages ACE frees keep their 0x01.
+        // Measured across an ACE DROP TABLE: exactly one byte of the 4,096 differs, the type's low byte. Only
+        // the TDEF is marked — the data, long-value and map-holder pages ACE frees keep their 0x0101.
         byte[] released = _channel.ReadPage(tdefPage).Span.ToArray();
-        released[0] = (byte)PageType.ReleasedTableDefinition;
+        PageHeader.WriteType(released, PageType.ReleasedTableDefinition);
         _channel.WritePage(tdefPage, released);
 
         foreach (int page in owned)
@@ -1444,6 +1444,97 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             table.Update(id, values, new HashSet<int> { lvProp.Index });
             return;
         }
+    }
+
+    /// <summary>The <c>LvProp</c> property holding an object's copy of its Name AutoCorrect map.</summary>
+    private const string NameMapProperty = "NameMap";
+
+    /// <summary>Every <c>MSysNameMap</c> row, its map decoded; empty when the file has no such table.</summary>
+    public IReadOnlyList<NameMapRow> ReadNameMapRows()
+    {
+        if (_catalog.FindTable("MSysNameMap") is not { } def) return [];
+        int guid = def.RequireColumn("GUID").Index, id = def.RequireColumn("Id").Index,
+            name = def.RequireColumn("Name").Index, type = def.RequireColumn("Type").Index,
+            map = def.RequireColumn("NameMap").Index;
+        return [.. new Table(_channel, def).Rows().Select(r => new NameMapRow(
+            (Guid)r[guid]!, (int)r[id]!, ((string)r[name]!).TrimEnd('\0'), (int)r[type]!,
+            r[map] is byte[] blob ? NameMap.ReadRow(blob) : null))];
+    }
+
+    /// <summary>Replaces the map of the <c>MSysNameMap</c> row whose <c>GUID</c> is <paramref name="objectGuid"/>,
+    /// and its <c>Name</c> when <paramref name="name"/> is given — stored with the trailing NUL Access gives it.
+    /// Returns false when there is no such row; a row is never added, since its <c>Id</c> is not understood.</summary>
+    public bool WriteNameMapRow(Guid objectGuid, NameMap map, string? name)
+    {
+        if (_catalog.FindTable("MSysNameMap") is not { } def) return false;
+        int guidIndex = def.RequireColumn("GUID").Index, nameIndex = def.RequireColumn("Name").Index;
+        ColumnDef mapColumn = def.RequireColumn("NameMap");
+        var table = new Table(_channel, def);
+
+        foreach ((RowId id, object?[] values) in table.RowsWhere([guidIndex], v => v[guidIndex] is Guid g && g == objectGuid).ToList())
+        {
+            // A long value, like LvProp: stored first, the row given the descriptor (see WriteObjectProperties).
+            byte[] descriptor = new RowInserter(_channel, def).StorePackedLongValue(mapColumn.ColumnId, map.WriteRow());
+            values[mapColumn.Index] = new LongValueDescriptor(descriptor);
+            var changed = new HashSet<int> { mapColumn.Index };
+            if (name is not null)
+            {
+                values[nameIndex] = name + "\0";
+                changed.Add(nameIndex);
+            }
+            table.Update(id, values, changed);
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>The <c>NameMap</c> property of the object named <paramref name="objectName"/> of
+    /// <c>MSysObjects.Type</c> <paramref name="objectType"/>; null when the object has none.</summary>
+    /// <exception cref="InvalidOperationException">There is no such object.</exception>
+    public NameMap? ReadNameMapProperty(string objectName, short objectType)
+    {
+        byte[]? blob = ReadObjectProperties(RequireObjectId(objectName, objectType));
+        return blob is { Length: > 0 }
+            && PropertyBlob.Read(blob).FirstOrDefault(p => p.IsOwnedBy("") && p.Name == NameMapProperty) is { RawValue: { } raw }
+            ? NameMap.ReadProperty(raw)
+            : null;
+    }
+
+    /// <summary>Sets the object's <c>NameMap</c> property to <paramref name="map"/>, or removes it when null. An
+    /// existing entry keeps its place and flag byte; a new one takes the flag <c>0x00</c> Access gives it. Every
+    /// other property is left as it was.</summary>
+    /// <exception cref="InvalidOperationException">There is no such object.</exception>
+    public void WriteNameMapProperty(string objectName, short objectType, NameMap? map)
+    {
+        int objectId = RequireObjectId(objectName, objectType);
+        byte[] blob = ReadObjectProperties(objectId) ?? [];
+        var properties = PropertyBlob.Read(blob).ToList();
+        int at = properties.FindIndex(p => p.IsOwnedBy("") && p.Name == NameMapProperty);
+        if (map is null)
+        {
+            if (at < 0) return;
+            properties.RemoveAt(at);
+        }
+        else
+        {
+            PropertyBlob.Property property = PropertyBlob.Of("", NameMapProperty, map.WriteProperty(), JetDataType.Ole);
+            if (at >= 0) properties[at] = property with { Flags = properties[at].Flags, Block = properties[at].Block };
+            else properties.Add(property with { Flags = 0 });
+        }
+        WriteObjectProperties(objectId, PropertyBlob.Write(properties, blob));
+    }
+
+    /// <summary>The <c>MSysObjects.Id</c> of the object with this name and type.</summary>
+    private int RequireObjectId(string name, short type)
+    {
+        TableDef msys = _catalog.RequireTable("MSysObjects");
+        int idIndex = msys.RequireColumn("Id").Index, nameIndex = msys.RequireColumn("Name").Index,
+            typeIndex = msys.RequireColumn("Type").Index;
+        var objects = new Table(_channel, msys);
+        foreach (object?[] row in objects.Rows(objects.DecodeOnly([idIndex, nameIndex, typeIndex])))
+            if (row[typeIndex] is short t && t == type && NameMatches(row[nameIndex], name))
+                return (int)row[idIndex]!;
+        throw new InvalidOperationException($"There is no object '{name}' of type {type}.");
     }
 
     /// <summary><c>MSysObjects</c> and the two columns every extended-property path works through: the
@@ -3420,8 +3511,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         {
             var (offset, length, free) = chunks[i];
             var page = new byte[ps];
-            page[0] = (byte)PageType.TableDefinition;
-            page[1] = 0x01;
+            PageHeader.WriteType(page, PageType.TableDefinition);
             if (length > 0) // a page holding only the reserve starts past the definition's end
                 Array.Copy(def, offset, page, JetFormatBase.TdefContinuationHeaderSize, length);
             int next = i + 1 < pageNumbers.Length ? pageNumbers[i + 1] : 0;
@@ -3536,8 +3626,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         const int OwnerOffset = 0x04;
 
         var page = new byte[format.PageSize];
-        page[0] = (byte)PageType.LeafIndexPage;
-        page[1] = 0x01; // page flags (observed constant)
+        PageHeader.WriteType(page, PageType.LeafIndexPage);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(OwnerOffset, 4), owner);
         // No entries: empty mask, no prefix compression, free space is the whole entry region.
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
@@ -3559,8 +3648,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         const int MapLength = UsageMapRecordLength;
 
         var page = new byte[format.PageSize];
-        page[0] = (byte)PageType.DataPage;
-        page[1] = 0x01; // page flags (observed constant)
+        PageHeader.WriteType(page, PageType.DataPage);
         // Owner of a usage-map page is 0 (it belongs to no table).
 
         int offset = format.PageSize;

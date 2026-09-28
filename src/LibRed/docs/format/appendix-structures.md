@@ -6,18 +6,19 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 
 ---
 
-## Page header (first byte = page type)
+## Page header (first word = page type)
 
-| Byte `0x00` | Page type |
+| Word at `0x00` (LE) | Page type |
 | --- | --- |
-| `0x00` | Database definition (page 0 only) |
-| `0x01` | Data page (also LVAL long-value pages) |
-| `0x02` | Table definition (TDEF) |
-| `0x03` | Index B-tree node |
-| `0x04` | Index B-tree leaf |
-| `0x05` | Page-usage bitmap |
-| `0x08` | Released table definition — a dropped table's TDEF, otherwise unchanged |
-| `0x09` | Released long-value page — a packed LVAL page emptied of its values |
+| `0x0100` | Database definition (page 0 only) |
+| `0x0101` | Data page (also LVAL long-value pages) |
+| `0x0102` | Table definition (TDEF) |
+| `0x0103` | Index B-tree node |
+| `0x0104` | Index B-tree leaf |
+| `0x0105` | Page-usage bitmap |
+| `0x0106`, `0x0107` | Unknown — never seen; ACE reads them as row-bearing |
+| `0x0108` | Released table definition — a dropped table's TDEF, otherwise unchanged |
+| `0x0109` | Released data page — emptied by DELETE, or a packed LVAL page emptied of its values |
 
 ---
 
@@ -25,8 +26,8 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 1 | Page type `0x00` |
-| `0x01` | 3 | Unknown (observed `01 00 00`, constant) |
+| `0x00` | 2 | Page type `0x0100` |
+| `0x02` | 2 | Unknown (zero) |
 | `0x04` | 15 | Format id ASCII: `Standard Jet DB` (`0x00`/`0x01`) / `Jet System DB` (`0x01`) / `Standard ACE DB` (`0x02`+) |
 | `0x13` | 1 | NUL terminator of the id string |
 | `0x14` | 1 | Version byte (`0x00` Jet3, `0x01` Jet4, `0x02` ACE12, `0x03` ACE14, `0x04` ACE15/2013 never emitted and refused by ACE, `0x05` ACE16, `0x06` ACE17) |
@@ -53,13 +54,12 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 
 ---
 
-## Data page — type `0x01` → [page-01](page-01-data-and-rows.md)
+## Data page — type `0x0101` → [page-01](page-01-data-and-rows.md)
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 1 | Page type `0x01` |
-| `0x01` | 1 | Flags (`0x01`) |
-| `0x02` | 2 | Free space |
+| `0x00` | 2 | Page type `0x0101` |
+| `0x02` | 2 | Free-space count — bytes still free on the page |
 | `0x04` | 4 | Owning TDEF page — or ASCII `LVAL` (`0x4C41564C`) for long-value pages |
 | `0x08` | 4 | Jet4-only; zero except on the **first page of a long-value chain**, where it is the chain stamp matching the pointing descriptor's `0x08` |
 | `0x0C` | 2 | Row count |
@@ -75,13 +75,12 @@ Variable section (`varOffsetTable`+`numVar`) omitted only when the table has nev
 
 ---
 
-## TDEF header — type `0x02` → [page-02a](page-02a-tdef.md)
+## TDEF header — type `0x0102` → [page-02a](page-02a-tdef.md)
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 1 | Page type `0x02` |
-| `0x01` | 1 | Flags (`0x01`) |
-| `0x02` | 2 | Free space |
+| `0x00` | 2 | Page type `0x0102` |
+| `0x02` | 2 | Free-space count — bytes still free on the page |
 | `0x04` | 4 | Next TDEF page (0 = single page) |
 | `0x08` | 4 | TDEF length (total logical bytes) |
 | `0x0C` | 4 | Constant marker `0x00000659` |
@@ -209,19 +208,18 @@ descriptor.
 
 **Inline (type `0x00`):** `[0x00][startPage:4][bitmap…]` — bit `i` ⇒ page `startPage+i` owned.
 **Reference (type `0x01`, 69 bytes):** `[0x01][17 × 4-byte bitmap-page pointers]`.
-**Bitmap page (type `0x05`):** header `[0x05][0x01][0][0]`, bitmap from offset 4.
+**Bitmap page (page type `0x0105`):** header `[05 01][00 00]` — the type word, then two zero bytes — bitmap from offset 4.
 Global maps, located by page 0: free pages at `0x18` (page 1 row 0 as ACE writes it) — set bit = **free**
 (opposite of a table map); released pages at `0x1C` (page 1 row 1) — set bit = freed, not reusable until close.
 
 ---
 
-## Index B-tree page header — types `0x03` / `0x04` → [page-03-04](page-03-04-index-btree.md)
+## Index B-tree page header — types `0x0103` / `0x0104` → [page-03-04](page-03-04-index-btree.md)
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 1 | Page type `0x03` node / `0x04` leaf |
-| `0x01` | 1 | Flags (`0x01`) |
-| `0x02` | 2 | Free space |
+| `0x00` | 2 | Page type `0x0103` node / `0x0104` leaf |
+| `0x02` | 2 | Free-space count — bytes still free on the page |
 | `0x04` | 4 | Owning TDEF page |
 | `0x08` | 4 | Jet4-inserted field (zero); shifts the following fields +4 vs Jet3 |
 | `0x0C` | 4 | Previous leaf page (0 = leftmost); a split node's left sibling |

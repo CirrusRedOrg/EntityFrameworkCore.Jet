@@ -320,8 +320,10 @@ havingClause : HAVING expression ;
 // Access allows only a literal after TOP, but LibRed also accepts a parameter (or a +/- expression of
 // literals/parameters) — EFCore.Jet normally inlines the value, and we can evaluate it directly instead.
 // Restricted to additive operands (no bare '*') so it can't swallow a following SELECT star ('TOP n *').
-// A trailing PERCENT returns that percentage of rows (ceil) instead of a fixed count.
-topClause : TOP topOperand ((PLUS | MINUS) topOperand)* percent=PERCENT? ;
+// A trailing PERCENT returns that percentage of rows (ceil) instead of a fixed count. WITH TIES (SQL Server's) also
+// returns every further row whose ORDER BY keys equal the last one's — ACE's own TOP always does, where LibRed's plain
+// TOP returns exactly n.
+topClause : TOP topOperand ((PLUS | MINUS) topOperand)* percent=PERCENT? (WITH ties=TIES)? ;
 topOperand : INTEGER_LITERAL | PARAM | LPAREN expression RPAREN ;
 
 // ANSI SQL:2008 paging, which EF Core's base QuerySqlGenerator.GenerateLimitOffset emits whenever the
@@ -345,9 +347,11 @@ topOperand : INTEGER_LITERAL | PARAM | LPAREN expression RPAREN ;
 // `Where_subquery_with_ElementAt_using_column_as_index` carries `OFFSET [s].[Id] ROWS`, and that baseline only
 // exists because the test passed against a real server. So this matches the engine's behaviour; it is the
 // documentation that is incomplete.
+//
+// The standard's WITH TIES may stand in for ONLY, with TOP … WITH TIES's meaning.
 offsetFetchClause
-    : OFFSET offset=expression rowKeyword (FETCH (NEXT | FIRST) limit=expression rowKeyword ONLY)?
-    | FETCH (FIRST | NEXT) limit=expression rowKeyword ONLY
+    : OFFSET offset=expression rowKeyword (FETCH (NEXT | FIRST) limit=expression rowKeyword (ONLY | WITH ties=TIES))?
+    | FETCH (FIRST | NEXT) limit=expression rowKeyword (ONLY | WITH ties=TIES)
     ;
 rowKeyword : ROW | ROWS ;
 

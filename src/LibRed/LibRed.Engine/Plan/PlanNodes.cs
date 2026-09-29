@@ -112,10 +112,19 @@ public sealed record AggregateNode(
     IReadOnlyList<SelectItem> Projection,
     Expression? Having,
     IReadOnlyList<OrderByItem> OrderBy,
-    IReadOnlyList<WindowOutput>? Windows = null) : PlanNode
+    IReadOnlyList<WindowOutput>? Windows = null,
+    TieCut? Ties = null) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }
+
+/// <summary>
+/// <c>TOP n [PERCENT] WITH TIES</c> (or <c>[OFFSET m ROWS] FETCH … WITH TIES</c>), cut by the node that orders the
+/// rows, since only it holds their ORDER BY keys: skip <paramref name="Offset"/>, take <paramref name="Count"/> rows —
+/// a percentage of them all, ceil, when <paramref name="Percent"/> — and then every further row whose keys equal the
+/// last one's. It takes the place of a <see cref="LimitNode"/>.
+/// </summary>
+public sealed record TieCut(Expression Count, bool Percent, Expression? Offset);
 
 /// <summary>One window function and the name of the column <see cref="WindowNode"/> publishes its value under.
 /// The planner mints the name and rewrites the call in the projection into a reference to it.</summary>
@@ -146,7 +155,8 @@ public sealed record WindowNode(PlanNode Input, IReadOnlyList<WindowOutput> Outp
 /// when nothing between the two changes the row count; the <see cref="LimitNode"/> still applies the count itself,
 /// so this is purely a way to avoid ordering rows that cannot survive it.
 /// </param>
-public sealed record SortNode(PlanNode Input, IReadOnlyList<OrderByItem> Keys, Expression? Limit = null) : PlanNode
+/// <param name="Ties">A <c>WITH TIES</c> cut this sort makes itself, in place of a <see cref="LimitNode"/>.</param>
+public sealed record SortNode(PlanNode Input, IReadOnlyList<OrderByItem> Keys, Expression? Limit = null, TieCut? Ties = null) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }

@@ -745,7 +745,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     int? bound = sort.Limit is { } lim && !_describing
                         ? Convert.ToInt32(Eval([], [], outer).Evaluate(lim), System.Globalization.CultureInfo.InvariantCulture)
                         : null;
-                    return (columns, SortRows(sort.Keys, columns, outer, rows, bound));
+                    return (columns, SortRows(sort.Keys, columns, outer, rows, bound, _describing ? null : sort.Ties));
                 }
 
             case ProjectNode project:
@@ -1939,7 +1939,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         IReadOnlyList<OutputColumn> columns,
         EvalScope? outer,
         IEnumerable<object?[]> rows,
-        int? bound = null)
+        int? bound = null,
+        TieCut? ties = null)
     {
         // Rows paired with their evaluated keys and their input position. The position makes the ordering TOTAL,
         // which is what lets the bounded path below be stable without relying on a stable algorithm.
@@ -1975,6 +1976,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         {
             decorated.RemoveRange(take, decorated.Count - take);
         }
+        if (ties is not null)
+            decorated = CutWithTies(decorated, x => x.Keys, keys, ties, outer);
 
         return decorated.Select(x => x.Row).ToList();
 
@@ -1996,6 +1999,26 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             });
             list.RemoveRange(max, list.Count - max);
         }
+    }
+
+    /// <summary>What a WITH TIES cut keeps of <paramref name="sorted"/>: the offset skipped, the count taken — as TOP n
+    /// PERCENT takes one, ceil(rows × n / 100), when it is a percentage — and then every further row whose ORDER BY
+    /// keys equal the last kept row's (ACE's own TOP keeps them all, verified).</summary>
+    private List<T> CutWithTies<T>(
+        List<T> sorted, Func<T, object?[]> keysOf, IReadOnlyList<OrderByItem> keys, TieCut cut, EvalScope? outer)
+    {
+        // As in LimitNode: the counts are literal/parameter/arithmetic, so an empty row scope suffices.
+        ExpressionEvaluator counts = Eval([], [], outer);
+        int Count(Expression e) => Convert.ToInt32(counts.Evaluate(e), System.Globalization.CultureInfo.InvariantCulture);
+        int n = Count(cut.Count);
+        int take = cut.Percent ? (int)(((long)sorted.Count * n + 99) / 100) : n;
+        int skip = cut.Offset is { } offset ? Math.Max(0, Count(offset)) : 0;
+        if (take <= 0 || skip >= sorted.Count)
+            return [];
+        int end = (int)Math.Min(sorted.Count, (long)skip + take);
+        while (end < sorted.Count && CompareEvaluatedKeys(keys, keysOf(sorted[end - 1]), keysOf(sorted[end]), TextComparer) == 0)
+            end++;
+        return sorted.GetRange(skip, end - skip);
     }
 
     /// <summary>Compares two rows' already-evaluated ORDER BY key values, honouring each key's direction, with
@@ -2418,6 +2441,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 }
                 return 0;
             });
+
+        // WITH TIES is cut here, where the groups' ORDER BY keys still are (it always has an ORDER BY).
+        if (node.Ties is { } ties)
+            outRows = CutWithTies(outRows, x => x.SortKeys, node.OrderBy, ties, outer);
 
         return (outColumns, outRows.Select(x => x.Row));
     }

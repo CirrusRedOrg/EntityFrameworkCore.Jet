@@ -45,7 +45,12 @@ public sealed record SelectStatement(
     /// <c>TOP m</c> and so reuse the path that already exists for it. <see cref="TopPercent"/> is never set
     /// from a FETCH, which has no PERCENT form.
     /// </summary>
-    Expression? Offset = null) : SqlStatement;
+    Expression? Offset = null,
+    /// <summary>
+    /// <c>TOP n WITH TIES</c> (or <c>FETCH … WITH TIES</c>): <see cref="Top"/> also returns every further row whose
+    /// ORDER BY keys equal the last one's. It needs an ORDER BY.
+    /// </summary>
+    bool WithTies = false) : SqlStatement;
 
 /// <summary><c>EXECUTE|EXEC procedure [arg, …]</c> — invokes a stored procedure/query by name, passing
 /// positional argument values that bind to its declared parameters (in declaration order).</summary>
@@ -81,7 +86,9 @@ public sealed record SetOperationStatement(
     SqlStatement Right,
     IReadOnlyList<OrderByItem>? OrderBy = null,
     Expression? Top = null,
-    Expression? Offset = null) : SqlStatement;
+    Expression? Offset = null,
+    // FETCH … WITH TIES, as SelectStatement.WithTies.
+    bool WithTies = false) : SqlStatement;
 
 /// <summary>
 /// A table value constructor used as a query rather than as an INSERT's VALUES clause —

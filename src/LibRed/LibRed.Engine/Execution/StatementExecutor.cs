@@ -1317,7 +1317,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         if (sq.Query is not SelectStatement
             {
-                From: NamedTable or JoinTable, GroupBy.Count: 0, Having: null, Distinct: false, Into: null,
+                From: NamedTable or JoinTable, GroupBy.Count: 0, Having: null, Distinct: false, Into: null, WithTies: false,
             } select
             || select.Projection.Any(item => item.Value is StarExpression or QualifiedStarExpression && item.Alias is not null))
             return null;

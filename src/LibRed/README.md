@@ -219,6 +219,10 @@ Treat the number as of its date — an EF Core version bump moves it.
   - `FULL [OUTER] JOIN` — ACE offers only inner/left/right, and its query designer cannot express a full one.
   - **`OFFSET … ROWS FETCH NEXT … ROWS ONLY`** paging, where the count may be any expression, not just a
     literal. Access has only `TOP n`, and only with a literal.
+  - **`TOP n [PERCENT] WITH TIES`** and **`FETCH … ROWS WITH TIES`** — the n rows and every further one whose
+    `ORDER BY` keys equal the last one's. ACE's own `TOP n` always keeps those ties (it chooses the same rows,
+    verified); LibRed's plain `TOP n` returns exactly n, so `WITH TIES` is how to ask for ACE's rows. It needs an
+    `ORDER BY` and is refused beside `DISTINCT`, and a view cannot store it.
   - **Standard scalar syntax** ACE lacks: `CASE`, `COALESCE`, `NULLIF`, `GREATEST`/`LEAST` (NULL arguments
     ignored, as SQL Server and PostgreSQL treat them — extended mode translates `Math.Max`/`Math.Min` to
     them), and the `VALUES` table value constructor standing in for a query.

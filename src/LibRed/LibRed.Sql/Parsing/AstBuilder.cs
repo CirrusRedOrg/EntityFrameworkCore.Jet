@@ -689,6 +689,10 @@ internal static class AstBuilder
         var orderBy = ctx.orderByClause() is { } ob
             ? ob.orderByItem().Select(i => new ViewOrderBy(OriginalText(i.expression()), i.dir?.Type == DESC)).ToList()
             : (IReadOnlyList<ViewOrderBy>)[];
+        // A stored TOP has no WITH TIES of its own: it is ACE's TOP, which always keeps the ties, while LibRed reads
+        // it back as a plain one. So neither reading can be stored faithfully.
+        if (select.topClause()?.ties is not null || ctx.offsetFetchClause()?.ties is not null)
+            throw new NotSupportedException("A view cannot store TOP … WITH TIES.");
         // A stored view can only carry a literal TOP (Access stores it as text); reject a parameterized one.
         int? top = select.topClause() is { } t
             ? BuildTop(t) is LiteralExpression { Value: int n }
@@ -857,10 +861,12 @@ internal static class AstBuilder
             ? ob.orderByItem().Select(BuildOrderByItem).ToList()
             : [];
         Expression? top = null, offset = null;
+        bool ties = false;
         if (ctx.offsetFetchClause() is { } paging)
         {
             offset = paging.offset is { } off ? BuildExpression(off) : null;
             top = paging.limit is { } lim ? BuildExpression(lim) : null;
+            ties = paging.ties is not null;
         }
         bool ordered = orderBy.Count > 0 || top is not null || offset is not null;
 
@@ -868,9 +874,10 @@ internal static class AstBuilder
         {
             SqlStatement single = BuildQueryTerm(terms[0]);
             // A single term folds the clauses back into it, so an ordinary `SELECT … ORDER BY x` builds exactly
-            // the AST it always did and nothing downstream sees this restructuring at all.
+            // the AST it always did and nothing downstream sees this restructuring at all. A FETCH takes the place
+            // of the SELECT's own TOP, WITH TIES and all.
             return ordered && single is SelectStatement s
-                ? s with { OrderBy = orderBy, Top = top ?? s.Top, Offset = offset }
+                ? s with { OrderBy = orderBy, Top = top ?? s.Top, Offset = offset, WithTies = top is null ? s.WithTies : ties }
                 : single;
         }
 
@@ -899,7 +906,7 @@ internal static class AstBuilder
         }
 
         // Only the outermost node carries them: the ordering is the expression's, not that of any inner pair.
-        return ordered ? result with { OrderBy = orderBy, Top = top, Offset = offset } : result;
+        return ordered ? result with { OrderBy = orderBy, Top = top, Offset = offset, WithTies = ties } : result;
     }
 
 
@@ -987,7 +994,8 @@ internal static class AstBuilder
             Distinct: predicate?.DISTINCT() is not null,
             DistinctRow: predicate?.DISTINCTROW() is not null,
             TopPercent: topPercent,
-            Into: ctx.into is null ? null : Identifier(ctx.into));
+            Into: ctx.into is null ? null : Identifier(ctx.into),
+            WithTies: ctx.topClause()?.ties is not null);
     }
 
     /// <summary>The TOP count expression: a single operand, or a left-associative +/- chain of them (each

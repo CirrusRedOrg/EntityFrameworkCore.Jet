@@ -220,7 +220,9 @@ byte-for-byte):
   compresses (whatever the capable flag says), a single-page one compresses only on a `WITH COMPRESSION`
   column, and a chained one never does; the compressed size never approaches any limit.
   Microsoft's "only instances that, when compressed, will fit within 4096 bytes" describes the wrong
-  quantity; see [long-values.md](long-values.md) for the measured boundary.
+  quantity; see [long-values.md](long-values.md) for the measured boundary. The uncompressed length also picks
+  the *page* for a compressed single-page value, and its uncompressed bytes are left in that page's free space
+  ([long-values.md](long-values.md#writing-long-values)).
 
 > **The mixed form is real, and ACE writes it readily.** A value can toggle between 1-byte and 2-byte runs
 > mid-string: after the `FF FE` marker the value starts in 1-byte mode and every `0x00` byte at a character

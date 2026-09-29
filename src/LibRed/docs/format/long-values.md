@@ -185,6 +185,24 @@ the long values:
 > each on its own page with a 4-byte next-pointer, matching ACE byte-for-byte (verified: LibRed and
 > Access both read back memo values from 65 bytes to 100 KB — single-page and multi-page).
 >
+> **A row's values are written chains first.** ACE writes every chained value of the row, in column order, and
+> only then its single-page values, in column order — so a single-page value in an earlier column takes a
+> page after the chains, not before them. Measured on one inserted row with each pairing: two chains, two
+> single-page values (either the larger first), and a single-page value before a chain, which alone differs
+> from plain column order. LibRed writes in the same order, and the pages match ACE's.
+>
+> **A compressed single-page value is placed by its uncompressed size, and leaves its uncompressed bytes
+> behind.** ACE writes the value's uncompressed UTF-16 bytes where they would sit — ending at the page end on a
+> fresh page, or at the lowest existing row on a shared one — then the compressed row, ending at the same place,
+> over their upper end; the rest of the uncompressed image stays in the page's free space. So a page takes the
+> value only if it has room for the *uncompressed* bytes and a directory entry: `String(1800,'e')` then
+> `String(1200,'f')` in a `MEMO WITH COMPRESSION` column put the second value on a new page, though its 1,202
+> compressed bytes would have fit beside the first; `String(1000,'f')` shared the page. The free-space field and
+> the free-pages map count the compressed row. Measured on a fresh page (300 and 1,800 characters), on a shared
+> page, and at that boundary; the exact room test (whether the directory entry counts on top of the
+> uncompressed bytes) is not measured. A value that does not compress, or a column without compression, leaves
+> nothing behind. LibRed does the same, byte for byte.
+>
 > **LibRed writes the §3.3.2 entry + empty usage maps for every memo/OLE column** — byte-faithful with
 > ACE, whose usage-map page lays the records out as: row 0 table-owned, row 1 table-free, then one row
 > **per index**, then two rows (owned/free) **per long-value column** (verified against ACE-created

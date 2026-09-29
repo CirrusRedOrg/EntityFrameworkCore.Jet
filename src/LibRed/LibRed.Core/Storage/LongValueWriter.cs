@@ -92,18 +92,26 @@ public sealed class LongValueWriter(PageChannel channel)
     }
 
     /// <summary>Allocates a fresh LVAL page, writes <paramref name="row"/> as its row 0, and returns the
-    /// page number — the caller records it in the column's usage maps.</summary>
-    public int WriteNewPage(byte[] row)
+    /// page number — the caller records it in the column's usage maps. <paramref name="uncompressed"/> is as
+    /// for <see cref="TryAppend"/>.</summary>
+    public int WriteNewPage(byte[] row, byte[]? uncompressed = null)
     {
         int page = _allocator.Allocate();
-        WriteChunkPage(page, row);
+        WriteChunkPage(page, row, uncompressed: uncompressed);
         return page;
     }
 
     /// <summary>Appends <paramref name="row"/> to an existing LVAL page if it has room, returning the new
     /// row index and the page's remaining free space (null if it does not fit). Lets several small long
     /// values share one page, the way Access packs them.</summary>
-    public (int Row, int RemainingFree)? TryAppend(int pageNumber, byte[] row)
+    /// <remarks>
+    /// <paramref name="uncompressed"/> is the value before compression, when <paramref name="row"/> is its
+    /// compressed form. ACE places such a value as though it were uncompressed — the page must have room for the
+    /// uncompressed bytes — writes those bytes where they would go, then the compressed row over their upper end,
+    /// so the rest of the uncompressed image stays behind in the page's free space. Both are measured
+    /// (long-values.md).
+    /// </remarks>
+    public (int Row, int RemainingFree)? TryAppend(int pageNumber, byte[] row, byte[]? uncompressed = null)
     {
         JetFormatBase format = _channel.Format;
         if (pageNumber <= 0 || pageNumber >= _channel.PageCount)
@@ -137,10 +145,12 @@ public sealed class LongValueWriter(PageChannel channel)
         if (parsed.FreeSpace != physicalFree)
             throw new InvalidDataException(
                 $"LVAL page {pageNumber} declares {parsed.FreeSpace} free bytes but its row geometry has {physicalFree}.");
-        if (physicalFree < row.Length + 2) return null; // row data + its 2-byte directory entry
+        // Row data + its 2-byte directory entry; a compressed value needs room for its uncompressed bytes.
+        if (physicalFree < Math.Max(row.Length, uncompressed?.Length ?? 0) + 2) return null;
 
         byte[] page = buffer.Span.ToArray();
 
+        uncompressed?.CopyTo(page.AsSpan(lowest - uncompressed.Length));
         int offset = lowest - row.Length;
         row.CopyTo(page.AsSpan(offset));
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + rowCount * 2, 2), (ushort)offset);
@@ -158,8 +168,9 @@ public sealed class LongValueWriter(PageChannel channel)
 
     /// <summary>Writes one row (<paramref name="row"/>) to a fresh LVAL data page, packed from the page end.
     /// <paramref name="stamp"/> is the chain stamp for the first page of a chain, and zero everywhere else —
-    /// which is what ACE writes on a single-page value and on every chunk after the first.</summary>
-    private void WriteChunkPage(int pageNumber, byte[] row, uint stamp = 0)
+    /// which is what ACE writes on a single-page value and on every chunk after the first.
+    /// <paramref name="uncompressed"/> is as for <see cref="TryAppend"/>.</summary>
+    private void WriteChunkPage(int pageNumber, byte[] row, uint stamp = 0, byte[]? uncompressed = null)
     {
         JetFormatBase format = _channel.Format;
         var page = new byte[format.PageSize];
@@ -167,6 +178,7 @@ public sealed class LongValueWriter(PageChannel channel)
         BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(format.DataOwnerOffset, 4), LongValueFormat.LvalMarker);
         BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(format.DataChainStampOffset, 4), stamp);
 
+        uncompressed?.CopyTo(page.AsSpan(format.PageSize - uncompressed.Length));
         int offset = format.PageSize - row.Length;
         row.CopyTo(page.AsSpan(offset));
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset, 2), (ushort)offset);

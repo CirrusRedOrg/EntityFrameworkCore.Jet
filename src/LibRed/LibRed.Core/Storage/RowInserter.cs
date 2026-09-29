@@ -1060,10 +1060,21 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// <inheritdoc cref="ToStorageValues"/>
     private void MaterializeLongValues(object?[] values)
     {
+        // ACE writes a row's chained values first and its single-page values after, each in column order
+        // (measured), so a single-page value in an earlier column takes the page after the chains, not before.
         LongValueWriter? writer = null;
-        foreach (ColumnDef column in _table.Columns)
-            if (column.Type is JetDataType.Memo or JetDataType.Ole)
-                values[column.Index] = MaterializeLongValue(column, values[column.Index], ref writer);
+        foreach (bool chained in new[] { true, false })
+            foreach (ColumnDef column in _table.Columns)
+                if (column.Type is JetDataType.Memo or JetDataType.Ole && Chains(values[column.Index]) == chained)
+                    values[column.Index] = MaterializeLongValue(column, values[column.Index], ref writer);
+
+        // The storage form follows the uncompressed length, as MaterializeLongValue decides it.
+        static bool Chains(object? value) => value switch
+        {
+            string s => Encoding.Unicode.GetByteCount(s) > LongValueFormat.MaxSinglePageValue,
+            byte[] b => b.Length > LongValueFormat.MaxSinglePageValue,
+            _ => false,
+        };
     }
 
     /// <summary>The storage form of one Memo/OLE value: a value over 64 bytes is written to an LVAL page and
@@ -1088,16 +1099,18 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // Compress before storing, but AFTER the inline test above and using the uncompressed length for
         // the single-page test below: ACE decides the storage form on the uncompressed size and applies
         // compression to whatever form results, never to a chained value (LongTextStorageAccessTests).
+        // ACE places a compressed value by its uncompressed bytes and leaves them behind (LongValueWriter.TryAppend).
+        byte[]? uncompressed = null;
         if (payload.Length <= LongValueFormat.MaxSinglePageValue
             && value is string text
             && Types.JetTypeCodec.TryCompressText(column, text) is { } compressed)
-            payload = compressed;
+            (uncompressed, payload) = (payload, compressed);
 
         writer ??= new LongValueWriter(_channel);
         TableDefinitionPage definition = LongValueMaps;
         definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) owned);
         definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) free);
-        return new LongValueDescriptor(StoreLongValue(writer, payload, owned, free));
+        return new LongValueDescriptor(StoreLongValue(writer, payload, owned, free, uncompressed));
     }
 
     // A page is dropped from the free-pages map once it cannot hold a 256-byte value and its 2-byte row-directory
@@ -1160,7 +1173,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// and <c>MSysAccessXML.LValue</c> that way, and packs nothing into them — measured across every such file,
     /// one LVAL page per stored value.</para>
     /// </summary>
-    private byte[] StoreLongValue(LongValueWriter writer, byte[] payload, (int Row, int Page) owned, (int Row, int Page) free)
+    private byte[] StoreLongValue(LongValueWriter writer, byte[] payload, (int Row, int Page) owned, (int Row, int Page) free,
+        byte[]? uncompressed = null)
     {
         if (owned.Page == 0)
             throw new InvalidDataException("Long-value column has no owned-pages usage-map pointer.");
@@ -1179,14 +1193,14 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // Pack onto the first free page that has room for the value plus its directory entry.
         if (free.Page != 0)
             foreach (int page in freePages)
-                if (writer.TryAppend(page, payload) is (int row, int remaining))
+                if (writer.TryAppend(page, payload, uncompressed) is (int row, int remaining))
                 {
                     if (remaining < MinLvalRow) _usageMaps.SetBit(free.Row, free.Page, page, set: false); // now full
                     return LongValueWriter.SinglePageDescriptor(payload.Length, page, row);
                 }
 
         // No free page had room: a fresh page (owned, and free — it still has spare room).
-        int newPage = writer.WriteNewPage(payload);
+        int newPage = writer.WriteNewPage(payload, uncompressed);
         _usageMaps.SetBit(owned.Row, owned.Page, newPage, set: true);
         if (free.Page != 0)
             _usageMaps.SetBit(free.Row, free.Page, newPage, set: true, movableWindow: true);

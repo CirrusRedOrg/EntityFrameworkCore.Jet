@@ -715,7 +715,8 @@ internal static class AstBuilder
             CollectSources(ts, tables, joins);
 
         string? where = select.whereClause() is { } w ? OriginalText(w.expression()) : null;
-        return new ViewDefinition(select.predicate?.DISTINCT() is not null, columns, tables, joins, where, groupBy, having, orderBy, top);
+        return new ViewDefinition(select.predicate?.DISTINCT() is not null, columns, tables, joins, where, groupBy, having, orderBy, top,
+            TopPercent: select.topClause()?.percent is not null);
     }
 
     private static void CollectSources(TableSourceContext ts, List<ViewSource> tables, List<ViewJoin> joins)

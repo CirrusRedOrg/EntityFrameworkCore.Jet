@@ -803,7 +803,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         d.Having,
         Parameters: null,
         OrderBy: d.OrderBy.Select(o => new ViewOrderBySpec(o.Expression, o.Descending)).ToList(),
-        Top: d.Top);
+        Top: d.Top,
+        TopPercent: d.TopPercent);
 
     /// <summary>
     /// A make-table query: <c>SELECT … INTO newtable FROM source</c>.

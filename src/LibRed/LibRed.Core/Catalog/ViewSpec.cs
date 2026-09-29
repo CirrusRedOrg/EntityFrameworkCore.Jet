@@ -89,6 +89,7 @@ public sealed record StoredQueryParameter(
 /// ORDER BY (all verbatim text) — that Access stores as MSysQueries rows. <paramref name="GroupBy"/> and
 /// <paramref name="Having"/> together are what Access calls a "totals" query: the aggregate output columns
 /// are ordinary column rows, and only the grouping keys and the group filter get rows of their own.
+/// <paramref name="TopPercent"/> makes <paramref name="Top"/> a percentage.
 /// </summary>
 public sealed record ViewSpec(
     bool Distinct,
@@ -100,4 +101,5 @@ public sealed record ViewSpec(
     string? Having = null,
     IReadOnlyList<ViewParameterSpec>? Parameters = null,
     IReadOnlyList<ViewOrderBySpec>? OrderBy = null,
-    int? Top = null);
+    int? Top = null,
+    bool TopPercent = false);

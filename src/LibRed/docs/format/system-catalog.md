@@ -408,6 +408,12 @@
   > `DISTINCT` dedupes output rows, `DISTINCTROW` dedupes by contributing base rows. **`Flag 9`
   > (`0x08|0x01`) is what Access writes for its auto-generated form/report record-source queries**, the
   > `~sq_f…` / `~sq_r…` / `~sq_c…` objects, which it renders as `SELECT DISTINCTROW * FROM <table>`.
+  >
+  > **What ACE's own `CREATE VIEW` / `CREATE PROCEDURE` writes is one `0x03` row, `Order 1`, holding every bit the
+  > query has**, the `TOP` count in its `Name1`: `DISTINCT TOP 2` is `Flag 18`, and `DISTINCT TOP 25 PERCENT` `50`.
+  > A query with none of them has no `0x03` row. A make-table or append query's own SELECT keeps its
+  > `DISTINCT` and `TOP` on the same row (measured: `SELECT DISTINCT … INTO`, `SELECT TOP 5 … INTO`,
+  > `INSERT INTO … SELECT DISTINCT`). LibRed writes the same single row, and reads it back into the statement.
 
   > **A query with no `0x05` rows at all has no FROM clause.** `SELECT 1 AS n` is a query Access stores (as
   > a view or a procedure) and stores exactly as any other, minus the table rows: the type row, one `0x06`

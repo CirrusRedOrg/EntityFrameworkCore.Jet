@@ -25,6 +25,9 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
     [InlineData("DELETE FROM Shippers WHERE ShipperID > 900")]
     [InlineData("DELETE Shippers.* FROM Shippers WHERE ShipperID > 900")]
     [InlineData("SELECT ShipperID, CompanyName INTO ShipperCopy FROM Shippers WHERE ShipperID > 1")]
+    [InlineData("SELECT DISTINCT Country INTO CountryCopy FROM Customers")]
+    [InlineData("SELECT TOP 5 CompanyName INTO CustomerCopy FROM Customers")]
+    [InlineData("INSERT INTO Shippers (CompanyName) SELECT DISTINCT Country FROM Customers")]
     [InlineData("INSERT INTO Shippers (CompanyName, Phone) SELECT CompanyName, Phone FROM Customers WHERE Country = 'UK'")]
     public void A_libred_written_action_query_stores_the_rows_ace_stores(string body)
     {
@@ -167,6 +170,48 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
             using var reader = run.ExecuteReader();
             Assert.True(reader.Read());
             Assert.Equal(1, Convert.ToInt32(reader.GetValue(0)));
+        }
+        finally
+        {
+            TemporaryDatabase.Delete(ourPath);
+            TemporaryDatabase.Delete(acePath);
+        }
+    }
+
+    /// <summary>A stored SELECT's DISTINCT, TOP and PERCENT are bits of one option row, as ACE writes them — and PERCENT
+    /// survives the round trip: ACE and LibRed return the same rows from the query LibRed stored.</summary>
+    [Theory]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT DISTINCT TOP 2 Country FROM Customers ORDER BY Country")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT TOP 10 PERCENT CompanyName FROM Customers ORDER BY CompanyName")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT DISTINCT TOP 25 PERCENT Country FROM Customers ORDER BY Country")]
+    public void A_queries_options_share_one_row_as_ace_writes_them(string sql)
+    {
+        string ourPath = Copy(), acePath = Copy();
+        try
+        {
+            using (var db = TemporaryDatabase.OpenTracked(ourPath, readOnly: false))
+                new QueryEngine(db).ExecuteNonQuery(sql);
+
+            using (var connection = AceTestDatabase.Open(acePath))
+            {
+                using var create = connection.CreateCommand();
+                create.CommandText = sql;
+                create.ExecuteNonQuery();
+            }
+
+            Assert.Equal(QueryRows(acePath, "Q"), QueryRows(ourPath, "Q"));
+
+            int aceRows = 0;
+            using (var connection = AceTestDatabase.Open(ourPath))
+            {
+                using var run = connection.CreateCommand();
+                run.CommandText = "Q";
+                run.CommandType = CommandType.StoredProcedure;
+                using var reader = run.ExecuteReader();
+                while (reader.Read()) aceRows++;
+            }
+            using var ours = TemporaryDatabase.OpenTracked(ourPath, readOnly: true);
+            Assert.Equal(aceRows, new QueryEngine(ours).ExecuteQuery("SELECT * FROM [Q]").Rows.Count());
         }
         finally
         {

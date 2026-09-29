@@ -231,6 +231,15 @@ public class CreateProcedureTests
         "SELECT ShipperID, CompanyName INTO [ShipperCopy] FROM [Shippers] WHERE ShipperID > 1", 2)]
     [InlineData("INSERT INTO Shippers (CompanyName) SELECT ContactName FROM Customers WHERE Country = 'UK'",
         "INSERT INTO [Shippers] ([CompanyName]) SELECT ContactName FROM [Customers] WHERE Country = 'UK'", 7)]
+    // A make-table or append query's DISTINCT and TOP [PERCENT] are kept on the option row, and read back.
+    [InlineData("SELECT DISTINCT Country INTO CountryCopy FROM Customers",
+        "SELECT DISTINCT Country INTO [CountryCopy] FROM [Customers]", 21)]
+    [InlineData("SELECT TOP 5 CompanyName INTO CustomerCopy FROM Customers",
+        "SELECT TOP 5 CompanyName INTO [CustomerCopy] FROM [Customers]", 5)]
+    [InlineData("SELECT TOP 10 PERCENT CompanyName INTO CustomerCopy FROM Customers",
+        "SELECT TOP 10 PERCENT CompanyName INTO [CustomerCopy] FROM [Customers]", 10)]
+    [InlineData("INSERT INTO Shippers (CompanyName) SELECT DISTINCT Country FROM Customers WHERE Country = 'UK'",
+        "INSERT INTO [Shippers] ([CompanyName]) SELECT DISTINCT Country FROM [Customers] WHERE Country = 'UK'", 1)]
     public void Action_query_body_round_trips_through_the_file(string body, string expected, int affected)
     {
         string path = Fresh();

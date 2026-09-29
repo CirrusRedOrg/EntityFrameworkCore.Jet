@@ -167,6 +167,22 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         }
 
         AddJoinAndWhereRows(mq, objectId, spec.Body);
+        // The option row a view carries: a make-table or append query's DISTINCT and TOP.
+        AddOptionRow(mq, objectId, spec.Body);
+    }
+
+    /// <summary>
+    /// The query's one <c>0x03</c> option row, when it has an option: DISTINCT, TOP and PERCENT are bits of the same
+    /// row, the TOP count in its Name1 (verified vs ACE: DISTINCT TOP is 18, and with PERCENT 50; a make-table
+    /// query's DISTINCT is the same row as a view's).
+    /// </summary>
+    private void AddOptionRow(TableDef mq, int objectId, ViewSpec? body)
+    {
+        short options = (short)((body?.Distinct == true ? StoredQueryFormat.FlagDistinct : 0)
+            | (body?.Top is null ? 0 : StoredQueryFormat.FlagTop | (body.TopPercent ? StoredQueryFormat.FlagPercent : 0)));
+        if (options != 0)
+            Row(mq, objectId, StoredQueryFormat.AttrOption, order: 1, flag: options,
+                name1: body?.Top?.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
     /// <summary>The <c>0x02</c> parameter rows, in declaration order — written identically for a view and for
@@ -225,15 +241,7 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         Row(mq, objectId, StoredQueryFormat.AttrEnd, order: 1);
         // Declared parameters (CREATE PROCEDURE) come right after the End row, before the tables.
         AddParameterRows(mq, objectId, spec.Parameters);
-        // DISTINCT and TOP are both StoredQueryFormat.AttrOption (0x03) rows, distinguished by their Flag bits; a TOP row also
-        // carries the count in Name1. The bits are cumulative, so Access can put both on one row -- writing
-        // them separately is equally valid and keeps the two spec fields independent here.
-        // Give them distinct Order values so the composite PK stays unique.
-        int flagOrder = 1;
-        if (spec.Distinct)
-            Row(mq, objectId, StoredQueryFormat.AttrOption, order: flagOrder++, flag: StoredQueryFormat.FlagDistinct);
-        if (spec.Top is { } top)
-            Row(mq, objectId, StoredQueryFormat.AttrOption, order: flagOrder++, flag: StoredQueryFormat.FlagTop, name1: top.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        AddOptionRow(mq, objectId, spec);
         AddSourceRows(mq, objectId, spec);
         for (int i = 0; i < spec.Columns.Count; i++)
             Row(mq, objectId, StoredQueryFormat.AttrColumn, order: i + 1, flag: 0,

@@ -230,7 +230,8 @@ public sealed record ViewOrderBy(string Expression, bool Descending);
 /// <summary>A view's decomposed SELECT (columns/tables/joins/where/group-by/having, all as verbatim text),
 /// which Access stores as MSysQueries rows. A GROUP BY makes it a "totals" query (aggregate columns are
 /// ordinary column rows; the group-by columns are separate rows), and <paramref name="Having"/> is that
-/// query's own filter over the groups, stored as its own <c>Attribute=0x0A</c> row.</summary>
+/// query's own filter over the groups, stored as its own <c>Attribute=0x0A</c> row.
+/// <paramref name="TopPercent"/> makes <paramref name="Top"/> a percentage.</summary>
 public sealed record ViewDefinition(
     bool Distinct,
     IReadOnlyList<ViewColumn> Columns,
@@ -240,7 +241,8 @@ public sealed record ViewDefinition(
     IReadOnlyList<string> GroupBy,
     string? Having,
     IReadOnlyList<ViewOrderBy> OrderBy,
-    int? Top);
+    int? Top,
+    bool TopPercent = false);
 
 /// <summary>CREATE VIEW view [(fields)] AS select — a stored query, decomposed for byte-faithful storage.</summary>
 public sealed record CreateViewStatement(

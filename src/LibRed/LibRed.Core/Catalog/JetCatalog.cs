@@ -411,6 +411,17 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
         string Where() => where is null ? "" : $" WHERE {where}";
         var columns = OfAttr(StoredQueryFormat.AttrColumn);
         string declared = ParametersClause(rows, attr, flag, n1, order, lvExtra);
+        // The SELECT of a make-table or an append query keeps its DISTINCT, DISTINCTROW and TOP on the same option row a
+        // view does, and reads back the same way.
+        short options = 0;
+        foreach (object?[] r in OfAttr(StoredQueryFormat.AttrOption))
+            if (r[flag] is short o) options |= o;
+        string? topCount = OfAttr(StoredQueryFormat.AttrOption)
+            .Where(r => r[flag] is short tf && (tf & StoredQueryFormat.FlagTop) != 0)
+            .Select(r => r[n1] as string).FirstOrDefault();
+        string selecting = ((options & StoredQueryFormat.FlagDistinctRow) != 0 ? "DISTINCTROW "
+                : (options & StoredQueryFormat.FlagDistinct) != 0 ? "DISTINCT " : "")
+            + (topCount is null ? "" : $"TOP {topCount} {((options & StoredQueryFormat.FlagPercent) != 0 ? "PERCENT " : "")}");
 
         switch (kind)
         {
@@ -433,7 +444,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
 
                     return source is { } appendSource
                         ? new StoredActionQuery(
-                            $"{declared}INSERT INTO {target} ({targetColumns}) SELECT {values} FROM {appendSource.From}{Where()}", null)
+                            $"{declared}INSERT INTO {target} ({targetColumns}) SELECT {selecting}{values} FROM {appendSource.From}{Where()}", null)
                         : new StoredActionQuery(null, "An append query with no values and no source is not executed by LibRed.");
                 }
 
@@ -473,7 +484,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
                         .Select(r => r[expr] as string).FirstOrDefault(s => !string.IsNullOrEmpty(s)) is { } h
                         ? $" HAVING {h}" : "";
                     return new StoredActionQuery(
-                        $"{declared}SELECT {selected} INTO {Quote(action[n1] as string ?? "")} FROM {intoSource.From}{Where()}{grouping}{having}", null);
+                        $"{declared}SELECT {selecting}{selected} INTO {Quote(action[n1] as string ?? "")} FROM {intoSource.From}{Where()}{grouping}{having}", null);
                 }
         }
 

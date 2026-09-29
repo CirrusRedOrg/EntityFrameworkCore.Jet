@@ -167,18 +167,20 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         }
 
         AddJoinAndWhereRows(mq, objectId, spec.Body);
-        // The option row a view carries: a make-table or append query's DISTINCT and TOP.
-        AddOptionRow(mq, objectId, spec.Body);
+        // The option row a view carries: a make-table or append query's DISTINCT and TOP, and any kind's WITH
+        // OWNERACCESS OPTION.
+        AddOptionRow(mq, objectId, spec.Body, spec.OwnerAccess);
     }
 
     /// <summary>
-    /// The query's one <c>0x03</c> option row, when it has an option: DISTINCT, TOP and PERCENT are bits of the same
-    /// row, the TOP count in its Name1 (verified vs ACE: DISTINCT TOP is 18, and with PERCENT 50; a make-table
-    /// query's DISTINCT is the same row as a view's).
+    /// The query's one <c>0x03</c> option row, when it has an option: DISTINCT, WITH OWNERACCESS OPTION, TOP and PERCENT
+    /// are bits of the same row, the TOP count in its Name1 (verified vs ACE: DISTINCT TOP is 18, with the option 22,
+    /// and with PERCENT too 54; the option alone is 4; a make-table query's DISTINCT is the same row as a view's).
     /// </summary>
-    private void AddOptionRow(TableDef mq, int objectId, ViewSpec? body)
+    private void AddOptionRow(TableDef mq, int objectId, ViewSpec? body, bool ownerAccess)
     {
         short options = (short)((body?.Distinct == true ? StoredQueryFormat.FlagDistinct : 0)
+            | (ownerAccess ? StoredQueryFormat.FlagOwnerAccess : 0)
             | (body?.Top is null ? 0 : StoredQueryFormat.FlagTop | (body.TopPercent ? StoredQueryFormat.FlagPercent : 0)));
         if (options != 0)
             Row(mq, objectId, StoredQueryFormat.AttrOption, order: 1, flag: options,
@@ -241,7 +243,7 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         Row(mq, objectId, StoredQueryFormat.AttrEnd, order: 1);
         // Declared parameters (CREATE PROCEDURE) come right after the End row, before the tables.
         AddParameterRows(mq, objectId, spec.Parameters);
-        AddOptionRow(mq, objectId, spec);
+        AddOptionRow(mq, objectId, spec, spec.OwnerAccess);
         AddSourceRows(mq, objectId, spec);
         for (int i = 0; i < spec.Columns.Count; i++)
             Row(mq, objectId, StoredQueryFormat.AttrColumn, order: i + 1, flag: 0,

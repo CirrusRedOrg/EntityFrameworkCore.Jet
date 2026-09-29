@@ -416,6 +416,8 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
         short options = 0;
         foreach (object?[] r in OfAttr(StoredQueryFormat.AttrOption))
             if (r[flag] is short o) options |= o;
+        // WITH OWNERACCESS OPTION ends every kind of statement, as it ends a SELECT.
+        string owner = (options & StoredQueryFormat.FlagOwnerAccess) != 0 ? " WITH OWNERACCESS OPTION" : "";
         string? topCount = OfAttr(StoredQueryFormat.AttrOption)
             .Where(r => r[flag] is short tf && (tf & StoredQueryFormat.FlagTop) != 0)
             .Select(r => r[n1] as string).FirstOrDefault();
@@ -439,12 +441,12 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
 
                     if (columns.All(r => r[flag] is short cf && cf == StoredQueryFormat.AppendValueFlag))
                         return source is null
-                            ? new StoredActionQuery($"{declared}INSERT INTO {target} ({targetColumns}) VALUES ({values})", null)
+                            ? new StoredActionQuery($"{declared}INSERT INTO {target} ({targetColumns}) VALUES ({values}){owner}", null)
                             : new StoredActionQuery(null, "An append query cannot take both literal values and a source.");
 
                     return source is { } appendSource
                         ? new StoredActionQuery(
-                            $"{declared}INSERT INTO {target} ({targetColumns}) SELECT {selecting}{values} FROM {appendSource.From}{Where()}", null)
+                            $"{declared}INSERT INTO {target} ({targetColumns}) SELECT {selecting}{values} FROM {appendSource.From}{Where()}{owner}", null)
                         : new StoredActionQuery(null, "An append query with no values and no source is not executed by LibRed.");
                 }
 
@@ -456,7 +458,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
                         return new StoredActionQuery(null, "An update query with no assignments is not executed by LibRed.");
                     string assignments = string.Join(", ",
                         columns.Select(r => $"{Qualified(r[n2] as string ?? "")} = {r[expr] as string ?? "NULL"}"));
-                    return new StoredActionQuery($"{declared}UPDATE {updateSource.From} SET {assignments}{Where()}", null);
+                    return new StoredActionQuery($"{declared}UPDATE {updateSource.From} SET {assignments}{Where()}{owner}", null);
                 }
 
             case StoredQueryFormat.ActionDelete when source is { } deleteSource:
@@ -464,7 +466,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
                     // Access writes `DELETE <table>.* FROM …` when the query names the table's columns and
                     // `DELETE * FROM …` when it doesn't; the column row holds that `<table>.*` verbatim.
                     string what = columns.Count > 0 ? columns[0][expr] as string ?? "*" : "*";
-                    return new StoredActionQuery($"{declared}DELETE {what} FROM {deleteSource.From}{Where()}", null);
+                    return new StoredActionQuery($"{declared}DELETE {what} FROM {deleteSource.From}{Where()}{owner}", null);
                 }
 
             case StoredQueryFormat.ActionMakeTable when source is { } intoSource:
@@ -484,7 +486,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
                         .Select(r => r[expr] as string).FirstOrDefault(s => !string.IsNullOrEmpty(s)) is { } h
                         ? $" HAVING {h}" : "";
                     return new StoredActionQuery(
-                        $"{declared}SELECT {selecting}{selected} INTO {Quote(action[n1] as string ?? "")} FROM {intoSource.From}{Where()}{grouping}{having}", null);
+                        $"{declared}SELECT {selecting}{selected} INTO {Quote(action[n1] as string ?? "")} FROM {intoSource.From}{Where()}{grouping}{having}{owner}", null);
                 }
         }
 
@@ -709,6 +711,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
         if (groupBy.Count > 0) sql.Append(" GROUP BY ").Append(string.Join(", ", groupBy));
         if (having is not null) sql.Append(" HAVING ").Append(having);
         if (orderBy.Count > 0) sql.Append(" ORDER BY ").Append(string.Join(", ", orderBy));
+        if ((options & StoredQueryFormat.FlagOwnerAccess) != 0) sql.Append(" WITH OWNERACCESS OPTION");
         return sql.ToString();
     }
 

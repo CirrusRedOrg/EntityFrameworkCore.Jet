@@ -240,6 +240,8 @@ public class CreateProcedureTests
         "SELECT TOP 10 PERCENT CompanyName INTO [CustomerCopy] FROM [Customers]", 10)]
     [InlineData("INSERT INTO Shippers (CompanyName) SELECT DISTINCT Country FROM Customers WHERE Country = 'UK'",
         "INSERT INTO [Shippers] ([CompanyName]) SELECT DISTINCT Country FROM [Customers] WHERE Country = 'UK'", 1)]
+    [InlineData("UPDATE Customers SET City = 'X' WHERE Country = 'UK' WITH OWNERACCESS OPTION",
+        "UPDATE [Customers] SET [City] = 'X' WHERE Country = 'UK' WITH OWNERACCESS OPTION", 7)]
     public void Action_query_body_round_trips_through_the_file(string body, string expected, int affected)
     {
         string path = Fresh();

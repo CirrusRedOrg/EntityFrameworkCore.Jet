@@ -52,14 +52,14 @@ executeStatement : (EXECUTE | EXEC) name=identifier (expression (COMMA expressio
 // UPDATE tableexpression SET col=expr, … [WHERE …]. The tableexpression is a table SOURCE (Access allows a
 // join here) or, as in a FROM clause, a comma list of them (verified vs ACE: UPDATE a, b SET … is accepted), and a
 // SET target may be table-qualified (col or alias.col) to touch a specific joined table.
-updateStatement : UPDATE tableSource (COMMA tableSource)* SET assignment (COMMA assignment)* whereClause? ;
+updateStatement : UPDATE tableSource (COMMA tableSource)* SET assignment (COMMA assignment)* whereClause? ownerAccessOption? ;
 assignment : target=columnRef EQ expression ;
 
 // DELETE [table.* | *] FROM tableexpression [WHERE …]. For a join, the `table.*` target selects which
 // table's rows to delete; a bare `*` (or no target) is only valid for a single table — a join without a
 // `table.*` target is ambiguous and rejected at execution (matching Access, which asks you to specify it).
 // As in a FROM clause, the tableexpression may be a comma list of sources (verified vs ACE).
-deleteStatement : DELETE (target=identifier DOT STAR | STAR)? FROM tableSource (COMMA tableSource)* whereClause? ;
+deleteStatement : DELETE (target=identifier DOT STAR | STAR)? FROM tableSource (COMMA tableSource)* whereClause? ownerAccessOption? ;
 
 // A FROM-less SELECT of system variables only — ACE allows `SELECT @@IDENTITY` / `SELECT @@ROWCOUNT`
 // (and a comma list of them) with no FROM clause. Listed before queryExpression so it is preferred; a
@@ -278,7 +278,13 @@ rowValue : DEFAULT | expression ;
 // is what gives `(SELECT TOP 5 … ORDER BY x) UNION …` its meaning — the ordering is what makes that TOP
 // deterministic. This is the standard's own structure: <query expression> carries the ordering, <query term>
 // does not.
-queryExpression : queryTerm (setOperator queryTerm)* orderByClause? offsetFetchClause? ;
+queryExpression : queryTerm (setOperator queryTerm)* orderByClause? offsetFetchClause? ownerAccessOption? ;
+
+// WITH OWNERACCESS OPTION: run the query with its owner's permissions. LibRed has no users to act for, so it
+// changes nothing when a query runs; a stored query keeps it (StoredQueryFormat.FlagOwnerAccess). ACE takes it
+// at the end of every SELECT — the first of a UNION's and a subquery's too — after a query's ORDER BY but not
+// before it, and at the end of an INSERT, UPDATE or DELETE (verified).
+ownerAccessOption : WITH OWNERACCESS OPTION ;
 // A set-operation operand is an order-less SELECT or a parenthesised query expression (so `A UNION ALL (B UNION
 // C)` groups the right side as one term — EF emits this from Concat/Union nesting).
 queryTerm
@@ -307,6 +313,7 @@ setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 // `SELECT TOP 5 … UNION SELECT TOP 5 …` takes five rows from each side.
 querySpecification
     : SELECT predicate=selectPredicate? topClause? selectList (INTO into=identifier)? fromClause? whereClause? groupByClause? havingClause?
+      ownerAccessOption?
     ;
 
 // The optional row predicate. ALL is the default (return every row); DISTINCT dedupes on the output
@@ -581,6 +588,7 @@ nonReservedKeyword
     : RANGE | GROUPS | UNBOUNDED | PRECEDING | FOLLOWING | CURRENT | EXCLUDE | TIES | OTHERS
     | WITHIN | LAST | RESPECT | NULLS | FILTER
     | YES | OFF
+    | OWNERACCESS | OPTION
     ;
 
 // Every other keyword, which a name may be only after a separator — see columnRef.
@@ -742,6 +750,9 @@ LAST      : [Ll][Aa][Ss][Tt] ;
 RESPECT   : [Rr][Ee][Ss][Pp][Ee][Cc][Tt] ;
 NULLS     : [Nn][Uu][Ll][Ll][Ss] ;
 FILTER    : [Ff][Ii][Ll][Tt][Ee][Rr] ;
+// WITH OWNERACCESS OPTION's words — not reserved; see nonReservedKeyword.
+OWNERACCESS : [Oo][Ww][Nn][Ee][Rr][Aa][Cc][Cc][Ee][Ss][Ss] ;
+OPTION      : [Oo][Pp][Tt][Ii][Oo][Nn] ;
 
 STAR     : '*' ;
 SLASH    : '/' ;

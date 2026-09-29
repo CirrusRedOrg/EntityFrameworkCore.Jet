@@ -453,7 +453,7 @@ internal static class AstBuilder
         if (MakeTableTarget(query) is { } target)
             return new CreateActionProcedureStatement(
                 name, ProcedureActionKind.MakeTable, null, target, null,
-                BuildViewDefinition(query), null, parameters);
+                BuildViewDefinition(query), null, parameters, OwnerAccess(query));
 
         ViewDefinition definition = BuildViewDefinition(query);
         return new CreateProcedureStatement(name, parameters, definition, OriginalText(query));
@@ -487,7 +487,8 @@ internal static class AstBuilder
                 .Select((col, i) => new AppendColumn(Identifier(col), body.Columns[i].Expression))
                 .ToList();
             return new CreateActionProcedureStatement(
-                name, ProcedureActionKind.Append, null, Identifier(insert.table), sourced, body, null, parameters);
+                name, ProcedureActionKind.Append, null, Identifier(insert.table), sourced, body, null, parameters,
+                OwnerAccess(source));
         }
 
         // A stored append query keeps its columns and values as text pairs, which has room for exactly one
@@ -514,7 +515,7 @@ internal static class AstBuilder
             .ToList();
         return new CreateActionProcedureStatement(
             name, ProcedureActionKind.Append, null, Identifier(insert.table), appendColumns,
-            null, null, parameters);
+            null, null, parameters, insert.source is { } query && OwnerAccess(query));
     }
 
     /// <summary>An UPDATE body: its sources and WHERE are stored exactly as a view's are, and each SET
@@ -528,7 +529,8 @@ internal static class AstBuilder
             .ToList();
         return new CreateActionProcedureStatement(
             name, ProcedureActionKind.Update, null, null, assignments,
-            ActionBody(update.tableSource(), update.whereClause()), null, parameters);
+            ActionBody(update.tableSource(), update.whereClause()), null, parameters,
+            update.ownerAccessOption() is not null);
     }
 
     /// <summary>A DELETE body: its sources and WHERE, plus the <c>table.*</c> target when the statement names
@@ -539,7 +541,8 @@ internal static class AstBuilder
         string? target = delete.target is { } t ? $"{Identifier(t)}.*" : null;
         return new CreateActionProcedureStatement(
             name, ProcedureActionKind.Delete, null, null, null,
-            ActionBody(delete.tableSource(), delete.whereClause()), target, parameters);
+            ActionBody(delete.tableSource(), delete.whereClause()), target, parameters,
+            delete.ownerAccessOption() is not null);
     }
 
     /// <summary>The sources, joins and WHERE of an UPDATE or DELETE body, in the shape a view stores them —
@@ -716,7 +719,20 @@ internal static class AstBuilder
 
         string? where = select.whereClause() is { } w ? OriginalText(w.expression()) : null;
         return new ViewDefinition(select.predicate?.DISTINCT() is not null, columns, tables, joins, where, groupBy, having, orderBy, top,
-            TopPercent: select.topClause()?.percent is not null);
+            TopPercent: select.topClause()?.percent is not null, OwnerAccess: OwnerAccess(ctx));
+    }
+
+    /// <summary>Whether a query declares WITH OWNERACCESS OPTION — after its ORDER BY, or at the end of one of its
+    /// SELECTs, as ACE takes it either way. ACE reads a query's ORDER BY as part of its last SELECT, so the option
+    /// ending that SELECT cannot come before the ORDER BY, nor be written again after it (verified); both are
+    /// refused here.</summary>
+    private static bool OwnerAccess(QueryExpressionContext ctx)
+    {
+        if (ctx.queryTerm()[^1] is SelectTermContext last && last.querySpecification().ownerAccessOption() is not null
+            && (ctx.orderByClause() is not null || ctx.offsetFetchClause() is not null || ctx.ownerAccessOption() is not null))
+            throw new SqlParseException("WITH OWNERACCESS OPTION ends a query: it comes after the query's ORDER BY, and once.");
+        return ctx.ownerAccessOption() is not null
+            || ctx.queryTerm().Any(t => t is SelectTermContext s && s.querySpecification().ownerAccessOption() is not null);
     }
 
     private static void CollectSources(TableSourceContext ts, List<ViewSource> tables, List<ViewJoin> joins)
@@ -857,6 +873,7 @@ internal static class AstBuilder
     {
         QueryTermContext[] terms = ctx.queryTerm();
         SetOperatorContext[] operators = ctx.setOperator();
+        _ = OwnerAccess(ctx); // accepted and acted on by nothing, but refused where ACE refuses it
 
         // The ordering and paging of the WHOLE expression — the grammar admits them here and nowhere else, so
         // there is nothing to disentangle: a leading TOP sits on its operand's own querySpecification, a FETCH

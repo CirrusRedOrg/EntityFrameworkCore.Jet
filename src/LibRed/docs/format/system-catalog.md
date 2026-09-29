@@ -414,6 +414,14 @@
   > A query with none of them has no `0x03` row. A make-table or append query's own SELECT keeps its
   > `DISTINCT` and `TOP` on the same row (measured: `SELECT DISTINCT … INTO`, `SELECT TOP 5 … INTO`,
   > `INSERT INTO … SELECT DISTINCT`). LibRed writes the same single row, and reads it back into the statement.
+  >
+  > **`WITH OWNERACCESS OPTION` (`0x04`) is stored by a view and by every kind of action query**, on that same row:
+  > with it, ACE writes exactly the rows it writes without, but for the bit — `DISTINCT` with it is `6`, `TOP` `20`,
+  > `DISTINCT TOP` `22`, `DISTINCT TOP … PERCENT` `54`, and an update, delete or append query, which has no other
+  > option, gets a `0x03` row of its own, `Flag 4`, `Order 1`. Measured for plain, `DISTINCT`, `TOP`,
+  > `DISTINCT TOP` and `DISTINCT TOP … PERCENT` SELECTs and for append (from `VALUES` and from a SELECT), update,
+  > delete and make-table queries. LibRed writes it so, reads it back to the clause at the end of the rebuilt
+  > statement, and acts on nothing it says.
 
   > **A query with no `0x05` rows at all has no FROM clause.** `SELECT 1 AS n` is a query Access stores (as
   > a view or a procedure) and stores exactly as any other, minus the table rows: the type row, one `0x06`

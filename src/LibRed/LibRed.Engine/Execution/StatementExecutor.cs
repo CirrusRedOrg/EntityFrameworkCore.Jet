@@ -785,7 +785,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             Values: statement.AppendColumns?.Select(c => new AppendColumnSpec(c.Column, c.ValueExpression)).ToList(),
             Body: statement.Body is { } body ? BuildViewSpec(body) : null,
             Parameters: BuildParameterSpecs(statement.Parameters),
-            DeleteTarget: statement.DeleteTarget);
+            DeleteTarget: statement.DeleteTarget,
+            OwnerAccess: statement.OwnerAccess);
 
         _database.CreateActionQuery(statement.Name, spec);
         return 0;
@@ -804,7 +805,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         Parameters: null,
         OrderBy: d.OrderBy.Select(o => new ViewOrderBySpec(o.Expression, o.Descending)).ToList(),
         Top: d.Top,
-        TopPercent: d.TopPercent);
+        TopPercent: d.TopPercent,
+        OwnerAccess: d.OwnerAccess);
 
     /// <summary>
     /// A make-table query: <c>SELECT … INTO newtable FROM source</c>.

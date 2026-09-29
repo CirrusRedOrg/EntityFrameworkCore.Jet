@@ -60,7 +60,8 @@ public sealed record AppendColumnSpec(string Column, string ValueExpression);
 /// does, in <paramref name="Body"/>, and differs only in the action row and in what its column rows mean:
 /// <paramref name="Values"/> holds an append's columns or an update's assignments, <paramref name="TargetTable"/>
 /// the table an append or make-table writes into, and the body's own columns are a make-table's output list.
-/// <paramref name="Parameters"/> are declared exactly as a parameterized SELECT declares them.
+/// <paramref name="Parameters"/> are declared exactly as a parameterized SELECT declares them, and
+/// <paramref name="OwnerAccess"/> is WITH OWNERACCESS OPTION, stored as the view stores it.
 /// </summary>
 public sealed record ActionQuerySpec(
     ActionQueryKind Kind,
@@ -69,7 +70,8 @@ public sealed record ActionQuerySpec(
     IReadOnlyList<AppendColumnSpec>? Values = null,
     ViewSpec? Body = null,
     IReadOnlyList<ViewParameterSpec>? Parameters = null,
-    string? DeleteTarget = null);
+    string? DeleteTarget = null,
+    bool OwnerAccess = false);
 
 /// <summary>A stored action query read back from the catalog. <paramref name="Sql"/> is the reconstructed,
 /// executable statement when LibRed supports the kind; otherwise it is null and <paramref name="UnsupportedReason"/>
@@ -89,7 +91,8 @@ public sealed record StoredQueryParameter(
 /// ORDER BY (all verbatim text) — that Access stores as MSysQueries rows. <paramref name="GroupBy"/> and
 /// <paramref name="Having"/> together are what Access calls a "totals" query: the aggregate output columns
 /// are ordinary column rows, and only the grouping keys and the group filter get rows of their own.
-/// <paramref name="TopPercent"/> makes <paramref name="Top"/> a percentage.
+/// <paramref name="TopPercent"/> makes <paramref name="Top"/> a percentage. <paramref name="OwnerAccess"/> is WITH
+/// OWNERACCESS OPTION: an option-row bit, and nothing LibRed acts on.
 /// </summary>
 public sealed record ViewSpec(
     bool Distinct,
@@ -102,4 +105,5 @@ public sealed record ViewSpec(
     IReadOnlyList<ViewParameterSpec>? Parameters = null,
     IReadOnlyList<ViewOrderBySpec>? OrderBy = null,
     int? Top = null,
-    bool TopPercent = false);
+    bool TopPercent = false,
+    bool OwnerAccess = false);

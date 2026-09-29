@@ -178,6 +178,70 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
         }
     }
 
+    /// <summary>WITH OWNERACCESS OPTION is one more option row in a stored query, which ACE writes for a view and for
+    /// every kind of action query alike. LibRed acts on nothing it says, but keeps it: the rows are ACE's, ACE runs the
+    /// query LibRed stored, and LibRed reads the declaration back and runs the query itself.</summary>
+    [Theory]
+    [InlineData("CREATE VIEW [Q] AS SELECT CompanyName FROM Shippers WITH OWNERACCESS OPTION")]
+    // ACE's CREATE VIEW takes no ORDER BY ("Only simple SELECT queries are allowed in VIEWS"); a procedure does.
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT DISTINCT CompanyName FROM Shippers ORDER BY CompanyName WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT TOP 2 CompanyName FROM Shippers ORDER BY CompanyName WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT DISTINCT TOP 2 CompanyName FROM Shippers ORDER BY CompanyName WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT DISTINCT TOP 50 PERCENT CompanyName FROM Shippers ORDER BY CompanyName " +
+                "WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT CompanyName FROM Shippers WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS UPDATE Customers SET ContactTitle = 'Owner' WHERE Country = 'UK' WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS DELETE FROM Shippers WHERE ShipperID > 900 WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT ShipperID, CompanyName INTO ShipperCopy FROM Shippers WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers (CompanyName, Phone) SELECT CompanyName, Phone FROM Customers " +
+                "WHERE Country = 'UK' WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers (CompanyName) VALUES ('Owner') WITH OWNERACCESS OPTION")]
+    public void An_owneraccess_query_is_stored_as_ace_stores_it(string sql)
+    {
+        string ourPath = Copy(), acePath = Copy(), readPath = Copy();
+        bool action = !sql.Contains(" AS SELECT CompanyName", StringComparison.Ordinal)
+            && !sql.Contains(" AS SELECT DISTINCT", StringComparison.Ordinal) && !sql.Contains(" AS SELECT TOP", StringComparison.Ordinal);
+        try
+        {
+            using (var db = TemporaryDatabase.OpenTracked(ourPath, readOnly: false))
+                new QueryEngine(db).ExecuteNonQuery(sql);
+
+            using (var connection = AceTestDatabase.Open(acePath))
+            {
+                using var create = connection.CreateCommand();
+                create.CommandText = sql;
+                create.ExecuteNonQuery();
+            }
+
+            Assert.Equal(QueryRows(acePath, "Q"), QueryRows(ourPath, "Q"));
+            Assert.Equal(ObjectFlags(acePath, "Q"), ObjectFlags(ourPath, "Q"));
+
+            // ACE runs the query LibRed stored — on a copy, so an action query leaves the file LibRed reads next alone.
+            File.Copy(ourPath, readPath, overwrite: true);
+            using (var connection = AceTestDatabase.Open(readPath))
+            {
+                using var run = connection.CreateCommand();
+                run.CommandText = "Q";
+                run.CommandType = CommandType.StoredProcedure;
+                run.ExecuteNonQuery();
+            }
+
+            // LibRed reads the declaration back with the query, and runs it.
+            using var ours = TemporaryDatabase.OpenTracked(ourPath, readOnly: false);
+            string? stored = action ? ours.Catalog.ActionQueries["Q"].Sql : ours.Catalog.Views["Q"];
+            Assert.EndsWith(" WITH OWNERACCESS OPTION", stored);
+            var engine = new QueryEngine(ours);
+            if (action) engine.ExecuteStoredActionQuery("Q");
+            else Assert.NotEmpty(engine.ExecuteQuery("SELECT * FROM [Q]").Rows);
+        }
+        finally
+        {
+            TemporaryDatabase.Delete(ourPath);
+            TemporaryDatabase.Delete(acePath);
+            TemporaryDatabase.Delete(readPath);
+        }
+    }
+
     /// <summary>A stored SELECT's DISTINCT, TOP and PERCENT are bits of one option row, as ACE writes them — and PERCENT
     /// survives the round trip: ACE and LibRed return the same rows from the query LibRed stored.</summary>
     [Theory]

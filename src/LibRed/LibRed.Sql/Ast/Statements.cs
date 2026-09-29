@@ -231,7 +231,8 @@ public sealed record ViewOrderBy(string Expression, bool Descending);
 /// which Access stores as MSysQueries rows. A GROUP BY makes it a "totals" query (aggregate columns are
 /// ordinary column rows; the group-by columns are separate rows), and <paramref name="Having"/> is that
 /// query's own filter over the groups, stored as its own <c>Attribute=0x0A</c> row.
-/// <paramref name="TopPercent"/> makes <paramref name="Top"/> a percentage.</summary>
+/// <paramref name="TopPercent"/> makes <paramref name="Top"/> a percentage, and <paramref name="OwnerAccess"/> is
+/// WITH OWNERACCESS OPTION, which a stored query keeps.</summary>
 public sealed record ViewDefinition(
     bool Distinct,
     IReadOnlyList<ViewColumn> Columns,
@@ -242,7 +243,8 @@ public sealed record ViewDefinition(
     string? Having,
     IReadOnlyList<ViewOrderBy> OrderBy,
     int? Top,
-    bool TopPercent = false);
+    bool TopPercent = false,
+    bool OwnerAccess = false);
 
 /// <summary>CREATE VIEW view [(fields)] AS select — a stored query, decomposed for byte-faithful storage.</summary>
 public sealed record CreateViewStatement(
@@ -282,6 +284,7 @@ public sealed record AppendColumn(string Column, string ValueExpression);
 /// <paramref name="AppendColumns"/> are an INSERT's columns or an UPDATE's assignments,
 /// <paramref name="TargetTable"/> is the table an INSERT or a make-table writes into, and
 /// <paramref name="DeleteTarget"/> is the <c>table.*</c> a DELETE names when it names one.
+/// <paramref name="OwnerAccess"/> is WITH OWNERACCESS OPTION, which the stored query keeps.
 /// </summary>
 public sealed record CreateActionProcedureStatement(
     string Name,
@@ -291,7 +294,8 @@ public sealed record CreateActionProcedureStatement(
     IReadOnlyList<AppendColumn>? AppendColumns,
     ViewDefinition? Body = null,
     string? DeleteTarget = null,
-    IReadOnlyList<ProcedureParameter>? Parameters = null) : SqlStatement;
+    IReadOnlyList<ProcedureParameter>? Parameters = null,
+    bool OwnerAccess = false) : SqlStatement;
 
 /// <summary>One action of an ALTER TABLE statement (Access allows exactly one per statement).</summary>
 public abstract record AlterTableAction;

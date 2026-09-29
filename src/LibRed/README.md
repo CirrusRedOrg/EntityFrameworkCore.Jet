@@ -88,7 +88,8 @@ Treat the number as of its date — an EF Core version bump moves it.
   view referenced in `FROM` (or inside an expression subquery) to a derived table — so they run through
   LibRed too. Reading is not limited to what LibRed writes: the `Attribute=1` operation row is read as the
   query **kind** (Access writes it on plain SELECTs as well as on action queries), a query with no column
-  rows is Access's `SELECT *`, and `DISTINCTROW` and `TOP … PERCENT` are decoded from their own option bits.
+  rows is Access's `SELECT *`, and `DISTINCTROW`, `TOP … PERCENT` and `WITH OWNERACCESS OPTION` are decoded
+  from their own option bits.
   Measured over a corpus of 19 real-world databases: 479 of 592 stored queries come back as views, and 337 of
   those reproduce ACE's own SQL exactly once bracketing and whitespace are normalised.
 - **Write** — row insert with order-preserving index-key encoding and **full B-tree maintenance**
@@ -180,6 +181,8 @@ Treat the number as of its date — an EF Core version bump moves it.
   (`INSERT INTO … SELECT`, the append query) — `SELECT … INTO` (the make-table query), `UPDATE`, `DELETE`,
   `EXECUTE`, `IF … THEN`, and `SELECT` with `WHERE`, joins, `GROUP BY`/aggregates, `HAVING`, `ORDER BY`,
   `TOP [PERCENT]`, `ALL`/`DISTINCT`/`DISTINCTROW`, `UNION`/`INTERSECT`/`EXCEPT`, subqueries, and parameters.
+  `WITH OWNERACCESS OPTION` is taken wherever ACE takes it and changes nothing — LibRed has no users to act for —
+  but a stored query keeps it.
   Access's bang notation: `[Table]![Column]` is `Table.Column`, and an unaliased one is named as written, as
   ACE names it. A form control such as `[Forms]![frmMenu]![txtCity]` is reachable only as a parameter the
   query declares; unlike ACE, LibRed does not make an undeclared one an implicit parameter. `Yes`/`On` and

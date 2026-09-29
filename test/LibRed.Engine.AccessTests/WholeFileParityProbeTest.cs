@@ -13,13 +13,14 @@ namespace LibRed.Engine.Tests;
 
 /// <summary>
 /// About 140 statements run through ACE over OLE DB and through LibRed on copies of one ACE-created empty database,
-/// and the files compared byte for byte. It reports how far apart they are rather than asserting they match.
+/// and the files compared byte for byte.
 /// </summary>
 /// <remarks>
 /// Two measurements. The whole run applies every statement in one session per engine and compares the two files at
-/// the end — how close LibRed comes over a realistic workload. Step by step applies one statement at a time, both
-/// engines starting from the same file — ACE's result of the step before — so each statement is compared on its own
-/// and one early divergence does not leave every later page misaligned.
+/// the end — how close LibRed comes over a realistic workload; it reports, since one early placement difference
+/// leaves every later page misaligned. Step by step applies one statement at a time, both engines starting from the
+/// same file — ACE's result of the step before — so each statement is compared on its own, and it asserts: every
+/// statement leaves identical files except the <see cref="KnownDifferences"/>, each of which must still differ.
 /// <para>Only what differs for reasons other than the format is masked: page 0's user commit-byte table, which
 /// counts a lock-file user's writes and LibRed does not keep; the wall-clock DateCreate and DateUpdate of each
 /// MSysObjects row; and a data page's write stamp at 0x08, with the copy of it a chained long value's descriptor
@@ -71,6 +72,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
         string current = origin;
         var summary = new StringBuilder();
         var details = new StringBuilder();
+        var outcomes = new string[statements.Length];
         int same = 0;
         try
         {
@@ -88,6 +90,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
                     ? $"ACE: {aceError ?? "ok"} | LibRed: {libredError ?? "ok"}"
                     : pages == 0 ? "identical" : $"{pages} page(s) differ";
                 if (outcome == "identical") same++;
+                outcomes[i] = outcome;
                 summary.AppendLine(CultureInfo.InvariantCulture, $"#{i + 1,-3} {outcome,-22} {Abbreviate(statements[i])}");
                 if (pages > 0)
                     details.AppendLine(CultureInfo.InvariantCulture, $"==== #{i + 1} {statements[i]}").Append(report);
@@ -100,6 +103,17 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             }
 
             output.WriteLine($"{same} of {statements.Length} statements left identical files\n{summary}\n{details}");
+
+            var unexpected = new List<string>();
+            for (int i = 0; i < statements.Length; i++)
+            {
+                string? known = KnownDifferences.FirstOrDefault(k => statements[i].StartsWith(k.Statement, StringComparison.Ordinal)).Reason;
+                if (outcomes[i] == "identical" && known is not null)
+                    unexpected.Add($"#{i + 1} is now identical; remove it from the known differences: {Abbreviate(statements[i])}");
+                else if (outcomes[i] != "identical" && (known is null || !outcomes[i].EndsWith("differ", StringComparison.Ordinal)))
+                    unexpected.Add($"#{i + 1} {outcomes[i]}: {Abbreviate(statements[i])}");
+            }
+            Assert.True(unexpected.Count == 0, string.Join("\n", unexpected));
         }
         finally
         {
@@ -107,6 +121,17 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             TemporaryDatabase.Delete(origin);
         }
     }
+
+    /// <summary>The statements, by how each begins, that ACE and LibRed are known to leave differently — each a
+    /// placement difference with every pointer correct — and why.</summary>
+    private static readonly (string Statement, string Reason)[] KnownDifferences =
+    [
+        ("INSERT INTO Bulk (Id, Grp, Label, Payload, Amount) SELECT",
+            "ACE allocates from session extents and 8-page groups (PageGroupProbeTest); LibRed takes the lowest free page"),
+        ("INSERT INTO Doc VALUES (1,", "ACE writes the row's long values in a different order"),
+        ("UPDATE Doc SET Body = String(8000, 'e')",
+            "ACE does not reuse the replaced long value's pages within the UPDATE that frees them"),
+    ];
 
     /// <summary>A hundred statements over six tables: creates with every ordinary column type and each kind of
     /// constraint, inserts, updates and deletes, more inserts into the space the deletes freed, a column added,

@@ -129,8 +129,6 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
         ("INSERT INTO Bulk (Id, Grp, Label, Payload, Amount) SELECT",
             "ACE allocates from session extents and 8-page groups (PageGroupProbeTest); LibRed takes the lowest free page"),
         ("INSERT INTO Doc VALUES (1,", "ACE writes the row's long values in a different order"),
-        ("UPDATE Doc SET Body = String(8000, 'e')",
-            "ACE does not reuse the replaced long value's pages within the UPDATE that frees them"),
     ];
 
     /// <summary>A hundred statements over six tables: creates with every ordinary column type and each kind of

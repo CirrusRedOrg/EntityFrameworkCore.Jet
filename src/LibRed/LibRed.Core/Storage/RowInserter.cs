@@ -133,17 +133,19 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         object?[] storage = (object?[])values.Clone();
 
         // Long-value (memo/OLE) columns: keep an unchanged column's on-disk descriptor verbatim (so it is not
-        // needlessly re-materialised onto fresh LVAL pages), and free a changed column's old chained pages.
+        // needlessly re-materialised onto fresh LVAL pages), and free a changed column's old chained pages —
+        // after the new values are written, as ACE does: the UPDATE that frees them never reuses them.
         byte[] oldRow = ReadRowBytes(id);
         // One layout for both: the trailer arithmetic is the same for either selection off this row.
         RowLayout oldLayout = RowDecoder.ParseLayout(_table.Columns, format, oldRow);
         var oldDescriptors = RowDecoder.LongValueDescriptors(_table.Columns, oldLayout, oldRow);
         var oldCalculated = RowDecoder.CalculatedSlots(_table.Columns, oldLayout, oldRow);
+        var replaced = new List<(ColumnDef Column, byte[] Descriptor)>();
         foreach (ColumnDef column in _table.Columns)
         {
             if (column.Type is not (JetDataType.Memo or JetDataType.Ole)) continue;
             if (!oldDescriptors.TryGetValue(column.Index, out byte[]? oldDescriptor)) continue; // old value was null
-            if (changedColumns.Contains(column.Index)) FreeLongValue(column, oldDescriptor, releaseAtClose: false);
+            if (changedColumns.Contains(column.Index)) replaced.Add((column, oldDescriptor));
             else storage[column.Index] = new LongValueDescriptor(oldDescriptor);
         }
 
@@ -175,6 +177,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         }
 
         MaterializeLongValues(storage);
+        foreach ((ColumnDef column, byte[] descriptor) in replaced)
+            FreeLongValue(column, descriptor, releaseAtClose: false);
 
         byte[] srcPage = _channel.ReadPageShared(id.Page).Span.ToArray();
         // Use the same guarded inference as Insert (Math.Max with the column-derived length): the raw per-row

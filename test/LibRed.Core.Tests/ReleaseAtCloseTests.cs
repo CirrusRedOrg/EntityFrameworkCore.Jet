@@ -162,11 +162,17 @@ public class ReleaseAtCloseTests
 
             table = db.OpenTable("Paths");
             (RowId id, object?[] values) = table.Rows().WithIds().Single();
-            // The old chain is free at once, so the new value lands on it and the file does not grow.
+            // The old chain is freed after the new value is written, as ACE does, so this update grows the file...
             int pagesBefore = channel.PageCount;
             values[1] = new string('b', 20000);
             table.Update(id, values, new HashSet<int> { 1 });
-            Assert.Equal(pagesBefore, channel.PageCount);
+            Assert.True(channel.PageCount > pagesBefore);
+
+            // ...but it is free at once, not held to close: the next update lands on it and the file does not grow.
+            int pagesAfterFirst = channel.PageCount;
+            values[1] = new string('c', 20000);
+            table.Update(id, values, new HashSet<int> { 1 });
+            Assert.Equal(pagesAfterFirst, channel.PageCount);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

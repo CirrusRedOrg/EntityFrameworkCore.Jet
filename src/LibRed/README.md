@@ -99,7 +99,8 @@ Treat the number as of its date — an EF Core version bump moves it.
   `int32`, which ACE does not treat as an error either); unique-index statistics; allocation through the
   global free-pages map; `MSysObjects` / `MSysACEs` catalog rows. `UPDATE`/`DELETE` write in place, relocate
   rows that no longer fit, maintain every index, and reclaim LVAL pages. Freed pages go back to that map
-  when the database closes, as ACE holds them — only an `UPDATE`'s replaced long value is reusable at once.
+  when the database closes, as ACE holds them — only an `UPDATE`'s replaced long value is reusable at once,
+  by the statements after it.
   `DROP TABLE` frees every page the table owns: data and long-value pages (each Memo/OLE column's hang off a
   per-column usage map, and are most of a memo-heavy table), every page of every index, the TDEF and its
   continuation pages, and a reference-form map's bitmap pages. It retires each map's records from their

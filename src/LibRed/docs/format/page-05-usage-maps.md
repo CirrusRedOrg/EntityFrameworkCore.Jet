@@ -276,12 +276,12 @@ usage map, etc.), and the only change to page 1 is one cleared bit per page take
 > taken before it. Closing a writable `JetDatabase` returns those pages and any already set in the
 > released-pages map to the free map, clears the released map and first sizes it as above, all in one
 > transaction. A close that released nothing and wrote nothing writes
-> nothing. Only an `UPDATE`'s replaced long value goes through `Free` at once.
+> nothing. Only an `UPDATE`'s replaced long value goes through `Free` at once — after the new value is written,
+> so, as in ACE, the `UPDATE` that frees those pages does not reuse them (the whole file then matches ACE's).
 >
-> **Where LibRed differs from ACE.** An `UPDATE` frees the old long value before writing the new one, so the
-> new value reuses those pages in the same statement. Held pages live in the handle, not in the released-pages
-> map — which is ACE's own behaviour (above), the difference being only that each LibRed handle releases its
-> own at its own close, while other handles stay open.
+> **Where LibRed differs from ACE.** Held pages live in the handle, not in the released-pages map — which is
+> ACE's own behaviour (above), the difference being only that each LibRed handle releases its own at its own
+> close, while other handles stay open.
 >
 > **Global-map growth.** The inline growth rule in §9 applies, but ACE leaves **4 bytes free in the
 > holder page** before promoting the global map to reference form. With a 69-byte companion row,

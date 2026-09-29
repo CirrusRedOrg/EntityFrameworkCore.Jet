@@ -148,6 +148,8 @@ public class ResultColumnTypeTests(ResultColumnTypeTests.Database database)
     [Theory]
     // Rows taking different arms still come back in the one declared type.
     [InlineData("IIF(Id = 1, 9, (SELECT SUM(M) FROM T))", 9, 12.5)]
+    // ... and a choice inside arithmetic too: linq2db's coalesced sum, taking the 0 arm, came back an Integer.
+    [InlineData("1000 - IIF(Id = 1, 0, (SELECT SUM(M) FROM T))", 1000, 987.5)]
     // A correlated subquery is typed without the outer row.
     [InlineData("(SELECT SUM(i.M) FROM T i WHERE i.Id = o.Id)", 10.5, 2)]
     public void A_scalar_subquery_column_is_its_type_on_every_row(string expression, double first, double second)

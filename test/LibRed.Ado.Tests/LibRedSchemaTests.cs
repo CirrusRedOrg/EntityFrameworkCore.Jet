@@ -48,7 +48,7 @@ public class LibRedSchemaTests
     [InlineData("DataSourceInformation", 1)]
     [InlineData("DataTypes", 19)]
     [InlineData("Restrictions", 67)]
-    [InlineData("ReservedWords", 124)]
+    [InlineData("ReservedWords", 126)]
     [InlineData("Tables", 41)]
     [InlineData("Columns", 228)]   // every table's columns and every view's output columns
     [InlineData("Indexes", 69)]

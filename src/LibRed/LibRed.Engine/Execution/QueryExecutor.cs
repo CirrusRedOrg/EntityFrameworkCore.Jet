@@ -1114,8 +1114,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// <summary>
     /// What ACE's expression service makes of a value beyond its type (verified vs ACE, over OLE DB, for IIF, SWITCH
     /// and CHOOSE; CASE, COALESCE, GREATEST and LEAST, which ACE does not have, take IIF's rule).
-    /// <para>A <b>Variant</b> — <c>CVar(x)</c>, a Variant plus a Variant, a Mixed value or text, a negated one, a
-    /// column or scalar subquery holding them, and a choice whose values all are — keeps its own type through an
+    /// <para>A <b>Variant</b> — <c>CVar(x)</c>, Access's <c>Nz</c> (verified vs Access), a Variant plus a Variant, a
+    /// Mixed value or text, a negated one, a column or scalar subquery holding them, and a choice whose values all are — keeps its own type through an
     /// expression and through a derived table, so <c>X + X</c> over <c>CVar(B) AS X</c> still adds. A result, a
     /// scalar subquery and a set operation write it out as text, as CStr writes it.</para>
     /// <para>A <b>Mixed</b> value is a choice whose values disagree in kind — text beside anything else, or a Variant
@@ -1136,6 +1136,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case FunctionCall { Arguments: [var argument] } function
                 when function.Name.TrimEnd('$').Equals("CVAR", StringComparison.OrdinalIgnoreCase):
                 return argument is LiteralExpression { Value: null } ? Variance.None : Variance.Variant;
+            // Access's Nz always gives a Variant, whatever it is given (verified vs Access): Nz(K, 0) writes "0".
+            case FunctionCall function when function.Name.TrimEnd('$').Equals("NZ", StringComparison.OrdinalIgnoreCase):
+                return Variance.Variant;
             case ColumnReference reference:
                 return OutputColumn.Find(columns, reference) is { Variant: true } ? Variance.Variant : Variance.None;
             case ScalarSubquery subquery:

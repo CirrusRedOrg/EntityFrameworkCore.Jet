@@ -225,6 +225,7 @@ internal sealed partial class ExpressionEvaluator(
             "SWITCH" => Switch(f),
             "NULLIF" => NullIf(f),
             "COALESCE" => Coalesce(f),
+            "NZ" => Nz(f),
             "GREATEST" => Extreme(f, greatest: true),
             "LEAST" => Extreme(f, greatest: false),
             "DATEPART" => DatePart(f),
@@ -447,6 +448,7 @@ internal sealed partial class ExpressionEvaluator(
             // COALESCE(expression [, ...n]). SQL Server insists on two, but one is harmless and the standard's
             // own grammar allows it, so only an empty list is rejected.
             "COALESCE" => (1, int.MaxValue),
+            "NZ" => (1, 2),
             // GREATEST/LEAST(expression [, ...n]), as SQL Server and PostgreSQL take them: one argument or more.
             "GREATEST" or "LEAST" => (1, int.MaxValue),
 
@@ -556,6 +558,20 @@ internal sealed partial class ExpressionEvaluator(
 
         return null;
     }
+
+    /// <summary>
+    /// Access's <c>Nz(value [, valueIfNull])</c>: <c>value</c>, or when it is Null <c>valueIfNull</c>, or VBA's
+    /// <see cref="VbaEmpty"/> when there is none. ACE's expression service has no Nz — it is the Access application's,
+    /// so it runs in queries opened in Access but not over OLE DB — and it is here for the queries written in Access.
+    /// </summary>
+    /// <remarks>
+    /// In Access the result is a Variant, and LibRed makes it one (QueryExecutor.VarianceOf), with what that brings
+    /// (verified vs Access): it is written out as text — <c>Nz(K, 0)</c> is <c>"0"</c> and <c>Nz(Null, 5)</c> is
+    /// <c>"5"</c> — and sorts and groups as its text, so <c>ORDER BY Nz(K, 0)</c> puts 10 before 2; as an operand it
+    /// keeps its own value, so <c>Nz(K, 0) + 1</c> adds and <c>Nz(K, 0) &gt; 2</c> compares as a number.
+    /// </remarks>
+    private object? Nz(FunctionCall f) =>
+        Evaluate(f.Arguments[0]) ?? (f.Arguments.Count == 2 ? Evaluate(f.Arguments[1]) : VbaEmpty.Value);
 
     /// <summary>
     /// <c>GREATEST(a, b, …)</c> and <c>LEAST(a, b, …)</c> — the largest or smallest of the arguments, compared
@@ -2699,6 +2715,7 @@ internal sealed partial class ExpressionEvaluator(
     /// is one character of text.</summary>
     private static object? NumericOperand(object? v) => v switch
     {
+        VbaEmpty => (short)0,
         string s => TextAsNumber(s),
         char c => TextAsNumber(c.ToString()),
         Guid or byte[] => throw new InvalidCastException("Type mismatch: a GUID or binary value is not a number."),
@@ -2714,6 +2731,7 @@ internal sealed partial class ExpressionEvaluator(
     internal static string ConcatText(object v) => v switch
     {
         string s => s,
+        VbaEmpty => "",
         bool b => b ? "-1" : "0",
         double d => FloatingText(d, 15),
         float f => FloatingText(f, 7),
@@ -2930,7 +2948,12 @@ internal sealed partial class ExpressionEvaluator(
         : Dbl(ConversionNumber(v)) != 0;
 
     // Jet's boolean convention (true = -1, false = 0) so a bool matches the numeric column it is stored in.
-    private static object Numeric(object v) => v is bool b ? (b ? -1 : 0) : v;
+    private static object Numeric(object v) => v switch
+    {
+        bool b => b ? -1 : 0,
+        VbaEmpty => (short)0,
+        _ => v,
+    };
     private static decimal Dec(object v) => JetDecimalConverter.ToDecimal(Numeric(v), CultureInfo.InvariantCulture);
     private static double Dbl(object v) => Convert.ToDouble(Numeric(v), CultureInfo.InvariantCulture);
     // Narrow to single precision (the cast yields ±Infinity for an out-of-range double rather than throwing).
@@ -2943,6 +2966,10 @@ internal sealed partial class ExpressionEvaluator(
 
     private static int Compare(object left, object right, JetTextComparer text)
     {
+        // Empty is "" beside text and 0 beside anything else, as VBA compares it.
+        if (left is VbaEmpty) left = right is string ? "" : (short)0;
+        if (right is VbaEmpty) right = left is string ? "" : (short)0;
+
         if (IsNumeric(left) && IsNumeric(right))
         {
             // A single-precision operand (a Single column value, a CSNG result, a SUM of singles) compares in

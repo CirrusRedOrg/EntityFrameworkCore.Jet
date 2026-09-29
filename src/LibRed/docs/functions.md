@@ -45,9 +45,10 @@ reference throws "Column not found" — a default is row-blind by design). The e
 > Service (JES)**, the built-in set the ACE OLE DB provider carries **standalone**, and (2) the **Access
 > Application Expression Service**, the full VBA runtime available only inside `MSACCESS.EXE`. LibRed targets
 > the **JES (standalone)** surface — the correct reference for a standalone engine. Functions that live only
-> in the application service (`Nz`, `Split`, `Environ`, `CurDir`, `CurrentUser`, the domain aggregates
+> in the application service (`Split`, `Environ`, `CurDir`, `CurrentUser`, the domain aggregates
 > `DCount`/`DLookup`/…) are therefore **correctly absent**, matching the OLE DB provider ("Undefined
-> function"), not a gap.
+> function"), not a gap. The one exception is **`Nz`**, which queries written in Access use everywhere, so LibRed
+> has it as Access has it (below).
 
 ---
 
@@ -99,6 +100,15 @@ takes the 2) and a Boolean a **Long**.
 LibRed's `CASE`, `Coalesce`, `Greatest` and `Least`, which ACE does not have, follow `IIf`. It also leaves
 `CVar(Null)` untyped, as a bare Null is, where ACE makes it a Variant and so a union with an arm of them a text
 column: EFCore.Jet writes `CVar(Null)` for every projected Null, and the union keeps its other arm's types.
+
+#### Nz
+
+**`Nz(value [, valueIfNull])`** is `value`, or when it is Null `valueIfNull`. It is the Access application's, not the
+JES's — the OLE DB provider answers "Undefined function" — so its reference is Access itself (verified vs Access, the
+application, over the same rows). Its result is always a **Variant**, with all that brings: `Nz(K, 0)` is written
+out as the text `'0'`, `ORDER BY Nz(K, 0)` puts 10 before 2, and `Nz(K, 0) + 1` and `Nz(K, 0) > 2` work as numbers.
+With one argument a Null gives VBA's **Empty**, which is written out as `''` and read as 0 by arithmetic and as `''`
+by `&`: `Nz(Null) + 2` is 2, `Nz(Null) & 'x'` is `'x'`, `Len(Nz(Null))` is 0 and `Nz(Null) = 0` is True.
 
 ### Math
 
@@ -322,7 +332,7 @@ behaviour over a grouped query are described in the [README](../README.md).
 
 ## Not supported (by design)
 
-- **Access-application-only** (JES-undefined, so correctly absent): `Nz`, `Split`, `CurDir`, `CurrentUser`,
+- **Access-application-only** (JES-undefined, so correctly absent): `Split`, `CurDir`, `CurrentUser`,
   `Environ`, `Randomize`, and the domain aggregates. `Split` also returns a Variant array (no scalar-SQL
   representation).
 - **No scalar-SQL form:** `IRR` / `NPV` (array argument); `Array` / `Join` / `CVErr` (VBA-only).

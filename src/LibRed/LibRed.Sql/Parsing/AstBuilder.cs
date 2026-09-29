@@ -789,6 +789,9 @@ internal static class AstBuilder
             case NamedTablePrimaryContext n:
                 string alias = n.alias is null ? Identifier(n.table) : Identifier(n.alias);
                 return (new ViewSource(Identifier(n.table), n.alias is null ? null : Identifier(n.alias)), alias);
+            case SubqueryPrimaryContext s when s.derivedColumns() is not null:
+                // Access stores a derived source as its query text alone, and ACE has no column-list syntax.
+                throw new NotSupportedException("A view cannot store a derived table's column list.");
             case SubqueryPrimaryContext s when s.alias is not null:
                 string subAlias = Identifier(s.alias);
                 return (new ViewSource(Table: null, subAlias, OriginalText(s.queryExpression())), subAlias);
@@ -1065,10 +1068,23 @@ internal static class AstBuilder
     private static TableReference BuildTablePrimary(TablePrimaryContext ctx) => ctx switch
     {
         NamedTablePrimaryContext n => new NamedTable(Identifier(n.table), OptionalIdentifier(n.alias)),
-        SubqueryPrimaryContext s => new SubqueryTable(BuildQueryExpression(s.queryExpression()), OptionalIdentifier(s.alias)),
+        SubqueryPrimaryContext s => new SubqueryTable(
+            BuildQueryExpression(s.queryExpression()), OptionalIdentifier(s.alias), DerivedColumns(s)),
         ParenJoinPrimaryContext p => BuildTableSource(p.tableSource()), // a parenthesized join group is just nested
         _ => throw new SqlParseException($"Unsupported table source: {ctx.GetText()}"),
     };
+
+    /// <summary>A derived table's column list, <c>AS t(a, b)</c>, or null without one. A name may appear once.</summary>
+    private static List<string>? DerivedColumns(SubqueryPrimaryContext ctx)
+    {
+        if (ctx.derivedColumns() is not { } list)
+            return null;
+        List<string> names = [.. list._names.Select(Identifier)];
+        if (names.GroupBy(n => n, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1) is { } repeated)
+            throw new SqlParseException(
+                $"The column '{repeated.Key}' is named more than once in the column list of '{Identifier(ctx.alias)}'.");
+        return names;
+    }
 
     private static JoinKind JoinKindOf(JoinTypeContext ctx) => ctx switch
     {

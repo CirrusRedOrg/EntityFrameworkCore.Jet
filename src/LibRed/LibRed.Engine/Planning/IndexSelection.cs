@@ -386,7 +386,7 @@ internal static class IndexSelection
         {
             if (col.Table is { } t && !string.Equals(t, d.Alias, StringComparison.OrdinalIgnoreCase))
                 continue;
-            if (ProjectionExprFor(d.Input, col.Column) is ColumnReference inner)
+            if (ProjectionExprFor(d, col.Column) is ColumnReference inner)
                 return ResolveKind(inner, d.Input, catalog);
         }
         return null;
@@ -411,11 +411,20 @@ internal static class IndexSelection
         _ => node.Children.SelectMany(DerivedTables),
     };
 
-    /// <summary>The expression a derived query projects under output name <paramref name="column"/>, or null.</summary>
-    private static Expression? ProjectionExprFor(PlanNode derivedBody, string column)
+    /// <summary>The expression a derived table projects under output name <paramref name="column"/>, or null. A column
+    /// list renames the columns by position, so there the name finds its position rather than a projected name.</summary>
+    private static Expression? ProjectionExprFor(DerivedTableNode derived, string column)
     {
-        if (FindProject(derivedBody) is not { } proj)
+        if (FindProject(derived.Input) is not { } proj)
             return null;
+        if (derived.Columns is { } names)
+        {
+            int position = names.ToList().FindIndex(n => string.Equals(n, column, StringComparison.OrdinalIgnoreCase));
+            return position >= 0 && position < proj.Projection.Count
+                && !proj.Projection.Any(i => i.Value is StarExpression or QualifiedStarExpression)
+                ? proj.Projection[position].Value
+                : null;
+        }
         foreach (SelectItem item in proj.Projection)
         {
             string name = item.Alias ?? (item.Value as ColumnReference)?.Column ?? "";

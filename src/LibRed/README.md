@@ -226,6 +226,8 @@ Treat the number as of its date — an EF Core version bump moves it.
   - **Standard scalar syntax** ACE lacks: `CASE`, `COALESCE`, `NULLIF`, `GREATEST`/`LEAST` (NULL arguments
     ignored, as SQL Server and PostgreSQL treat them — extended mode translates `Math.Max`/`Math.Min` to
     them), and the `VALUES` table value constructor standing in for a query.
+  - **A derived table's column list** — `(VALUES (1, 'a')) AS v(n, s)`, `(SELECT …) AS t(a, b)` — naming its
+    columns in order, as EF Core writes an inline collection. A view cannot store one.
   - **Access's `Nz`**, which the Access application has and ACE's OLE DB provider does not, with Access's own
     results — see [functions.md](docs/functions.md#nz).
   - **Arguments ACE's own functions do not take**: `LOG(x, base)`, and SQL Server 2022's

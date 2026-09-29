@@ -1162,7 +1162,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 "Operation must use an updateable query: a derived table written to must select from one table, "
                 + "with no grouping or DISTINCT.");
             var (columns, rows) = ExecuteDerivedSource(sq.Query, alias);
-            tables.Add(new SourceTable(alias, null, columns, rows));
+            tables.Add(new SourceTable(alias, null, QueryExecutor.DerivedColumns(columns, alias, sq.Columns), rows));
             kinds.Add(kind);
             ons.Add(on);
             groupBases.Add(null);
@@ -1185,8 +1185,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             var (columns, _) = _scalarRunner.ExecuteCorrelated(
                 plan, new EvalScope(outerColumns, new object?[outerColumns.Count], null));
 
-            tables.Add(new SourceTable(
-                alias, null, columns.Select(c => c with { Qualifier = alias }).ToList(), null, plan));
+            tables.Add(new SourceTable(alias, null, QueryExecutor.DerivedColumns(columns, alias, sq.Columns), null, plan));
             kinds.Add(kind);
             ons.Add(on);
             groupBases.Add(null);
@@ -1315,7 +1314,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// </summary>
     private List<SourceTable>? WritableDerivedTable(SubqueryTable sq)
     {
-        if (sq.Query is not SelectStatement
+        // A column list (which ACE has no syntax for) and WITH TIES leave it a query that is only read.
+        if (sq.Columns is not null
+            || sq.Query is not SelectStatement
             {
                 From: NamedTable or JoinTable, GroupBy.Count: 0, Having: null, Distinct: false, Into: null, WithTies: false,
             } select

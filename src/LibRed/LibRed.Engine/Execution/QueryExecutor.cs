@@ -698,8 +698,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case DerivedTableNode derived:
                 {
                     var (inner, rows) = Execute(derived.Input, outer);
-                    var columns = inner.Select(c => c with { Qualifier = derived.Alias }).ToList();
-                    return (columns, rows);
+                    return (DerivedColumns(inner, derived.Alias, derived.Columns), rows);
                 }
 
             case FilterNode filter:
@@ -2019,6 +2018,16 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         while (end < sorted.Count && CompareEvaluatedKeys(keys, keysOf(sorted[end - 1]), keysOf(sorted[end]), TextComparer) == 0)
             end++;
         return sorted.GetRange(skip, end - skip);
+    }
+
+    /// <summary>A derived table's columns: under its alias, and named by its column list in order where it has one
+    /// (<c>AS t(a, b)</c>), which must name every column.</summary>
+    internal static List<OutputColumn> DerivedColumns(IReadOnlyList<OutputColumn> inner, string? alias, IReadOnlyList<string>? names)
+    {
+        if (names is not null && names.Count != inner.Count)
+            throw new InvalidOperationException(
+                $"The derived table '{alias}' has {inner.Count} column(s), but its column list names {names.Count}.");
+        return [.. inner.Select((c, i) => c with { Qualifier = alias, Name = names?[i] ?? c.Name })];
     }
 
     /// <summary>Compares two rows' already-evaluated ORDER BY key values, honouring each key's direction, with

@@ -1082,5 +1082,11 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitNullTreatment([NotNull] AccessSqlParser.NullTreatmentContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.derivedColumns"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitDerivedColumns([NotNull] AccessSqlParser.DerivedColumnsContext context);
 }
 } // namespace LibRed.Sql.Grammar

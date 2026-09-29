@@ -307,7 +307,7 @@ public static class QueryPlanner
         null => new SingleRowNode(), // FROM-less SELECT (e.g. `SELECT 2`) — one row, no columns
         NamedTable t => new ScanNode(t.Name, t.Alias),
         JoinTable j => new JoinNode(PlanFrom(j.Left), PlanFrom(j.Right), j.Kind, j.On),
-        SubqueryTable s => new DerivedTableNode(PlanStatement(s.Query), s.Alias), // alias optional (Access allows aliasless)
+        SubqueryTable s => new DerivedTableNode(PlanStatement(s.Query), s.Alias, s.Columns), // alias optional (Access allows aliasless)
         _ => throw new NotSupportedException($"Unsupported FROM source {from.GetType().Name}."),
     };
 

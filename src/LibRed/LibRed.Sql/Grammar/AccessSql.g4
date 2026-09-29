@@ -372,7 +372,7 @@ tableSource : tablePrimary joinClause* ;
 
 tablePrimary
     : table=identifier (AS? alias=identifier)?                  # NamedTablePrimary
-    | LPAREN queryExpression RPAREN (AS? alias=identifier)?     # SubqueryPrimary
+    | LPAREN queryExpression RPAREN (AS? alias=identifier derivedColumns?)?   # SubqueryPrimary
     | LPAREN tableSource RPAREN                                 # ParenJoinPrimary
     ;
 
@@ -607,6 +607,11 @@ nthRowFrom : FROM edge=(FIRST | LAST) ;
 
 // Whether LAG, LEAD, FIRST_VALUE, LAST_VALUE and NTH_VALUE count the rows whose value is Null (the default) or skip them.
 nullTreatment : treatment=(RESPECT | IGNORE) NULLS ;
+
+// A derived table's column list, the standard's <derived column list>: (VALUES (1, 'a')) AS v(n, s) names the
+// columns n and s, as SQL Server and PostgreSQL take it and EF Core emits it for an inline collection. ACE has no
+// such syntax. Kept after the existing parser rules so adding it does not renumber their ids.
+derivedColumns : LPAREN names+=identifier (COMMA names+=identifier)* RPAREN ;
 
 // ---- Lexer ----
 

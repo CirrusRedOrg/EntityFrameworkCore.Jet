@@ -402,7 +402,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = (
     SELECT `a`.`Value`
-    FROM (SELECT 0 AS `_ord`, @args1 AS `Value`) AS `a`
+    FROM (VALUES (0, @args1)) AS `a`(`_ord`, `Value`)
     ORDER BY `a`.`_ord`
     OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY)
 """,
@@ -414,7 +414,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = (
     SELECT `a`.`Value`
-    FROM (SELECT 0 AS `_ord`, @args1 AS `Value`) AS `a`
+    FROM (VALUES (0, @args1)) AS `a`(`_ord`, `Value`)
     ORDER BY `a`.`_ord`
     OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY)
 """);
@@ -432,7 +432,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = (
     SELECT `a`.`Value`
-    FROM (SELECT 0 AS `_ord`, @args1 AS `Value`) AS `a`
+    FROM (VALUES (0, @args1)) AS `a`(`_ord`, `Value`)
     ORDER BY `a`.`_ord`
     OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY)
 """,
@@ -444,7 +444,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = (
     SELECT `a`.`Value`
-    FROM (SELECT 0 AS `_ord`, @args1 AS `Value`) AS `a`
+    FROM (VALUES (0, @args1)) AS `a`(`_ord`, `Value`)
     ORDER BY `a`.`_ord`
     OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY)
 """);

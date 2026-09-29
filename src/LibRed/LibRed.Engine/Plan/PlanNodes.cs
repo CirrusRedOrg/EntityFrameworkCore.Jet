@@ -46,8 +46,9 @@ public sealed record IndexRangeSeekNode(string Table, string? Alias, IndexDef In
 }
 
 /// <summary>A derived table: the output of <paramref name="Input"/> re-exposed under an alias. The alias
-/// is optional (Access permits an aliasless derived table); its columns are then unqualified.</summary>
-public sealed record DerivedTableNode(PlanNode Input, string? Alias) : PlanNode
+/// is optional (Access permits an aliasless derived table); its columns are then unqualified.
+/// <paramref name="Columns"/>, the column list of <c>AS t(a, b)</c>, renames them in order.</summary>
+public sealed record DerivedTableNode(PlanNode Input, string? Alias, IReadOnlyList<string>? Columns = null) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }
@@ -169,8 +170,8 @@ public sealed record SortNode(PlanNode Input, IReadOnlyList<OrderByItem> Keys, E
 /// <remarks>
 /// The expressions may reference outer columns (EF emits <c>VALUES (`p`.`Int`)</c> inside a correlated
 /// subquery), so they are evaluated against the outer scope each time the node runs, not once at planning.
-/// The columns are unnamed: today this only ever appears as an operand of a set operation, whose names come
-/// from the leading query.
+/// The columns are unnamed: a set operation names them from its leading query, and a derived table's column list
+/// (<c>AS v(a, b)</c>) names them.
 /// </remarks>
 public sealed record ValuesNode(IReadOnlyList<IReadOnlyList<Expression>> Rows) : PlanNode
 {

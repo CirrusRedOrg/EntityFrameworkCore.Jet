@@ -96,9 +96,8 @@ public sealed record SetOperationStatement(
 /// an inline collection.
 /// </summary>
 /// <remarks>
-/// The rows carry no column names of their own. In the set operation that always encloses one today, names
-/// come from the leading query per SQL, so none are needed; naming them would require the column alias list
-/// (<c>AS t(a, b)</c>) that derived tables do not yet support. Row values may reference outer columns, so the
+/// The rows carry no column names of their own: in a set operation names come from the leading query per SQL, and
+/// as a derived table the column list names them (<c>AS t(a, b)</c>). Row values may reference outer columns, so the
 /// expressions are evaluated per outer row rather than once. <c>DEFAULT</c> is rejected here — the standard
 /// permits it only inside an INSERT.
 /// </remarks>

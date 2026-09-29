@@ -1028,7 +1028,7 @@ INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 
 SELECT `e`.`EmployeeID`
 FROM `Employees` AS `e`
-INNER JOIN (SELECT @p1 AS `Value` UNION ALL VALUES (@p2)) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
+INNER JOIN (VALUES (@p1), (@p2)) AS `p`(`Value`) ON `e`.`EmployeeID` = `p`.`Value`
 """,
                 //
                 """
@@ -1036,7 +1036,7 @@ INNER JOIN (SELECT @p1 AS `Value` UNION ALL VALUES (@p2)) AS `p` ON `e`.`Employe
 
 SELECT `e`.`EmployeeID`
 FROM `Employees` AS `e`
-INNER JOIN (SELECT @p1 AS `Value`) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
+INNER JOIN (VALUES (@p1)) AS `p`(`Value`) ON `e`.`EmployeeID` = `p`.`Value`
 """);
         }
 
@@ -1051,7 +1051,7 @@ INNER JOIN (SELECT @p1 AS `Value`) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
 
 SELECT `e`.`EmployeeID`
 FROM `Employees` AS `e`
-INNER JOIN (SELECT @p1 AS `Value` UNION ALL VALUES (@p2)) AS `p` ON `e`.`EmployeeID` = ASCW(`p`.`Value`)
+INNER JOIN (VALUES (@p1), (@p2)) AS `p`(`Value`) ON `e`.`EmployeeID` = ASCW(`p`.`Value`)
 """,
                 //
                 """
@@ -1059,7 +1059,7 @@ INNER JOIN (SELECT @p1 AS `Value` UNION ALL VALUES (@p2)) AS `p` ON `e`.`Employe
 
 SELECT `e`.`EmployeeID`
 FROM `Employees` AS `e`
-INNER JOIN (SELECT @p1 AS `Value`) AS `p` ON `e`.`EmployeeID` = ASCW(`p`.`Value`)
+INNER JOIN (VALUES (@p1)) AS `p`(`Value`) ON `e`.`EmployeeID` = ASCW(`p`.`Value`)
 """);
         }
 
@@ -1086,7 +1086,7 @@ INNER JOIN (SELECT @p1 AS `Value`) AS `p` ON `e`.`EmployeeID` = ASCW(`p`.`Value`
 
 SELECT `e`.`EmployeeID`
 FROM `Employees` AS `e`
-INNER JOIN (SELECT @p1 AS `Value` UNION ALL VALUES (@p2)) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
+INNER JOIN (VALUES (@p1), (@p2)) AS `p`(`Value`) ON `e`.`EmployeeID` = `p`.`Value`
 """,
                 //
                 """
@@ -1094,7 +1094,7 @@ INNER JOIN (SELECT @p1 AS `Value` UNION ALL VALUES (@p2)) AS `p` ON `e`.`Employe
 
 SELECT `e`.`EmployeeID`
 FROM `Employees` AS `e`
-INNER JOIN (SELECT @p1 AS `Value`) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
+INNER JOIN (VALUES (@p1)) AS `p`(`Value`) ON `e`.`EmployeeID` = `p`.`Value`
 """);
         }
 

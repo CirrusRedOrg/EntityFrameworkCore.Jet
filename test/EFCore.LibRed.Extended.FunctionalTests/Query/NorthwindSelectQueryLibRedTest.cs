@@ -1218,7 +1218,7 @@ WHERE CDBL(`o0`.`Discount`) >= 0.25
                 """
 SELECT `v`.`Value` AS `k`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-CROSS APPLY (SELECT ('a' & '') AS `Value` UNION ALL VALUES ('b')) AS `v`
+CROSS APPLY (VALUES (('a' & '')), ('b')) AS `v`(`Value`)
 WHERE `c`.`CustomerID` = 'ALFKI'
 """);
         }

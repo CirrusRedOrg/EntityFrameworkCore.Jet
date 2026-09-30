@@ -152,6 +152,46 @@ public class ReaderWriterIsolationTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // The same write skew from the other end: the delete found no children, and another connection's child insert
+    // found the parent it had not seen deleted. The delete's dependency is re-checked at its commit.
+    [Fact]
+    public void A_parent_delete_cannot_commit_after_another_connection_adds_a_child_for_it()
+    {
+        string path = CreateDatabase("write-skew-parent-");
+        try
+        {
+            using var parentDb = JetDatabase.Open(path, readOnly: false);
+            using var childDb = JetDatabase.Open(path, readOnly: false);
+            var parent = new QueryEngine(parentDb);
+            var child = new QueryEngine(childDb);
+
+            parent.ExecuteNonQuery("CREATE TABLE Parents (Id LONG PRIMARY KEY)");
+            parent.ExecuteNonQuery(
+                "CREATE TABLE Children (Id LONG PRIMARY KEY, ParentId LONG REFERENCES Parents (Id))");
+            parent.ExecuteNonQuery("INSERT INTO Parents (Id) VALUES (1)");
+            parent.ExecuteNonQuery("INSERT INTO Parents (Id) VALUES (2)");
+
+            parent.ExecuteNonQuery("BEGIN TRANSACTION");
+            parent.ExecuteNonQuery("DELETE FROM Parents WHERE Id = 1");                   // no children yet
+
+            child.ExecuteNonQuery("INSERT INTO Children (Id, ParentId) VALUES (10, 1)");  // ... until now
+
+            var conflict = Assert.Throws<InvalidOperationException>(() => parent.ExecuteNonQuery("COMMIT"));
+            Assert.Contains("was added for the row", conflict.Message, StringComparison.Ordinal);
+
+            parent.ExecuteNonQuery("ROLLBACK");
+            Assert.Equal(2, child.ExecuteQuery("SELECT Id FROM Parents").Rows.Count());
+
+            // Specific to the key: a child added for a DIFFERENT parent does not hold up the delete.
+            parent.ExecuteNonQuery("BEGIN TRANSACTION");
+            parent.ExecuteNonQuery("DELETE FROM Parents WHERE Id = 2");
+            child.ExecuteNonQuery("INSERT INTO Children (Id, ParentId) VALUES (11, 1)");
+            parent.ExecuteNonQuery("COMMIT");
+            Assert.Single(child.ExecuteQuery("SELECT Id FROM Parents").Rows);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     // The dependency is on the parent being needed, not on it having been checked: once the child has moved to
     // another parent, the one it was inserted against can go, and the commit has nothing to object to.
     [Fact]

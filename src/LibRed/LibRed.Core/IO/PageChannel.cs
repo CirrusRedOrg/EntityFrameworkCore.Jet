@@ -151,7 +151,14 @@ public sealed class PageChannel : IDisposable
     /// <summary>Number of pages currently in the file — or, inside a transaction, the logical count including
     /// pages the overlay has allocated but not yet written to disk. Read from the shared cache's record of the
     /// file's length rather than the stream, so it costs no syscall.</summary>
-    public int PageCount => _active is not null ? _txPageCount : (int)(_cache.FileLength / PageSize);
+    /// <remarks>Inside a transaction it is never less than the file's own count: another handle can commit pages
+    /// onto the end of the file while this transaction is open, and a row, index entry or long value on one of them
+    /// is committed data this transaction must be able to read — a commit-time dependency check reads exactly
+    /// that. Alone on the file the two are the same, since this transaction's own pages do not reach the file
+    /// until it commits.</remarks>
+    public int PageCount => _active is not null
+        ? Math.Max(_txPageCount, (int)(_cache.FileLength / PageSize))
+        : (int)(_cache.FileLength / PageSize);
 
     /// <summary>
     /// Opens a database file, sniffs its Jet/ACE version from page 0 and resolves the

@@ -19,6 +19,14 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     // For evaluating VALUES expressions (literals, parameters, and any scalar subqueries).
     private readonly QueryExecutor _scalarRunner = new(database, parameters, session);
 
+    // What the constraint checks look up, resolved once per statement rather than once per row: CHECK expressions
+    // parsed, each table's enforced relationships from either end, and each relationship's identity.
+    private readonly Dictionary<string, Expression> _checkExpressions = [];
+    private readonly Dictionary<string, ForeignKey[]> _foreignKeysOf = new([], StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, ForeignKey[]> _referencesTo = new([], StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<ForeignKey, RelationshipIdentity?> _identities = [];
+    private readonly Dictionary<ForeignKey, RelationshipEnds> _ends = [];
+
     public int Execute(SqlStatement statement) => statement switch
     {
         CreateTableStatement create => ExecuteCreateTable(create),
@@ -133,10 +141,14 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         var schema = definition.Columns.Select(c => OutputColumn.Of(definition.Name, c)).ToList();
         var evaluator = new ExpressionEvaluator(new EvalScope(schema, values, null), _scalarRunner, _parameters, _session);
         foreach (var (name, expression) in definition.CheckConstraints)
-            if (evaluator.Evaluate(_parser.ParseExpression(expression)) is false)
+        {
+            if (!_checkExpressions.TryGetValue(expression, out Expression? parsed))
+                _checkExpressions[expression] = parsed = _parser.ParseExpression(expression);
+            if (evaluator.Evaluate(parsed) is false)
                 throw new InvalidOperationException(
                     $"One or more values are prohibited by the validation rule '{name}' set for '{definition.Name}'. " +
                     "Enter a value that the expression for this field can accept.");
+        }
     }
 
     /// <summary>The relationship a parsed foreign key creates on <paramref name="childTable"/>, for CREATE TABLE and
@@ -170,35 +182,21 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// </summary>
     private void EnforceReferentialIntegrity(string childTable, Table table, object?[] values, bool update = false)
     {
-        foreach (ForeignKey fk in _database.Catalog.ForeignKeysOf(childTable))
+        foreach (ForeignKey fk in ForeignKeysOf(childTable))
         {
-            if (!fk.IsEnforced) continue;
-
-            var target = new object?[fk.Columns.Count];
-            int nullCount = 0;
-            for (int i = 0; i < fk.Columns.Count; i++)
-            {
-                ColumnDef col = table.Definition.FindColumn(fk.Columns[i].Column)
-                    ?? throw new InvalidOperationException($"Column '{fk.Columns[i].Column}' does not exist in '{childTable}'.");
-                object? v = values[col.Index];
-                if (v is null) nullCount++;
-                else target[i] = v;
-            }
-            if (nullCount == fk.Columns.Count) continue; // all FK columns null → the FK is not applied to this row
-
-            // MATCH FULL: a partial null can never reference a full parent key, so it's a violation — treated
-            // like a missing parent (ACE gives the same "a related record is required" error).
-            bool partialNull = nullCount > 0;
+            RelationshipEnds ends = EndsOf(fk);
+            // All FK columns null → the FK is not applied to this row.
+            if (ForeignKeyValue(values, ends.ChildColumns, out bool partialNull) is not { } target) continue;
 
             // A **self-referencing** FK: a fully-specified row that points at its own key (the root of a
             // required self-ref, e.g. Inverse1Id = Id) satisfies the FK even though it isn't on disk yet — the
             // parent scan runs before the insert. Access allows this (EF's ComplexNavigations seed relies on it).
             if (!partialNull
                 && string.Equals(fk.ReferencedTable, childTable, StringComparison.OrdinalIgnoreCase)
-                && RowSatisfiesOwnKey(fk, table, values, target))
+                && KeyEquals(values, ends.ParentColumns, target))
                 continue;
 
-            if (partialNull || !ParentRowExists(fk, target))
+            if (partialNull || !ParentRowExists(ends, target))
                 throw new InvalidOperationException(
                     $"{(update ? "UPDATE of" : "INSERT into")} '{childTable}' violates foreign key '{fk.Name}': "
                     + $"no matching row in '{fk.ReferencedTable}'.");
@@ -208,16 +206,27 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             // delete that parent and commit — each having checked the other's precondition, leaving a child row
             // referencing nothing. The condition is re-checked when this transaction commits, once per
             // relationship and key however many rows relied on it.
-            var dependency = new ForeignKeyDependency(
-                Identify(fk) ?? throw new InvalidOperationException(
-                    $"Relationship '{fk.Name}' names a table or column that does not exist."),
-                target);
-            _database.DependOn(
-                () => ForeignKeyDependencyHolds(dependency),
+            DependOnRelationship(fk, target,
                 $"Transaction conflict on foreign key '{fk.Name}': the row in '{fk.ReferencedTable}' that "
-                + $"'{childTable}' was checked against no longer exists.",
-                key: dependency);
+                + $"'{childTable}' was checked against no longer exists.");
         }
+    }
+
+    /// <summary>
+    /// Makes the transaction's commit re-check that no row of <paramref name="fk"/>'s child table holds
+    /// <paramref name="key"/> without a parent row holding it too. Both ends of a relationship need it, because
+    /// each end's check reads a row the other end's transaction can change and reading writes no page: a child
+    /// write found its parent, or a parent delete or key change found no children, and a concurrent transaction
+    /// can commit the opposite write in between. The condition is the same from either end, so it is held once per
+    /// relationship and key however many rows relied on it.
+    /// </summary>
+    private void DependOnRelationship(ForeignKey fk, object?[] key, string conflict)
+    {
+        var dependency = new ForeignKeyDependency(
+            IdentityOf(fk) ?? throw new InvalidOperationException(
+                $"Relationship '{fk.Name}' names a table or column that does not exist."),
+            key);
+        _database.DependOn(() => ForeignKeyDependencyHolds(dependency), conflict, key: dependency);
     }
 
     /// <summary>
@@ -229,12 +238,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// </summary>
     private bool ForeignKeyDependencyHolds(ForeignKeyDependency dependency)
     {
-        ForeignKey? relationship = CurrentRelationship(dependency.Relationship);
-        if (relationship is null || ParentRowExists(relationship, dependency.Key)) return true;
-
-        Table child = _database.OpenTable(relationship.Table);
-        int[] columns = [.. relationship.Columns.Select(c => child.Definition.RequireColumn(c.Column).Index)];
-        return !RowsHoldingKey(child, columns, dependency.Key).Any();
+        if (CurrentRelationship(dependency.Relationship) is not { } relationship) return true;
+        RelationshipEnds ends = Ends(relationship); // as the catalog holds them now, not when the write was made
+        return ParentRowExists(ends, dependency.Key)
+            || !RowsHoldingKey(ends.Child, ends.ChildColumns, dependency.Key).Any();
     }
 
     /// <summary>The enforced relationship <paramref name="identity"/> identifies, as the catalog holds it now; null
@@ -249,16 +256,46 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// nothing and needs nothing, and a partly null one can never match.</summary>
     private bool ExistingRowsHaveParents(ForeignKey fk)
     {
-        Table child = _database.OpenTable(fk.Table);
-        int[] columns = [.. fk.Columns.Select(c => child.Definition.RequireColumn(c.Column).Index)];
-        foreach (object?[] row in child.Rows(child.DecodeOnly(columns)))
-        {
-            object?[] key = [.. columns.Select(c => row[c])];
-            int nulls = key.Count(v => v is null);
-            if (nulls == key.Length) continue;
-            if (nulls > 0 || !ParentRowExists(fk, key)) return false;
-        }
+        RelationshipEnds ends = Ends(fk);
+        foreach (object?[] row in ends.Child.Rows(ends.Child.DecodeOnly(ends.ChildColumns)))
+            if (ForeignKeyValue(row, ends.ChildColumns, out bool partialNull) is { } key
+                && (partialNull || !ParentRowExists(ends, key)))
+                return false;
         return true;
+    }
+
+    /// <summary>The foreign key a row holds, on ACE's **MATCH FULL** terms (verified vs ACE, and unlike SQL
+    /// Server's MATCH SIMPLE): null when every column is null — the row references nothing and the relationship is
+    /// not applied to it — and <paramref name="partialNull"/> when only some are, a key that can never match a full
+    /// parent key and so breaks the relationship (ACE gives the same "a related record is required" error).</summary>
+    private static object?[]? ForeignKeyValue(object?[] row, int[] columns, out bool partialNull)
+    {
+        object?[] key = [.. columns.Select(c => row[c])];
+        int nulls = key.Count(v => v is null);
+        partialNull = nulls > 0 && nulls < key.Length;
+        return nulls == key.Length ? null : key;
+    }
+
+    /// <summary>A relationship's two tables, and the positions its columns occupy in each one's rows.</summary>
+    private sealed record RelationshipEnds(Table Child, int[] ChildColumns, Table Parent, int[] ParentColumns);
+
+    /// <summary>The relationship's two ends as the catalog holds them now.</summary>
+    private RelationshipEnds Ends(ForeignKey fk)
+    {
+        Table child = _database.OpenTable(fk.Table);
+        Table parent = _database.OpenTable(fk.ReferencedTable);
+        return new RelationshipEnds(
+            child, [.. fk.Columns.Select(c => child.Definition.RequireColumn(c.Column).Index)],
+            parent, [.. fk.Columns.Select(c => parent.Definition.RequireColumn(c.ReferencedColumn).Index)]);
+    }
+
+    /// <summary><see cref="Ends"/>, once per relationship per statement — what every row the statement writes
+    /// checks against. A commit-time check resolves them afresh, since later statements may have changed them.</summary>
+    private RelationshipEnds EndsOf(ForeignKey fk)
+    {
+        if (!_ends.TryGetValue(fk, out RelationshipEnds? ends))
+            _ends[fk] = ends = Ends(fk);
+        return ends;
     }
 
     /// <summary>A relationship as the file identifies it rather than by its names: the definition pages of the
@@ -309,18 +346,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             Relationship, System.Collections.StructuralComparisons.StructuralEqualityComparer.GetHashCode(Key));
     }
 
-    /// <summary>For a self-referencing FK, whether the row's own referenced-column values equal the FK
-    /// target — i.e. the row points at itself (or at its own composite key), which satisfies the FK.</summary>
-    private bool RowSatisfiesOwnKey(ForeignKey fk, Table table, object?[] values, object?[] target) =>
-        KeyEquals(values, ReferencedColumnsOf(fk, table), target);
-
-    /// <summary>Scans the parent table for a row whose referenced columns equal the child key values.</summary>
-    private bool ParentRowExists(ForeignKey fk, object?[] target)
-    {
-        Table parent = _database.OpenTable(fk.ReferencedTable);
-        int[] parentCols = ReferencedColumnsOf(fk, parent);
-        return RowsHoldingKey(parent, parentCols, target).Any();
-    }
+    /// <summary>Whether a parent row holds the key a child row references.</summary>
+    private bool ParentRowExists(RelationshipEnds ends, object?[] key) =>
+        RowsHoldingKey(ends.Parent, ends.ParentColumns, key).Any();
 
     /// <summary>The rows of <paramref name="table"/> whose <paramref name="columns"/> hold <paramref name="key"/>
     /// on <see cref="KeyEquals"/>'s terms, read in full: seeked through an index on those columns when the key
@@ -342,36 +370,42 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         return table.RowsWithKey(columns, seekKey, Holds);
     }
 
-    /// <summary>The positions the relationship's referenced columns occupy in a row of the parent table.</summary>
-    private static int[] ReferencedColumnsOf(ForeignKey fk, Table parent) =>
-        [.. fk.Columns.Select(c =>
-            (parent.Definition.FindColumn(c.ReferencedColumn)
-                ?? throw new InvalidOperationException(
-                    $"Column '{c.ReferencedColumn}' does not exist in '{parent.Name}'.")).Index)];
-
     /// <summary>The enforced relationships for which <paramref name="parentTable"/> is the referenced
     /// (parent) side — i.e. those whose child rows a delete/key-update of a parent row must handle.</summary>
-    private IEnumerable<ForeignKey> ChildRelationshipsOf(string parentTable) =>
-        _database.Catalog.Relationships.Where(r =>
-            r.IsEnforced && string.Equals(r.ReferencedTable, parentTable, StringComparison.OrdinalIgnoreCase));
-
-    /// <summary>The referenced-column values from a parent row (the key children point at).</summary>
-    private object?[] ReferencedKey(ForeignKey fk, object?[] parentValues)
+    private ForeignKey[] ChildRelationshipsOf(string parentTable)
     {
-        Table parent = _database.OpenTable(fk.ReferencedTable);
-        return fk.Columns.Select(c => parentValues[parent.Definition.FindColumn(c.ReferencedColumn)!.Index]).ToArray();
+        if (!_referencesTo.TryGetValue(parentTable, out ForeignKey[]? found))
+            _referencesTo[parentTable] = found = [.. _database.Catalog.Relationships.Where(r =>
+                r.IsEnforced && string.Equals(r.ReferencedTable, parentTable, StringComparison.OrdinalIgnoreCase))];
+        return found;
     }
+
+    /// <summary>The enforced relationships <paramref name="childTable"/> holds the foreign key of.</summary>
+    private ForeignKey[] ForeignKeysOf(string childTable)
+    {
+        if (!_foreignKeysOf.TryGetValue(childTable, out ForeignKey[]? found))
+            _foreignKeysOf[childTable] = found = [.. _database.Catalog.ForeignKeysOf(childTable).Where(f => f.IsEnforced)];
+        return found;
+    }
+
+    /// <summary><see cref="Identify"/>, once per relationship per statement.</summary>
+    private RelationshipIdentity? IdentityOf(ForeignKey fk)
+    {
+        if (!_identities.TryGetValue(fk, out RelationshipIdentity? identity))
+            _identities[fk] = identity = Identify(fk);
+        return identity;
+    }
+
+    /// <summary>ACE's refusal to delete a parent row, or change its key, while a child row still holds it.</summary>
+    private static InvalidOperationException RelatedRecords(ForeignKey fk) =>
+        new($"The record cannot be deleted or changed because table '{fk.Table}' includes related records.");
 
     /// <summary>Child rows whose FK columns equal <paramref name="key"/>. Both callers skip a key with a null
     /// in it — nothing references one — so a null FK column simply fails the comparison.</summary>
-    private List<(RowId Id, object?[] Values)> FindChildRows(ForeignKey fk, object?[] key)
-    {
-        Table child = _database.OpenTable(fk.Table);
-        int[] childCols = [.. fk.Columns.Select(c => child.Definition.FindColumn(c.Column)!.Index)];
+    private List<(RowId Id, object?[] Values)> FindChildRows(RelationshipEnds ends, object?[] key) =>
         // Seeked where the child has an index on its key (ACE gives an enforced relationship one), else found by
         // a scan of the key; a match is read whole either way, because the cascade rewrites or deletes it.
-        return [.. RowsHoldingKey(child, childCols, key)];
-    }
+        [.. RowsHoldingKey(ends.Child, ends.ChildColumns, key)];
 
     /// <summary>
     /// Deletes the given root rows and everything ON DELETE CASCADE reaches from them, applying SET NULL and
@@ -407,12 +441,17 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         }
 
         foreach (var (table, id, values) in order)
-        {
-            DeleteComplexValues(table, values);
-            foreach (IndexDef index in table.Definition.RealIndexes)
-                table.RemoveIndexEntry(index, values, id);
-            table.Delete(id);
-        }
+            DeleteRow(table, id, values);
+    }
+
+    /// <summary>Deletes one row — the values its complex columns hold, its index entries, then the row itself.
+    /// The one place a row is removed: a statement's own rows, a cascade's, and a complex column's values.</summary>
+    private void DeleteRow(Table table, RowId id, object?[] values)
+    {
+        DeleteComplexValues(table, values);
+        foreach (IndexDef index in table.Definition.RealIndexes)
+            table.RemoveIndexEntry(index, values, id);
+        table.Delete(id);
     }
 
     /// <summary>
@@ -440,11 +479,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             foreach ((RowId flatId, object?[] flatValues) in flat.RowsWithKey([linkColumn], [recordId], values =>
                 values[linkColumn] is { } link
                 && Convert.ToInt32(link, System.Globalization.CultureInfo.InvariantCulture) == recordId).ToList())
-            {
-                foreach (IndexDef index in flat.Definition.RealIndexes)
-                    flat.RemoveIndexEntry(index, flatValues, flatId);
-                flat.Delete(flatId);
-            }
+                DeleteRow(flat, flatId, flatValues);
         }
     }
 
@@ -458,17 +493,20 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         foreach (ForeignKey fk in ChildRelationshipsOf(parentTable))
         {
-            object?[] key = ReferencedKey(fk, parentValues);
+            RelationshipEnds ends = EndsOf(fk);
+            object?[] key = [.. ends.ParentColumns.Select(c => parentValues[c])];
             if (key.Any(k => k is null)) continue; // a null parent key is referenced by nobody
-            var children = FindChildRows(fk, key);
+            DependOnRelationship(fk, key,
+                $"Transaction conflict on foreign key '{fk.Name}': a row in '{fk.Table}' was added for the row "
+                + $"of '{fk.ReferencedTable}' this transaction deleted.");
+            var children = FindChildRows(ends, key);
             if (children.Count == 0) continue;
 
             if (fk.CascadeDelete)
             {
-                Table child = _database.OpenTable(fk.Table);
                 foreach (var (cid, cvals) in children)
-                    if (scheduled.Add((child.Name, cid)))
-                        stack.Push((child, cid, cvals, false));
+                    if (scheduled.Add((ends.Child.Name, cid)))
+                        stack.Push((ends.Child, cid, cvals, false));
             }
             else if (fk.DeleteSetNull)
                 foreach (var (cid, cvals) in children)
@@ -479,12 +517,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                     // ("entry not found"). Reachable on a self-referencing table, where the parent and the
                     // child are rows of one table and one DELETE can name both. Skipping costs nothing: the row
                     // and its entries go in a moment either way, and nobody can observe the intermediate null.
-                    if (scheduled.Contains((fk.Table, cid))) continue;
-                    SetChildKey(fk, cid, cvals, newKey: null);
+                    if (scheduled.Contains((ends.Child.Name, cid))) continue;
+                    SetChildKey(ends, cid, cvals, newKey: null);
                 }
             else
-                throw new InvalidOperationException(
-                    $"The record cannot be deleted or changed because table '{fk.Table}' includes related records.");
+                throw RelatedRecords(fk);
         }
     }
 
@@ -498,17 +535,20 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         foreach (ForeignKey fk in ChildRelationshipsOf(parentTable))
         {
-            object?[] oldKey = ReferencedKey(fk, oldValues);
-            object?[] newKey = ReferencedKey(fk, newValues);
+            RelationshipEnds ends = EndsOf(fk);
+            object?[] oldKey = [.. ends.ParentColumns.Select(c => oldValues[c])];
+            object?[] newKey = [.. ends.ParentColumns.Select(c => newValues[c])];
             if (oldKey.Any(k => k is null) || KeyEquals(oldKey, columns: null, newKey)) continue;
-            var children = FindChildRows(fk, oldKey);
+            DependOnRelationship(fk, oldKey,
+                $"Transaction conflict on foreign key '{fk.Name}': a row in '{fk.Table}' was added for the key of "
+                + $"'{fk.ReferencedTable}' this transaction changed.");
+            var children = FindChildRows(ends, oldKey);
             if (children.Count == 0) continue;
 
             if (fk.CascadeUpdate)
-                foreach (var (cid, cvals) in children) SetChildKey(fk, cid, cvals, newKey, stillToWrite);
+                foreach (var (cid, cvals) in children) SetChildKey(ends, cid, cvals, newKey, stillToWrite);
             else
-                throw new InvalidOperationException(
-                    $"The record cannot be deleted or changed because table '{fk.Table}' includes related records.");
+                throw RelatedRecords(fk);
         }
     }
 
@@ -526,54 +566,88 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         return true;
     }
 
-    /// <summary>Rewrites a child row's FK columns to <paramref name="newKey"/> (or NULL for SET NULL),
-    /// maintaining any index over them.</summary>
-    private void SetChildKey(ForeignKey fk, RowId childId, object?[] childValues, object?[]? newKey,
+    /// <summary>Rewrites a child row's FK columns to <paramref name="newKey"/> (or NULL for SET NULL).</summary>
+    private void SetChildKey(RelationshipEnds ends, RowId childId, object?[] childValues, object?[]? newKey,
         Dictionary<(int Tdef, RowId Id), object?[]>? stillToWrite = null)
     {
-        Table child = _database.OpenTable(fk.Table);
         var newValues = (object?[])childValues.Clone();
-        var changed = new HashSet<int>();
-        for (int i = 0; i < fk.Columns.Count; i++)
-        {
-            int idx = child.Definition.FindColumn(fk.Columns[i].Column)!.Index;
-            object? nv = newKey?[i];
-            if (!Equals(nv, childValues[idx])) { newValues[idx] = nv; changed.Add(idx); }
-        }
-        if (changed.Count == 0) return;
+        for (int i = 0; i < ends.ChildColumns.Length; i++)
+            newValues[ends.ChildColumns[i]] = newKey?[i];
 
         // A child row the running statement has yet to write itself: hand it the new key and let its own write
         // carry it, so the row it writes and the index entries it moves both hold the cascaded value. Writing
         // here as well would be undone by that write — it was built before this cascade ran — while the index
         // entry moved here would keep the new key, which is a row disagreeing with its own index.
-        if (stillToWrite?.TryGetValue((child.Definition.DefinitionPage, childId), out object?[]? waiting) == true)
+        if (stillToWrite?.TryGetValue((ends.Child.Definition.DefinitionPage, childId), out object?[]? waiting) == true)
         {
-            foreach (int idx in changed) waiting[idx] = newValues[idx];
+            foreach (int idx in ends.ChildColumns)
+                if (!Equals(newValues[idx], childValues[idx])) waiting[idx] = newValues[idx];
             return;
         }
 
-        // A cascade rewrites a row, so it owes the row the same invariants an UPDATE does. It used to apply
-        // none of them: ON DELETE SET NULL would write NULL into a column carrying the Required property, and
-        // ON UPDATE CASCADE could drive two children onto the same unique key — states the UPDATE path a few
-        // lines below explicitly refuses, reached by a statement that never names the child table.
-        // Table.Update carries no enforcement of its own (unlike Insert), so there is no backstop under this.
-        EnforceRequired(child.Name, child.Definition.Columns, newValues);
+        // A cascade rewrites a row, so it owes the row everything an UPDATE of it does — and the same code does it.
+        UpdateRow(ends.Child, childId, childValues, newValues, stillToWrite);
+    }
 
-        foreach (IndexDef index in child.Definition.RealIndexes
+    /// <summary>
+    /// Rewrites one row whose values <paramref name="values"/> now hold — an UPDATE's own row, or a child a cascade
+    /// reaches — after checking it against every rule an updated row is held to, then applies the ON UPDATE rules
+    /// of any relationship whose key it changed. The one place a row is rewritten: a cascaded row is checked
+    /// exactly as a directly updated one, and a cascade that changes a key others reference carries on down.
+    /// </summary>
+    private void UpdateRow(Table table, RowId id, object?[] original, object?[] values,
+        Dictionary<(int Tdef, RowId Id), object?[]>? stillToWrite)
+    {
+        var changed = new HashSet<int>();
+        for (int i = 0; i < values.Length; i++)
+            if (!Equals(original[i], values[i])) changed.Add(i);
+        if (changed.Count == 0)
+        {
+            stillToWrite?.Remove((table.Definition.DefinitionPage, id));
+            return; // unchanged after all
+        }
+
+        // UPDATE must preserve the same Required/NOT NULL invariant as INSERT. Check the complete
+        // post-assignment row before any referential action, row rewrite, or index mutation occurs.
+        EnforceRequired(table.Name, table.Definition.Columns, values);
+
+        // A changed primary-key or WITH DISALLOW NULL column must not become Null, the insert rule.
+        foreach (IndexDef index in table.Definition.Indexes
+            .Where(i => (i.IsPrimaryKey || i.Required) && i.Columns.Any(c => changed.Contains(c.Column.Index))))
+            if (index.Columns.FirstOrDefault(c => values[c.Column.Index] is null).Column is { } nullColumn)
+                throw new InvalidOperationException(
+                    $"Index or primary key cannot contain a Null value: column '{nullColumn.Name}' of "
+                    + $"'{table.Name}' is Null, and index '{index.Name}' does not allow it.");
+
+        // Child side: a changed FK column must still reference an existing parent (like an insert).
+        if (ForeignKeysOf(table.Name).Any(f => EndsOf(f).ChildColumns.Any(changed.Contains)))
+            EnforceReferentialIntegrity(table.Name, table, values, update: true);
+
+        // A changed UNIQUE/PRIMARY key must not collide with another row (null keys are distinct — a
+        // unique index permits multiple nulls, so they're skipped, matching the insert rule).
+        foreach (IndexDef index in table.Definition.RealIndexes
             .Where(i => i.IsUnique && i.Columns.Any(c => changed.Contains(c.Column.Index))))
-            if (!index.Columns.Any(c => newValues[c.Column.Index] is null) && child.HasDuplicateKey(index, newValues, childId))
+            if (!index.Columns.Any(c => values[c.Column.Index] is null) && table.HasDuplicateKey(index, values, id))
                 throw new ConstraintViolationException(
-                    $"Cannot cascade to '{child.Name}': a row with the same " +
+                    $"Cannot update '{table.Name}': a row with the same " +
                     $"{(index.IsPrimaryKey ? "primary key" : "unique key")} already exists (index '{index.Name}').",
                     index.Name,
                     index.IsPrimaryKey);
 
-        EnforceCheckConstraints(child.Definition, newValues);
+        // The updated row must still satisfy every CHECK constraint (evaluated against the full new row).
+        EnforceCheckConstraints(table.Definition, values);
 
-        child.Update(childId, newValues, changed);
-        foreach (IndexDef index in child.Definition.RealIndexes
+        table.Update(id, values, changed);
+        foreach (IndexDef index in table.Definition.RealIndexes
             .Where(i => i.Columns.Any(c => changed.Contains(c.Column.Index))))
-            child.MoveIndexEntry(index, childValues, newValues, childId);
+            table.MoveIndexEntry(index, original, values, id);
+        stillToWrite?.Remove((table.Definition.DefinitionPage, id));
+
+        // Parent side, once the row holds its new key: a changed referenced-key column triggers each relationship's
+        // ON UPDATE action (CASCADE rewrites the children, NO ACTION rejects if any exist). After the write, so a
+        // cascaded child's own foreign-key check finds the new key — and a row referencing itself is found as its
+        // own child and rewritten like any other.
+        CascadeParentKeyUpdate(table.Name, original, values, stillToWrite);
     }
 
     private int ExecuteCreateIndex(CreateIndexStatement statement)
@@ -965,12 +1039,15 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             .ToList();
         _database.CreateTable(target, specs);
 
+        // Written the way every inserted row is, so whatever the new table carries is checked as INSERT checks it.
         Table table = _database.OpenTable(target);
+        RowDefaults defaults = DefaultsOf(table.Definition);
+        var provided = Enumerable.Range(0, specs.Count).ToHashSet();
         foreach (object?[] row in rows)
         {
             var values = new object?[specs.Count];
             Array.Copy(row, values, Math.Min(row.Length, values.Length));
-            table.Insert(values);
+            InsertNewRow(target, table, defaults, values, provided);
         }
 
         if (_session is not null) _session.RowCount = rows.Count;
@@ -1918,65 +1995,15 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             stillToWrite[(table.Definition.DefinitionPage, id)] = values;
 
         foreach (var (table, id, original, values) in dirty.Values)
-        {
-            var changed = new HashSet<int>();
-            for (int i = 0; i < values.Length; i++)
-                if (!Equals(original[i], values[i])) changed.Add(i);
-            if (changed.Count == 0)
-            {
-                stillToWrite.Remove((table.Definition.DefinitionPage, id));
-                continue; // unchanged after all
-            }
+            UpdateRow(table, id, original, values, stillToWrite);
 
-            // UPDATE must preserve the same Required/NOT NULL invariant as INSERT. Check the complete
-            // post-assignment row before any referential action, row rewrite, or index mutation occurs.
-            EnforceRequired(table.Name, table.Definition.Columns, values);
-
-            // A changed primary-key or WITH DISALLOW NULL column must not become Null, the insert rule.
-            foreach (IndexDef index in table.Definition.Indexes
-                .Where(i => (i.IsPrimaryKey || i.Required) && i.Columns.Any(c => changed.Contains(c.Column.Index))))
-                if (index.Columns.FirstOrDefault(c => values[c.Column.Index] is null).Column is { } nullColumn)
-                    throw new InvalidOperationException(
-                        $"Index or primary key cannot contain a Null value: column '{nullColumn.Name}' of "
-                        + $"'{table.Name}' is Null, and index '{index.Name}' does not allow it.");
-
-            // Child side: a changed FK column must still reference an existing parent (like an insert).
-            if (_database.Catalog.ForeignKeysOf(table.Name).Any(f => f.IsEnforced &&
-                    f.Columns.Any(c => changed.Contains(table.Definition.FindColumn(c.Column)!.Index))))
-                EnforceReferentialIntegrity(table.Name, table, values, update: true);
-
-            // A changed UNIQUE/PRIMARY key must not collide with another row (null keys are distinct — a
-            // unique index permits multiple nulls, so they're skipped, matching the insert rule).
-            foreach (IndexDef index in table.Definition.RealIndexes
-                .Where(i => i.IsUnique && i.Columns.Any(c => changed.Contains(c.Column.Index))))
-                if (!index.Columns.Any(c => values[c.Column.Index] is null) && table.HasDuplicateKey(index, values, id))
-                    throw new ConstraintViolationException(
-                        $"Cannot update '{table.Name}': a row with the same " +
-                        $"{(index.IsPrimaryKey ? "primary key" : "unique key")} already exists (index '{index.Name}').",
-                        index.Name,
-                        index.IsPrimaryKey);
-
-            // The updated row must still satisfy every CHECK constraint (evaluated against the full new row).
-            EnforceCheckConstraints(table.Definition, values);
-
-            // Parent side: a changed referenced-key column triggers each relationship's ON UPDATE action
-            // (CASCADE rewrites children, NO ACTION rejects if children exist).
-            CascadeParentKeyUpdate(table.Name, original, values, stillToWrite);
-
-            // The cascade may have folded a new key into this very row — a row that references itself — so the
-            // set of changed columns is re-derived before the row and its index entries are written.
-            for (int i = 0; i < values.Length; i++)
-                if (!Equals(original[i], values[i])) changed.Add(i);
-
-            table.Update(id, values, changed);
-            foreach (IndexDef index in table.Definition.RealIndexes
-                .Where(i => i.Columns.Any(c => changed.Contains(c.Column.Index))))
-                table.MoveIndexEntry(index, original, values, id);
-            stillToWrite.Remove((table.Definition.DefinitionPage, id));
-        }
-
+        var newRowDefaults = new Dictionary<int, RowDefaults>();
         foreach (var (values, (table, provided)) in newRows)
-            InsertNewRow(table.Name, table, DefaultsOf(table.Definition), values, provided);
+        {
+            if (!newRowDefaults.TryGetValue(table.Definition.DefinitionPage, out RowDefaults? defaults))
+                newRowDefaults[table.Definition.DefinitionPage] = defaults = DefaultsOf(table.Definition);
+            InsertNewRow(table.Name, table, defaults, values, provided);
+        }
 
         int affected = joinRows.Count;
         if (_session is not null) _session.RowCount = affected;

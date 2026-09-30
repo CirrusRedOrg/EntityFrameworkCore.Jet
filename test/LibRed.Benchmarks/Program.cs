@@ -15,7 +15,8 @@ using LibRed.Benchmarks.Harness;
 //   dotnet run -c Release -- --filter "*Ace*"      head-to-head against ACE OLE DB (Windows + ACE only)
 //   dotnet run -c Release -- --record              also append the results to History.tsv
 //
-// Results land in Results/ as GitHub markdown and CSV; commit them when you want a run to be diffable later.
+// Results land in Results/ as GitHub markdown and CSV, which is untracked; --record is what keeps a run
+// diffable later, in History.tsv (git add -f a report if you want the full detail too).
 
 bool longRun = false;
 bool validate = false;

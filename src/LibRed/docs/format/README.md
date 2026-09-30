@@ -10,8 +10,9 @@ Unless noted, everything here describes **Jet 4 and ACE (12/14/16/17)**, which s
 structural layout. **Jet 3** (Access 97) differs in many of these and is *not yet
 implemented* — see [Version differences](#version-differences).
 
-Implemented by `src/LibRed/LibRed.Core/`. The canonical offsets live in
-`Formats/JetFormatBase.cs`.
+Implemented by `src/LibRed/LibRed.Core/`. The canonical offsets live under `Formats/` —
+`JetFormatBase.cs` for the page, TDEF and row layout, and `IndexBlockFormat.cs`, `LongValueFormat.cs` and
+`CatalogFormat.cs` for their own sub-structures.
 
 > **This reference is split across several files** — one per page type, plus cross-cutting topics; each is
 > self-contained (its structures *and* its read/write mechanics live together). Most describe the **on-disk
@@ -133,7 +134,8 @@ the Jet 4 / ACE layout documented across these files:
 Jet 4 and all later ACE versions (12/14/16/17) share the structural layout documented here;
 differences between *those* are additive at the type/feature level (new data types, encryption
 schemes), not the page offsets. In LibRed this is reflected by `JetFormatBase` virtual members
-with Jet 4/ACE defaults; a future `Jet3Format` overrides the ones that differ.
+with Jet 4/ACE defaults; `Jet3Format` (today a stub setting only the 2 KB page size, and never constructed —
+a Jet 3 file is refused on open) will override the ones that differ.
 
 ---
 

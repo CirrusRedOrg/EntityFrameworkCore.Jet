@@ -17,6 +17,8 @@
 
 The major version corresponds to the major version of EF Core (i.e. EFCore.Jet `3.x` is compatible with EF Core `3.y`).
 It runs on Windows operating systems only and can be used with either ODBC or OLE DB together with their respective Access Database driver/provider.
+(`EntityFrameworkCore.Jet.Common`, which carries this readme too, is the exception: it holds the Jet SQL dialect
+shared with the LibRed provider, and is cross-platform.)
 
 ## Requirements
 
@@ -34,8 +36,8 @@ The provider works with Microsoft Access `MDB` and `ACCDB` database files.
 from-scratch, fully managed implementation of the Jet/ACE engine that also lives in this repository. It reads
 and writes `MDB`/`ACCDB` files **directly** - no ODBC, OLE DB, DAO or ADOX - so **none of the requirements
 above apply to it**: no Windows, no installed Access driver, and no need to match your process architecture to
-one. It runs on Linux, macOS and ARM64, which CI proves by running its suites on all five platforms with no
-Access engine installed anywhere.
+one. It runs on Linux, macOS and ARM64, which CI proves by running its engine, file-format and EF Core
+specification suites on all five platforms with no Access engine installed anywhere.
 
 It reads and writes real database files, creates them from nothing (no DAO, no template file), runs SQL end to
 end, and an EF Core `DbContext` round-trips through it. The on-disk format it depends on is documented and
@@ -130,7 +132,8 @@ All official releases are available on [nuget.org](https://www.nuget.org/package
 
 ### CI Builds
 
-There is no CI package feed. Every build of `master` packs the projects and attaches them to its workflow
+There is no CI package feed. Every build of `master`, of a `*-servicing` or `*-wip` branch, and of a release
+tag packs the projects and attaches them to its workflow
 run as the `nupkgs` artifact, which can be downloaded from the run's page on GitHub and restored from a local
 folder. The artifact holds optimized `Release` packages and unoptimized `Debug` ones, both with PDBs.
 All packages use SourceLink.

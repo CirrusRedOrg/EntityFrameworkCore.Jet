@@ -213,8 +213,9 @@ tableConstraint
     | (CONSTRAINT name=identifier)? CHECK LPAREN checkBody RPAREN                               # CheckTableConstraint
     ;
 
-// A CHECK expression is parsed as balanced-paren token soup and ignored (not enforced yet), so any
-// expression ACE accepts parses without needing full expression support.
+// A CHECK expression is parsed as balanced-paren token soup and kept as its original text, so any
+// expression ACE accepts parses without needing full expression support. A table-level CHECK's text is
+// stored and enforced (parsed properly when evaluated); a column-level one is dropped by AstBuilder.
 checkBody : ( ~(LPAREN | RPAREN) | LPAREN checkBody RPAREN )* ;
 
 // ON UPDATE / ON DELETE may appear in either order (Access documents UPDATE-then-DELETE; EF Core

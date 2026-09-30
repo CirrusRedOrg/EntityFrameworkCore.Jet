@@ -6,16 +6,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 EntityFrameworkCore.Jet is an EF Core provider for Microsoft Jet/ACE databases (Microsoft Access `.mdb`/`.accdb` files). The **Jet** provider runs **Windows only** and bridges EF Core to the Access database engine via either ODBC or OLE DB. Alongside it, **LibRed** (also in this repo, on `master`) is a from-scratch managed engine that reads/writes the file format directly and is **cross-platform** — see the LibRed section below.
 
-Current version: `11.0.0-alpha.4` (`Version.props`) targeting EF Core 11 and `net11.0`; `global.json` pins the 11.0.100 RC1 SDK with `rollForward: latestFeature`. The test projects use **xunit v3**.
+Current version: `11.0.0-alpha.4` (`Version.props`) targeting EF Core 11 and `net11.0`; `global.json` pins the 11.0.100 RC1 SDK with `rollForward: latestFeature`. The test projects use **xunit v3**, except `EFCore.Jet.Data.Tests` and `EFCore.Jet.IntegrationTests`, which use MSTest.
 
 **One exception to `net11.0`:** `LibRed.Core`, `LibRed.Sql`, `LibRed.Engine` and `LibRed.Ado` multi-target
 `$(LibRedTargetFrameworks)` = `net10.0;net11.0`, because none of them depends on an EF Core package. `LibRed.EFCore`
 is deliberately **not** in that list — EF Core 11 is `net11.0`-only — and neither is anything under `src/EFCore.Jet*`.
 
-**Every test project stays single-target `net11.0`, and that is deliberate — don't "fix" it.** The `net10.0`
+**Every test project stays single-target `net11.0` (the Jet ones as `net11.0-windows7.0`, via
+`$(JetTestWindowsOnlyTargetFramework)`), and that is deliberate — don't "fix" it.** The `net10.0`
 leg is *compiled*, never run: multi-targeting the suites would double every run locally and on all five CI
 platforms, and would need the .NET 10 runtime installed in CI, which the SDK `global.json` pins does not carry.
-So `dotnet test` on any suite builds both frameworks and runs only `net11.0`.
+A solution build (`dotnet build EFCore.Jet.sln`) or a pack compiles the `net10.0` leg; `dotnet test` on a
+single suite builds only the `net11.0` leg it runs.
 
 ### Which layer am I touching?
 
@@ -54,14 +56,15 @@ To develop against a local EF Core build instead of NuGet packages, copy `Develo
 
 ## Tests
 
-**Jet** tests require a real Microsoft Access driver installed (ODBC or OLE DB) and an actual `.accdb` file — no mocks. The connection string is configured via:
+**Jet** tests require a real Microsoft Access driver installed (ODBC or OLE DB) and an actual `.accdb` file — no mocks. The EF suites' connection strings (the LibRed ones included, which need no driver) are configured via:
 - `test/EFCore.Jet.FunctionalTests/config.json` (OLE DB example present)
-- `test/EFCore.Jet.Tests/config.json` (bare filename; picks up default provider)
+- `test/EFCore.Jet.Tests/config.json` (ODBC `DBQ=` form)
 - `test/EFCore.LibRed.FunctionalTests/config.json` and
   `test/EFCore.LibRed.Extended.FunctionalTests/config.json` (LibRed connection, one per SQL mode)
-- Or env var `EFCoreJet_DefaultConnection`
+- Or env var `EFCoreJet_DefaultConnection` (the Jet suite) / `EFCoreLibRed_DefaultConnection` (both LibRed
+  suites)
 
-**LibRed** tests split in two: `LibRed.Core.Tests`, `LibRed.Engine.Tests`, `EFCore.LibRed.FunctionalTests` and `EFCore.LibRed.Extended.FunctionalTests` need **no driver at all** and CI runs them on Linux/Windows/macOS plus ARM64 legs — that matrix is what proves the cross-platform claim, so don't add an ACE dependency to them. `LibRed.Core.AccessTests`, `LibRed.Engine.AccessTests`, `LibRed.Ado.Tests` and `LibRed.EFCore.Tests` deliberately cross-check LibRed's output against the real engine over OLE DB, so they need Windows + ACE.
+**LibRed** tests split in two: `LibRed.Core.Tests`, `LibRed.Engine.Tests`, `EFCore.LibRed.FunctionalTests` and `EFCore.LibRed.Extended.FunctionalTests` need **no driver at all** and CI runs them on Linux/Windows/macOS plus ARM64 legs — that matrix is what proves the cross-platform claim, so don't add an ACE dependency to them. `LibRed.Core.AccessTests` and `LibRed.Engine.AccessTests` deliberately cross-check LibRed's output against the real engine over OLE DB, so they need Windows + ACE. `LibRed.Ado.Tests` and `LibRed.EFCore.Tests` use no driver (no OLE DB, no DAO), but CI only runs them in the Windows ACE job for now.
 
 > **The `*.AccessTests` split is by which engine a test needs, not by subject.** A file-format test belongs in
 > `LibRed.Core.Tests` if LibRed alone can decide the answer, and in `LibRed.Core.AccessTests` if ACE has to be
@@ -100,7 +103,8 @@ is the most common way to waste minutes here.
 
 **When you do run a suite, capture the failing test *names* in the same run** — don't reduce the output to just the `Passed!/Failed!` count line and then re-run the whole suite to find which failed. Grep a pattern that catches both, e.g. `grep -iE "Passed!|Failed!|\[FAIL\]|error CS"` (xUnit prints `… [FAIL]` and `Failed <FullyQualifiedName>` lines as it goes), or tee the full output to a file and inspect it.
 
-Tests run in **fixed order by default** (`FIXED_TEST_ORDER` compile constant, set unless `-p:FixedTestOrder=false`; see `test/Directory.Build.props`). All tests lock culture to `en-US` via a module initializer (`test/Shared/ModuleInitializer.cs`).
+The three EF functional suites run in **fixed order by default** (`FIXED_TEST_ORDER` compile constant, set unless `-p:FixedTestOrder=false`; see `test/Directory.Build.props` — every project gets the constant, but only those suites and the empty
+`EFCore.Jet.Tests` act on it) and lock culture to `en-US` via a module initializer (`test/Shared/ModuleInitializer.cs`, compiled into those suites only). The other test projects set culture themselves where it matters, and `LibRed.Core.Tests` runs its collections in parallel.
 
 Tests that require features Jet doesn't support are skipped with a reason on the test.
 
@@ -110,13 +114,18 @@ Tests that require features Jet doesn't support are skipped with a reason on the
 
 `EFCore.Jet.FunctionalTests` is gated by a committed pass-list rather than by "everything must pass":
 `test/EFCore.Jet.FunctionalTests/GreenTests/ace_<version>_<odbc|oledb>_<arch>.txt` lists the tests that passed
-previously for that matrix leg. CI merges the shards' `.trx` files and **fails if any listed test stops passing**;
-newly-passing tests are appended and pushed back by the `auto_commit` workflow. So the meaningful question for a
+previously for that matrix leg. Only two legs have one today — `ace_2010_odbc_x86` and `ace_2010_oledb_x86` — and
+the check runs only where the file exists, so the other six legs are not gated. CI merges the shards' `.trx`
+files and **fails if any listed test stops passing**; after a successful pull-request run, newly-passing tests are
+appended to an existing list and pushed back by the `auto_commit` workflow (it is triggered by
+`pull_request.yml`, not by `push.yml`, and never creates a list). So the meaningful question for a
 change is "did anything that used to pass stop passing", not the raw failure count.
 
-CI splits the functional suite into three shards (query core / Northwind+GearsOfWar / non-query) and retries a shard
-up to three times if the runner crashes. The two `EFCore.LibRed*.FunctionalTests` suites are `continue-on-error`
-for now — they still run on every push, but their remaining failures don't block.
+CI splits the functional suite into four shards (query core / Northwind+GearsOfWar / non-query without
+CompiledModel / CompiledModel) and runs a shard up to three times if the runner crashes (on a leg with a
+pass-list, a shard that crashes all three times fails it). The two `EFCore.LibRed*.FunctionalTests` suites are
+`continue-on-error` for now — they run on every push that touches LibRed, but their remaining failures don't
+block.
 
 ### Docker images
 
@@ -149,14 +158,18 @@ test/
   EFCore.Jet.Tests/               EMPTY — its test files are <Compile Remove>d        [Windows + ACE]
   EFCore.Jet.IntegrationTests/    Integration scenario tests                          [Windows + ACE]
   JetProviderExceptionTests/      Exception-path tests; also hosts Northwind.accdb,
-                                  which every LibRed suite links to as its fixture    [Windows + ACE]
+                                  which every LibRed.* test project and LibRed.Benchmarks
+                                  link to as their fixture (the EF functional suites
+                                  build theirs from test/Northwind.sql)               [Windows + ACE]
   LibRed.Core.Tests/              File-format read/write through LibRed alone      [cross-platform]
   LibRed.Core.AccessTests/        File-format tests cross-checked against ACE          [Windows + ACE]
   LibRed.Engine.Tests/            Planner/executor, no engine dependency           [cross-platform]
   LibRed.Engine.AccessTests/      Engine tests that cross-check against ACE           [Windows + ACE]
-  LibRed.Ado.Tests/               ADO.NET surface                                     [Windows + ACE]
+  LibRed.Ado.Tests/               ADO.NET surface                       [no driver; CI's Windows ACE job]
   LibRed.EFCore.Tests/            LibRed EF Core provider: query round-trip,
-                                  database-first scaffolding                          [Windows + ACE]
+                                  database-first scaffolding            [no driver; CI's Windows ACE job]
+  LibRed.Shared/                  Helpers compiled into the Core/Engine test pairs and LibRed.Ado.Tests
+                                  (TemporaryDatabase, …; AceTestDatabase into the AccessTests only)
   EFCore.LibRed.FunctionalTests/  EF Core specification suite over LibRed, compatible
                                   SQL mode (Jet-dialect SQL)                        [cross-platform]
   EFCore.LibRed.Extended.FunctionalTests/
@@ -167,7 +180,8 @@ test/
                                   split, storage, writes, DDL, catalog, and an opt-in ACE
                                   head-to-head. `-- --validate` checks the SQL corpus.
                                   See its README.md                                [cross-platform]
-  Shared/                         ModuleInitializer.cs — locks culture to en-US
+  Shared/                         For the EF functional suites: ModuleInitializer.cs (locks culture to
+                                  en-US) and TestUtilities/ (test orderers, crash detection, conditions)
 
 tools/
   sortkey-table/        Generates the Windows NLS sort-weight table LibRed's index keys use
@@ -288,7 +302,7 @@ the names are `JetVersion` / `RequiredVersion` / `EnsureFormatAtLeast`:
 - `AccessTypeMapper.MapType` **refuses** a type the open file is too old for, so a caller that can't upgrade
   (read-only database) fails loudly instead of writing a column Access couldn't read. That guard is on the SQL
   path; the same rule is enforced again in Core over `JetDataType` (`JetDataTypeVersions.EnsureStorable`, called
-  from `TdefBuilder` and `TableCreator`), because every `JetDatabase` DDL method takes a raw `ColumnSpec` and
+  from `TdefBuilder` and `TableCreator`), because every `JetDatabase` method that defines a column takes a raw `ColumnSpec` and
   would otherwise write the descriptor with nothing objecting.
 - `StatementExecutor.MapColumn` → `JetDatabase.EnsureFormatAtLeast` → `PageChannel.RaiseFormatVersion`
   **raises the file's version byte** rather than refusing the DDL, which is what ACE itself does. The raise goes
@@ -338,7 +352,7 @@ parser: the lexer/parser are pre-generated and committed under `LibRed.Sql/Gramm
 `LibRed.Sql/Grammar/generate.ps1` after editing `AccessSql.g4`.
 
 > **LibRed is a single-writer engine.** It tolerates extra open handles (a `.accdb` is a shared-file database and
-> EF's own test infra keeps a store connection open), but there is no lock file and no page/record locking, so
+> EF's own test infra keeps a store connection open), but there is no lock file and no cross-process page/record locking (its page locks are process-local), so
 > two concurrent writers corrupt the file. Transactions use a **deferred-write overlay** per `PageChannel`, not
 > an undo log: writes buffer until commit and publish under a lock, so a reader cannot see another handle's
 > uncommitted pages and a rollback cannot discard another channel's committed work — both hazards the older
@@ -358,7 +372,7 @@ was written**, not what is true now.
 `.claude/settings.json` installs `PreToolUse` hooks that **deny** three things in `Bash`/`PowerShell`:
 
 - **Reading files through the shell** (`cat`, `head`, `grep`, `ls`, `find`, `Get-Content`, `Select-String`, …) —
-  use `Read`, `Grep`, `Glob` instead. Shell text tools stay allowed on paths containing `scratchpad`, `.log` or `/tmp/`.
+  use `Read`, `Grep`, `Glob` instead. Shell text tools stay allowed on paths containing `scratchpad`, `.log`, `$log` or `/tmp/`.
   `git grep` and `git cat-file` are denied with them: read-only `git` is otherwise pre-allowed, which made them a
   way to spell the same read and skip the prompt. `git diff`/`log`/`show` stay allowed for reviewing history.
 - **Editing source files through the shell** (`sed -i`, redirects/`tee` into `.cs`/`.md`/`.csproj`/`.props`/`.json`/
@@ -368,8 +382,10 @@ was written**, not what is true now.
   ~7 and ~1.5 minutes, and waiting on them is dead session time. Add a `--filter` naming the tests that cover
   the change, or pass `run_in_background` and carry on working while they run. The other suites are unaffected.
 
-`dotnet build`/`test`/`restore` and read-only `git` commands are pre-allowed, so don't work around the hooks — the
-denial message is telling you which tool to use, not that the action is forbidden.
+`dotnet build`/`test`/`restore` and, in Bash, `git status`/`diff`/`log`/`show`/`branch`/`add`/`commit`/`push`
+are pre-allowed, and PowerShell is allowed wholesale — so don't work around the hooks; the denial message is
+telling you which tool to use, not that the action is forbidden. A `PostToolUse` hook also rewrites every file
+the `Write` tool writes to CRLF line endings.
 
 ## CI
 
@@ -381,7 +397,8 @@ flags — `jet` and `libred` — and skips the jobs that don't apply:
   partway through the largest shard.
 - **LibRed** — `LibRed.Engine.Tests` and `LibRed.Core.Tests` on Linux/Windows/macOS + ubuntu-arm/windows-arm,
   no ACE anywhere.
-- **LibRedAccess** — the ACE cross-check suites on `windows-latest` with ACE 2016.
+- **LibRedAccess** — the ACE cross-check suites on `windows-latest` with ACE 2016, plus `LibRed.Ado.Tests` and
+  `LibRed.EFCore.Tests`, which need no driver but run only there for now.
 - **LibRedFunctional** — both `EFCore.LibRed.FunctionalTests` (compatible mode) and
   `EFCore.LibRed.Extended.FunctionalTests` (extended mode) on the five-platform matrix, `continue-on-error`.
 - **NuGet** — packs for `master`, `*-servicing`, `*-wip` and release tags, attaching the packages to the run

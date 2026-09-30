@@ -78,8 +78,10 @@ plus enough beyond that to identify the holder).
 
 It also decodes I/O against the database file — page numbers, sub-page field writes, and the **commit-byte
 table** at page 0 `0xE00`–`0xFFF` (256 users × 2 bytes), which Access writes immediately before and after a
-batch of page writes. A nonzero commit byte with no matching user lock is what makes Access declare a file
-suspect and demand a repair.
+batch of page writes. Each slot is one little-endian 16-bit value: the bytes `00 00` (mid-write) or `01 00`
+(accessed a corrupted page) with no matching user lock are what make Access declare the file suspect and demand
+a repair. The idle value is `00 01` (256), and above that the slot counts the user's committed writes — see
+[page-00 §2.2](../../src/LibRed/docs/format/page-00-database.md).
 
 Region names are the Jet development team's own, from `docs/JetWhitePapers_UPDATE1/Jetlock.docx`.
 

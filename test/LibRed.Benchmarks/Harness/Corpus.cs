@@ -183,8 +183,9 @@ public static class Corpus
         }
     }
 
-    /// <summary>A note whose text is stable per row and contains the <c>qx</c> needle in roughly one row in
-    /// twenty — enough for the unanchored-LIKE case to return rows without returning most of the table.</summary>
+    /// <summary>A note whose text is stable per row and contains the <c>qx</c> needle in every twentieth row —
+    /// one row in forty overall, since half of those are the rows with no note — enough for the unanchored-LIKE
+    /// case to return rows without returning most of the table.</summary>
     private static string Note(Random rnd, int i)
     {
         string body = $"note {i} {rnd.Next(100_000):D5} lorem ipsum dolor sit amet consectetur";

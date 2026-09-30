@@ -118,7 +118,7 @@ jobs:
               - 'test/EFCore.LibRed.FunctionalTests/**'
               - 'test/EFCore.LibRed.Extended.FunctionalTests/**'
               - 'src/EFCore.Jet.Common/**'
-              # Northwind.accdb lives here and every LibRed suite links to it as its fixture.
+              # Northwind.accdb lives here and every LibRed.* test project links to it as its fixture.
               - 'test/JetProviderExceptionTests/**'
       - name: 'Decide What To Run'
         id: Decide

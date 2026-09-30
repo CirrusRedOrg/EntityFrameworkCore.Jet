@@ -34,6 +34,10 @@ public class DerivedColumnListTests(DerivedColumnListTests.Database database)
     [InlineData("SELECT v.s FROM (VALUES (1, 'a'), (2, 'b')) AS v(n, s) WHERE v.n = 2", "[s] b")]
     [InlineData("SELECT x FROM (VALUES (1), (2)) v(x) ORDER BY x DESC", "[x] 2 | 1")]
     [InlineData("SELECT t.x FROM (SELECT Id, K FROM T) AS t(x, y) WHERE t.y = 70", "[x] 7")]
+    [InlineData("SELECT x FROM (SELECT * FROM T) AS t(x, y) ORDER BY x", "[x] 1 | 2 | 7")]
+    [InlineData("SELECT t.x FROM (SELECT * FROM T) AS t(x, y) WHERE t.y = 70", "[x] 7")]
+    [InlineData("SELECT x FROM (SELECT * FROM (SELECT * FROM T) AS t(x, y)) AS d ORDER BY x", "[x] 1 | 2 | 7")]
+    [InlineData("SELECT x FROM (SELECT a.* FROM T AS a INNER JOIN T AS b ON a.Id = b.Id) AS t(x, y) ORDER BY x", "[x] 1 | 2 | 7")]
     [InlineData("SELECT * FROM (SELECT Id AS a, K AS b FROM T WHERE Id = 1) AS t(c, d)", "[c,d] 1,10")]
     [InlineData("SELECT * FROM (SELECT Id FROM T WHERE Id = 1 UNION ALL VALUES (5)) AS u(n)", "[n] 1 | 5")]
     [InlineData("SELECT a.Id, v.label FROM T AS a INNER JOIN (VALUES (1, 'one'), (7, 'seven')) AS v(id, label) ON a.Id = v.id ORDER BY a.Id",

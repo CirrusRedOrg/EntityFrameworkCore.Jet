@@ -163,6 +163,20 @@ public class ColumnPruningTests : TempDatabaseTest
 
     // --- shapes that pass whole rows to the output, which must not be pruned ---------------------------
 
+    [Theory]
+    [InlineData("SELECT Grp FROM (SELECT DISTINCT * FROM T) AS d")]
+    [InlineData("SELECT Grp FROM (SELECT * FROM T UNION SELECT * FROM T) AS d")]
+    [InlineData("SELECT Grp FROM (SELECT * FROM T INTERSECT SELECT * FROM T) AS d")]
+    [InlineData("SELECT Grp FROM (SELECT * FROM T EXCEPT SELECT * FROM T WHERE Grp < 0) AS d")]
+    public void An_outer_projection_preserves_columns_used_for_inner_duplicate_elimination(string sql)
+        => Assert.Equal([0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2], Sorted(Seeded(), sql));
+
+    // U's columns reach the outer Id by position, under names the statement never writes.
+    [Fact]
+    public void A_union_all_preserves_positionally_matched_columns_with_different_names()
+        => Assert.Equal([0, 1, 1, 2], Sorted(Seeded(),
+            "SELECT Id FROM (SELECT Id, V, Grp FROM T WHERE Id = 1 UNION ALL SELECT * FROM U) AS d"));
+
     [Fact]
     public void Select_star_returns_every_column()
         => Assert.Equal([5, 2, 50, "L5", "N5"], RowOfT(Seeded(), 5).Select(Normalise));

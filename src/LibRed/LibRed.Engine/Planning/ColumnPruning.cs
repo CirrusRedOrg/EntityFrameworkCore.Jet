@@ -43,8 +43,10 @@ internal static class ColumnPruning
         ScanNode or IndexSeekNode or IndexRangeSeekNode => !visible,
         ProjectNode p => HasHiddenRead(p.Input, HasStar(p.Projection)),
         AggregateNode a => HasHiddenRead(a.Input, HasStar(a.Projection)),
-        FilterNode or SortNode or LimitNode or DistinctNode or DerivedTableNode or WindowNode
-            or JoinNode or HashJoinNode or SetOperationNode => node.Children.Any(c => HasHiddenRead(c, visible)),
+        DistinctNode or SetOperationNode => node.Children.Any(c => HasHiddenRead(c, visible: true)),
+        DerivedTableNode { Columns: not null } => false,
+        FilterNode or SortNode or LimitNode or DerivedTableNode or WindowNode
+            or JoinNode or HashJoinNode => node.Children.Any(c => HasHiddenRead(c, visible)),
         _ => false,
     };
 
@@ -65,7 +67,11 @@ internal static class ColumnPruning
         FilterNode f => f with { Input = Rewrite(f.Input, visible, names) },
         SortNode s => s with { Input = Rewrite(s.Input, visible, names) },
         LimitNode l => l with { Input = Rewrite(l.Input, visible, names) },
-        DistinctNode d => d with { Input = Rewrite(d.Input, visible, names) },
+        // Duplicate elimination observes every input value, even under a narrow outer projection.
+        DistinctNode d => d with { Input = Rewrite(d.Input, visible: true, names) },
+        // A column list renames by position. Physical names cannot be inferred from outer references, so
+        // keep this subtree intact, including any joins that would otherwise drop unnamed columns.
+        DerivedTableNode { Columns: not null } dt => dt,
         DerivedTableNode dt => dt with { Input = Rewrite(dt.Input, visible, names) },
         WindowNode w => w with { Input = Rewrite(w.Input, visible, names) },
         // A join builds each output row anew, so where its rows cannot surface whole it builds them from the read
@@ -83,7 +89,8 @@ internal static class ColumnPruning
             Right = Rewrite(h.Right, visible, names),
             Keep = visible ? null : names,
         },
-        SetOperationNode so => so with { Left = Rewrite(so.Left, visible, names), Right = Rewrite(so.Right, visible, names) },
+        // Set operations compare whole rows and match columns positionally across differently named inputs.
+        SetOperationNode so => so with { Left = Rewrite(so.Left, visible: true, names), Right = Rewrite(so.Right, visible: true, names) },
 
         // DistinctRowNode compares whole underlying rows; anything else is unknown. Neither is pruned below.
         _ => node,

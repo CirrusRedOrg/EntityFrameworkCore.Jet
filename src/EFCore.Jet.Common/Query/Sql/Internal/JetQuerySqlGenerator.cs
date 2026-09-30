@@ -925,9 +925,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             // through leaves a one-character string, which Jet then coerces by parsing it: 1, not 49.
             if (typeMapping.ClrType.IsInteger() && typeMapping.ClrType != typeof(char) && convertExpression.Operand.Type == typeof(char))
             {
-                Sql.Append("ASCW(");
+                // Widen ASCW's signed Int16 before masking: ACE otherwise sign-extends a 16-bit left operand.
+                Sql.Append("(CLNG(ASCW(");
                 Visit(convertExpression.Operand);
-                Sql.Append(")");
+                Sql.Append(")) BAND 65535)");
                 return convertExpression;
             }
 

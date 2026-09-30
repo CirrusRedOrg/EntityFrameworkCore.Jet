@@ -190,7 +190,8 @@ public sealed class JetDatabase : IDisposable
     public void ReleaseSavepoint(Savepoint savepoint) => _channel.ReleaseSavepoint(savepoint);
 
     /// <inheritdoc cref="PageChannel.DependOn"/>
-    public void DependOn(Func<bool> stillHolds, string violation) => _channel.DependOn(stillHolds, violation);
+    public void DependOn(Func<bool> stillHolds, string violation, object? key = null) =>
+        _channel.DependOn(stillHolds, violation, key);
 
     // --- nested transactions (shared by the ADO API and SQL BEGIN/COMMIT/ROLLBACK) ---
     // One physical transaction; nesting maps onto the savepoint stack. The depth counts every open level, so a

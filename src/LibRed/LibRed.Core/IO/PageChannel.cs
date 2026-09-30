@@ -67,8 +67,10 @@ public sealed class PageChannel : IDisposable
     // check above, and two transactions can each check the other's precondition and commit to a state neither
     // would have allowed (write skew). Each condition is re-evaluated at commit, under the publication lock,
     // so a commit that would leave a dangling reference is refused instead. A savepoint rollback truncates
-    // them with the writes that needed them.
-    private readonly List<(Func<bool> StillHolds, string Violation)> _dependencies = [];
+    // them with the writes that needed them. A condition registered under a key is held once: `_dependencyKeys`
+    // holds the keys of the conditions `_dependencies` still has.
+    private readonly List<(Func<bool> StillHolds, string Violation, object? Key)> _dependencies = [];
+    private readonly HashSet<object> _dependencyKeys = [];
     // Whether anything this channel wrote has been published, so a close knows the session changed the file.
     private bool _published;
 
@@ -108,12 +110,16 @@ public sealed class PageChannel : IDisposable
     /// again at commit, and a commit whose condition has since stopped holding is refused with
     /// <paramref name="violation"/>. Outside a transaction there is nothing to record: the statement's check
     /// and its write are one publication, which no other connection can interleave with.
+    /// <para>A <paramref name="key"/> names the condition, by its own equality: one already held under an equal
+    /// key is not registered again, so a transaction inserting a thousand children of one parent checks that
+    /// parent once at commit, not a thousand times.</para>
     /// </summary>
-    public void DependOn(Func<bool> stillHolds, string violation)
+    public void DependOn(Func<bool> stillHolds, string violation, object? key = null)
     {
         ArgumentNullException.ThrowIfNull(stillHolds);
         if (_active is null) return;
-        _dependencies.Add((stillHolds, violation));
+        if (key is not null && !_dependencyKeys.Add(key)) return;
+        _dependencies.Add((stillHolds, violation, key));
     }
 
     /// <summary>The committed pages held for release at close, in the order they were freed.</summary>
@@ -486,7 +492,7 @@ public sealed class PageChannel : IDisposable
 
             // And what the transaction merely READ and relied on. Evaluated here, inside the publication lock,
             // so nothing can change between the check and the publish it guards.
-            foreach ((Func<bool> stillHolds, string violation) in _dependencies)
+            foreach ((Func<bool> stillHolds, string violation, _) in _dependencies)
                 if (!stillHolds())
                     throw new InvalidOperationException(violation);
 
@@ -576,6 +582,7 @@ public sealed class PageChannel : IDisposable
         _overlayParsed.Clear();
         _commitBaselines.Clear();
         _dependencies.Clear();
+        _dependencyKeys.Clear();
         _releasing.Clear();
     }
 
@@ -657,8 +664,12 @@ public sealed class PageChannel : IDisposable
         var (before, pageCount) = _active.TakeForRollbackTo(savepoint);
         RestoreOverlay(before, pageCount);
         _releasing.RemoveRange(releaseCount, _releasing.Count - releaseCount);
-        // The writes that needed them are undone, so the conditions are no longer anything to hold the commit to.
+        // The writes that needed them are undone, so the conditions are no longer anything to hold the commit to —
+        // and a key they held is free to be registered again by a write made after the rollback.
         _dependencies.RemoveRange(dependencyCount, _dependencies.Count - dependencyCount);
+        _dependencyKeys.Clear();
+        foreach ((_, _, object? key) in _dependencies)
+            if (key is not null) _dependencyKeys.Add(key);
     }
 
     /// <summary>Releases <paramref name="savepoint"/>, merging its changes into the enclosing scope. Only the

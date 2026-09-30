@@ -27,8 +27,16 @@ Status: **draft / accepted direction** · Date: 2026-07-18
 > depend on (`PageChannel.DependOn`), each re-evaluated under the publication gate before anything is
 > published; a commit whose condition has stopped holding is refused like a write conflict. The conditions are
 > semantic rather than physical — the FK's parent is sought again, not its page compared — so an unrelated row
-> on the same page cannot produce a false conflict. A savepoint rollback drops the conditions recorded after it
-> along with the writes that needed them.
+> on the same page cannot produce a false conflict. A missing parent only refuses the commit while it is still
+> needed: while the relationship survives and a child row still holds the key, so a transaction that later
+> deleted or moved its child, or dropped the relationship, commits. The relationship is identified by the
+> definition pages of its tables and the ids of its columns, so renames inside the transaction do not lose it,
+> and one dropped and added again under the same name over other columns is a different relationship. A
+> condition registered under a key the transaction already holds (the same relationship and parent key) is held
+> once. `ALTER TABLE … ADD FOREIGN KEY` reads the same way, checking every existing child row against its
+> parent, so it registers one condition for the relationship: while it survives, every child row still has its
+> parent. ACE gets the same guarantee by holding both tables exclusively until the transaction ends. A savepoint rollback drops the conditions recorded after it, and their keys, along with the writes that
+> needed them.
 > Schema-changing commits also advance a shared per-file catalog generation; other open
 > connections invalidate their parsed table/relationship/view caches on the next catalog access, while ordinary
 > DML does not force a catalog reload. The undo log described below is gone. Everything else here — the lock-manager layering

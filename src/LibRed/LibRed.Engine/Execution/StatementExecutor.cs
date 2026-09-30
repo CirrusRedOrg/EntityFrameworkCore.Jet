@@ -166,8 +166,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// ACE's **MATCH FULL** rule (verified vs ACE, and unlike SQL Server's MATCH SIMPLE): a composite FK is
     /// skipped only when **every** column is null; a **partial** null (some null, some not) can never match a
     /// parent key and is rejected. Only enforced relationships (grbit without "don't enforce") are checked.
+    /// <paramref name="update"/> says the row is an UPDATE's rather than an INSERT's, for the message.
     /// </summary>
-    private void EnforceReferentialIntegrity(string childTable, Table table, object?[] values)
+    private void EnforceReferentialIntegrity(string childTable, Table table, object?[] values, bool update = false)
     {
         foreach (ForeignKey fk in _database.Catalog.ForeignKeysOf(childTable))
         {
@@ -199,17 +200,113 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
             if (partialNull || !ParentRowExists(fk, target))
                 throw new InvalidOperationException(
-                    $"INSERT into '{childTable}' violates foreign key '{fk.Name}': no matching row in '{fk.ReferencedTable}'.");
+                    $"{(update ? "UPDATE of" : "INSERT into")} '{childTable}' violates foreign key '{fk.Name}': "
+                    + $"no matching row in '{fk.ReferencedTable}'.");
 
             // Inside a transaction, finding the parent now is not enough: reading it writes no page, so the
             // commit's page-conflict check cannot see the dependency, and a concurrent transaction is free to
             // delete that parent and commit — each having checked the other's precondition, leaving a child row
-            // referencing nothing. The condition is re-checked when this transaction commits.
+            // referencing nothing. The condition is re-checked when this transaction commits, once per
+            // relationship and key however many rows relied on it.
+            var dependency = new ForeignKeyDependency(
+                Identify(fk) ?? throw new InvalidOperationException(
+                    $"Relationship '{fk.Name}' names a table or column that does not exist."),
+                target);
             _database.DependOn(
-                () => ParentRowExists(fk, target),
+                () => ForeignKeyDependencyHolds(dependency),
                 $"Transaction conflict on foreign key '{fk.Name}': the row in '{fk.ReferencedTable}' that "
-                + $"'{childTable}' was checked against no longer exists.");
+                + $"'{childTable}' was checked against no longer exists.",
+                key: dependency);
         }
+    }
+
+    /// <summary>
+    /// Whether the parent a transaction's write relied on is still there, or no longer needed. It is needed only
+    /// while the relationship survives and a child row still holds the key: later statements may delete the child,
+    /// move its key, cascade it, or drop the relationship. The relationship is found by name and is the same one
+    /// only while it joins the same tables over the same columns, whatever they are called by now. The parent is
+    /// looked for first, since it is almost always still there.
+    /// </summary>
+    private bool ForeignKeyDependencyHolds(ForeignKeyDependency dependency)
+    {
+        ForeignKey? relationship = CurrentRelationship(dependency.Relationship);
+        if (relationship is null || ParentRowExists(relationship, dependency.Key)) return true;
+
+        Table child = _database.OpenTable(relationship.Table);
+        int[] columns = [.. relationship.Columns.Select(c => child.Definition.RequireColumn(c.Column).Index)];
+        return !RowsHoldingKey(child, columns, dependency.Key).Any();
+    }
+
+    /// <summary>The enforced relationship <paramref name="identity"/> identifies, as the catalog holds it now; null
+    /// once it has been dropped.</summary>
+    private ForeignKey? CurrentRelationship(RelationshipIdentity identity) =>
+        _database.Catalog.Relationships.FirstOrDefault(r => r.IsEnforced
+            && string.Equals(r.Name, identity.Name, StringComparison.OrdinalIgnoreCase)
+            && identity.Equals(Identify(r)));
+
+    /// <summary>Whether every row of the relationship's child table has its parent, on the MATCH FULL terms
+    /// <see cref="EnforceReferentialIntegrity"/> applies to one row: a key that is entirely null references
+    /// nothing and needs nothing, and a partly null one can never match.</summary>
+    private bool ExistingRowsHaveParents(ForeignKey fk)
+    {
+        Table child = _database.OpenTable(fk.Table);
+        int[] columns = [.. fk.Columns.Select(c => child.Definition.RequireColumn(c.Column).Index)];
+        foreach (object?[] row in child.Rows(child.DecodeOnly(columns)))
+        {
+            object?[] key = [.. columns.Select(c => row[c])];
+            int nulls = key.Count(v => v is null);
+            if (nulls == key.Length) continue;
+            if (nulls > 0 || !ParentRowExists(fk, key)) return false;
+        }
+        return true;
+    }
+
+    /// <summary>A relationship as the file identifies it rather than by its names: the definition pages of the
+    /// tables it joins and the ids of its columns, which renaming a table or a column leaves alone. Null when one
+    /// of them no longer exists.</summary>
+    private RelationshipIdentity? Identify(ForeignKey fk)
+    {
+        if (_database.Catalog.FindTable(fk.Table) is not { } child
+            || _database.Catalog.FindTable(fk.ReferencedTable) is not { } parent)
+            return null;
+        var childColumns = new int[fk.Columns.Count];
+        var parentColumns = new int[fk.Columns.Count];
+        for (int i = 0; i < fk.Columns.Count; i++)
+        {
+            if (child.FindColumn(fk.Columns[i].Column) is not { } childColumn
+                || parent.FindColumn(fk.Columns[i].ReferencedColumn) is not { } parentColumn)
+                return null;
+            childColumns[i] = childColumn.ColumnId;
+            parentColumns[i] = parentColumn.ColumnId;
+        }
+        return new RelationshipIdentity(fk.Name, child.DefinitionPage, parent.DefinitionPage, childColumns, parentColumns);
+    }
+
+    /// <summary>A relationship's name, and what it joins as <see cref="Identify"/> finds it: equal only for the same
+    /// relationship, so one dropped and added again under its name over other columns is another.</summary>
+    private sealed record RelationshipIdentity(
+        string Name, int ChildTable, int ParentTable, int[] ChildColumns, int[] ParentColumns)
+    {
+        public bool Equals(RelationshipIdentity? other) => other is not null
+            && string.Equals(Name, other.Name, StringComparison.OrdinalIgnoreCase)
+            && ChildTable == other.ChildTable && ParentTable == other.ParentTable
+            && ChildColumns.AsSpan().SequenceEqual(other.ChildColumns)
+            && ParentColumns.AsSpan().SequenceEqual(other.ParentColumns);
+
+        public override int GetHashCode() =>
+            HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(Name), ChildTable, ParentTable);
+    }
+
+    /// <summary>A parent a transaction's write relied on: the relationship, and the key it was checked for. Equal
+    /// values are one dependency, which is what lets the channel hold it once.</summary>
+    private sealed record ForeignKeyDependency(RelationshipIdentity Relationship, object?[] Key)
+    {
+        public bool Equals(ForeignKeyDependency? other) => other is not null
+            && Relationship.Equals(other.Relationship)
+            && System.Collections.StructuralComparisons.StructuralEqualityComparer.Equals(Key, other.Key);
+
+        public override int GetHashCode() => HashCode.Combine(
+            Relationship, System.Collections.StructuralComparisons.StructuralEqualityComparer.GetHashCode(Key));
     }
 
     /// <summary>For a self-referencing FK, whether the row's own referenced-column values equal the FK
@@ -757,7 +854,30 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     private int AddForeignKey(string table, ForeignKeyConstraint fk)
     {
-        _database.AddForeignKey(table, ToRelationshipSpec(table, fk));
+        RelationshipSpec relationship = ToRelationshipSpec(table, fk);
+        _database.AddForeignKey(table, relationship);
+
+        // ACE refuses a relationship the existing rows already break — an orphan, or a partly null composite key
+        // (verified; the ON DELETE action makes no difference). Checked against the relationship as the catalog
+        // now holds it, a REFERENCES with no column list resolved to the parent's primary key; the statement's own
+        // rollback takes the relationship back out when the check fails.
+        ForeignKey added = _database.Catalog.Relationships.Single(
+            r => string.Equals(r.Name, relationship.Name, StringComparison.OrdinalIgnoreCase));
+        RelationshipIdentity identity = Identify(added)!;
+        bool Holds() => CurrentRelationship(identity) is not { } current || ExistingRowsHaveParents(current);
+        if (!Holds())
+            throw new InvalidOperationException(
+                "Cannot create relationships to enforce referential integrity. Existing data in table "
+                + $"'{added.Table}' violates referential integrity rules in table '{added.ReferencedTable}'.");
+
+        // ACE then holds both tables exclusively until the transaction ends, so nothing can delete a parent the
+        // check found (verified: another connection's DELETE is refused). LibRed takes no table locks, so the
+        // same check is made again when the transaction commits, for as long as the relationship survives.
+        _database.DependOn(
+            Holds,
+            $"Transaction conflict on foreign key '{added.Name}': a row in '{added.ReferencedTable}' that the "
+            + $"existing rows of '{added.Table}' were checked against no longer exists.",
+            key: identity);
         return 0;
     }
 
@@ -1823,7 +1943,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             // Child side: a changed FK column must still reference an existing parent (like an insert).
             if (_database.Catalog.ForeignKeysOf(table.Name).Any(f => f.IsEnforced &&
                     f.Columns.Any(c => changed.Contains(table.Definition.FindColumn(c.Column)!.Index))))
-                EnforceReferentialIntegrity(table.Name, table, values);
+                EnforceReferentialIntegrity(table.Name, table, values, update: true);
 
             // A changed UNIQUE/PRIMARY key must not collide with another row (null keys are distinct — a
             // unique index permits multiple nulls, so they're skipped, matching the insert rule).

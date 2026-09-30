@@ -31,6 +31,11 @@ public class ForeignKeyDdlTests
                 // Orphan reference is rejected.
                 AssertForeignKeyViolation(engine,
                     "INSERT INTO `Child` (`Id`, `ParentId`) VALUES (3, 99)", "FK_Child_Parent", "Parent");
+
+                // So is moving a child to one, and the message names the statement that did it.
+                var moved = Assert.Throws<InvalidOperationException>(
+                    () => engine.ExecuteNonQuery("UPDATE `Child` SET `ParentId` = 99 WHERE `Id` = 1"));
+                Assert.Contains("UPDATE of 'Child' violates foreign key 'FK_Child_Parent'", moved.Message, StringComparison.Ordinal);
             }
 
             using (var db = JetDatabase.Open(path))

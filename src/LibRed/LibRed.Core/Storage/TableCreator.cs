@@ -903,21 +903,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // A self-reference (child == parent) hosts both ends in the same TDEF: the outgoing block takes the
         // lowest free number and the incoming block the next free one above it (verified vs ACE: with 1 free
         // below a live 2, the outgoing block is 1 and the incoming 3).
-        if (string.Equals(fk.ReferencedTable, childTable, StringComparison.OrdinalIgnoreCase))
-        {
-            int selfRefOrdinal = ReferencedOrdinalIn(child, fk);
-            int inNum = NextLogicalIndexNumber(child.DefinitionPage, above: NextLogicalIndexNumber(child.DefinitionPage));
-            int outNum = InsertIndex(child, fk.Name, slots,
-                unique: false, required: false, ignoreNulls: false,
-                (num, ord) => BuildOutgoingInfoBlock(num, ord, FkTypeOutgoing, inNum, child.DefinitionPage, upd, del));
-            AddIncomingRelationshipBlock(new IncomingRelationship(
-                child.DefinitionPage, inNum, selfRefOrdinal, (uint)outNum, child.DefinitionPage, upd, del));
-            AddRelationshipRows(childTable, fk);
-            _catalog.Invalidate();
-            return;
-        }
-
-        (int parentPage, int refOrdinal, int parentNum) = ResolveParent(fk, child.DefinitionPage);
+        (int parentPage, int refOrdinal, int parentNum) =
+            string.Equals(fk.ReferencedTable, childTable, StringComparison.OrdinalIgnoreCase)
+                ? (child.DefinitionPage, ReferencedOrdinalIn(child, fk),
+                    NextLogicalIndexNumber(child.DefinitionPage, above: NextLogicalIndexNumber(child.DefinitionPage)))
+                : ResolveParent(fk, child.DefinitionPage);
         int childBlockNum = InsertIndex(child, fk.Name, slots,
             unique: false, required: false, ignoreNulls: false,
             (num, ord) => BuildOutgoingInfoBlock(num, ord, FkTypeOutgoing, parentNum, parentPage, upd, del));

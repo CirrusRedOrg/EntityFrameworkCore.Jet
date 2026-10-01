@@ -17,10 +17,10 @@
 | `0x18` | 4 | **Global free-pages map pointer** — `[row:1][page:3]`; `0x00000100` = page 1 row 0 in every file ACE writes ([page-05 §9.1](page-05-usage-maps.md)) |
 | `0x1C` | 4 | **Global released-pages map pointer** — `[row:1][page:3]`; `0x00000101` = page 1 row 1 ([page-05 §9.1](page-05-usage-maps.md)) |
 | `0x20`–`0x2C` | 4×4 | **System-catalog bootstrap pointers**: TDEF pages of `MSysObjects` / `MSysACEs` / `MSysQueries` / `MSysRelationships` = `2, 3, 4, 5`. `0x20` is the **catalog root** (how the engine finds `MSysObjects`). |
-| `0x30`–`0x3B` | 12 | Zero in every file seen, but **not merely reserved**: ACE range-checks `0x30` and `0x34` as `[row:1][page:3]` pointers, against the largest possible page only (see below) |
+| `0x30`–`0x3B` | 12 | In a workgroup file (`Jet System DB`), `0x30`/`0x34` hold the TDEF pages of `MSysAccounts`/`MSysGroups`; zero in an ordinary database, which has neither table. ACE range-checks `0x30` and `0x34` as `[row:1][page:3]` pointers, against the largest possible page only (see below) |
 | `0x3C` | 2 | **ANSI code page** of the collation's language — LE (`0x04E4` = 1252, `0x04E2` = 1250, `0` = none); see below |
 | `0x3E` | 4 | **Database (encryption) key** — 0 when there is no password |
-| `0x42` | 40 | **Password** (Jet 4; Jet 3 = 20 bytes) — additionally masked by a creation-date-derived value, so an empty password does not read as zeroes |
+| `0x42` | 40 | **Password** (Jet 4; Jet 3 = 20 bytes) — additionally masked by a creation-date-derived value, so an empty password does not read as zeroes. On an `.accdb`, 40 × the database key's low byte instead (§2) |
 | `0x6A` | 4 | **Creating engine's build number** — `0x000011A6` (4518) on everything ACE writes, but **not a constant**: Jet-4-authored files carry the build of the `msjet40.dll` that created them (see below) |
 | `0x6E` | 4 | **Default text collating sort order** — a 32-bit LCID with the version in its unused top byte: LANGID (2, LE, `0x0409` = 1033 en-US), **sort id** at `0x70`, **sort-order version** at `0x71` (0 = legacy table, 1 = the Access-2010 order). Byte-for-byte the same layout as a column descriptor's `0x0B`–`0x0E` |
 | `0x72` | 8 | **Database creation timestamp** — OLE automation `double` (days from 1899-12-30) |
@@ -112,11 +112,13 @@ definition is a page. What the maps hold, and how ACE validates and follows the 
 two may name any page up to the largest a file can have: `0x080000FF` (page 524,288, row 255) opens and
 `0x08000100` (page 524,289) makes the database unopenable. The file's own length is **not** consulted — a page
 ten past the end of a 353-page file, or page 500,000, opens as readily — which is looser than the "page must
-exist" check `0x18` and `0x1C` get. `0x38` takes any value at all. The boundary sits where a `[row][page]`
-reading puts it, and read as a plain page number it would be meaningless, so `0x30` and `0x34` are most likely
-**record pointers** of the shape `0x18`/`0x1C` have, rather than page pointers like the catalog block after them.
-What they point at is **not known**: every file examined carries zero, zero is accepted, and a compact zeroes a
-poked value. A writer must leave all three as it found them.
+exist" check `0x18` and `0x1C` get. `0x38` takes any value at all.
+
+**What they point at (verified):** the workgroup tables. In a workgroup file `0x30` holds the TDEF page of
+`MSysAccounts` and `0x34` that of `MSysGroups` — pages 6 and 7, straight after the four catalog TDEFs at
+`0x20`–`0x2C` — each with the row byte zero, so they read the same as a plain page number or as `[row][page]`.
+`0x38` is zero there too. An ordinary database has neither table and carries zero in both; zero is accepted,
+and a compact zeroes a value poked into one. A writer must leave all three as it found them.
 
 **Catalog bootstrap.** Reading the database is a two-step hop from page 0: the pointer at `0x20` gives the
 `MSysObjects` TDEF page (2), and `MSysObjects` then lists every other object (each table's row `Id` is *its*
@@ -240,9 +242,12 @@ no-password files and an empty password that unmasks to the creation-date-derive
     base header mask — the exact inverse of the read. **Verified byte-identical to Access's own output** in
     the `0x42` field. This is password-only obfuscation — the data pages stay plaintext (`0x3E` key = 0);
     it is a *different* feature from Jet RC4 page encryption (§2.4), which the "Encode/Encrypt" menu applies.
-  - **ACE `.accdb`**: real encryption — this region is an encryption **verifier**, not recoverable
-    plaintext (an actual password decodes to random-looking bytes under the Jet 4 scheme). Recovering
-    it is a crypto attack, not format work.
+  - **ACE `.accdb`**: the password is not here — it lives in the EncryptionInfo descriptor at `0x299`
+    (§2.5). Under the same date and base masks the field decodes to **40 copies of the low byte of the
+    database key at `0x3E`**, and to zeroes while the file is unencrypted (verified against Access's
+    whole-file encryption, password change and removal, and against an Access-encrypted file). The field
+    changes with every new key, so Access's encryption moves the SID keystream (§2.3). `DatabaseEncryption`
+    writes it the same way on every `.accdb` set, change and removal.
 - **Writing it:** `DatabaseCreator.CreateEmpty(path, version, collation)` (and
   `LibRedConnection.CreateDatabase(connectionString, collation)`) set this pair, defaulting to General-Legacy.
   The chosen collation goes into page 0 *and* into the system tables' column descriptors, and
@@ -361,44 +366,80 @@ values Access shows in the `SID` column:
 | `Admins` | group | `01-DB-87-93-20-81-4F-AB-38-…` (102 bytes) |
 
 These short SIDs are the well-known Access defaults (identical on every stock install — which is why a captured
-SID cluster opens cross-PC). Object ownership in a database uses the **"user" form** (byte0 `0x03`) of
-`Engine`/`Creator`.
+SID cluster opens cross-PC). In a database, **Engine** owns the system tables and the DAO containers; the
+**admin** user owns the objects it creates and `MSysDb`, and holds the read grants on the system tables; the
+**Users** group is the full-rights grantee; and **Creator** stands, in a container's inheritable grant, for
+whoever creates an object there. Any other account of the workgroup — `Admins`, or a user or group added to
+it — appears under its own `MSysAccounts` SID in the same way.
 
-An on-disk SID in `MSysACEs.SID` / `MSysObjects.Owner` is the **workgroup account SID XOR'd with a per-file
-keystream**, from the keystream's first byte (verified). Every SID in a file shares the one keystream, so a
-2-byte SID always meets its first two bytes, and against the short SIDs the keystream reads as a **2-byte
-mask**. E.g. with mask `24-CC`: `Users 02-01 ^ 24-CC = 26-CD`, `admin 03-01 ^ 24-CC = 27-CD` (read grantee),
-`Engine 03-03 ^ 24-CC = 27-CF` (system-object owner), `Creator 03-04 ^ 24-CC = 27-C8` (inheritable container
-grant).
+**An on-disk SID in `MSysACEs.SID` / `MSysObjects.Owner` is the account's SID XOR a per-file RC4 keystream**,
+from its first byte, whatever its length (verified: in a database DAO built under a workgroup, every owner and
+grantee — short and 102-byte, a table created by a non-admin user included — decodes to that workgroup's
+`MSysAccounts` entry exactly). Every SID in a file shares the one keystream, so against the short SIDs it reads
+as a **2-byte mask**. E.g. with mask `25-CC`: `Users 02-01 ^ 25-CC = 27-CD` (full grantee), `admin 03-01 ^ 25-CC
+= 26-CD` (owner, read grantee), `Engine 02-03 ^ 25-CC = 27-CF` (system-object owner), `Creator 02-04 ^ 25-CC =
+27-C8` (inheritable container grant).
 
-Access adds **102-byte SIDs** on first open, and they use the same keystream: under the file's short-SID mask
-their first two bytes read `00 DB`, and two of them in one file differ by the same bytes in files from different
-installs, which only a shared keystream allows (verified). Beyond byte 1 neither their plaintext nor the
-keystream is established, so only the first two keystream bytes are recoverable from a file.
+**102-byte SIDs** use the same keystream over their full length. The default workgroup's `Admins` group
+(`01-DB-87-93-…`) is the usual one; another workgroup's account — such as an `Admins` group whose SID starts
+`01-C5` — appears in a file used under that workgroup, beside the default one.
 
 **The mask is recoverable from the file, even though it is stored nowhere (verified).** `MSysObjects` is owned
-by the `Engine` account (`03-03`) in every file, so `mask = MSysObjects.Owner ^ 03-03`, and every other short
-account follows from it: an owner of `680E` gives mask `6B-0D`, under which that file's `690C` / `680C` / `6809`
-are `Users` / `admin` / `Creator`. That is how a writer adding an object to a file it did not create gets the
-SIDs right ([system-catalog §11](system-catalog.md)); the pair baked in below fits only the files this engine
-creates itself.
+by the `Engine` account (`02-03`) in every file, so `mask = MSysObjects.Owner ^ 02-03`, and every other short
+account follows from it: an owner of `680E` gives mask `6A-0D`, under which that file's `690C` / `680C` / `6809`
+are `admin` / `Users` / `Creator`. That is how a writer adding an object to a file it did not create gets the
+SIDs right ([system-catalog §11](system-catalog.md)). The whole keystream also follows from page 0 alone, by the
+derivation below, which is what serves when that row cannot be read.
 
 The keystream is **bound to the exact millisecond-precise creation-date `double`** at `0x72`: a file with
 self-consistent SIDs but a *different* creation date is rejected with *"Record(s) cannot be read; no read
 permission on 'MSysObjects'/'MSysACEs'"* (Jet 3112). Grafting a real file's date **and** SIDs together opens
 clean; either alone fails. Dates within the same second give unrelated keystreams.
 
-How the keystream derives from the date is **not known**. It is not RC4 under a 4-byte key made from the date's
-low half, high half, their XOR or its day count combined with any constant by XOR, addition or subtraction; nor
-RC4, MD5 or SHA-1 keyed by the date (its `double` in either byte order, either half, its day, second or
-millisecond count, its `FILETIME` or `SYSTEMTIME`, or the date as stored), by any span of page 0 decoded or raw,
-or by the header's `C7 DA 39 6B` key combined with the date; nor MSVCRT `rand` or the VB `Rnd` generator seeded
-from page 0.
-`DatabaseCreator` therefore **bakes one verified `(SeedCreationDateBits, SidMask)` pair** (`0x40E68F1E8943D217`
-+ `24-CC`) rather than computing it — the from-scratch analogue of the account-SID constants. Limitations
-(deferred): every LibRed-created file reports the same creation instant, and only the **default** workgroup is
-supported; per-file-random dates and custom/secured workgroups both need the date↔keystream derivation (reading
-a custom `System.mdw` itself works — §2.4).
+#### Deriving the RC4 key (verified)
+
+The key is folded from the **decoded header**, not from the date alone. The algorithm was located in
+[Jackcess Encrypt's `JetPasswordHandler.createSidKey`](https://github.com/jahlborn/jackcessencrypt/blob/master/src/main/java/com/healthmarketscience/jackcess/crypt/impl/JetPasswordHandler.java),
+with the region preparation in
+[`BaseCryptCodecHandler.readPasswordRegion`](https://github.com/jahlborn/jackcessencrypt/blob/master/src/main/java/com/healthmarketscience/jackcess/crypt/impl/BaseCryptCodecHandler.java).
+Its short-SID result matches the stored SIDs of Jet 4 `.mdb` and ACE `.accdb` files alike, including freshly
+DAO-created ones: the page-0 header it reads is the Jet 4 family's, shared by both.
+
+1. Remove the fixed header mask (§2.1), yielding decoded page bytes `H`.
+2. Copy **80 bytes** `H[0x42..0x92)` into `R`: the 40-byte password field **and 40 bytes after it**.
+3. Remove the additional password mask from **only `R[0..40)`**: XOR with the repeating four
+   little-endian bytes of `(int)LEDouble(H[0x72..0x7A))`. Do not apply it to the second half.
+4. Seed a 32-bit unsigned accumulator with `LE32(H[0x72..0x76))`: the **low four raw bytes of the
+   creation-date double**, not its integer day count.
+5. For `i = 0..39`, fold `K ^= (uint)R[2*i] << (i % 24)`.
+6. Encode `K` as **four little-endian bytes**, use those as a standard RC4 key, and generate the
+   keystream from byte zero. Each SID starts at byte zero again, irrespective of its length.
+
+The unusual part is step 5: it reads every **even byte of an 80-byte region**, not every byte of the
+40-byte password field. Thus it also folds bytes from the engine build, collation, creation date and
+following header area. For an empty password the first 40 prepared bytes are zero, but the second half
+still contributes. This explains why trying the date's halves directly as RC4 keys did not work.
+
+For `WideTable.accdb`, date bits `0x40E68F1E8943D217` produce key **`0x8163D5CE`**, encoded
+**`CE D5 63 81`**, whose RC4 stream begins **`25 CC`**: its `MSysObjects` owner `27 CF` is Engine `02 03`.
+
+**A change of key re-masks every stored SID (verified).** Each SID — short and 102-byte alike — becomes
+`stored XOR oldStream XOR newStream` over its whole length, which needs no knowledge of its plaintext.
+Setting or removing the legacy database password changes the 40-byte field the fold reads, so it changes the
+key, and Access's own password change (DAO `NewPassword`) re-masks exactly so — every SID in
+`MSysObjects.Owner` and `MSysACEs.SID`, the 102-byte ones over their full length. An `.accdb`'s whole-file
+encryption changes the same field (it carries the database key's low byte, §2), so Access re-masks there
+too; but there it can leave some `MSysObjects.Owner` values — the system tables' among them — un-re-masked,
+so in an Access-encrypted `.accdb` an owner need not decode to any account. LibRed re-masks every SID.
+
+**Creation.** A new database is dated when it is created. Its page 0 is built complete first — creation
+timestamp, collation, empty password field — and its SIDs are the default workgroup's XOR the stream that
+header gives. Nothing the fold reads may change after the SIDs are derived. Creating a database under any other
+workgroup is unverified.
+
+Opening a file through ACE's OLE DB provider is **not** a check of its SIDs: it also opens a file whose SIDs
+belong to a different date. The evidence is byte-for-byte agreement with SIDs Access itself wrote. Access
+desktop's permission-sensitive open of a LibRed-created file has not been tested.
 
 ### 2.4 Legacy Jet 3/4 RC4 page encryption (verified)
 

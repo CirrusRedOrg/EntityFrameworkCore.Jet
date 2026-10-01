@@ -203,6 +203,52 @@ public class DatabaseCreatorTests
         Assert.Equal(minor, page[0x15]);
     }
 
+    // A new database is dated when it is made, and its SIDs are the default workgroup's, masked with the keystream
+    // that date and the rest of its page 0 give (page-00 §2.3): Engine owns the system tables, admin owns MSysDb,
+    // and every grant names admin, the Users group or the Creator placeholder — in an .mdb and an .accdb alike.
+    [Theory]
+    [InlineData((byte)0x01, ".mdb")]
+    [InlineData((byte)0x02, ".accdb")]
+    [InlineData((byte)0x03, ".accdb")]
+    public void A_created_database_is_dated_now_and_its_sids_follow_its_own_page0(byte version, string extension)
+    {
+        string path = TemporaryDatabase.CreatePath("libred_sids_", extension);
+        try
+        {
+            DateTime before = DateTime.Now;
+            DatabaseCreator.CreateEmpty(path, version);
+            byte[] page0 = File.ReadAllBytes(path)[..4096];
+
+            using var db = JetDatabase.Open(path);
+            Assert.InRange(db.DefinitionPage.DatabaseCreationDate, before.AddSeconds(-1), DateTime.Now.AddSeconds(1));
+
+            // The default workgroup's accounts, as System.mdw's MSysAccounts holds them.
+            byte[] engine = LibRed.Crypto.SidKeystream.MaskAccount(page0, [0x02, 0x03]);
+            byte[][] grantees =
+            [
+                LibRed.Crypto.SidKeystream.MaskAccount(page0, [0x03, 0x01]),  // admin user
+                LibRed.Crypto.SidKeystream.MaskAccount(page0, [0x02, 0x01]),  // Users group
+                LibRed.Crypto.SidKeystream.MaskAccount(page0, [0x02, 0x04]),  // Creator
+            ];
+
+            Table objects = db.OpenTable("MSysObjects");
+            int name = objects.Definition.RequireColumn("Name").Index, owner = objects.Definition.RequireColumn("Owner").Index;
+            foreach (object?[] row in objects.Rows())
+                if (row[name] is string table && table.StartsWith("MSys", StringComparison.Ordinal))
+                    Assert.Equal(table == "MSysDb" ? grantees[0] : engine, row[owner]);
+
+            Table aces = db.OpenTable("MSysACEs");
+            int sid = aces.Definition.RequireColumn("SID").Index;
+            Assert.All(aces.Rows(), row => Assert.Contains(grantees, g => g.SequenceEqual((byte[])row[sid]!)));
+
+            var (admin, users, creator) = db.Catalog.SecuritySids;
+            Assert.Equal(grantees[0], admin);
+            Assert.Equal(grantees[1], users);
+            Assert.Equal(grantees[2], creator);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     [Fact]
     public void Synthesized_page0_round_trips_through_the_reader()
     {

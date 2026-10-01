@@ -10,7 +10,7 @@ namespace LibRed.Engine.Tests;
 /// The <c>MSysACEs</c> rows a new object gets are its container's inheritable grants, the Creator's becoming the
 /// owner's (system-catalog §11) — so they differ from database to database. Each is checked in two whose Tables
 /// containers grant differently: a fresh DAO database, whose owner row comes out <c>0xF00FE</c>, and Northwind,
-/// whose Tables container also grants Users <c>0xFFEFF</c>.
+/// whose Tables container also grants the admin user <c>0xFFEFF</c>.
 /// </summary>
 [Collection(AceCollection.Name)]
 public class PermissionRowsAccessTests(ITestOutputHelper output) : TempDatabaseTest

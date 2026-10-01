@@ -28,10 +28,12 @@ namespace LibRed.Crypto;
 /// buffer, so the memory cost is a page rather than the database; and because the channel hands them over
 /// decrypted, a password change re-encrypts in that same pass and the plaintext database never reaches disk.
 /// The replacement cannot be moved into place under an open handle, so these operations <b>close the
-/// database</b> — page for page it is a different file, and the caller reopens it under the new password.</para>
-/// <para>An operation that only edits page 0 — the legacy Jet password field — writes that one page through the
-/// open channel instead, and leaves the database open: copying a whole database to change 40 bytes is the
-/// greater risk, and the field is not a pointer, so a torn write costs the password rather than the data.</para>
+/// database</b> — page for page it is a different file, and the caller reopens it under the new password.
+/// On an <c>.accdb</c> page 0's 40-byte <c>0x42</c> field carries the low byte of the database key, as Access
+/// writes it, and the stored SIDs are re-masked to the keystream that field now gives (page-00 §2.3).</para>
+/// <para>The legacy Jet password instead changes page 0's 40-byte field and re-masks the stored SIDs, which the
+/// field's keystream covers, through the open channel in one transaction, and leaves the database open: copying
+/// a whole database to change those is the greater risk.</para>
 /// </remarks>
 public static class DatabaseEncryption
 {
@@ -142,38 +144,91 @@ public static class DatabaseEncryption
     /// <summary>Sets the legacy Jet 4 (<c>.mdb</c>) database password — the "Set Database Password" feature, which is
     /// password obfuscation only (the data pages stay plaintext; this is not RC4 page encryption). The password
     /// (≤20 chars) is stored UTF-16LE at <c>0x42</c>, XOR-masked with the 32-bit truncation of the creation-date
-    /// double at <c>0x72</c>, all within the header-masked region. Verified byte-identical to Access's own output.
-    /// Only page 0 changes, so the database stays open.</summary>
+    /// double at <c>0x72</c>, all within the header-masked region; the field's bytes are verified byte-identical
+    /// to Access's own output. The field also feeds the keystream every stored SID is masked with, so the SIDs are
+    /// re-masked with it, as Access's own password change does. The database stays open.</summary>
     public static void SetJetPassword(JetDatabase database, string password)
     {
         ArgumentException.ThrowIfNullOrEmpty(password);
         if (password.Length > JetPasswordSize / 2)
             throw new ArgumentException($"A Jet database password is at most {JetPasswordSize / 2} characters.", nameof(password));
 
-        RewriteHeader(database, (page0, format) =>
-        {
-            if (format.IsAccdb)
-                throw new ArgumentException("The legacy Jet password applies to .mdb, not .accdb — use SetPassword.", nameof(database));
-            WriteJetPasswordField(page0, password);
-        });
+        RewriteJetPassword(database, password,
+            "The legacy Jet password applies to .mdb, not .accdb — use SetPassword.");
     }
 
     /// <summary>Removes a legacy Jet 4 (<c>.mdb</c>) database password by clearing the password field (equivalent to
-    /// setting an empty password). Only page 0 changes, so the database stays open.</summary>
-    public static void RemoveJetPassword(JetDatabase database)
+    /// setting an empty password), re-masking the stored SIDs as <see cref="SetJetPassword"/> does. The database
+    /// stays open.</summary>
+    public static void RemoveJetPassword(JetDatabase database) =>
+        // An empty password: the field encodes the mask alone, decoding back to "".
+        RewriteJetPassword(database, "",
+            "The legacy Jet password applies to .mdb, not .accdb — use RemovePassword.");
+
+    /// <summary>
+    /// Writes <paramref name="password"/> into the page-0 field and re-masks every stored SID to match, in one
+    /// transaction. The field is half of the header region the SID keystream is folded from (page-00 §2.3), so a
+    /// new password is a new keystream; each SID in <c>MSysObjects.Owner</c> and <c>MSysACEs.SID</c> becomes
+    /// <c>stored XOR oldStream XOR newStream</c> over its whole length — exactly what Access's own password change
+    /// writes, the 102-byte SIDs included (verified against DAO's <c>NewPassword</c>). Left as they were, they
+    /// would belong to no account under the new key.
+    /// </summary>
+    private static void RewriteJetPassword(JetDatabase database, string password, string accdbMessage)
     {
-        RewriteHeader(database, (page0, format) =>
+        PageChannel channel = RequireExclusive(database);
+        if (channel.Format.IsAccdb) throw new ArgumentException(accdbMessage, nameof(database));
+
+        var page0 = new byte[channel.PageSize];
+        channel.ReadPage(0, page0);
+        byte[] before = (byte[])page0.Clone();
+        WritePasswordField(page0, Encoding.Unicode.GetBytes(password));
+
+        database.BeginTransaction();
+        try
         {
-            if (format.IsAccdb)
-                throw new ArgumentException("The legacy Jet password applies to .mdb, not .accdb — use RemovePassword.", nameof(database));
-            WriteJetPasswordField(page0, ""); // empty password → field encodes the mask alone, decoding back to ""
-        });
+            channel.WritePage(0, page0);
+            RemaskSids(database, before, page0);
+            database.Commit();
+        }
+        catch
+        {
+            database.Rollback();
+            throw;
+        }
+        database.Catalog.Invalidate(); // it holds the SIDs it read from MSysObjects' own row
     }
 
-    // Encodes the password into the header-masked 0x42 field: plaintext = UTF-16LE(password) zero-padded to 40 bytes,
-    // XORed with the 4-byte little-endian (int)creationDateDouble mask (cycled); the on-disk bytes are that plaintext
-    // XORed with the page-0 header mask. Reading (jackcess/LibRed) is the exact inverse.
-    private static void WriteJetPasswordField(byte[] page0, string password)
+    /// <summary>
+    /// Re-masks every SID in <c>MSysObjects.Owner</c> and <c>MSysACEs.SID</c> from the keystream page 0
+    /// <paramref name="before"/> folds to into the one <paramref name="after"/> does (page-00 §2.3), inside the
+    /// caller's transaction: each becomes <c>stored XOR oldStream XOR newStream</c> over its whole length.
+    /// </summary>
+    private static void RemaskSids(JetDatabase database, byte[] before, byte[] after)
+    {
+        foreach ((string tableName, string columnName) in new[] { ("MSysObjects", "Owner"), ("MSysACEs", "SID") })
+        {
+            Table table = database.OpenTable(tableName);
+            int column = table.Definition.RequireColumn(columnName).Index;
+            var rows = table.RowsWhere([column], values => values[column] is byte[] { Length: > 0 }).ToList();
+            if (rows.Count == 0) continue;
+
+            int longest = rows.Max(r => ((byte[])r.Values[column]!).Length);
+            byte[] oldStream = SidKeystream.For(before, longest), newStream = SidKeystream.For(after, longest);
+            var changed = new HashSet<int> { column };
+            foreach ((RowId id, object?[] values) in rows)
+            {
+                byte[] sid = (byte[])values[column]!;
+                for (int i = 0; i < sid.Length; i++) sid[i] ^= (byte)(oldStream[i] ^ newStream[i]);
+                table.Update(id, values, changed);
+            }
+        }
+    }
+
+    // Encodes the header-masked 0x42 field: plaintext = value zero-padded to 40 bytes, XORed with the 4-byte
+    // little-endian (int)creationDateDouble mask (cycled); the on-disk bytes are that plaintext XORed with the page-0
+    // header mask. Reading (jackcess/LibRed) is the exact inverse. An .mdb's value is its Jet password, UTF-16LE;
+    // an .accdb's is the low byte of its database key, 40 times over (zero when unencrypted).
+    private static void WritePasswordField(byte[] page0, ReadOnlySpan<byte> value)
     {
         ReadOnlySpan<byte> hmask = JetFormatBase.PageZeroHeaderMask;
         int start = JetFormatBase.PageZeroHeaderMaskStart;
@@ -185,7 +240,7 @@ public static class DatabaseEncryption
 
         Span<byte> field = stackalloc byte[JetPasswordSize];
         field.Clear();
-        Encoding.Unicode.GetBytes(password).CopyTo(field);
+        value.CopyTo(field);
         for (int i = 0; i < JetPasswordSize; i++)
             page0[JetPasswordOffset + i] = (byte)(field[i] ^ dateMask[i % 4] ^ hmask[JetPasswordOffset - start + i]);
     }
@@ -250,13 +305,25 @@ public static class DatabaseEncryption
 
         var page0 = new byte[channel.PageSize];
         channel.ReadPage(0, page0);
+        byte[] before = (byte[])page0.Clone();
         PageTransform? transform = change(page0, channel.Format);
+
+        // An .accdb's 0x42 field carries the low byte of the database key, so a new key is a new SID keystream.
+        // The SIDs are re-masked in a transaction the copy below reads through and that is then rolled back: they
+        // reach only the replacement, and the original is left exactly as it was unless the replace happens.
+        bool remask = channel.Format.IsAccdb;
+        if (remask)
+        {
+            WritePasswordField(page0, Enumerable.Repeat((byte)DecodeDatabaseKey(page0), JetPasswordSize).ToArray());
+            database.BeginTransaction();
+        }
 
         string path = channel.Path;
         string temporary = path + $".libred-encoding-{Guid.NewGuid():N}";
         bool replaced = false;
         try
         {
+            if (remask) RemaskSids(database, before, page0);
             using (var copy = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
                 copy.Write(page0);
@@ -272,6 +339,7 @@ public static class DatabaseEncryption
 
             // The handle has to go before the swap — a file this process holds open cannot be replaced — and
             // the database is a different file afterwards anyway, stored under a key this channel has not got.
+            if (remask) database.Rollback();
             database.Dispose();
             if (OperatingSystem.IsWindows())
                 File.Replace(temporary, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
@@ -282,19 +350,9 @@ public static class DatabaseEncryption
         finally
         {
             // Anything short of the replace leaves the database as it was, so the half-built copy is just litter.
+            if (!replaced && channel.InTransaction) database.Rollback();
             if (!replaced && File.Exists(temporary)) File.Delete(temporary);
         }
-    }
-
-    /// <summary>Edits page 0 alone, through the open channel, leaving the database open on it.</summary>
-    private static void RewriteHeader(JetDatabase database, Action<byte[], JetFormatBase> change)
-    {
-        PageChannel channel = RequireExclusive(database);
-        var page0 = new byte[channel.PageSize];
-        channel.ReadPage(0, page0);
-        change(page0, channel.Format);
-        channel.WritePage(0, page0);
-        channel.Flush();
     }
 
     /// <summary>The state every operation here demands of the database it is given: opened for this caller

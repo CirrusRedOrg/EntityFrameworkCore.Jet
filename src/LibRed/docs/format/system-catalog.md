@@ -75,14 +75,16 @@
   > **A new object's rows are its container's inheritable grants (verified).** Each container —
   > `Tables` (`0x0F000001`, which holds queries too) and `Relationships` (`0x0F000003`) — carries `MSysACEs`
   > rows of its own, some marked `FInheritable`. A new object gets one row per account those inheritable rows
-  > name: the **Creator** account's grant becomes the grant to the object's **owner**, the Users account, and
-  > every other inheritable grant is copied for its own account — OR'd into the owner's row when it names
-  > Users too. The owner's row comes first. So the masks are the database's, not the object class's:
-  > - A fresh DAO/ACE database's `Tables` container grants Creator `0xF00FE` and admin `0xFFEFF` (its Users
-  >   row, `0x60001`, is not inheritable), so a new table, view or query gets Users `0xF00FE`, admin `0xFFEFF`.
-  > - Northwind's `Tables` container also grants Users `0xFFEFF`, inheritable, so there both rows are `0xFFEFF`.
-  > - The `Relationships` container grants Creator `0xF00FE` and admin `0xFFFFF` in both, so a relationship
-  >   gets Users `0xF00FE`, admin `0xFFFFF`.
+  > name: the **Creator** account's grant becomes the grant to the object's **owner** — the user who created
+  > it, the admin user for everything LibRed writes — and every other inheritable grant is copied for its own
+  > account, OR'd into the owner's row when it names the owner too. The owner's row comes first. So the masks
+  > are the database's, not the object class's:
+  > - A fresh DAO/ACE database's `Tables` container grants Creator `0xF00FE` and the Users group `0xFFEFF`
+  >   (its admin row, `0x60001`, is not inheritable), so a new table, view or query gets admin `0xF00FE`,
+  >   Users `0xFFEFF`.
+  > - Northwind's `Tables` container also grants admin `0xFFEFF`, inheritable, so there both rows are `0xFFEFF`.
+  > - The `Relationships` container grants Creator `0xF00FE` and Users `0xFFFFF` in both, so a relationship
+  >   gets admin `0xF00FE`, Users `0xFFFFF`.
   >
   > The route does not matter: ACE's SQL DDL and the Access UI give the same rows in the same database.
   >
@@ -92,9 +94,9 @@
   > **The SIDs are per file, and have to be read out of the file being written (verified).** An on-disk SID is
   > a workgroup account SID XOR'd with a mask that differs per database and is stored nowhere
   > ([page-00 §2.3](page-00-database.md)). It is recoverable all the same: `MSysObjects` is owned by the
-  > **Engine** account (`03-03`) in every file, so `mask = MSysObjects.Owner ^ 03-03`, and every other account
-  > follows from it — a file whose `MSysObjects.Owner` is `680E` has mask `6B-0D`, under which `690C` is
-  > Users `02-01`, `680C` admin `03-01` and `6809` Creator `03-04`. An object written with a **different**
+  > **Engine** account (`02-03`) in every file, so `mask = MSysObjects.Owner ^ 02-03`, and every other account
+  > follows from it — a file whose `MSysObjects.Owner` is `680E` has mask `6A-0D`, under which `690C` is
+  > admin `03-01`, `680C` Users `02-01` and `6809` Creator `02-04`. An object written with a **different**
   > file's SIDs carries an owner that names no account in the file it sits in, so a writer adding an object to
   > a database it did not create must take the mask from that database.
 

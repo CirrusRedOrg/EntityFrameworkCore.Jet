@@ -1,4 +1,5 @@
 using LibRed.Catalog;
+using LibRed.Crypto;
 using LibRed.Formats;
 using LibRed.Pages;
 using System.Buffers.Binary;
@@ -28,8 +29,8 @@ public static class DatabaseCreator
     /// <param name="collation">The database's default collation — its LCID and sort-order version
     /// (1033 / version 0 is General Legacy en-US).</param>
     /// <param name="creationDays">Creation timestamp as an OLE-automation date (days since 1899-12-30), passed
-    /// as the raw double so the exact millisecond-precise bit pattern is preserved — the page-0 SID mask is bound
-    /// to those exact bits (see <see cref="SeedCreationDateBits"/>).</param>
+    /// as the raw double so the exact millisecond-precise bit pattern is preserved — the file's SIDs are masked
+    /// with a keystream folded from those bits and the rest of the header (page-00 §2.3).</param>
     public static byte[] BuildDefinitionPage(
         byte version, bool isAccdb, int codePage, Collation collation, double creationDays)
     {
@@ -211,27 +212,14 @@ public static class DatabaseCreator
 
     private const int SystemFlag = unchecked((int)0x80000000);
 
-    // Per-file SID cluster. A database's on-disk SIDs are the DEFAULT WORKGROUP's account SIDs XOR'd with a
-    // per-file keystream, whose first two bytes are all a 2-byte SID meets — so it reads as a 2-byte mask. The
-    // account SIDs were read verbatim from a real System.mdw (the file Access opens first to authenticate):
-    // admin(user)=03-01, Users(group)=02-01, Engine=02-03, Creator=02-04; the Admins group alone has a 102-byte
-    // SID, which Access adds on first open, so we don't emit it. Object ownership uses the "user" form (byte0
-    // 0x03) of Engine/Creator, matching real DAO files. Verified against WideTable with mask 24-CC: Users
-    // 02-01^24-CC = 26-CD, admin 03-01^24-CC = 27-CD, Engine-as-user 03-03^24-CC = 27-CF (system-object owner),
-    // Creator-as-user 03-04^24-CC = 27-C8.
-    //
-    // The keystream is bound to the millisecond-precise creation date, and how it derives from the date is not
-    // known (docs/format/page-00-database.md §2.3), so the two MUST travel together. We bake one verified,
-    // self-consistent (creation-date, mask) pair — the from-scratch analogue of the account-SID constants —
-    // giving an Access-openable file with no template/graft.
-    // TODO: per-file-random dates (and custom/secured workgroups) need the date<->keystream derivation.
-    internal const long SeedCreationDateBits = 0x40E68F1E8943D217L; // 2026-06-27 22:54:07.716 (WideTable) — pairs with SidMask
-    private static readonly byte[] SidMask = [0x24, 0xCC];           // WideTable's per-file mask (pairs with SeedCreationDateBits)
-    private static byte[] Masked(byte b0, byte b1) => [(byte)(b0 ^ SidMask[0]), (byte)(b1 ^ SidMask[1])];
-    internal static readonly byte[] SidUsers = Masked(0x02, 0x01);   // Users group — read grantee / owner of user tables
-    internal static readonly byte[] SidAdmin = Masked(0x03, 0x01);   // admin user  — full grantee
-    private static readonly byte[] SidEngine = Masked(0x03, 0x03);   // Engine (user form) — owner of system tables + DAO containers
-    internal static readonly byte[] SidCreator = Masked(0x03, 0x04);  // Creator (user form) — inheritable container grant
+    // The default workgroup's account SIDs, as a stock System.mdw's MSysAccounts holds them (the file Access opens
+    // first to authenticate). The Admins group alone has a 102-byte SID, which Access adds on first open, so it is
+    // not emitted. On disk each is XOR'd with the file's own keystream, which page 0 determines (page-00 §2.3), so
+    // the stored bytes are worked out per file from the header written for it — see SidKeystream.
+    private static readonly byte[] AdminAccount = [0x03, 0x01];   // admin user — owner of what it creates, read grantee on the system tables
+    private static readonly byte[] UsersAccount = [0x02, 0x01];   // Users group — full grantee
+    private static readonly byte[] EngineAccount = [0x02, 0x03];  // Engine — owner of the system tables and the DAO containers
+    private static readonly byte[] CreatorAccount = [0x02, 0x04]; // Creator — the inheritable container grant's placeholder for an object's owner
 
     /// <summary>
     /// Creates a new, empty database at <paramref name="path"/> from scratch — no DAO/ADOX. Hand-builds the
@@ -307,10 +295,18 @@ public static class DatabaseCreator
         var (queriesTdef, queriesMap) = BuildSystemTable(format, MSysQueriesColumns, usageMapPage: 8, sortOrder);
         var (relTdef, relMap) = BuildSystemTable(format, MSysRelationshipsColumns, usageMapPage: 9, sortOrder);
         const int seedPages = 10;   // page 0, page 1, 4 core TDEFs (2..5), 4 usage maps (6..9)
+
+        // Created now, as Access would. The SIDs are worked out from the finished page 0 — its creation date,
+        // collation and empty password field all feed the keystream — so nothing in it may change after this.
+        byte[] page0 = BuildDefinitionPage(version, format.IsAccdb, codePage, sortOrder, DateTime.Now.ToOADate());
+        byte[] sidUsers = SidKeystream.MaskAccount(page0, UsersAccount);
+        byte[] sidAdmin = SidKeystream.MaskAccount(page0, AdminAccount);
+        byte[] sidEngine = SidKeystream.MaskAccount(page0, EngineAccount);
+        byte[] sidCreator = SidKeystream.MaskAccount(page0, CreatorAccount);
+
         byte[][] seed =
         [
-            BuildDefinitionPage(version, format.IsAccdb, codePage, sortOrder,
-                BitConverter.Int64BitsToDouble(SeedCreationDateBits)),
+            page0,
             BuildFreeMapPage(format, seedPages),       // page 1: global free-pages map
             objTdef, acesTdef, queriesTdef, relTdef,   // pages 2..5: core TDEFs
             objMap, acesMap, queriesMap, relMap,       // pages 6..9: their usage maps
@@ -343,25 +339,25 @@ public static class DatabaseCreator
 
         // Catalog rows in the real stored order: DAO containers + MSysDb first, then the system tables, then
         // the DAO "SingleRecord" pseudo-object. Access's catalog bootstrap walks MSysObjects in this order.
-        InsertCatalogRow(msysObjects, tablesC, "Tables", type: 3, SystemFlag, parentId: root, owner: SidEngine);
-        InsertCatalogRow(msysObjects, databasesC, "Databases", type: 3, SystemFlag, parentId: root, owner: SidEngine);
-        InsertCatalogRow(msysObjects, relationshipsC, "Relationships", type: 3, SystemFlag, parentId: root, owner: SidEngine);
-        InsertCatalogRow(msysObjects, 0x10000000, "MSysDb", type: 2, SystemFlag, parentId: databasesC, owner: SidUsers);
-        InsertCatalogRow(msysObjects, objPage, "MSysObjects", type: 1, SystemFlag, parentId: tablesC, owner: SidEngine);
-        InsertCatalogRow(msysObjects, acesPage, "MSysACEs", type: 1, SystemFlag, parentId: tablesC, owner: SidEngine);
-        InsertCatalogRow(msysObjects, queriesPage, "MSysQueries", type: 1, SystemFlag, parentId: tablesC, owner: SidEngine);
-        InsertCatalogRow(msysObjects, relPage, "MSysRelationships", type: 1, SystemFlag, parentId: tablesC, owner: SidEngine);
+        InsertCatalogRow(msysObjects, tablesC, "Tables", type: 3, SystemFlag, parentId: root, owner: sidEngine);
+        InsertCatalogRow(msysObjects, databasesC, "Databases", type: 3, SystemFlag, parentId: root, owner: sidEngine);
+        InsertCatalogRow(msysObjects, relationshipsC, "Relationships", type: 3, SystemFlag, parentId: root, owner: sidEngine);
+        InsertCatalogRow(msysObjects, 0x10000000, "MSysDb", type: 2, SystemFlag, parentId: databasesC, owner: sidAdmin);
+        InsertCatalogRow(msysObjects, objPage, "MSysObjects", type: 1, SystemFlag, parentId: tablesC, owner: sidEngine);
+        InsertCatalogRow(msysObjects, acesPage, "MSysACEs", type: 1, SystemFlag, parentId: tablesC, owner: sidEngine);
+        InsertCatalogRow(msysObjects, queriesPage, "MSysQueries", type: 1, SystemFlag, parentId: tablesC, owner: sidEngine);
+        InsertCatalogRow(msysObjects, relPage, "MSysRelationships", type: 1, SystemFlag, parentId: tablesC, owner: sidEngine);
         InsertCatalogRow(msysObjects, unchecked((int)0x80000000), "SingleRecord", type: 9, flags: 0x10000000, parentId: relationshipsC);
 
         // Access-control rows (verified per-object-class masks) in the same object order as the catalog rows.
-        Ace(tablesC, SidCreator, 0x0F00FE, inherit: true); Ace(tablesC, SidUsers, 0x060001); Ace(tablesC, SidAdmin, 0x0FFEFF, inherit: true);
-        Ace(databasesC, SidUsers, 0x060000);
-        Ace(relationshipsC, SidCreator, 0x0F00FE, inherit: true); Ace(relationshipsC, SidUsers, 0x060001); Ace(relationshipsC, SidAdmin, 0x0FFFFF, inherit: true);
-        Ace(0x10000000, SidUsers, 0x06000E); Ace(0x10000000, SidAdmin, 0x00000E);   // MSysDb
-        Ace(objPage, SidUsers, 0x060000); Ace(objPage, SidAdmin, 0x000014);   // MSysObjects
-        Ace(acesPage, SidUsers, 0x060000);                                          // MSysACEs (Users only)
-        Ace(queriesPage, SidUsers, 0x060000); Ace(queriesPage, SidAdmin, 0x000014); // MSysQueries
-        Ace(relPage, SidUsers, 0x0E0000); Ace(relPage, SidAdmin, 0x000014);   // MSysRelationships
+        Ace(tablesC, sidCreator, 0x0F00FE, inherit: true); Ace(tablesC, sidAdmin, 0x060001); Ace(tablesC, sidUsers, 0x0FFEFF, inherit: true);
+        Ace(databasesC, sidAdmin, 0x060000);
+        Ace(relationshipsC, sidCreator, 0x0F00FE, inherit: true); Ace(relationshipsC, sidAdmin, 0x060001); Ace(relationshipsC, sidUsers, 0x0FFFFF, inherit: true);
+        Ace(0x10000000, sidAdmin, 0x06000E); Ace(0x10000000, sidUsers, 0x00000E);   // MSysDb
+        Ace(objPage, sidAdmin, 0x060000); Ace(objPage, sidUsers, 0x000014);   // MSysObjects
+        Ace(acesPage, sidAdmin, 0x060000);                                          // MSysACEs (admin only)
+        Ace(queriesPage, sidAdmin, 0x060000); Ace(queriesPage, sidUsers, 0x000014); // MSysQueries
+        Ace(relPage, sidAdmin, 0x0E0000); Ace(relPage, sidUsers, 0x000014);   // MSysRelationships
 
         // The system tables carry the indexes Access uses to navigate the catalog. ParentIdName is the first
         // real index, Id (the PK) second — matching real files.
@@ -374,7 +370,7 @@ public static class DatabaseCreator
         db.CreateIndex("MSysRelationships", "szReferencedObject", [("szReferencedObject", false)]);
 
         // Complex-column system tables — ACE 12 and later only (see CreateComplexSystemTables).
-        if (version >= 0x02) CreateComplexSystemTables(db);
+        if (version >= 0x02) CreateComplexSystemTables(db, sidEngine);
 
         // Note: MSysAccessStorage and the MSysNavPane* tables are deliberately NOT created here. Verified across
         // ~135 pure-DAO reference files: none of them carry those tables — Access creates them (plus the nav-pane
@@ -400,7 +396,7 @@ public static class DatabaseCreator
     /// DAO-created file position for position — DAO's numbering is a consequence of how it lays out the core
     /// four tables' usage maps and index roots, which LibRed does differently.</para>
     /// </summary>
-    private static void CreateComplexSystemTables(JetDatabase db)
+    private static void CreateComplexSystemTables(JetDatabase db, byte[] sidEngine)
     {
         db.CreateTable("MSysComplexColumns", MSysComplexColumnsColumns);
         // Index names, order and flags as the engine writes them: the ComplexID primary key first, then the
@@ -411,19 +407,19 @@ public static class DatabaseCreator
             disallowNull: true, ignoreNulls: true);
         db.CreateIndex("MSysComplexColumns", "IdxFlatTableID", [("FlatTableID", false)],
             disallowNull: true, ignoreNulls: true);
-        MarkAsSystemTable(db, "MSysComplexColumns", SystemFlag);
+        MarkAsSystemTable(db, "MSysComplexColumns", SystemFlag, sidEngine);
 
         foreach ((string name, ColumnSpec[] columns) in MSysComplexTypeTables)
         {
             db.CreateTable(name, columns);
-            MarkAsSystemTable(db, name, ComplexStorageFlags);
+            MarkAsSystemTable(db, name, ComplexStorageFlags, sidEngine);
         }
     }
 
     /// <summary>Turns a table the ordinary writers just created into a system object: the MSysObjects row gets
     /// the engine's flags and owner, and the TDEF's table-type byte becomes 'S'. Creating it as a user table
     /// first and correcting it reuses all the allocation, usage-map and index machinery.</summary>
-    private static void MarkAsSystemTable(JetDatabase db, string name, int flags)
+    private static void MarkAsSystemTable(JetDatabase db, string name, int flags, byte[] sidEngine)
     {
         TableDef definition = db.Catalog.FindTable(name)
             ?? throw new InvalidOperationException($"'{name}' was not found after creating it.");
@@ -438,7 +434,7 @@ public static class DatabaseCreator
             && Convert.ToInt32(id, CultureInfo.InvariantCulture) == definition.DefinitionPage))
         {
             values[flagsIndex] = flags;
-            values[ownerIndex] = SidEngine;
+            values[ownerIndex] = sidEngine;
             msysObjects.Update(rowId, values, new HashSet<int> { flagsIndex, ownerIndex });
             break;
         }

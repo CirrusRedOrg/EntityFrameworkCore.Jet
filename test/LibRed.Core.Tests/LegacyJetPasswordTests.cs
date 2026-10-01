@@ -93,6 +93,103 @@ public class LegacyJetPasswordTests
         finally { TemporaryDatabase.Delete(tmp); }
     }
 
+    // The password field is half of what the SID keystream is folded from (page-00 §2.3), so setting a password
+    // must re-mask every stored SID to the new keystream — the system tables' owner still has to be Engine under
+    // it — and removing the password must give back the very bytes the file started with.
+    [Fact]
+    public void A_password_change_remasks_every_stored_sid()
+    {
+        string tmp = CreateJet4();
+        try
+        {
+            List<byte[]> original = StoredSids(tmp, null);
+
+            using (JetDatabase db = OpenExclusive(tmp))
+                DatabaseEncryption.SetJetPassword(db, "Test1");
+
+            byte[] page0 = File.ReadAllBytes(tmp)[..4096];
+            List<byte[]> masked = StoredSids(tmp, "Test1");
+            Assert.Equal(original.Count, masked.Count);
+            Assert.NotEqual(original[0], masked[0]);
+            using (var db = JetDatabase.Open(tmp, password: "Test1"))
+                Assert.Equal(SidKeystream.MaskAccount(page0, [0x02, 0x03]), OwnerOf(db, "MSysObjects")); // Engine
+
+            using (JetDatabase db = OpenExclusive(tmp, "Test1"))
+                DatabaseEncryption.RemoveJetPassword(db);
+
+            Assert.Equal(original, StoredSids(tmp, null));
+        }
+        finally { TemporaryDatabase.Delete(tmp); }
+    }
+
+    // An .accdb's whole-file encryption writes the same 0x42 field, as Access does: 40 copies of the low byte of the
+    // new database key at 0x3E (zero once the password is removed). That moves the SID keystream just as a Jet
+    // password does, so every set, change and removal re-masks the SIDs, and removal gives back the original bytes.
+    [Fact]
+    public void An_accdb_password_change_writes_the_key_field_and_remasks_every_stored_sid()
+    {
+        string tmp = TemporaryDatabase.CreatePath("libred_accdbpw_", ".accdb");
+        DatabaseCreator.CreateEmpty(tmp);
+        try
+        {
+            byte[] originalField = File.ReadAllBytes(tmp)[0x42..(0x42 + 40)];
+            List<byte[]> original = StoredSids(tmp, null);
+
+            using (JetDatabase db = OpenExclusive(tmp))
+                DatabaseEncryption.SetPassword(db, "Test1", AccessEncryption.Agile);
+            AssertKeyFieldAndEngineOwner(tmp, "Test1");
+
+            using (JetDatabase db = OpenExclusive(tmp, "Test1"))
+                DatabaseEncryption.ChangePassword(db, "Ab", AccessEncryption.OfficeStandardAes);
+            AssertKeyFieldAndEngineOwner(tmp, "Ab");
+
+            using (JetDatabase db = OpenExclusive(tmp, "Ab"))
+                DatabaseEncryption.RemovePassword(db);
+            Assert.Equal(originalField, File.ReadAllBytes(tmp)[0x42..(0x42 + 40)]);
+            Assert.Equal(original, StoredSids(tmp, null));
+        }
+        finally { TemporaryDatabase.Delete(tmp); }
+    }
+
+    private static void AssertKeyFieldAndEngineOwner(string path, string password)
+    {
+        byte[] page0 = File.ReadAllBytes(path)[..4096];
+        byte[] header = (byte[])page0.Clone();
+        ReadOnlySpan<byte> mask = Formats.JetFormatBase.PageZeroHeaderMask;
+        for (int i = 0; i < mask.Length; i++) header[Formats.JetFormatBase.PageZeroHeaderMaskStart + i] ^= mask[i];
+        byte[] dateMask = BitConverter.GetBytes((int)BitConverter.ToDouble(header, 0x72));
+        byte[] field = [.. Enumerable.Range(0, 40).Select(i => (byte)(header[0x42 + i] ^ dateMask[i % 4]))];
+        Assert.All(field, b => Assert.Equal(header[0x3E], b));
+
+        using var db = JetDatabase.Open(path, password: password);
+        Assert.Equal(SidKeystream.MaskAccount(page0, [0x02, 0x03]), OwnerOf(db, "MSysObjects")); // Engine
+    }
+
+    private static JetDatabase OpenExclusive(string path, string password) =>
+        JetDatabase.Open(path, readOnly: false, password: password, exclusive: true);
+
+    /// <summary>Every MSysObjects.Owner and MSysACEs.SID, in stored order.</summary>
+    private static List<byte[]> StoredSids(string path, string? password)
+    {
+        using var db = JetDatabase.Open(path, password: password);
+        var sids = new List<byte[]>();
+        foreach ((string table, string column) in new[] { ("MSysObjects", "Owner"), ("MSysACEs", "SID") })
+        {
+            var t = db.OpenTable(table);
+            int index = t.Definition.RequireColumn(column).Index;
+            foreach (object?[] row in t.Rows())
+                if (row[index] is byte[] sid) sids.Add(sid);
+        }
+        return sids;
+    }
+
+    private static byte[] OwnerOf(JetDatabase db, string name)
+    {
+        var objects = db.OpenTable("MSysObjects");
+        int nameIndex = objects.Definition.RequireColumn("Name").Index, owner = objects.Definition.RequireColumn("Owner").Index;
+        return (byte[])objects.Rows().First(r => r[nameIndex] as string == name)[owner]!;
+    }
+
     [Fact]
     public void SetJetEncoding_roundtrips_and_stays_readable()
     {

@@ -39,37 +39,40 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
     private Dictionary<string, StoredActionQuery>? _actionQueries;
     private Dictionary<string, IReadOnlyList<StoredQueryParameter>>? _queryParameters;
     private List<ComplexColumn>? _complexColumns;
-    private (byte[] Users, byte[] Admin, byte[] Creator)? _securitySids;
+    private (byte[] Admin, byte[] Users, byte[] Creator)? _securitySids;
     private long _seenSchemaGeneration = channel.SchemaGeneration;
 
     /// <summary>All tables in the database (user and system).</summary>
     public IReadOnlyList<TableDef> Tables { get { EnsureFresh(); return _tables ??= LoadTables(); } }
 
     /// <summary>
-    /// The account SIDs <b>as this database masks them</b>: the owner a new object takes (the Users group), the
-    /// administrator, and the Creator placeholder a container's inheritable grant names in place of whoever
-    /// creates an object in it. Every on-disk SID is a workgroup account SID XOR'd with a mask that differs per
-    /// file and is stored nowhere (page-00 §2.3) — but <c>MSysObjects</c> is owned by the Engine account in every
-    /// file, ACE-written and LibRed-written alike, so its own catalog row gives the mask away. An object written
-    /// into a file has to carry that file's SIDs, or its owner decodes to no account at all.
+    /// The account SIDs <b>as this database masks them</b>: the admin user, who owns an object LibRed creates
+    /// (LibRed acts as the default workgroup's admin), the Users group, and the Creator placeholder a container's
+    /// inheritable grant names in place of whoever creates an object in it. Every on-disk SID is a workgroup
+    /// account SID XOR'd with a keystream that differs per file and is stored nowhere (page-00 §2.3) — but
+    /// <c>MSysObjects</c> is owned by the Engine account in every file, ACE-written and LibRed-written alike, so
+    /// its own catalog row gives the keystream's first bytes away. An object written into a file has to carry that
+    /// file's SIDs, or its owner decodes to no account at all.
     /// </summary>
-    /// <remarks>Falls back to the SIDs <see cref="Storage.DatabaseCreator"/> bakes in, which is what a file this
-    /// engine created carries, when the row cannot be read.</remarks>
-    public (byte[] Users, byte[] Admin, byte[] Creator) SecuritySids
+    /// <remarks>When that row cannot be read, the keystream is worked out from page 0 instead, which determines
+    /// it (page-00 §2.3).</remarks>
+    public (byte[] Admin, byte[] Users, byte[] Creator) SecuritySids
     {
         get
         {
-            _ = Tables; // reading the catalog captures the mask from MSysObjects' own row
-            return _securitySids
-                ?? (Storage.DatabaseCreator.SidUsers, Storage.DatabaseCreator.SidAdmin, Storage.DatabaseCreator.SidCreator);
+            _ = Tables; // reading the catalog captures the keystream from MSysObjects' own row
+            if (_securitySids is { } sids) return sids;
+            byte[] engine = Crypto.SidKeystream.MaskAccount(_channel.ReadPageShared(0).Span, EngineAccount);
+            return (AsMaskedInThisFile(engine, AdminAccount), AsMaskedInThisFile(engine, UsersAccount),
+                AsMaskedInThisFile(engine, CreatorAccount));
         }
     }
 
-    // The default workgroup's account SIDs (page-00 §2.3), in the "user" form object ownership uses.
-    private static readonly byte[] EngineAccount = [0x03, 0x03];
-    private static readonly byte[] UsersAccount = [0x02, 0x01];
+    // The default workgroup's account SIDs, as a stock System.mdw's MSysAccounts holds them (page-00 §2.3).
+    private static readonly byte[] EngineAccount = [0x02, 0x03];
     private static readonly byte[] AdminAccount = [0x03, 0x01];
-    private static readonly byte[] CreatorAccount = [0x03, 0x04];
+    private static readonly byte[] UsersAccount = [0x02, 0x01];
+    private static readonly byte[] CreatorAccount = [0x02, 0x04];
 
     private static byte[] AsMaskedInThisFile(byte[] engineOnDisk, byte[] account) =>
     [
@@ -218,7 +221,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
             // MSysObjects' own row carries the Engine account's SID as this file masks it — the one anchor
             // for every SID a new object in this file must be written with (see SecuritySids).
             if (definitionPage == _catalogPage && row[ownerIndex] is byte[] { Length: 2 } engine)
-                _securitySids = (AsMaskedInThisFile(engine, UsersAccount), AsMaskedInThisFile(engine, AdminAccount),
+                _securitySids = (AsMaskedInThisFile(engine, AdminAccount), AsMaskedInThisFile(engine, UsersAccount),
                     AsMaskedInThisFile(engine, CreatorAccount));
 
             uint flags = unchecked((uint)(int)row[flagsIndex]!);

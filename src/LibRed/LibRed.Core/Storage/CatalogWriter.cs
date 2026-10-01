@@ -36,7 +36,7 @@ internal sealed class CatalogWriter(PageChannel channel, JetCatalog catalog)
         Set(msysObjects, values, "Type", type);
         Set(msysObjects, values, "Name", name);
         Set(msysObjects, values, "Flags", flags);
-        Set(msysObjects, values, "Owner", catalog.SecuritySids.Users);
+        Set(msysObjects, values, "Owner", catalog.SecuritySids.Admin);
         Set(msysObjects, values, "DateCreate", now);
         Set(msysObjects, values, "DateUpdate", now);
 
@@ -56,17 +56,17 @@ internal sealed class CatalogWriter(PageChannel channel, JetCatalog catalog)
     /// <summary>Inserts the object's <c>MSysACEs</c> rows, maintaining the ObjectId index so Access's security
     /// check finds them — without them it warns about permissions on opening the object.</summary>
     /// <remarks>The grants are the ones the object's container passes down, derived as ACE derives them
-    /// (verified): the Creator account's inheritable grant becomes the owner's — the Users group — and every
-    /// other inheritable grant is copied for its own account, OR'd into the owner's row when it names the owner's
-    /// account. The owner's row comes first, the rest in the container's order. So the masks follow the database:
-    /// a table's owner gets 0xF00FE where the Tables container grants the Creator that alone, and 0xFFEFF where it
-    /// also grants Users 0xFFEFF, as Northwind's does.</remarks>
+    /// (verified): the Creator account's inheritable grant becomes the owner's — the admin user, as whom LibRed
+    /// creates every object — and every other inheritable grant is copied for its own account, OR'd into the
+    /// owner's row when it names the owner's account. The owner's row comes first, the rest in the container's
+    /// order. So the masks follow the database: a table's owner gets 0xF00FE where the Tables container grants the
+    /// Creator that alone, and 0xFFEFF where it also grants admin 0xFFEFF, as Northwind's does.</remarks>
     public void AddPermissionRows(int objectId, int containerId)
     {
         TableDef msysAces = catalog.RequireTable("MSysACEs");
         int idIndex = msysAces.RequireColumn("ObjectId").Index, sidIndex = msysAces.RequireColumn("SID").Index;
         int acmIndex = msysAces.RequireColumn("ACM").Index, inheritIndex = msysAces.RequireColumn("FInheritable").Index;
-        (byte[] users, _, byte[] creator) = catalog.SecuritySids;
+        (byte[] owner, _, byte[] creator) = catalog.SecuritySids;
 
         var grants = new List<(byte[] Sid, int Acm)>();
         var aces = new Table(channel, msysAces);
@@ -74,13 +74,13 @@ internal sealed class CatalogWriter(PageChannel channel, JetCatalog catalog)
         {
             if (row[idIndex] is not int id || id != containerId || row[inheritIndex] is not true) continue;
             byte[] sid = (byte[])row[sidIndex]!;
-            if (sid.AsSpan().SequenceEqual(creator)) sid = users;
+            if (sid.AsSpan().SequenceEqual(creator)) sid = owner;
             int at = grants.FindIndex(g => g.Sid.AsSpan().SequenceEqual(sid));
             if (at < 0) grants.Add((sid, (int)row[acmIndex]!));
             else grants[at] = (grants[at].Sid, grants[at].Acm | (int)row[acmIndex]!);
         }
 
-        foreach ((byte[] sid, int acm) in grants.OrderBy(g => g.Sid.AsSpan().SequenceEqual(users) ? 0 : 1))
+        foreach ((byte[] sid, int acm) in grants.OrderBy(g => g.Sid.AsSpan().SequenceEqual(owner) ? 0 : 1))
         {
             var values = new object?[msysAces.Columns.Count];
             Set(msysAces, values, "ACM", acm);

@@ -37,10 +37,10 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 | `0x18` | 4 | Global free-pages map pointer `[row:1][page:3]` (`0x00000100` = page 1 row 0) |
 | `0x1C` | 4 | Global released-pages map pointer `[row:1][page:3]` (`0x00000101` = page 1 row 1) |
 | `0x20`–`0x2C` | 4×4 | Catalog bootstrap pointers — `MSysObjects`/`MSysACEs`/`MSysQueries`/`MSysRelationships` TDEF pages (`2`/`3`/`4`/`5`); `0x20` = catalog root |
-| `0x30`–`0x3B` | 12 | Reserved (zero) |
+| `0x30`–`0x3B` | 12 | `0x30`/`0x34`: `MSysAccounts`/`MSysGroups` TDEF pages in a workgroup file (`6`/`7`), zero otherwise; `0x38` zero |
 | `0x3C` | 2 | ANSI code page (LE; `0x04E4` = 1252) |
 | `0x3E` | 4 | Database/encryption key (`0` = not encrypted) |
-| `0x42` | 40 | Password (Jet4; Jet3 = 20) — also XOR `(int)creationDate` |
+| `0x42` | 40 | Password (Jet4; Jet3 = 20) — also XOR `(int)creationDate`; `.accdb`: 40 × low byte of the `0x3E` key |
 | `0x6A` | 4 | Creating engine's build number (`0x000011A6` = 4518 on everything ACE writes; Jet 4 files carry their `msjet40.dll` build) |
 | `0x6E` | 4 | Collation, a 32-bit LCID with the version in its top byte: LANGID (2, LE), sort id at `0x70`, sort-order version at `0x71` (`0` legacy table, `1` Access-2010) |
 | `0x72` | 8 | Creation timestamp — OLE `double` (days from 1899-12-30) |

@@ -9,24 +9,6 @@ namespace LibRed.Core.Tests;
 
 public class TableCreatorTests
 {
-    // Reads the table's inline free-pages map (TDEF 0x3B) -> the set of pages marked as having room.
-    private static List<int> ReadFreePagesMap(PageChannel ch, int tdefPage)
-    {
-        const int FreePtr = 0x3B;
-        var tdef = ch.ReadPage(tdefPage).Span;
-        int row = tdef[FreePtr];
-        int mapPage = tdef[FreePtr + 1] | tdef[FreePtr + 2] << 8 | tdef[FreePtr + 3] << 16;
-        var dp = new LibRed.Pages.DataPage();
-        dp.Read(ch.ReadPage(mapPage), ch.Format);
-        ReadOnlySpan<byte> m = dp.GetRow(row);
-        int start = BinaryPrimitives.ReadInt32LittleEndian(m.Slice(1, 4));
-        var pages = new List<int>();
-        for (int i = 5; i < m.Length; i++)
-            for (int b = 0; b < 8; b++)
-                if ((m[i] & (1 << b)) != 0) pages.Add(start + (i - 5) * 8 + b);
-        return pages;
-    }
-
     [Fact]
     public void Multi_page_insert_marks_only_the_tail_page_free()
     {
@@ -49,12 +31,13 @@ public class TableCreatorTests
             using (var db = JetDatabase.Open(path))
             {
                 var table = db.OpenTable("FM");
-                var owned = new UsageMap(table.Channel, table.Definition).DataPages().ToList();
+                var maps = new UsageMap(table.Channel, table.Definition);
+                var owned = maps.DataPages().ToList();
                 Assert.True(owned.Count > 1, "expected multiple owned data pages");
 
                 // Access keeps only the current append tail (highest owned page) in the free-pages
                 // map — earlier full pages are cleared as it moves past them. LibRed must match.
-                var free = ReadFreePagesMap(table.Channel, table.Definition.DefinitionPage);
+                var free = maps.FreeDataPages().ToList();
                 Assert.Equal([owned.Max()], free);
             }
         }
@@ -80,10 +63,8 @@ public class TableCreatorTests
             using (var db = JetDatabase.Open(path))
             {
                 var table = db.OpenTable("Stats");
-                var span = table.Channel.ReadPage(table.Definition.DefinitionPage).Span;
-                var format = table.Channel.Format;
-                int total = BinaryPrimitives.ReadInt32LittleEndian(span.Slice(format.TdefRealIndexBlockOffset, 4));
-                int unique = BinaryPrimitives.ReadInt32LittleEndian(span.Slice(format.TdefRealIndexBlockOffset + 4, 4));
+                (int total, int unique) = LibRed.Catalog.TableDefinition.ReadIndexCounts(
+                    table.Channel.ReadPage(table.Definition.DefinitionPage).Span, table.Channel.Format, ordinal: 0);
 
                 // Access maintains the cumulative unique-entry count live (one distinct key per row
                 // for a unique index) but leaves the total-entry count at 0 until compact.
@@ -371,7 +352,7 @@ public class TableCreatorTests
         string path = TemporaryDatabase.CreatePath("versiongate-");
         try
         {
-            DatabaseCreator.CreateEmpty(path, version: 0x02);        // ACE 12
+            JetDatabase.Create(path, version: 0x02);        // ACE 12
             using var db = JetDatabase.Open(path, readOnly: false);
 
             var error = Assert.Throws<NotSupportedException>(() => db.CreateTable("T",
@@ -390,7 +371,7 @@ public class TableCreatorTests
         string path = TemporaryDatabase.CreatePath("dupindex-");
         try
         {
-            DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
             using var db = JetDatabase.Open(path, readOnly: false);
             db.CreateTable("T", [Long("K"), Long("A"), Long("B")]);
 
@@ -411,7 +392,7 @@ public class TableCreatorTests
         string path = TemporaryDatabase.CreatePath("twocounters-");
         try
         {
-            DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
             using var db = JetDatabase.Open(path, readOnly: false);
 
             Assert.Throws<NotSupportedException>(() => db.CreateTable("T", [Counter("A"), Counter("B")]));

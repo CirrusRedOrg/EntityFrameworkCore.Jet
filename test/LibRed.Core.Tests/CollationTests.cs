@@ -82,16 +82,12 @@ public class CollationTests
             var table = db.OpenTable("T");
             var format = db.Format;
 
-            var tdef = table.Channel.ReadPage(table.Definition.DefinitionPage);
-            int dataCount = tdef.ReadInt32(format.TdefIndexCountOffset);
-            int columnBlock = format.TdefRealIndexBlockOffset + dataCount * format.RealIndexEntrySize;
-            int nameIndex = table.Definition.Columns.First(c => c.Name == "Name").Index;
-            var descriptor = tdef.Span.Slice(columnBlock + nameIndex * format.ColumnDescriptorSize, format.ColumnDescriptorSize);
+            byte[] descriptor = table.Definition.Columns.First(c => c.Name == "Name").RawDescriptor!;
 
-            // 0x0409 (little-endian) locale, version 0 — exactly what the LocaleLow/LocaleHigh constants wrote.
-            Assert.Equal(0x09, descriptor[0x0B]);
-            Assert.Equal(0x04, descriptor[0x0C]);
-            Assert.Equal(0x00, descriptor[0x0D]);
+            // 0x0409 (little-endian) locale, sort id 0 — exactly what the LocaleLow/LocaleHigh constants wrote.
+            Assert.Equal(0x09, descriptor[format.ColumnLocaleOffset]);
+            Assert.Equal(0x04, descriptor[format.ColumnLocaleOffset + 1]);
+            Assert.Equal(0x00, descriptor[format.ColumnCollationSortIdOffset]);
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -120,7 +116,7 @@ public class CollationTests
             Collation = new Collation((CollatingOrder)order, 0, sortId),
         };
         var ex = Assert.Throws<NotSupportedException>(() =>
-            IndexKeyEncoder.Encode([(column, true)], ["abc"]));
+            IndexKeyCodec.Encode([(column, true)], ["abc"]));
         Assert.Contains("not implemented", ex.Message);
     }
 
@@ -135,9 +131,9 @@ public class CollationTests
             new() { Name = "C", Type = JetDataType.Text, Collation = collation };
 
         Assert.Equal(
-            Convert.ToHexString(IndexKeyEncoder.Encode(
+            Convert.ToHexString(IndexKeyCodec.Encode(
                 [(Column(Collation.GeneralLegacy), true)], ["abc"])),
-            Convert.ToHexString(IndexKeyEncoder.Encode(
+            Convert.ToHexString(IndexKeyCodec.Encode(
                 [(Column(new Collation(CollatingOrder.Cyrillic, 0)), true)], ["abc"])));
     }
 
@@ -149,8 +145,8 @@ public class CollationTests
         var v0 = new ColumnDef { Name = "C", Type = JetDataType.Text, Collation = Collation.GeneralLegacy };
         var v1 = new ColumnDef { Name = "C", Type = JetDataType.Text, Collation = Collation.General };
 
-        byte[] legacy = IndexKeyEncoder.Encode([(v0, true)], ["abc"]);
-        byte[] general = IndexKeyEncoder.Encode([(v1, true)], ["abc"]);
+        byte[] legacy = IndexKeyCodec.Encode([(v0, true)], ["abc"]);
+        byte[] general = IndexKeyCodec.Encode([(v1, true)], ["abc"]);
 
         Assert.NotEmpty(legacy);
         Assert.NotEmpty(general);

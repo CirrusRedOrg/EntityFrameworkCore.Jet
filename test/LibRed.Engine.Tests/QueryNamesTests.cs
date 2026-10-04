@@ -136,7 +136,7 @@ public class QueryNamesTests : TempDatabaseTest
 
         using (var db = JetDatabase.Open(path, readOnly: true))
         {
-            Assert.Equal("Forms!frmMenu!txtCity", db.Catalog.QueryParameters["ByCity"].Single().Name);
+            Assert.Equal("Forms!frmMenu!txtCity", db.Catalog.FindQuery("ByCity")!.Parameters.Single().Name);
             Assert.Equal(["ALFKI"], Column(new QueryEngine(db), "EXECUTE ByCity 'Berlin'"));
         }
     }

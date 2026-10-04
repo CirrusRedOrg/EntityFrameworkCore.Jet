@@ -1,7 +1,7 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed.Formats;
 using LibRed.IO;
+using LibRed.Pages;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -159,17 +159,15 @@ public class RowByteParityAccessTests(ITestOutputHelper output) : TempDatabaseTe
             for (int page = 1; page < channel.PageCount; page++)
             {
                 byte[] bytes = channel.ReadPage(page).Span.ToArray();
-                if (bytes[0] != 0x01) continue;
-                if (BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(4, 4)) != definitionPage) continue;
-                if (BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(format.DataRowCountOffset, 2)) <= row)
+                if (PageHeader.ReadType(bytes) != PageType.DataPage) continue;
+                if ((int)DataPage.ReadOwner(bytes, format) != definitionPage) continue;
+                if (DataPage.ReadRowCount(bytes, format) <= row)
                     continue;
 
                 // Slot offsets are non-increasing, so a row runs from its own offset to the previous slot's
                 // (the page end for row 0).
-                int Offset(int i) => BinaryPrimitives.ReadUInt16LittleEndian(
-                    bytes.AsSpan(format.DataRowDirectoryOffset + i * 2, 2)) & 0x1FFF;
-                int start = Offset(row);
-                int end = row == 0 ? format.PageSize : Offset(row - 1);
+                int start = DataPage.ReadSlot(bytes, format, row).Offset;
+                int end = row == 0 ? format.PageSize : DataPage.ReadSlot(bytes, format, row - 1).Offset;
                 return bytes.AsSpan(start, end - start).ToArray();
             }
             return null;

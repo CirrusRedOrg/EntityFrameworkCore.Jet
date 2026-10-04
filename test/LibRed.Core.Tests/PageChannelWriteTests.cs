@@ -87,7 +87,7 @@ public class PageChannelWriteTests
             using (var channel = PageChannel.Open(path, readOnly: false))
             {
                 countBefore = channel.PageCount;
-                allocated = channel.AllocatePage();
+                allocated = channel.Allocator.Append();
                 Assert.Equal(countBefore, allocated);
                 Assert.Equal(countBefore + 1, channel.PageCount);
             }

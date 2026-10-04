@@ -1,4 +1,3 @@
-using LibRed.Catalog;
 using LibRed.Engine.Execution;
 using LibRed.Engine.Plan;
 using LibRed.Engine.Planning;
@@ -63,7 +62,7 @@ public sealed class QueryEngine
         // A make-table query is an action query however it was invoked: run it and return nothing, rather
         // than handing the caller the rows it just wrote into a table.
         if (parsed is SelectStatement { Into: not null }) return Route(parsed, parameters).Rows;
-        SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog.Views, _parser);
+        SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog, _parser);
         BoundStatement bound = _binder.Bind(ast);
         if (bound.Statement is TransactionControlStatement txnControl)
         {
@@ -101,9 +100,10 @@ public sealed class QueryEngine
             // A stored SELECT describes as its own (parameterized) text; a stored action query would have
             // written, so it describes as nothing. Its arguments are never evaluated — values cannot change
             // a shape.
-            if (_database.Catalog.Views.TryGetValue(exec.Procedure, out string? viewSql))
+            var query = _database.Catalog.FindQuery(exec.Procedure);
+            if (query is { IsAction: false, Sql: { } viewSql })
                 return DescribeCore(_parser.ParseStatement(viewSql), parameters);
-            if (_database.Catalog.ActionQueries.ContainsKey(exec.Procedure)) return ResultSet.Empty;
+            if (query is { IsAction: true }) return ResultSet.Empty;
             throw new InvalidOperationException($"No stored procedure or query named '{exec.Procedure}'.");
         }
 
@@ -112,7 +112,7 @@ public sealed class QueryEngine
         if (parsed is not (SelectStatement { Into: null } or SetOperationStatement or SystemVariableSelectStatement))
             return ResultSet.Empty;
 
-        BoundStatement bound = _binder.Bind(ViewExpander.Expand(parsed, _database.Catalog.Views, _parser));
+        BoundStatement bound = _binder.Bind(ViewExpander.Expand(parsed, _database.Catalog, _parser));
         var executor = new QueryExecutor(_database, parameters, _session, describing: true);
         ResultSet shape = bound.Statement is SystemVariableSelectStatement sysSelect
             ? executor.ExecuteSystemVariableSelect(sysSelect)
@@ -138,7 +138,7 @@ public sealed class QueryEngine
     /// <see cref="NotSupportedException"/>, and an unknown name throws <see cref="InvalidOperationException"/>.</summary>
     public int ExecuteStoredActionQuery(string name)
     {
-        if (!_database.Catalog.ActionQueries.TryGetValue(name, out StoredActionQuery? query))
+        if (_database.Catalog.FindQuery(name) is not { IsAction: true } query)
             throw new InvalidOperationException($"No stored action query named '{name}'.");
         if (query.Sql is null)
             throw new NotSupportedException(query.UnsupportedReason ?? $"Stored query '{name}' cannot be executed by LibRed yet.");
@@ -165,7 +165,7 @@ public sealed class QueryEngine
     private CommandResult ExecuteCore(SqlStatement parsed, IReadOnlyDictionary<string, object?>? parameters)
     {
         if (parsed is ExecuteStatement exec) return ExecuteProcedure(exec, parameters);
-        SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog.Views, _parser);
+        SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog, _parser);
         BoundStatement bound = _binder.Bind(ast);
         return Route(bound.Statement, parameters);
     }
@@ -278,7 +278,7 @@ public sealed class QueryEngine
     /// (e.g. that an unindexed equi-join becomes a hash join).</summary>
     internal PlanNode PlanFor(string sql)
     {
-        SqlStatement ast = ViewExpander.Expand(_parser.ParseStatement(sql), _database.Catalog.Views, _parser);
+        SqlStatement ast = ViewExpander.Expand(_parser.ParseStatement(sql), _database.Catalog, _parser);
         return PlanWithIndexes(_binder.Bind(ast));
     }
 
@@ -289,13 +289,12 @@ public sealed class QueryEngine
     /// </summary>
     private CommandResult ExecuteProcedure(ExecuteStatement exec, IReadOnlyDictionary<string, object?>? parameters)
     {
-        JetCatalog catalog = _database.Catalog;
+        var query = _database.Catalog.FindQuery(exec.Procedure);
         var bag = new ParameterBag(parameters);
         var executor = new QueryExecutor(_database, parameters, _session);
         var evaluator = new ExpressionEvaluator(new EvalScope([], [], null), executor, bag, _session);
 
-        List<string> paramNames = catalog.QueryParameters.TryGetValue(exec.Procedure, out var declared)
-            ? declared.Select(p => p.Name).ToList() : [];
+        List<string> paramNames = query?.Parameters.Select(p => p.Name).ToList() ?? [];
 
         // Access EXEC arguments take three shapes (EF emits all of them):
         //   procParam = value  → a NAMED argument (bind the proc's named parameter to the value)
@@ -340,10 +339,10 @@ public sealed class QueryEngine
         }
 
         // A stored SELECT (with its PARAMETERS clause) → rows; a stored action query → rows-affected.
-        if (catalog.Views.TryGetValue(exec.Procedure, out string? viewSql))
+        if (query is { IsAction: false, Sql: { } viewSql })
             return Execute(viewSql, args);
 
-        if (catalog.ActionQueries.TryGetValue(exec.Procedure, out StoredActionQuery? action))
+        if (query is { IsAction: true } action)
         {
             if (action.Sql is null)
                 throw new NotSupportedException(

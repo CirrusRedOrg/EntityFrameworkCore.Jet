@@ -358,12 +358,12 @@ public static class QueryPlanner
             return (new JoinNode(left, right, j.Kind, on), outside);
         }
 
-        // Both APPLY kinds preserve their left side, so a conjunct confined to it can be pushed there: dropping
-        // a left row before the lateral runs removes exactly the output rows the WHERE would have removed
-        // after, and saves re-running the whole right side for it. Nothing is pushed into the RIGHT side —
-        // under OUTER APPLY a filter there can empty an otherwise non-empty result and so manufacture the very
+        // Both APPLY kinds and a LEFT JOIN preserve their left side, so a conjunct confined to it can be pushed
+        // there: dropping a left row before the join removes exactly the output rows the WHERE would have
+        // removed after, and saves joining it at all. Nothing is pushed into the RIGHT side — under OUTER APPLY
+        // or a LEFT JOIN a filter there can empty an otherwise matching row and so manufacture the very
         // null-padded row the WHERE was there to drop.
-        if (node is JoinNode { Kind: JoinKind.CrossApply or JoinKind.OuterApply } a)
+        if (node is JoinNode { Kind: JoinKind.CrossApply or JoinKind.OuterApply or JoinKind.Left } a)
         {
             (PlanNode left, List<Expression> rest) = Place(a.Left, candidates, introduced);
             PlanNode lateral = a with { Left = left };

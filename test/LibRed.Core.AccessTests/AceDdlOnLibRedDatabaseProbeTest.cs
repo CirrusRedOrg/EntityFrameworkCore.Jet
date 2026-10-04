@@ -11,7 +11,7 @@ namespace LibRed.Core.Tests;
 //
 // ANSWERED: the file was missing MSysComplexColumns. ACE consults it whenever it creates a catalog object —
 // CREATE TABLE and CREATE VIEW, and only those; DML, CREATE INDEX, ALTER ADD COLUMN and DROP TABLE all work
-// without it. DatabaseCreator.CreateEmpty now writes it (and the nine MSysComplexType_* tables) for version
+// without it. JetDatabase.Create now writes it (and the nine MSysComplexType_* tables) for version
 // >= 0x02. See docs/format/system-catalog.md. The DAO probes that isolated it — dropping one system table at a
 // time from a DAO-created database — are in git history.
 //
@@ -28,7 +28,7 @@ public class AceDdlOnLibRedDatabaseProbeTest(ITestOutputHelper output)
         string path = TemporaryDatabase.CreatePath($"ace-ddl-{label}-");
         try
         {
-            DatabaseCreator.CreateEmpty(path, collation: new Collation(CollatingOrder.General, version));
+            JetDatabase.Create(path, collation: new Collation(CollatingOrder.General, version));
 
             using var connection = AceTestDatabase.Open(path);
             output.WriteLine($"{label}: ACE opened the database");
@@ -58,7 +58,7 @@ public class AceDdlOnLibRedDatabaseProbeTest(ITestOutputHelper output)
         string libred = TemporaryDatabase.CreatePath("systables-libred-");
         try
         {
-            DatabaseCreator.CreateEmpty(libred);
+            JetDatabase.Create(libred);
             string[] mine = SystemTables(libred);
             output.WriteLine($"LibRed-created ({mine.Length}): {string.Join(", ", mine)}");
 

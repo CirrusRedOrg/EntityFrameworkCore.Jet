@@ -14,12 +14,12 @@ public sealed class CatalogSchemaProvider(JetCatalog catalog) : ISchemaProvider
 
     public ITableSchema? GetTable(string name)
     {
-        // The magic INFORMATION_SCHEMA.<view> tables are virtual (no catalog TableDef) — expose a synthetic
+        // The magic INFORMATION_SCHEMA.<view> tables are virtual (no catalog TableDefinition) — expose a synthetic
         // schema so binding validates; the executor materialises their rows from the catalog.
         if (InformationSchema.IsInformationSchema(name))
             return new InformationSchemaTable(name);
 
-        TableDef? def = _catalog.FindTable(name);
+        TableDefinition? def = _catalog.FindTable(name);
         return def is null ? null : new TableSchema(def);
     }
 
@@ -40,7 +40,7 @@ public sealed class CatalogSchemaProvider(JetCatalog catalog) : ISchemaProvider
         public Type ClrType => clrType;
     }
 
-    private sealed class TableSchema(TableDef def) : ITableSchema
+    private sealed class TableSchema(TableDefinition def) : ITableSchema
     {
         public string Name => def.Name;
         public IReadOnlyList<IColumnSchema> Columns { get; } =

@@ -54,8 +54,8 @@ public class SelectIntoTests : TempDatabaseTest
         QueryEngine engine = WithSource();
         engine.ExecuteNonQuery("SELECT * INTO SiNew FROM SiSrc");
 
-        TableDef source = engine.Database.Catalog.Tables.Single(t => t.Name == "SiSrc");
-        TableDef made = engine.Database.Catalog.Tables.Single(t => t.Name == "SiNew");
+        TableDefinition source = engine.Database.Catalog.Tables.Single(t => t.Name == "SiSrc");
+        TableDefinition made = engine.Database.Catalog.Tables.Single(t => t.Name == "SiNew");
 
         Assert.NotEmpty(source.Indexes);                       // the source has a PK and an index
         Assert.Empty(made.Indexes);                            // the copy has neither
@@ -121,7 +121,7 @@ public class SelectIntoTests : TempDatabaseTest
         QueryEngine engine = WithSource();
         engine.ExecuteNonQuery("SELECT Id, Qty * 2 AS Doubled, Label & '!' AS Shout INTO SiNew FROM SiSrc");
 
-        TableDef made = engine.Database.Catalog.Tables.Single(t => t.Name == "SiNew");
+        TableDefinition made = engine.Database.Catalog.Tables.Single(t => t.Name == "SiNew");
         Assert.Equal(["Id", "Doubled", "Shout"], made.Columns.Select(c => c.Name));
         Assert.Equal(JetDataType.Int32, made.Columns[1].Type);
         Assert.Equal(JetDataType.Text, made.Columns[2].Type);

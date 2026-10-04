@@ -1,5 +1,6 @@
 using LibRed.Catalog;
 using System.Collections.Frozen;
+using static LibRed.Storage.IndexKeyCodec;
 
 namespace LibRed.Storage;
 
@@ -186,12 +187,10 @@ internal sealed class LocaleTailoring
 /// Every weight here was measured from ACE: an indexed text column built by ACE inside a database carrying
 /// the order, with the stored index keys read back (<c>ContractionProbeTest</c>,
 /// <c>LocaleFixtureCollationProbeTest</c>) and then asserted byte-for-byte against this encoder over the
-/// whole of printable ASCII, Latin-1 and Latin Extended-A (<c>LocaleCollationAccessTests</c>).
+/// whole of printable ASCII, Latin-1 and Latin Extended-A (<c>CreatedDatabaseCollationAccessTests</c>).
 /// </remarks>
 internal static class JetLocaleTailoring
 {
-    private const byte DefaultSecondary = 0x02;
-
     /// <summary>The tailoring for a collation, or null when it has none — either because it is General
     /// itself, or because LibRed cannot express it. An <b>empty</b> tailoring is meaningful and not the same
     /// as null: it records that the order was measured to be indistinguishable from General.</summary>

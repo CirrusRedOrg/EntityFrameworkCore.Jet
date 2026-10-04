@@ -42,7 +42,7 @@ public class FunctionalTestsSmokeTest(ITestOutputHelper output)
         string name = Path.GetFileNameWithoutExtension(path);
 
         using var db = JetDatabase.Open(path);
-        foreach (TableDef table in db.Catalog.UserTables)
+        foreach (TableDefinition table in db.Catalog.UserTables)
         {
             tables++;
 

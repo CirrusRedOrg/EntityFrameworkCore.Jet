@@ -1,4 +1,5 @@
 using LibRed.Engine.Execution;
+using LibRed.Storage.Types;
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Data;
@@ -93,9 +94,6 @@ public sealed class LibRedDataReader : DbDataReader, IDbColumnSchemaGenerator
 
     public override object GetValue(int ordinal) => _current[ordinal] ?? DBNull.Value;
 
-    /// <summary>The OLE epoch (1899-12-30) — Jet stores TimeSpan/TimeOnly as an offset from it.</summary>
-    private static readonly DateTime OleEpoch = new(1899, 12, 30);
-
     /// <summary>
     /// Typed accessor EF Core uses. Jet has no TimeSpan/DateOnly/TimeOnly/DateTimeOffset type — they are
     /// all stored in a DateTime column — so convert a stored <see cref="DateTime"/> back when one of those
@@ -106,7 +104,7 @@ public sealed class LibRedDataReader : DbDataReader, IDbColumnSchemaGenerator
     {
         if (_current[ordinal] is DateTime dt)
         {
-            if (typeof(T) == typeof(TimeSpan)) return (T)(object)(dt - OleEpoch);
+            if (typeof(T) == typeof(TimeSpan)) return (T)(object)(dt - JetTypeCodec.OleEpoch);
             if (typeof(T) == typeof(DateOnly)) return (T)(object)DateOnly.FromDateTime(dt);
             if (typeof(T) == typeof(TimeOnly)) return (T)(object)TimeOnly.FromDateTime(dt);
             if (typeof(T) == typeof(DateTimeOffset)) return (T)(object)new DateTimeOffset(dt, TimeSpan.Zero);

@@ -67,10 +67,11 @@ public class TdefReserveSpillAccessTests : TempDatabaseTest
     {
         int first;
         using (var db = JetDatabase.Open(path)) first = db.Catalog.FindTable("L")!.DefinitionPage;
+        Formats.JetFormatBase format = TestDatabases.FormatOf(path);
         byte[] file = File.ReadAllBytes(path);
         var free = new List<int>();
-        for (int page = first, n = 0; page != 0 && n < 10; page = BitConverter.ToInt32(file, page * 4096 + 4), n++)
-            free.Add(BitConverter.ToUInt16(file, page * 4096 + 2));
-        return (BitConverter.ToInt32(file, first * 4096 + 8), free);
+        for (int page = first, n = 0; page != 0 && n < 10; page = BitConverter.ToInt32(file, page * format.PageSize + format.TdefNextPageOffset), n++)
+            free.Add(BitConverter.ToUInt16(file, page * format.PageSize + format.TdefFreeSpaceOffset));
+        return (BitConverter.ToInt32(file, first * format.PageSize + format.TdefLengthOffset), free);
     }
 }

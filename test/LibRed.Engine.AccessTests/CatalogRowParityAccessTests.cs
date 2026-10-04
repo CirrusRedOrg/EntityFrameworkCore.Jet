@@ -119,7 +119,7 @@ public class CatalogRowParityAccessTests : TempDatabaseTest
             run(path, sql);
 
             using var database = JetDatabase.Open(path, readOnly: true);
-            TableDef objects = database.Catalog.FindTable("MSysObjects")!;
+            TableDefinition objects = database.Catalog.FindTable("MSysObjects")!;
             int Col(string n) => objects.Columns.Single(c => c.Name == n).Index;
             int name = Col("Name"), id = Col("Id"), parent = Col("ParentId"), type = Col("Type");
 
@@ -131,7 +131,7 @@ public class CatalogRowParityAccessTests : TempDatabaseTest
 
             // The owner and the permission rows ARE comparable: both engines write into a copy of one file, so
             // the per-file SID mask (page-00 §2.3) is the same for both and the masked account SIDs must be too.
-            TableDef aces = database.Catalog.FindTable("MSysACEs")!;
+            TableDefinition aces = database.Catalog.FindTable("MSysACEs")!;
             int aceObject = aces.Columns.Single(c => c.Name == "ObjectId").Index;
             int aceSid = aces.Columns.Single(c => c.Name == "SID").Index;
             int aceAcm = aces.Columns.Single(c => c.Name == "ACM").Index;

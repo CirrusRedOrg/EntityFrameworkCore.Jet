@@ -1,6 +1,5 @@
 using System.Data.OleDb;
 using LibRed.Catalog;
-using LibRed.Formats;
 using LibRed.Storage;
 using Xunit;
 
@@ -69,7 +68,7 @@ public class RecordSizeAccessTests(ITestOutputHelper output) : TempDatabaseTest
             catch (OleDbException) { rejected = record; }
         }
 
-        int cap = new Jet4Format().MaxRecordSize;
+        int cap = TestDatabases.FormatOf(path).MaxRecordSize;
         output.WriteLine($"{columns} columns: accepted up to {accepted}, refused {rejected} (cap {cap})");
 
         Assert.True(rejected > cap, $"ACE accepted a {rejected}-byte record, above the {cap} cap.");
@@ -171,7 +170,7 @@ public class RecordSizeAccessTests(ITestOutputHelper output) : TempDatabaseTest
             ddl.ExecuteNonQuery();
         }
 
-        int cap = new Jet4Format().MaxRecordSize;
+        int cap = TestDatabases.FormatOf(path).MaxRecordSize;
         foreach (int tail in new[] { 227, 228 })
         {
             string names = string.Join(", ", Enumerable.Range(0, 8).Select(i => $"C{i}"));
@@ -220,7 +219,7 @@ public class RecordSizeAccessTests(ITestOutputHelper output) : TempDatabaseTest
         Assert.Equal("seed", Assert.IsType<string>(table.Rows().Single()[1]));
     }
 
-    // The third writer: RewriteRowRaw takes a pre-built record, so it bypasses RowEncoder.Encode and both
+    // The third writer: RewriteRowRaw takes a pre-built record, so it bypasses RowCodec.Encode and both
     // guarded entry points. Its caller is the in-place ALTER re-lay, which makes rows longer by design, so
     // it is the path most likely to cross the cap rather than the least.
     [Fact]
@@ -238,8 +237,9 @@ public class RecordSizeAccessTests(ITestOutputHelper output) : TempDatabaseTest
         }
 
         using var channel = LibRed.IO.PageChannel.Open(path, readOnly: false);
-        TableDef definition = new JetCatalog(channel).FindTable("WideRow")!;
-        var table = new Table(channel, definition);
+        var catalog = new JetCatalog(channel);
+        TableDefinition definition = catalog.FindTable("WideRow")!;
+        var table = new Table(channel, definition, catalog);
         RowId id = table.Rows().WithIds().Single().Id;
 
         var inserter = new RowInserter(channel, definition);

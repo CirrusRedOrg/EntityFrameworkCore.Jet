@@ -1,3 +1,5 @@
+using LibRed.Storage.Types;
+
 namespace LibRed.Engine.Execution;
 
 /// <summary>
@@ -13,9 +15,6 @@ namespace LibRed.Engine.Execution;
 /// </remarks>
 internal sealed class ParameterBag
 {
-    /// <summary>The OLE epoch: Jet stores a time as the epoch plus the time of day.</summary>
-    private static readonly DateTime OleEpoch = new(1899, 12, 30);
-
     // IDE0028's only fix here is `[]`, which would silently drop the comparer and make parameter
     // lookup case-sensitive.
 #pragma warning disable IDE0028
@@ -36,8 +35,8 @@ internal sealed class ParameterBag
         if (_values.TryGetValue(Normalize(name), out object? value))
             return value switch
             {
-                TimeSpan span => OleEpoch + span,
-                TimeOnly time => OleEpoch + time.ToTimeSpan(),
+                TimeSpan span => JetTypeCodec.OleEpoch + span,
+                TimeOnly time => JetTypeCodec.OleEpoch + time.ToTimeSpan(),
                 _ => value,
             };
         throw new InvalidOperationException($"No value was supplied for parameter '{name}'.");

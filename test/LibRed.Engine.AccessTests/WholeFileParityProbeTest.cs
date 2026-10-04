@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text;
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
 using LibRed.Pages;
 using LibRed.Storage;
 using Xunit;
@@ -31,8 +32,6 @@ namespace LibRed.Engine.Tests;
 [Collection(AceCollection.Name)]
 public class WholeFileParityProbeTest(ITestOutputHelper output)
 {
-    private const int PageSize = 4096;
-
     [Fact]
     public void The_whole_run_leaves_libred_and_ace_with_the_same_file()
     {
@@ -316,28 +315,30 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     {
         byte[] origin = File.ReadAllBytes(originPath), ace = File.ReadAllBytes(acePath),
                noise = File.ReadAllBytes(noisePath), libred = File.ReadAllBytes(libredPath);
+        JetFormatBase format = JetFormatBase.Detect(new MemoryStream(origin));
+        int pageSize = format.PageSize;
         Dictionary<int, string> owners = Owners(acePath, libredPath);
-        HashSet<int>[] masks = [.. Enumerable.Range(0, Math.Max(ace.Length, libred.Length) / PageSize).Select(_ => new HashSet<int>())];
+        HashSet<int>[] masks = [.. Enumerable.Range(0, Math.Max(ace.Length, libred.Length) / pageSize).Select(_ => new HashSet<int>())];
         Mask(acePath, ace, masks);
         Mask(libredPath, libred, masks);
 
-        int acePages = ace.Length / PageSize, libredPages = libred.Length / PageSize;
+        int acePages = ace.Length / pageSize, libredPages = libred.Length / pageSize;
         int identical = 0, housekeeping = 0, differingPages = 0;
         var groups = new SortedDictionary<string, List<string>>(StringComparer.Ordinal);
         for (int page = 0; page < Math.Max(acePages, libredPages); page++)
         {
-            int at = page * PageSize;
+            int at = page * pageSize;
             if (page >= acePages || page >= libredPages)
             {
                 byte[] only = page >= acePages ? libred : ace;
                 Add(groups, "pages in one file only", $"page {page}: {(page >= acePages ? "LibRed" : "ACE")} only, " +
-                    $"type 0x{only[at]:X2} {Owner(owners, only, at)}");
+                    $"type 0x{only[at]:X2} {Owner(owners, format, only, at)}");
                 differingPages++;
                 continue;
             }
 
             var differing = new List<int>();
-            for (int i = 0; i < PageSize; i++)
+            for (int i = 0; i < pageSize; i++)
             {
                 if (ace[at + i] == libred[at + i] || masks[page].Contains(i)) continue;
                 // A byte ACE writes merely for holding a session, which LibRed need not reproduce.
@@ -349,13 +350,13 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             differingPages++;
             string detail = string.Join(" ", differing.Take(8).Select(i => $"+0x{i:X3}:{ace[at + i]:X2}/{libred[at + i]:X2}"));
             string kind = page == 0 ? "page 0"
-                : $"type 0x{ace[at]:X2}{(ace[at] != libred[at] ? $"/0x{libred[at]:X2}" : "")} {Owner(owners, ace, at)}";
+                : $"type 0x{ace[at]:X2}{(ace[at] != libred[at] ? $"/0x{libred[at]:X2}" : "")} {Owner(owners, format, ace, at)}";
             Add(groups, kind, $"page {page}: {differing.Count} bytes  {detail}");
         }
 
         var report = new StringBuilder();
         report.AppendLine(CultureInfo.InvariantCulture,
-            $"pages: before {origin.Length / PageSize}, ACE {acePages}, LibRed {libredPages}; identical {identical}; " +
+            $"pages: before {origin.Length / pageSize}, ACE {acePages}, LibRed {libredPages}; identical {identical}; " +
             $"{housekeeping} byte(s) differ only where ACE's session alone writes (ace/libred shown)");
         foreach (var (kind, lines) in groups)
         {
@@ -373,14 +374,18 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
 
     /// <summary>What owns a page: for a data or index page the table whose TDEF page its header names, for a TDEF
     /// page its own table, where either file's catalog knows the name.</summary>
-    private static string Owner(Dictionary<int, string> owners, byte[] file, int at)
+    private static string Owner(Dictionary<int, string> owners, JetFormatBase format, byte[] file, int at)
     {
         if (PageHeader.ReadType(file.AsSpan(at)) is PageType.TableDefinition or PageType.ReleasedTableDefinition)
-            return owners.TryGetValue(at / PageSize, out string? self) ? $"({self})" : "";
+            return owners.TryGetValue(at / format.PageSize, out string? self) ? $"({self})" : "";
         if (PageHeader.ReadType(file.AsSpan(at)) is not (PageType.DataPage or PageType.IntermediateIndexPage or PageType.LeafIndexPage))
             return "";
-        if (file.AsSpan(at + 4, 4).SequenceEqual("LVAL"u8)) return "(long values)";
-        int owner = BinaryPrimitives.ReadInt32LittleEndian(file.AsSpan(at + 4, 4));
+        ReadOnlySpan<byte> page = file.AsSpan(at, format.PageSize);
+        uint ownerField = PageHeader.ReadType(page) == PageType.DataPage
+            ? DataPage.ReadOwner(page, format)
+            : (uint)IndexTree.ReadOwner(page, format);
+        if (ownerField == JetFormatBase.LongValuePageMarker) return "(long values)";
+        int owner = (int)ownerField;
         return owners.TryGetValue(owner, out string? name) ? $"({name})" : $"(tdef {owner})";
     }
 
@@ -390,7 +395,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
         foreach (string path in paths)
         {
             using var database = JetDatabase.Open(path, readOnly: true);
-            foreach (TableDef table in database.Catalog.Tables) owners.TryAdd(table.DefinitionPage, table.Name);
+            foreach (TableDefinition table in database.Catalog.Tables) owners.TryAdd(table.DefinitionPage, table.Name);
         }
         return owners;
     }
@@ -401,33 +406,36 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     /// write stamp.</summary>
     private static void Mask(string path, byte[] file, HashSet<int>[] masks)
     {
-        for (int i = 0xE00; i < PageSize; i++) masks[0].Add(i);
-
         using var database = JetDatabase.Open(path, readOnly: true);
-        TableDef objects = database.Catalog.FindTable("MSysObjects")!;
+        JetFormatBase format = database.Format;
+        int pageSize = format.PageSize;
+
+        for (int i = format.CommitByteTableOffset; i < pageSize; i++) masks[0].Add(i);
+
+        TableDefinition objects = database.Catalog.FindTable("MSysObjects")!;
         int[] dates = [.. new[] { "DateCreate", "DateUpdate" }.Select(c => objects.FindColumn(c)!.FixedOffset)];
 
-        for (int page = 1; page < file.Length / PageSize; page++)
+        for (int page = 1; page < file.Length / pageSize; page++)
         {
-            int at = page * PageSize;
+            int at = page * pageSize;
             if (PageHeader.ReadType(file.AsSpan(at)) != PageType.DataPage) continue;
-            for (int i = 0x08; i < 0x0C; i++) masks[page].Add(i);
-            if (BinaryPrimitives.ReadInt32LittleEndian(file.AsSpan(at + 4, 4)) != objects.DefinitionPage) continue;
+            for (int i = format.DataChainStampOffset; i < format.DataChainStampOffset + sizeof(int); i++) masks[page].Add(i);
+            ReadOnlySpan<byte> bytes = file.AsSpan(at, pageSize);
+            if ((int)DataPage.ReadOwner(bytes, format) != objects.DefinitionPage) continue;
 
-            int rows = BinaryPrimitives.ReadUInt16LittleEndian(file.AsSpan(at + 0x0C, 2));
+            int rows = DataPage.ReadRowCount(bytes, format);
             for (int row = 0; row < rows; row++)
             {
-                int slot = BinaryPrimitives.ReadUInt16LittleEndian(file.AsSpan(at + 0x0E + 2 * row, 2));
-                if ((slot & 0xC000) != 0) continue;
-                int start = slot & 0x1FFF;
+                (int start, RowSlotFlags flags) = DataPage.ReadSlot(bytes, format, row);
+                if ((flags & (RowSlotFlags.Deleted | RowSlotFlags.Overflow)) != 0) continue;
                 foreach (int offset in dates)
-                    for (int i = 0; i < 8; i++) masks[page].Add(start + 2 + offset + i);
+                    for (int i = 0; i < 8; i++) masks[page].Add(start + format.RowColumnCountSize + offset + i);
             }
         }
 
         // A chained long value's descriptor carries the same write stamp as the chain's first page, bytes 8–11 of
         // its twelve (long-values.md).
-        foreach (TableDef definition in database.Catalog.Tables)
+        foreach (TableDefinition definition in database.Catalog.Tables)
         {
             if (!definition.Columns.Any(c => c.Type is JetDataType.Memo or JetDataType.Ole)) continue;
             Table table = database.OpenTable(definition.Name);
@@ -437,12 +445,14 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
                 page.Read(table.Channel.ReadPageShared(id.Page), table.Channel.Format);
                 if (page.Rows[id.Row] is not { IsDeleted: false, HasOverflow: false } slot) continue;
                 ReadOnlySpan<byte> row = page.GetRow(id.Row);
-                foreach (byte[] descriptor in RowDecoder.LongValueDescriptors(definition.Columns, table.Channel.Format, row).Values)
+                foreach (byte[] descriptor in RowCodec.LongValueDescriptors(definition.Columns, table.Channel.Format, row).Values)
                 {
-                    if (descriptor.Length < 12 || descriptor[3] != 0x00) continue;
+                    if (descriptor.Length < format.LongValueDescriptorSize
+                        || LongValueStore.Read(descriptor, format).Storage != LongValueStore.StorageKind.Chained) continue;
                     int at = row.IndexOf(descriptor);
+                    int stamp = format.LongValueDescriptorChainStampOffset;
                     if (at >= 0)
-                        for (int i = 8; i < 12; i++) masks[id.Page].Add(slot.Offset + at + i);
+                        for (int i = stamp; i < stamp + sizeof(int); i++) masks[id.Page].Add(slot.Offset + at + i);
                 }
             }
         }

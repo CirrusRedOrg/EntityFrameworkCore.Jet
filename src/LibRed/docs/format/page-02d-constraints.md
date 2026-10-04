@@ -76,7 +76,7 @@ differently from a delete:
 > The update rule could not be seen from an index built empty: its zero total leaves the pair alone whatever the
 > update does, which is how "an UPDATE changes neither count" looked right.
 
-  LibRed maintains both this way — inserts, deletes and updates in `RowInserter`, builds in `TableCreator`'s index
+  LibRed maintains both this way — inserts, deletes and updates in `RowInserter`, builds in `SchemaEditor`'s index
   back-fill, and the Memo/OLE retype (which LibRed does by rebuilding the whole table) restores every other
   index's counts afterwards — and exposes `+4` as `IndexDef.UniqueEntryCount`.
 
@@ -98,8 +98,8 @@ one without it accepts the duplicate although `grbit` says one-to-one (verified 
 | `0x30` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 52-byte block |
 
 > **The 10-column cap must be enforced on the incremental path too**, as must the 32-index cap below.
-> `TdefBuilder` rejects an over-wide index when a table is created with its indexes, but `CREATE INDEX` and
-> `ADD FOREIGN KEY` on an existing table go through `TableCreator.InsertIndex`. A block builder that fills
+> `TableDefinition` rejects an over-wide index when a table is created with its indexes, but `CREATE INDEX` and
+> `ADD FOREIGN KEY` on an existing table go through `SchemaEditor.InsertIndex`. A block builder that fills
 > its ten slots and marks the rest unused silently stores a 10-column index for an 11-column request. ACE
 > refuses outright — *"Cannot have more than 10 fields in an index."*
 >
@@ -111,7 +111,7 @@ one without it accepts the duplicate although `grbit` says one-to-one (verified 
 > **not** `WITH IGNORE NULL`) rejects a duplicate **non-null** key but permits **multiple NULL** keys — two
 > rows may both be null in the indexed column(s). So uniqueness is enforced only over the non-null keys; a
 > row with a null in any indexed column is exempt (matching SQL's "nulls are distinct"). LibRed enforces
-> this on insert/update (`IndexWriter.KeyExists`, skipping null-keyed rows), and rejects
+> this on insert/update (`IndexTree.KeyExists`, skipping null-keyed rows), and rejects
 > `CREATE UNIQUE INDEX` when the rows that already exist are not unique — scanned up front, before the
 > TDEF is written, so a rejected statement leaves the file untouched. A `WITH IGNORE NULL` index
 > (`0x02`) additionally leaves null-keyed rows out of the B-tree entirely; a PK (`0x08` required) forbids

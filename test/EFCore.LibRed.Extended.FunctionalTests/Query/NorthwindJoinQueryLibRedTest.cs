@@ -1051,7 +1051,7 @@ INNER JOIN (VALUES (@p1)) AS `p`(`Value`) ON `e`.`EmployeeID` = `p`.`Value`
 
 SELECT `e`.`EmployeeID`
 FROM `Employees` AS `e`
-INNER JOIN (VALUES (@p1), (@p2)) AS `p`(`Value`) ON `e`.`EmployeeID` = ASCW(`p`.`Value`)
+INNER JOIN (VALUES (@p1), (@p2)) AS `p`(`Value`) ON `e`.`EmployeeID` = (CLNG(ASCW(`p`.`Value`)) BAND 65535)
 """,
                 //
                 """
@@ -1059,7 +1059,7 @@ INNER JOIN (VALUES (@p1), (@p2)) AS `p`(`Value`) ON `e`.`EmployeeID` = ASCW(`p`.
 
 SELECT `e`.`EmployeeID`
 FROM `Employees` AS `e`
-INNER JOIN (VALUES (@p1)) AS `p`(`Value`) ON `e`.`EmployeeID` = ASCW(`p`.`Value`)
+INNER JOIN (VALUES (@p1)) AS `p`(`Value`) ON `e`.`EmployeeID` = (CLNG(ASCW(`p`.`Value`)) BAND 65535)
 """);
         }
 

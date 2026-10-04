@@ -112,7 +112,7 @@ public class ColumnRetypeRelayAccessTests(ITestOutputHelper output)
         finally { TemporaryDatabase.Delete(path); }
     }
 
-    // The re-lay reaches RowEncoder.AssembleRow but never RowEncoder.Encode, where the declared-width check
+    // The re-lay reaches RowCodec.AssembleRow but never RowCodec.Encode, where the declared-width check
     // used to live — so a narrowing retype wrote values wider than the column declares.
     [Fact]
     public void A_retype_that_would_overflow_the_new_width_is_refused()
@@ -177,7 +177,7 @@ public class ColumnRetypeRelayAccessTests(ITestOutputHelper output)
 
     private static string CreateWithAce(string path, string[] ddl)
     {
-        DatabaseCreator.CreateEmpty(path);
+        JetDatabase.Create(path);
         using var connection = AceTestDatabase.Open(path);
         foreach (string sql in ddl) Exec(connection, sql);
         return path;

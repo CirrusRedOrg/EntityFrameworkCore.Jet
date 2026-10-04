@@ -107,7 +107,7 @@ a declaration to something its existing data would violate.
 > zero**. `1.23456` into a `DECIMAL(18,4)` stores `1.2345`, `1.99999` stores `1.9999`, `-1.23455` stores
 > `-1.2345` — truncation in every case, over both midpoint parities and both signs.
 >
-> LibRed matches it in `JetTypeCodec.EncodeNumeric`, and `IndexKeyEncoder.EncodeFixedPoint` **must** quantise
+> LibRed matches it in `JetTypeCodec.EncodeNumeric`, and `IndexKeyCodec.EncodeFixedPoint` **must** quantise
 > identically: the key is the same unscaled integer the row stores, so quantising one differently files a value
 > under a number its row does not contain. Rounding (`decimal.Round(…, 0)`, `ToEven`) is the obvious
 > implementation and is wrong: it stores `1.2346` and `2.0000` for ACE's `1.2345` and `1.9999`, and a row and
@@ -128,7 +128,7 @@ the row keeps the bytes; the encoding itself is [§10.4](page-03-04-index-btree.
 **`GUID` is variable-length too — but only where ACE's DDL made it.** Every GUID column ACE's SQL creates
 carries length 16 with the fixed flag clear, whatever the table's width (it is not a fallback for wide
 tables), and `SELECT … INTO` produces the same. ACE's **own system tables are the exception**:
-`MSysComplexType_GUID` `Value` is *fixed* (verified), and `DatabaseCreator` reproduces that — so "GUID is
+`MSysComplexType_GUID` `Value` is *fixed* (verified), and `JetDatabase` reproduces that — so "GUID is
 variable" is a rule about declarations, not about GUID storage everywhere.
 
 Unlike BIGINT this is not a wrong-value hazard: ACE reads a value back correctly from either layout
@@ -283,7 +283,7 @@ Points verified against ACE that aren't obvious from that page:
   amount of data you attempted to add."* The fixed form is the one worth recording: because ACE stores fixed
   text space-padded to the full width, a writer that pads is one line away from silently *truncating* the
   over-long case instead of refusing it. The width check therefore belongs on the encode path for fixed
-  columns (`JetTypeCodec.EnsureFitsFixedWidth`, before padding) and on the shared row-assembly path for variable ones (`RowEncoder.AssembleRow`, so the ALTER re-lay passes it too).
+  columns (`JetTypeCodec.EnsureFitsFixedWidth`, before padding) and on the shared row-assembly path for variable ones (`RowCodec.AssembleRow`, so the ALTER re-lay passes it too).
 - **Narrowing an existing column is checked against its rows.** `ALTER TABLE … ALTER COLUMN c TEXT(5)` on a
   column holding wider values is refused rather than leaving rows that violate the declaration — and so is a
   retype whose converted values are too wide: a Memo or a `LONG` to `TEXT(1)`, a `LONG` to `BINARY(1)`. ACE
@@ -297,7 +297,7 @@ Points verified against ACE that aren't obvious from that page:
   255/510 above — while an explicit `(p)`/`(p,s)` is stamped exactly as written; the column is 17 bytes and
   fixed-length either way. **A precision of 0 cannot be declared at all**, which fits ACE's own OLE DB reader
   being unable to materialise such a column — a 0 leaves the value no declared shape to be read back into.
-  LibRed rejects out-of-range dimensions in `AccessTypeMapper` and, because a direct Core caller bypasses that, in `TdefBuilder` too; an unspecified
+  LibRed rejects out-of-range dimensions in `AccessTypeMapper` and, because a direct Core caller bypasses that, in `TableDefinition` too; an unspecified
   precision resolves to 18 on write rather than reaching the file as 0.
 - The grammar parses **two-word** type names (`CHARACTER VARYING`, `BIT VARYING`); three-word
   (`NATIONAL CHARACTER VARYING`) is not parsed yet. `HYPERLINK`/`XML`/`SQL_VARIANT`/`VARIANT`/`COMP` have no

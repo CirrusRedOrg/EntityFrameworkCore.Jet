@@ -147,7 +147,8 @@ omits. Reconstruct: `fullEntry = prefix ++ stored`.
 ### 10.4 Key encoding (order-preserving)
 
 Each key column is encoded so that raw byte comparison equals value comparison. LibRed both
-**decodes** these keys and **encodes** them (`IndexKeyEncoder`, the inverse), so it can insert
+**decodes** and **encodes** these keys through `IndexKeyCodec`, which also owns their layout,
+length limit and truncation checksum, so it can insert
 into an index. The encoder is verified **byte-for-byte against Access**: re-encoding the value
 decoded from Access's own stored key reproduces the exact bytes, and after a LibRed insert
 Access satisfies an indexed primary-key seek over the entry LibRed wrote.
@@ -156,7 +157,7 @@ Access satisfies an indexed primary-key seek over the entry LibRed wrote.
 > the `(LANGID, sort id, version)` triple in its descriptor at `0x0B`–`0x0E` (§3.4) — here
 > (1033, 0, **0**), the Access 2000–2007 order Access later renamed "General legacy". The other orders use
 > the *same framing* and different weights: see **Two General orders** and **Locale-specific orders** below.
-> Encoding must **gate on the whole triple** rather than assume, which is what `IndexKeyEncoder` does — it
+> Encoding must **gate on the whole triple** rather than assume, which is what `IndexKeyCodec` does — it
 > throws on anything it has no table for instead of emitting General bytes. That matters more than it
 > sounds: a wrong key does not fail, it silently disagrees with ACE's.
 
@@ -203,7 +204,7 @@ Then the value, transformed:
   byte-for-byte vs ACE: a 256- or 300-character memo yields exactly the key of
   its 255-character prefix, so two memos differing only past character 255 share a key (fine for a
   non-unique index). Index keys are therefore encoded from the **logical** row values, before memo/OLE
-  values are materialised into their `LongValueDescriptor`s.
+  values are materialised into their `LongValueStore.DescriptorValue`s.
 > **Two General orders, two weight tables.** Everything in this Text section describes **General-Legacy**
 > (sort-order version `0`). The Access-2010+ **General** order (version `1`, the byte at column `0x0E` /
 > page-0 `0x71`) uses the *same framing* — start flag, primary weights, `0x01`, secondary section, inline
@@ -926,7 +927,7 @@ Then the value, transformed:
   8-byte halves by a constant `0x09` marker, and terminated by `0x08` — a fixed **19-byte** key. Data
   bytes equal to `0x08`/`0x09` need no escaping (every field is at a fixed offset). Verified byte-for-byte
   against ACE; ACE also opens a LibRed-written GUID-PK
-  table and seeks a row by its key. Encoded/decoded by `IndexKeyEncoder`/`IndexKeyDecoder`. Example:
+  table and seeks a row by its key. Encoded/decoded by `IndexKeyCodec`. Example:
   `01020304-0506-0708-090a-0b0c0d0e0f10` → `7F 0102030405060708 09 090A0B0C0D0E0F10 08`.
   **Descending** inverts every byte of the ascending key **except the `0x09` field marker** (kept constant
   so the structure stays parseable — and it doesn't affect ordering since it's equal in every key): the
@@ -947,7 +948,7 @@ Then the value, transformed:
   prefix order). **Descending** inverts every byte **except the `0x09` continuation markers** (mirrors
   GUID): flag → `0x80`, data bytes and the terminator inverted, markers unchanged. Ascending is verified
   byte-for-byte against ACE-written keys (single- and multi-chunk); descending is **unverified** against ACE,
-  extrapolated from the verified GUID descending. `IndexKeyEncoder.EncodeBinaryChunked`.
+  extrapolated from the verified GUID descending. `IndexKeyCodec.EncodeBinaryChunked`.
 
 ### 10.4a Entry removal — a leaf is rewritten, not repacked
 
@@ -1047,7 +1048,7 @@ The function is **affine over GF(2)** — tails differing in one byte give `L(0x
 the end contributes `S^(d-1)` of itself whatever the message length. The eight table rows above follow from
 those contributions.
 
-Equivalently, and how `JetIndexKeyChecksum` implements it: fold every byte but the last in the form
+Equivalently, and how `IndexKeyCodec` implements it: fold every byte but the last in the form
 `crc = (crc >> 8) ^ T[crc & 0xFF] ^ b`, then XOR the last byte's `b << 8` into the result. The two are the
 same function.
 
@@ -1087,7 +1088,7 @@ separator is the **maximum key of its child subtree**, stored as a full leaf key
 4-byte row pointer), so descend into the first child whose separator `≥` the new full key, else the
 child-tail (`0x14`). Slot the new entry into the target leaf in key order and rewrite the page.
 
-When a page would overflow, **split** it (LibRed's `IndexWriter`). Verified **against ACE** on a
+When a page would overflow, **split** it (LibRed's `IndexTree`). Verified **against ACE** on a
 multi-level tree LibRed wrote: Access's indexed point seek, indexed range, full `COUNT(*)`, non-indexed scan
 and `SUM` all return the correct result — i.e. every row is reachable both by the tree and by the leaf-chain
 scan Access uses.
@@ -1185,13 +1186,13 @@ The split mechanics:
   the same, and pages are allocated in the order those splits happen, leaves and nodes interleaved. Verified
   byte for byte, dead bytes included, on a tree of one node over three leaves and on one of two node levels.
 
-> Newly allocated split pages are taken from the global free-page map (§ page 1) and are registered in the
-> *index's own* owned-pages usage map as Access does — `IndexWriter.AllocateIndexPage` sets the bit for
+> Newly allocated split pages are taken from the global free-page map ([page-05 §9.1](page-05-usage-maps.md)) and are registered in the
+> *index's own* owned-pages usage map as Access does — `IndexTree.AllocateIndexPage` sets the bit for
 > every page it hands out, so the map covers the whole B-tree rather than just the root. See
 > [page-05 §9](page-05-usage-maps.md), which owns that rule.
 
 
-> **Indexable types — coverage vs ACE (§10.4).** `IndexKeyEncoder` encodes **every type ACE lets you
+> **Indexable types — coverage vs ACE (§10.4).** `IndexKeyCodec` encodes **every type ACE lets you
 > index**, all byte-verified: Boolean, Byte, Int16, Int32, Currency, Single, Double, DateTime, Text, GUID,
 > Binary, FixedPoint, Memo (its first 255 chars), **`Int64`/BIGINT** (`0x13`) and
 > **`DateTimeExtended`/DATETIME2** (`0x14`). ACE correctly **refuses** to index `OLE` (`0x0B`) and `Complex`
@@ -1199,7 +1200,7 @@ The split mechanics:
 >
 > `Int64`/BIGINT keys exactly as Currency does — an int64, sign bit flipped, big-endian — verified against ACE
 > including both extremes, ascending and descending. Note its **variable-length storage does not change
-> this**: the key dispatch is on the column's type, not on where the row keeps the bytes. `IndexKeyDecoder` decodes it too, unlike DATETIME2 —
+> this**: the key dispatch is on the column's type, not on where the row keeps the bytes. `IndexKeyCodec` decodes it too, unlike DATETIME2 —
 > it is a plain fixed-width numeric key.
 >
 > `DateTimeExtended` is **not** a fixed-width numeric key. ACE runs its whole 42-byte stored value through the
@@ -1208,5 +1209,5 @@ The split mechanics:
 > because the stored encoding is already order-preserving (both fields zero-padded to 19 digits), and it means
 > the value's trailing NUL is part of the key ([data-types](data-types.md)). Descending inverts every byte
 > except the `0x09` markers, exactly as for Binary. Verified against ACE in both directions.
-> `IndexKeyDecoder` does not decode it, for the same reason it does not decode Binary or Text: the chunked
+> `IndexKeyCodec` does not decode it, for the same reason it does not decode Binary or Text: the chunked
 > form stops the in-place walk, and the caller falls back to reading the row.

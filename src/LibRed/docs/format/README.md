@@ -10,9 +10,14 @@ Unless noted, everything here describes **Jet 4 and ACE (12/14/16/17)**, which s
 structural layout. **Jet 3** (Access 97) differs in many of these and is *not yet
 implemented* — see [Version differences](#version-differences).
 
-Implemented by `src/LibRed/LibRed.Core/`. The canonical offsets live under `Formats/` —
-`JetFormatBase.cs` for the page, TDEF and row layout, and `IndexBlockFormat.cs`, `LongValueFormat.cs` and
-`CatalogFormat.cs` for their own sub-structures.
+Implemented by `src/LibRed/LibRed.Core/`. The canonical offsets and sizes live under `Formats/` —
+named in `JetFormatBase.cs` and set per format in `Jet4Format.cs` (the ACE formats derive from it). The flag
+and code fields are enums in their own files there (`IndexAttributes`, `ObjectType`, `RelationshipAction`, …),
+Version-dependent fields stay in those format classes. Each structure's layout and read/write operations
+live with its owner: `DatabaseDefinitionPage`, `TableDefinition`, `DataPage`, `RowCodec`, `IndexTree`,
+`IndexKeyCodec`, `UsageMap`, and `LongValueStore`. A `PageChannel` owns one `PageAllocator`, used for page
+reuse, file growth and release. Catalog records, properties and stored queries are read and written through
+`JetCatalog`, `PropertyBlob`, `NameMap`, and `StoredQuery`.
 
 > **This reference is split across several files** — one per page type, plus cross-cutting topics; each is
 > self-contained (its structures *and* its read/write mechanics live together). Most describe the **on-disk
@@ -64,18 +69,20 @@ catalogued one level up in [`../functions.md`](../functions.md).
   | --- | --- | --- | --- | --- |
   | `0x0100` | `00 01` | Database definition (page 0 only) | `DatabaseDefinitionPage` | [page-00](page-00-database.md) |
   | `0x0101` | `01 01` | Data page (also long-value/LVAL pages) | `DataPage` | [page-01](page-01-data-and-rows.md) / [long-values](long-values.md) |
-  | `0x0102` | `02 01` | Table definition (TDEF) | `TableDefinitionPage` | [page-02a](page-02a-tdef.md) |
-  | `0x0103` | `03 01` | Index B-tree node (intermediate) | `IndexCursor` | [page-03-04](page-03-04-index-btree.md) |
-  | `0x0104` | `04 01` | Index B-tree leaf | `IndexCursor` | [page-03-04](page-03-04-index-btree.md) |
+  | `0x0102` | `02 01` | Table definition (TDEF) | `TableDefinition` | [page-02a](page-02a-tdef.md) |
+  | `0x0103` | `03 01` | Index B-tree node (intermediate) | `IndexTree` | [page-03-04](page-03-04-index-btree.md) |
+  | `0x0104` | `04 01` | Index B-tree leaf | `IndexTree` | [page-03-04](page-03-04-index-btree.md) |
   | `0x0105` | `05 01` | Page-usage bitmap | `UsageMap` | [page-05](page-05-usage-maps.md) |
   | `0x0106` | `06 01` | *Unknown* — never seen in a file, but ACE treats it as row-bearing (below) | — | — |
   | `0x0107` | `07 01` | *Unknown* — likewise | — | — |
-  | `0x0108` | `08 01` | Released table definition (a dropped table's TDEF) | `PageType.ReleasedTableDefinition` | [page-08](page-08-released-tdef.md) |
-  | `0x0109` | `09 01` | Released data page (emptied by DELETE, or of its packed long values) | `PageType.ReleasedDataPage` | [page-09](page-09-released-data.md) |
+  | `0x0108` | `08 01` | Released table definition (a dropped table's TDEF) | `TableDefinition.MarkReleased` | [page-08](page-08-released-tdef.md) |
+  | `0x0109` | `09 01` | Released data page (emptied by DELETE, or of its packed long values) | `DataPage.MarkReleased` | [page-09](page-09-released-data.md) |
 
   `0x0108` and `0x0109` mark pages that have been **given back**. Neither needs handling on read — allocation
   selects on the global free map, not on the type — but both are written, so a file LibRed produces carries
-  the same markers Access would. A page never written reads as all zeros, word `0x0000`.
+  the same markers Access would. They are states of their original page classes, with only the type's low
+  byte changing when marked; they have no separate parser or layout class. The unknown `0x0106` and
+  `0x0107` layouts remain unimplemented. A page never written reads as all zeros, word `0x0000`.
 
   **Which types ACE reads as rows (verified).** Scanning a table, ACE parses a page its owned-pages map names
   as a data page when the word is `0x0101`, `0x0103`, `0x0104`, `0x0106`, `0x0107` or `0x0109`, and skips

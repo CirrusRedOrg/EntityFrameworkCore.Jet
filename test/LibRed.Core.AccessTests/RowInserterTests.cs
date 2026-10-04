@@ -15,7 +15,7 @@ public class RowInserterTests
         return path;
     }
 
-    private static object?[] BuildValues(TableDef table, IReadOnlyDictionary<string, object?> byName)
+    private static object?[] BuildValues(TableDefinition table, IReadOnlyDictionary<string, object?> byName)
     {
         var values = new object?[table.Columns.Count];
         foreach (ColumnDef column in table.Columns)

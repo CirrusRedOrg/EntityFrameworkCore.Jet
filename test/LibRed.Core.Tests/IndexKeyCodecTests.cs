@@ -5,7 +5,7 @@ using Xunit;
 
 namespace LibRed.Core.Tests;
 
-public class IndexKeyEncoderTests
+public class IndexKeyCodecTests
 {
     [Theory]
     [InlineData("Shippers")]
@@ -24,8 +24,8 @@ public class IndexKeyEncoderTests
         int checkd = 0;
         foreach ((byte[] stored, _) in cursor.RawEntries())
         {
-            object?[] values = AlignToColumns(table.Definition, pk, IndexKeyDecoder.Decode(pk.Columns, stored));
-            byte[] reEncoded = IndexKeyEncoder.Encode(pk.Columns, values);
+            object?[] values = AlignToColumns(table.Definition, pk, IndexKeyCodec.Decode(pk.Columns, stored));
+            byte[] reEncoded = IndexKeyCodec.Encode(pk.Columns, values);
             Assert.Equal(stored, reEncoded);
             checkd++;
         }
@@ -62,9 +62,6 @@ public class IndexKeyEncoderTests
             table.Insert([2, odd.AddDays(1)]);
 
             var (id, _) = table.Rows().WithIds().First(r => Convert.ToInt32(r.Values[0]) == 1);
-            foreach (IndexDef index in table.Definition.Indexes.Where(i => i.RootPage > 0)
-                         .GroupBy(i => i.RootPage).Select(g => g.First()))
-                table.RemoveIndexEntry(index, table.Rows().WithIds().First(r => r.Id.Equals(id)).Values, id);
             table.Delete(id);
 
             Assert.Equal(2, Convert.ToInt32(db.OpenTable("D").Rows().Single()[0]));
@@ -82,8 +79,8 @@ public class IndexKeyEncoderTests
 
         foreach (int n in new[] { int.MinValue, -1000, -1, 0, 1, 42, 1000, int.MaxValue })
         {
-            byte[] key = IndexKeyEncoder.Encode(columns, [n]);
-            object?[] back = IndexKeyDecoder.Decode(columns, key);
+            byte[] key = IndexKeyCodec.Encode(columns, [n]);
+            object?[] back = IndexKeyCodec.Decode(columns, key);
             Assert.Equal(n, back[0]);
         }
     }
@@ -95,7 +92,7 @@ public class IndexKeyEncoderTests
         var columns = new[] { (column, true) };
 
         int[] sorted = [-5, -1, 0, 1, 5, 100];
-        var keys = sorted.Select(n => IndexKeyEncoder.Encode(columns, [n])).ToList();
+        var keys = sorted.Select(n => IndexKeyCodec.Encode(columns, [n])).ToList();
 
         // Lexicographic byte order must match ascending value order.
         for (int i = 1; i < keys.Count; i++)
@@ -110,8 +107,8 @@ public class IndexKeyEncoderTests
 
         foreach (double d in new[] { -1e9, -3.5, -0.0, 0.0, 2.5, 1e9 })
         {
-            byte[] key = IndexKeyEncoder.Encode(columns, [d]);
-            Assert.Equal(d, (double)IndexKeyDecoder.Decode(columns, key)[0]!);
+            byte[] key = IndexKeyCodec.Encode(columns, [d]);
+            Assert.Equal(d, (double)IndexKeyCodec.Decode(columns, key)[0]!);
         }
     }
 
@@ -143,8 +140,8 @@ public class IndexKeyEncoderTests
         foreach (bool ascending in new[] { true, false })
         {
             var columns = new[] { (column, ascending) };
-            byte[] key = IndexKeyEncoder.Encode(columns, [value]);
-            Assert.Equal(value, IndexKeyDecoder.Decode(columns, key)[0]);
+            byte[] key = IndexKeyCodec.Encode(columns, [value]);
+            Assert.Equal(value, IndexKeyCodec.Decode(columns, key)[0]);
         }
     }
 
@@ -161,7 +158,7 @@ public class IndexKeyEncoderTests
         {
             var column = new ColumnDef { Name = "K", Type = type, Index = 0 };
             var columns = new[] { (column, ascending) };
-            Assert.Null(IndexKeyDecoder.Decode(columns, IndexKeyEncoder.Encode(columns, [null]))[0]);
+            Assert.Null(IndexKeyCodec.Decode(columns, IndexKeyCodec.Encode(columns, [null]))[0]);
         }
     }
 
@@ -173,7 +170,7 @@ public class IndexKeyEncoderTests
         var column = new ColumnDef { Name = "K", Type = JetDataType.Guid, Index = 0 };
         var columns = new[] { (column, ascending) };
         var values = new object?[] { Guid.Parse("00112233-4455-6677-8899-aabbccddeeff") };
-        Assert.Equal(values[0], IndexKeyDecoder.Decode(columns, IndexKeyEncoder.Encode(columns, values))[0]);
+        Assert.Equal(values[0], IndexKeyCodec.Decode(columns, IndexKeyCodec.Encode(columns, values))[0]);
     }
 
     [Theory]
@@ -183,16 +180,16 @@ public class IndexKeyEncoderTests
     {
         var column = new ColumnDef { Name = "K", Type = JetDataType.Boolean, Index = 0 };
         var columns = new[] { (column, ascending) };
-        byte[] falseKey = IndexKeyEncoder.Encode(columns, [false]);
-        byte[] trueKey = IndexKeyEncoder.Encode(columns, [true]);
-        byte[] nullKey = IndexKeyEncoder.Encode(columns, [null]);
+        byte[] falseKey = IndexKeyCodec.Encode(columns, [false]);
+        byte[] trueKey = IndexKeyCodec.Encode(columns, [true]);
+        byte[] nullKey = IndexKeyCodec.Encode(columns, [null]);
 
         Assert.NotEqual(falseKey, trueKey);
         Assert.NotEqual(trueKey, nullKey);
         Assert.Equal(falseKey, nullKey);
-        Assert.False((bool)IndexKeyDecoder.Decode(columns, falseKey)[0]!);
-        Assert.True((bool)IndexKeyDecoder.Decode(columns, trueKey)[0]!);
-        Assert.False((bool)IndexKeyDecoder.Decode(columns, nullKey)[0]!);
+        Assert.False((bool)IndexKeyCodec.Decode(columns, falseKey)[0]!);
+        Assert.True((bool)IndexKeyCodec.Decode(columns, trueKey)[0]!);
+        Assert.False((bool)IndexKeyCodec.Decode(columns, nullKey)[0]!);
     }
 
     [Theory]
@@ -202,13 +199,13 @@ public class IndexKeyEncoderTests
     {
         var integer = new ColumnDef { Name = "I", Type = JetDataType.Int32, Index = 0 };
         var integerColumns = new[] { (integer, ascending) };
-        byte[] integerKey = IndexKeyEncoder.Encode(integerColumns, [123]);
-        Assert.Null(IndexKeyDecoder.Decode(integerColumns, integerKey[..^1])[0]);
+        byte[] integerKey = IndexKeyCodec.Encode(integerColumns, [123]);
+        Assert.Null(IndexKeyCodec.Decode(integerColumns, integerKey[..^1])[0]);
 
         var guid = new ColumnDef { Name = "G", Type = JetDataType.Guid, Index = 0 };
         var guidColumns = new[] { (guid, ascending) };
-        byte[] guidKey = IndexKeyEncoder.Encode(guidColumns, [Guid.NewGuid()]);
-        Assert.Null(IndexKeyDecoder.Decode(guidColumns, guidKey[..^1])[0]);
+        byte[] guidKey = IndexKeyCodec.Encode(guidColumns, [Guid.NewGuid()]);
+        Assert.Null(IndexKeyCodec.Decode(guidColumns, guidKey[..^1])[0]);
     }
 
     [Fact]
@@ -217,15 +214,15 @@ public class IndexKeyEncoderTests
         var column = new ColumnDef { Name = "K", Type = JetDataType.Int32, Index = 0 };
         var columns = new[] { (column, false) };
         int[] ascendingValues = [-5, -1, 0, 1, 5, 100];
-        byte[][] keys = ascendingValues.Select(v => IndexKeyEncoder.Encode(columns, [v])).ToArray();
+        byte[][] keys = ascendingValues.Select(v => IndexKeyCodec.Encode(columns, [v])).ToArray();
 
         for (int i = 1; i < keys.Length; i++)
             Assert.True(Compare(keys[i - 1], keys[i]) > 0);
     }
 
-    private static object?[] AlignToColumns(TableDef table, IndexDef index, object?[] keyValues)
+    private static object?[] AlignToColumns(TableDefinition table, IndexDef index, object?[] keyValues)
     {
-        // IndexKeyDecoder returns values in index-column order; the encoder reads values[column.Index].
+        // IndexKeyCodec returns values in index-column order; the encoder reads values[column.Index].
         var values = new object?[table.Columns.Count];
         for (int i = 0; i < index.Columns.Count; i++)
             values[index.Columns[i].Column.Index] = keyValues[i];

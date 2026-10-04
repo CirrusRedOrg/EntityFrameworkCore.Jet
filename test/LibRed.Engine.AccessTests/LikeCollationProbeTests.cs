@@ -117,7 +117,7 @@ public class LikeCollationProbeTests(ITestOutputHelper output)
         string path = TemporaryDatabase.CreatePath("like-probe-", ".accdb");
         try
         {
-            DatabaseCreator.CreateEmpty(path, collation: collation);
+            JetDatabase.Create(path, collation: collation);
             using OleDbConnection ace = AceTestDatabase.Open(path);
             Exec(ace, "CREATE TABLE One (Id LONG)");
             Exec(ace, "INSERT INTO One (Id) VALUES (1)");
@@ -140,7 +140,7 @@ public class LikeCollationProbeTests(ITestOutputHelper output)
         string path = TemporaryDatabase.CreatePath("like-probe-libred-", ".accdb");
         try
         {
-            DatabaseCreator.CreateEmpty(path, collation: collation);
+            JetDatabase.Create(path, collation: collation);
             using var db = JetDatabase.Open(path, readOnly: false);
             var engine = new QueryEngine(db);
             engine.ExecuteNonQuery("CREATE TABLE One (Id LONG)");

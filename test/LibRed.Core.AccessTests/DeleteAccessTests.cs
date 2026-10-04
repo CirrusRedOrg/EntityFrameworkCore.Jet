@@ -34,7 +34,6 @@ public class DeleteAccessTests(ITestOutputHelper output) : TempDatabaseTest
                 var pk = table.Definition.Indexes.First(i => i.IsPrimaryKey);
                 (RowId id, object?[] values) = table.Rows().WithIds().First(x => Convert.ToInt32(x.Values[idIdx]) == 3);
 
-                table.RemoveIndexEntry(pk, values, id);
                 table.Delete(id);
             }
 
@@ -79,8 +78,6 @@ public class DeleteAccessTests(ITestOutputHelper output) : TempDatabaseTest
             foreach ((RowId id, object?[] values) in table.Rows().WithIds().ToList())
             {
                 if (Convert.ToInt32(values[0]) >= 700) continue;
-                foreach (IndexDef index in table.Definition.RealIndexes)
-                    table.RemoveIndexEntry(index, values, id);
                 table.Delete(id);
             }
         }
@@ -112,8 +109,6 @@ public class DeleteAccessTests(ITestOutputHelper output) : TempDatabaseTest
             owned = [.. new UsageMap(database.Channel, table.Definition).DataPages()];
             foreach ((RowId id, object?[] values) in table.Rows().WithIds().ToList())
             {
-                foreach (IndexDef index in table.Definition.RealIndexes)
-                    table.RemoveIndexEntry(index, values, id);
                 table.Delete(id);
             }
         }

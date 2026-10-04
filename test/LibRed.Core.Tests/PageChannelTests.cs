@@ -49,7 +49,7 @@ public class PageChannelTests
                 channel.WritePage(1, page);
 
                 // ...and allocate a couple of new ones.
-                channel.AllocatePage();
+                channel.Allocator.Append();
                 channel.WritePage(channel.PageCount, new byte[channel.PageSize]);
                 Assert.True(channel.PageCount > pagesBefore);
                 Assert.True(channel.InTransaction);

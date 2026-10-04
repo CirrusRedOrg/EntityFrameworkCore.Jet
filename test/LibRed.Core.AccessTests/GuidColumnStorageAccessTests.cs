@@ -34,7 +34,7 @@ public class GuidColumnStorageAccessTests : TempDatabaseTest
         }
 
         using var database = JetDatabase.Open(path, readOnly: true);
-        TableDef table = database.Catalog.FindTable("W")!;
+        TableDefinition table = database.Catalog.FindTable("W")!;
         Assert.All(table.Columns.Where(c => c.Name.StartsWith('G')), column =>
         {
             Assert.False(column.IsFixedLength);
@@ -73,7 +73,7 @@ public class GuidColumnStorageAccessTests : TempDatabaseTest
     }
 
     // The exception, and the reason "GUID is variable" must not be applied everywhere: ACE's OWN system
-    // tables declare it fixed, which is what DatabaseCreator reproduces when LibRed synthesises a database.
+    // tables declare it fixed, which is what JetDatabase reproduces when LibRed synthesises a database.
     // Checked against real ACE-created files, not against anything LibRed wrote.
     [Theory]
     [InlineData("Ace16Types.accdb")]

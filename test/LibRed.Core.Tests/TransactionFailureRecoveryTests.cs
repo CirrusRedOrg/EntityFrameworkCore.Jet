@@ -64,8 +64,8 @@ public class TransactionFailureRecoveryTests
 
             first.BeginTransaction();
             second.BeginTransaction();
-            int firstPage = first.AllocatePage();
-            int secondPage = second.AllocatePage();
+            int firstPage = first.Allocator.Append();
+            int secondPage = second.Allocator.Append();
             Assert.Equal(originalCount, firstPage);
             Assert.Equal(firstPage, secondPage);
             WriteMarker(first, firstPage, 0x11);
@@ -80,7 +80,7 @@ public class TransactionFailureRecoveryTests
             Assert.Equal(0x11, second.ReadPage(firstPage).Span[100]);
 
             second.BeginTransaction();
-            int retryPage = second.AllocatePage();
+            int retryPage = second.Allocator.Append();
             Assert.Equal(originalCount + 1, retryPage);
             WriteMarker(second, retryPage, 0x22);
             second.CommitTransaction();
@@ -102,7 +102,7 @@ public class TransactionFailureRecoveryTests
             using (var channel = PageChannel.Open(path, readOnly: false))
             {
                 channel.BeginTransaction();
-                int page = channel.AllocatePage();
+                int page = channel.Allocator.Append();
                 WriteMarker(channel, page, 0x7E);
                 Assert.Equal(before.Length / channel.PageSize + 1, channel.PageCount);
             }
@@ -147,8 +147,8 @@ public class TransactionFailureRecoveryTests
             using (var channel = PageChannel.Open(path, readOnly: false, locks: locks))
             {
                 channel.BeginTransaction();
-                int firstPage = channel.AllocatePage();
-                int secondPage = channel.AllocatePage();
+                int firstPage = channel.Allocator.Append();
+                int secondPage = channel.Allocator.Append();
                 WriteMarker(channel, firstPage, 0x31);
                 WriteMarker(channel, secondPage, 0x32);
 

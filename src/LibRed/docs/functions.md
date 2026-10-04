@@ -33,7 +33,7 @@ reference throws "Column not found" — a default is row-blind by design). The e
 - Values follow VBA sign and rounding conventions (`CInt`/`CLng`/`CByte` use banker's rounding).
 - **Dates compare by their OLE Automation serial**, not chronologically: below the 1899-12-30 epoch the day count
   goes negative while the time fraction stays positive, so 1899-12-29 06:00 is -1.25 and 18:00 is -1.75, and ACE
-  orders the later time first. LibRed matches that, because `IndexKeyEncoder` writes the same serial as the index
+  orders the later time first. LibRed matches that, because `IndexKeyCodec` writes the same serial as the index
   key and the two paths must agree (see `AcePreEpochDateProbeTest`). Date *functions* are unaffected — they work
   in date space.
 - **Argument counts are validated** against a per-function range, including optional arguments and Jet quirks:

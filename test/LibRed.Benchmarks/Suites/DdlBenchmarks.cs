@@ -70,7 +70,7 @@ public class DdlBenchmarks
         {
             string path = Path.Combine(_scratchDirectory, $"new-{_sequence++}.accdb");
             _created.Add(path);
-            DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
         }
     }
 

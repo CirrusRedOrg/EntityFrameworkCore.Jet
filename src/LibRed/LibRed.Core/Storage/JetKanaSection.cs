@@ -16,10 +16,10 @@ internal static class JetKanaSection
     /// <summary>The page byte every kana primary starts with: a kana weighs <c>7F &lt;sound&gt;</c>.</summary>
     public const byte KanaPage = 0x7F;
 
-    /// <summary>Closes the kana section, after the <c>FF</c> that introduces the mark codes.
+    /// <summary>Closes the kana section, after the mark codes.
     /// Constant across hiragana, katakana, halfwidth, small and voiced forms in every string measured, so it
     /// is emitted literally; what it denotes is not established.</summary>
-    private static ReadOnlySpan<byte> Tail => [0x02, 0x80, 0xFF, 0x80];
+    private static ReadOnlySpan<byte> Tail => [0x02, 0x80, IndexKeyCodec.KanaRunSeparator, 0x80];
 
     /// <summary>The mark code of a kana that is a letter in its own right.</summary>
     public const byte Letter = 0b01;
@@ -51,10 +51,30 @@ internal static class JetKanaSection
         secondary = character switch
         {
             (char)0x3005 => 0x05,                                                             // 々
-            (char)0x309D or (char)0x30FD or (char)0x3031 or (char)0x30FC or (char)0xFF70 => 0x02,   // ゝ ヽ 〱 ー ｰ
+            (char)0x309D or (char)0x30FD or (char)0x3031 => 0x02,                             // ゝ ヽ 〱
+            _ when IsProlongedSoundMark(character) => 0x02,                                   // ー ｰ, with no kana to lengthen
             (char)0x309E or (char)0x30FE or (char)0x3032 => 0x03,                             // ゞ ヾ 〲 — voiced
             (char)0x303B when version1 => 0x05,                                               // 〻
             (char)0xA015 when version1 => 0x07,                                               // ꀕ
+            _ => 0,
+        };
+        return secondary != 0;
+    }
+
+    /// <summary>Whether <paramref name="character"/> is a prolonged sound mark — <c>ー</c> or halfwidth <c>ｰ</c>. Right
+    /// after a kana it lengthens that kana's vowel, taking the vowel's primary and the kana's small flag and marking
+    /// itself <see cref="Prolonged"/>; with no kana before it, it is an iteration mark.</summary>
+    public static bool IsProlongedSoundMark(char character) => character is (char)0x30FC or (char)0xFF70;
+
+    /// <summary>Whether <paramref name="character"/> is a halfwidth voicing mark, and the secondary it gives the kana
+    /// right before it: <c>ﾞ</c> voices it (<c>03</c>), <c>ﾟ</c> semi-voices it (<c>04</c>). The marks are combining —
+    /// ACE folds them into that kana rather than weighing them — and with no kana before them they are weighed alone.</summary>
+    public static bool TryGetHalfwidthVoicing(char character, out byte secondary)
+    {
+        secondary = character switch
+        {
+            (char)0xFF9E => 0x03,
+            (char)0xFF9F => 0x04,
             _ => 0,
         };
         return secondary != 0;
@@ -69,10 +89,10 @@ internal static class JetKanaSection
     /// <param name="marks">Per kana, <see cref="Letter"/>, <see cref="Prolonged"/> or <see cref="Repeat"/>.</param>
     public static void Append(List<byte> output, List<bool> small, List<byte> marks)
     {
-        output.Add(0x01);
-        output.Add(0x01);
+        output.Add(IndexKeyCodec.SectionSeparator); // ends the diacritics
+        output.Add(IndexKeyCodec.SectionSeparator); // ends the empty case section
         AddCodes(output, small.Count, i => small[i] ? (byte)0b10 : (byte)0b11, unmarked: 0b11);
-        output.Add(0xFF);
+        output.Add(IndexKeyCodec.KanaRunSeparator);
         AddCodes(output, marks.Count, i => marks[i], unmarked: Letter);
         output.AddRange(Tail);
     }

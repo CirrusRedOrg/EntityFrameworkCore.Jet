@@ -1,6 +1,8 @@
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
 using LibRed.IO;
+using LibRed.Pages;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -13,28 +15,19 @@ namespace LibRed.Core.Tests;
 /// </summary>
 public class ForeignKeyLinkageTests
 {
-    private readonly record struct Block(int Num, int Num2, byte FkType, uint FkNum, int FkPage, byte Upd, byte Del, byte Type, string Name);
-
-    private static List<Block> ReadLogicalBlocks(PageChannel ch, int page)
+    /// <summary>The table's logical index-info blocks, each with its name, in the order the TDEF stores them.</summary>
+    private static List<TableDefinition.LogicalIndexSpec> ReadLogicalBlocks(PageChannel ch, int page)
     {
-        var fmt = ch.Format;
-        var buf = ch.ReadPage(page);
-        int dataCount = buf.ReadInt32(fmt.TdefIndexCountOffset);
-        int logicalCount = buf.ReadInt32(fmt.TdefLogicalIndexCountOffset);
-        int cols = buf.ReadUInt16(fmt.TdefColumnCountOffset);
-        int pos = fmt.TdefRealIndexBlockOffset + dataCount * fmt.RealIndexEntrySize + cols * fmt.ColumnDescriptorSize;
-        for (int i = 0; i < cols; i++) pos += 2 + buf.ReadUInt16(pos);
-        int infoStart = pos + dataCount * 52;
-        int namePos = infoStart + logicalCount * 28;
-        var names = new string[logicalCount];
-        for (int i = 0; i < logicalCount; i++) { int len = buf.ReadUInt16(namePos); namePos += 2; names[i] = System.Text.Encoding.Unicode.GetString(buf.Slice(namePos, len)); namePos += len; }
-        var blocks = new List<Block>(logicalCount);
-        for (int i = 0; i < logicalCount; i++)
+        JetFormatBase fmt = ch.Format;
+        (PageBuffer buf, _) = TableDefinition.ReadChain(ch, page);
+        TableDefinition.Regions regions = TableDefinition.Regions.Of(buf.Span, fmt);
+        var blocks = new List<TableDefinition.LogicalIndexSpec>(regions.LogicalCount);
+        int namePos = regions.IndexNames;
+        for (int i = 0; i < regions.LogicalCount; i++)
         {
-            int b = infoStart + i * 28;
-            blocks.Add(new Block(buf.ReadInt32(b + 4), buf.ReadInt32(b + 8), buf.ReadByte(b + 0x0C),
-                (uint)buf.ReadInt32(b + 0x0D), buf.ReadInt32(b + 0x11), buf.ReadByte(b + 0x15),
-                buf.ReadByte(b + 0x16), buf.ReadByte(b + 0x17), names[i]));
+            (string name, namePos) = TableDefinition.ReadName(buf, namePos, "logical index", fmt);
+            blocks.Add(TableDefinition.ReadInfoBlock(
+                buf.Span.Slice(regions.InfoBlocks + i * fmt.IndexInfoBlockSize, fmt.IndexInfoBlockSize), fmt, name));
         }
         return blocks;
     }
@@ -63,23 +56,23 @@ public class ForeignKeyLinkageTests
             var parent = ReadLogicalBlocks(ch, parentPage);
 
             // Child: an outgoing relationship block named FKrel, pointing at the parent page, type foreign.
-            Block outgoing = child.Single(b => b.Name == "FKrel");
-            Assert.Equal(0x02, outgoing.FkType);
-            Assert.Equal(0x02, outgoing.Type);
-            Assert.Equal(parentPage, outgoing.FkPage);
+            TableDefinition.LogicalIndexSpec outgoing = child.Single(b => b.Name == "FKrel");
+            Assert.Equal(ForeignKeyType.Outgoing, outgoing.FkType);
+            Assert.Equal(IndexInfoType.Foreign, outgoing.Type);
+            Assert.Equal(parentPage, outgoing.FkTablePage);
 
             // Parent: an incoming relationship block (hidden ".r" name), pointing back at the child page.
-            Block incoming = parent.Single(b => b.FkType == 0x01);
-            Assert.Equal(0x02, incoming.Type);
-            Assert.Equal(childPage, incoming.FkPage);
+            TableDefinition.LogicalIndexSpec incoming = parent.Single(b => b.FkType == ForeignKeyType.Incoming);
+            Assert.Equal(IndexInfoType.Foreign, incoming.Type);
+            Assert.Equal(childPage, incoming.FkTablePage);
             Assert.StartsWith(".r", incoming.Name);
 
             // The two ends cross-reference by index_num (each block's fkNum is the other's num).
-            Assert.Equal((uint)incoming.Num, outgoing.FkNum);
-            Assert.Equal((uint)outgoing.Num, incoming.FkNum);
+            Assert.Equal((uint)incoming.Number, outgoing.FkNumber);
+            Assert.Equal((uint)outgoing.Number, incoming.FkNumber);
 
             // The parent's own primary key is untouched (still present, not a relationship).
-            Assert.Contains(parent, b => b.Type == 0x01 && b.FkType == 0x00);
+            Assert.Contains(parent, b => b.Type == IndexInfoType.Primary && b.FkType == ForeignKeyType.None);
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -104,8 +97,8 @@ public class ForeignKeyLinkageTests
             using var ch = PageChannel.Open(path, readOnly: true);
             var child = ReadLogicalBlocks(ch, new JetCatalog(ch).FindTable("C3")!.DefinitionPage);
             var parent = ReadLogicalBlocks(ch, new JetCatalog(ch).FindTable("P3")!.DefinitionPage);
-            Assert.Equal(0x03, child.Single(b => b.Name == "FKni").FkType);
-            Assert.Equal(0x01, parent.Single(b => b.FkType == 0x01).FkType); // parent side unchanged
+            Assert.Equal(ForeignKeyType.OutgoingNoIndex, child.Single(b => b.Name == "FKni").FkType);
+            Assert.Single(parent, b => b.FkType == ForeignKeyType.Incoming); // parent side unchanged
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -132,14 +125,14 @@ public class ForeignKeyLinkageTests
             using var ch = PageChannel.Open(path, readOnly: true);
             var blocks = ReadLogicalBlocks(ch, page);
 
-            Block outgoing = blocks.Single(b => b.Name == "fk");
-            Block incoming = blocks.Single(b => b.FkType == 0x01);
-            Assert.Equal(0x02, outgoing.FkType);
-            Assert.Equal(page, outgoing.FkPage);   // references its own table
-            Assert.Equal(page, incoming.FkPage);
+            TableDefinition.LogicalIndexSpec outgoing = blocks.Single(b => b.Name == "fk");
+            TableDefinition.LogicalIndexSpec incoming = blocks.Single(b => b.FkType == ForeignKeyType.Incoming);
+            Assert.Equal(ForeignKeyType.Outgoing, outgoing.FkType);
+            Assert.Equal(page, outgoing.FkTablePage);   // references its own table
+            Assert.Equal(page, incoming.FkTablePage);
             Assert.StartsWith(".r", incoming.Name);
-            Assert.Equal((uint)incoming.Num, outgoing.FkNum); // cross-linked within the one table
-            Assert.Equal((uint)outgoing.Num, incoming.FkNum);
+            Assert.Equal((uint)incoming.Number, outgoing.FkNumber); // cross-linked within the one table
+            Assert.Equal((uint)outgoing.Number, incoming.FkNumber);
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -163,20 +156,20 @@ public class ForeignKeyLinkageTests
             var child = ReadLogicalBlocks(ch, new JetCatalog(ch).FindTable("C2")!.DefinitionPage);
             var parent = ReadLogicalBlocks(ch, new JetCatalog(ch).FindTable("P2")!.DefinitionPage);
 
-            Block outgoing = child.Single(b => b.Name == "FKcas");
-            Assert.Equal(0x01, outgoing.Upd);   // cascade update
-            Assert.Equal(0x01, outgoing.Del);   // cascade delete
-            Block incoming = parent.Single(b => b.FkType == 0x01);
-            Assert.Equal(0x01, incoming.Upd);
-            Assert.Equal(0x01, incoming.Del);
+            TableDefinition.LogicalIndexSpec outgoing = child.Single(b => b.Name == "FKcas");
+            Assert.Equal(RelationshipAction.Cascade, outgoing.UpdateAction);   // cascade update
+            Assert.Equal(RelationshipAction.Cascade, outgoing.DeleteAction);   // cascade delete
+            TableDefinition.LogicalIndexSpec incoming = parent.Single(b => b.FkType == ForeignKeyType.Incoming);
+            Assert.Equal(RelationshipAction.Cascade, incoming.UpdateAction);
+            Assert.Equal(RelationshipAction.Cascade, incoming.DeleteAction);
 
             // And the catalog reads them back, on both ends.
             var catalog = new JetCatalog(ch);
             LogicalIndexDef childEnd = catalog.FindTable("C2")!.LogicalIndexes.Single(l => l.Name == "FKcas");
             LogicalIndexDef parentEnd = catalog.FindTable("P2")!.LogicalIndexes.Single(l => l.IsIncomingRelationship);
-            Assert.Equal((0x01, 0x01), (childEnd.UpdateAction, childEnd.DeleteAction));
-            Assert.Equal((0x01, 0x01), (parentEnd.UpdateAction, parentEnd.DeleteAction));
-            Assert.Equal((0x04, 0x04), (catalog.FindTable("C2")!.LogicalIndexes.Single(l => l.IsPrimaryKey).UpdateAction,
+            Assert.Equal((RelationshipAction.Cascade, RelationshipAction.Cascade), (childEnd.UpdateAction, childEnd.DeleteAction));
+            Assert.Equal((RelationshipAction.Cascade, RelationshipAction.Cascade), (parentEnd.UpdateAction, parentEnd.DeleteAction));
+            Assert.Equal((RelationshipAction.NotRelationship, RelationshipAction.NotRelationship), (catalog.FindTable("C2")!.LogicalIndexes.Single(l => l.IsPrimaryKey).UpdateAction,
                                         catalog.FindTable("C2")!.LogicalIndexes.Single(l => l.IsPrimaryKey).DeleteAction));
         }
         finally { TemporaryDatabase.Delete(path); }
@@ -204,11 +197,17 @@ public class ForeignKeyLinkageTests
             // grbit keeps cascade update and delete; the child's block now says no update action and SET NULL.
             using (var ch = PageChannel.Open(path, readOnly: false))
             {
+                JetFormatBase fmt = ch.Format;
                 int page = new JetCatalog(ch).FindTable("C4")!.DefinitionPage;
+                List<TableDefinition.LogicalIndexSpec> blocks = ReadLogicalBlocks(ch, page);
+                int i = blocks.FindIndex(b => b.Name == "FKblock");
                 byte[] buf = ch.ReadPage(page).Span.ToArray();
-                int block = LogicalBlockOffset(ch, new PageBuffer(buf, page), "FKblock");
-                buf[block + 0x15] = 0x00;
-                buf[block + 0x16] = 0x02;
+                Span<byte> block = buf.AsSpan(TableDefinition.Regions.Of(buf, fmt).InfoBlocks + i * fmt.IndexInfoBlockSize, fmt.IndexInfoBlockSize);
+                TableDefinition.WriteInfoBlock(block, fmt, blocks[i] with
+                {
+                    UpdateAction = RelationshipAction.NoCascade,
+                    DeleteAction = RelationshipAction.SetNull,
+                });
                 ch.WritePage(page, buf);
             }
 
@@ -219,25 +218,5 @@ public class ForeignKeyLinkageTests
             Assert.True(fk.DeleteSetNull);
         }
         finally { TemporaryDatabase.Delete(path); }
-    }
-
-    private static int LogicalBlockOffset(PageChannel ch, PageBuffer buf, string name)
-    {
-        var fmt = ch.Format;
-        int dataCount = buf.ReadInt32(fmt.TdefIndexCountOffset);
-        int logicalCount = buf.ReadInt32(fmt.TdefLogicalIndexCountOffset);
-        int cols = buf.ReadUInt16(fmt.TdefColumnCountOffset);
-        int pos = fmt.TdefRealIndexBlockOffset + dataCount * fmt.RealIndexEntrySize + cols * fmt.ColumnDescriptorSize;
-        for (int i = 0; i < cols; i++) pos += 2 + buf.ReadUInt16(pos);
-        int infoStart = pos + dataCount * 52;
-        int namePos = infoStart + logicalCount * 28;
-        for (int i = 0; i < logicalCount; i++)
-        {
-            int len = buf.ReadUInt16(namePos);
-            string blockName = System.Text.Encoding.Unicode.GetString(buf.Slice(namePos + 2, len));
-            if (blockName == name) return infoStart + i * 28;
-            namePos += 2 + len;
-        }
-        throw new InvalidOperationException($"No logical index named {name}.");
     }
 }

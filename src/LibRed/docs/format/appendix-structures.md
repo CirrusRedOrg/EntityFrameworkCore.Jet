@@ -34,9 +34,9 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 | `0x15` | 1 | Version minor byte (`0x01` on a file created as ACE14/Access 2010, else `0x00`; a version raise writes `0x00`) |
 | `0x16` | 2 | Unknown (zero) |
 | `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with the RC4 keystream of the key `C7 DA 39 6B`; the `0x18`–`0x72` fields below are offsets into it (Jet3 masks 126) |
-| `0x18` | 4 | Global free-pages map pointer `[row:1][page:3]` (`0x00000100` = page 1 row 0) |
-| `0x1C` | 4 | Global released-pages map pointer `[row:1][page:3]` (`0x00000101` = page 1 row 1) |
-| `0x20`–`0x2C` | 4×4 | Catalog bootstrap pointers — `MSysObjects`/`MSysACEs`/`MSysQueries`/`MSysRelationships` TDEF pages (`2`/`3`/`4`/`5`); `0x20` = catalog root |
+| `0x18` | 4 | Global free-pages map pointer `[row:1][page:3]` (`0x00000100` = page 1 row 0 where ACE creates it) |
+| `0x1C` | 4 | Global released-pages map pointer `[row:1][page:3]` (`0x00000101` = page 1 row 1 where ACE creates it) |
+| `0x20`–`0x2C` | 4×4 | Catalog bootstrap pointers — `MSysObjects`/`MSysACEs`/`MSysQueries`/`MSysRelationships` TDEF pages, wherever the creator put them (`2`/`3`/`4`/`5` where ACE creates them); `0x20` = catalog root |
 | `0x30`–`0x3B` | 12 | `0x30`/`0x34`: `MSysAccounts`/`MSysGroups` TDEF pages in a workgroup file (`6`/`7`), zero otherwise; `0x38` zero |
 | `0x3C` | 2 | ANSI code page (LE; `0x04E4` = 1252) |
 | `0x3E` | 4 | Database/encryption key (`0` = not encrypted) |
@@ -179,7 +179,7 @@ descriptor.
 | `0x0D` | 4 | Matching logical block's `index_num` on the other table (`0xFFFFFFFF` = none) |
 | `0x11` | 4 | FK table page (other table's TDEF; non-zero ⇒ relationship) |
 | `0x15` | 1 | Update action: `0x04` plain, `0x00`/`0x01` no-cascade/cascade |
-| `0x16` | 1 | Delete action (same encoding) |
+| `0x16` | 1 | Delete action: the same, plus `0x02` set null ([page-02d](page-02d-constraints.md)) |
 | `0x17` | 1 | Index type: `0x00` secondary, `0x01` primary, `0x02` foreign |
 | `0x18` | 4 | Unknown / reserved (zero) — trailing bytes of the 28-byte block |
 
@@ -209,8 +209,9 @@ descriptor.
 **Inline (type `0x00`):** `[0x00][startPage:4][bitmap…]` — bit `i` ⇒ page `startPage+i` owned.
 **Reference (type `0x01`, 69 bytes):** `[0x01][17 × 4-byte bitmap-page pointers]`.
 **Bitmap page (page type `0x0105`):** header `[05 01][00 00]` — the type word, then two zero bytes — bitmap from offset 4.
-Global maps, located by page 0: free pages at `0x18` (page 1 row 0 as ACE writes it) — set bit = **free**
-(opposite of a table map); released pages at `0x1C` (page 1 row 1) — set bit = freed, not reusable until close.
+Global maps, located by page 0's pointers wherever they point: free pages at `0x18` (page 1 row 0 where ACE
+creates it) — set bit = **free** (opposite of a table map); released pages at `0x1C` (page 1 row 1 where ACE
+creates it) — set bit = freed, not reusable until close.
 
 ---
 
@@ -254,7 +255,7 @@ Global maps, located by page 0: free pages at `0x18` (page 1 row 0 as ACE writes
 
 ## Catalog tables → [system-catalog](system-catalog.md)
 
-- **MSysObjects** (TDEF page 2): `Id`, `Name`, `Type` (1 table, 2 database, 3 container, 5 query/view, 6 linked table, 8 relationship; negative for Access documents — see system-catalog §11 *Object kinds*), `Flags`, `ParentId` (the container; `Name` is unique within it), `Owner`, `DateCreate`/`DateUpdate`, `LvProp` (property blob).
+- **MSysObjects** (TDEF named by page 0's `0x20`): `Id`, `Name`, `Type` (1 table, 2 database, 3 container, 5 query/view, 6 linked table, 8 relationship; negative for Access documents — see system-catalog §11 *Object kinds*), `Flags`, `ParentId` (the container; `Name` is unique within it), `Owner`, `DateCreate`/`DateUpdate`, `LvProp` (property blob).
 - **MSysACEs** (4 cols): `ObjectId`, `SID`, `ACM`, `FInheritable` — two rows per object.
 - **MSysQueries** (8 cols): `ObjectId`, `Attribute`, `Flag`, `Name1`, `Name2`, `Expression`, `Order`, `LvExtra`; PK `(ObjectId, Attribute, Order)`.
 - **MSysRelationships**: `szRelationship`, `szObject`, `szColumn`, `szReferencedObject`, `szReferencedColumn`, `icolumn`, `ccolumn`, `grbit` (`0x01` one-to-one, `0x02` don't-enforce, `0x100` cascade-update, `0x1000` cascade-delete, `0x2000` delete-set-null, `0x1000000`/`0x2000000` join type: all records from the parent / from the child). The cascades ACE applies come from the index-info blocks' `0x15`/`0x16`, not from these bits.
@@ -293,8 +294,8 @@ table records how each ceiling is actually held, not merely that it exists.
 
 | Narrow field | Ceiling it imposes | How it is held |
 | --- | --- | --- |
-| Index leaf entry addresses a row as `page << 8 \| row` — 1 byte of slot | **255 rows per data page**: the pointer allows 256 but **ACE writes at most 255**, not for space (a filled page keeps ~2,297 of 4,096 bytes free) and it drops the page from the free-pages map on reaching it | **Enforced at ACE's 255.** `FindPageWithRoom` refuses a page at `RowPointer.MaxRowsPerPage`, covering both the insert path and `WriteHiddenRow` (a relocation target is named by the same pointer). Overfilling costs more than indexed reads — ACE parses the full 16-bit count but caps at 256 slots, so it silently cannot see the rest of the page's rows |
-| Long-value descriptor names its row in 1 byte (`d[4]`) | **256 rows per LVAL page** | **Enforced** in `TryAppend`. Unreachable in practice — a payload ≤ 64 bytes inlines, and the free-map drop at `MinLvalRow` (258 bytes free) caps a page at 104 rows even for the smallest thing that can arrive (a 33-character memo compressed to 35 bytes; compression is applied *after* the inline test, so the floor is below the 65 bytes the inline limit suggests) |
+| Index leaf entry addresses a row as `page << 8 \| row` — 1 byte of slot | **255 rows per data page**: the pointer allows 256 but **ACE writes at most 255**, not for space (a filled page keeps ~2,297 of 4,096 bytes free) and it drops the page from the free-pages map on reaching it | **Enforced at ACE's 255.** `FindPageWithRoom` refuses a page at the format's `MaxRowsPerPage`, covering both the insert path and `WriteHiddenRow` (a relocation target is named by the same pointer). Overfilling costs more than indexed reads — ACE parses the full 16-bit count but caps at 256 slots, so it silently cannot see the rest of the page's rows |
+| Long-value descriptor names its row in 1 byte (`d[4]`) | **256 rows per LVAL page** | **Enforced** in `TryAppend`. Unreachable in practice — a payload ≤ 64 bytes inlines, and the free-map drop below `MinLvalValue` (256) plus its 2-byte slot (258 bytes free) caps a page at 104 rows even for the smallest thing that can arrive (a 33-character memo compressed to 35 bytes; compression is applied *after* the inline test, so the floor is below the 65 bytes the inline limit suggests) |
 | Page numbers are 3 bytes in the TDEF usage-map pointer, the long-value descriptor (`d[5..7]`) and an LVAL chunk's next-pointer | **page < 2²⁴** (16,777,216) | **Safe with 32× headroom**, because `PageChannel.WritePage` enforces the 2 GiB file limit at 524,288 pages. The 24-bit fields are never the binding constraint |
 | Usage-map pointer names its record row in 1 byte | **256 records per usage-map page** | **Safe by a louder guard.** A record is 69 bytes, so `AppendEmptyUsageMapRow`'s space check admits 57 and refuses the 58th — 4.5× tighter than the byte — and it throws rather than truncating |
 | Reference usage map holds 17 bitmap-page slots | **~2.28 GB of page coverage** | **Enforced** — `NotSupportedException` on both the set-bit and inline→reference conversion paths. Just past the 2 GiB file limit, by design |

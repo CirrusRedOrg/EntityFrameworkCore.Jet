@@ -1,6 +1,9 @@
 using System.Buffers.Binary;
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
+using LibRed.IO;
+using LibRed.Pages;
 using LibRed.Storage;
 using Xunit;
 
@@ -8,12 +11,6 @@ namespace LibRed.Core.Tests;
 
 public class RowRelocationCorruptionTests
 {
-    private const int PageSize = 4096;
-    private const int RowDirectoryOffset = 0x0E;
-    private const int OffsetMask = 0x1FFF;
-    private const int DeletedFlag = 0x8000;
-    private const int OverflowFlag = 0x4000;
-
     [Theory]
     [InlineData("short-source")]
     [InlineData("page-outside-file")]
@@ -95,46 +92,38 @@ public class RowRelocationCorruptionTests
 
     private static void Corrupt(string path, RowId source, string corruption)
     {
+        JetFormatBase format = TestDatabases.FormatOf(path);
+        int pageSize = format.PageSize;
         byte[] file = File.ReadAllBytes(path);
-        Span<byte> sourcePage = file.AsSpan(source.Page * PageSize, PageSize);
-        int sourceEntryPos = RowDirectoryOffset + source.Row * 2;
-        int raw = BinaryPrimitives.ReadUInt16LittleEndian(sourcePage[sourceEntryPos..]);
-        int sourceOffset = raw & OffsetMask;
-        int sourceEnd = source.Row == 0
-            ? PageSize
-            : BinaryPrimitives.ReadUInt16LittleEndian(sourcePage[(sourceEntryPos - 2)..]) & OffsetMask;
-        int pointer = BinaryPrimitives.ReadInt32LittleEndian(sourcePage[sourceOffset..]);
-        int targetPageNumber = pointer >> 8;
-        int targetRow = pointer & 0xFF;
+        Span<byte> sourcePage = file.AsSpan(source.Page * pageSize, pageSize);
+        (int sourceOffset, RowSlotFlags sourceFlags) = DataPage.ReadSlot(sourcePage, format, source.Row);
+        int sourceEnd = source.Row == 0 ? pageSize : DataPage.ReadSlot(sourcePage, format, source.Row - 1).Offset;
+        (int targetRow, int targetPageNumber) = PageBuffer.ReadRecordPointer(sourcePage, sourceOffset);
 
         switch (corruption)
         {
             case "short-source":
-                BinaryPrimitives.WriteUInt16LittleEndian(sourcePage[sourceEntryPos..],
-                    (ushort)((raw & ~OffsetMask) | (sourceEnd - 3)));
+                DataPage.WriteSlot(sourcePage, format, source.Row, sourceEnd - 3, sourceFlags);
                 break;
             case "page-outside-file":
-                BinaryPrimitives.WriteInt32LittleEndian(sourcePage[sourceOffset..],
-                    ((file.Length / PageSize) + 1) << 8);
+                PageBuffer.WriteRecordPointer(sourcePage, sourceOffset, row: 0, file.Length / pageSize + 1);
                 break;
             case "row-outside-page":
-                BinaryPrimitives.WriteInt32LittleEndian(sourcePage[sourceOffset..], (targetPageNumber << 8) | 0xFF);
+                PageBuffer.WriteRecordPointer(sourcePage, sourceOffset, row: 0xFF, targetPageNumber);
                 break;
             case "target-not-hidden":
             case "target-is-overflow":
             case "target-wrong-owner":
-                Span<byte> targetPage = file.AsSpan(targetPageNumber * PageSize, PageSize);
+                Span<byte> targetPage = file.AsSpan(targetPageNumber * pageSize, pageSize);
                 if (corruption == "target-wrong-owner")
                 {
-                    BinaryPrimitives.WriteUInt32LittleEndian(targetPage[4..], 2);
+                    BinaryPrimitives.WriteUInt32LittleEndian(targetPage[format.DataOwnerOffset..], 2);
                     break;
                 }
-                int targetEntryPos = RowDirectoryOffset + targetRow * 2;
-                int targetRaw = BinaryPrimitives.ReadUInt16LittleEndian(targetPage[targetEntryPos..]);
-                targetRaw = corruption == "target-not-hidden"
-                    ? targetRaw & ~DeletedFlag
-                    : targetRaw | DeletedFlag | OverflowFlag;
-                BinaryPrimitives.WriteUInt16LittleEndian(targetPage[targetEntryPos..], (ushort)targetRaw);
+                (int targetOffset, RowSlotFlags targetFlags) = DataPage.ReadSlot(targetPage, format, targetRow);
+                DataPage.WriteSlot(targetPage, format, targetRow, targetOffset, corruption == "target-not-hidden"
+                    ? targetFlags & ~RowSlotFlags.Deleted
+                    : targetFlags | RowSlotFlags.Deleted | RowSlotFlags.Overflow);
                 break;
         }
 

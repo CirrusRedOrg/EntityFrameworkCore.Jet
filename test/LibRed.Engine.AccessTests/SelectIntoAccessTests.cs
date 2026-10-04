@@ -76,7 +76,7 @@ public class SelectIntoAccessTests : TempDatabaseTest
 
     private static string Describe(JetDatabase db, string table)
     {
-        TableDef? def = db.Catalog.Tables.FirstOrDefault(t => t.Name == table);
+        TableDefinition? def = db.Catalog.Tables.FirstOrDefault(t => t.Name == table);
         if (def is null) return "(not created)";
         return string.Join(", ", def.Columns.Select(c => $"{c.Name} {c.Type}({c.Length})")) +
                " | indexes: " + (def.Indexes.Count == 0 ? "(none)" : string.Join(", ", def.Indexes.Select(i => i.Name)));

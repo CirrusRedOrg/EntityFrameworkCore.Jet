@@ -55,7 +55,7 @@ public class CorruptFileSweepProbeTests(ITestOutputHelper output)
             foreach ((string shape, string source) in Sources(directory))
             {
                 byte[] clean = File.ReadAllBytes(source);
-                int pageSize = 4096;
+                int pageSize = TestDatabases.FormatOf(source).PageSize;
                 int pages = clean.Length / pageSize;
                 output.WriteLine($"{shape}: {pages} pages");
 
@@ -180,7 +180,7 @@ public class CorruptFileSweepProbeTests(ITestOutputHelper output)
     private static string Author(string directory, string name, Action<JetDatabase> build)
     {
         string path = Path.Combine(directory, $"source-{name}.accdb");
-        DatabaseCreator.CreateEmpty(path);
+        JetDatabase.Create(path);
         using (var database = JetDatabase.Open(path, readOnly: false))
             build(database);
         return path;
@@ -203,10 +203,10 @@ public class CorruptFileSweepProbeTests(ITestOutputHelper output)
             yield return (open, leak);
             if (database is null) yield break;
 
-            List<TableDef> tables = [];
+            List<TableDefinition> tables = [];
             yield return Try("catalog", () => tables = [.. database.Catalog.Tables]);
 
-            foreach (TableDef table in tables)
+            foreach (TableDefinition table in tables)
             {
                 int rows = 0;
                 (string read, Exception? rowLeak) = Try($"table '{table.Name}'", () =>

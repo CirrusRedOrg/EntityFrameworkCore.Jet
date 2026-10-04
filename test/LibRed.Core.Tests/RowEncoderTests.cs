@@ -16,8 +16,8 @@ public class RowEncoderTests
         var table = db.OpenTable(tableName);
         var columns = table.Definition.Columns;
 
-        var encoder = new RowEncoder(columns, db.Format);
-        var decoder = new RowDecoder(columns, db.Format);
+        var encoder = new RowCodec(columns, db.Format);
+        var decoder = new RowCodec(columns, db.Format);
 
         int rows = 0;
         foreach (object?[] original in table.Rows())
@@ -41,8 +41,8 @@ public class RowEncoderTests
         var columns = table.Definition.Columns;
         int region = columns.Single(c => c.Name == "Region").Index;
 
-        var encoder = new RowEncoder(columns, db.Format);
-        var decoder = new RowDecoder(columns, db.Format);
+        var encoder = new RowCodec(columns, db.Format);
+        var decoder = new RowCodec(columns, db.Format);
 
         bool sawNull = false;
         foreach (object?[] original in table.Rows())

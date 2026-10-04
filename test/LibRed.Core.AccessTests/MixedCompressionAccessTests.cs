@@ -68,9 +68,9 @@ public class MixedCompressionAccessTests(ITestOutputHelper output) : TempDatabas
         }
 
         using var channel = PageChannel.Open(path, readOnly: true);
-        TableDef definition = new JetCatalog(channel).FindTable("MixedProbe")!;
+        TableDefinition definition = new JetCatalog(channel).FindTable("MixedProbe")!;
         ColumnDef memo = definition.Columns.Single(c => c.Name == "M");
-        var reader = new LongValueReader(channel);
+        var reader = new LongValueStore(channel);
 
         foreach (int number in new UsageMap(channel, definition).DataPages())
         {
@@ -79,11 +79,10 @@ public class MixedCompressionAccessTests(ITestOutputHelper output) : TempDatabas
             for (int row = 0; row < page.RowCount; row++)
             {
                 if (page.Rows[row].IsDeleted) continue;
-                foreach (var raw in RowDecoder.LongValueDescriptors(definition.Columns, channel.Format, page.GetRow(row)))
+                foreach (var raw in RowCodec.LongValueDescriptors(definition.Columns, channel.Format, page.GetRow(row)))
                 {
                     if (raw.Key != memo.ColumnId) continue;
-                    int stored = (int)(System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(raw.Value)
-                        & Formats.LongValueFormat.LengthMask);
+                    int stored = Storage.LongValueStore.Read(raw.Value, channel.Format).Length;
                     byte[] body = reader.Resolve(raw.Value);
                     output.WriteLine($"{name}: {payload.Length} chars -> stored {stored} bytes "
                         + $"(utf16 would be {payload.Length * 2}); head={Convert.ToHexString(body[..Math.Min(8, body.Length)])}");
@@ -137,9 +136,9 @@ public class MixedCompressionAccessTests(ITestOutputHelper output) : TempDatabas
             + $"[{string.Join(" ", (aceReadBack ?? "").Select(c => $"U+{(int)c:X4}"))}]");
 
         using var channel = PageChannel.Open(path, readOnly: true);
-        TableDef definition = new JetCatalog(channel).FindTable("BomProbe")!;
+        TableDefinition definition = new JetCatalog(channel).FindTable("BomProbe")!;
         ColumnDef text = definition.Columns.Single(c => c.Name == "T");
-        var decoder = new RowDecoder(definition.Columns, channel.Format, new LongValueReader(channel));
+        var decoder = new RowCodec(definition.Columns, channel.Format, longValues: new LongValueStore(channel));
 
         foreach (int number in new UsageMap(channel, definition).DataPages())
         {

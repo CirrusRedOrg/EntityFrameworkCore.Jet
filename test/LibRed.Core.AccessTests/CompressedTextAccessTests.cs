@@ -79,17 +79,20 @@ public class CompressedTextAccessTests : TempDatabaseTest
         }
 
         // All three storage forms, in the one column.
+        Formats.JetFormatBase format = TestDatabases.FormatOf(path);
+        int payload = format.LongValueDescriptorSize;
         Assert.Equal(
             ["0x80 compressed", "0x40 compressed", "0x00 plain", "0x80 plain"],
             Descriptors(path).Select(d =>
-                $"0x{(byte)(d[3] & 0xC0):X2} {(d[12] == 0xFF && d[13] == 0xFE ? "compressed" : "plain")}"));
+                $"0x{(uint)Storage.LongValueStore.Read(d, format).Storage >> 24:X2} {(d[payload] == 0xFF && d[payload + 1] == 0xFE ? "compressed" : "plain")}"));
 
         // LibRed reads every form back...
         using (var channel = PageChannel.Open(path, readOnly: true))
         {
-            TableDef definition = new JetCatalog(channel).FindTable("MemoProbe")!;
+            var catalog = new JetCatalog(channel);
+            TableDefinition definition = catalog.FindTable("MemoProbe")!;
             int column = definition.Columns.Single(c => c.Name == "C").Index;
-            Assert.Equal(values, new Table(channel, definition).Rows().Select(r => (string)r[column]!));
+            Assert.Equal(values, new Table(channel, definition, catalog).Rows().Select(r => (string)r[column]!));
         }
 
         // ...and so does ACE.
@@ -109,9 +112,9 @@ public class CompressedTextAccessTests : TempDatabaseTest
     private static IEnumerable<byte[]> Descriptors(string path)
     {
         using var channel = PageChannel.Open(path, readOnly: true);
-        TableDef definition = new JetCatalog(channel).FindTable("MemoProbe")!;
+        TableDefinition definition = new JetCatalog(channel).FindTable("MemoProbe")!;
         ColumnDef column = definition.Columns.Single(c => c.Name == "C");
-        var reader = new LongValueReader(channel);
+        var reader = new LongValueStore(channel);
         var result = new List<byte[]>();
 
         foreach (int number in new UsageMap(channel, definition).DataPages())
@@ -121,11 +124,11 @@ public class CompressedTextAccessTests : TempDatabaseTest
             for (int row = 0; row < page.RowCount; row++)
             {
                 if (page.Rows[row].IsDeleted) continue;
-                foreach (var raw in RowDecoder.LongValueDescriptors(definition.Columns, channel.Format, page.GetRow(row)))
+                foreach (var raw in RowCodec.LongValueDescriptors(definition.Columns, channel.Format, page.GetRow(row)))
                 {
                     if (raw.Key != column.ColumnId) continue;
                     byte[] payload = reader.Resolve(raw.Value);
-                    result.Add([.. raw.Value[..12], .. payload.Length >= 2 ? payload[..2] : new byte[2]]);
+                    result.Add([.. raw.Value[..channel.Format.LongValueDescriptorSize], .. payload.Length >= 2 ? payload[..2] : new byte[2]]);
                 }
             }
         }
@@ -134,8 +137,9 @@ public class CompressedTextAccessTests : TempDatabaseTest
 
     private static string Describe(byte[] descriptor)
     {
-        uint word = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(descriptor);
-        return $"length={word & Formats.LongValueFormat.LengthMask} flags=0x{(byte)(descriptor[3] & 0xC0):X2}";
+        (int length, Storage.LongValueStore.StorageKind storage, _, _, _) =
+            Storage.LongValueStore.Read(descriptor, TestDatabases.FormatOf(TestDatabases.NorthwindAccdb));
+        return $"length={length} storage={storage}";
     }
 
     private static byte[] AceBytes(string ddl, string insert, string value, OleDbType type, string column)
@@ -181,7 +185,7 @@ public class CompressedTextAccessTests : TempDatabaseTest
     private static byte[] StoredBytes(string path, string columnName)
     {
         using var channel = PageChannel.Open(path, readOnly: true);
-        TableDef definition = new JetCatalog(channel).FindTable("TextProbe")
+        TableDefinition definition = new JetCatalog(channel).FindTable("TextProbe")
             ?? new JetCatalog(channel).FindTable("MemoProbe")!;
         ColumnDef column = definition.Columns.Single(c => c.Name == columnName);
 
@@ -195,12 +199,12 @@ public class CompressedTextAccessTests : TempDatabaseTest
                 byte[] bytes = page.GetRow(row).ToArray();
                 if (column.Type == JetDataType.Memo)
                 {
-                    foreach (var raw in RowDecoder.LongValueDescriptors(definition.Columns, channel.Format, bytes))
+                    foreach (var raw in RowCodec.LongValueDescriptors(definition.Columns, channel.Format, bytes))
                         if (raw.Key == column.ColumnId)
-                            return raw.Value[..12];
+                            return raw.Value[..channel.Format.LongValueDescriptorSize];
                     throw new InvalidOperationException("No long-value descriptor for the memo column.");
                 }
-                return RowLayout.Parse(bytes, 2, hasVar: true).VarChunk(column.VariableIndex).ToArray();
+                return RowCodec.Layout.Parse(bytes, channel.Format, hasVar: true).VarChunk(column.VariableIndex).ToArray();
             }
         }
         throw new InvalidOperationException("No live row found.");

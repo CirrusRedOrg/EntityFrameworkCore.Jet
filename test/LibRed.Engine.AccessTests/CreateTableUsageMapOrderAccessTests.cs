@@ -1,7 +1,6 @@
 using System.Data.OleDb;
 using LibRed;
 using LibRed.Catalog;
-using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
 using Xunit;
@@ -76,33 +75,15 @@ public class CreateTableUsageMapOrderAccessTests(ITestOutputHelper output)
     private static string MapLayout(string path)
     {
         using var channel = PageChannel.Open(path, readOnly: true);
-        TableDef table = new JetCatalog(channel).FindTable("T")!;
-        var definition = new TableDefinitionPage();
+        TableDefinition table = new JetCatalog(channel).FindTable("T")!;
+        var definition = new TableDefinition();
         definition.Read(channel, table.DefinitionPage);
 
-        JetFormatBase format = channel.Format;
-        PageBuffer tdef = channel.ReadPage(table.DefinitionPage);
-        int dataCount = tdef.ReadInt32(format.TdefIndexCountOffset);
-        int columnCount = tdef.ReadUInt16(format.TdefColumnCountOffset);
-
-        // Walk the definition to the index-data blocks: statistics, column descriptors, then the column names.
-        int at = format.TdefRealIndexBlockOffset + dataCount * format.RealIndexEntrySize
-                 + columnCount * format.ColumnDescriptorSize;
-        for (int i = 0; i < columnCount; i++) at += 2 + tdef.ReadUInt16(at);
-
         var parts = new List<string>();
-        for (int i = 0; i < dataCount; i++)
-            parts.Add($"index{i}=row{tdef.ReadByte(at + i * IndexBlockFormat.DataBlockSize + UsageMapRowOffset)}");
+        foreach (IndexDef index in definition.Indexes.OrderBy(i => i.RealIndexOrdinal))
+            parts.Add($"index{index.RealIndexOrdinal}=row{index.UsageMap.Row}");
         foreach ((int columnId, (int owned, int _)) in definition.LongValueOwnedMaps.OrderBy(e => e.Key))
             parts.Add($"column{columnId}=rows{owned}/{definition.LongValueFreeMaps[columnId].Item1}");
         return string.Join(" ", parts);
-    }
-
-    // IndexBlockFormat is internal to Core; this is its UsageMapRowOffset (see TdefByteParityAccessTests).
-    private const int UsageMapRowOffset = 0x22;
-
-    private static class IndexBlockFormat
-    {
-        public const int DataBlockSize = 52;
     }
 }

@@ -71,14 +71,14 @@ public class LvPropStorageAccessTests(ITestOutputHelper output) : TempDatabaseTe
     {
         using var database = JetDatabase.Open(path, readOnly: true);
         Table objects = database.OpenTable("MSysObjects");
-        TableDef definition = objects.Definition;
+        TableDefinition definition = objects.Definition;
         int name = definition.RequireColumn("Name").Index, lvProp = definition.RequireColumn("LvProp").Index;
         foreach ((RowId id, object?[] values) in objects.Rows().WithIds())
         {
             if (values[name] as string != table) continue;
             var page = new DataPage();
             page.Read(objects.Channel.ReadPageShared(id.Page), objects.Channel.Format);
-            byte[] descriptor = RowDecoder.LongValueDescriptors(
+            byte[] descriptor = RowCodec.LongValueDescriptors(
                 definition.Columns, objects.Channel.Format, page.GetRow(id.Row))[lvProp];
             string form = descriptor[3] switch { 0x80 => "inline", 0x40 => "on a page", _ => $"0x{descriptor[3]:X2}" };
             return $"{form}, {((byte[])values[lvProp]!).Length} bytes";

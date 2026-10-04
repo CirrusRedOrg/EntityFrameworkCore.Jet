@@ -1,7 +1,8 @@
 using LibRed;
+using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
-using System.Buffers.Binary;
+using LibRed.Storage;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -41,18 +42,15 @@ public class UsageMapTests
             using var db = JetDatabase.Open(path, readOnly: false);
             var table = db.OpenTable("MSysObjects");
             PageBuffer tdef = table.Channel.ReadPage(table.Definition.DefinitionPage);
-            int mapRow = tdef.ReadByte(db.Format.TdefOwnedPagesOffset);
-            int mapPage = tdef.ReadInt24(db.Format.TdefOwnedPagesOffset + 1);
+            (int mapRow, int mapPage) = tdef.ReadRecordPointer(db.Format.TdefOwnedPagesOffset);
             Assert.Equal(0, mapRow); // row 0 ends at the page boundary, making its length deterministic
 
             byte[] page = table.Channel.ReadPage(mapPage).Span.ToArray();
-            int originalOffset = BinaryPrimitives.ReadUInt16LittleEndian(
-                page.AsSpan(db.Format.DataRowDirectoryOffset, 2)) & 0x1FFF;
-            int oversizedOffset = originalOffset - 4;
-            BinaryPrimitives.WriteUInt16LittleEndian(
-                page.AsSpan(db.Format.DataRowDirectoryOffset, 2), (ushort)oversizedOffset);
+            int originalOffset = DataPage.ReadSlot(page, db.Format, 0).Offset;
+            int oversizedOffset = originalOffset - sizeof(int);
+            DataPage.WriteSlot(page, db.Format, 0, oversizedOffset, RowSlotFlags.None);
             page.AsSpan(oversizedOffset, db.Format.PageSize - oversizedOffset).Clear();
-            page[oversizedOffset] = 0x01;
+            page[oversizedOffset] = (byte)UsageMapType.Reference;
             table.Channel.WritePage(mapPage, page);
 
             Assert.Throws<InvalidDataException>(() => table.UsageMap.DataPages().ToList());
@@ -69,13 +67,11 @@ public class UsageMapTests
             using var db = JetDatabase.Open(path, readOnly: false);
             var table = db.OpenTable("MSysObjects");
             PageBuffer tdef = table.Channel.ReadPage(table.Definition.DefinitionPage);
-            int mapPage = tdef.ReadInt24(db.Format.TdefOwnedPagesOffset + 1);
+            int mapPage = tdef.ReadRecordPointer(db.Format.TdefOwnedPagesOffset).Page;
             byte[] page = table.Channel.ReadPage(mapPage).Span.ToArray();
-            int offset = BinaryPrimitives.ReadUInt16LittleEndian(
-                page.AsSpan(db.Format.DataRowDirectoryOffset, 2)) & 0x1FFF;
-            Assert.Equal(69, db.Format.PageSize - offset);
-            page.AsSpan(offset, 69).Clear();
-            page[offset] = 0x01;
+            int offset = DataPage.ReadSlot(page, db.Format, 0).Offset;
+            Assert.Equal(db.Format.UsageMapReferenceRecordSize, db.Format.PageSize - offset);
+            UsageMap.NewReferenceRecord(db.Format).CopyTo(page, offset);
             table.Channel.WritePage(mapPage, page);
 
             Assert.Empty(table.UsageMap.DataPages());
@@ -92,13 +88,12 @@ public class UsageMapTests
             using var db = JetDatabase.Open(path, readOnly: false);
             var table = db.OpenTable("MSysObjects");
             PageBuffer tdef = table.Channel.ReadPage(table.Definition.DefinitionPage);
-            int mapPage = tdef.ReadInt24(db.Format.TdefOwnedPagesOffset + 1);
+            int mapPage = tdef.ReadRecordPointer(db.Format.TdefOwnedPagesOffset).Page;
             byte[] page = table.Channel.ReadPage(mapPage).Span.ToArray();
-            int offset = BinaryPrimitives.ReadUInt16LittleEndian(
-                page.AsSpan(db.Format.DataRowDirectoryOffset, 2)) & 0x1FFF;
-            page.AsSpan(offset, 69).Clear();
-            page[offset] = 0x01;
-            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(offset + 1, 4), mapPage); // data page, not 0x05
+            int offset = DataPage.ReadSlot(page, db.Format, 0).Offset;
+            Span<byte> record = page.AsSpan(offset, db.Format.UsageMapReferenceRecordSize);
+            UsageMap.NewReferenceRecord(db.Format).CopyTo(record);
+            UsageMap.WriteReferencePointer(record, 0, db.Format, mapPage); // data page, not 0x05
             table.Channel.WritePage(mapPage, page);
 
             Assert.Throws<InvalidDataException>(() => table.UsageMap.DataPages().ToList());

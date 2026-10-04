@@ -191,7 +191,7 @@ public sealed record CreateTableStatement(
     IReadOnlyList<CheckConstraint> CheckConstraints,
     // The PRIMARY KEY's CONSTRAINT name, if one was given (column- or table-level). ACE names the primary
     // key index after the constraint (verified: the scaffolder round-trips it), so it must be preserved.
-    // When null (no name given), the engine picks its own stable fallback in TableCreator.
+    // When null (no name given), the engine picks its own stable fallback in SchemaEditor.
     string? PrimaryKeyName = null,
     // How many columns are declared before the PRIMARY KEY constraint — see UniqueConstraint.
     int PrimaryKeyDeclaredAfterColumns = 0) : SqlStatement;

@@ -264,7 +264,7 @@ public class DatabaseEncryptionTests
                 DatabaseEncryption.SetPassword(db, "pw", AccessEncryption.OfficeStandardAes);
             byte[] malformed = File.ReadAllBytes(path);
             System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(
-                malformed.AsSpan(0x299, 2), checked((ushort)descriptorLength));
+                malformed.AsSpan(TestDatabases.FormatOf(Plain).EncryptionInfoLengthOffset, 2), checked((ushort)descriptorLength));
             File.WriteAllBytes(path, malformed);
 
             Exception? error = Record.Exception(() =>

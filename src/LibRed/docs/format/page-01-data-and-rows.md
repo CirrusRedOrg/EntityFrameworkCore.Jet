@@ -23,7 +23,7 @@
 > overfill the page, and the rows still scan back through a slot-walking reader, since a scan never forms a
 > pointer — which makes it look harmless. It is not: every row past slot 255 is **unaddressable by any
 > index**, its entry aliasing a different row on another page, and **ACE cannot read those rows at all**.
-> `RowInserter`'s page placer refuses a page at `RowPointer.MaxRowsPerPage` instead of trusting free space
+> `RowInserter`'s page placer refuses a page at the format's `MaxRowsPerPage` instead of trusting free space
 > alone.
 >
 > > **ACE reads the full 16-bit count and then caps at 256 slots.** Pages of 400 / 400 / 100 rows read back
@@ -45,7 +45,7 @@
 > correctly (600 rows across three pages), where a one-byte reader would see `0x00` for those pages and
 > report 88.
 >
-> LibRed's `RowPointer.MaxRowsPerPage` is therefore **255**, matching ACE rather than the pointer's maximum,
+> LibRed's `MaxRowsPerPage` (`Jet4Format`) is therefore **255**, matching ACE rather than the pointer's maximum,
 > so every page it writes is a shape Access also produces.
 
 Row slot entry: lower 13 bits (`& 0x1FFF`) = the row's byte offset in the page; `0x8000` =

@@ -228,7 +228,9 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
 
             // LibRed reads the declaration back with the query, and runs it.
             using var ours = TemporaryDatabase.OpenTracked(ourPath, readOnly: false);
-            string? stored = action ? ours.Catalog.ActionQueries["Q"].Sql : ours.Catalog.Views["Q"];
+            StoredQuery query = ours.Catalog.FindQuery("Q")!;
+            Assert.Equal(action, query.IsAction);
+            string? stored = query.Sql;
             Assert.EndsWith(" WITH OWNERACCESS OPTION", stored);
             var engine = new QueryEngine(ours);
             if (action) engine.ExecuteStoredActionQuery("Q");
@@ -296,7 +298,7 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
                 "CREATE PROCEDURE [P] AS UPDATE Customers SET ContactTitle = 'Owner' WHERE Country = 'UK'");
 
             // Round trip: what was written is read back as runnable SQL, and running it by name works.
-            StoredActionQuery stored = db.Catalog.ActionQueries["P"];
+            StoredQuery stored = db.Catalog.FindQuery("P")!;
             Assert.Null(stored.UnsupportedReason);
             Assert.Equal("UPDATE [Customers] SET [ContactTitle] = 'Owner' WHERE Country = 'UK'", stored.Sql);
             Assert.Equal(7, engine.ExecuteNonQuery("EXECUTE [P]"));
@@ -316,7 +318,7 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
     private static List<string> QueryRows(string path, string queryName)
     {
         using var db = JetDatabase.Open(path);
-        TableDef queries = db.Catalog.FindTable("MSysQueries")!;
+        TableDefinition queries = db.Catalog.FindTable("MSysQueries")!;
         int objectIdIndex = Index(queries, "ObjectId");
         int attributeIndex = Index(queries, "Attribute");
         int id = QueryObjectId(db, queryName);
@@ -342,7 +344,7 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
     private static int ObjectFlags(string path, string queryName)
     {
         using var db = JetDatabase.Open(path);
-        TableDef objects = db.Catalog.FindTable("MSysObjects")!;
+        TableDefinition objects = db.Catalog.FindTable("MSysObjects")!;
         int flagsIndex = Index(objects, "Flags");
         int idIndex = Index(objects, "Id");
         int id = QueryObjectId(db, queryName);
@@ -351,11 +353,11 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
 
     private static int QueryObjectId(JetDatabase db, string queryName)
     {
-        TableDef objects = db.Catalog.FindTable("MSysObjects")!;
+        TableDefinition objects = db.Catalog.FindTable("MSysObjects")!;
         int idIndex = Index(objects, "Id"), nameIndex = Index(objects, "Name");
         return (int)db.OpenTable("MSysObjects").Rows()
             .Single(row => string.Equals(row[nameIndex] as string, queryName, StringComparison.OrdinalIgnoreCase))[idIndex]!;
     }
 
-    private static int Index(TableDef table, string column) => table.FindColumn(column)!.Index;
+    private static int Index(TableDefinition table, string column) => table.FindColumn(column)!.Index;
 }

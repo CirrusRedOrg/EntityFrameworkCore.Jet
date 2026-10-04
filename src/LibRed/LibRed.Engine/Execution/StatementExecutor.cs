@@ -135,7 +135,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// row. A CHECK is violated only when its expression is explicitly FALSE; NULL/unknown passes (SQL
     /// three-valued CHECK semantics). The expression may reference the row's own columns and use (uncorrelated)
     /// subqueries. Matches Access's validation-rule enforcement.</summary>
-    private void EnforceCheckConstraints(TableDef definition, object?[] values)
+    private void EnforceCheckConstraints(TableDefinition definition, object?[] values)
     {
         if (definition.CheckConstraints.Count == 0) return;
         var schema = definition.Columns.Select(c => OutputColumn.Of(definition.Name, c)).ToList();
@@ -441,46 +441,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         }
 
         foreach (var (table, id, values) in order)
-            DeleteRow(table, id, values);
-    }
-
-    /// <summary>Deletes one row — the values its complex columns hold, its index entries, then the row itself.
-    /// The one place a row is removed: a statement's own rows, a cascade's, and a complex column's values.</summary>
-    private void DeleteRow(Table table, RowId id, object?[] values)
-    {
-        DeleteComplexValues(table, values);
-        foreach (IndexDef index in table.Definition.RealIndexes)
-            table.RemoveIndexEntry(index, values, id);
-        table.Delete(id);
-    }
-
-    /// <summary>
-    /// Removes the values every complex (multi-value / attachment) column of <paramref name="table"/> holds
-    /// for the row being deleted — the flat-table rows carrying that record's complex id.
-    /// </summary>
-    /// <remarks>
-    /// Measured against ACE (<c>ComplexDeleteCascadeProbeTest</c>): deleting a record removes its values from
-    /// <b>every</b> complex column of the table — a record holding three attachments in one column and two in
-    /// another loses all five — and rolls <b>no</b> counter back. The owner's <c>0x1C</c> and each flat
-    /// table's <c>0x14</c> keep their values, so the next row still takes the following id and the freed
-    /// value ids are never reissued. Leaving the rows behind would orphan values no record points at.
-    /// </remarks>
-    private void DeleteComplexValues(Table table, object?[] values)
-    {
-        foreach (ComplexColumn complex in _database.Catalog.ComplexColumns)
-        {
-            if (!string.Equals(complex.OwnerTable.Name, table.Name, StringComparison.OrdinalIgnoreCase)) continue;
-            if (values[complex.OwnerTable.FindColumn(complex.ColumnName)!.Index] is not { } raw) continue;
-            int recordId = Convert.ToInt32(raw, System.Globalization.CultureInfo.InvariantCulture);
-
-            Table flat = _database.OpenTable(complex.FlatTable.Name);
-            // Seeked by the owner link, whose index is what identifies it (see JetCatalog).
-            int linkColumn = complex.OwnerLink.Index;
-            foreach ((RowId flatId, object?[] flatValues) in flat.RowsWithKey([linkColumn], [recordId], values =>
-                values[linkColumn] is { } link
-                && Convert.ToInt32(link, System.Globalization.CultureInfo.InvariantCulture) == recordId).ToList())
-                DeleteRow(flat, flatId, flatValues);
-        }
+            table.Delete(id);
     }
 
     /// <summary>Applies each enforced relationship's ON DELETE action to a parent row about to be deleted:
@@ -638,9 +599,6 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         EnforceCheckConstraints(table.Definition, values);
 
         table.Update(id, values, changed);
-        foreach (IndexDef index in table.Definition.RealIndexes
-            .Where(i => i.Columns.Any(c => changed.Contains(c.Column.Index))))
-            table.MoveIndexEntry(index, original, values, id);
         stillToWrite?.Remove((table.Definition.DefinitionPage, id));
 
         // Parent side, once the row holds its new key: a changed referenced-key column triggers each relationship's
@@ -1066,8 +1024,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         var available = new Dictionary<string, ColumnDef>(StringComparer.OrdinalIgnoreCase);
         foreach (string table in TablesIn(statement.From))
-            if (_database.Catalog.Tables.FirstOrDefault(
-                    t => string.Equals(t.Name, table, StringComparison.OrdinalIgnoreCase)) is { } def)
+            if (_database.Catalog.FindTable(table) is { } def)
                 foreach (ColumnDef column in def.Columns)
                     available.TryAdd(column.Name, column);
 
@@ -1127,7 +1084,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// inserter (sequential counter, or a random Int32 for a GenUniqueID() "Random" AutoNumber), not by evaluating
     /// the DefaultValue — and GenUniqueID() is not a callable expression, so parsing it as a default would fail.
     /// </summary>
-    private RowDefaults DefaultsOf(TableDef definition) => new(
+    private RowDefaults DefaultsOf(TableDefinition definition) => new(
         definition.Columns
             .Where(c => c.DefaultValue is not null && !c.IsAutoNumber)
             .Select(c => (c.Index, Expression: ParseDefaultExpression(c.DefaultValue!)))
@@ -1828,7 +1785,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         // A derived table has no index to seek, and a writable one's rows are already chosen.
         if (on is null || tables[i].Table is null || tables[i].Combos is not null || tables[i].InCombo) return null;
-        TableDef def = tables[i].Table!.Definition;
+        TableDefinition def = tables[i].Table!.Definition;
         string alias = tables[i].Alias;
         HashSet<string> earlier = tables.Take(i).Select(t => t.Alias).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -1848,7 +1805,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             : [e];
 
     private static (IndexDef Index, Expression Key)? MatchSeek(
-        Expression colSide, Expression keySide, string alias, TableDef def, HashSet<string> earlier)
+        Expression colSide, Expression keySide, string alias, TableDefinition def, HashSet<string> earlier)
     {
         if (colSide is not ColumnReference c
             || (c.Table is { } t && !string.Equals(t, alias, StringComparison.OrdinalIgnoreCase))

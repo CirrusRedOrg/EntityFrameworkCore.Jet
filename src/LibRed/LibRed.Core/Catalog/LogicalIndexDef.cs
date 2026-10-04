@@ -1,3 +1,5 @@
+using LibRed.Formats;
+
 namespace LibRed.Catalog;
 
 /// <summary>
@@ -11,23 +13,13 @@ namespace LibRed.Catalog;
 /// <param name="RealIndexOrdinal">Which real index (<see cref="IndexDef.RealIndexOrdinal"/>) stores it.</param>
 /// <param name="IsRelationship">True when the entry is a foreign-key relationship rather than a named index.</param>
 /// <param name="IsPrimaryKey">True when this entry is the table's primary key.</param>
-/// <param name="ForeignKeyType">The relationship's direction as the info block records it: 0 none, 1 incoming
-/// (this table is the parent — the half Access names <c>.r…</c> and keeps out of its schema views), 2 outgoing
-/// (this table holds the foreign key).</param>
-/// <param name="UpdateAction">The info block's update action (<c>0x15</c>): <c>0x04</c> on a plain index; on a
-/// relationship <c>0x00</c> no cascade, <c>0x01</c> cascade update. Written on both ends of a relationship.</param>
-/// <param name="DeleteAction">The info block's delete action (<c>0x16</c>): <c>0x04</c> on a plain index; on a
-/// relationship <c>0x00</c> no cascade, <c>0x01</c> cascade delete, <c>0x02</c> <c>ON DELETE SET NULL</c>.</param>
+/// <param name="ForeignKeyType">The relationship's direction as the info block records it.</param>
+/// <param name="UpdateAction">The info block's update action.</param>
+/// <param name="DeleteAction">The info block's delete action.</param>
 public sealed record LogicalIndexDef(
-    string Name, int RealIndexOrdinal, bool IsRelationship, bool IsPrimaryKey, byte ForeignKeyType,
-    byte UpdateAction, byte DeleteAction)
+    string Name, int RealIndexOrdinal, bool IsRelationship, bool IsPrimaryKey, ForeignKeyType ForeignKeyType,
+    RelationshipAction UpdateAction, RelationshipAction DeleteAction)
 {
     /// <summary>True for the parent side of a relationship, which Access hides.</summary>
-    public bool IsIncomingRelationship => ForeignKeyType == IncomingRelationship;
-
-    /// <summary><see cref="ForeignKeyType"/> of the parent side.</summary>
-    public const byte IncomingRelationship = 1;
-
-    /// <summary><see cref="ForeignKeyType"/> of the child side, the table holding the foreign key.</summary>
-    public const byte OutgoingRelationship = 2;
+    public bool IsIncomingRelationship => ForeignKeyType == ForeignKeyType.Incoming;
 }

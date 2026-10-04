@@ -72,7 +72,8 @@ public class PageCacheTests
 
             // And the same on disk once both have closed: one file carries the write, two files do not.
             byte[] onDisk = File.ReadAllBytes(variant);
-            Assert.Equal(sameFile, onDisk.AsSpan(page * 4096, 4096).SequenceEqual(mutated));
+            int pageSize = TestDatabases.FormatOf(variant).PageSize;
+            Assert.Equal(sameFile, onDisk.AsSpan(page * pageSize, pageSize).SequenceEqual(mutated));
         }
         finally
         {

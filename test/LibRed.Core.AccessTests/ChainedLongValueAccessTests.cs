@@ -1,6 +1,8 @@
+using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
 using LibRed.Pages;
 using LibRed.Storage;
 using Xunit;
@@ -75,26 +77,28 @@ public class ChainedLongValueAccessTests
             }
 
             using var channel = LibRed.IO.PageChannel.Open(path);
-            TableDef definition = new JetCatalog(channel).FindTable("Big")!;
+            TableDefinition definition = new JetCatalog(channel).FindTable("Big")!;
             int columnId = definition.Columns.First(c => c.Name == "M").ColumnId;
 
             byte[] descriptor = new UsageMap(channel, definition).DataPages()
                 .Select(p => { var page = new DataPage(); page.Read(channel.ReadPage(p), channel.Format); return page; })
                 .SelectMany(page => Enumerable.Range(0, page.RowCount)
                     .Where(row => !page.Rows[row].IsDeleted)
-                    .SelectMany(row => RowDecoder.LongValueDescriptors(
+                    .SelectMany(row => RowCodec.LongValueDescriptors(
                         definition.Columns, channel.Format, page.GetRow(row))))
-                .Single(d => d.Key == columnId).Value[..12];
+                .Single(d => d.Key == columnId).Value[..channel.Format.LongValueDescriptorSize];
 
-            Assert.Equal(0x00, descriptor[3] & 0xC0);   // chained, or the stamp would not apply
-            int firstChainPage = descriptor[5] | (descriptor[6] << 8) | (descriptor[7] << 16);
+            var parsedDescriptor = LongValueStore.Read(descriptor, channel.Format);
+            Assert.Equal(LongValueStore.StorageKind.Chained, parsedDescriptor.Storage);   // chained, or the stamp would not apply
+            int firstChainPage = parsedDescriptor.Page;
 
             var header = new byte[channel.PageSize];
             channel.ReadPage(firstChainPage, header);
-            Assert.Equal(Convert.ToHexString(descriptor[8..12]), Convert.ToHexString(header[8..12]));
+            Assert.Equal(parsedDescriptor.Stamp,
+                BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(channel.Format.DataChainStampOffset, sizeof(uint))));
             // And it is a real tag, not two zeroes agreeing by accident — zero would satisfy the check while
             // proving nothing, which is what LibRed used to write.
-            Assert.NotEqual("00000000", Convert.ToHexString(descriptor[8..12]));
+            Assert.NotEqual(0u, parsedDescriptor.Stamp);
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -120,15 +124,15 @@ public class ChainedLongValueAccessTests
             int firstChainPage;
             using (var channel = LibRed.IO.PageChannel.Open(path, readOnly: false))
             {
-                TableDef definition = new JetCatalog(channel).FindTable("Big")!;
+                TableDefinition definition = new JetCatalog(channel).FindTable("Big")!;
                 int columnId = definition.Columns.First(c => c.Name == "M").ColumnId;
                 int dataPage = new UsageMap(channel, definition).DataPages().First();
                 var parsed = new DataPage();
                 parsed.Read(channel.ReadPage(dataPage), channel.Format);
-                byte[] descriptor = RowDecoder
+                byte[] descriptor = RowCodec
                     .LongValueDescriptors(definition.Columns, channel.Format, parsed.GetRow(0))
                     .Single(d => d.Key == columnId).Value;
-                firstChainPage = descriptor[5] | (descriptor[6] << 8) | (descriptor[7] << 16);
+                firstChainPage = LongValueStore.Read(descriptor, channel.Format).Page;
 
                 // Restamp the chain page alone, as a rewrite by another writer would.
                 var page = new byte[channel.PageSize];

@@ -2,6 +2,7 @@ using System.Data.OleDb;
 using System.Text;
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Pages;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -24,7 +25,7 @@ namespace LibRed.Core.Tests;
 [Collection(AceCollection.Name)]
 public class OwnedMapRecycleAccessTests(ITestOutputHelper output) : TempDatabaseTest
 {
-    private const int PageSize = 4096;
+    private static readonly Formats.JetFormatBase Format = TestDatabases.FormatOf(TestDatabases.NorthwindAccdb);
 
     [Theory]
     [InlineData("one index", "CREATE TABLE T ( A LONG, B LONG );CREATE INDEX ixB ON T (B)",
@@ -59,7 +60,7 @@ public class OwnedMapRecycleAccessTests(ITestOutputHelper output) : TempDatabase
             using (var database = JetDatabase.Open(libred, readOnly: false))
                 database.AlterColumn("T", "B", new ColumnSpec("B", JetDataType.Double, 8, IsFixedLength: true));
 
-            output.WriteLine($"{label}: comparing {new FileInfo(ace).Length / PageSize} pages");
+            output.WriteLine($"{label}: comparing {new FileInfo(ace).Length / Format.PageSize} pages");
             Assert.Equal("", Difference(ace, libred));
         }
         finally
@@ -78,22 +79,22 @@ public class OwnedMapRecycleAccessTests(ITestOutputHelper output) : TempDatabase
     {
         byte[] ace = File.ReadAllBytes(acePath), libred = File.ReadAllBytes(libredPath);
         var differences = new StringBuilder();
-        int pages = Math.Max(ace.Length, libred.Length) / PageSize;
+        int pages = Math.Max(ace.Length, libred.Length) / Format.PageSize;
         for (int page = 1; page < pages; page++)
         {
-            int at = page * PageSize;
-            bool inAce = at + PageSize <= ace.Length, inLibRed = at + PageSize <= libred.Length;
-            if (inAce && inLibRed && BitConverter.ToInt32(ace, at + 4) == 2) continue;
+            int at = page * Format.PageSize;
+            bool inAce = at + Format.PageSize <= ace.Length, inLibRed = at + Format.PageSize <= libred.Length;
+            if (inAce && inLibRed && DataPage.ReadOwner(ace.AsSpan(at, Format.PageSize), Format) == 2) continue;
             if (!inAce || !inLibRed)
             {
                 differences.AppendLine($"page {page}: present in {(inAce ? "ACE" : "LibRed")} only");
                 continue;
             }
-            for (int i = 0, shown = 0; i < PageSize && shown < 8; i++)
+            for (int i = 0, shown = 0; i < Format.PageSize && shown < 8; i++)
                 if (ace[at + i] != libred[at + i])
                 {
                     differences.AppendLine(
-                        $"page {page} (type 0x{ace[at]:X2} owner {BitConverter.ToInt32(ace, at + 4)}) " +
+                        $"page {page} (type 0x{ace[at]:X2} owner {(int)DataPage.ReadOwner(ace.AsSpan(at, Format.PageSize), Format)}) " +
                         $"+0x{i:X3}: ace={ace[at + i]:X2} libred={libred[at + i]:X2}");
                     shown++;
                 }

@@ -53,7 +53,7 @@ public class CollationQueryProbeTests
         string path = TemporaryDatabase.CreatePath("collation-group-", ".accdb");
         try
         {
-            DatabaseCreator.CreateEmpty(path, collation: new Collation(CollatingOrder.General, version));
+            JetDatabase.Create(path, collation: new Collation(CollatingOrder.General, version));
             using OleDbConnection ace = AceTestDatabase.Open(path);
             Exec(ace, "CREATE TABLE G (Id LONG, S TEXT(20))");
             string[] values = ["Straße", "STRASSE", "strasse ", "x", "X", "café", "cafe"];
@@ -90,7 +90,7 @@ public class CollationQueryProbeTests
         string path = TemporaryDatabase.CreatePath("collation-query-", ".accdb");
         try
         {
-            DatabaseCreator.CreateEmpty(path, collation: GeneralV1);
+            JetDatabase.Create(path, collation: GeneralV1);
             using (OleDbConnection connection = AceTestDatabase.Open(path))
                 Exec(connection, "CREATE TABLE T (Id LONG, S TEXT(20), P TEXT(20))");
 
@@ -99,7 +99,7 @@ public class CollationQueryProbeTests
             // The stamp landed where it was meant to, or the answer says nothing about where ACE looks.
             using (var check = JetDatabase.Open(path))
             {
-                TableDef table = check.Catalog.FindTable("T")!;
+                TableDefinition table = check.Catalog.FindTable("T")!;
                 Assert.Equal(stampHeader ? CroatianV1 : GeneralV1, check.Collation);
                 Assert.Equal(stampColumn ? CroatianV1 : GeneralV1, table.FindColumn("S")!.Collation);
                 Assert.Equal(GeneralV1, table.FindColumn("P")!.Collation);

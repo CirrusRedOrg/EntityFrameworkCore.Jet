@@ -1,8 +1,9 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using System.Globalization;
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
+using LibRed.IO;
 using LibRed.Pages;
 using LibRed.Storage;
 using Xunit;
@@ -55,10 +56,14 @@ public class LongValueOrderProbeTest(ITestOutputHelper output)
                 command.CommandText = sql;
                 command.ExecuteNonQuery();
             }
+            int pageSize;
             using (var database = JetDatabase.Open(libred, readOnly: false))
+            {
+                pageSize = database.Format.PageSize;
                 new QueryEngine(database).ExecuteNonQuery(sql);
+            }
 
-            output.WriteLine($"{insert}\nbefore {new FileInfo(origin).Length / 4096} pages\n" +
+            output.WriteLine($"{insert}\nbefore {new FileInfo(origin).Length / pageSize} pages\n" +
                              $"ACE:    {Describe(ace)}\nLibRed: {Describe(libred)}");
         }
         finally
@@ -107,29 +112,32 @@ public class LongValueOrderProbeTest(ITestOutputHelper output)
                     command.CommandText = statement;
                     command.ExecuteNonQuery();
                 }
+            JetFormatBase format;
             using (var database = JetDatabase.Open(libred, readOnly: false))
             {
+                format = database.Format;
                 var queries = new QueryEngine(database);
                 foreach (string statement in sql) queries.ExecuteNonQuery(statement);
             }
 
+            int pageSize = format.PageSize;
             byte[] a = File.ReadAllBytes(ace), l = File.ReadAllBytes(libred);
-            var report = new System.Text.StringBuilder($"{statements}\nACE {a.Length / 4096} pages, LibRed {l.Length / 4096} pages\n");
-            for (int page = 1; page < Math.Min(a.Length, l.Length) / 4096; page++)
+            var report = new System.Text.StringBuilder($"{statements}\nACE {a.Length / pageSize} pages, LibRed {l.Length / pageSize} pages\n");
+            for (int page = 1; page < Math.Min(a.Length, l.Length) / pageSize; page++)
             {
-                int at = page * 4096;
-                if (!a.AsSpan(at + 4, 4).SequenceEqual("LVAL"u8)) continue;
+                int at = page * pageSize;
+                if (DataPage.ReadOwner(a.AsSpan(at, pageSize), format) != JetFormatBase.LongValuePageMarker) continue;
                 var ranges = new List<string>();
-                for (int i = 0; i < 4096; i++)
+                for (int i = 0; i < pageSize; i++)
                 {
                     if (a[at + i] == l[at + i]) continue;
                     int start = i;
-                    while (i + 1 < 4096 && (a[at + i + 1] != l[at + i + 1] || (i + 2 < 4096 && a[at + i + 2] != l[at + i + 2]))) i++;
+                    while (i + 1 < pageSize && (a[at + i + 1] != l[at + i + 1] || (i + 2 < pageSize && a[at + i + 2] != l[at + i + 2]))) i++;
                     ranges.Add($"0x{start:X3}-0x{i:X3} ACE {Convert.ToHexString(a, at + start, Math.Min(8, i - start + 1))}");
                 }
-                int rows = BinaryPrimitives.ReadUInt16LittleEndian(a.AsSpan(at + 12));
+                int rows = DataPage.ReadRowCount(a.AsSpan(at, pageSize), format);
                 string slots = string.Join(",", Enumerable.Range(0, rows)
-                    .Select(r => $"0x{BinaryPrimitives.ReadUInt16LittleEndian(a.AsSpan(at + 14 + r * 2)) & 0x1FFF:X3}"));
+                    .Select(r => $"0x{DataPage.ReadSlot(a.AsSpan(at, pageSize), format, r).Offset:X3}"));
                 report.AppendLine(CultureInfo.InvariantCulture,
                     $"  LVAL page {page}: ACE rows at [{slots}]; {(ranges.Count == 0 ? "identical" : string.Join("; ", ranges))}");
             }
@@ -152,40 +160,36 @@ public class LongValueOrderProbeTest(ITestOutputHelper output)
         page.Read(doc.Channel.ReadPageShared(id.Page), doc.Channel.Format);
         byte[] row = page.GetRow(id.Row).ToArray();
         var parts = new List<string>();
-        foreach ((int index, byte[] descriptor) in RowDecoder.LongValueDescriptors(doc.Definition.Columns, doc.Channel.Format, row)
+        foreach ((int index, byte[] descriptor) in RowCodec.LongValueDescriptors(doc.Definition.Columns, doc.Channel.Format, row)
                      .OrderBy(d => d.Key))
         {
             ColumnDef column = doc.Definition.Columns[index];
-            byte flags = (byte)(descriptor[3] & 0xC0);
-            int length = BinaryPrimitives.ReadInt32LittleEndian(descriptor) & 0x3FFFFFFF;
-            string where = flags switch
+            var value = LongValueStore.Read(descriptor, doc.Channel.Format);
+            string where = value.Storage switch
             {
-                0x80 => "inline",
-                0x40 => $"single {Pointer(descriptor.AsSpan(4))}",
+                LongValueStore.StorageKind.Inline => "inline",
+                LongValueStore.StorageKind.SinglePage => $"single {value.Page}:{value.Row}",
                 _ => $"chained {string.Join(">", Chain(doc, descriptor))}",
             };
-            parts.Add($"{column.Name}({length}) {where}");
+            parts.Add($"{column.Name}({value.Length}) {where}");
         }
-        return $"{new FileInfo(path).Length / 4096} pages, row on {id.Page}; " + string.Join("; ", parts);
+        return $"{new FileInfo(path).Length / database.Format.PageSize} pages, row on {id.Page}; " + string.Join("; ", parts);
     }
 
     private static List<string> Chain(Table table, byte[] descriptor)
     {
         var pages = new List<string>();
-        int row = descriptor[4], pageNumber = descriptor[5] | (descriptor[6] << 8) | (descriptor[7] << 16);
+        var (_, _, row, pageNumber, _) = LongValueStore.Read(descriptor, table.Channel.Format);
         while (pageNumber != 0 && pages.Count < 64)
         {
             pages.Add($"{pageNumber}:{row}");
             var page = new DataPage();
             page.Read(table.Channel.ReadPageShared(pageNumber), table.Channel.Format);
             ReadOnlySpan<byte> record = page.GetRow(row);
-            row = record[0];
-            pageNumber = record[1] | (record[2] << 8) | (record[3] << 16);
+            (row, pageNumber) = PageBuffer.ReadRecordPointer(record, 0);
         }
         return pages;
     }
-
-    private static string Pointer(ReadOnlySpan<byte> at) => $"{at[1] | (at[2] << 8) | (at[3] << 16)}:{at[0]}";
 
     private static string Hex(int bytes) =>
         Convert.ToHexString([.. Enumerable.Range(0, bytes).Select(i => (byte)((i * 7 + 1) % 251))]);

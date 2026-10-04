@@ -163,7 +163,7 @@ public class AceVbaConversionRegressionTests(ITestOutputHelper output)
     }
 
     // A Currency is an int64 scaled by 10,000, so every conversion into one has to resolve a 5th decimal place.
-    // LibRed resolves it half-to-even (JetTypeCodec and IndexKeyEncoder both call decimal.Round without a mode,
+    // LibRed resolves it half-to-even (JetTypeCodec and IndexKeyCodec both call decimal.Round without a mode,
     // which is ToEven). VB's own CCur is documented as banker's rounding, but the Jet Expression Service is not
     // the VBA runtime - CStr(True) already differs - so the rule is measured rather than assumed, on both routes
     // into a Currency: the CCur function, and storing into a CURRENCY column.
@@ -212,7 +212,7 @@ public class AceVbaConversionRegressionTests(ITestOutputHelper output)
             // A midpoint over an even 4th digit stays put and one over an odd digit lifts, which rules out
             // AwayFromZero; the negatives move the same distance as their positives, which rules out
             // ToPositiveInfinity. This is what LibRed already does - decimal.Round without a mode is ToEven
-            // in JetTypeCodec.Encode and IndexKeyEncoder.EncodeFixed - so the two agree.
+            // in JetTypeCodec.Encode and IndexKeyCodec.EncodeFixed - so the two agree.
             // ---------------------------------------------------------------------------------------------
             Assert.Equal(0.0312m, Scalar(conn, "SELECT CCur(CDbl(0.03125)) FROM `P`"));
             Assert.Equal(0.1562m, Scalar(conn, "SELECT CCur(CDbl(0.15625)) FROM `P`"));

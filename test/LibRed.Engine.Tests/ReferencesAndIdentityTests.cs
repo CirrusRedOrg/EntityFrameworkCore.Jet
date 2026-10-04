@@ -121,7 +121,7 @@ public class ReferencesAndIdentityTests
         JetDatabase db = Run("CREATE TABLE T (V TEXT(10))",
             "ALTER TABLE T ADD COLUMN Id LONG CONSTRAINT pk PRIMARY KEY",
             "ALTER TABLE T ADD COLUMN Code TEXT(10) CONSTRAINT uq UNIQUE");
-        TableDef t = db.Catalog.FindTable("T")!;
+        TableDefinition t = db.Catalog.FindTable("T")!;
         IndexDef pk = Assert.Single(t.Indexes, i => i.IsPrimaryKey);
         Assert.Equal("pk", pk.Name);
         IndexDef uq = Assert.Single(t.Indexes, i => i.Name == "uq");

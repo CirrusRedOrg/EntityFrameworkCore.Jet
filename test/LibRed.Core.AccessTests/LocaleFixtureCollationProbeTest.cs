@@ -1,6 +1,7 @@
 using LibRed;
 using LibRed.Catalog;
 using LibRed.Formats;
+using LibRed.Pages;
 using LibRed.Storage;
 using Xunit;
 
@@ -84,7 +85,7 @@ public class LocaleFixtureCollationProbeTest(ITestOutputHelper output)
         // table we already implement. LibRed can author the v1 baseline itself.
         Dictionary<string, string> generalV0 = KeysFor(TestDatabases.NorthwindAccdb, "general-v0");
         string v1Path = TemporaryDatabase.CreatePath("general-v1-");
-        DatabaseCreator.CreateEmpty(v1Path, collation: Collation.General);
+        JetDatabase.Create(v1Path, collation: Collation.General);
         Dictionary<string, string> generalV1 = KeysFor(v1Path, "general-v1", copy: false);
         TemporaryDatabase.Delete(v1Path);
 
@@ -138,13 +139,10 @@ public class LocaleFixtureCollationProbeTest(ITestOutputHelper output)
 
         byte[] header = new byte[0x80];
         using (var stream = File.OpenRead(path)) stream.ReadExactly(header);
-        ReadOnlySpan<byte> mask = JetFormatBase.PageZeroHeaderMask;
-        int start = JetFormatBase.PageZeroHeaderMaskStart;
-        byte[] field = new byte[4];
-        for (int i = 0; i < 4; i++)
-            field[i] = (byte)(header[JetFormatBase.CollationSortOrderOffset + i] ^ mask[JetFormatBase.CollationSortOrderOffset + i - start]);
-
         using var db = JetDatabase.Open(path);
+        byte[] field = new byte[4];
+        DatabaseDefinitionPage.ReadMasked(header, db.Format.CollationSortOrderOffset, field, db.Format);
+
         Collation c = db.Collation;
         output.WriteLine($"  {label,-20} {Convert.ToHexString(field),-10} {(int)c.Order,-8} " +
                          $"0x{c.SortId:X2}     {c.Version,-5} 0x{c.Lcid:X8}   {c.Order}" +

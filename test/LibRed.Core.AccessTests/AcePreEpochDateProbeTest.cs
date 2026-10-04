@@ -13,7 +13,7 @@ namespace LibRed.Core.Tests;
 // consequences for LibRed, which manipulates these serials directly:
 //   * ExpressionEvaluator.Arithmetic adds/subtracts raw OA doubles before calling FromOADate, which is not the
 //     same as adding days to a date once the value is negative.
-//   * IndexKeyEncoder encodes the OA double as the sort key, and raw doubles do not order correctly within a
+//   * IndexKeyCodec encodes the OA double as the sort key, and raw doubles do not order correctly within a
 //     pre-epoch day (see above).
 // ACE may well have inherited the same weirdness, in which case LibRed is already bug-compatible and should stay
 // that way. This probe establishes which it is. The existing DateAdd/DateDiff functional tests do not cover it:
@@ -119,7 +119,7 @@ public class AcePreEpochDateRegressionTests(ITestOutputHelper output)
             // COMPARISON AND ORDERING are not: they use the raw double, so within a pre-epoch day ACE puts
             // later times FIRST. 06:00 < 18:00 evaluates to False (0), and ORDER BY returns 1,3,2,4,5,6 —
             // row 3 (18:00) ahead of row 2 (06:00). This is a genuine ACE defect, faithfully inherited from
-            // the OA DATE representation. LibRed's IndexKeyEncoder encodes the same raw serial, so it is
+            // the OA DATE representation. LibRed's IndexKeyCodec encodes the same raw serial, so it is
             // expected to be bug-compatible here; the evaluator comparing CLR DateTime values is NOT, and
             // would order these correctly — a parity gap, in the direction of being right.
             Assert.Equal((short)0, Scalar(conn, "SELECT (#12/29/1899 06:00:00# < #12/29/1899 18:00:00#) FROM `P`"));

@@ -1,8 +1,5 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed.Catalog;
-using LibRed.Formats;
-using LibRed.IO;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -46,11 +43,17 @@ public class DateTime2LocaleAccessTests(ITestOutputHelper output) : TempDatabase
             foreach ((string name, byte[] bytes) in columns)
                 output.WriteLine($"{locale} {name}: {Convert.ToHexString(bytes)}");
 
-            byte[] text = columns["T"], extended = columns["V"];
-            Assert.Equal(langId, text[0x0B] | (text[0x0C] << 8));            // the control: whole LANGID
-            Assert.Equal(langId & 0x00FF, extended[0x0B] | (extended[0x0C] << 8));
-            Assert.Equal(0, extended[0x0D]);
-            Assert.Equal(0, extended[0x0E]);
+            Collation text, extended;
+            using (var database = JetDatabase.Open(path, readOnly: true))
+            {
+                TableDefinition dt = database.Catalog.FindTable("DT")!;
+                text = dt.RequireColumn("T").Collation;
+                extended = dt.RequireColumn("V").Collation;
+            }
+            Assert.Equal(langId, (int)text.Order);            // the control: whole LANGID
+            Assert.Equal(langId & 0x00FF, (int)extended.Order);
+            Assert.Equal(0, extended.SortId);
+            Assert.Equal(0, extended.Version);
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -114,33 +117,12 @@ public class DateTime2LocaleAccessTests(ITestOutputHelper output) : TempDatabase
         finally { TemporaryDatabase.Delete(source); }
     }
 
-    /// <summary>Every column's descriptor bytes, by name. A three-column table's definition fits one page.
-    /// </summary>
+    /// <summary>Every column's descriptor bytes, by name, as read from the table's definition.</summary>
     private static Dictionary<string, byte[]> Descriptors(string path, string table)
     {
-        int definitionPage;
-        using (var database = JetDatabase.Open(path, readOnly: true))
-            definitionPage = database.Catalog.FindTable(table)!.DefinitionPage;
-
-        using var channel = PageChannel.Open(path, readOnly: true);
-        JetFormatBase format = channel.Format;
-        byte[] page = channel.ReadPage(definitionPage).Span.ToArray();
-
-        int dataCount = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(format.TdefIndexCountOffset, 4));
-        int colCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.TdefColumnCountOffset, 2));
-        int start = format.TdefRealIndexBlockOffset + dataCount * format.RealIndexEntrySize;
-        int namePos = start + colCount * format.ColumnDescriptorSize;
-
-        var result = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-        for (int i = 0; i < colCount; i++)
-        {
-            int len = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(namePos, 2));
-            string name = System.Text.Encoding.Unicode.GetString(page.AsSpan(namePos + 2, len));
-            namePos += 2 + len;
-            result[name] = page.AsSpan(start + i * format.ColumnDescriptorSize,
-                format.ColumnDescriptorSize).ToArray();
-        }
-        return result;
+        using var database = JetDatabase.Open(path, readOnly: true);
+        return database.Catalog.FindTable(table)!.Columns
+            .ToDictionary(c => c.Name, c => c.RawDescriptor!, StringComparer.Ordinal);
     }
 
     /// <summary>A DAO engine, once this ACE is known to take DATETIME2. An ACE below 17 cannot create the column

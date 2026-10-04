@@ -741,7 +741,7 @@ public class CollationSurveyProbeTests(ITestOutputHelper output)
         foreach (string sample in samples)
         {
             var column = new ColumnDef { Name = "K", Type = JetDataType.Text, Index = 0, Collation = collation };
-            try { keys[sample] = Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [sample])); }
+            try { keys[sample] = Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [sample])); }
             catch (NotSupportedException) { /* not encodable - simply absent */ }
         }
         return keys;

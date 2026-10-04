@@ -53,7 +53,7 @@ public class CatalogBenchmarks
     {
         using JetDatabase database = JetDatabase.Open(_path);
         int total = 0;
-        foreach (TableDef table in database.Catalog.UserTables)
+        foreach (TableDefinition table in database.Catalog.UserTables)
             total += table.Columns.Count + table.Indexes.Count;
         return total;
     }

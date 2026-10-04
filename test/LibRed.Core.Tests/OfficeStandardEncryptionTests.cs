@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using LibRed.Crypto;
+using LibRed.Formats;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -10,6 +11,8 @@ namespace LibRed.Core.Tests;
 // just the binary EncryptionInfo descriptor exercises the whole key-derivation + verifier path without the DB.
 public class OfficeStandardEncryptionTests
 {
+    private static readonly JetFormatBase Format = JetFormatBase.FromVersionByte(0x02); // ACE 12
+
     // db2007-oldenc.accdb — RC4-40, password "Test123"
     private const uint AlgRc4 = 0x6801;
     private static readonly byte[] Rc4Salt = Convert.FromHexString("78da7d5196c71492eed3b4471a479449");
@@ -24,25 +27,25 @@ public class OfficeStandardEncryptionTests
 
     [Fact]
     public void Rc4_authenticates_correct_password() =>
-        Assert.NotNull(OfficeStandardEncryption.TryCreate(BuildPage0(AlgRc4, 0x04, 40, Rc4Salt, Rc4EncVerifier, Rc4EncVerifierHash), 0x12345678, "Test123"));
+        Assert.NotNull(OfficeStandardEncryption.TryCreate(BuildPage0(AlgRc4, 0x04, 40, Rc4Salt, Rc4EncVerifier, Rc4EncVerifierHash), 0x12345678, "Test123", Format));
 
     [Fact]
     public void Aes_authenticates_correct_password() =>
-        Assert.NotNull(OfficeStandardEncryption.TryCreate(BuildPage0(AlgAes256, 0x0C, 256, AesSalt, AesEncVerifier, AesEncVerifierHash), 0x12345678, "password"));
+        Assert.NotNull(OfficeStandardEncryption.TryCreate(BuildPage0(AlgAes256, 0x0C, 256, AesSalt, AesEncVerifier, AesEncVerifierHash), 0x12345678, "password", Format));
 
     [Fact]
     public void Wrong_password_throws() =>
         Assert.Throws<UnauthorizedAccessException>(() =>
-            OfficeStandardEncryption.TryCreate(BuildPage0(AlgAes256, 0x0C, 256, AesSalt, AesEncVerifier, AesEncVerifierHash), 0x12345678, "wrong"));
+            OfficeStandardEncryption.TryCreate(BuildPage0(AlgAes256, 0x0C, 256, AesSalt, AesEncVerifier, AesEncVerifierHash), 0x12345678, "wrong", Format));
 
     [Fact]
     public void Missing_password_throws() =>
         Assert.Throws<InvalidOperationException>(() =>
-            OfficeStandardEncryption.TryCreate(BuildPage0(AlgRc4, 0x04, 40, Rc4Salt, Rc4EncVerifier, Rc4EncVerifierHash), 0x12345678, null));
+            OfficeStandardEncryption.TryCreate(BuildPage0(AlgRc4, 0x04, 40, Rc4Salt, Rc4EncVerifier, Rc4EncVerifierHash), 0x12345678, null, Format));
 
     [Fact]
     public void Unencrypted_returns_null() =>
-        Assert.Null(OfficeStandardEncryption.TryCreate(new byte[4096], databaseKey: 0, password: "x"));
+        Assert.Null(OfficeStandardEncryption.TryCreate(new byte[Format.PageSize], databaseKey: 0, password: "x", Format));
 
     [Theory]
     [InlineData(0)]
@@ -52,7 +55,7 @@ public class OfficeStandardEncryptionTests
     {
         Assert.Throws<NotSupportedException>(() => OfficeStandardEncryption.TryCreate(
             BuildPage0(AlgRc4, 0x04, 40, Rc4Salt, Rc4EncVerifier, Rc4EncVerifierHash, verifierHashSize),
-            0x12345678, "Test123"));
+            0x12345678, "Test123", Format));
     }
 
     [Theory]
@@ -65,7 +68,7 @@ public class OfficeStandardEncryptionTests
     {
         Assert.Throws<NotSupportedException>(() => OfficeStandardEncryption.TryCreate(
             BuildPage0(AlgRc4, 0x04, keyBits, Rc4Salt, Rc4EncVerifier, Rc4EncVerifierHash),
-            0x12345678, "Test123"));
+            0x12345678, "Test123", Format));
     }
 
     [Fact]
@@ -73,7 +76,7 @@ public class OfficeStandardEncryptionTests
     {
         Assert.Throws<NotSupportedException>(() => OfficeStandardEncryption.TryCreate(
             BuildPage0(AlgAes256, 0x0C, 257, AesSalt, AesEncVerifier, AesEncVerifierHash),
-            0x12345678, "password"));
+            0x12345678, "password", Format));
     }
 
     [Theory]
@@ -82,10 +85,10 @@ public class OfficeStandardEncryptionTests
     public void Encrypt_then_decrypt_round_trips(bool rc4)
     {
         var codec = rc4
-            ? OfficeStandardEncryption.TryCreate(BuildPage0(AlgRc4, 0x04, 40, Rc4Salt, Rc4EncVerifier, Rc4EncVerifierHash), 0x12345678, "Test123")!
-            : OfficeStandardEncryption.TryCreate(BuildPage0(AlgAes256, 0x0C, 256, AesSalt, AesEncVerifier, AesEncVerifierHash), 0x12345678, "password")!;
+            ? OfficeStandardEncryption.TryCreate(BuildPage0(AlgRc4, 0x04, 40, Rc4Salt, Rc4EncVerifier, Rc4EncVerifierHash), 0x12345678, "Test123", Format)!
+            : OfficeStandardEncryption.TryCreate(BuildPage0(AlgAes256, 0x0C, 256, AesSalt, AesEncVerifier, AesEncVerifierHash), 0x12345678, "password", Format)!;
 
-        var page = new byte[4096];
+        var page = new byte[Format.PageSize];
         new Random(5).NextBytes(page);
         var original = (byte[])page.Clone();
         codec.EncryptPage(4, page);
@@ -101,8 +104,8 @@ public class OfficeStandardEncryptionTests
         uint algId, uint flags, int keyBits, byte[] salt, byte[] encVerifier, byte[] encVerifierHash,
         int verifierHashSize = 20)
     {
-        var page = new byte[4096];
-        const int ei = 0x29B;
+        var page = new byte[Format.PageSize];
+        int ei = Format.EncryptionInfoOffset;
         const int headerSize = 32;
         void U16(int o, ushort v) => BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(o), v);
         void U32(int o, uint v) => BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(o), v);
@@ -122,7 +125,7 @@ public class OfficeStandardEncryptionTests
         U32(v + 4 + salt.Length + 16, (uint)verifierHashSize); // VerifierHashSize (SHA1 normally 20)
         encVerifierHash.CopyTo(page, v + 4 + salt.Length + 16 + 4);
         int descriptorLength = v + 4 + salt.Length + 16 + 4 + encVerifierHash.Length - ei;
-        U16(0x299, checked((ushort)descriptorLength));
+        U16(Format.EncryptionInfoLengthOffset, checked((ushort)descriptorLength));
         return page;
     }
 }

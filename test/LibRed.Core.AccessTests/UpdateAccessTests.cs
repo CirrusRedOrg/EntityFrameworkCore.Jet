@@ -255,7 +255,6 @@ public class UpdateAccessTests
                 var updated = (object?[])old.Clone();
                 updated[idIdx] = 20;
                 table.Update(id, updated);
-                table.MoveIndexEntry(pk, old, updated, id);
             }
 
             // Access seeks the row by its NEW primary key (using the index we moved) and no longer by the old.

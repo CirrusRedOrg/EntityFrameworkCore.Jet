@@ -44,12 +44,12 @@ public class AppendOnlyDropAccessTests
             }
 
             using var result = JetDatabase.Open(libredPath, readOnly: true);
-            TableDef t = result.Catalog.FindTable("T")!;
-            TableDef a = result.Catalog.FindTable("A")!;
+            TableDefinition t = result.Catalog.FindTable("T")!;
+            TableDefinition a = result.Catalog.FindTable("A")!;
             Assert.Equal(["ID"], t.Columns.Select(c => c.Name));
-            Assert.Equal(0u, t.ObjectFlags & (uint)CatalogFormat.ObjectFlagOwnsComplexColumns);
+            Assert.False(t.ObjectFlags.HasFlag(ObjectAttributes.OwnsComplexColumns));
             Assert.Equal(["ID", "Files"], a.Columns.Select(c => c.Name));
-            Assert.NotEqual(0u, a.ObjectFlags & (uint)CatalogFormat.ObjectFlagOwnsComplexColumns);   // the attachment remains
+            Assert.True(a.ObjectFlags.HasFlag(ObjectAttributes.OwnsComplexColumns));   // the attachment remains
             Assert.DoesNotContain(result.Catalog.Tables, x => x.Name.StartsWith("MSysComplexTypeVH_", StringComparison.Ordinal));
         }
         finally
@@ -98,11 +98,11 @@ public class AppendOnlyDropAccessTests
         var rows = objects.Rows().ToList();
         foreach (string table in (string[])["T", "A"])
         {
-            TableDef t = db.Catalog.FindTable(table)!;
+            TableDefinition t = db.Catalog.FindTable(table)!;
             object?[] row = rows.Single(r => (string)r[od.FindColumn("Name")!.Index]! == table);
             var props = row[od.FindColumn("LvProp")!.Index] is byte[] { Length: > 0 } lv ? PropertyBlob.Read(lv) : [];
             lines.Add($"{table}: [{string.Join(",", t.Columns.Select(c => c.Name))}] indexes [{string.Join(",", t.Indexes.Select(i => i.Name))}] " +
-                      $"flags 0x{t.ObjectFlags:X8} AppendOnly [{string.Join(",", props.Where(p => p.Name == "AppendOnly").Select(p => p.Owner))}]");
+                      $"flags 0x{(uint)t.ObjectFlags:X8}AppendOnly [{string.Join(",", props.Where(p => p.Name == "AppendOnly").Select(p => p.Owner))}]");
         }
         foreach (ComplexColumn c in db.Catalog.ComplexColumns)
             lines.Add($"complex {c.OwnerTable.Name}.{c.ColumnName} [{string.Join(",", db.Catalog.FindTable(c.ElementTypeName!)!.Columns.Select(x => x.Name))}] " +

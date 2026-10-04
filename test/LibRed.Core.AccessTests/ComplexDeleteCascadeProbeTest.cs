@@ -62,16 +62,15 @@ public class ComplexDeleteCascadeProbeTest(ITestOutputHelper output)
         using var db = JetDatabase.Open(path);
         output.WriteLine($"PROBE --- {label} ---");
 
-        TableDef owner = db.Catalog.FindTable(Table)!;
+        TableDefinition owner = db.Catalog.FindTable(Table)!;
         ColumnDef idColumn = owner.Columns[0];
         int? withValues = null;
 
         foreach (ComplexColumn c in db.Catalog.ComplexColumns.Where(c => c.OwnerTable.Name == Table))
         {
-            ReadOnlySpan<byte> ownerPage = db.OpenTable(Table).Channel.ReadPageShared(owner.DefinitionPage).Span;
             ReadOnlySpan<byte> flatPage = db.OpenTable(c.FlatTable.Name).Channel.ReadPageShared(c.FlatTable.DefinitionPage).Span;
-            output.WriteLine($"PROBE   {Table}.{c.ColumnName}: owner 0x1C={BinaryPrimitives.ReadInt32LittleEndian(ownerPage[0x1C..])}"
-                + $"  flat 0x14={BinaryPrimitives.ReadInt32LittleEndian(flatPage[0x14..])}");
+            output.WriteLine($"PROBE   {Table}.{c.ColumnName}: owner 0x1C={owner.ComplexAutoNumber}"
+                + $"  flat 0x14={BinaryPrimitives.ReadInt32LittleEndian(flatPage[db.Format.TdefLastAutoNumberOffset..])}");
 
             ColumnDef inRow = owner.FindColumn(c.ColumnName)!;
             var ids = new List<string>();

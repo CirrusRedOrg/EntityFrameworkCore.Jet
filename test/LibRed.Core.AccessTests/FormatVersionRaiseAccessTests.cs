@@ -24,7 +24,7 @@ public class FormatVersionRaiseAccessTests(ITestOutputHelper output)
         string path = TemporaryDatabase.CreatePath("raise-mdb-", ".mdb");
         try
         {
-            DatabaseCreator.CreateEmpty(path, version: 0x01);   // a real Access 2000 .mdb
+            JetDatabase.Create(path, version: 0x01);   // a real Access 2000 .mdb
 
             using (var channel = PageChannel.Open(path, readOnly: false))
             {
@@ -59,8 +59,9 @@ public class FormatVersionRaiseAccessTests(ITestOutputHelper output)
         string libPath = TemporaryDatabase.CreatePath("raise-lib-");
         try
         {
-            DatabaseCreator.CreateEmpty(basePath, version: 0x03);
-            Assert.Equal(0x01, PageZero(basePath, JetFormatBase.MinorVersionOffset));
+            JetDatabase.Create(basePath, version: 0x03);
+            int minorVersionOffset = JetFormatBase.FromVersionByte(0x03).MinorVersionOffset;
+            Assert.Equal(0x01, PageZero(basePath, minorVersionOffset));
             File.Copy(basePath, acePath, overwrite: true);
             File.Copy(basePath, libPath, overwrite: true);
 
@@ -72,8 +73,10 @@ public class FormatVersionRaiseAccessTests(ITestOutputHelper output)
 
             byte[] ace = PageZeroBytes(acePath), lib = PageZeroBytes(libPath);
             Assert.Equal(expectedVersion, ace[JetFormatBase.VersionOffset]);
-            Assert.Equal(0x00, ace[JetFormatBase.MinorVersionOffset]);
-            var differences = Enumerable.Range(0, CommitByteTableStart)
+            Assert.Equal(0x00, ace[minorVersionOffset]);
+            // The commit-byte table is left out: every write moves a slot in it.
+            int commitByteTable = JetFormatBase.FromVersionByte(expectedVersion).CommitByteTableOffset;
+            var differences = Enumerable.Range(0, commitByteTable)
                 .Where(i => ace[i] != lib[i])
                 .Select(i => $"0x{i:X3} ace={ace[i]:X2} lib={lib[i]:X2}")
                 .ToList();
@@ -96,9 +99,6 @@ public class FormatVersionRaiseAccessTests(ITestOutputHelper output)
     }
 
     private static byte PageZero(string path, int offset) => PageZeroBytes(path)[offset];
-
-    /// <summary>Page 0 starts its user commit-byte table here; every write moves a slot in it.</summary>
-    private const int CommitByteTableStart = 0xE00;
 
     private static byte[] PageZeroBytes(string path)
     {

@@ -1,13 +1,15 @@
 using LibRed;
-using LibRed.Catalog;
 using LibRed.Formats;
-using LibRed.Storage;
 using Xunit;
 
 namespace LibRed.Core.Tests;
 
 public class DatabaseDefinitionPageTests
 {
+    /// <summary>Northwind's page 0.</summary>
+    private static byte[] NorthwindPage0() =>
+        File.ReadAllBytes(TestDatabases.NorthwindAccdb)[..TestDatabases.FormatOf(TestDatabases.NorthwindAccdb).PageSize];
+
     [Fact]
     public void Opens_accdb_and_detects_format()
     {
@@ -56,8 +58,8 @@ public class DatabaseDefinitionPageTests
         Assert.Equal(0, db.DefaultCollationVersion);
         Assert.Equal(0, db.DefinitionPage.DatabaseKey);
 
-        // The page-0 catalog-root pointer (0x20) names the MSysObjects TDEF — page 2 in every file.
-        Assert.Equal(2, db.DefinitionPage.CatalogRootPage);
+        // The page-0 catalog-root pointer (0x20) names the MSysObjects TDEF, wherever that is.
+        Assert.Equal(db.Catalog.RequireTable("MSysObjects").DefinitionPage, db.DefinitionPage.CatalogRootPage);
     }
 
     [Fact]
@@ -87,11 +89,7 @@ public class DatabaseDefinitionPageTests
         string path = TemporaryDatabase.CreatePath($"truncated-{length}-");
         try
         {
-            byte[] file = new byte[4096];
-            DatabaseCreator.BuildDefinitionPage(
-                version: 0x02, isAccdb: true, codePage: 1252,
-                collation: Collation.GeneralLegacy, creationDays: 45000.25).CopyTo(file, 0);
-            File.WriteAllBytes(path, file[..length]);
+            File.WriteAllBytes(path, NorthwindPage0()[..length]);
 
             Assert.ThrowsAny<InvalidDataException>(() => JetDatabase.Open(path).Dispose());
         }
@@ -111,10 +109,11 @@ public class DatabaseDefinitionPageTests
         string path = TemporaryDatabase.CreatePath("baddate-");
         try
         {
-            byte[] file = new byte[4096 * 3];
-            DatabaseCreator.BuildDefinitionPage(
-                version: 0x02, isAccdb: true, codePage: 1252,
-                collation: Collation.GeneralLegacy, creationDays: days).CopyTo(file, 0);
+            byte[] page0 = NorthwindPage0();
+            JetFormatBase format = TestDatabases.FormatOf(TestDatabases.NorthwindAccdb);
+            Pages.DatabaseDefinitionPage.WriteMasked(page0, format.CreationDateOffset, BitConverter.GetBytes(days), format);
+            byte[] file = new byte[format.PageSize * 3];
+            page0.CopyTo(file, 0);
             File.WriteAllBytes(path, file);
 
             Assert.ThrowsAny<InvalidDataException>(() => JetDatabase.Open(path).Dispose());

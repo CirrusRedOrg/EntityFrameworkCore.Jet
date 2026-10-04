@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Text;
+using LibRed.Storage;
 
 namespace LibRed.IO;
 
@@ -29,8 +30,25 @@ public readonly struct PageBuffer(ReadOnlyMemory<byte> data, int pageNumber)
 
     public long ReadInt64(int offset) => BinaryPrimitives.ReadInt64LittleEndian(Span.Slice(offset, 8));
 
-    /// <summary>Reads a 3-byte little-endian page pointer (used by index/usage structures).</summary>
-    public int ReadInt24(int offset) => Span[offset] | (Span[offset + 1] << 8) | (Span[offset + 2] << 16);
+    /// <summary>Reads a record pointer: a 1-byte row, then the 3-byte little-endian page holding it. Every usage
+    /// map is addressed this way — the TDEF's own, each index's and each long-value column's — and so is a long
+    /// value's first chunk and each chunk's next.</summary>
+    public (int Row, int Page) ReadRecordPointer(int offset) => ReadRecordPointer(Span, offset);
+
+    /// <summary><see cref="ReadRecordPointer(int)"/> over bytes that are not a whole page: <see cref="RowId.Packed"/>,
+    /// stored little-endian.</summary>
+    public static (int Row, int Page) ReadRecordPointer(ReadOnlySpan<byte> buffer, int offset)
+    {
+        RowId id = RowId.FromPacked(BinaryPrimitives.ReadInt32LittleEndian(buffer.Slice(offset, RecordPointerSize)));
+        return (id.Row, id.Page);
+    }
+
+    /// <summary>Size of a record pointer: the row byte and the 3-byte page.</summary>
+    public const int RecordPointerSize = 4;
+
+    /// <summary>Writes a record pointer — the inverse of <see cref="ReadRecordPointer(int)"/>.</summary>
+    public static void WriteRecordPointer(Span<byte> buffer, int offset, int row, int page) =>
+        BinaryPrimitives.WriteInt32LittleEndian(buffer.Slice(offset, RecordPointerSize), new RowId(page, row).Packed);
 
     public ReadOnlySpan<byte> Slice(int offset, int length) => Span.Slice(offset, length);
 

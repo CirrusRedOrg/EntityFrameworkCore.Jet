@@ -1,5 +1,6 @@
 using System.Text;
 using LibRed.Catalog;
+using LibRed.Formats;
 using LibRed.Storage.Types;
 using Xunit;
 
@@ -7,6 +8,8 @@ namespace LibRed.Core.Tests;
 
 public class JetTypeCodecBoundaryTests
 {
+    private static readonly JetFormatBase Format = JetFormatBase.FromVersionByte(0x02);
+
     private static ColumnDef Column(
         JetDataType type, int length = 0, bool fixedLength = false, byte scale = 0)
         => new()
@@ -44,7 +47,7 @@ public class JetTypeCodecBoundaryTests
     public void Fixed_width_minimum_and_maximum_values_round_trip(JetDataType type, object value)
     {
         ColumnDef column = Column(type);
-        Assert.Equal(value, JetTypeCodec.Decode(column, JetTypeCodec.Encode(column, value)));
+        Assert.Equal(value, JetTypeCodec.Decode(column, JetTypeCodec.Encode(column, value, Format)));
     }
 
     [Theory]
@@ -76,7 +79,7 @@ public class JetTypeCodecBoundaryTests
     {
         decimal value = decimal.Parse(text, System.Globalization.CultureInfo.InvariantCulture);
         ColumnDef column = Column(JetDataType.FixedPoint, scale: 4);
-        byte[] encoded = JetTypeCodec.Encode(column, value);
+        byte[] encoded = JetTypeCodec.Encode(column, value, Format);
         Assert.Equal(value, JetTypeCodec.Decode(column, encoded));
         if (unscaledControl is not null)
             Assert.Equal(unscaledControl.Value, decimal.ToInt32(value * 10_000m));
@@ -148,10 +151,10 @@ public class JetTypeCodecBoundaryTests
     public void Fixed_text_and_binary_are_padded_to_the_declared_width()
     {
         ColumnDef text = Column(JetDataType.Text, length: 6, fixedLength: true);
-        Assert.Equal("A  ", JetTypeCodec.Decode(text, JetTypeCodec.Encode(text, "A")));
+        Assert.Equal("A  ", JetTypeCodec.Decode(text, JetTypeCodec.Encode(text, "A", Format)));
 
         ColumnDef binary = Column(JetDataType.Binary, length: 3, fixedLength: true);
-        Assert.Equal(new byte[] { 1, 0, 0 }, JetTypeCodec.Encode(binary, new byte[] { 1 }));
+        Assert.Equal(new byte[] { 1, 0, 0 }, JetTypeCodec.Encode(binary, new byte[] { 1 }, Format));
     }
 
     [Fact]
@@ -159,11 +162,11 @@ public class JetTypeCodecBoundaryTests
     {
         ColumnDef text = Column(JetDataType.Text, length: 6, fixedLength: true);
         Assert.Contains("too small to accept",
-            Assert.Throws<InvalidOperationException>(() => JetTypeCodec.Encode(text, "ABCD")).Message);
+            Assert.Throws<InvalidOperationException>(() => JetTypeCodec.Encode(text, "ABCD", Format)).Message);
 
         ColumnDef binary = Column(JetDataType.Binary, length: 3, fixedLength: true);
         Assert.Contains("too small to accept",
-            Assert.Throws<InvalidOperationException>(() => JetTypeCodec.Encode(binary, new byte[] { 1, 2, 3, 4 })).Message);
+            Assert.Throws<InvalidOperationException>(() => JetTypeCodec.Encode(binary, new byte[] { 1, 2, 3, 4 }, Format)).Message);
     }
 
     // DATETIME2 is 42 ASCII bytes, "<day>:<time>:<precision>". The width was checked and the CONTENT was not,
@@ -187,7 +190,7 @@ public class JetTypeCodecBoundaryTests
     public void Unsupported_encoding_reports_the_column_type()
     {
         var error = Assert.Throws<NotSupportedException>(() =>
-            JetTypeCodec.Encode(Column(JetDataType.Unknown0D), new object()));
+            JetTypeCodec.Encode(Column(JetDataType.Unknown0D), new object(), Format));
         Assert.Contains(nameof(JetDataType.Unknown0D), error.Message);
     }
 
@@ -195,7 +198,7 @@ public class JetTypeCodecBoundaryTests
     public void A_complex_id_round_trips_as_an_int32()
     {
         ColumnDef column = Column(JetDataType.Complex, length: 4, fixedLength: true);
-        Assert.Equal(new byte[] { 0x2A, 0, 0, 0 }, JetTypeCodec.Encode(column, 42));
+        Assert.Equal(new byte[] { 0x2A, 0, 0, 0 }, JetTypeCodec.Encode(column, 42, Format));
         Assert.Equal(42, JetTypeCodec.Decode(column, JetDataType.Complex, new byte[] { 0x2A, 0, 0, 0 }));
     }
 }

@@ -49,7 +49,7 @@ public class DecimalKeyEncodingTests
             var def = table.Definition;
             IndexDef index = def.Indexes.Single(i => i.Columns.Any(c => c.Column.Name == "K"));
             int kIdx = def.FindColumn("K")!.Index;
-            var decoder = new RowDecoder(def.Columns, db.Format);
+            var decoder = new RowCodec(def.Columns, db.Format);
 
             int checkedKeys = 0;
             foreach (var (accessKey, rowId) in new IndexCursor(table.Channel, index.RootPage).RawEntries())
@@ -58,7 +58,7 @@ public class DecimalKeyEncodingTests
 
                 var values = new object?[def.Columns.Count];
                 values[kIdx] = d;
-                byte[] ours = IndexKeyEncoder.Encode(index.Columns, values);
+                byte[] ours = IndexKeyCodec.Encode(index.Columns, values);
 
                 Assert.True(accessKey.AsSpan().SequenceEqual(ours),
                     $"{d}: access={Convert.ToHexString(accessKey)} ours={Convert.ToHexString(ours)}");
@@ -109,14 +109,13 @@ public class DecimalKeyEncodingTests
                 (byte[] accessKey, _) = new IndexCursor(table.Channel, index.RootPage).RawEntries().Single();
 
                 Assert.True(decimal.IsNegative((decimal)values[kIdx]!), "ACE stored the sign");
-                Assert.Equal(Convert.ToHexString(accessKey), Convert.ToHexString(IndexKeyEncoder.Encode(index.Columns, values)));
+                Assert.Equal(Convert.ToHexString(accessKey), Convert.ToHexString(IndexKeyCodec.Encode(index.Columns, values)));
 
                 var updated = (object?[])values.Clone();
                 updated[vIdx] = 2;
                 table.Update(rowId, updated);
                 Assert.True(decimal.IsNegative((decimal)table.GetRow(rowId)![kIdx]!), "the rewrite kept the sign");
 
-                table.RemoveIndexEntry(index, updated, rowId);
                 table.Delete(rowId);
             }
 

@@ -144,7 +144,7 @@ public class SortOrderProvenanceProbeTest(ITestOutputHelper output)
             Name = "K", Type = JetDataType.Text, Index = 0, Collation = Collation.GeneralLegacy,
         };
         byte[] key;
-        try { key = IndexKeyEncoder.Encode([(column, true)], [c.ToString()]); }
+        try { key = IndexKeyCodec.Encode([(column, true)], [c.ToString()]); }
         catch (NotSupportedException) { return false; }
 
         int split = key.Length - 2;

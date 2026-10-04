@@ -27,7 +27,7 @@ public class AceDateTime2UpgradeTests
         string path = CopyAce12Database("dt2-upgrade-");
         try
         {
-            Assert.Equal(0x02, VersionByte(path));
+            Assert.Equal(Formats.JetVersion.Version12_2007, TestDatabases.FormatOf(path).Version);
 
             // Start from a file that already holds data, which is what a real upgrade has to preserve.
             using (DbConnection connection = AceTestDatabase.Open(path))
@@ -35,10 +35,12 @@ public class AceDateTime2UpgradeTests
                 Execute(connection, "CREATE TABLE T (Id LONG, D DATETIME)");
                 Execute(connection, "INSERT INTO T (Id, D) VALUES (1, #2020-01-02 03:04:05#)");
             }
-            Assert.Equal(0x02, VersionByte(path));   // an ordinary DATETIME does not move it
+            // An ordinary DATETIME does not move it.
+            Assert.Equal(Formats.JetVersion.Version12_2007, TestDatabases.FormatOf(path).Version);
 
-            SetVersionByte(path, 0x06);
-            Assert.Equal(0x06, VersionByte(path));
+            using (var raised = JetDatabase.Open(path, readOnly: false))
+                raised.EnsureFormatAtLeast(Formats.JetVersion.Version17_2019);
+            Assert.Equal(Formats.JetVersion.Version17_2019, TestDatabases.FormatOf(path).Version);
 
             using (DbConnection connection = AceTestDatabase.Open(path))
             {
@@ -56,7 +58,7 @@ public class AceDateTime2UpgradeTests
             }
 
             // ACE left the version byte where we put it - it had no upgrade of its own left to do.
-            Assert.Equal(0x06, VersionByte(path));
+            Assert.Equal(Formats.JetVersion.Version17_2019, TestDatabases.FormatOf(path).Version);
 
             using var db = JetDatabase.Open(path);
             ColumnDef extended = db.Catalog.Tables.Single(t => t.Name == "T").Columns.Single(c => c.Name == "E");
@@ -98,7 +100,8 @@ public class AceDateTime2UpgradeTests
         string path = CopyAce12Database("dt2-decode-");
         try
         {
-            SetVersionByte(path, 0x06);
+            using (var raised = JetDatabase.Open(path, readOnly: false))
+                raised.EnsureFormatAtLeast(Formats.JetVersion.Version17_2019);
 
             using (DbConnection connection = AceTestDatabase.Open(path))
             {
@@ -146,20 +149,5 @@ public class AceDateTime2UpgradeTests
         using DbCommand command = connection.CreateCommand();
         command.CommandText = sql;
         return command.ExecuteScalar();
-    }
-
-    private static byte VersionByte(string path)
-    {
-        using var stream = File.OpenRead(path);
-        stream.Seek(0x14, SeekOrigin.Begin);
-        int b = stream.ReadByte();
-        return b < 0 ? throw new EndOfStreamException() : (byte)b;
-    }
-
-    private static void SetVersionByte(string path, byte version)
-    {
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Write);
-        stream.Seek(0x14, SeekOrigin.Begin);
-        stream.WriteByte(version);
     }
 }

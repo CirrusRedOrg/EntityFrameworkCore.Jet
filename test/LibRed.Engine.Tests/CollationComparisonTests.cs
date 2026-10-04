@@ -29,7 +29,7 @@ public class CollationComparisonTests : TempDatabaseTest
     {
         Collation collation = order == "croatian" ? CroatianV1 : GeneralV1;
         string path = TemporaryDatabase.CreatePath("collation-comparison-");
-        DatabaseCreator.CreateEmpty(path, collation: collation);
+        JetDatabase.Create(path, collation: collation);
         var e = new QueryEngine(TemporaryDatabase.OpenTracked(path));
         e.ExecuteNonQuery("CREATE TABLE T (Id LONG, S TEXT(20))");
         e.ExecuteNonQuery("CREATE TABLE U (K TEXT(20), N LONG)");
@@ -112,7 +112,7 @@ public class CollationComparisonTests : TempDatabaseTest
         // As ACE groups them (CollationQueryProbeTests): 'ß' is 'ss', case and trailing spaces fold, an accent
         // separates — cafe, café, the three spellings of strasse, and x.
         string path = TemporaryDatabase.CreatePath("collation-group-");
-        DatabaseCreator.CreateEmpty(path, collation: new Collation(CollatingOrder.General, version));
+        JetDatabase.Create(path, collation: new Collation(CollatingOrder.General, version));
         var e = new QueryEngine(TemporaryDatabase.OpenTracked(path));
         e.ExecuteNonQuery("CREATE TABLE G (Id LONG, S TEXT(20))");
         string[] values = ["Straße", "STRASSE", "strasse ", "x", "X", "café", "cafe"];

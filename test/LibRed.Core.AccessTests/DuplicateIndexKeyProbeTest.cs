@@ -7,12 +7,12 @@ namespace LibRed.Core.Tests;
 
 // Reading an index where many rows share one key — ordinary for any non-unique index, and once a real bug.
 //
-// A full-BMP sweep died at U+4000 with "entry [7, 9) cannot contain its 4-byte trailer", IndexPageReader
+// A full-BMP sweep died at U+4000 with "entry [7, 9) cannot contain its 4-byte trailer", IndexTree
 // refusing a page ACE had written. CJK is largely ignorable in General v0, so thousands of rows shared the
 // identical key, and once the index outgrew a single leaf the prefix compression became severe enough to
 // break the reader's assumptions. 100 rows read fine; 500 and above read NOTHING.
 //
-// The cause was that the shared prefix covers the whole entry, trailer included — see IndexPageReader — so
+// The cause was that the shared prefix covers the whole entry, trailer included — see IndexTree — so
 // the stored remainder can be two bytes. These cases now assert, since nothing about them is exotic.
 [Collection(AceCollection.Name)]
 public class DuplicateIndexKeyProbeTest(ITestOutputHelper output)
@@ -97,7 +97,6 @@ public class DuplicateIndexKeyProbeTest(ITestOutputHelper output)
                 key[keyIndex] = "same";
                 (RowId id, object?[] values) = table.SeekRowsWithIds(index, key)
                     .First(r => Convert.ToInt32(r.Values[valueIndex]) == rows / 2);
-                table.RemoveIndexEntry(index, values, id);
                 table.Delete(id);
             }
 
@@ -143,21 +142,21 @@ public class DuplicateIndexKeyProbeTest(ITestOutputHelper output)
             var table = db.OpenTable("Dup");
             IndexDef index = table.Definition.Indexes.Single(i => i.Name == "IX_Dup");
             var page = table.Channel.ReadPageShared(index.RootPage);
+            Formats.JetFormatBase format = db.Format;
+            (int prev, int next) = IndexTree.ReadSiblings(page.Span, format);
 
             output.WriteLine($"root page {index.RootPage}: type 0x{page.ReadByte(0):X2}, " +
-                             $"owner {page.ReadInt32(0x04)}, prev {page.ReadInt32(0x0C)}, " +
-                             $"next {page.ReadInt32(0x10)}, tail {page.ReadInt32(0x14)}, " +
-                             $"compressed {page.ReadUInt16(0x18)}, byte 0x1A 0x{page.ReadByte(0x1A):X2}");
+                             $"owner {IndexTree.ReadOwner(page.Span, format)}, prev {prev}, " +
+                             $"next {next}, tail {page.ReadInt32(format.IndexChildTailOffset)}, " +
+                             $"compressed {IndexTree.ReadCompressedByteCount(page.Span, format)}, byte 0x1A 0x{page.ReadByte(format.IndexLevelOffset):X2}");
 
             var ends = new List<int>();
-            for (int i = 0x1B; i < 0x1E0 && ends.Count < 24; i++)
-            {
-                byte mask = page.ReadByte(i);
+            ReadOnlySpan<byte> entryMask = page.Slice(format.IndexEntryMaskOffset, format.IndexEntryDataOffset - format.IndexEntryMaskOffset);
+            for (int i = 0; i < entryMask.Length && ends.Count < 24; i++)
                 for (int bit = 0; bit < 8; bit++)
-                    if ((mask & (1 << bit)) != 0) ends.Add((i - 0x1B) * 8 + bit);
-            }
+                    if (BitmapBits.Get(entryMask, i * 8 + bit)) ends.Add(i * 8 + bit);
             output.WriteLine($"first entry ends: {string.Join(", ", ends)}");
-            output.WriteLine($"entry data 0x1E0..+64: {Convert.ToHexString(page.Slice(0x1E0, 64))}");
+            output.WriteLine($"entry data 0x1E0..+64: {Convert.ToHexString(page.Slice(format.IndexEntryDataOffset, 64))}");
         }
         finally { TemporaryDatabase.Delete(path); }
     }

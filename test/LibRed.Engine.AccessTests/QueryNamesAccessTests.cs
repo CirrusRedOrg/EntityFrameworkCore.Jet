@@ -136,12 +136,12 @@ public class QueryNamesAccessTests(ITestOutputHelper output) : TempDatabaseTest
             string aceSql, libredSql;
             using (var db = JetDatabase.Open(byAce, readOnly: true))
             {
-                aceSql = db.Catalog.Views["ByCity"];
-                Assert.Equal("Forms!frmMenu!txtCity", db.Catalog.QueryParameters["ByCity"].Single().Name);
+                aceSql = db.Catalog.FindQuery("ByCity")!.Sql!;
+                Assert.Equal("Forms!frmMenu!txtCity", db.Catalog.FindQuery("ByCity")!.Parameters.Single().Name);
                 Assert.Equal(["ALFKI"], new QueryEngine(db).ExecuteQuery("EXECUTE ByCity 'Berlin'").Rows.Select(r => r[0]));
             }
             using (var db = JetDatabase.Open(byLibRed, readOnly: true))
-                libredSql = db.Catalog.Views["ByCity"];
+                libredSql = db.Catalog.FindQuery("ByCity")!.Sql!;
             output.WriteLine($"ACE    {aceSql}\nLibRed {libredSql}");
             Assert.Equal(aceSql, libredSql);
 

@@ -1,34 +1,40 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed.Catalog;
 using LibRed.Formats;
+using LibRed.IO;
+using LibRed.Pages;
 using LibRed.Storage;
 using Xunit;
 
 namespace LibRed.Core.Tests;
 
 // LibRed allocates through page 0's global map pointers (0x18 free, 0x1C released), as ACE does. Two files ACE
-// itself reads correctly — maps moved off page 1, and pages sitting in the released map — must stay files ACE
-// reads correctly after LibRed has allocated into them.
+// itself reads correctly — maps moved to another page, and pages sitting in the released map — must stay files ACE
+// reads correctly after LibRed has allocated into them. Every test finds the maps through those pointers.
 [Collection(AceCollection.Name)]
 public class GlobalMapPointerAccessTests : TempDatabaseTest
 {
-    private const int NorthwindPages = 353;
+    private static readonly JetFormatBase Format = TestDatabases.FormatOf(TestDatabases.NorthwindAccdb);
+    private static readonly int NorthwindPages = (int)(new FileInfo(TestDatabases.NorthwindAccdb).Length / Format.PageSize);
 
     [Fact]
-    public void Ace_reads_a_table_libred_filled_through_maps_moved_off_page_one()
+    public void Ace_reads_a_table_libred_filled_through_maps_moved_to_another_page()
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "globalptr-ace-moved-");
-        byte[] page1 = ReadPage(path, 1);
-        byte[] moved = (byte[])page1.Clone();
-        SetMapBit(moved, row: 0, page: NorthwindPages, set: false);
-        AppendPage(path, moved);
-        WritePointer(path, JetFormatBase.FreePagesMapPointerOffset, row: 0, page: NorthwindPages);
-        WritePointer(path, JetFormatBase.ReleasedPagesMapPointerOffset, row: 1, page: NorthwindPages);
+        (int Row, int Page) free, released;
+        using (var db = JetDatabase.Open(path))
+            (free, released) = (db.DefinitionPage.FreePagesMap, db.DefinitionPage.ReleasedPagesMap);
+        Assert.Equal(free.Page, released.Page);   // the copy moves both maps together
+        byte[] original = TestDatabases.ReadPage(path, free.Page);
+        byte[] moved = (byte[])original.Clone();
+        TestDatabases.SetMapBit(moved, Format, free.Row, page: NorthwindPages, set: false);
+        TestDatabases.AppendPage(path, moved);
+        TestDatabases.WriteMapPointer(path, Format.FreePagesMapPointerOffset, free.Row, NorthwindPages);
+        TestDatabases.WriteMapPointer(path, Format.ReleasedPagesMapPointerOffset, released.Row, NorthwindPages);
 
         FillWithLibRed(path, rows: 1500);
 
-        Assert.Equal(page1, ReadPage(path, 1));   // LibRed never touched the stale maps
+        Assert.Equal(original, TestDatabases.ReadPage(path, free.Page));   // LibRed never touched the stale maps
         AssertAceReads(path, rows: 1500);
     }
 
@@ -36,19 +42,22 @@ public class GlobalMapPointerAccessTests : TempDatabaseTest
     public void Ace_reads_a_table_libred_filled_around_released_pages()
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "globalptr-ace-released-");
-        byte[] page1 = ReadPage(path, 1);
+        (int Row, int Page) free, released;
+        using (var db = JetDatabase.Open(path))
+            (free, released) = (db.DefinitionPage.FreePagesMap, db.DefinitionPage.ReleasedPagesMap);
+        byte[] holder = TestDatabases.ReadPage(path, released.Page);
         foreach (int p in new[] { 310, 329, NorthwindPages, NorthwindPages + 1 })
-            SetMapBit(page1, row: 1, page: p, set: true);
-        WritePage(path, 1, page1);
+            TestDatabases.SetMapBit(holder, Format, released.Row, page: p, set: true);
+        TestDatabases.WritePage(path, released.Page, holder);
 
         FillWithLibRed(path, rows: 1500);
 
         // Never allocated while open; the close merged them into the free map and cleared the released map.
-        byte[] after = ReadPage(path, 1);
+        byte[] freeAfter = TestDatabases.ReadPage(path, free.Page), releasedAfter = TestDatabases.ReadPage(path, released.Page);
         foreach (int p in new[] { 310, 329, NorthwindPages, NorthwindPages + 1 })
         {
-            Assert.False(MapBit(after, 1, p), $"page {p} should no longer be released");
-            Assert.True(MapBit(after, 0, p), $"page {p} should be free");
+            Assert.False(TestDatabases.MapBit(releasedAfter, Format, released.Row, p), $"page {p} should no longer be released");
+            Assert.True(TestDatabases.MapBit(freeAfter, Format, free.Row, p), $"page {p} should be free");
         }
         AssertAceReads(path, rows: 1500);
     }
@@ -80,11 +89,15 @@ public class GlobalMapPointerAccessTests : TempDatabaseTest
             }
         }
 
-        int pages = (int)(new FileInfo(path).Length / 4096);
-        byte[] holder = ReadPage(path, 1);
-        int offset = BinaryPrimitives.ReadUInt16LittleEndian(holder.AsSpan(14)) & 0x1FFF;
-        int length = 4096 - offset; // row 0 is the last record on the page, so its record runs to the page end
-        int start = BinaryPrimitives.ReadInt32LittleEndian(holder.AsSpan(offset + 1));
+        int pages = (int)(new FileInfo(path).Length / Format.PageSize);
+        (int Row, int Page) free;
+        using (var db = JetDatabase.Open(path))
+            free = db.DefinitionPage.FreePagesMap;
+        byte[] holder = TestDatabases.ReadPage(path, free.Page);
+        var holderPage = new DataPage();
+        holderPage.Read(new PageBuffer(holder, free.Page), Format);
+        int offset = holderPage.Rows[free.Row].Offset, length = holderPage.Rows[free.Row].Length;
+        int start = UsageMap.StartPage(holder.AsSpan(offset), Format);
 
         // Then free pages above the window: shortening a memo releases its long-value pages at once.
         using (OleDbConnection connection = AceTestDatabase.Open(path))
@@ -94,17 +107,18 @@ public class GlobalMapPointerAccessTests : TempDatabaseTest
             update.ExecuteNonQuery();
         }
 
-        byte[] after = ReadPage(path, 1);
+        byte[] after = TestDatabases.ReadPage(path, free.Page);
+        int window = Format.UsageMapInlineBitmapSize * 8;
         int freeAbove512 = 0;
-        for (int p = 512; p < pages; p++) if (MapBit(after, 0, p)) freeAbove512++;
+        for (int p = window; p < pages; p++) if (TestDatabases.MapBit(after, Format, free.Row, p)) freeAbove512++;
 
         // Measured: 700 memo rows made a 1,761-page file, whose free map is a 229-byte inline record starting at
         // page 0 — coverage 1,792 pages — and the UPDATE marked 43 pages free above 511. So ACE's map covers
         // every page it might have to free, which is why a page outside the map's coverage is a malformed file
         // rather than an ordinary state (PageAllocator.Free).
-        Assert.True(pages > 512, $"expected the file to pass the 512-page window; it is {pages} pages");
+        Assert.True(pages > window, $"expected the file to pass the 512-page window; it is {pages} pages");
         Assert.Equal(0, start);
-        Assert.True(length >= 5 + (pages + 7) / 8,
+        Assert.True(length >= Format.UsageMapInlineHeaderSize + BitmapBits.ByteCount(pages),
             $"free map record is {length} bytes, too short for {pages} pages");
         Assert.True(freeAbove512 > 0, "expected the pages the UPDATE freed to be marked free above page 512");
     }
@@ -135,7 +149,10 @@ public class GlobalMapPointerAccessTests : TempDatabaseTest
             }
         }
 
-        byte[] before = ReadPage(path, 1);
+        int holder;
+        using (var db = JetDatabase.Open(path))
+            holder = db.DefinitionPage.FreePagesMap.Page;
+        byte[] before = TestDatabases.ReadPage(path, holder);
         byte[] duringDrop;
         using (OleDbConnection connection = AceTestDatabase.Open(path))
         {
@@ -144,9 +161,9 @@ public class GlobalMapPointerAccessTests : TempDatabaseTest
                 drop.CommandText = "DROP TABLE Doomed";
                 drop.ExecuteNonQuery();
             }
-            duringDrop = ReadPage(path, 1); // the session is still open
+            duringDrop = TestDatabases.ReadPage(path, holder); // the session is still open
         }
-        byte[] after = ReadPage(path, 1);
+        byte[] after = TestDatabases.ReadPage(path, holder);
 
         Assert.Equal(before, duringDrop); // nothing on disk yet — the pages are the session's own business
         Assert.NotEqual(before, after);   // and the close puts them in the free map
@@ -173,57 +190,5 @@ public class GlobalMapPointerAccessTests : TempDatabaseTest
         Assert.True(reader.Read());
         Assert.Equal(rows, Convert.ToInt32(reader.GetValue(0)));
         Assert.Equal((long)rows * (rows - 1) / 2, Convert.ToInt64(reader.GetValue(1)));
-    }
-
-    private static void WritePointer(string path, int offset, int row, int page)
-    {
-        ReadOnlySpan<byte> mask = JetFormatBase.PageZeroHeaderMask;
-        byte[] value = BitConverter.GetBytes((uint)(page << 8 | row));
-        for (int i = 0; i < 4; i++) value[i] ^= mask[offset - JetFormatBase.PageZeroHeaderMaskStart + i];
-        using var s = new FileStream(path, FileMode.Open, FileAccess.ReadWrite);
-        s.Position = offset;
-        s.Write(value);
-    }
-
-    private static byte[] ReadPage(string path, int page)
-    {
-        using var s = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        var bytes = new byte[4096];
-        s.Position = page * 4096L;
-        s.ReadExactly(bytes);
-        return bytes;
-    }
-
-    private static void WritePage(string path, int page, byte[] bytes)
-    {
-        using var s = new FileStream(path, FileMode.Open, FileAccess.ReadWrite);
-        s.Position = page * 4096L;
-        s.Write(bytes);
-    }
-
-    private static void AppendPage(string path, byte[] bytes)
-    {
-        using var s = new FileStream(path, FileMode.Append, FileAccess.Write);
-        s.Write(bytes);
-    }
-
-    private static (int Byte, int Bit) Locate(byte[] holder, int row, int page)
-    {
-        int offset = BinaryPrimitives.ReadUInt16LittleEndian(holder.AsSpan(14 + row * 2)) & 0x1FFF;
-        int bit = page - BinaryPrimitives.ReadInt32LittleEndian(holder.AsSpan(offset + 1));
-        return (offset + 5 + bit / 8, bit % 8);
-    }
-
-    private static void SetMapBit(byte[] holder, int row, int page, bool set)
-    {
-        (int b, int bit) = Locate(holder, row, page);
-        if (set) holder[b] |= (byte)(1 << bit);
-        else holder[b] &= (byte)~(1 << bit);
-    }
-
-    private static bool MapBit(byte[] holder, int row, int page)
-    {
-        (int b, int bit) = Locate(holder, row, page);
-        return (holder[b] & (1 << bit)) != 0;
     }
 }

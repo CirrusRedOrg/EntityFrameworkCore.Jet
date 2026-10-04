@@ -61,8 +61,7 @@ public class MultiPageTableDefinitionTests
             var channel = table.Channel;
             int firstPage = table.Definition.DefinitionPage;
             byte[] first = channel.ReadPage(firstPage).Span.ToArray();
-            int continuation = BinaryPrimitives.ReadInt32LittleEndian(
-                first.AsSpan(db.Format.TdefNextPageOffset, 4));
+            int continuation = db.ReadTableDefinition(firstPage).NextDefinitionPage;
             Assert.True(continuation > 0);
 
             switch (corruption)

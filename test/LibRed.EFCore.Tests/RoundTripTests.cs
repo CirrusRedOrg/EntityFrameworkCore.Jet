@@ -124,7 +124,7 @@ public class RoundTripTests
     [Fact]
     public void EnsureCreated_creates_a_new_database_natively_and_round_trips()
     {
-        // A brand-new file (no copy): EnsureCreated must create the .accdb natively (DatabaseCreator),
+        // A brand-new file (no copy): EnsureCreated must create the .accdb natively (JetDatabase),
         // then create the model's schema, then the context is usable for insert + query.
         string path = Path.Combine(Path.GetTempPath(), $"libred-newdb-{Guid.NewGuid():N}.accdb");
         var options = new DbContextOptionsBuilder<NorthwindContext>()

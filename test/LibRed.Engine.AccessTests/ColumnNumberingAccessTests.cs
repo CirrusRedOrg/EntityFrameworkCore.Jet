@@ -146,8 +146,9 @@ public class ColumnNumberingAccessTests
         return string.Join("  ", db.Catalog.FindTable("T")!.Columns.Select(c =>
         {
             byte[] d = c.RawDescriptor!;
-            return $"{c.Name}:{BinaryPrimitives.ReadUInt16LittleEndian(d.AsSpan(5))}/"
-                 + $"{BinaryPrimitives.ReadUInt16LittleEndian(d.AsSpan(7))}/{BinaryPrimitives.ReadUInt16LittleEndian(d.AsSpan(9))}";
+            return $"{c.Name}:{c.ColumnId}/"
+                 + $"{c.VariableTableIndex}/"
+                 + $"{BinaryPrimitives.ReadUInt16LittleEndian(d.AsSpan(db.Format.ColumnSecondaryNumberOffset))}";
         }));
     }
 }

@@ -4,13 +4,14 @@
 
 ## 11. System catalog
 
-- **MSysObjects** (TDEF at page **2**) lists every object. Columns include `Id`, `Name`,
+- **MSysObjects** (its TDEF is the page page 0's catalog-root pointer at `0x20` names) lists every object. Columns include `Id`, `Name`,
   `Type`, `Flags`, `ParentId`. For a **table** object (`Type == 1`), **`Id` is the table's TDEF
   page number**. An object is excluded from the **user-table** list (as Access's own schema view
   does — it hides system *and* hidden objects) if `Flags & 0x80000002` (system: `0x80000000` +
   `0x00000002`) **or** `Flags & 0x00000008` (**hidden** — observed on nav-pane tables and on
   EFCore.Jet's `#Dual` helper) is set, **or** its name begins with `MSys` / `~` / `#`. Bootstrap:
-  build a TableDef for MSysObjects from page 2 and read its rows like any table.
+  build a TableDefinition for MSysObjects from the page `0x20` names ([page-00 §2](page-00-database.md)) and read
+  its rows like any table.
 
   > **Why the hidden bit / `#` prefix matter.** Missing them makes a hidden helper such as
   > EFCore.Jet's `#Dual` (`Flags = 0x08`) count as a *user* table, so a "has any user tables?" check
@@ -98,7 +99,9 @@
   > follows from it — a file whose `MSysObjects.Owner` is `680E` has mask `6A-0D`, under which `690C` is
   > admin `03-01`, `680C` Users `02-01` and `6809` Creator `02-04`. An object written with a **different**
   > file's SIDs carries an owner that names no account in the file it sits in, so a writer adding an object to
-  > a database it did not create must take the mask from that database.
+  > a database it did not create must take the mask from that database. Page 0 gives the whole keystream too,
+  > and is the surer source: after a key change Access can leave `MSysObjects`' own owner un-re-masked
+  > ([page-00 §2.3](page-00-database.md)).
 
   > **Property blob (`LvProp`) format — verified byte-for-byte against ACE.** A 4-byte signature
   > (`MR2\0` on ACE, `KKD\0` on older MDB) then blocks, each `[int length][short type][body]` with the
@@ -157,7 +160,7 @@
   > The `MSysDb` object — an `MSysObjects` row of `Type=2` with no table behind it — carries the
   > database-level properties, among them `AccessVersion`. Access writes those, not the engine: a DAO-created
   > database has none, at any `dbVersion`, and Access adds them (with `MSysAccessStorage` and the nav-pane
-  > tables) the first time it opens the file. Which is why `DatabaseCreator` does not write them either. The
+  > tables) the first time it opens the file. Which is why `JetDatabase` does not write them either. The
   > one place the value matters is [data-types.md](data-types.md), where it says which files carry the
   > legacy `MSysAccessObjects` store and its BigBinary (`0x11`) column.
   >
@@ -215,12 +218,12 @@
   > would mangle a numeric one).
   >
   > LibRed **writes** `DefaultValue`, `Required` and `CheckConstraints` properties (`PropertyBlob.Write`) and
-  > **reads** them back (`ColumnDef.DefaultValue`, `ColumnDef.IsNullable`, `TableDef.CheckConstraints`),
+  > **reads** them back (`ColumnDef.DefaultValue`, `ColumnDef.IsNullable`, `TableDefinition.CheckConstraints`),
   > applying the default when an insert omits the column and **rejecting** an insert that leaves a required
   > column null ("You must enter a value in the '<table>.<column>' field.", matching Access). Access
   > **applies the default**, **enforces Required**, and **enforces the CHECK** on its own inserts —
   > including on a LibRed-created table (verified: ACE rejects an insert omitting a LibRed `NOT NULL`
-  > column). `LvProp` is stored on a **single LVAL page** (`LongValueWriter`, descriptor flag `0x40`) — the
+  > column). `LvProp` is stored on a **single LVAL page** (`LongValueStore`, descriptor flag `0x40`) — the
   > form Access's property loader requires. **Verified:** Access opens the file and **applies the default** on
   > its own insert that omits the column. (An *inline* value, flag `0x80`, is valid long-value storage but is
   > **not** recognised by Access's property loader.)
@@ -310,7 +313,7 @@
   `[length-and-flags:4][row:1][page:3][4 reserved]`. The first word is little-endian, with a 30-bit byte
   length and two flag bits: byte `0x03` masked with `0xC0` gives `0x40` = single page
   (`0x80` = inline, payload follows the descriptor; `0x00` = chained across pages). LibRed writes the
-  single-page form (`LongValueWriter`) and chained pages for payloads larger than one page.
+  single-page form (`LongValueStore`) and chained pages for payloads larger than one page.
 
   > With those fields set, Access **enumerates** a LibRed-created table (it appears in the
   > schema/Tables rowset) — verified via OLE DB. Maintaining MSysObjects' indexes (the composite
@@ -515,7 +518,7 @@
   > whole, and not a fixed system-table bind (the `CREATE VIEW` error names the table outright). It is
   > **read-only** from ACE's side: `CREATE TABLE` and `CREATE INDEX` leave it at **0 rows**. The dependency is
   > on this table specifically — without `MSysComplexType_Text` the statements still succeed, and without
-  > `MSysQueries` they fail with a different error. LibRed creates all ten in `DatabaseCreator.CreateEmpty` for version ≥ `0x02`, which is what lets ACE run DDL in a
+  > `MSysQueries` they fail with a different error. LibRed creates all ten in `JetDatabase.Create` for version ≥ `0x02`, which is what lets ACE run DDL in a
   > LibRed-created database.
   >
   > **What DDL does to a complex column's three links (verified).** A complex column hangs off its descriptor's
@@ -795,6 +798,10 @@ Four layers — the user table, then three kinds of ordinary hidden/system table
 > stayed at 3 and each flat table's `0x14` kept its value, so the next row still gets id 4 and the freed
 > value ids are never reissued. A delete path must therefore remove the flat rows of **every** complex column
 > on the table for that id, and must leave both high-waters alone.
+
+LibRed's `Table.Delete` performs this cleanup before removing the owner's index entries and row. Each
+backing row uses the same table deletion path, including its indexes and long-value reclamation. All writes
+join the owner's transaction; a standalone deletion starts a transaction covering the entire operation.
 
 > **Both id spaces are sparse high-water counters**, so neither is dense or ordered: record ids run
 > `1,2,3,4,7,14` over six rows, and `XSDFiles`' value ids reach `116` over 37 values. And an id is allocated

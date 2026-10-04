@@ -17,8 +17,6 @@ namespace LibRed.Engine.Tests;
 [Collection(AceCollection.Name)]
 public class DeleteByteParityTests(ITestOutputHelper output)
 {
-    private const int PageSize = 4096;
-
     [Fact]
     public void A_delete_writes_the_same_bytes_ace_writes()
     {
@@ -52,13 +50,17 @@ public class DeleteByteParityTests(ITestOutputHelper output)
             }
             finally { Invoke(quiet, "Close"); }
 
+            int pageSize;
             using (var db = JetDatabase.Open(libredCopy, readOnly: false))
+            {
+                pageSize = db.Format.PageSize;
                 new QueryEngine(db).ExecuteNonQuery($"DELETE FROM [{Table}] WHERE {Where}");
+            }
 
             byte[] o = File.ReadAllBytes(orig), a = File.ReadAllBytes(aceCopy),
                    n = File.ReadAllBytes(noiseCopy), l = File.ReadAllBytes(libredCopy);
 
-            HashSet<int> aceWrote = Changed(o, a), housekeeping = Changed(o, n), libredWrote = Changed(o, l);
+            HashSet<int> aceWrote = Changed(o, a, pageSize), housekeeping = Changed(o, n, pageSize), libredWrote = Changed(o, l, pageSize);
             var aceDelete = aceWrote.Except(housekeeping).ToHashSet();
 
             // Nothing LibRed touched is a page ACE left alone.
@@ -70,8 +72,8 @@ public class DeleteByteParityTests(ITestOutputHelper output)
             Assert.NotEmpty(both);
             foreach (int page in both)
                 Assert.True(
-                    a.AsSpan(page * PageSize, PageSize).SequenceEqual(l.AsSpan(page * PageSize, PageSize)),
-                    $"page {page} (type 0x{o[page * PageSize]:X2}) differs from ACE's");
+                    a.AsSpan(page * pageSize, pageSize).SequenceEqual(l.AsSpan(page * pageSize, pageSize)),
+                    $"page {page} (type 0x{o[page * pageSize]:X2}) differs from ACE's");
 
             output.WriteLine($"{both.Length} pages written by both engines, all identical");
         }
@@ -124,15 +126,19 @@ public class DeleteByteParityTests(ITestOutputHelper output)
             }
             finally { Invoke(quiet, "Close"); }
 
+            int pageSize;
             using (var db = JetDatabase.Open(libredCopy, readOnly: false))
+            {
+                pageSize = db.Format.PageSize;
                 new QueryEngine(db).ExecuteNonQuery("DELETE FROM Filled WHERE Id = 0");
+            }
 
             byte[] o = File.ReadAllBytes(orig), a = File.ReadAllBytes(aceCopy),
                    n = File.ReadAllBytes(noiseCopy), l = File.ReadAllBytes(libredCopy);
             // Page 0 is left out: its modification counter moves for reasons that have nothing to do with the
             // delete, which is why the whole-file comparisons skip it too.
-            var aceDelete = Changed(o, a).Except(Changed(o, n)).Where(p => p != 0).ToHashSet();
-            var libredWrote = Changed(o, l).Where(p => p != 0).ToHashSet();
+            var aceDelete = Changed(o, a, pageSize).Except(Changed(o, n, pageSize)).Where(p => p != 0).ToHashSet();
+            var libredWrote = Changed(o, l, pageSize).Where(p => p != 0).ToHashSet();
 
             output.WriteLine($"ACE wrote [{string.Join(",", aceDelete.Order())}], "
                              + $"LibRed wrote [{string.Join(",", libredWrote.Order())}]");
@@ -140,20 +146,20 @@ public class DeleteByteParityTests(ITestOutputHelper output)
             Assert.Empty(aceDelete.Except(libredWrote).Order());
             foreach (int page in aceDelete)
                 Assert.True(
-                    a.AsSpan(page * PageSize, PageSize).SequenceEqual(l.AsSpan(page * PageSize, PageSize)),
-                    $"page {page} (type 0x{o[page * PageSize]:X2}) differs from ACE's");
+                    a.AsSpan(page * pageSize, pageSize).SequenceEqual(l.AsSpan(page * pageSize, pageSize)),
+                    $"page {page} (type 0x{o[page * pageSize]:X2}) differs from ACE's");
         }
         finally { TemporaryDatabase.Delete(orig); }
     }
 
-    private static HashSet<int> Changed(byte[] left, byte[] right)
+    private static HashSet<int> Changed(byte[] left, byte[] right, int pageSize)
     {
         var changed = new HashSet<int>();
-        int pages = Math.Min(left.Length, right.Length) / PageSize;
+        int pages = Math.Min(left.Length, right.Length) / pageSize;
         for (int p = 0; p < pages; p++)
-            if (!left.AsSpan(p * PageSize, PageSize).SequenceEqual(right.AsSpan(p * PageSize, PageSize)))
+            if (!left.AsSpan(p * pageSize, pageSize).SequenceEqual(right.AsSpan(p * pageSize, pageSize)))
                 changed.Add(p);
-        for (int p = pages; p < Math.Max(left.Length, right.Length) / PageSize; p++) changed.Add(p);
+        for (int p = pages; p < Math.Max(left.Length, right.Length) / pageSize; p++) changed.Add(p);
         return changed;
     }
 

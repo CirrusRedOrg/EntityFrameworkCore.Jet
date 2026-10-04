@@ -2,6 +2,9 @@ using System.Buffers.Binary;
 using System.Reflection;
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
+using LibRed.Pages;
+using LibRed.Storage;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -31,7 +34,7 @@ public class ComplexDeleteByteParityProbeTest(ITestOutputHelper output)
         string where;
         using (var db = JetDatabase.Open(TemporaryDatabase.CopyPath(Source, "cx-parity-pick-")))
         {
-            TableDef table = db.Catalog.FindTable("Table1")!;
+            TableDefinition table = db.Catalog.FindTable("Table1")!;
             ComplexColumn any = db.Catalog.ComplexColumns.First(c => c.OwnerTable.Name == "Table1");
             int recordId = db.OpenTable(any.FlatTable.Name).Rows()
                 .Select(r => Convert.ToInt32(r[any.OwnerLink.Index])).Distinct().First();
@@ -80,21 +83,28 @@ public class ComplexDeleteByteParityProbeTest(ITestOutputHelper output)
                 new QueryEngine(d).ExecuteNonQuery(Insert);
 
             int page;
-            using (var d = JetDatabase.Open(orig)) page = d.Catalog.FindTable("Order Details")!.DefinitionPage;
+            JetFormatBase format;
+            using (var d = JetDatabase.Open(orig))
+            {
+                page = d.Catalog.FindTable("Order Details")!.DefinitionPage;
+                format = d.Format;
+            }
 
             byte[] o = File.ReadAllBytes(orig), a = File.ReadAllBytes(aceCopy), l = File.ReadAllBytes(libredCopy);
-            const int PageSize = 4096;
-            var so = o.AsSpan(page * PageSize, PageSize);
-            var sa = a.AsSpan(page * PageSize, PageSize);
-            var sl = l.AsSpan(page * PageSize, PageSize);
+            int pageSize = format.PageSize;
+            var so = o.AsSpan(page * pageSize, pageSize);
+            var sa = a.AsSpan(page * pageSize, pageSize);
+            var sl = l.AsSpan(page * pageSize, pageSize);
 
-            output.WriteLine($"PROBE rowCount(0x10) orig={I(so, 0x10)} ace={I(sa, 0x10)} libred={I(sl, 0x10)}");
-            int realIndexes = I(so, 0x33);
+            int rowCount = format.TdefRowCountOffset;
+            output.WriteLine($"PROBE rowCount(0x10) orig={I(so, rowCount)} ace={I(sa, rowCount)} libred={I(sl, rowCount)}");
+            int realIndexes = I(so, format.TdefIndexCountOffset);
             for (int i = 0; i < realIndexes; i++)
             {
-                int at = 0x3F + i * 12;
-                output.WriteLine($"PROBE   index {i} @0x{at:X2}: total orig={I(so, at)} ace={I(sa, at)} libred={I(sl, at)}"
-                    + $" | unique orig={I(so, at + 4)} ace={I(sa, at + 4)} libred={I(sl, at + 4)}");
+                var (origCounts, aceCounts, libredCounts) = (TableDefinition.ReadIndexCounts(so, format, i),
+                    TableDefinition.ReadIndexCounts(sa, format, i), TableDefinition.ReadIndexCounts(sl, format, i));
+                output.WriteLine($"PROBE   index {i}: total orig={origCounts.Total} ace={aceCounts.Total} libred={libredCounts.Total}"
+                    + $" | unique orig={origCounts.Unique} ace={aceCounts.Unique} libred={libredCounts.Unique}");
             }
         }
         finally
@@ -164,7 +174,7 @@ public class ComplexDeleteByteParityProbeTest(ITestOutputHelper output)
     {
         using var db = JetDatabase.Open(path);
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (TableDef t in db.Catalog.Tables)
+        foreach (TableDefinition t in db.Catalog.Tables)
         {
             try { counts[t.Name] = db.OpenTable(t.Name).Rows().Count(); }
             catch (Exception ex) { counts[t.Name] = -1; Console.WriteLine($"{t.Name}: {ex.Message}"); }
@@ -246,28 +256,32 @@ public class ComplexDeleteByteParityProbeTest(ITestOutputHelper output)
     {
         using var db = JetDatabase.Open(path);
         var map = new Dictionary<int, string>();
-        foreach (TableDef t in db.Catalog.Tables) map[t.DefinitionPage] = t.Name;
+        foreach (TableDefinition t in db.Catalog.Tables) map[t.DefinitionPage] = t.Name;
         return map;
     }
 
-    private static string Describe(byte[] file, int page, Dictionary<int, string> owners)
+    private static string Describe(byte[] file, int page, Dictionary<int, string> owners, JetFormatBase format)
     {
-        const int PageSize = 4096;
-        if ((page + 1) * PageSize > file.Length) return "(absent)";
-        var span = file.AsSpan(page * PageSize, PageSize);
-        byte type = span[0];
+        int pageSize = format.PageSize;
+        if ((page + 1) * pageSize > file.Length) return "(absent)";
+        var span = file.AsSpan(page * pageSize, pageSize);
+        PageType type = PageHeader.ReadType(span);
         string kind = type switch
         {
-            0x00 => "db-header", 0x01 => "data", 0x02 => "TDEF", 0x03 => "index-node",
-            0x04 => "index-leaf", 0x05 => "usage-map", 0x08 => "long-value", _ => $"?0x{type:X2}",
+            PageType.DatabaseDefinition => "db-header", PageType.DataPage => "data", PageType.TableDefinition => "TDEF",
+            PageType.IntermediateIndexPage => "index-node", PageType.LeafIndexPage => "index-leaf",
+            PageType.PageUsageBitmap => "usage-bitmap", PageType.ReleasedTableDefinition => "released-TDEF",
+            PageType.ReleasedDataPage => "released-data", _ => $"?0x{(ushort)type:X4}",
         };
-        if (type is 0x01 or 0x03 or 0x04)
+        if (type is PageType.DataPage or PageType.IntermediateIndexPage or PageType.LeafIndexPage)
         {
-            int tdef = BinaryPrimitives.ReadInt32LittleEndian(span[0x04..]);
+            int tdef = type == PageType.DataPage
+                ? (int)DataPage.ReadOwner(span, format)
+                : IndexTree.ReadOwner(span, format);
             string name = owners.TryGetValue(tdef, out string? t) ? t : $"tdef@{tdef}";
             return $"{kind} of [{name}]";
         }
-        if (type == 0x02 && owners.TryGetValue(page, out string? own)) return $"{kind} [{own}]";
+        if (type == PageType.TableDefinition && owners.TryGetValue(page, out string? own)) return $"{kind} [{own}]";
         if (span.TrimStart((byte)0).IsEmpty) return "all-zero";
         return kind;
     }
@@ -275,12 +289,13 @@ public class ComplexDeleteByteParityProbeTest(ITestOutputHelper output)
     private void Report(string label, byte[] o, byte[] a, byte[] n, byte[] l, Dictionary<int, string> owners)
     {
         {
+            JetFormatBase format = JetFormatBase.Detect(new MemoryStream(o));
+            int pageSize = format.PageSize;
             output.WriteLine($"PROBE [{label}] sizes: orig={o.Length} ace={a.Length} noise={n.Length} libred={l.Length}"
-                + $"  (pages: orig={o.Length / 4096} ace={a.Length / 4096} libred={l.Length / 4096})");
+                + $"  (pages: orig={o.Length / pageSize} ace={a.Length / pageSize} libred={l.Length / pageSize})");
 
-            const int PageSize = 4096;
-            HashSet<int> acePages = ChangedPages(o, a, PageSize), noisePages = ChangedPages(o, n, PageSize),
-                         libredPages = ChangedPages(o, l, PageSize);
+            HashSet<int> acePages = ChangedPages(o, a, pageSize), noisePages = ChangedPages(o, n, pageSize),
+                         libredPages = ChangedPages(o, l, pageSize);
 
             output.WriteLine($"PROBE pages changed: ace={acePages.Count} noise={noisePages.Count} libred={libredPages.Count}");
             output.WriteLine($"PROBE   ace-only (minus housekeeping): [{Join(acePages.Except(noisePages))}]");
@@ -294,39 +309,41 @@ public class ComplexDeleteByteParityProbeTest(ITestOutputHelper output)
             // What every page in play actually is, on each side — a page number alone says nothing.
             output.WriteLine("PROBE   page inventory (orig -> ace / libred):");
             foreach (int page in aceReal.Union(libredPages).Order())
-                output.WriteLine($"PROBE     {page,5}: was {Describe(o, page, owners),-28}"
-                    + $" ace={Describe(a, page, owners),-28} libred={Describe(l, page, owners)}");
+                output.WriteLine($"PROBE     {page,5}: was {Describe(o, page, owners, format),-28}"
+                    + $" ace={Describe(a, page, owners, format),-28} libred={Describe(l, page, owners, format)}");
 
             // For the pages both changed, are the resulting bytes identical — and where not, what exactly?
             foreach (int page in aceReal.Intersect(libredPages).Order())
             {
-                var origSpan = o.AsSpan(page * PageSize, PageSize);
-                var aceSpan = a.AsSpan(page * PageSize, PageSize);
-                var libSpan = l.AsSpan(page * PageSize, PageSize);
+                var origSpan = o.AsSpan(page * pageSize, pageSize);
+                var aceSpan = a.AsSpan(page * pageSize, pageSize);
+                var libSpan = l.AsSpan(page * pageSize, pageSize);
                 if (aceSpan.SequenceEqual(libSpan)) { output.WriteLine($"PROBE   page {page}: IDENTICAL"); continue; }
 
                 // Branch on what the page BECAME, not what it was: a recycled page changes type, and the
                 // interesting structure is the new one.
-                byte type = aceSpan[0];
-                output.WriteLine($"PROBE   page {page}: was=0x{origSpan[0]:X2} now=0x{type:X2}"
+                PageType type = PageHeader.ReadType(aceSpan);
+                output.WriteLine($"PROBE   page {page}: was=0x{origSpan[0]:X2} now=0x{aceSpan[0]:X2}"
                     + $"  ace-vs-libred differs in {Ranges(aceSpan, libSpan).Split(' ').Length} run(s)");
 
-                if (type == 0x02) // TDEF — the per-index entry counters
+                if (type == PageType.TableDefinition) // TDEF — the per-index entry counters
                 {
-                    int realIndexes = BinaryPrimitives.ReadInt32LittleEndian(origSpan[0x33..]);
-                    output.WriteLine($"PROBE     rowCount(0x10) orig={I(origSpan, 0x10)} ace={I(aceSpan, 0x10)} libred={I(libSpan, 0x10)}");
-                    for (int i = 0; i < realIndexes && 0x3F + i * 12 + 8 <= PageSize; i++)
+                    int realIndexes = I(origSpan, format.TdefIndexCountOffset);
+                    int rowCount = format.TdefRowCountOffset;
+                    output.WriteLine($"PROBE     rowCount(0x10) orig={I(origSpan, rowCount)} ace={I(aceSpan, rowCount)} libred={I(libSpan, rowCount)}");
+                    for (int i = 0; i < realIndexes; i++)
                     {
-                        int at = 0x3F + i * 12;
-                        if (I(origSpan, at) == I(aceSpan, at) && I(origSpan, at + 4) == I(aceSpan, at + 4)
-                            && I(origSpan, at) == I(libSpan, at) && I(origSpan, at + 4) == I(libSpan, at + 4)) continue;
-                        output.WriteLine($"PROBE     index {i} @0x{at:X2}: total orig={I(origSpan, at)} ace={I(aceSpan, at)} libred={I(libSpan, at)}"
-                            + $" | unique orig={I(origSpan, at + 4)} ace={I(aceSpan, at + 4)} libred={I(libSpan, at + 4)}");
+                        var (origCounts, aceCounts, libredCounts) = (TableDefinition.ReadIndexCounts(origSpan, format, i),
+                            TableDefinition.ReadIndexCounts(aceSpan, format, i), TableDefinition.ReadIndexCounts(libSpan, format, i));
+                        if (origCounts == aceCounts && origCounts == libredCounts) continue;
+                        output.WriteLine($"PROBE     index {i}: total orig={origCounts.Total} ace={aceCounts.Total} libred={libredCounts.Total}"
+                            + $" | unique orig={origCounts.Unique} ace={aceCounts.Unique} libred={libredCounts.Unique}");
                     }
                 }
-                else if (type is 0x03 or 0x04) // index page — free space, and where each side starts to diverge
+                else if (type is PageType.IntermediateIndexPage or PageType.LeafIndexPage) // index page — free space, and where each side starts to diverge
                 {
-                    output.WriteLine($"PROBE     freeSpace(0x02) orig={U(origSpan, 0x02)} ace={U(aceSpan, 0x02)} libred={U(libSpan, 0x02)}");
+                    output.WriteLine($"PROBE     freeSpace(0x02) orig={IndexTree.ReadFreeSpace(origSpan, format)}"
+                        + $" ace={IndexTree.ReadFreeSpace(aceSpan, format)} libred={IndexTree.ReadFreeSpace(libSpan, format)}");
                     output.WriteLine($"PROBE     first diff vs orig:  ace @0x{FirstDiff(origSpan, aceSpan):X3}"
                         + $"  libred @0x{FirstDiff(origSpan, libSpan):X3}   ace-vs-libred @0x{FirstDiff(aceSpan, libSpan):X3}");
                     output.WriteLine($"PROBE     last  diff vs orig:  ace @0x{LastDiff(origSpan, aceSpan):X3}"
@@ -338,7 +355,8 @@ public class ComplexDeleteByteParityProbeTest(ITestOutputHelper output)
 
                     // The decisive question for tail handling: past each side's own last live byte, does the
                     // page still hold what was there before, or has it been cleared?
-                    int aceEnd = PageSize - U(aceSpan, 0x02), libEnd = PageSize - U(libSpan, 0x02);
+                    int aceEnd = pageSize - IndexTree.ReadFreeSpace(aceSpan, format),
+                        libEnd = pageSize - IndexTree.ReadFreeSpace(libSpan, format);
                     output.WriteLine($"PROBE     live ends: ace @0x{aceEnd:X3} libred @0x{libEnd:X3}"
                         + $"   tail preserved from orig? ace={origSpan[aceEnd..].SequenceEqual(aceSpan[aceEnd..])}"
                         + $" libred={origSpan[libEnd..].SequenceEqual(libSpan[libEnd..])}"
@@ -367,7 +385,6 @@ public class ComplexDeleteByteParityProbeTest(ITestOutputHelper output)
         Convert.ToHexString(page.Slice(Math.Max(0, at), Math.Min(count, page.Length - Math.Max(0, at))));
 
     private static int I(ReadOnlySpan<byte> page, int at) => BinaryPrimitives.ReadInt32LittleEndian(page[at..]);
-    private static ushort U(ReadOnlySpan<byte> page, int at) => BinaryPrimitives.ReadUInt16LittleEndian(page[at..]);
 
     /// <summary>The byte ranges where two pages differ, as <c>0xSTART-0xEND(length)</c>.</summary>
     private static string Ranges(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)

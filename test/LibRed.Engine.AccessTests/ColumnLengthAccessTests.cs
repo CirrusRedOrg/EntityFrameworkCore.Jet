@@ -4,7 +4,7 @@ using Xunit;
 namespace LibRed.Engine.Tests;
 
 // ACE rejects a value longer than a variable column's declared width — it neither stores nor clips it.
-// RowEncoder.EnsureFitsDeclaredLength matches that; these are the measurements it holds to.
+// RowCodec.EnsureFitsDeclaredLength matches that; these are the measurements it holds to.
 //
 // The text case uses a literal, not a parameter: parameter Size has its own clipping rule
 // (ParameterSizeAccessTests) and would confound the answer.
@@ -54,7 +54,7 @@ public class ColumnLengthAccessTests : TempDatabaseTest
         Assert.True(
             outcome.StartsWith("rejected", StringComparison.Ordinal),
             $"ACE no longer rejects six characters in a TEXT(5) column - it {outcome}. "
-            + "RowEncoder.EnsureFitsDeclaredLength should then stop rejecting them too.");
+            + "RowCodec.EnsureFitsDeclaredLength should then stop rejecting them too.");
 
         // The wording LibRed's own rejection is modelled on.
         Assert.Contains("too small", outcome, StringComparison.OrdinalIgnoreCase);

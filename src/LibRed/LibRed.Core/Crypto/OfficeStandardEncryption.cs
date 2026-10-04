@@ -1,3 +1,5 @@
+using LibRed.Formats;
+using LibRed.Pages;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
@@ -19,7 +21,7 @@ namespace LibRed.Crypto;
 /// AES "non-standard" variant; 50000 for ECMA-standard AES); <c>H = SHA1(iterHash ‖ block)</c>; then AES uses the
 /// <c>0x36/0x5C</c> expansion <c>key = (SHA1(0x36pad⊕H) ‖ SHA1(0x5Cpad⊕H))[0..keyLen]</c> while RC4 uses
 /// <c>key = H[0..keyLen]</c> (a 40-bit RC4 key is then zero-padded to 16 bytes).</item>
-/// <item>verifier block = <c>LE32(0)</c>; per-page block = <c>LE32(pageNumber) XOR encodingKey</c> (the 4-byte
+/// <item>verifier block = <c>LE32(0)</c>; per-page block = <c>pageNumber XOR databaseKey</c> (the 4-byte
 /// database key at page-0 <c>0x3E</c>).</item>
 /// <item>cipher: RC4 (stream, re-keyed per page; the verifier + verifier-hash decrypt as one continuous stream)
 /// or AES-ECB.</item>
@@ -27,7 +29,67 @@ namespace LibRed.Crypto;
 /// </remarks>
 public sealed class OfficeStandardEncryption : IPageCodec
 {
-    private const uint AlgIdRc4 = 0x6801;
+
+    internal const int MajorVersionOffset = 0;
+    internal const int MinorVersionOffset = 2;
+    internal const int FlagsOffset = 4;
+
+    /// <summary>Binary form: the EncryptionHeader's size, and then the header itself.</summary>
+    internal const int HeaderSizeOffset = 8;
+    internal const int HeaderOffset = 12;
+
+    /// <summary>The minor version of every binary (Standard/CryptoAPI) EncryptionInfo; the major is 2, 3 or 4.</summary>
+    internal const ushort StandardMinorVersion = 2;
+    internal const ushort StandardMinMajorVersion = 2;
+    internal const ushort StandardMaxMajorVersion = 4;
+
+    /// <summary>The major version Access writes on a binary EncryptionInfo it creates (verified against real files).</summary>
+    internal const ushort StandardCreatedMajorVersion = 4;
+
+    /// <summary>The largest EncryptionHeader a binary EncryptionInfo is taken to have when one is searched for.</summary>
+    internal const int MaxHeaderSize = 512;
+
+    // --- EncryptionHeader (MS-OFFCRYPTO §2.3.2), from its own start ---
+
+    internal const int HeaderFlagsOffset = 0;
+    internal const int HeaderSizeExtraOffset = 4;
+    internal const int HeaderAlgIdOffset = 8;
+    internal const int HeaderAlgIdHashOffset = 12;
+    internal const int HeaderKeySizeOffset = 16;
+    internal const int HeaderProviderTypeOffset = 20;
+
+    /// <summary>The fixed fields — Flags, SizeExtra, AlgID, AlgIDHash, KeySize, ProviderType and two reserved words —
+    /// ahead of the null-terminated UTF-16LE CSP name.</summary>
+    internal const int HeaderFixedSize = 32;
+
+    // --- EncryptionVerifier (MS-OFFCRYPTO §2.3.3), from its own start ---
+
+    internal const int VerifierSaltSizeOffset = 0;
+    internal const int VerifierSaltOffset = 4;
+
+    /// <summary>The salt size every Standard verifier carries.</summary>
+    internal const int VerifierSaltSize = 16;
+
+    /// <summary>The encrypted verifier that follows the salt; the verifier-hash size and the encrypted hash come next.</summary>
+    internal const int VerifierSize = 16;
+
+    // --- Field values ---
+
+    /// <summary>The cipher AlgIDs (CALG_*): RC4, and AES with a 128-, 192- or 256-bit key.</summary>
+    internal const uint AlgIdRc4 = 0x6801;
+    internal const uint AlgIdAes128 = 0x660E;
+    internal const uint AlgIdAes192 = 0x660F;
+    internal const uint AlgIdAes256 = 0x6610;
+
+    /// <summary>The CALG_* class of every block cipher (0x66xx) and stream cipher (0x68xx), in the AlgID's second byte.</summary>
+    internal const uint AlgIdClassMask = 0xFF00;
+    internal const uint AlgIdBlockCipherClass = 0x6600;
+    internal const uint AlgIdStreamCipherClass = 0x6800;
+
+    /// <summary>The ProviderType of the Base and the Enhanced RSA/AES cryptographic providers.</summary>
+    internal const uint ProviderTypeBase = 0x01;
+    internal const uint ProviderTypeEnhancedAes = 0x18;
+
     private const int VerifierBlock = 0;
 
     private readonly bool _rc4;
@@ -36,60 +98,41 @@ public sealed class OfficeStandardEncryption : IPageCodec
     private readonly int _iterations;
     private readonly int _truncateLen; // logical key length in bytes derived from the hash (5 for RC4-40, 32 for AES-256)
     private readonly int _finalLen;    // actual cipher key length (RC4 <128-bit keys are zero-padded to 16 bytes)
-    private readonly byte[] _encodingKey; // 4-byte database key (page-0 0x3E)
+    private readonly int _databaseKey; // page-0 0x3E
 
     private readonly bool _aesExpand; // AES: apply the CryptDeriveKey 0x36/0x5C expansion vs. use the truncated hash
 
-    private OfficeStandardEncryption(bool rc4, HashAlgorithmName hashName, byte[] baseHash, int iterations, int truncateLen, int finalLen, bool aesExpand, byte[] encodingKey)
+    private OfficeStandardEncryption(bool rc4, HashAlgorithmName hashName, byte[] baseHash, int iterations, int truncateLen, int finalLen, bool aesExpand, int databaseKey)
     {
-        _rc4 = rc4; _hashName = hashName; _baseHash = baseHash; _iterations = iterations; _truncateLen = truncateLen; _finalLen = finalLen; _aesExpand = aesExpand; _encodingKey = encodingKey;
+        _rc4 = rc4; _hashName = hashName; _baseHash = baseHash; _iterations = iterations; _truncateLen = truncateLen; _finalLen = finalLen; _aesExpand = aesExpand; _databaseKey = databaseKey;
     }
 
-    // AlgIDHash → (.NET hash algorithm, unencrypted-hash length in bytes). Access/the CryptoAPI let the encrypting
-    // tool pick the hashing algorithm independently of the cipher; MD2/MD4 (0x8001/0x8002) have no managed
-    // implementation and are not produced by Access, so they surface as "unsupported" rather than a crash.
-    private static (HashAlgorithmName Name, int Len)? MapHash(uint algIdHash) => algIdHash switch
-    {
-        0x8003 => (HashAlgorithmName.MD5, 16),
-        0x8004 => (HashAlgorithmName.SHA1, 20),
-        0x800c => (HashAlgorithmName.SHA256, 32),
-        0x800d => (HashAlgorithmName.SHA384, 48),
-        0x800e => (HashAlgorithmName.SHA512, 64),
-        _ => null,
-    };
+    // AlgIDHash ↔ (.NET hash algorithm, unencrypted-hash length in bytes), read by MapHash and written by HashAlgId.
+    // Access/the CryptoAPI let the encrypting tool pick the hashing algorithm independently of the cipher; MD2/MD4
+    // (0x8001/0x8002) have no managed implementation and are not produced by Access, so they surface as
+    // "unsupported" rather than a crash.
+    private static readonly (uint AlgIdHash, HashAlgorithmName Name, int Len)[] Hashes =
+    [
+        (0x8003, HashAlgorithmName.MD5, 16),
+        (0x8004, HashAlgorithmName.SHA1, 20),
+        (0x800c, HashAlgorithmName.SHA256, 32),
+        (0x800d, HashAlgorithmName.SHA384, 48),
+        (0x800e, HashAlgorithmName.SHA512, 64),
+    ];
 
-    // Reverse of MapHash: the CALG_* AlgIDHash to write into a descriptor for a given .NET hash.
-    private static uint HashAlgId(HashAlgorithmName name) => name.Name switch
-    {
-        "MD5" => 0x8003,
-        "SHA1" => 0x8004,
-        "SHA256" => 0x800c,
-        "SHA384" => 0x800d,
-        "SHA512" => 0x800e,
-        _ => throw new NotSupportedException($"Unsupported Office-Standard hash {name}."),
-    };
+    private static (HashAlgorithmName Name, int Len)? MapHash(uint algIdHash) =>
+        Array.Find(Hashes, h => h.AlgIdHash == algIdHash) is { Name.Name: not null } h ? (h.Name, h.Len) : null;
 
-    // CA5350/CA5351 (weak hashing): MD5 and SHA-1 are not a choice here. The Office "Standard" encryption
-    // descriptor NAMES the algorithm, and a file Access wrote with one cannot be opened with anything else,
-    // so refusing them would mean refusing the documents. Scoped to the dispatch that honours the descriptor.
-#pragma warning disable CA5350, CA5351
-    private static byte[] Hash(HashAlgorithmName name, byte[] data) => name.Name switch
-    {
-        "MD5" => MD5.HashData(data),
-        "SHA1" => SHA1.HashData(data),
-        "SHA256" => SHA256.HashData(data),
-        "SHA384" => SHA384.HashData(data),
-        "SHA512" => SHA512.HashData(data),
-        _ => throw new NotSupportedException($"Unsupported hash algorithm {name}."),
-    };
-#pragma warning restore CA5350, CA5351
+    // The CALG_* AlgIDHash to write into a descriptor for a given .NET hash.
+    private static uint HashAlgId(HashAlgorithmName name) =>
+        Array.Find(Hashes, h => h.Name == name) is { Name.Name: not null } h
+            ? h.AlgIdHash
+            : throw new NotSupportedException($"Unsupported Office-Standard hash {name}.");
 
     // The CryptoAPI CryptDeriveKey 0x36/0x5C expansion uses a fixed 64-byte pad buffer for every hash algorithm
     // (it is not HMAC, so SHA-384/512 do NOT switch to their 128-byte block size). Verified: AES-256 + SHA-512.
     private const int DeriveKeyPadSize = 64;
 
-    /// <summary>Builds a codec for an <c>.accdb</c> that uses a binary (non-Agile) EncryptionInfo descriptor, or
-    /// null if the file is not encrypted / carries no such descriptor. Throws if a password is required/incorrect.</summary>
     /// <summary>Asserts that <paramref name="count"/> bytes are readable at <paramref name="offset"/> within
     /// the descriptor, so a length taken from the file cannot index past it.</summary>
     private static void Require(ReadOnlySpan<byte> descriptor, int offset, int count, string field)
@@ -99,23 +142,26 @@ public sealed class OfficeStandardEncryption : IPageCodec
                 $"Office-Standard {field} needs {count} bytes at offset {offset}, past the {descriptor.Length}-byte descriptor.");
     }
 
-    public static OfficeStandardEncryption? TryCreate(ReadOnlySpan<byte> page0, int databaseKey, string? password)
+    /// <summary>Builds a codec for an <c>.accdb</c> that uses a binary (non-Agile) EncryptionInfo descriptor, or
+    /// null if the file is not encrypted / carries no such descriptor. Throws if a password is required/incorrect.</summary>
+    public static OfficeStandardEncryption? TryCreate(ReadOnlySpan<byte> page0, int databaseKey, string? password,
+        JetFormatBase format)
     {
+        ArgumentNullException.ThrowIfNull(format);
         if (databaseKey == 0)
             return null;
 
-        const int descriptorOffset = 0x29B;
+        int descriptorOffset = format.EncryptionInfoOffset;
         if (page0.Length < descriptorOffset)
             throw new InvalidDataException("Page 0 is too short to contain an ACE EncryptionInfo frame.");
-        int descriptorLength = BinaryPrimitives.ReadUInt16LittleEndian(page0.Slice(0x299, 2));
+        int descriptorLength = DatabaseDefinitionPage.ReadEncryptionInfoLength(page0, format);
         if (descriptorLength == 0)
             return null;
         if (descriptorLength > page0.Length - descriptorOffset)
             throw new InvalidDataException("The declared Office-Standard EncryptionInfo extends beyond page 0.");
         page0 = page0.Slice(descriptorOffset, descriptorLength);
 
-        int ei = LocateBinaryEncryptionInfo(page0);
-        if (ei < 0)
+        if (LocateBinaryEncryptionInfo(page0) is not var (ei, headerSize, algId))
             return null;
         if (password is null)
             throw new InvalidOperationException("This database is password-encrypted; a password is required to open it.");
@@ -125,18 +171,16 @@ public sealed class OfficeStandardEncryption : IPageCodec
         // frame with a large headerSize walked `v` past the end — throwing ArgumentOutOfRangeException out of
         // PageChannel.Open, where the contract for a damaged file is InvalidDataException. The Agile sibling
         // bounds every field it reads; this is that, for the fields this descriptor has.
-        int headerSize = BinaryPrimitives.ReadInt32LittleEndian(page0.Slice(ei + 8, 4));
-        int h = ei + 12;
-        Require(page0, h, 20, "EncryptionHeader");
-        uint algId = BinaryPrimitives.ReadUInt32LittleEndian(page0.Slice(h + 8, 4));
-        uint algIdHash = BinaryPrimitives.ReadUInt32LittleEndian(page0.Slice(h + 12, 4));
-        int keyBits = BinaryPrimitives.ReadInt32LittleEndian(page0.Slice(h + 16, 4));
+        int h = ei + HeaderOffset;
+        Require(page0, h, HeaderKeySizeOffset + sizeof(int), "EncryptionHeader");
+        uint algIdHash = BinaryPrimitives.ReadUInt32LittleEndian(page0.Slice(h + HeaderAlgIdHashOffset, sizeof(uint)));
+        int keyBits = BinaryPrimitives.ReadInt32LittleEndian(page0.Slice(h + HeaderKeySizeOffset, sizeof(int)));
 
         bool rc4 = algId == AlgIdRc4;
         // We've committed to a binary EncryptionInfo descriptor (dbKey != 0 + located header). Anything we can't
         // honour is a genuinely unsupported/invalid file (e.g. Access rejects AES/3DES combos with certain hashes),
         // so throw a clear error rather than falling through to read ciphertext as plaintext.
-        if (!rc4 && algId is not (0x660E or 0x660F or 0x6610))
+        if (!rc4 && algId is not (AlgIdAes128 or AlgIdAes192 or AlgIdAes256))
             throw new NotSupportedException($"Unsupported Office-Standard cipher AlgID 0x{algId:X4}.");
         if (MapHash(algIdHash) is not var (hashName, hashLength))
             throw new NotSupportedException($"Unsupported Office-Standard hash AlgID 0x{algIdHash:X4}.");
@@ -149,23 +193,29 @@ public sealed class OfficeStandardEncryption : IPageCodec
         if (headerSize < 0)
             throw new InvalidDataException($"Office-Standard EncryptionHeader declares a negative size ({headerSize}).");
         int v = h + headerSize;                       // EncryptionVerifier
-        Require(page0, v, 4, "EncryptionVerifier");
-        int saltSize = BinaryPrimitives.ReadInt32LittleEndian(page0.Slice(v, 4));
-        if (saltSize != 16)
-            throw new NotSupportedException($"Unsupported Office-Standard salt size {saltSize}; expected 16 bytes.");
-        Require(page0, v + 4, saltSize + 16 + 4, "EncryptionVerifier salt and verifier");
-        byte[] salt = page0.Slice(v + 4, saltSize).ToArray();
-        byte[] encVerifier = page0.Slice(v + 4 + saltSize, 16).ToArray();
-        int verifierHashSize = BinaryPrimitives.ReadInt32LittleEndian(page0.Slice(v + 4 + saltSize + 16, 4));
+        Require(page0, v, VerifierSaltOffset, "EncryptionVerifier");
+        int saltSize = BinaryPrimitives.ReadInt32LittleEndian(page0.Slice(v + VerifierSaltSizeOffset, sizeof(int)));
+        if (saltSize != VerifierSaltSize)
+            throw new NotSupportedException(
+                $"Unsupported Office-Standard salt size {saltSize}; expected {VerifierSaltSize} bytes.");
+        int verifier = v + VerifierSaltOffset + saltSize;
+        int hashSizeField = verifier + VerifierSize;
+        int encHash = hashSizeField + sizeof(int);
+        Require(page0, v + VerifierSaltOffset, encHash - (v + VerifierSaltOffset),
+            "EncryptionVerifier salt and verifier");
+        byte[] salt = page0.Slice(v + VerifierSaltOffset, saltSize).ToArray();
+        byte[] encVerifier = page0.Slice(verifier, VerifierSize).ToArray();
+        int verifierHashSize = BinaryPrimitives.ReadInt32LittleEndian(page0.Slice(hashSizeField, sizeof(int)));
         if (verifierHashSize != hashLength)
             throw new NotSupportedException(
                 $"Office-Standard verifier hash size {verifierHashSize} does not match {hashName.Name} ({hashLength} bytes).");
         int encHashLen = rc4 ? verifierHashSize : (verifierHashSize + 15) / 16 * 16; // RC4: raw hash; AES: padded to block
-        Require(page0, v + 4 + saltSize + 16 + 4, encHashLen, "EncryptionVerifier hash");
-        byte[] encVerifierHash = page0.Slice(v + 4 + saltSize + 16 + 4, encHashLen).ToArray();
+        Require(page0, encHash, encHashLen, "EncryptionVerifier hash");
+        byte[] encVerifierHash = page0.Slice(encHash, encHashLen).ToArray();
 
-        byte[] baseHash = Hash(hashName, Concat(salt, Encoding.Unicode.GetBytes(password)));
-        byte[] encodingKey = BitConverter.GetBytes(databaseKey);
+        // MD5 and SHA-1 are not a choice here: the descriptor NAMES the algorithm, and a file Access wrote with one
+        // cannot be opened with anything else.
+        byte[] baseHash = CryptographicOperations.HashData(hashName, [.. salt, .. Encoding.Unicode.GetBytes(password)]);
 
         // Try each plausible (key length, RC4 pad, iteration count) combination and keep whichever authenticates —
         // KeySize == 0 means "the algorithm default" (which the descriptor doesn't spell out), RC4 keys shorter than
@@ -175,7 +225,7 @@ public sealed class OfficeStandardEncryption : IPageCodec
             foreach (int iterations in rc4 ? [0] : new[] { 0, 50000 })
                 foreach (bool aesExpand in rc4 ? [false] : new[] { false, true })
                 {
-                    var codec = new OfficeStandardEncryption(rc4, hashName, baseHash, iterations, truncateLen, finalLen, aesExpand, encodingKey);
+                    var codec = new OfficeStandardEncryption(rc4, hashName, baseHash, iterations, truncateLen, finalLen, aesExpand, databaseKey);
                     if (codec.VerifyPassword(encVerifier, encVerifierHash, verifierHashSize))
                         return codec;
                 }
@@ -196,44 +246,32 @@ public sealed class OfficeStandardEncryption : IPageCodec
         }
     }
 
-    /// <summary>Generates a fresh Office-Standard <c>EncryptionInfo</c> for a new password: returns the
-    /// descriptor blob (to place at page-0 <c>0x29B</c>, with its 2-byte length at <c>0x299</c>) and a codec that
-    /// encrypts the data pages. <paramref name="aes"/> selects AES-256 (the 0-iteration variant Access accepts on
-    /// a created file) vs RC4-40; <paramref name="databaseKey"/> is a fresh random <c>0x3E</c> key.</summary>
-    internal static (byte[] Descriptor, OfficeStandardEncryption Codec) Create(string password, bool aes, int databaseKey)
+    /// <summary>Generates a fresh Office-Standard AES-256 <c>EncryptionInfo</c> for a new password — the 0-iteration
+    /// variant Access accepts on a created file: returns the descriptor blob (to place at page-0 <c>0x29B</c>, with
+    /// its 2-byte length at <c>0x299</c>) and a codec that encrypts the data pages. <paramref name="databaseKey"/> is
+    /// a fresh random <c>0x3E</c> key. RC4 is <see cref="CreateRc4"/>.</summary>
+    internal static (byte[] Descriptor, OfficeStandardEncryption Codec) Create(string password, int databaseKey)
     {
-        uint algId = aes ? 0x6610u : AlgIdRc4;
-        int keyBits = aes ? 256 : 40;
-        byte[] salt = RandomBytes(16);
-        // CA5350: the Office-Standard scheme hashes the password with SHA-1 by definition — a file created
-        // with anything else is not this scheme, and Access would not open it.
-#pragma warning disable CA5350
-        byte[] baseHash = SHA1.HashData(Concat(salt, Encoding.Unicode.GetBytes(password)));
+        const int keyBits = 256;
+        byte[] salt = RandomNumberGenerator.GetBytes(VerifierSaltSize);
+        // The Office-Standard scheme hashes the password with SHA-1 by definition — a file created with anything
+        // else is not this scheme, and Access would not open it.
+        HashAlgorithmName hash = HashAlgorithmName.SHA1;
+        byte[] baseHash = CryptographicOperations.HashData(hash, [.. salt, .. Encoding.Unicode.GetBytes(password)]);
         int keyLen = keyBits / 8;
-        int finalLen = !aes && keyBits == 40 ? 16 : keyLen;
-        // AES-256 (32 bytes) from SHA-1 (20 bytes) needs the 0x36/0x5C expansion; RC4 never expands.
-        var codec = new OfficeStandardEncryption(!aes, HashAlgorithmName.SHA1, baseHash, 0, keyLen, finalLen, aesExpand: aes, BitConverter.GetBytes(databaseKey));
+        // AES-256 (32 bytes) from SHA-1 (20 bytes) needs the 0x36/0x5C expansion.
+        var codec = new OfficeStandardEncryption(rc4: false, hash, baseHash, 0, keyLen, keyLen, aesExpand: true, databaseKey);
 
         byte[] verKey = codec.ComputeKey(VerifierBlock);
-        byte[] verifier = RandomBytes(16);
-        byte[] verifierHash = SHA1.HashData(verifier);
-#pragma warning restore CA5350
-        byte[] encVerifier, encVerifierHash;
-        if (aes)
-        {
-            encVerifier = AesEcbEncrypt(verKey, verifier);
-            encVerifierHash = AesEcbEncrypt(verKey, Fix(verifierHash, 32)); // pad the 20-byte hash to a cipher block
-        }
-        else
-        {
-            byte[] stream = Concat(verifier, verifierHash); // one continuous RC4 stream
-            Rc4(verKey, stream);
-            encVerifier = stream[..16];
-            encVerifierHash = stream[16..];
-        }
+        byte[] verifier = RandomNumberGenerator.GetBytes(VerifierSize);
+        byte[] verifierHash = CryptographicOperations.HashData(hash, verifier);
+        byte[] encVerifier = AesEcb(verKey, verifier, decrypt: false);
+        byte[] encVerifierHash = AesEcb(verKey, Fix(verifierHash, 32), decrypt: false); // pad the 20-byte hash to a cipher block
 
-        var (provType, csp) = Provider(aes, keyBits, HashAlgorithmName.SHA1);
-        return (BuildDescriptor(algId, 0x8004, aes ? 0x0Cu : 0x04u, keyBits, provType, csp, salt, encVerifier, encVerifierHash, 20), codec);
+        var (provType, csp) = Provider(aes: true, keyBits, hash);
+        return (BuildDescriptor(AlgIdAes256, HashAlgId(hash),
+            EncryptionInfoFlags.CryptoApi | EncryptionInfoFlags.DocProps, keyBits, provType, csp, salt, encVerifier,
+            encVerifierHash, verifierHash.Length), codec);
     }
 
     /// <summary>Generates a fresh Office-Standard RC4 <c>EncryptionInfo</c> with a caller-chosen key length
@@ -241,20 +279,22 @@ public sealed class OfficeStandardEncryption : IPageCodec
     /// cipher a stock/add-in Access reads back; AES-Standard is exposed only via the AES <see cref="Create"/> path.</summary>
     internal static (byte[] Descriptor, OfficeStandardEncryption Codec) CreateRc4(string password, int keyBits, HashAlgorithmName hash, int databaseKey)
     {
-        byte[] salt = RandomBytes(16);
-        byte[] baseHash = Hash(hash, Concat(salt, Encoding.Unicode.GetBytes(password)));
+        byte[] salt = RandomNumberGenerator.GetBytes(VerifierSaltSize);
+        byte[] baseHash = CryptographicOperations.HashData(hash, [.. salt, .. Encoding.Unicode.GetBytes(password)]);
         int keyLen = keyBits / 8;
         int finalLen = keyBits == 40 ? 16 : keyLen; // 40-bit is the one length the base provider zero-pads to 128
-        var codec = new OfficeStandardEncryption(rc4: true, hash, baseHash, 0, keyLen, finalLen, aesExpand: false, BitConverter.GetBytes(databaseKey));
+        var codec = new OfficeStandardEncryption(rc4: true, hash, baseHash, 0, keyLen, finalLen, aesExpand: false, databaseKey);
 
         byte[] verKey = codec.ComputeKey(VerifierBlock);
-        byte[] verifier = RandomBytes(16);
-        byte[] verifierHash = Hash(hash, verifier);
-        byte[] stream = Concat(verifier, verifierHash); // one continuous RC4 stream
-        Rc4(verKey, stream);
+        byte[] verifier = RandomNumberGenerator.GetBytes(VerifierSize);
+        byte[] verifierHash = CryptographicOperations.HashData(hash, verifier);
+        byte[] stream = [.. verifier, .. verifierHash]; // one continuous RC4 stream
+        Rc4Cipher.Apply(verKey, stream);
 
         var (provType, csp) = Provider(aes: false, keyBits, hash);
-        return (BuildDescriptor(AlgIdRc4, HashAlgId(hash), 0x04u, keyBits, provType, csp, salt, stream[..16], stream[16..], verifierHash.Length), codec);
+        return (BuildDescriptor(AlgIdRc4, HashAlgId(hash), EncryptionInfoFlags.CryptoApi, keyBits,
+            provType, csp, salt, stream[..VerifierSize], stream[VerifierSize..],
+            verifierHash.Length), codec);
     }
 
     // Picks the (ProviderType, CSP name) pair the way the CryptoAPI does: the Base provider handles RC4 ≤56-bit with
@@ -264,26 +304,27 @@ public sealed class OfficeStandardEncryption : IPageCodec
         bool sha2 = hash.Name is "SHA256" or "SHA384" or "SHA512";
         bool enhanced = aes || keyBits > 56 || sha2;
         return enhanced
-            ? (0x18u, "Microsoft Enhanced RSA and AES Cryptographic Provider")
-            : (0x01u, "Microsoft Base Cryptographic Provider v1.0");
+            ? (ProviderTypeEnhancedAes, "Microsoft Enhanced RSA and AES Cryptographic Provider")
+            : (ProviderTypeBase, "Microsoft Base Cryptographic Provider v1.0");
     }
 
     // Builds the binary EncryptionInfo (version 4.2 + EncryptionHeader incl. ProviderType + CSP name +
     // EncryptionVerifier) byte-for-byte as Access writes it (verified against real files).
-    private static byte[] BuildDescriptor(uint algId, uint algIdHash, uint flags, int keyBits, uint providerType, string csp,
-        byte[] salt, byte[] encVerifier, byte[] encVerifierHash, int verifierHashSize)
+    private static byte[] BuildDescriptor(uint algId, uint algIdHash, EncryptionInfoFlags flags, int keyBits, uint providerType,
+        string csp, byte[] salt, byte[] encVerifier, byte[] encVerifierHash, int verifierHashSize)
     {
-        byte[] cspBytes = Concat(Encoding.Unicode.GetBytes(csp), new byte[2]); // null-terminated UTF-16LE
+        byte[] cspBytes = [.. Encoding.Unicode.GetBytes(csp), 0, 0]; // null-terminated UTF-16LE
 
         var b = new List<byte>();
         void U16(ushort x) => b.AddRange(BitConverter.GetBytes(x));
         void U32(uint x) => b.AddRange(BitConverter.GetBytes(x));
 
-        int headerSize = 8 * 4 + cspBytes.Length; // Flags,SizeExtra,AlgID,AlgIDHash,KeySize,ProviderType,Reserved1,Reserved2 + CSP
-        U16(4); U16(2);            // EncryptionVersionInfo 4.2
-        U32(flags);                // EncryptionInfo flags
+        // Written in field order, using the same layout as the reader.
+        int headerSize = HeaderFixedSize + cspBytes.Length;
+        U16(StandardCreatedMajorVersion); U16(StandardMinorVersion);
+        U32((uint)flags);
         U32((uint)headerSize);
-        U32(flags); U32(0); U32(algId); U32(algIdHash); U32((uint)keyBits); U32(providerType); U32(0); U32(0);
+        U32((uint)flags); U32(0); U32(algId); U32(algIdHash); U32((uint)keyBits); U32(providerType); U32(0); U32(0);
         b.AddRange(cspBytes);
         // EncryptionVerifier
         U32((uint)salt.Length); b.AddRange(salt);
@@ -292,17 +333,6 @@ public sealed class OfficeStandardEncryption : IPageCodec
         return b.ToArray();
     }
 
-    private static byte[] AesEcbEncrypt(byte[] key, byte[] data)
-    {
-        using var aes = Aes.Create();
-        aes.Mode = CipherMode.ECB;
-        aes.Padding = PaddingMode.None;
-        aes.Key = key;
-        return aes.EncryptEcb(data, PaddingMode.None);
-    }
-
-    private static byte[] RandomBytes(int n) { byte[] b = new byte[n]; RandomNumberGenerator.Fill(b); return b; }
-
     private bool VerifyPassword(byte[] encVerifier, byte[] encVerifierHash, int hashSize)
     {
         byte[] key = ComputeKey(VerifierBlock);
@@ -310,17 +340,17 @@ public sealed class OfficeStandardEncryption : IPageCodec
         if (_rc4)
         {
             // one continuous RC4 stream over verifier(16) ‖ verifierHash
-            byte[] stream = Concat(encVerifier, encVerifierHash);
-            Rc4(key, stream);
-            verifier = stream[..16];
-            storedHash = stream[16..];
+            byte[] stream = [.. encVerifier, .. encVerifierHash];
+            Rc4Cipher.Apply(key, stream);
+            verifier = stream[..VerifierSize];
+            storedHash = stream[VerifierSize..];
         }
         else
         {
-            verifier = AesEcb(key, encVerifier);
-            storedHash = AesEcb(key, encVerifierHash);
+            verifier = AesEcb(key, encVerifier, decrypt: true);
+            storedHash = AesEcb(key, encVerifierHash, decrypt: true);
         }
-        byte[] computed = Hash(_hashName, verifier);
+        byte[] computed = CryptographicOperations.HashData(_hashName, verifier);
         return computed.Length == hashSize && storedHash.Length >= hashSize
             && CryptographicOperations.FixedTimeEquals(computed, storedHash.AsSpan(0, hashSize));
     }
@@ -335,16 +365,16 @@ public sealed class OfficeStandardEncryption : IPageCodec
         if (pageNumber == 0)
             return;
 
-        // block = LE32(pageNumber) XOR encodingKey
-        Span<byte> block = stackalloc byte[4];
-        BinaryPrimitives.WriteInt32LittleEndian(block, pageNumber);
-        for (int i = 0; i < 4; i++) block[i] ^= _encodingKey[i];
-
-        byte[] key = ComputeKey(BinaryPrimitives.ReadInt32LittleEndian(block));
+        byte[] key = ComputeKey(pageNumber ^ _databaseKey);
         if (_rc4)
-            Rc4(key, page);            // symmetric
+        {
+            Rc4Cipher.Apply(key, page);            // symmetric
+        }
         else
-            AesEcbInPlace(key, page, decrypt);
+        {
+            int len = page.Length - page.Length % 16;
+            AesEcb(key, page[..len], decrypt).CopyTo(page);
+        }
     }
 
     private byte[] ComputeKey(int block)
@@ -356,17 +386,17 @@ public sealed class OfficeStandardEncryption : IPageCodec
             for (int i = 0; i < _iterations; i++)
             {
                 BinaryPrimitives.WriteInt32LittleEndian(it, i);
-                iterHash = Hash(_hashName, Concat(it.ToArray(), iterHash));
+                iterHash = CryptographicOperations.HashData(_hashName, [.. it, .. iterHash]);
             }
         }
-        byte[] blk = new byte[4];
+        byte[] blk = new byte[sizeof(int)];
         BinaryPrimitives.WriteInt32LittleEndian(blk, block);
-        byte[] hf = Hash(_hashName, Concat(iterHash, blk));
+        byte[] hf = CryptographicOperations.HashData(_hashName, [.. iterHash, .. blk]);
 
         // RC4 keys are always the truncated hash. AES either uses the truncated hash or the CryptDeriveKey
         // 0x36/0x5C expansion — the choice does not follow a clean keyLen-vs-hashLen rule (AES-128 from MD5 (16==16)
         // expands, yet AES-256 from SHA-256 (32==32) truncates), so both are tried and the verifier selects.
-        byte[] derived = !_rc4 && _aesExpand ? Concat(GenX(hf, 0x36), GenX(hf, 0x5C)) : hf;
+        byte[] derived = !_rc4 && _aesExpand ? [.. GenX(hf, 0x36), .. GenX(hf, 0x5C)] : hf;
         byte[] key = Fix(derived, _truncateLen);
         return _finalLen != _truncateLen ? Fix(key, _finalLen) : key;
     }
@@ -378,66 +408,51 @@ public sealed class OfficeStandardEncryption : IPageCodec
         byte[] buf = new byte[DeriveKeyPadSize];
         Array.Fill(buf, pad);
         for (int i = 0; i < hf.Length; i++) buf[i] ^= hf[i];
-        return Hash(_hashName, buf);
+        return CryptographicOperations.HashData(_hashName, buf);
     }
 
-    private static int LocateBinaryEncryptionInfo(ReadOnlySpan<byte> page0)
+    /// <summary>Finds the binary EncryptionInfo in <paramref name="descriptor"/>, returning where it starts and the two
+    /// fields it was recognised by — its header's size and cipher AlgID — or null when there is none.</summary>
+    private static (int Offset, int HeaderSize, uint AlgId)? LocateBinaryEncryptionInfo(ReadOnlySpan<byte> descriptor)
     {
         // A binary EncryptionInfo begins: uint16 major, uint16 minor(=2 for standard/CryptoAPI), uint32 flags
-        // (fCryptoAPI=0x04 set), uint32 headerSize. Validate against a known cipher AlgID to avoid false hits.
-        for (int i = 0; i + 32 < page0.Length; i++)
+        // (fCryptoAPI set), uint32 headerSize. Validate against a known cipher AlgID to avoid false hits.
+        const int algIdAt = HeaderOffset + HeaderAlgIdOffset;
+        for (int i = 0; i + algIdAt + sizeof(uint) <= descriptor.Length; i++)
         {
-            ushort major = BinaryPrimitives.ReadUInt16LittleEndian(page0.Slice(i, 2));
-            ushort minor = BinaryPrimitives.ReadUInt16LittleEndian(page0.Slice(i + 2, 2));
-            uint flags = BinaryPrimitives.ReadUInt32LittleEndian(page0.Slice(i + 4, 2 + 2));
-            int headerSize = BinaryPrimitives.ReadInt32LittleEndian(page0.Slice(i + 8, 4));
-            if (major is < 2 or > 4 || minor != 2 || (flags & 0x04) == 0 || headerSize is <= 0 or > 512)
+            ReadOnlySpan<byte> info = descriptor[i..];
+            ushort major = BinaryPrimitives.ReadUInt16LittleEndian(info[MajorVersionOffset..]);
+            ushort minor = BinaryPrimitives.ReadUInt16LittleEndian(info[MinorVersionOffset..]);
+            var flags = (EncryptionInfoFlags)BinaryPrimitives.ReadUInt32LittleEndian(info[FlagsOffset..]);
+            int headerSize = BinaryPrimitives.ReadInt32LittleEndian(info[HeaderSizeOffset..]);
+            if (major is < StandardMinMajorVersion or > StandardMaxMajorVersion
+                || minor != StandardMinorVersion || !flags.HasFlag(EncryptionInfoFlags.CryptoApi)
+                || headerSize is <= 0 or > MaxHeaderSize)
                 continue;
             // Recognise the descriptor by a CALG_* cipher id (0x66xx block ciphers, 0x68xx stream). This covers the
             // ciphers we support (RC4, AES-128/192/256) *and* ones we don't (e.g. 3DES 0x6603) so those surface as a
             // clean "unsupported" error in TryCreate instead of being mistaken for an unencrypted file.
-            uint algId = BinaryPrimitives.ReadUInt32LittleEndian(page0.Slice(i + 12 + 8, 4));
-            if ((algId & 0xFF00) is 0x6600 or 0x6800)
-                return i;
+            uint algId = BinaryPrimitives.ReadUInt32LittleEndian(info[algIdAt..]);
+            if ((algId & AlgIdClassMask)
+                is AlgIdBlockCipherClass or AlgIdStreamCipherClass)
+                return (i, headerSize, algId);
         }
-        return -1;
+        return null;
     }
 
-    private static byte[] AesEcb(byte[] key, byte[] data)
+    /// <summary>AES-ECB with no padding — the verifier fields and every data page.</summary>
+    private static byte[] AesEcb(byte[] key, ReadOnlySpan<byte> data, bool decrypt)
     {
         using var aes = Aes.Create();
-        aes.Mode = CipherMode.ECB;
-        aes.Padding = PaddingMode.None;
         aes.Key = key;
-        return aes.DecryptEcb(data, PaddingMode.None);
+        return decrypt ? aes.DecryptEcb(data, PaddingMode.None) : aes.EncryptEcb(data, PaddingMode.None);
     }
-
-    private static void AesEcbInPlace(byte[] key, Span<byte> page, bool decrypt)
-    {
-        using var aes = Aes.Create();
-        aes.Mode = CipherMode.ECB;
-        aes.Padding = PaddingMode.None;
-        aes.Key = key;
-        int len = page.Length - page.Length % 16;
-        byte[] result = decrypt ? aes.DecryptEcb(page[..len], PaddingMode.None) : aes.EncryptEcb(page[..len], PaddingMode.None);
-        result.CopyTo(page);
-    }
-
-    private static void Rc4(ReadOnlySpan<byte> key, Span<byte> data) => Rc4Cipher.Apply(key, data);
 
     private static byte[] Fix(byte[] b, int len)
     {
         if (b.Length == len) return b;
         byte[] r = new byte[len];
         Array.Copy(b, r, Math.Min(b.Length, len));
-        return r;
-    }
-
-    private static byte[] Concat(byte[] a, byte[] b)
-    {
-        byte[] r = new byte[a.Length + b.Length];
-        a.CopyTo(r, 0);
-        b.CopyTo(r, a.Length);
         return r;
     }
 }

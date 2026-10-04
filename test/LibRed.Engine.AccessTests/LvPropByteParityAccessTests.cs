@@ -68,7 +68,7 @@ public class LvPropByteParityAccessTests : TempDatabaseTest
             catch (OleDbException) { return null; }
 
             using var database = JetDatabase.Open(path, readOnly: true);
-            TableDef objects = database.Catalog.FindTable("MSysObjects")!;
+            TableDefinition objects = database.Catalog.FindTable("MSysObjects")!;
             int nameCol = objects.Columns.Single(c => c.Name == "Name").Index;
             int lvCol = objects.Columns.Single(c => c.Name == "LvProp").Index;
 

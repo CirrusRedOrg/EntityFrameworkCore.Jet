@@ -87,7 +87,7 @@ public class VersionByteDetectTests
         string path = TemporaryDatabase.CreatePath("future-version-");
         try
         {
-            Storage.DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
             byte[] file = File.ReadAllBytes(path);
             file[JetFormatBase.VersionOffset] = 0x07;      // an ACE this build has never heard of
             File.WriteAllBytes(path, file);
@@ -114,7 +114,7 @@ public class VersionByteDetectTests
         string path = TemporaryDatabase.CreatePath("raise-other-handle-");
         try
         {
-            Storage.DatabaseCreator.CreateEmpty(path, version: 0x02);   // ACE 12
+            JetDatabase.Create(path, version: 0x02);   // ACE 12
 
             using var watcher = JetDatabase.Open(path, readOnly: false);
             Assert.Equal(JetVersion.Version12_2007, watcher.Format.Version);

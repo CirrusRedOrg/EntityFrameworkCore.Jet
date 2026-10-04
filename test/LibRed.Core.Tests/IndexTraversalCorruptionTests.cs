@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
+using LibRed.Pages;
 using LibRed.Storage;
 using Xunit;
 
@@ -8,13 +10,7 @@ namespace LibRed.Core.Tests;
 
 public class IndexTraversalCorruptionTests
 {
-    private const int PageSize = 4096;
-    private const int OwnerOffset = 0x04;
-    private const int PreviousPageOffset = 0x0C;
-    private const int NextPageOffset = 0x10;
-    private const int ChildTailOffset = 0x14;
-    private const int EntryMaskOffset = 0x1B;
-    private const int EntryDataOffset = 0x1E0;
+    private static readonly JetFormatBase Format = TestDatabases.FormatOf(TestDatabases.NorthwindAccdb);
 
     [Theory]
     [InlineData("wrong-owner")]
@@ -37,58 +33,59 @@ public class IndexTraversalCorruptionTests
         {
             (int root, int owner) = IndexIdentity(path);
             byte[] file = File.ReadAllBytes(path);
-            int pageCount = file.Length / PageSize;
+            int pageCount = file.Length / Format.PageSize;
             Span<byte> rootPage = Page(file, root);
             switch (corruption)
             {
                 case "wrong-owner":
-                    BinaryPrimitives.WriteInt32LittleEndian(rootPage[OwnerOffset..], owner + 1);
+                    BinaryPrimitives.WriteInt32LittleEndian(rootPage[Format.IndexOwnerOffset..], owner + 1);
                     break;
                 case "child-outside-file":
-                    BinaryPrimitives.WriteInt32LittleEndian(rootPage[ChildTailOffset..], pageCount + 1);
+                    BinaryPrimitives.WriteInt32LittleEndian(rootPage[Format.IndexChildTailOffset..], pageCount + 1);
                     break;
                 case "child-zero":
-                    BinaryPrimitives.WriteInt32LittleEndian(rootPage[ChildTailOffset..], 0);
+                    BinaryPrimitives.WriteInt32LittleEndian(rootPage[Format.IndexChildTailOffset..], 0);
                     break;
                 case "leaf-previous-outside-file":
                     int previousLeaf = LeftmostLeaf(file, root);
-                    BinaryPrimitives.WriteInt32LittleEndian(Page(file, previousLeaf)[PreviousPageOffset..], pageCount + 1);
+                    BinaryPrimitives.WriteInt32LittleEndian(Page(file, previousLeaf)[Format.IndexPrevPageOffset..], pageCount + 1);
                     break;
                 case "leaf-next-outside-file":
                     int leaf = LeftmostLeaf(file, root);
-                    BinaryPrimitives.WriteInt32LittleEndian(Page(file, leaf)[NextPageOffset..], pageCount + 1);
+                    BinaryPrimitives.WriteInt32LittleEndian(Page(file, leaf)[Format.IndexNextPageOffset..], pageCount + 1);
                     break;
                 case "leaf-row-outside-file":
                     int rowLeaf = LeftmostLeaf(file, root);
                     Span<byte> rowLeafPage = Page(file, rowLeaf);
                     int rowEnd = FirstEntryEnd(rowLeafPage);
                     BinaryPrimitives.WriteInt32BigEndian(
-                        rowLeafPage.Slice(EntryDataOffset + rowEnd - 4, 4), (pageCount + 1) << 8);
+                        rowLeafPage.Slice(Format.IndexEntryDataOffset + rowEnd - Format.IndexEntryTrailerSize, Format.IndexEntryTrailerSize),
+                        new RowId(pageCount + 1, 0).Packed);
                     break;
                 case "entry-shorter-than-trailer":
-                    rootPage[EntryMaskOffset..EntryDataOffset].Clear();
-                    rootPage[EntryMaskOffset] = 0x02; // first entry ends after one byte, before its 4-byte trailer
+                    rootPage[Format.IndexEntryMaskOffset..Format.IndexEntryDataOffset].Clear();
+                    rootPage[Format.IndexEntryMaskOffset] = 0x02; // first entry ends after one byte, before its 4-byte trailer
                     break;
                 case "wrong-page-type":
-                    rootPage[0] = 0x01;
+                    PageHeader.WriteType(rootPage, PageType.DataPage);
                     break;
                 case "descent-cycle":
-                    BinaryPrimitives.WriteInt32LittleEndian(rootPage[ChildTailOffset..], root);
+                    BinaryPrimitives.WriteInt32LittleEndian(rootPage[Format.IndexChildTailOffset..], root);
                     break;
                 case "leaf-cycle":
                     int cycleLeaf = LeftmostLeaf(file, root);
-                    BinaryPrimitives.WriteInt32LittleEndian(Page(file, cycleLeaf)[NextPageOffset..], cycleLeaf);
+                    BinaryPrimitives.WriteInt32LittleEndian(Page(file, cycleLeaf)[Format.IndexNextPageOffset..], cycleLeaf);
                     break;
                 case "child-wrong-owner":
                     int foreignLeaf = LeftmostLeaf(file, root);
-                    BinaryPrimitives.WriteInt32LittleEndian(Page(file, foreignLeaf)[OwnerOffset..], owner + 1);
+                    BinaryPrimitives.WriteInt32LittleEndian(Page(file, foreignLeaf)[Format.IndexOwnerOffset..], owner + 1);
                     break;
                 case "leaf-next-nonleaf":
                     int linkedLeaf = LeftmostLeaf(file, root);
-                    BinaryPrimitives.WriteInt32LittleEndian(Page(file, linkedLeaf)[NextPageOffset..], root);
+                    BinaryPrimitives.WriteInt32LittleEndian(Page(file, linkedLeaf)[Format.IndexNextPageOffset..], root);
                     break;
                 case "compressed-prefix-too-long":
-                    BinaryPrimitives.WriteUInt16LittleEndian(rootPage[0x18..], ushort.MaxValue);
+                    BinaryPrimitives.WriteUInt16LittleEndian(rootPage[Format.IndexCompressedByteCountOffset..], ushort.MaxValue);
                     break;
             }
             File.WriteAllBytes(path, file);
@@ -114,7 +111,7 @@ public class IndexTraversalCorruptionTests
             (int root, int owner) = IndexIdentity(path);
             byte[] file = File.ReadAllBytes(path);
             int leaf = LeftmostLeaf(file, root);
-            BinaryPrimitives.WriteInt32LittleEndian(Page(file, leaf)[OwnerOffset..], owner + 1);
+            BinaryPrimitives.WriteInt32LittleEndian(Page(file, leaf)[Format.IndexOwnerOffset..], owner + 1);
             File.WriteAllBytes(path, file);
 
             using var db = JetDatabase.Open(path);
@@ -132,7 +129,7 @@ public class IndexTraversalCorruptionTests
         {
             (int root, _) = IndexIdentity(path);
             byte[] file = File.ReadAllBytes(path);
-            BinaryPrimitives.WriteInt32LittleEndian(Page(file, root)[ChildTailOffset..], root);
+            BinaryPrimitives.WriteInt32LittleEndian(Page(file, root)[Format.IndexChildTailOffset..], root);
             File.WriteAllBytes(path, file);
 
             using var db = JetDatabase.Open(path);
@@ -151,23 +148,23 @@ public class IndexTraversalCorruptionTests
 
     private static int LeftmostLeaf(byte[] file, int pageNumber)
     {
-        while (Page(file, pageNumber)[0] == 0x03)
+        while (PageHeader.ReadType(Page(file, pageNumber)) == PageType.IntermediateIndexPage)
         {
             ReadOnlySpan<byte> page = Page(file, pageNumber);
             int end = FirstEntryEnd(page);
-            pageNumber = BinaryPrimitives.ReadInt32BigEndian(page.Slice(EntryDataOffset + end - 4, 4));
+            pageNumber = BinaryPrimitives.ReadInt32BigEndian(
+                page.Slice(Format.IndexEntryDataOffset + end - Format.IndexEntryTrailerSize, Format.IndexEntryTrailerSize));
         }
         return pageNumber;
     }
 
     private static int FirstEntryEnd(ReadOnlySpan<byte> page)
     {
-        for (int i = EntryMaskOffset; i < EntryDataOffset; i++)
-            for (int bit = 0; bit < 8; bit++)
-                if ((page[i] & (1 << bit)) != 0)
-                    return (i - EntryMaskOffset) * 8 + bit;
-        throw new InvalidDataException("Expected a nonempty index node.");
+        int end = BitmapBits.NextSetBit(page[Format.IndexEntryMaskOffset..Format.IndexEntryDataOffset], 0);
+        if (end < 0)
+            throw new InvalidDataException("Expected a nonempty index node.");
+        return end;
     }
 
-    private static Span<byte> Page(byte[] file, int pageNumber) => file.AsSpan(pageNumber * PageSize, PageSize);
+    private static Span<byte> Page(byte[] file, int pageNumber) => file.AsSpan(pageNumber * Format.PageSize, Format.PageSize);
 }

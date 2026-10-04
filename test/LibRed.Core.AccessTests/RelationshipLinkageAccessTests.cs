@@ -77,7 +77,7 @@ public class RelationshipLinkageAccessTests(ITestOutputHelper output)
 
     private static string CreateWithAce(string path, string[] ddl)
     {
-        DatabaseCreator.CreateEmpty(path);
+        JetDatabase.Create(path);
         using var connection = AceTestDatabase.Open(path);
         foreach (string sql in ddl) Exec(connection, sql);
         return path;

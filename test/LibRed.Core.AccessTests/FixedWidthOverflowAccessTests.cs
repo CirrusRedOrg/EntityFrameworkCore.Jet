@@ -28,7 +28,7 @@ public class FixedWidthOverflowAccessTests
         {
             CreateProbeTable(path);
             using var db = JetDatabase.Open(path);
-            TableDef probe = db.OpenTable("Probe").Definition;
+            TableDefinition probe = db.OpenTable("Probe").Definition;
 
             Assert.True(probe.FindColumn("C")!.IsFixedLength);      // CHAR(3)
             Assert.False(probe.FindColumn("V")!.IsFixedLength);     // TEXT(3)
@@ -83,7 +83,7 @@ public class FixedWidthOverflowAccessTests
 
     private static void CreateProbeTable(string path)
     {
-        DatabaseCreator.CreateEmpty(path);
+        JetDatabase.Create(path);
         using var connection = AceTestDatabase.Open(path);
         using OleDbCommand create = connection.CreateCommand();
         create.CommandText = "CREATE TABLE Probe (C CHAR(3), V TEXT(3), B BINARY(3), W VARBINARY(3))";

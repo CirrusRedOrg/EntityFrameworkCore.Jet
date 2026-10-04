@@ -275,8 +275,8 @@ in `EFCore.Jet.Data`.
 ```
 src/LibRed/
   LibRed.Core/      File format: IO (PageChannel/PageBuffer), Formats (version offsets),
-                    Pages, Catalog (MSysObjects → TableDef/ColumnDef/IndexDef), Storage
-                    (Table/TableCursor/RowDecoder/UsageMap), Crypto; JetDatabase entry point
+                    Pages, Catalog (MSysObjects → TableDefinition/ColumnDef/IndexDef), Storage
+                    (Table/TableCursor/RowCodec/UsageMap), Crypto; JetDatabase entry point
   LibRed.Sql/       SQL front end: ANTLR grammar (AccessSql.g4), AST, parser, binder.
                     NO Jet dependency — binds via the ISchemaProvider abstraction
   LibRed.Engine/    Logical Plan nodes, QueryPlanner, CatalogSchemaProvider (bridges the
@@ -302,7 +302,7 @@ the names are `JetVersion` / `RequiredVersion` / `EnsureFormatAtLeast`:
 - `AccessTypeMapper.MapType` **refuses** a type the open file is too old for, so a caller that can't upgrade
   (read-only database) fails loudly instead of writing a column Access couldn't read. That guard is on the SQL
   path; the same rule is enforced again in Core over `JetDataType` (`JetDataTypeVersions.EnsureStorable`, called
-  from `TdefBuilder` and `TableCreator`), because every `JetDatabase` method that defines a column takes a raw `ColumnSpec` and
+  from `TableDefinition` and `SchemaEditor`), because every `JetDatabase` method that defines a column takes a raw `ColumnSpec` and
   would otherwise write the descriptor with nothing objecting.
 - `StatementExecutor.MapColumn` → `JetDatabase.EnsureFormatAtLeast` → `PageChannel.RaiseFormatVersion`
   **raises the file's version byte** rather than refusing the DDL, which is what ACE itself does. The raise goes
@@ -369,6 +369,15 @@ here, because it sends the work off in a direction that has to be unwound later.
 verify against the code rather than quoting the list; and a **memory or summary records what was true when it
 was written**, not what is true now.
 
+**Change the existing path; don't add one beside it.** A fix reshapes the code that already does the job: split
+a method at the point where its callers differ, change what it takes, move a check to where every caller passes
+through. It does not add an overload, wrapper, helper, constant or parallel method next to it. Before writing
+any new member, find the code that already does that job — by what it does, not by its name: a decode, a lookup,
+a layout, a check, a value — and use or reshape it. A second copy is how this codebase got its bugs: two readers
+of one field that disagreed, a merged path that lost a check only one copy had, hard-coded page numbers restating
+a pointer, test helpers re-implementing Core and drifting from it. A genuinely new member is fine when nothing
+existing does the job; say what you checked.
+
 `.claude/settings.json` installs `PreToolUse` hooks that **deny** three things in `Bash`/`PowerShell`:
 
 - **Reading files through the shell** (`cat`, `head`, `grep`, `ls`, `find`, `Get-Content`, `Select-String`, …) —
@@ -385,7 +394,9 @@ was written**, not what is true now.
 `dotnet build`/`test`/`restore` and, in Bash, `git status`/`diff`/`log`/`show`/`branch`/`add`/`commit`/`push`
 are pre-allowed, and PowerShell is allowed wholesale — so don't work around the hooks; the denial message is
 telling you which tool to use, not that the action is forbidden. A `PostToolUse` hook also rewrites every file
-the `Write` tool writes to CRLF line endings.
+the `Write` tool writes to CRLF line endings. A `Stop` hook blocks the end of a turn once while `src/` (its
+`docs` folders aside) has uncommitted changes, asking for the review in "Change the existing path" above; the
+next stop goes through.
 
 ## CI
 

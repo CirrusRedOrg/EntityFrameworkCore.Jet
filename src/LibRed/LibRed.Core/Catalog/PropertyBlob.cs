@@ -1,3 +1,4 @@
+using LibRed.Storage.Types;
 using System.Buffers.Binary;
 using System.Text;
 
@@ -18,12 +19,46 @@ namespace LibRed.Catalog;
 /// </remarks>
 public static class PropertyBlob
 {
-    private static readonly byte[] SignatureAce = "MR2\0"u8.ToArray();
-    private static readonly byte[] SignatureMdb = "KKD\0"u8.ToArray();
-    private const ushort NameListBlock = 0x0080;
-    private const ushort TableBlock = 0x0000;   // value block owned by the table (empty owner name)
-    private const ushort ColumnBlock = 0x0001;  // value block owned by a column
-    private const byte DdlFlag = 0x01;
+    /// <summary>The signature an ACE blob opens with; <see cref="SignatureMdb"/> on an older <c>.mdb</c>.</summary>
+    internal static ReadOnlySpan<byte> SignatureAce => "MR2\0"u8;
+    internal static ReadOnlySpan<byte> SignatureMdb => "KKD\0"u8;
+    internal const int SignatureSize = 4;
+
+    // --- Block: [length:4][type:2][body] ---
+
+    internal const int BlockLengthOffset = 0;
+    internal const int BlockTypeOffset = 4;
+    internal const int BlockHeaderSize = 6;
+
+    /// <summary>The block types: the property-name pool, and the value blocks owned by the table (empty owner
+    /// name) and by a column. By mdbtools' account an index's block is <c>0x0002</c>.</summary>
+    internal const ushort NameListBlock = 0x0080;
+    internal const ushort TableBlock = 0x0000;
+    internal const ushort ColumnBlock = 0x0001;
+
+    /// <summary>A name-pool entry's, and an owner's, UTF-16 byte length ahead of the text.</summary>
+    internal const int NameLengthSize = 2;
+
+    // --- Owner record: [recordLength:2][unmodelled:2][nameLength:2][UTF-16 name] ---
+
+    internal const int OwnerRecordLengthOffset = 0;
+    internal const int OwnerUnmodelledOffset = 2;
+    internal const int OwnerNameLengthOffset = 4;
+    internal const int OwnerHeaderSize = 6;
+
+    // --- Property entry: [entryLength:2][flags:1][dataType:1][nameIndex:2][valueLength:2][value] ---
+
+    internal const int EntryLengthOffset = 0;
+    internal const int EntryFlagsOffset = 2;
+    internal const int EntryTypeOffset = 3;
+    internal const int EntryNameIndexOffset = 4;
+    internal const int EntryValueLengthOffset = 6;
+    internal const int EntryHeaderSize = 8;
+
+    /// <summary>The entry flag marking a DDL property, protected as part of the object's definition.</summary>
+    internal const byte DdlFlag = 0x01;
+
+
     public const string DefaultValueProperty = "DefaultValue";
     public const string CheckConstraintsProperty = "CheckConstraints";
     public const string RequiredProperty = "Required";
@@ -127,14 +162,14 @@ public static class PropertyBlob
     /// signature alone. Omit it only when authoring a blob from nothing, where ACE's signature is the default.</param>
     public static byte[] Write(IReadOnlyList<Property> properties, ReadOnlySpan<byte> original = default)
     {
-        var names = original.Length > 4 ? Parse(original).Names.ToList() : [];
+        var names = original.Length > SignatureSize ? Parse(original).Names.ToList() : [];
         foreach (string name in properties.Select(p => p.Name))
             if (!names.Contains(name)) names.Add(name);
         ValidateForWrite(properties, names);
         var nameIndex = new Dictionary<string, int>();
         for (int i = 0; i < names.Count; i++) nameIndex.TryAdd(names[i], i);
 
-        var blob = new List<byte>(original.Length >= 4 ? original[..4].ToArray() : SignatureAce);
+        var blob = new List<byte>(original.Length >= SignatureSize ? original[..SignatureSize].ToArray() : SignatureAce.ToArray());
 
         var namesBody = new List<byte>();
         foreach (string name in names) AppendString(namesBody, name);
@@ -171,7 +206,7 @@ public static class PropertyBlob
         ValidateNames(names);
         ValidateOwnerProperties(owner, newProps, nameIndex);
 
-        var result = new List<byte>(blob[..4].ToArray());   // keep the original signature, MR2\0 or KKD\0
+        var result = new List<byte>(blob[..SignatureSize].ToArray());   // keep the original signature, MR2\0 or KKD\0
         var namesBody = new List<byte>();
         foreach (string n in names) AppendString(namesBody, n);
         AppendBlock(result, NameListBlock, namesBody);
@@ -188,10 +223,7 @@ public static class PropertyBlob
         Property[] propertyArray = props.ToArray();
         ValidateOwnerProperties(owner, propertyArray, nameIndex);
         var body = new List<byte>();
-        var ownerRec = new List<byte> { 0, 0, 0, 0 }; // [recLen placeholder][0x0000]
-        AppendString(ownerRec, owner);
-        BinaryPrimitives.WriteUInt16LittleEndian(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(ownerRec), (ushort)ownerRec.Count);
-        body.AddRange(ownerRec);
+        AppendOwnerRecord(body, owner, unmodelled: 0);
 
         foreach (Property p in propertyArray)
         {
@@ -199,16 +231,28 @@ public static class PropertyBlob
             // anything LibRed does not model round-trips byte-for-byte. A LibRed-constructed property has no
             // RawValue and is encoded from Value/Type (Boolean = one 0/1 byte, else UTF-16).
             byte[] value = PropertyValue(p);
-            var entry = new List<byte>();
-            AppendUInt16(entry, (ushort)(2 + 1 + 1 + 2 + 2 + value.Length)); // entry length
-            entry.Add(p.Flags);
-            entry.Add((byte)p.Type);
-            AppendUInt16(entry, (ushort)nameIndex[p.Name]);
-            AppendUInt16(entry, (ushort)value.Length);
-            entry.AddRange(value);
-            body.AddRange(entry);
+            // In field order: [entryLength][flags][dataType][nameIndex][valueLength][value].
+            AppendUInt16(body, (ushort)(EntryHeaderSize + value.Length));
+            body.Add(p.Flags);
+            body.Add((byte)p.Type);
+            AppendUInt16(body, (ushort)nameIndex[p.Name]);
+            AppendUInt16(body, (ushort)value.Length);
+            body.AddRange(value);
         }
         AppendBlock(blob, type, body);
+    }
+
+    /// <summary>Appends an owner record in field order — its length, the unmodelled word, the owner's name — the
+    /// inverse of <see cref="ReadOwner"/>.</summary>
+    private static void AppendOwnerRecord(List<byte> body, string owner, ushort unmodelled)
+    {
+        int start = body.Count;
+        AppendUInt16(body, 0); // the record's length, known once the name is in
+        AppendUInt16(body, unmodelled);
+        AppendString(body, owner);
+        BinaryPrimitives.WriteUInt16LittleEndian(
+            System.Runtime.InteropServices.CollectionsMarshal.AsSpan(body)[(start + OwnerRecordLengthOffset)..],
+            (ushort)(body.Count - start));
     }
 
     /// <summary>
@@ -225,7 +269,7 @@ public static class PropertyBlob
         ParsedBlob parsed = Parse(blob);
 
         var result = new List<byte>(blob.Length);
-        result.AddRange(blob[..4]); // signature
+        result.AddRange(blob[..SignatureSize]);
         foreach (ParsedBlock block in parsed.Blocks)
         {
             // Only the column's own block: an index's can carry the same name.
@@ -250,7 +294,7 @@ public static class PropertyBlob
         ParsedBlob parsed = Parse(blob);
 
         var result = new List<byte>(blob.Length);
-        result.AddRange(blob[..4]); // signature
+        result.AddRange(blob[..SignatureSize]);
         foreach (ParsedBlock block in parsed.Blocks)
         {
             if (block.Type != ColumnBlock
@@ -260,25 +304,15 @@ public static class PropertyBlob
                 continue;
             }
 
-            // Owner record: [uint16 recordLength][uint16 unmodelled][uint16 ownerLength][UTF-16 name].
-            // Everything past it is this owner's property entries, which the rename must not disturb.
-            int oldRecordLength = BinaryPrimitives.ReadUInt16LittleEndian(block.Body.AsSpan(0, 2));
-            byte[] nameBytes = Encoding.Unicode.GetBytes(newOwner);
-
-            var body = new List<byte>(block.Body.Length - oldRecordLength + 6 + nameBytes.Length);
-            byte[] header = new byte[6];
-            BinaryPrimitives.WriteUInt16LittleEndian(header.AsSpan(0, 2), (ushort)(6 + nameBytes.Length));
-            block.Body.AsSpan(2, 2).CopyTo(header.AsSpan(2, 2)); // preserved verbatim
-            BinaryPrimitives.WriteUInt16LittleEndian(header.AsSpan(4, 2), (ushort)nameBytes.Length);
-            body.AddRange(header);
-            body.AddRange(nameBytes);
+            // A new owner record, its unmodelled word carried through; everything past the old one is this
+            // owner's property entries, which the rename must not disturb.
+            int oldRecordLength = BinaryPrimitives.ReadUInt16LittleEndian(
+                block.Body.AsSpan(OwnerRecordLengthOffset, sizeof(ushort)));
+            var body = new List<byte>();
+            AppendOwnerRecord(body, newOwner,
+                BinaryPrimitives.ReadUInt16LittleEndian(block.Body.AsSpan(OwnerUnmodelledOffset, sizeof(ushort))));
             body.AddRange(block.Body.AsSpan(oldRecordLength).ToArray());
-
-            byte[] raw = new byte[6 + body.Count];
-            BinaryPrimitives.WriteInt32LittleEndian(raw.AsSpan(0, 4), raw.Length);
-            BinaryPrimitives.WriteUInt16LittleEndian(raw.AsSpan(4, 2), block.Type);
-            body.CopyTo(raw, 6);
-            result.AddRange(raw);
+            AppendBlock(result, block.Type, body);
         }
 
         return [.. result];
@@ -398,23 +432,25 @@ public static class PropertyBlob
     /// same block, owner-record, entry, and name-index boundaries.</summary>
     private static ParsedBlob Parse(ReadOnlySpan<byte> blob)
     {
-        if (blob.Length < 4)
-            throw new InvalidDataException($"Property blob has {blob.Length} bytes; expected a 4-byte signature.");
-        if (!blob[..4].SequenceEqual(SignatureAce) && !blob[..4].SequenceEqual(SignatureMdb))
+        if (blob.Length < SignatureSize)
+            throw new InvalidDataException(
+                $"Property blob has {blob.Length} bytes; expected a {SignatureSize}-byte signature.");
+        if (!blob[..SignatureSize].SequenceEqual(SignatureAce) && !blob[..SignatureSize].SequenceEqual(SignatureMdb))
             throw new InvalidDataException("Property blob has an unknown signature.");
 
         var blocks = new List<ParsedBlock>();
-        int pos = 4;
+        int pos = SignatureSize;
         while (pos < blob.Length)
         {
-            if (blob.Length - pos < 6)
+            if (blob.Length - pos < BlockHeaderSize)
                 throw new InvalidDataException($"Property blob has {blob.Length - pos} trailing bytes after its last complete block.");
-            int length = BinaryPrimitives.ReadInt32LittleEndian(blob.Slice(pos, 4));
-            if (length < 6 || length > blob.Length - pos)
+            int length = BinaryPrimitives.ReadInt32LittleEndian(blob.Slice(pos + BlockLengthOffset, sizeof(int)));
+            if (length < BlockHeaderSize || length > blob.Length - pos)
                 throw new InvalidDataException(
                     $"Property block at {pos} declares invalid length {length} with {blob.Length - pos} bytes remaining.");
-            ushort type = BinaryPrimitives.ReadUInt16LittleEndian(blob.Slice(pos + 4, 2));
-            blocks.Add(new ParsedBlock(type, blob.Slice(pos + 6, length - 6).ToArray(), blob.Slice(pos, length).ToArray()));
+            ushort type = BinaryPrimitives.ReadUInt16LittleEndian(blob.Slice(pos + BlockTypeOffset, sizeof(ushort)));
+            blocks.Add(new ParsedBlock(type, blob.Slice(pos + BlockHeaderSize, length - BlockHeaderSize).ToArray(),
+                blob.Slice(pos, length).ToArray()));
             pos += length;
         }
 
@@ -434,10 +470,10 @@ public static class PropertyBlob
         int pos = 0;
         while (pos < body.Length)
         {
-            if (body.Length - pos < 2)
+            if (body.Length - pos < NameLengthSize)
                 throw new InvalidDataException("Property name pool ends inside a length field.");
-            int length = BinaryPrimitives.ReadUInt16LittleEndian(body.Slice(pos, 2));
-            pos += 2;
+            int length = BinaryPrimitives.ReadUInt16LittleEndian(body.Slice(pos, NameLengthSize));
+            pos += NameLengthSize;
             if ((length & 1) != 0 || length > body.Length - pos)
                 throw new InvalidDataException(
                     $"Property name declares invalid UTF-16 length {length} with {body.Length - pos} bytes remaining.");
@@ -448,39 +484,43 @@ public static class PropertyBlob
 
     private static string ReadOwner(ReadOnlySpan<byte> body)
     {
-        if (body.Length < 6)
-            throw new InvalidDataException("Property owner block is shorter than its 6-byte owner header.");
-        int recordLength = BinaryPrimitives.ReadUInt16LittleEndian(body[..2]);
-        int ownerLength = BinaryPrimitives.ReadUInt16LittleEndian(body.Slice(4, 2));
-        if (recordLength < 6 || recordLength > body.Length || (ownerLength & 1) != 0 || ownerLength != recordLength - 6)
+        if (body.Length < OwnerHeaderSize)
+            throw new InvalidDataException(
+                $"Property owner block is shorter than its {OwnerHeaderSize}-byte owner header.");
+        int recordLength = BinaryPrimitives.ReadUInt16LittleEndian(body.Slice(OwnerRecordLengthOffset, sizeof(ushort)));
+        int ownerLength = BinaryPrimitives.ReadUInt16LittleEndian(body.Slice(OwnerNameLengthOffset, sizeof(ushort)));
+        if (recordLength < OwnerHeaderSize || recordLength > body.Length || (ownerLength & 1) != 0
+            || ownerLength != recordLength - OwnerHeaderSize)
             throw new InvalidDataException(
                 $"Property owner record length {recordLength} and UTF-16 name length {ownerLength} are inconsistent.");
-        return Encoding.Unicode.GetString(body.Slice(6, ownerLength));
+        return Encoding.Unicode.GetString(body.Slice(OwnerHeaderSize, ownerLength));
     }
 
     private static void ReadProperties(ushort block, ReadOnlySpan<byte> body, List<string> names, List<Property> properties)
     {
         string owner = ReadOwner(body);
-        int pos = BinaryPrimitives.ReadUInt16LittleEndian(body[..2]);
+        int pos = BinaryPrimitives.ReadUInt16LittleEndian(body.Slice(OwnerRecordLengthOffset, sizeof(ushort)));
         while (pos < body.Length)
         {
-            if (body.Length - pos < 8)
-                throw new InvalidDataException("Property value block ends inside an 8-byte entry header.");
-            int entryLength = BinaryPrimitives.ReadUInt16LittleEndian(body.Slice(pos, 2));
-            int nameIndex = BinaryPrimitives.ReadUInt16LittleEndian(body.Slice(pos + 4, 2));
-            int valueLength = BinaryPrimitives.ReadUInt16LittleEndian(body.Slice(pos + 6, 2));
-            if (entryLength < 8 || entryLength > body.Length - pos || valueLength != entryLength - 8)
+            if (body.Length - pos < EntryHeaderSize)
+                throw new InvalidDataException(
+                    $"Property value block ends inside an {EntryHeaderSize}-byte entry header.");
+            ReadOnlySpan<byte> entry = body[pos..];
+            int entryLength = BinaryPrimitives.ReadUInt16LittleEndian(entry.Slice(EntryLengthOffset, sizeof(ushort)));
+            int nameIndex = BinaryPrimitives.ReadUInt16LittleEndian(entry.Slice(EntryNameIndexOffset, sizeof(ushort)));
+            int valueLength = BinaryPrimitives.ReadUInt16LittleEndian(entry.Slice(EntryValueLengthOffset, sizeof(ushort)));
+            if (entryLength < EntryHeaderSize || entryLength > body.Length - pos || valueLength != entryLength - EntryHeaderSize)
                 throw new InvalidDataException(
                     $"Property entry at {pos} has inconsistent entry/value lengths {entryLength}/{valueLength}.");
             if (nameIndex >= names.Count)
                 throw new InvalidDataException(
                     $"Property entry at {pos} names pool index {nameIndex}, but the pool has {names.Count} entries.");
 
-            var dataType = (JetDataType)body[pos + 3];
-            byte[] raw = body.Slice(pos + 8, valueLength).ToArray();
+            var dataType = (JetDataType)entry[EntryTypeOffset];
+            byte[] raw = entry.Slice(EntryHeaderSize, valueLength).ToArray();
             properties.Add(new Property(owner, names[nameIndex], Format(Decode(dataType, raw)), dataType, raw)
             {
-                Flags = body[pos + 2],
+                Flags = entry[EntryFlagsOffset],
                 Block = block,
             });
             pos += entryLength;
@@ -506,9 +546,9 @@ public static class PropertyBlob
             int length = Encoding.Unicode.GetByteCount(name);
             if (length > ushort.MaxValue)
                 throw new ArgumentException($"Property name '{name[..Math.Min(name.Length, 32)]}' is too long for its 16-bit byte length.");
-            bodyLength += 2L + length;
+            bodyLength += (long)NameLengthSize + length;
         }
-        if (bodyLength > int.MaxValue - 6)
+        if (bodyLength > int.MaxValue - BlockHeaderSize)
             throw new ArgumentException("Property name-pool block exceeds its 32-bit block length.");
     }
 
@@ -516,21 +556,21 @@ public static class PropertyBlob
         string owner, IEnumerable<Property> properties, Dictionary<string, int> nameIndex)
     {
         int ownerLength = Encoding.Unicode.GetByteCount(owner);
-        if (ownerLength > ushort.MaxValue - 6)
+        if (ownerLength > ushort.MaxValue - OwnerHeaderSize)
             throw new ArgumentException("Property owner name is too long for its 16-bit owner-record length.", nameof(owner));
 
-        long bodyLength = 6L + ownerLength;
+        long bodyLength = (long)OwnerHeaderSize + ownerLength;
         foreach (Property property in properties)
         {
             if (!nameIndex.TryGetValue(property.Name, out int index) || index > ushort.MaxValue)
                 throw new ArgumentException($"Property '{property.Name}' has no encodable 16-bit name-pool index.");
             int valueLength = PropertyValue(property).Length;
-            if (valueLength > ushort.MaxValue - 8)
+            if (valueLength > ushort.MaxValue - EntryHeaderSize)
                 throw new ArgumentException(
                     $"Property '{property.Name}' value is too long for its 16-bit entry length.");
-            bodyLength += 8L + valueLength;
+            bodyLength += (long)EntryHeaderSize + valueLength;
         }
-        if (bodyLength > int.MaxValue - 6)
+        if (bodyLength > int.MaxValue - BlockHeaderSize)
             throw new ArgumentException($"Property block for owner '{owner}' exceeds its 32-bit block length.");
     }
 
@@ -561,14 +601,15 @@ public static class PropertyBlob
                 }
                 break;
             case JetDataType.Currency when raw.Length == 8:
-                return BinaryPrimitives.ReadInt64LittleEndian(raw) / 10000m;
+                return JetTypeCodec.CurrencyFromScaled(BinaryPrimitives.ReadInt64LittleEndian(raw));
             case JetDataType.Single when raw.Length == 4:
                 return BinaryPrimitives.ReadSingleLittleEndian(raw);
             case JetDataType.Double when raw.Length == 8:
                 return BinaryPrimitives.ReadDoubleLittleEndian(raw);
             case JetDataType.DateTime when raw.Length == 8:
-                double serial = BinaryPrimitives.ReadDoubleLittleEndian(raw);
-                return serial is >= -657435.0 and < 2958466.0 ? DateTime.FromOADate(serial) : raw.ToArray();
+                return JetTypeCodec.TryFromOaDate(BinaryPrimitives.ReadDoubleLittleEndian(raw), out DateTime date)
+                    ? date
+                    : raw.ToArray();
             case JetDataType.Guid when raw.Length == 16:
                 return new Guid(raw);
         }
@@ -631,9 +672,7 @@ public static class PropertyBlob
             case JetDataType.Int64:
                 b = new byte[8]; BinaryPrimitives.WriteInt64LittleEndian(b, Convert.ToInt64(value, invariant)); return b;
             case JetDataType.Currency:
-                b = new byte[8];
-                BinaryPrimitives.WriteInt64LittleEndian(b, decimal.ToInt64(decimal.Round(Convert.ToDecimal(value, invariant) * 10000m)));
-                return b;
+                b = new byte[8]; BinaryPrimitives.WriteInt64LittleEndian(b, JetTypeCodec.CurrencyToScaled(value, invariant)); return b;
             case JetDataType.Single:
                 b = new byte[4]; BinaryPrimitives.WriteSingleLittleEndian(b, Convert.ToSingle(value, invariant)); return b;
             case JetDataType.Double:
@@ -667,7 +706,7 @@ public static class PropertyBlob
 
     private static void AppendBlock(List<byte> blob, ushort type, List<byte> body)
     {
-        AppendInt32(blob, checked(body.Count + 6));
+        AppendInt32(blob, checked(body.Count + BlockHeaderSize)); // [length][type], in field order
         AppendUInt16(blob, type);
         blob.AddRange(body);
     }

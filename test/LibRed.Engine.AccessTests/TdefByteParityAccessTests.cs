@@ -1,8 +1,8 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.IO;
+using LibRed.Pages;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -16,7 +16,7 @@ namespace LibRed.Engine.Tests;
 // with one measured exception recorded in Usage_map_rows_follow_declaration_order below.
 //
 // Constraints are named deliberately. An unnamed primary key makes ACE generate `Index_<hex>` from nothing
-// reproducible while LibRed picks the stable "PrimaryKey" — an engine choice documented in TableCreator —
+// reproducible while LibRed picks the stable "PrimaryKey" — an engine choice documented in SchemaEditor —
 // so an unnamed key would only ever measure that known difference.
 [Collection(AceCollection.Name)]
 public class TdefByteParityAccessTests(ITestOutputHelper output) : TempDatabaseTest
@@ -46,12 +46,12 @@ public class TdefByteParityAccessTests(ITestOutputHelper output) : TempDatabaseT
         var aceDef = Definition(sql, AceCreate);
         Assert.SkipWhen(aceDef is null, $"ACE would not create {label}.");
 
-        (byte[] ace, JetFormatBase format) = aceDef!.Value;
+        (byte[] ace, JetFormatBase format, TableDefinition aceParsed) = aceDef!.Value;
         byte[] libred = Definition(sql, LibRedCreate)!.Value.Bytes;
 
         // An inline key leaves ACE naming the index unreproducibly; compare those shapes by every region
         // except the names, and the named-constraint shapes whole.
-        bool generatedName = IndexNames(ace, format).Any(n => n.StartsWith("Index_", StringComparison.Ordinal));
+        bool generatedName = IndexNames(aceParsed).Any(n => n.StartsWith("Index_", StringComparison.Ordinal));
         foreach ((string region, int start, int end) in Regions(ace, format))
         {
             if (generatedName && region is "index-names" or "header") continue;
@@ -61,7 +61,7 @@ public class TdefByteParityAccessTests(ITestOutputHelper output) : TempDatabaseT
         }
 
         if (!generatedName) Assert.Equal(ace.Length, libred.Length);
-        output.WriteLine($"{label}: {ace.Length} bytes, index names [{string.Join(", ", IndexNames(ace, format))}]");
+        output.WriteLine($"{label}: {ace.Length} bytes, index names [{string.Join(", ", IndexNames(aceParsed))}]");
     }
 
     // Usage-map rows follow DECLARATION order: an inline PRIMARY KEY on the first column is declared before the
@@ -103,77 +103,38 @@ public class TdefByteParityAccessTests(ITestOutputHelper output) : TempDatabaseT
     /// <summary>Which usage-map row each index and long-value column was given.</summary>
     private static string Rows(string sql, Action<string, string> create)
     {
-        (byte[] def, JetFormatBase format) = Definition(sql, create)!.Value;
-        int dataCount = BinaryPrimitives.ReadInt32LittleEndian(def.AsSpan(format.TdefIndexCountOffset, 4));
-        (string _, int dataStart, int _) = Regions(def, format).Single(r => r.Name == "index-data-blocks");
-        (string _, int lvalStart, int lvalEnd) = Regions(def, format).Single(r => r.Name == "long-value-region");
-
-        var indexes = Enumerable.Range(0, dataCount)
-            .Select(i => def[dataStart + i * DataBlockSize + UsageMapRowOffset].ToString());
-
-        var columns = new List<string>();
-        for (int pos = lvalStart; pos + 10 <= lvalEnd
-             && BinaryPrimitives.ReadUInt16LittleEndian(def.AsSpan(pos, 2)) != 0xFFFF; pos += 10)
-            columns.Add($"{def[pos + 2]},{def[pos + 6]}");
-
+        TableDefinition definition = Definition(sql, create)!.Value.Parsed;
+        var indexes = definition.Indexes.OrderBy(i => i.RealIndexOrdinal).Select(i => i.UsageMap.Row);
+        var columns = definition.LongValueOwnedMaps.OrderBy(e => e.Key)
+            .Select(e => $"{e.Value.Row},{definition.LongValueFreeMaps[e.Key].Row}");
         return $"index [{string.Join(",", indexes)}] long-value [{string.Join(" ", columns)}]";
     }
 
-    // IndexBlockFormat is internal to Core; these are its DataBlockSize / InfoBlockSize / UsageMapRowOffset.
-    private const int DataBlockSize = 52;
-    private const int InfoBlockSize = 28;
-    private const int UsageMapRowOffset = 0x22;
+    private static List<string> IndexNames(TableDefinition definition) =>
+        [.. definition.LogicalIndexes.Select(l => l.Name)];
 
-    private static List<string> IndexNames(byte[] def, JetFormatBase format)
-    {
-        (string _, int start, int end) = Regions(def, format).Single(r => r.Name == "index-names");
-        var names = new List<string>();
-        for (int pos = start; pos + 2 <= end;)
-        {
-            int len = BinaryPrimitives.ReadUInt16LittleEndian(def.AsSpan(pos, 2));
-            if (len == 0 || pos + 2 + len > end) break;
-            names.Add(System.Text.Encoding.Unicode.GetString(def.AsSpan(pos + 2, len)));
-            pos += 2 + len;
-        }
-        return names;
-    }
-
-    /// <summary>The TDEF's regions in order, derived from its own counts.</summary>
+    /// <summary>The TDEF's regions in order, through the walk the engine reads and writes it with.</summary>
     private static IEnumerable<(string Name, int Start, int End)> Regions(byte[] def, JetFormatBase format)
     {
-        int dataCount = BinaryPrimitives.ReadInt32LittleEndian(def.AsSpan(format.TdefIndexCountOffset, 4));
-        int logicalCount = BinaryPrimitives.ReadInt32LittleEndian(
-            def.AsSpan(format.TdefLogicalIndexCountOffset, 4));
-        int colCount = BinaryPrimitives.ReadUInt16LittleEndian(def.AsSpan(format.TdefColumnCountOffset, 2));
+        TableDefinition.Regions regions = TableDefinition.Regions.Of(def, format);
+        int columnNames = regions.ColumnDescriptors + regions.ColumnCount * format.ColumnDescriptorSize;
+        int indexNamesEnd = regions.IndexNames;
+        for (int i = 0; i < regions.LogicalCount; i++)
+            indexNamesEnd = TableDefinition.NameEntryEnd(def, indexNamesEnd, format, $"index {i}");
 
-        int pos = format.TdefRealIndexBlockOffset;
-        yield return ("header", 0, pos);
-
-        yield return ("index-stats", pos, pos + dataCount * format.RealIndexEntrySize);
-        pos += dataCount * format.RealIndexEntrySize;
-
-        yield return ("column-descriptors", pos, pos + colCount * format.ColumnDescriptorSize);
-        pos += colCount * format.ColumnDescriptorSize;
-
-        int namesStart = pos;
-        for (int i = 0; i < colCount; i++) pos += 2 + BinaryPrimitives.ReadUInt16LittleEndian(def.AsSpan(pos, 2));
-        yield return ("column-names", namesStart, pos);
-
-        yield return ("index-data-blocks", pos, pos + dataCount * DataBlockSize);
-        pos += dataCount * DataBlockSize;
-
-        yield return ("index-info-blocks", pos, pos + logicalCount * InfoBlockSize);
-        pos += logicalCount * InfoBlockSize;
-
-        int indexNames = pos;
-        for (int i = 0; i < logicalCount && pos + 2 <= def.Length; i++)
-            pos += 2 + BinaryPrimitives.ReadUInt16LittleEndian(def.AsSpan(pos, 2));
-        yield return ("index-names", indexNames, pos);
-
-        yield return ("long-value-region", pos, def.Length);
+        yield return ("header", 0, regions.Stats);
+        yield return ("index-stats", regions.Stats, regions.ColumnDescriptors);
+        yield return ("column-descriptors", regions.ColumnDescriptors, columnNames);
+        yield return ("column-names", columnNames, regions.DataBlocks);
+        yield return ("index-data-blocks", regions.DataBlocks, regions.InfoBlocks);
+        yield return ("index-info-blocks", regions.InfoBlocks, regions.IndexNames);
+        yield return ("index-names", regions.IndexNames, indexNamesEnd);
+        yield return ("long-value-region", indexNamesEnd, def.Length);
     }
 
-    private static (byte[] Bytes, JetFormatBase Format)? Definition(string sql, Action<string, string> create)
+    /// <summary>Table W's whole definition, continuation pages stitched in, and that definition parsed.</summary>
+    private static (byte[] Bytes, JetFormatBase Format, TableDefinition Parsed)? Definition(
+        string sql, Action<string, string> create)
     {
         string path = TemporaryDatabase.CopyPath(
             Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "tdef-parity-");
@@ -182,15 +143,11 @@ public class TdefByteParityAccessTests(ITestOutputHelper output) : TempDatabaseT
             try { create(path, sql); }
             catch (OleDbException) { return null; }
 
-            int definitionPage;
-            using (var database = JetDatabase.Open(path, readOnly: true))
-                definitionPage = database.Catalog.FindTable("W")!.DefinitionPage;
-
-            using var channel = PageChannel.Open(path, readOnly: true);
-            JetFormatBase format = channel.Format;
-            byte[] page = channel.ReadPage(definitionPage).Span.ToArray();
-            int length = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(format.TdefLengthOffset, 4));
-            return (length > 0 && length <= page.Length ? page.AsSpan(0, length).ToArray() : page, format);
+            using var database = JetDatabase.Open(path, readOnly: true);
+            (PageBuffer buffer, _) = TableDefinition.ReadChain(database.Channel, database.Catalog.FindTable("W")!.DefinitionPage);
+            var parsed = new TableDefinition();
+            parsed.Read(buffer, database.Format);
+            return (buffer.Span.ToArray(), database.Format, parsed);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

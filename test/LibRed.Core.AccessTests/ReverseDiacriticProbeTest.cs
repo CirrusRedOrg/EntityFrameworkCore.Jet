@@ -35,7 +35,7 @@ public class ReverseDiacriticProbeTest(ITestOutputHelper output)
             Name = "t", Type = JetDataType.Text, Index = 0,
             Collation = new Collation(CollatingOrder.French, 0),
         };
-        Assert.Equal(expected, Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [value])));
+        Assert.Equal(expected, Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [value])));
     }
 
     // The point of the order, and the thing a single-accent sample set could never show: French orders by the
@@ -58,7 +58,7 @@ public class ReverseDiacriticProbeTest(ITestOutputHelper output)
 
         static string[] Sorted(ColumnDef column) =>
             [.. new[] { "côté", "coté", "côte", "cote" }
-                .OrderBy(v => IndexKeyEncoder.Encode([(column, true)], [v]), Comparer<byte[]>.Create(Compare))];
+                .OrderBy(v => IndexKeyCodec.Encode([(column, true)], [v]), Comparer<byte[]>.Create(Compare))];
 
         static int Compare(byte[] a, byte[] b)
         {
@@ -116,7 +116,7 @@ public class ReverseDiacriticProbeTest(ITestOutputHelper output)
             {
                 if (!ace.TryGetValue(text, out string? stored)) continue;
                 string? ours = null;
-                try { ours = Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [text])); }
+                try { ours = Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [text])); }
                 catch (NotSupportedException) { refused++; continue; }
                 if (ours == stored) { matched++; continue; }
                 if (differences.Count < 12)
@@ -156,7 +156,7 @@ public class ReverseDiacriticProbeTest(ITestOutputHelper output)
         try
         {
             var french = new Collation(CollatingOrder.French, 0);
-            DatabaseCreator.CreateEmpty(path, collation: french);
+            JetDatabase.Create(path, collation: french);
 
             using (var db = JetDatabase.Open(path))
                 Assert.Equal(french, db.Collation);
@@ -173,7 +173,7 @@ public class ReverseDiacriticProbeTest(ITestOutputHelper output)
             foreach (string text in samples)
             {
                 Assert.True(ace.ContainsKey(text), $"ACE did not store '{text}'");
-                Assert.Equal(ace[text], Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [text])));
+                Assert.Equal(ace[text], Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [text])));
             }
 
             output.WriteLine($"ACE indexed {ace.Count} values into a LibRed-created French database, " +
@@ -200,7 +200,7 @@ public class ReverseDiacriticProbeTest(ITestOutputHelper output)
             string path = TemporaryDatabase.CreatePath("dw-");
             try
             {
-                if (langId is null) DatabaseCreator.CreateEmpty(path, collation: Collation.GeneralLegacy);
+                if (langId is null) JetDatabase.Create(path, collation: Collation.GeneralLegacy);
                 else if (!CreateWithDao(path, langId)) { output.WriteLine("DAO unavailable."); continue; }
 
                 Dictionary<string, string> ace = AceKeys(path, samples);

@@ -7,6 +7,7 @@ using Xunit;
 namespace LibRed.Core.Tests;
 
 // PROBE: derive weight tables from ACE rather than transcribing them by hand.
+// Generators are opt-in via LIBRED_TAILORING_GENERATOR=1; BMP probes use LIBRED_FULL_BMP=1.
 //
 // It has ACE encode every character in a range, reads the stored index keys back, and prints the entries
 // needed to reproduce them — ready to paste into JetTextCollation or JetLocaleTailoring. Hand transcription
@@ -63,7 +64,7 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
             "set LIBRED_FULL_BMP=1 — this inserts ~63,000 rows through ACE and takes minutes");
 
         string path = TemporaryDatabase.CreatePath("general-v1-diag-");
-        DatabaseCreator.CreateEmpty(path, collation: Collation.General);
+        JetDatabase.Create(path, collation: Collation.General);
         var column = new ColumnDef
         {
             Name = "K", Type = JetDataType.Text, Index = 0, Collation = Collation.General,
@@ -86,7 +87,7 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
                     (int correct, int aceIgnorable, int refused, int differ) = byBlock.GetValueOrDefault(block);
 
                     string? ours = null;
-                    try { ours = Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [text])); }
+                    try { ours = Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [text])); }
                     catch (NotSupportedException) { }
 
                     if (ours == key) correct++;
@@ -129,7 +130,7 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
             "set LIBRED_FULL_BMP=1 — this inserts ~63,000 rows through ACE and takes minutes");
 
         string path = TemporaryDatabase.CreatePath("general-v1-sig-");
-        DatabaseCreator.CreateEmpty(path, collation: Collation.General);
+        JetDatabase.Create(path, collation: Collation.General);
         var column = new ColumnDef
         {
             Name = "K", Type = JetDataType.Text, Index = 0, Collation = Collation.General,
@@ -146,7 +147,7 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
                 foreach ((string text, string key) in AceKeys(path, "v1sig", characters))
                 {
                     string ours;
-                    try { ours = Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [text])); }
+                    try { ours = Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [text])); }
                     catch (NotSupportedException) { continue; }   // refusals are safe; chase wrong output
                     if (ours == key) continue;
 
@@ -237,7 +238,7 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
             "set LIBRED_FULL_BMP=1 — this probe needs ACE");
 
         string path = TemporaryDatabase.CreatePath("general-v1-third-");
-        DatabaseCreator.CreateEmpty(path, collation: Collation.General);
+        JetDatabase.Create(path, collation: Collation.General);
         try
         {
             char[] subjects = [(char)0x0385, (char)0x1B3B, (char)0xFC25, (char)0xFC33, (char)0xFCC2];
@@ -270,7 +271,7 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
         if (version == Collation.GeneralVersion)
         {
             created = TemporaryDatabase.CreatePath("general-v1-bmp-");
-            DatabaseCreator.CreateEmpty(created, collation: Collation.General);
+            JetDatabase.Create(created, collation: Collation.General);
             source = created;
         }
 
@@ -313,6 +314,9 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
     [Fact]
     public void Generate_general_coverage()
     {
+        Assert.SkipUnless(Environment.GetEnvironmentVariable("LIBRED_TAILORING_GENERATOR") == "1",
+            "set LIBRED_TAILORING_GENERATOR=1 — this generates weight tables through ACE");
+
         foreach ((string name, int first, int last) in Blocks)
         {
             string[] characters = Range(first, last);
@@ -366,6 +370,9 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
     [Fact]
     public void Generate_block_tables()
     {
+        Assert.SkipUnless(Environment.GetEnvironmentVariable("LIBRED_TAILORING_GENERATOR") == "1",
+            "set LIBRED_TAILORING_GENERATOR=1 — this generates weight tables through ACE");
+
         foreach ((string name, int first, int last) in Blocks)
         {
             string[] characters = Range(first, last);
@@ -401,6 +408,9 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
     [Fact]
     public void Generate_diacritic_weights_missing_from_general()
     {
+        Assert.SkipUnless(Environment.GetEnvironmentVariable("LIBRED_TAILORING_GENERATOR") == "1",
+            "set LIBRED_TAILORING_GENERATOR=1 — this generates weight tables through ACE");
+
         string[] characters = Range(0x0020, 0x017F);
         Dictionary<string, string> ace = AceKeys(TestDatabases.NorthwindAccdb, "general", characters);
         var derived = new SortedDictionary<char, (byte Weight, string From)>();
@@ -453,6 +463,9 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
     [InlineData("Thai")]
     public void Generate_tailoring_for(string fixture)
     {
+        Assert.SkipUnless(Environment.GetEnvironmentVariable("LIBRED_TAILORING_GENERATOR") == "1",
+            "set LIBRED_TAILORING_GENERATOR=1 — this generates weight tables through ACE");
+
         string source = TestDatabases.Data($"{fixture}.accdb");
         Assert.SkipWhen(!File.Exists(source), $"{fixture}.accdb is not present");
 
@@ -513,7 +526,7 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
         {
             Name = "K", Type = JetDataType.Text, Index = 0, Collation = Collation.GeneralLegacy,
         };
-        try { return Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [text])) == expected; }
+        try { return Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [text])) == expected; }
         catch (NotSupportedException) { return false; }
     }
 

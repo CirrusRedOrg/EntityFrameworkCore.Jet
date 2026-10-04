@@ -14,9 +14,9 @@
 | `0x15` | 1 | Version **minor** byte: **`0x01` on a database created in the 2010 format (version `0x03`)**, `0x00` when created in any other. **A version raise writes `0x00`** whatever the target — including a raise *onto* `0x03`. Purpose otherwise unknown |
 | `0x16` | 2 | Unknown (zero observed) |
 | `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with the RC4 keystream of the key `C7 DA 39 6B` (§2.1). Jet 3 masks 126 bytes. Fields below are offsets into it. |
-| `0x18` | 4 | **Global free-pages map pointer** — `[row:1][page:3]`; `0x00000100` = page 1 row 0 in every file ACE writes ([page-05 §9.1](page-05-usage-maps.md)) |
-| `0x1C` | 4 | **Global released-pages map pointer** — `[row:1][page:3]`; `0x00000101` = page 1 row 1 ([page-05 §9.1](page-05-usage-maps.md)) |
-| `0x20`–`0x2C` | 4×4 | **System-catalog bootstrap pointers**: TDEF pages of `MSysObjects` / `MSysACEs` / `MSysQueries` / `MSysRelationships` = `2, 3, 4, 5`. `0x20` is the **catalog root** (how the engine finds `MSysObjects`). |
+| `0x18` | 4 | **Global free-pages map pointer** — `[row:1][page:3]`; `0x00000100` = page 1 row 0 where ACE creates it; ACE follows the pointer wherever it points ([page-05 §9.1](page-05-usage-maps.md)) |
+| `0x1C` | 4 | **Global released-pages map pointer** — `[row:1][page:3]`; `0x00000101` = page 1 row 1 where ACE creates it ([page-05 §9.1](page-05-usage-maps.md)) |
+| `0x20`–`0x2C` | 4×4 | **System-catalog bootstrap pointers**: TDEF pages of `MSysObjects` / `MSysACEs` / `MSysQueries` / `MSysRelationships` — wherever the creator put them (`2, 3, 4, 5` in a file the reference engine creates). `0x20` is the **catalog root** (how the engine finds `MSysObjects`). |
 | `0x30`–`0x3B` | 12 | In a workgroup file (`Jet System DB`), `0x30`/`0x34` hold the TDEF pages of `MSysAccounts`/`MSysGroups`; zero in an ordinary database, which has neither table. ACE range-checks `0x30` and `0x34` as `[row:1][page:3]` pointers, against the largest possible page only (see below) |
 | `0x3C` | 2 | **ANSI code page** of the collation's language — LE (`0x04E4` = 1252, `0x04E2` = 1250, `0` = none); see below |
 | `0x3E` | 4 | **Database (encryption) key** — 0 when there is no password |
@@ -62,7 +62,7 @@ files fall back to `0x03` (verified; Access 2013 defaults to the 2007-2016 forma
 > byte cannot be opened by any provider; restamping `0x14` to `0x03` makes the identical bytes open.
 >
 > The format at `0x04` is otherwise exactly `0x03`, so LibRed is deliberately **asymmetric**: `FromVersionByte`
-> accepts the byte and reads the 2010 layout, while `DatabaseCreator.CreateEmpty` refuses to write it and points
+> accepts the byte and reads the 2010 layout, while `JetDatabase.Create` refuses to write it and points
 > the caller at `Version14_2010`.
 
 A genuinely **unknown** version byte on an `.accdb` that still carries the cleartext `"4.0"` engine string at
@@ -115,18 +115,21 @@ ten past the end of a 353-page file, or page 500,000, opens as readily — which
 exist" check `0x18` and `0x1C` get. `0x38` takes any value at all.
 
 **What they point at (verified):** the workgroup tables. In a workgroup file `0x30` holds the TDEF page of
-`MSysAccounts` and `0x34` that of `MSysGroups` — pages 6 and 7, straight after the four catalog TDEFs at
-`0x20`–`0x2C` — each with the row byte zero, so they read the same as a plain page number or as `[row][page]`.
+`MSysAccounts` and `0x34` that of `MSysGroups` — wherever the creator put them (straight after the four catalog
+TDEFs where Jet creates a workgroup file) — each with the row byte zero, so they read the same as a plain page number or as `[row][page]`.
 `0x38` is zero there too. An ordinary database has neither table and carries zero in both; zero is accepted,
 and a compact zeroes a value poked into one. A writer must leave all three as it found them.
 
 **Catalog bootstrap.** Reading the database is a two-step hop from page 0: the pointer at `0x20` gives the
-`MSysObjects` TDEF page (2), and `MSysObjects` then lists every other object (each table's row `Id` is *its*
-TDEF page). LibRed reads `0x20` into `DatabaseDefinitionPage.CatalogRootPage` and hands it to `JetCatalog`
-(falling back to page 2 only if it reads 0). Verified: the four pointer values equal the objects'
+`MSysObjects` TDEF page, and `MSysObjects` then lists every other object (each table's row `Id` is *its*
+TDEF page). LibRed reads `0x20` into `DatabaseDefinitionPage.CatalogRootPage` and hands it to `JetCatalog`,
+with no fallback: `MSysObjects`' own row `Id` names the same page, but that row can only be read once the
+table has been found. Verified: the four pointer values equal the objects'
 `MSysObjects.Id` and each names a real TDEF page.
 
-> **Creation from scratch (implemented — `DatabaseCreator`).** A minimal bootable page 0 needs the mask, the
+> **Creation from scratch (implemented — `JetDatabase.Create`).** Catalog bootstrap definitions and initial
+> registration live in `JetCatalog`; the global usage-map builder lives in `UsageMap`.
+> A minimal bootable page 0 needs the mask, the
 > code page / collation / creation date, and this pointer block aimed at the four core system tables
 > (`MSysObjects`, `MSysACEs`, `MSysQueries`, `MSysRelationships`) — the minimum catalog a new file must
 > contain. LibRed synthesises all of this natively (no DAO/ADOX, no template copy) and the result opens
@@ -136,6 +139,11 @@ TDEF page). LibRed reads `0x20` into `DatabaseDefinitionPage.CatalogRootPage` an
 > (with the nav-pane long SID) on first open (verified).
 
 > **How the reference engine lays out a new file** (DAO-created ACE 12, 42 pages).
+> **None of these placements is part of the format.** Every structure here is found through a pointer — the
+> global maps through `0x18`/`0x1C`, the core TDEFs through `0x20`–`0x2C`, each table's usage maps through its
+> TDEF's `0x37`/`0x3B`, each index root through its index-data block, every other TDEF through its
+> `MSysObjects.Id` — so any of them may sit on any page. This is only the order ACE allocates in when it
+> creates a file, and a reader or writer must follow the pointers rather than assume it.
 > Per table the allocation order is **TDEF → usage-map page → one page per index root**, in table-creation
 > order; both usage maps share one page (owned = row 0, free = row 1, inline), which is what every TDEF's
 > `0x37`/`0x3B` pointers show. A **foreign key's** index root comes after its relationship's
@@ -146,7 +154,7 @@ TDEF page). LibRed reads `0x20` into `DatabaseDefinitionPage.CatalogRootPage` an
 > | pages | contents |
 > | --- | --- |
 > | `0`, `1` | database definition; the global free-pages (row 0) and released-pages (row 1) maps |
-> | `2`–`5` | the four core TDEFs — fixed, because page 0's bootstrap pointers name them |
+> | `2`–`5` | the four core TDEFs — here by allocation order alone; page 0's bootstrap pointers are what name them |
 > | `6`, `9`, `11`, `13` | usage maps for MSysObjects / MSysACEs / MSysQueries / MSysRelationships |
 > | `7`, `8`, `10`, `12`, `14`–`16` | their index roots (2 + 1 + 1 + 3), each a leaf page |
 > | `17` | MSysObjects' first data page — the catalog rows |
@@ -170,18 +178,18 @@ Observed values:
 | value | engine build |
 | --- | --- |
 | `0x000011A6` (4518) | ACE `12.0.4518` — Office 2007 RTM |
+| `0x00002649` (9801) | Jet `4.0.9801` |
 | `0x0000261C` (9756) | Jet `4.0.9756` |
 | `0x000021AA` (8618) | Jet `4.0.8618` |
 | `0x00000B6F` (2927) | Jet `4.0.2927` — SP3 |
 | `0x000009D9` (2521) | Jet `4.0.2521` — RTM |
 
 **ACE writes 4518 unconditionally** — every ACE version (12/14/16/17) stamps its own RTM build, including when
-writing a Jet 4 `.mdb`. A Jet 4 build appears only in a file a real `msjet40.dll` created, and is that engine's
-service-pack build.
+writing a Jet 4 `.mdb`. A Jet 4 build is stamped by `msjet40.dll`, and is that engine's service-pack build.
 
 > That the value *is* an engine build is **inferred** — from the observed values coinciding with shipped build
 > numbers — not measured. That the field varies, and varies only across Jet 4 files of differing vintage, is
-> measured. LibRed writes 4518.
+> measured. LibRed writes `0x2649` (9801) when it creates a Jet 4 `.mdb` and 4518 when it creates an ACCDB.
 
 ### 2.1 The obfuscated header (`0x18`–`0x98`)
 
@@ -191,9 +199,9 @@ not a per-file salt. Past the window the bytes are in the clear: a fixed constan
 the NUL-terminated ASCII engine-version string **`"4.0"`** at `0x9C` (the Jet 4.0 version — identical in
 `.mdb` and `.accdb`), then zero padding.
 
-**The mask.** The keystream's first 128 bytes are below; LibRed holds them as a constant
-(`JetFormatBase.PageZeroHeaderMask`) and de-obfuscates the whole region once in
-`DatabaseDefinitionPage.Read`. RC4 under `C7 DA 39 6B` reproduces them exactly (verified):
+**The mask.** The keystream's first 128 bytes are below. RC4 under `C7 DA 39 6B` reproduces them exactly
+(verified), so LibRed generates the mask from the key and length its format names
+(`JetFormatBase.PageZeroHeaderMask`) and de-obfuscates the whole region once in `DatabaseDefinitionPage.Read`:
 
 ```
 B5 6F 03 62 61 08 C2 55 EB A9 67 72 43 3F 00 9C   ; 0x18
@@ -248,7 +256,7 @@ no-password files and an empty password that unmasks to the creation-date-derive
     whole-file encryption, password change and removal, and against an Access-encrypted file). The field
     changes with every new key, so Access's encryption moves the SID keystream (§2.3). `DatabaseEncryption`
     writes it the same way on every `.accdb` set, change and removal.
-- **Writing it:** `DatabaseCreator.CreateEmpty(path, version, collation)` (and
+- **Writing it:** `JetDatabase.Create(path, version, collation)` (and
   `LibRedConnection.CreateDatabase(connectionString, collation)`) set this pair, defaulting to General-Legacy.
   The chosen collation goes into page 0 *and* into the system tables' column descriptors, and
   `JetDatabase.Collation` reads it back so every table created later inherits it — matching Access, which
@@ -347,7 +355,7 @@ unregistered slot — matching the idle `00 01`.
 
 > **Creation must seed this.** A freshly created file has no users, so every slot must be the neutral
 > `00 01`, **not** zero — an all-zero table reads as "every user is mid-write," which Access rejects as
-> corrupt. `DatabaseCreator.BuildDefinitionPage` fills `0xE00`–`0xFFF` with the repeating `00 01`.
+> corrupt. `DatabaseDefinitionPage.Build` fills `0xE00`–`0xFFF` with the repeating `00 01`.
 
 ### 2.3 Creation date ⇄ security-SID coupling (verified)
 
@@ -389,7 +397,8 @@ by the `Engine` account (`02-03`) in every file, so `mask = MSysObjects.Owner ^ 
 account follows from it: an owner of `680E` gives mask `6A-0D`, under which that file's `690C` / `680C` / `6809`
 are `admin` / `Users` / `Creator`. That is how a writer adding an object to a file it did not create gets the
 SIDs right ([system-catalog §11](system-catalog.md)). The whole keystream also follows from page 0 alone, by the
-derivation below, which is what serves when that row cannot be read.
+derivation below — and only page 0 is sure to: after a key change Access can leave `MSysObjects`' own owner
+un-re-masked (below), so its row then gives the old mask. LibRed takes every SID from page 0.
 
 The keystream is **bound to the exact millisecond-precise creation-date `double`** at `0x72`: a file with
 self-consistent SIDs but a *different* creation date is rejected with *"Record(s) cannot be read; no read
@@ -453,9 +462,9 @@ key = LE32(pageNumber XOR databaseKey)
 ```
 
 and the page bytes are the RC4 keystream XOR'd over the plaintext. This is the same per-page key mixing ACE
-Agile uses (`LE32(pageNumber) XOR encodingKey`), just feeding RC4 directly instead of deriving an AES IV.
+Agile uses (`LE32(pageNumber XOR databaseKey)`), just feeding RC4 directly instead of deriving an AES IV.
 Verified against a real `System.mdw`: the page-number mixing is XOR, not ADD; every page decrypts to a valid
-page type (page 1 → `0x0101` data, pages 2/3 → `0x0102` TDEF, index pages → `0x0104`), `MSysObjects`/`MSysACEs`
+page type (the global map holder → `0x0101` data, the catalog TDEFs → `0x0102`, index pages → `0x0104`), `MSysObjects`/`MSysACEs`
 parse, and `MSysAccounts` yields the account SIDs in §2.3. Implemented as `LibRed.Crypto.JetLegacyEncryption`;
 `PageChannel` selects it for non-ACE (`!IsAccdb`) files with a nonzero database key.
 

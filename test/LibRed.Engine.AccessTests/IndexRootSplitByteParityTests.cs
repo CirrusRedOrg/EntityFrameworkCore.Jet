@@ -1,6 +1,8 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed;
+using LibRed.Formats;
+using LibRed.Pages;
+using LibRed.Storage;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -18,8 +20,6 @@ namespace LibRed.Engine.Tests;
 [Collection(AceCollection.Name)]
 public class IndexRootSplitByteParityTests
 {
-    private const int PageSize = 4096;
-
     // 204-character keys, so a leaf holds 17 and splits on the 18th.
     private static string Wide(int i) => $"K{i:D4}" + new string('x', 200);
 
@@ -45,7 +45,9 @@ public class IndexRootSplitByteParityTests
         try
         {
             byte[] before = File.ReadAllBytes(seeded);
-            Assert.True(IndexPages(before, Tdef(seeded, "NodeSplit")).Count(p => before[p * PageSize] == 0x03) == 1,
+            int pageSize = JetFormatBase.Detect(new MemoryStream(before)).PageSize;
+            Assert.True(IndexPages(before, Tdef(seeded, "NodeSplit"))
+                    .Count(p => PageHeader.ReadType(before.AsSpan(p * pageSize)) == PageType.IntermediateIndexPage) == 1,
                 "The seed was meant to leave a single root node.");
             AssertInsertMatchesAce(seeded, "NodeSplit", $"INSERT INTO NodeSplit (k) VALUES ('{Spread(227)}')");
         }
@@ -99,15 +101,18 @@ public class IndexRootSplitByteParityTests
                     cmd.CommandText = sql;
                     cmd.ExecuteNonQuery();
                 }
+            int pageSize;
             using (var db = JetDatabase.Open(libred, readOnly: false))
             {
+                pageSize = db.Format.PageSize;
                 var engine = new QueryEngine(db);
                 foreach (string sql in inserts) engine.ExecuteNonQuery(sql);
             }
 
             int tdef = Tdef(empty, "Ascending");
             byte[] a = File.ReadAllBytes(ace), l = File.ReadAllBytes(libred);
-            Assert.True(IndexPages(a, tdef).Count(p => a[p * PageSize] == 0x03) >= 3, "The load was meant to split a node.");
+            Assert.True(IndexPages(a, tdef).Count(p => PageHeader.ReadType(a.AsSpan(p * pageSize)) == PageType.IntermediateIndexPage) >= 3,
+                "The load was meant to split a node.");
             Assert.Equal(Shape(a, tdef), Shape(l, tdef));
         }
         finally
@@ -141,16 +146,21 @@ public class IndexRootSplitByteParityTests
                     cmd.CommandText = ddl;
                     cmd.ExecuteNonQuery();
                 }
+                int pageSize;
                 using (var db = JetDatabase.Open(libred, readOnly: false))
+                {
+                    pageSize = db.Format.PageSize;
                     new QueryEngine(db).ExecuteNonQuery(ddl);
+                }
 
                 byte[] a = File.ReadAllBytes(ace), l = File.ReadAllBytes(libred);
-                Assert.True(a.Length == l.Length, $"ACE's file has {a.Length / PageSize} pages, LibRed's {l.Length / PageSize}.");
-                Assert.True(IndexPages(a, tdef).Any(p => a[p * PageSize] == 0x03), "The index was meant to have a node.");
+                Assert.True(a.Length == l.Length, $"ACE's file has {a.Length / pageSize} pages, LibRed's {l.Length / pageSize}.");
+                Assert.True(IndexPages(a, tdef).Any(p => PageHeader.ReadType(a.AsSpan(p * pageSize)) == PageType.IntermediateIndexPage),
+                    "The index was meant to have a node.");
                 // The index's pages, and the definition that points at its root.
                 foreach (int page in IndexPages(a, tdef).Union(IndexPages(l, tdef)).Append(tdef))
                 {
-                    int differ = Enumerable.Range(0, PageSize).FirstOrDefault(b => a[page * PageSize + b] != l[page * PageSize + b], -1);
+                    int differ = Enumerable.Range(0, pageSize).FirstOrDefault(b => a[page * pageSize + b] != l[page * pageSize + b], -1);
                     Assert.True(differ < 0, $"{rows} rows: page {page} differs from ACE's at 0x{differ:X3}.");
                 }
             }
@@ -196,17 +206,21 @@ public class IndexRootSplitByteParityTests
                 cmd.CommandText = insert;
                 cmd.ExecuteNonQuery();
             }
+            int pageSize;
             using (var db = JetDatabase.Open(libred, readOnly: false))
+            {
+                pageSize = db.Format.PageSize;
                 new QueryEngine(db).ExecuteNonQuery(insert);
+            }
 
             byte[] a = File.ReadAllBytes(ace), l = File.ReadAllBytes(libred);
             Assert.True(IndexPages(a, tdef).Count > IndexPages(File.ReadAllBytes(seeded), tdef).Count,
                 $"{insert[..Math.Min(60, insert.Length)]}…: the insert was meant to split a page.");
-            Assert.True(a.Length == l.Length, $"{insert}: ACE's file has {a.Length / PageSize} pages, LibRed's {l.Length / PageSize}.");
+            Assert.True(a.Length == l.Length, $"{insert}: ACE's file has {a.Length / pageSize} pages, LibRed's {l.Length / pageSize}.");
             foreach (int page in IndexPages(a, tdef).Union(IndexPages(l, tdef)))
             {
-                int differ = Enumerable.Range(0, PageSize).FirstOrDefault(
-                    b => a[page * PageSize + b] != l[page * PageSize + b], -1);
+                int differ = Enumerable.Range(0, pageSize).FirstOrDefault(
+                    b => a[page * pageSize + b] != l[page * pageSize + b], -1);
                 Assert.True(differ < 0, $"{insert[..Math.Min(60, insert.Length)]}…: page {page} differs from ACE's at 0x{differ:X3}.");
             }
         }
@@ -222,18 +236,22 @@ public class IndexRootSplitByteParityTests
     private static string Shape(byte[] file, int tdef)
     {
         List<int> pages = IndexPages(file, tdef);
-        int At(int page, int offset) => BinaryPrimitives.ReadInt32LittleEndian(file.AsSpan(page * PageSize + offset, 4));
+        JetFormatBase format = JetFormatBase.Detect(new MemoryStream(file));
+        int pageSize = format.PageSize;
         var levels = new List<string>();
-        foreach (IGrouping<byte, int> level in pages.GroupBy(p => file[p * PageSize + 0x1A]).OrderByDescending(g => g.Key))
+        foreach (IGrouping<byte, int> level in pages.GroupBy(p => file[p * pageSize + format.IndexLevelOffset]).OrderByDescending(g => g.Key))
         {
             var byPage = level.ToHashSet();
             var shapes = new List<string>();
-            for (int p = level.Single(q => At(q, 0x0C) == 0); p != 0 && byPage.Contains(p); p = At(p, 0x10))
+            for (int p = level.Single(q => IndexTree.ReadSiblings(file.AsSpan(q * pageSize, pageSize), format).Previous == 0);
+                 p != 0 && byPage.Contains(p);
+                 p = IndexTree.ReadSiblings(file.AsSpan(p * pageSize, pageSize), format).Next)
             {
                 int entries = 0;
-                for (int i = 0x1B; i < 0x1E0; i++) entries += System.Numerics.BitOperations.PopCount(file[p * PageSize + i]);
-                shapes.Add($"{entries}/{BinaryPrimitives.ReadUInt16LittleEndian(file.AsSpan(p * PageSize + 0x18))}/" +
-                           $"{BinaryPrimitives.ReadUInt16LittleEndian(file.AsSpan(p * PageSize + 2))}");
+                for (int i = format.IndexEntryMaskOffset; i < format.IndexEntryDataOffset; i++)
+                    entries += System.Numerics.BitOperations.PopCount(file[p * pageSize + i]);
+                shapes.Add($"{entries}/{IndexTree.ReadCompressedByteCount(file.AsSpan(p * pageSize, pageSize), format)}/" +
+                           $"{IndexTree.ReadFreeSpace(file.AsSpan(p * pageSize, pageSize), format)}");
             }
             levels.Add($"level {level.Key}: {string.Join(" ", shapes)}");
         }
@@ -242,10 +260,12 @@ public class IndexRootSplitByteParityTests
 
     private static List<int> IndexPages(byte[] file, int tdef)
     {
+        JetFormatBase format = JetFormatBase.Detect(new MemoryStream(file));
+        int pageSize = format.PageSize;
         var pages = new List<int>();
-        for (int p = 0; p < file.Length / PageSize; p++)
-            if (file[p * PageSize] is 0x03 or 0x04
-                && BinaryPrimitives.ReadInt32LittleEndian(file.AsSpan(p * PageSize + 4, 4)) == tdef)
+        for (int p = 0; p < file.Length / pageSize; p++)
+            if (PageHeader.ReadType(file.AsSpan(p * pageSize)) is PageType.IntermediateIndexPage or PageType.LeafIndexPage
+                && IndexTree.ReadOwner(file.AsSpan(p * pageSize, pageSize), format) == tdef)
                 pages.Add(p);
         return pages;
     }

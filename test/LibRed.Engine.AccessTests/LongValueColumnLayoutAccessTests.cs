@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed.Catalog;
 using LibRed.Engine;
@@ -88,8 +87,9 @@ public class LongValueColumnLayoutAccessTests(ITestOutputHelper output) : TempDa
     {
         using var channel = PageChannel.Open(path, readOnly: true);
         var table = new JetCatalog(channel).FindTable("LayoutProbe")!;
-        var header = channel.ReadPage(table.DefinitionPage);
-        output.WriteLine($"{stage}: highWater={BinaryPrimitives.ReadUInt16LittleEndian(header.Span.Slice(channel.Format.TdefMaxColumnsOffset, 2))}, varCount={BinaryPrimitives.ReadUInt16LittleEndian(header.Span.Slice(channel.Format.TdefVariableColumnsOffset, 2))}");
+        var header = new TableDefinition();
+        header.Read(channel, table.DefinitionPage);
+        output.WriteLine($"{stage}: highWater={header.ColumnIdHighWater}, varCount={header.VariableColumnCount}");
         foreach (var c in table.Columns)
             output.WriteLine($"{c.Name}: id={c.ColumnId}, ordinal={c.Index}, var={c.VariableIndex}, fixedOffset={c.FixedOffset}, descriptor={Convert.ToHexString(c.RawDescriptor!)}");
         foreach (int number in new UsageMap(channel, table).DataPages())

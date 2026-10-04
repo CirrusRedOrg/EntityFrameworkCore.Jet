@@ -39,19 +39,30 @@ EFCore → Ado → Engine → Sql
 EF Core services **both** providers share. Nothing under `src/LibRed` references `EFCore.Jet` or
 `EFCore.Jet.Data`, which is what keeps LibRed off the ACE-bound, Windows-only path.
 
-## Layering inside LibRed.Core
+## Ownership inside LibRed.Core
 
-```
-Storage  (Table, TableCursor, RowDecoder, UsageMap, Types/JetTypeCodec)
-   ↓
-Catalog  (JetCatalog → TableDef / ColumnDef / IndexDef, JetDataType)
-   ↓
-Pages    (DatabaseDefinition, TableDefinition, Data, Index, UsageMap, Lval)
-   ↓
-IO       (PageChannel, PageBuffer)   ← Crypto decrypts pages here
-   ↓
-Formats  (JetFormatBase — Jet 4 / ACE offsets & constants; Jet3Format is a stub overriding none yet)
-```
+Each stored structure owns its layout and both directions of its codec. Schema changes use these owners
+through `SchemaEditor`; there is one table definition, one database definition and one allocator per channel.
+
+Engine uses Core's public API only. `JetDatabase` owns schema operations, and `Table.Insert`, `Update` and
+`Delete` maintain the row and its indexes together; deletion also removes the row's owned complex values.
+Raw page writes, allocation, schema writers and separate
+index mutations are internal. Published table and catalog metadata collections are read-only views.
+SQL expression checks, relationships and cascades are enforced by Engine before calling these storage operations.
+
+| Area | Owners |
+| --- | --- |
+| Database and data pages | `DatabaseDefinitionPage`, `DataPage` (including released states and relocation targets) |
+| Table definitions | `TableDefinition`: metadata, descriptors, index blocks, chain reads and writes |
+| Rows and values | `RowCodec` (layout and declaration limits), `JetTypeCodec`, `CalculatedValue`, `LongValueStore` |
+| Indexes | `IndexTree` (leaf and intermediate pages), `IndexKeyCodec` (encoding, decoding and truncation checksum), `IndexCursor` (traversal) |
+| Maps and allocation | `UsageMap` reads and writes maps; `PageChannel.Allocator` owns page reuse, growth and release |
+| Catalog and schema | `JetCatalog`, `SchemaEditor`, `PropertyBlob`, `NameMap`, `StoredQuery`, `ComplexAttachment` |
+| File access | `PageChannel`, `PageBuffer`, cache, transactions and locks; Crypto codecs transform pages here |
+| Version differences | `JetFormatBase` and its Jet/ACE implementations; format code and flag enums |
+
+Page types `0x0108` and `0x0109` are release states of `TableDefinition` and `DataPage`. The unknown
+`0x0106` and `0x0107` layouts have no implementation. See [the format reference](docs/format/README.md).
 
 ## Status
 
@@ -178,7 +189,7 @@ Treat the number as of its date — an EF Core version bump moves it.
   Column `DEFAULT` values are persisted to the table's `LvProp` property blob (on an LVAL page),
   read back onto the column, and applied when an insert omits the column — **and Access honors them too**.
   Table-level `CHECK` constraints are persisted to the `LvProp` `CheckConstraints` property (verbatim
-  expression text) and read back onto `TableDef.CheckConstraints` — **and Access enforces them**.
+  expression text) and read back onto `TableDefinition.CheckConstraints` — **and Access enforces them**.
   From files Access wrote, a relationship's 1:1 flag (`grbit` `0x01`) is read and reported as ONE/MANY by
   `INFORMATION_SCHEMA`, and a column's `ValidationRule`/`ValidationText` are read off the same property blob,
   reported by `INFORMATION_SCHEMA` and kept through a rewrite.
@@ -200,7 +211,7 @@ Treat the number as of its date — an EF Core version bump moves it.
   `No`/`Off` are `True` and `False`; any word, reserved or not, names a column after a `.` or `!`
   (`qryHistory.Key`); and an unbracketed name may be in any script (`Bevételek.Datum`, `Номер`).
   `WITH COMPRESSION` on a Text column is honoured end to end — it maps onto `SupportsCompressedUnicode`,
-  `TdefBuilder` writes the `0x01` extended-flag bit, and `JetTypeCodec` gates compressed encoding on it.
+  `TableDefinition` writes the `0x01` extended-flag bit, and `JetTypeCodec` gates compressed encoding on it.
   Function arguments are arity-checked against a per-function range table, so a wrong count raises rather
   than being silently ignored.
   Plan nodes: Scan / IndexScan / IndexSeek / IndexRangeSeek / Filter / Project / Join / HashJoin / Aggregate /

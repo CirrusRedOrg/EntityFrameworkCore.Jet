@@ -18,10 +18,10 @@ public class DropViewProcedureTests : TempDatabaseTest
     {
         var e = Fresh();
         e.ExecuteNonQuery("CREATE VIEW V AS SELECT ProductID FROM Products");
-        Assert.True(e.Database.Catalog.Views.ContainsKey("V"));
+        Assert.NotNull(e.Database.Catalog.FindQuery("V"));
 
         e.ExecuteNonQuery("DROP VIEW V");
-        Assert.False(e.Database.Catalog.Views.ContainsKey("V"));      // gone
+        Assert.Null(e.Database.Catalog.FindQuery("V"));              // gone
         Assert.Throws<LibRed.Sql.Binding.SqlBindException>(() => e.ExecuteQuery("SELECT * FROM V"));
         Assert.Equal(0, e.ExecuteNonQuery("CREATE VIEW V AS SELECT ProductID FROM Products")); // name reusable
     }
@@ -32,8 +32,7 @@ public class DropViewProcedureTests : TempDatabaseTest
         var e = Fresh();
         e.ExecuteNonQuery("CREATE PROCEDURE Pr n LONG AS SELECT ProductID FROM Products WHERE ProductID = n");
         e.ExecuteNonQuery("DROP PROCEDURE Pr");
-        Assert.False(e.Database.Catalog.ActionQueries.ContainsKey("Pr"));
-        Assert.False(e.Database.Catalog.Views.ContainsKey("Pr"));
+        Assert.Null(e.Database.Catalog.FindQuery("Pr"));
     }
 
     [Fact]
@@ -43,7 +42,7 @@ public class DropViewProcedureTests : TempDatabaseTest
         // ACE lets either statement drop either object; LibRed matches.
         e.ExecuteNonQuery("CREATE VIEW V2 AS SELECT ProductID FROM Products");
         e.ExecuteNonQuery("DROP PROCEDURE V2");                        // drop a view via DROP PROCEDURE
-        Assert.False(e.Database.Catalog.Views.ContainsKey("V2"));
+        Assert.Null(e.Database.Catalog.FindQuery("V2"));
 
         Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("DROP VIEW Nope"));
     }

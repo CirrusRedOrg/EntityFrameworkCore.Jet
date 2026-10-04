@@ -34,7 +34,7 @@ public class ControlCharacterKeyAccessTests
 
         var column = new ColumnDef { Name = "T", Type = JetDataType.Text, Index = 0, Collation = collation };
         var wrong = ace
-            .Where(k => Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [k.Key])) != k.Value)
+            .Where(k => Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [k.Key])) != k.Value)
             .Select(k => $"{string.Join("+", k.Key.Select(ch => $"U+{(int)ch:X4}"))}: ACE {k.Value}")
             .ToList();
         Assert.True(wrong.Count == 0, string.Join("; ", wrong));
@@ -45,7 +45,7 @@ public class ControlCharacterKeyAccessTests
         string path = TemporaryDatabase.CreatePath("control-keys-", ".accdb");
         try
         {
-            DatabaseCreator.CreateEmpty(path, collation: collation);
+            JetDatabase.Create(path, collation: collation);
             using (OleDbConnection ace = AceTestDatabase.Open(path))
             {
                 Exec(ace, "CREATE TABLE K (Id LONG, T TEXT(10))");

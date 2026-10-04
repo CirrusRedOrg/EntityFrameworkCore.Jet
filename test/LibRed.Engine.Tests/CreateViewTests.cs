@@ -42,7 +42,7 @@ public class CreateViewTests
 
             using (var db = JetDatabase.Open(path)) // fresh open: read from the file
             {
-                Assert.Equal("SELECT 1 AS [n]", db.Catalog.Views["Const"]);
+                Assert.Equal("SELECT 1 AS [n]", db.Catalog.FindQuery("Const")!.Sql);
                 Assert.Equal(1, new QueryEngine(db).ExecuteQuery("SELECT `n` FROM `Const`").Rows.Single()[0]);
             }
         }
@@ -60,7 +60,7 @@ public class CreateViewTests
             using var db = JetDatabase.Open(path, readOnly: false);
             var e = new QueryEngine(db);
             e.ExecuteNonQuery("CREATE VIEW [ Spaced] AS SELECT 1 AS [n]");
-            Assert.Contains("Spaced", db.Catalog.Views.Keys);
+            Assert.Contains("Spaced", db.Catalog.Queries.Keys);
 
             Assert.Throws<ArgumentException>(() => e.ExecuteNonQuery("CREATE PROCEDURE [ Proc] AS SELECT 1 AS [n]"));
         }

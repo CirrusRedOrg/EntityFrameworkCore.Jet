@@ -1,6 +1,7 @@
 using System.Data.OleDb;
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Pages;
 using LibRed.Storage;
 using Xunit;
 
@@ -145,8 +146,6 @@ public class IndexSplitAccessTests(ITestOutputHelper output)
         foreach ((RowId id, object?[] values) in table.Rows().WithIds().ToList())
         {
             if (Convert.ToInt32(values[0]) >= 700) continue;
-            foreach (IndexDef index in table.Definition.RealIndexes)
-                table.RemoveIndexEntry(index, values, id);
             table.Delete(id);
         }
     }
@@ -157,7 +156,7 @@ public class IndexSplitAccessTests(ITestOutputHelper output)
     private static void AssertChainIsIntact(string path, string table)
     {
         using var channel = LibRed.IO.PageChannel.Open(path, readOnly: true);
-        TableDef definition = new LibRed.Catalog.JetCatalog(channel).FindTable(table)!;
+        TableDefinition definition = new LibRed.Catalog.JetCatalog(channel).FindTable(table)!;
         IndexDef def = definition.Indexes.First(i => i.IsPrimaryKey);
 
         var fromRoot = new HashSet<int>();
@@ -167,17 +166,17 @@ public class IndexSplitAccessTests(ITestOutputHelper output)
         {
             int number = pending.Pop();
             LibRed.IO.PageBuffer buffer = channel.ReadPage(number);
-            if (buffer.ReadByte(0) == 0x04) { fromRoot.Add(number); continue; }
-            int tail = buffer.ReadInt32(0x14);
+            if (PageHeader.ReadType(buffer.Span) == PageType.LeafIndexPage) { fromRoot.Add(number); continue; }
+            int tail = buffer.ReadInt32(channel.Format.IndexChildTailOffset);
             if (tail > 0) pending.Push(tail);
-            foreach ((byte[] _, int child) in LibRed.Storage.IndexPageReader.DecodeEntries(
-                         LibRed.Storage.IndexPageReader.Read(channel, number, null)))
+            foreach ((byte[] _, int child) in LibRed.Storage.IndexTree.DecodeEntries(
+                         LibRed.Storage.IndexTree.Read(channel, number, null)))
                 pending.Push(child);
         }
 
-        int leftmost = fromRoot.Single(p => channel.ReadPage(p).ReadInt32(0x0C) == 0);
+        int leftmost = fromRoot.Single(p => LibRed.Storage.IndexTree.ReadSiblings(channel.ReadPage(p).Span, channel.Format).Previous == 0);
         var chain = new List<int>();
-        for (int at = leftmost; at != 0; at = channel.ReadPage(at).ReadInt32(0x10)) chain.Add(at);
+        for (int at = leftmost; at != 0; at = LibRed.Storage.IndexTree.ReadSiblings(channel.ReadPage(at).Span, channel.Format).Next) chain.Add(at);
 
         Assert.Equal(fromRoot.OrderBy(p => p), chain.OrderBy(p => p));
     }
@@ -194,7 +193,7 @@ public class IndexSplitAccessTests(ITestOutputHelper output)
     private static List<string> Describe(string path, string table)
     {
         using var channel = LibRed.IO.PageChannel.Open(path, readOnly: true);
-        TableDef definition = new LibRed.Catalog.JetCatalog(channel).FindTable(table)!;
+        TableDefinition definition = new LibRed.Catalog.JetCatalog(channel).FindTable(table)!;
         IndexDef def = definition.Indexes.First(i => i.IsPrimaryKey);
 
         var lines = new List<string>();
@@ -207,15 +206,17 @@ public class IndexSplitAccessTests(ITestOutputHelper output)
             if (!seen.Add(number)) continue;
             LibRed.IO.PageBuffer buffer = channel.ReadPage(number);
             byte type = buffer.ReadByte(0);
-            int prev = buffer.ReadInt32(0x0C), next = buffer.ReadInt32(0x10), tail = buffer.ReadInt32(0x14);
+            Formats.JetFormatBase format = channel.Format;
+            (int prev, int next) = LibRed.Storage.IndexTree.ReadSiblings(buffer.Span, format);
+            int tail = buffer.ReadInt32(format.IndexChildTailOffset);
             int entries = 0;
-            for (int at = 0x1B; at < 0x1E0; at++) entries += System.Numerics.BitOperations.PopCount(buffer.ReadByte(at));
+            for (int at = format.IndexEntryMaskOffset; at < format.IndexEntryDataOffset; at++) entries += System.Numerics.BitOperations.PopCount(buffer.ReadByte(at));
             lines.Add($"page {number} type=0x{type:X2} entries={entries} prev={prev} next={next} tail={tail}");
 
-            if (type != 0x03) continue;   // 0x03 = node, 0x04 = leaf
+            if (PageHeader.ReadType(buffer.Span) != PageType.IntermediateIndexPage) continue;   // 0x03 = node, 0x04 = leaf
             if (tail > 0) pending.Push(tail);
-            foreach ((byte[] _, int child) in LibRed.Storage.IndexPageReader.DecodeEntries(
-                         LibRed.Storage.IndexPageReader.Read(channel, number, null)))
+            foreach ((byte[] _, int child) in LibRed.Storage.IndexTree.DecodeEntries(
+                         LibRed.Storage.IndexTree.Read(channel, number, null)))
                 pending.Push(child);
         }
         lines.Sort(StringComparer.Ordinal);

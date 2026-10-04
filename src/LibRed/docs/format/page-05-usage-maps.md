@@ -139,7 +139,7 @@ free = row 1); an index's map spills the same way rather than being squeezed in.
 >   > Beware comparing thresholds across table shapes: a **primary-keyed** table and a **key-less** one
 >   > convert at different page counts under the identical rule, because only the budget differs. A keyed
 >   > table's index usage map also *grows* with the index's pages (its own B-tree), further shrinking the
->   > owned map's budget — LibRed matches this (`IndexWriter` marks each index page it allocates).
+>   > owned map's budget — LibRed matches this (`IndexTree` marks each index page it allocates).
 
 > **Owned-row recycle on an index rebuild (verified vs ACE, §3.8).** When ACE rebuilds an index (e.g. an
 > `ALTER COLUMN` on an indexed column) it gives the index a **new** owned-pages usage-map row rather than
@@ -180,20 +180,22 @@ free = row 1); an index's map spills the same way rather than being squeezed in.
 Besides the per-table maps, the database has two **global** usage maps, found through page 0 rather than the
 catalog ([page-00 §2](page-00-database.md)):
 
-| Page 0 | Map | In every file ACE writes |
+| Page 0 | Map | Where ACE creates it |
 | --- | --- | --- |
 | `0x18` | **free pages** — a set bit is a page available for allocation | page 1, row 0 |
 | `0x1C` | **released pages** — a set bit is a page freed but not yet reusable | page 1, row 1 |
 
-Both are ordinary usage-map records (inline or reference form, §9) on a data page whose owner field
-(`0x04`) reads `0x00000001`, each starting as a 69-byte inline map with start page `0`. In the free map a
+Both are ordinary usage-map records (inline or reference form, §9) on a data page — whose owner field
+(`0x04`) reads `0x00000001` where ACE creates it, though nothing checks it (below) — each starting as a
+69-byte inline map with start page `0`. In the free map a
 **set bit means the page is free / available**, the *opposite* of a per-table owned map — verified by
 diffing before/after an ACE `CREATE TABLE`.
 
 **ACE follows the pointers; the location is not fixed.** Allocation uses whichever record `0x18` names, row
-included: pointed at page 1 row 1, ACE allocates from that map and leaves row 0 untouched. With both maps
+included: pointed at the released map's row on the same page, ACE allocates from that map and leaves the free
+map's row untouched. With both maps
 copied to another data page and the pointers aimed there, ACE allocates, releases and reopens entirely on
-that page and never reads or writes page 1; the holder page's owner field (`0x04`) is not checked. The two
+that page and never reads or writes the original holder; the holder page's owner field (`0x04`) is not checked. The two
 pointers must name **different** records — naming the same one clears the free map when the released map
 is emptied, and freed pages are lost.
 
@@ -249,9 +251,9 @@ to reference form. A non-empty one is *inferred* to be a release interrupted bef
 **Page allocation works through the free-pages map.** Access does **not** simply grow the file: it finds a
 set bit (a free page), **clears it** (marking the page used), and reuses that page — only growing
 the file when no free page remains. Verified: an ACE `CREATE TABLE` reuses free pages (for the TDEF,
-usage map, etc.), and the only change to page 1 is one cleared bit per page taken.
+usage map, etc.), and the only change to the free map's holder page is one cleared bit per page taken.
 
-> LibRed allocates **through** this map (`PageAllocator`), found as ACE finds it — through page 0's `0x18`
+> LibRed allocates **through** this map (the `PageChannel`'s single `PageAllocator`, which also owns file growth), found as ACE finds it — through page 0's `0x18`
 > pointer, row included — and never takes a page set in the released-pages map named at `0x1C`. A released
 > page at the end of the file is materialized, so the file stays contiguous, but not handed out. It takes a
 > free page, clears its bit, and reuses it — only growing the file when none is free — so its pages match

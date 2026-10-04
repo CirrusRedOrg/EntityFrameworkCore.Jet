@@ -1,7 +1,7 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed.Formats;
 using LibRed.IO;
+using LibRed.Pages;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -113,14 +113,14 @@ public class RelocatedRowGrowthAccessTests(ITestOutputHelper output) : TempDatab
             for (int page = 1; page < channel.PageCount; page++)
             {
                 byte[] bytes = channel.ReadPage(page).Span.ToArray();
-                if (bytes[0] != 0x01) continue;
-                if (BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(4, 4)) != definitionPage) continue;
+                if (PageHeader.ReadType(bytes) != PageType.DataPage) continue;
+                if ((int)DataPage.ReadOwner(bytes, format) != definitionPage) continue;
 
-                int slots = BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(format.DataRowCountOffset, 2));
+                int slots = DataPage.ReadRowCount(bytes, format);
                 var entries = Enumerable.Range(0, slots)
-                    .Select(i => BinaryPrimitives.ReadUInt16LittleEndian(
-                        bytes.AsSpan(format.DataRowDirectoryOffset + i * 2, 2)).ToString("X4"));
-                pages.Add($"free={BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(format.DataFreeSpaceOffset, 2))}"
+                    .Select(i => DataPage.ReadSlot(bytes, format, i))
+                    .Select(s => ((int)s.Flags | s.Offset).ToString("X4"));
+                pages.Add($"free={DataPage.ReadFreeSpace(bytes, format)}"
                     + $" [{string.Join(" ", entries)}]");
             }
             return string.Join("  |  ", pages);

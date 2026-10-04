@@ -1,6 +1,7 @@
-using System.Buffers.Binary;
 using LibRed.Catalog;
+using LibRed.Formats;
 using LibRed.IO;
+using LibRed.Pages;
 using LibRed.Storage;
 using Xunit;
 
@@ -9,10 +10,12 @@ namespace LibRed.Core.Tests;
 // ACE holds the pages a session frees — a deleted row's long values, a dropped index, a dropped table — until the
 // session closes, then returns them and anything in the global released-pages map to the global free map and
 // clears the released map, lengthening it to cover the highest page released (docs/format/page-05-usage-maps.md
-// §9.1). The long value an UPDATE replaces is the exception: its pages are free at once. Northwind's maps are page 1
-// rows 0 (free: 310 and 329 inside the file) and 1 (released, empty).
+// §9.1). The long value an UPDATE replaces is the exception: its pages are free at once. Both maps are found through
+// page 0's pointers; Northwind's free map has 310 and 329 inside the file, and its released map is empty.
 public class ReleaseAtCloseTests
 {
+    private static readonly JetFormatBase Format = TestDatabases.FormatOf(TestDatabases.NorthwindAccdb);
+
     [Fact]
     public void Released_pages_stay_unreusable_until_close_then_become_free()
     {
@@ -22,12 +25,12 @@ public class ReleaseAtCloseTests
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
                 PageChannel channel = db.OpenTable("MSysObjects").Channel;
-                var allocator = new PageAllocator(channel);
+                var allocator = channel.Allocator;
                 allocator.Release(300);
                 allocator.Release(301);
 
-                Assert.False(MapBit(channel, 0, 300));
-                Assert.False(MapBit(channel, 0, 301));
+                Assert.False(FreeMapBit(channel,300));
+                Assert.False(FreeMapBit(channel,301));
                 Assert.Equal(310, allocator.Allocate());   // the free pages, never the released ones
                 Assert.Equal(329, allocator.Allocate());
                 Assert.Equal(353, allocator.Allocate());
@@ -36,9 +39,9 @@ public class ReleaseAtCloseTests
             using (var db = JetDatabase.Open(path))
             {
                 PageChannel channel = db.OpenTable("MSysObjects").Channel;
-                Assert.True(MapBit(channel, 0, 300));
-                Assert.True(MapBit(channel, 0, 301));
-                Assert.False(MapBit(channel, 0, 310));
+                Assert.True(FreeMapBit(channel,300));
+                Assert.True(FreeMapBit(channel,301));
+                Assert.False(FreeMapBit(channel,310));
                 Assert.All(ReleasedBits(channel), b => Assert.Equal(0, b));
             }
         }
@@ -54,7 +57,7 @@ public class ReleaseAtCloseTests
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
                 PageChannel channel = db.OpenTable("MSysObjects").Channel;
-                var allocator = new PageAllocator(channel);
+                var allocator = channel.Allocator;
 
                 channel.BeginTransaction();
                 allocator.Release(300);
@@ -75,10 +78,10 @@ public class ReleaseAtCloseTests
             using (var db = JetDatabase.Open(path))
             {
                 PageChannel channel = db.OpenTable("MSysObjects").Channel;
-                Assert.False(MapBit(channel, 0, 300));
-                Assert.True(MapBit(channel, 0, 301));
-                Assert.False(MapBit(channel, 0, 302));
-                Assert.False(MapBit(channel, 0, 303));
+                Assert.False(FreeMapBit(channel,300));
+                Assert.True(FreeMapBit(channel,301));
+                Assert.False(FreeMapBit(channel,302));
+                Assert.False(FreeMapBit(channel,303));
             }
         }
         finally { TemporaryDatabase.Delete(path); }
@@ -94,7 +97,7 @@ public class ReleaseAtCloseTests
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
                 PageChannel channel = db.OpenTable("MSysObjects").Channel;
-                var allocator = new PageAllocator(channel);
+                var allocator = channel.Allocator;
                 before = ReleasedBits(channel).Length;
                 for (int i = 0; i < 400; i++) allocator.Allocate();
                 highest = channel.PageCount - 1;
@@ -105,11 +108,12 @@ public class ReleaseAtCloseTests
             {
                 PageChannel channel = db.OpenTable("MSysObjects").Channel;
                 // 5-byte header, then the bitmap to the highest page in whole 4-byte words.
-                int expected = ((highest / 8 + 1) + 3) / 4 * 4;
+                int growth = Format.UsageMapInlineGrowthSize;
+                int expected = (BitmapBits.ByteCount(highest + 1) + growth - 1) / growth * growth;
                 Assert.True(expected > before);
                 Assert.Equal(expected, ReleasedBits(channel).Length);
                 Assert.All(ReleasedBits(channel), b => Assert.Equal(0, b));
-                Assert.True(MapBit(channel, 0, highest));
+                Assert.True(FreeMapBit(channel,highest));
             }
         }
         finally { TemporaryDatabase.Delete(path); }
@@ -121,12 +125,21 @@ public class ReleaseAtCloseTests
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "release-merge-");
         try
         {
-            byte[] page1 = ReadPage(path, 1);
-            SetReleasedBit(page1, 300);
-            WritePage(path, 1, page1);
+            int holderPage;
+            byte[] holder;
+            using (var channel = PageChannel.Open(path, readOnly: true))
+            {
+                (_, holderPage, holder, DataPage.RowSlot slot) = TestDatabases.GlobalMap(channel, Format.ReleasedPagesMapPointerOffset);
+                Span<byte> record = InlineMap(holder, slot);
+                int bit = 300 - UsageMap.StartPage(record, Format);
+                Span<byte> bits = UsageMap.InlineBits(record, Format);
+                Assert.InRange(bit, 0, bits.Length * 8 - 1);
+                BitmapBits.Set(bits, bit, true);
+            }
+            TestDatabases.WritePage(path, holderPage, holder);
 
             using (JetDatabase.Open(path, readOnly: false)) { }
-            Assert.Equal(page1, ReadPage(path, 1));   // an idle writable close changes nothing
+            Assert.Equal(holder, TestDatabases.ReadPage(path, holderPage));   // an idle writable close changes nothing
 
             using (var db = JetDatabase.Open(path, readOnly: false))
                 db.CreateTable("Wrote", [new("Id", JetDataType.Int32, 4, IsFixedLength: true)]);
@@ -134,7 +147,7 @@ public class ReleaseAtCloseTests
             using (var db = JetDatabase.Open(path))
             {
                 PageChannel channel = db.OpenTable("MSysObjects").Channel;
-                Assert.True(MapBit(channel, 0, 300));
+                Assert.True(FreeMapBit(channel,300));
                 Assert.All(ReleasedBits(channel), b => Assert.Equal(0, b));
             }
         }
@@ -158,7 +171,7 @@ public class ReleaseAtCloseTests
 
             int root = db.Catalog.FindTable("Paths")!.Indexes.Single().RootPage;
             db.DropIndex("Paths", db.Catalog.FindTable("Paths")!.Indexes.Single().Name);
-            Assert.False(MapBit(channel, 0, root));
+            Assert.False(FreeMapBit(channel,root));
 
             table = db.OpenTable("Paths");
             (RowId id, object?[] values) = table.Rows().WithIds().Single();
@@ -179,51 +192,27 @@ public class ReleaseAtCloseTests
 
     // ---------------------------------------------------------------- helpers
 
-    private static (int Offset, int Length) Record(ReadOnlySpan<byte> page1, int row)
+    /// <summary>A global map's record on its holder page, which these tests expect in inline form.</summary>
+    private static Span<byte> InlineMap(byte[] holder, DataPage.RowSlot slot)
     {
-        int offset = BinaryPrimitives.ReadUInt16LittleEndian(page1[(14 + row * 2)..]) & 0x1FFF;
-        int end = row == 0 ? page1.Length : BinaryPrimitives.ReadUInt16LittleEndian(page1[(14 + (row - 1) * 2)..]) & 0x1FFF;
-        Assert.Equal(0x00, page1[offset]);   // inline
-        return (offset, end - offset);
+        Span<byte> record = holder.AsSpan(slot.Offset, slot.Length);
+        Assert.Equal(UsageMapType.Inline, UsageMap.RecordType(record));
+        return record;
     }
 
-    private static bool MapBit(PageChannel channel, int row, int page)
+    private static bool FreeMapBit(PageChannel channel, int page)
     {
-        byte[] page1 = channel.ReadPage(1).Span.ToArray();
-        (int offset, int length) = Record(page1, row);
-        int bit = page - BinaryPrimitives.ReadInt32LittleEndian(page1.AsSpan(offset + 1));
-        if (bit < 0 || bit / 8 >= length - 5) return false;
-        return (page1[offset + 5 + bit / 8] & (1 << (bit % 8))) != 0;
+        (_, _, byte[] holder, DataPage.RowSlot slot) = TestDatabases.GlobalMap(channel, Format.FreePagesMapPointerOffset);
+        Span<byte> record = InlineMap(holder, slot);
+        int bit = page - UsageMap.StartPage(record, Format);
+        Span<byte> bits = UsageMap.InlineBits(record, Format);
+        if (bit < 0 || bit / 8 >= bits.Length) return false;
+        return BitmapBits.Get(bits, bit);
     }
 
     private static byte[] ReleasedBits(PageChannel channel)
     {
-        byte[] page1 = channel.ReadPage(1).Span.ToArray();
-        (int offset, int length) = Record(page1, 1);
-        return page1.AsSpan(offset + 5, length - 5).ToArray();
-    }
-
-    private static void SetReleasedBit(byte[] page1, int page)
-    {
-        (int offset, int length) = Record(page1, 1);
-        int bit = page - BinaryPrimitives.ReadInt32LittleEndian(page1.AsSpan(offset + 1));
-        Assert.InRange(bit, 0, (length - 5) * 8 - 1);
-        page1[offset + 5 + bit / 8] |= (byte)(1 << (bit % 8));
-    }
-
-    private static byte[] ReadPage(string path, int page)
-    {
-        using var s = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        var bytes = new byte[4096];
-        s.Position = page * 4096L;
-        s.ReadExactly(bytes);
-        return bytes;
-    }
-
-    private static void WritePage(string path, int page, byte[] bytes)
-    {
-        using var s = new FileStream(path, FileMode.Open, FileAccess.ReadWrite);
-        s.Position = page * 4096L;
-        s.Write(bytes);
+        (_, _, byte[] holder, DataPage.RowSlot slot) = TestDatabases.GlobalMap(channel, Format.ReleasedPagesMapPointerOffset);
+        return UsageMap.InlineBits(InlineMap(holder, slot), Format).ToArray();
     }
 }

@@ -1,5 +1,6 @@
 using LibRed;
 using LibRed.Crypto;
+using LibRed.Formats;
 using System.Buffers.Binary;
 using System.Text;
 using Xunit;
@@ -9,6 +10,8 @@ namespace LibRed.Core.Tests;
 /// <summary>Reading a password-encrypted ACCDB (Office Agile encryption) end-to-end.</summary>
 public class AgileEncryptionTests
 {
+    private static readonly JetFormatBase Format = TestDatabases.FormatOf(TestDatabases.EncryptedAccdb);
+
     [Fact]
     public void Opens_and_reads_encrypted_database_with_password()
     {
@@ -51,26 +54,26 @@ public class AgileEncryptionTests
     {
         byte[] page0 = MutatePage0(original, replacement);
         Assert.Throws<NotSupportedException>(() =>
-            AgileEncryption.TryCreate(page0, databaseKey: 1, TestDatabases.EncryptedPassword));
+            AgileEncryption.TryCreate(page0, databaseKey: 1, TestDatabases.EncryptedPassword, Format));
     }
 
     [Fact]
     public void Xml_outside_the_declared_encryption_info_frame_is_not_claimed()
     {
-        byte[] original = File.ReadAllBytes(TestDatabases.EncryptedAccdb)[..4096];
-        int length = BinaryPrimitives.ReadUInt16LittleEndian(original.AsSpan(0x299, 2));
-        byte[] descriptor = original.AsSpan(0x29B, length).ToArray();
-        var page0 = new byte[4096];
+        byte[] original = File.ReadAllBytes(TestDatabases.EncryptedAccdb)[..Format.PageSize];
+        int length = BinaryPrimitives.ReadUInt16LittleEndian(original.AsSpan(Format.EncryptionInfoLengthOffset, 2));
+        byte[] descriptor = original.AsSpan(Format.EncryptionInfoOffset, length).ToArray();
+        var page0 = new byte[Format.PageSize];
         descriptor.CopyTo(page0, 0x100);
-        BinaryPrimitives.WriteUInt16LittleEndian(page0.AsSpan(0x299, 2), 0);
+        BinaryPrimitives.WriteUInt16LittleEndian(page0.AsSpan(Format.EncryptionInfoLengthOffset, 2), 0);
 
-        Assert.Null(AgileEncryption.TryCreate(page0, databaseKey: 1, TestDatabases.EncryptedPassword));
+        Assert.Null(AgileEncryption.TryCreate(page0, databaseKey: 1, TestDatabases.EncryptedPassword, Format));
     }
 
     private static byte[] MutatePage0(string original, string replacement)
     {
         Assert.Equal(original.Length, replacement.Length);
-        byte[] page0 = File.ReadAllBytes(TestDatabases.EncryptedAccdb)[..4096];
+        byte[] page0 = File.ReadAllBytes(TestDatabases.EncryptedAccdb)[..Format.PageSize];
         ReadOnlySpan<byte> find = Encoding.ASCII.GetBytes(original);
         ReadOnlySpan<byte> replace = Encoding.ASCII.GetBytes(replacement);
         int changes = 0;

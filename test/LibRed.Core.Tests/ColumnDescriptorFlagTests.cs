@@ -19,11 +19,12 @@ public class ColumnDescriptorFlagTests
             SupportsCompressedUnicode = true, IsCalculated = true,
         };
 
-        byte[] d = TdefBuilder.BuildColumnDescriptor(col, format);
+        byte[] d = TableDefinition.BuildColumnDescriptor(col, format);
 
-        Assert.Equal(ColumnFlags(updatable: true, guid: true, hyperlink: true), d[format.ColumnFlagsOffset]);
-        Assert.Equal(JetFormatBase.ColumnExtFlagCompressedUnicode | JetFormatBase.ColumnExtFlagCalculated,
-            d[format.ColumnExtendedFlagsOffset]);
+        Assert.Equal(ColumnFlags.Updatable | ColumnFlags.GuidAutoNumber | ColumnFlags.Hyperlink,
+            (ColumnFlags)d[format.ColumnFlagsOffset]);
+        Assert.Equal(ColumnExtendedFlags.CompressedUnicode | ColumnExtendedFlags.Calculated,
+            (ColumnExtendedFlags)d[format.ColumnExtendedFlagsOffset]);
     }
 
     [Fact]
@@ -32,14 +33,9 @@ public class ColumnDescriptorFlagTests
         JetFormatBase format = JetFormatBase.FromVersionByte(0x02);
         var col = new ColumnDef { Name = "C", Type = JetDataType.Int32, Index = 0, ColumnId = 0, Length = 4, IsFixedLength = true };
 
-        byte[] d = TdefBuilder.BuildColumnDescriptor(col, format);
+        byte[] d = TableDefinition.BuildColumnDescriptor(col, format);
 
-        Assert.Equal(JetFormatBase.ColumnFlagUpdatable | JetFormatBase.ColumnFlagFixedLength, d[format.ColumnFlagsOffset]);
+        Assert.Equal(ColumnFlags.Updatable | ColumnFlags.FixedLength, (ColumnFlags)d[format.ColumnFlagsOffset]);
         Assert.Equal(0, d[format.ColumnExtendedFlagsOffset]);
     }
-
-    private static byte ColumnFlags(bool updatable, bool guid, bool hyperlink) => (byte)(
-        (updatable ? JetFormatBase.ColumnFlagUpdatable : 0)
-        | (guid ? JetFormatBase.ColumnFlagGuidAutoNumber : 0)
-        | (hyperlink ? JetFormatBase.ColumnFlagHyperlink : 0));
 }

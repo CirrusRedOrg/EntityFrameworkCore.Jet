@@ -176,7 +176,7 @@ the long values:
 > **Writing.** LibRed inlines a memo/OLE value only up to **64 bytes** (same for Jet3/Jet4): the 12-byte
 > descriptor with length + the `0x80` flag (bytes `0x04`–`0x0B` zero) then the payload (memo = UTF-16LE,
 > OLE = raw bytes). A value of **65–3816 bytes** is written as one row on an **LVAL page** (`0x40`
-> descriptor, `LongValueWriter`; rows share a page, see below) — `RowInserter` materialises it before
+> descriptor, `LongValueStore`; rows share a page, see below) — `RowInserter` materialises it before
 > encoding. This matters for Access, not just LibRed: Access
 > tolerates an inline value its reader resolves, but **rejects an over-64-byte value inlined** (e.g. it
 > opens the database yet fails to *run* a view whose subquery `Expression` was inlined; on an LVAL page
@@ -236,7 +236,7 @@ the long values:
 > §3.3.2 `used_pages`/`free_pages` pointers, and the index blocks' `+0x22` pointers, carry the resolved
 > (row, page). For a fresh table all these maps are empty. When LibRed writes a value to an LVAL page (§8),
 > it **sets that page's bit in the column's owned-pages *and* free-pages maps** — both §3.3.2
-> pointers are parsed from the TDEF (`TableDefinitionPage.LongValueOwnedMaps` / `LongValueFreeMaps`, keyed
+> pointers are parsed from the TDEF (`TableDefinition.LongValueOwnedMaps` / `LongValueFreeMaps`, keyed
 > by column id) and the inline bitmap bit is set. **Pages are packed like Access:** a value up to one row
 > is appended to the first **free-map** page with room (many small values share a page as separate rows);
 > only when none has room is a fresh page allocated (owned + free). A page is dropped from the free map
@@ -250,9 +250,9 @@ the long values:
 > tables' larger DEFAULT/CHECK blobs share one LvProp page. Verified against ACE: a table's blob of 51–63
 > bytes (a single `Required` or `DefaultValue`) is inline in its MSysObjects row, and one of 65 bytes or more
 > is on a page. A chained value uses dedicated pages. A page outside the inline
-> map's window is handled by the shared `UsageMapWriter.SetBit`, which grows the inline record in place and
+> map's window is handled by the shared `UsageMap.SetBit`, which grows the inline record in place and
 converts it to a reference map when it no longer fits — a long-value column's maps are not a special case,
-and `MapPages` reads either form back.
+and `UsageMap.PagesInMap` reads either form back.
 
 > **The terminating `0xFFFF` is mandatory on write — even for a table with no long-value
 > columns** (where the list is empty and the `0xFFFF` is the only bytes here). Omitting it makes

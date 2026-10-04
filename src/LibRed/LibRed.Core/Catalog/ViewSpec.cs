@@ -20,7 +20,7 @@ public sealed record ViewColumnSpec(string Expression, string? Alias);
 /// A declared parameter of a stored (procedure) query: its name and Jet type code, stored as an MSysQueries
 /// <c>Attribute=2</c> row (Name1 = name, Flag = <paramref name="TypeCode"/>). The row's <c>LvExtra</c> carries
 /// the declared facets, and Access renders the query's PARAMETERS clause from it — see
-/// <see cref="StoredQueryFormat.PackParameterFacets"/> for which types have one and how a decimal's precision
+/// <see cref="StoredQuery.PackParameterFacets"/> for which types have one and how a decimal's precision
 /// and scale pack into the single value.
 /// </summary>
 public sealed record ViewParameterSpec(string Name, byte TypeCode, int? Size = null, int? Scale = null);
@@ -72,11 +72,6 @@ public sealed record ActionQuerySpec(
     IReadOnlyList<ViewParameterSpec>? Parameters = null,
     string? DeleteTarget = null,
     bool OwnerAccess = false);
-
-/// <summary>A stored action query read back from the catalog. <paramref name="Sql"/> is the reconstructed,
-/// executable statement when LibRed supports the kind; otherwise it is null and <paramref name="UnsupportedReason"/>
-/// explains why executing it throws.</summary>
-public sealed record StoredActionQuery(string? Sql, string? UnsupportedReason);
 
 /// <summary>A parameter a stored query declares, in declaration order. <paramref name="Type"/> is the Jet type
 /// Access recorded for it, or null for its untyped parameter — the one Access renders as the keyword

@@ -104,8 +104,8 @@ public sealed class JetTextComparer : IEqualityComparer<string>
 
         output.Clear();
         bool encoded = _version1
-            ? JetTextCollationV1.TryEncode(text, output, _tailoring, out _)
-            : JetTextCollation.TryEncode(text, output, _tailoring, out _);
+            ? JetTextCollationV1.TryEncode(text, output, _tailoring)
+            : JetTextCollation.TryEncode(text, output, _tailoring);
 
         // Both tables cover the whole BMP, and each order handles surrogates (CollationBmpCoverageTests), so
         // this cannot be reached by any string; refusing is still the answer if it ever is.

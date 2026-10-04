@@ -76,7 +76,7 @@ scan, meeting one in a table's owned map, reads it as rows like a live data page
 
 ## Writing
 
-LibRed does the same on both routes. Every page a row has been reclaimed from goes through
+LibRed does the same on both routes, marking the existing page through `DataPage.MarkReleased`. Every page a row has been reclaimed from goes through
 `RowInserter.WriteReclaimedPage`, which sets the type, clears the page from the owning maps and returns it to
 the allocator once nothing live is left and the page is not the table's first; `RowInserter.ReleasePackedValue`
 applies the same rule to an LVAL page against the column's maps. A long-value page that survives goes back

@@ -42,7 +42,7 @@ public class StoredParameterNameAccessTests
             foreach (string path in new[] { acePath, libredPath })
             {
                 using var db = JetDatabase.Open(path);
-                Assert.Equal([name], db.Catalog.QueryParameters["P"].Select(p => p.Name));
+                Assert.Equal([name], db.Catalog.FindQuery("P")!.Parameters.Select(p => p.Name));
                 var engine = new QueryEngine(db);
                 Assert.Equal(["ALFKI"], engine.ExecuteQuery("EXECUTE P 'Maria Anders'").Rows.Select(r => r[0]));
                 // As a table source, bound by the name reported for it — what a consumer reading the schema does.

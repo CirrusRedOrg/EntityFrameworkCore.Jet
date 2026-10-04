@@ -2991,7 +2991,7 @@ internal sealed partial class ExpressionEvaluator(
 
         // Binary (byte[]) columns: structural, length-sensitive byte compare — lexicographic then by
         // length, so a shorter value sorts before a longer one sharing its prefix (Jet's binary order,
-        // matching IndexKeyEncoder). Without this, byte[] falls through to ToString() ("System.Byte[]"
+        // matching IndexKeyCodec). Without this, byte[] falls through to ToString() ("System.Byte[]"
         // for every array) and all binaries compare *equal* — so `WHERE binKey = @p` matches every row.
         if (left is byte[] lb && right is byte[] rb)
             return CompareBytes(lb, rb);
@@ -3005,7 +3005,7 @@ internal sealed partial class ExpressionEvaluator(
         // serial and therefore puts later pre-epoch times first (verified in
         // LibRed.Core.Tests.AcePreEpochDateProbeTest: `06:00 < 18:00` is False, ORDER BY gives 1,3,2,4,5,6).
         //
-        // Matching it is not only about ACE parity: IndexKeyEncoder writes this same serial as the index key,
+        // Matching it is not only about ACE parity: IndexKeyCodec writes this same serial as the index key,
         // and that encoding cannot change because ACE writes those keys too. Comparing chronologically here
         // while the index compares by serial made an index seek and a table scan return DIFFERENT rows for a
         // pre-epoch range (see PreEpochDateOrderingTests). From the epoch onward the two orders are identical,

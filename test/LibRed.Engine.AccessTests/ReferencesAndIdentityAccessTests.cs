@@ -279,7 +279,7 @@ public class ReferencesAndIdentityAccessTests : TempDatabaseTest
         string? counter;
         using (var db = JetDatabase.Open(path))
         {
-            TableDef t = db.Catalog.FindTable(table)!;
+            TableDefinition t = db.Catalog.FindTable(table)!;
             description.AddRange(t.Columns.Select(c =>
                 $"{c.Name} {c.Type} autonumber={c.IsAutoNumber} required={!c.IsNullable}"));
             description.AddRange(db.Catalog.ForeignKeysOf(table).Select(fk =>

@@ -1,5 +1,6 @@
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
 using LibRed.Storage;
 using Xunit;
 
@@ -40,7 +41,7 @@ public class KeyChecksumProbeTest(ITestOutputHelper output)
                 {
                     if (!ace.TryGetValue(text, out string? stored)) { output.WriteLine($"  {Label(text)}: not stored"); continue; }
                     byte[] aceKey = Convert.FromHexString(stored);
-                    byte[] full = IndexKeyEncoder.EncodeWithoutLengthLimit([(column, true)], [text]);
+                    byte[] full = IndexKeyCodec.EncodeWithoutLengthLimit([(column, true)], [text]);
 
                     int shared = 0;
                     while (shared < aceKey.Length && shared < full.Length && aceKey[shared] == full[shared]) shared++;
@@ -83,8 +84,8 @@ public class KeyChecksumProbeTest(ITestOutputHelper output)
                 {
                     if (!ace.TryGetValue(text, out string? stored)) continue;
                     byte[] aceKey = Convert.FromHexString(stored);
-                    if (aceKey.Length != 510) continue;         // not truncated: no checksum to learn from
-                    dataset.Add((IndexKeyEncoder.EncodeWithoutLengthLimit([(column, true)], [text]), aceKey));
+                    if (aceKey.Length != IndexKeyCodec.MaxKeyBytes) continue;         // not truncated: no checksum to learn from
+                    dataset.Add((IndexKeyCodec.EncodeWithoutLengthLimit([(column, true)], [text]), aceKey));
                 }
             }
             finally { if (created is not null) TemporaryDatabase.Delete(created); }
@@ -94,18 +95,18 @@ public class KeyChecksumProbeTest(ITestOutputHelper output)
         Assert.NotEmpty(dataset);
 
         // Distinct checksums confirm the samples actually exercise the function rather than repeating one value.
-        int distinct = dataset.Select(d => Convert.ToHexString(d.Ace[508..])).Distinct().Count();
+        int distinct = dataset.Select(d => Convert.ToHexString(d.Ace[IndexKeyCodec.KeptKeyBytes..])).Distinct().Count();
         output.WriteLine($"{distinct} distinct checksums among them");
 
         (string Name, Func<byte[], (byte[] Full, byte[] Ace), byte[]> Slice)[] inputs =
         [
-            ("discarded", (full, _) => full[508..]),
-            ("discarded less terminator", (full, _) => full[508..^1]),
+            ("discarded", (full, _) => full[IndexKeyCodec.KeptKeyBytes..]),
+            ("discarded less terminator", (full, _) => full[IndexKeyCodec.KeptKeyBytes..^1]),
             ("whole key", (full, _) => full),
             ("whole key less start flag", (full, _) => full[1..]),
-            ("kept prefix", (full, _) => full[..508]),
-            ("kept prefix less start flag", (full, _) => full[1..508]),
-            ("discarded reversed", (full, _) => full[508..].Reverse().ToArray()),
+            ("kept prefix", (full, _) => full[..IndexKeyCodec.KeptKeyBytes]),
+            ("kept prefix less start flag", (full, _) => full[1..IndexKeyCodec.KeptKeyBytes]),
+            ("discarded reversed", (full, _) => full[IndexKeyCodec.KeptKeyBytes..].Reverse().ToArray()),
         ];
 
         var hits = new List<string>();
@@ -116,8 +117,8 @@ public class KeyChecksumProbeTest(ITestOutputHelper output)
             bool all = dataset.All(d =>
             {
                 ushort expected = bigEndian
-                    ? (ushort)((d.Ace[508] << 8) | d.Ace[509])
-                    : (ushort)((d.Ace[509] << 8) | d.Ace[508]);
+                    ? (ushort)((d.Ace[IndexKeyCodec.KeptKeyBytes] << 8) | d.Ace[IndexKeyCodec.KeptKeyBytes + 1])
+                    : (ushort)((d.Ace[IndexKeyCodec.KeptKeyBytes + 1] << 8) | d.Ace[IndexKeyCodec.KeptKeyBytes]);
                 return fn(slice(d.Full, d)) == expected;
             });
             if (all) hits.Add($"{fnName} over {inputName} ({(bigEndian ? "big" : "little")}-endian)");
@@ -128,8 +129,8 @@ public class KeyChecksumProbeTest(ITestOutputHelper output)
 
         // Whatever the answer is, record the raw pairs so the next attempt need not re-measure them.
         foreach ((byte[] full, byte[] aceKey) in dataset.Take(12))
-            output.WriteLine($"  cut={Convert.ToHexString(aceKey[508..])} " +
-                             $"discarded[{full.Length - 508}]={Convert.ToHexString(full[508..])[..Math.Min(48, (full.Length - 508) * 2)]}");
+            output.WriteLine($"  cut={Convert.ToHexString(aceKey[IndexKeyCodec.KeptKeyBytes..])} " +
+                             $"discarded[{full.Length - IndexKeyCodec.KeptKeyBytes}]={Convert.ToHexString(full[IndexKeyCodec.KeptKeyBytes..])[..Math.Min(48, (full.Length - IndexKeyCodec.KeptKeyBytes) * 2)]}");
     }
 
     /// <summary>
@@ -542,7 +543,7 @@ public class KeyChecksumProbeTest(ITestOutputHelper output)
             {
                 int at = text.IndexOf('-');
                 if (!ace.TryGetValue(text, out string? stored)) { output.WriteLine($"  hyphen@{at,3}: not stored"); continue; }
-                string ours = Convert.ToHexString(IndexKeyEncoder.EncodeWithoutLengthLimit([(column, true)], [text]));
+                string ours = Convert.ToHexString(IndexKeyCodec.EncodeWithoutLengthLimit([(column, true)], [text]));
                 output.WriteLine(
                     $"  hyphen@{at,3} (0x07+4x{at} = 0x{0x07 + 4 * at:X3}): ACE …{stored[^12..]}  " +
                     (ours == stored ? "ours SAME" : $"ours …{ours[^12..]}"));
@@ -586,7 +587,7 @@ public class KeyChecksumProbeTest(ITestOutputHelper output)
                 {
                     if (!ace.TryGetValue(text, out string? stored)) { output.WriteLine($"  {Describe(text),-20} not stored"); continue; }
                     string ours;
-                    try { ours = Convert.ToHexString(IndexKeyEncoder.EncodeWithoutLengthLimit([(column, true)], [text])); }
+                    try { ours = Convert.ToHexString(IndexKeyCodec.EncodeWithoutLengthLimit([(column, true)], [text])); }
                     catch (NotSupportedException e) { ours = $"(refused: {e.Message[..Math.Min(30, e.Message.Length)]})"; }
                     output.WriteLine($"  {Describe(text),-20} ACE {stored,-34} {(ours == stored ? "SAME" : $"ours {ours}")}");
                 }
@@ -708,9 +709,10 @@ public class KeyChecksumProbeTest(ITestOutputHelper output)
                 {
                     if (!ace.TryGetValue(text, out string? stored)) continue;
                     byte[] aceKey = Convert.FromHexString(stored);
-                    if (aceKey.Length != 510) continue;
-                    byte[] full = IndexKeyEncoder.EncodeWithoutLengthLimit([(column, true)], [text]);
-                    yield return (full[508..], (ushort)((aceKey[508] << 8) | aceKey[509]));
+                    if (aceKey.Length != IndexKeyCodec.MaxKeyBytes) continue;
+                    byte[] full = IndexKeyCodec.EncodeWithoutLengthLimit([(column, true)], [text]);
+                    yield return (full[IndexKeyCodec.KeptKeyBytes..],
+                        (ushort)((aceKey[IndexKeyCodec.KeptKeyBytes] << 8) | aceKey[IndexKeyCodec.KeptKeyBytes + 1]));
                 }
             }
             finally { if (created is not null) TemporaryDatabase.Delete(created); }
@@ -906,7 +908,7 @@ public class KeyChecksumProbeTest(ITestOutputHelper output)
         if (v1)
         {
             created = TemporaryDatabase.CreatePath("general-v1-chk-");
-            DatabaseCreator.CreateEmpty(created, collation: Collation.General);
+            JetDatabase.Create(created, collation: Collation.General);
         }
 
         return (created ?? TestDatabases.NorthwindAccdb, created, new ColumnDef

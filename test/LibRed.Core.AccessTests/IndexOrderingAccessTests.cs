@@ -57,11 +57,11 @@ public class IndexOrderingAccessTests
             (byte[] stored, RowId rowId) = Assert.Single(new IndexCursor(table.Channel, index.RootPage).RawEntries());
             Assert.Equal(expectedHex, Convert.ToHexString(stored));
 
-            object?[] row = new RowDecoder(table.Definition.Columns, db.Format)
+            object?[] row = new RowCodec(table.Definition.Columns, db.Format)
                 .Decode(db.ReadDataPage(rowId.Page).GetRow(rowId.Row));
             var aligned = new object?[table.Definition.Columns.Count];
             aligned[table.Definition.FindColumn("K")!.Index] = row[table.Definition.FindColumn("K")!.Index];
-            Assert.Equal(stored, IndexKeyEncoder.Encode(index.Columns, aligned));
+            Assert.Equal(stored, IndexKeyCodec.Encode(index.Columns, aligned));
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -168,7 +168,7 @@ public class IndexOrderingAccessTests
             IndexDef index = table.Definition.Indexes.Single(i => i.Name == "IX_BoundaryKeys");
             int keyIndex = table.Definition.FindColumn("K")!.Index;
             int valueIndex = table.Definition.FindColumn("V")!.Index;
-            var decoder = new RowDecoder(table.Definition.Columns, db.Format);
+            var decoder = new RowCodec(table.Definition.Columns, db.Format);
             var libredOrder = new List<int>();
 
             foreach ((byte[] storedKey, RowId rowId) in new IndexCursor(table.Channel, index.RootPage).RawEntries())
@@ -176,7 +176,7 @@ public class IndexOrderingAccessTests
                 object?[] row = decoder.Decode(db.ReadDataPage(rowId.Page).GetRow(rowId.Row));
                 var aligned = new object?[table.Definition.Columns.Count];
                 aligned[keyIndex] = row[keyIndex];
-                byte[] encoded = IndexKeyEncoder.Encode(index.Columns, aligned);
+                byte[] encoded = IndexKeyCodec.Encode(index.Columns, aligned);
                 Assert.True(storedKey.AsSpan().SequenceEqual(encoded),
                     $"V={row[valueIndex]}, K={Describe(row[keyIndex])}: ACE={Convert.ToHexString(storedKey)} LibRed={Convert.ToHexString(encoded)}");
                 libredOrder.Add(Convert.ToInt32(row[valueIndex]));

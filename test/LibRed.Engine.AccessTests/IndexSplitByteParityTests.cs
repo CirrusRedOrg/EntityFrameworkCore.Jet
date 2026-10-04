@@ -1,6 +1,8 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed;
+using LibRed.Formats;
+using LibRed.Pages;
+using LibRed.Storage;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -18,7 +20,6 @@ namespace LibRed.Engine.Tests;
 [Collection(AceCollection.Name)]
 public class IndexSplitByteParityTests(ITestOutputHelper output)
 {
-    private const int PageSize = 4096;
     private const int EvenKeys = 900;
 
     [Fact]
@@ -67,28 +68,34 @@ public class IndexSplitByteParityTests(ITestOutputHelper output)
                 new QueryEngine(db).ExecuteNonQuery($"INSERT INTO SplitGuard (k) VALUES ({key})");
 
             int tdef;
-            using (var db = JetDatabase.Open(seeded)) tdef = db.Catalog.FindTable("SplitGuard")!.DefinitionPage;
+            JetFormatBase format;
+            using (var db = JetDatabase.Open(seeded))
+            {
+                tdef = db.Catalog.FindTable("SplitGuard")!.DefinitionPage;
+                format = db.Format;
+            }
 
+            int pageSize = format.PageSize;
             byte[] a = File.ReadAllBytes(aceCopy), l = File.ReadAllBytes(libredCopy);
-            int pages = Math.Min(a.Length, l.Length) / PageSize;
+            int pages = Math.Min(a.Length, l.Length) / pageSize;
             int checkedPages = 0;
 
             for (int p = 0; p < pages; p++)
             {
                 // Only this index's own pages: the rest of the file is ACE's bookkeeping.
-                if (!IsOurIndexPage(a, p, tdef) && !IsOurIndexPage(l, p, tdef)) continue;
+                if (!IsOurIndexPage(a, p, tdef, format) && !IsOurIndexPage(l, p, tdef, format)) continue;
 
-                int aceFree = BinaryPrimitives.ReadUInt16LittleEndian(a.AsSpan(p * PageSize + 2, 2));
-                int libFree = BinaryPrimitives.ReadUInt16LittleEndian(l.AsSpan(p * PageSize + 2, 2));
+                int aceFree = IndexTree.ReadFreeSpace(a.AsSpan(p * pageSize, pageSize), format);
+                int libFree = IndexTree.ReadFreeSpace(l.AsSpan(p * pageSize, pageSize), format);
                 Assert.True(aceFree == libFree,
                     $"key {key}, page {p}: free space {libFree} where ACE wrote {aceFree} — the leaf was cut elsewhere.");
 
                 // Past the live end a page keeps whatever it held, and a page ACE appended past the old
                 // end-of-file keeps ACE's uninitialised buffer, which is not reproducible. Compare the live
                 // region, which is the split itself.
-                int live = PageSize - aceFree;
+                int live = pageSize - aceFree;
                 Assert.True(
-                    a.AsSpan(p * PageSize, live).SequenceEqual(l.AsSpan(p * PageSize, live)),
+                    a.AsSpan(p * pageSize, live).SequenceEqual(l.AsSpan(p * pageSize, live)),
                     $"key {key}, page {p}: live bytes differ from ACE's.");
                 checkedPages++;
             }
@@ -103,8 +110,8 @@ public class IndexSplitByteParityTests(ITestOutputHelper output)
         }
     }
 
-    private static bool IsOurIndexPage(byte[] file, int page, int tdef) =>
-        (page + 1) * PageSize <= file.Length
-        && file[page * PageSize] is 0x03 or 0x04
-        && BinaryPrimitives.ReadInt32LittleEndian(file.AsSpan(page * PageSize + 4, 4)) == tdef;
+    private static bool IsOurIndexPage(byte[] file, int page, int tdef, JetFormatBase format) =>
+        (page + 1) * format.PageSize <= file.Length
+        && PageHeader.ReadType(file.AsSpan(page * format.PageSize)) is PageType.IntermediateIndexPage or PageType.LeafIndexPage
+        && IndexTree.ReadOwner(file.AsSpan(page * format.PageSize, format.PageSize), format) == tdef;
 }

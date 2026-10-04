@@ -47,7 +47,7 @@ public class GuidKeyEncodingTests
             var def = table.Definition;
             IndexDef pk = def.Indexes.Single(i => i.IsPrimaryKey);
             int kIdx = def.FindColumn("K")!.Index;
-            var decoder = new RowDecoder(def.Columns, db.Format);
+            var decoder = new RowCodec(def.Columns, db.Format);
 
             int checkd = 0;
             foreach (var (accessKey, rowId) in new IndexCursor(table.Channel, pk.RootPage).RawEntries())
@@ -56,13 +56,13 @@ public class GuidKeyEncodingTests
 
                 var values = new object?[def.Columns.Count];
                 values[kIdx] = g;
-                byte[] ours = IndexKeyEncoder.Encode(pk.Columns, values);
+                byte[] ours = IndexKeyCodec.Encode(pk.Columns, values);
 
                 Assert.True(accessKey.AsSpan().SequenceEqual(ours),
                     $"'{g}': access={Convert.ToHexString(accessKey)} ours={Convert.ToHexString(ours)}");
 
                 // The decoder is the inverse.
-                Assert.Equal(g, (Guid)IndexKeyDecoder.Decode(pk.Columns, accessKey)[0]!);
+                Assert.Equal(g, (Guid)IndexKeyCodec.Decode(pk.Columns, accessKey)[0]!);
                 checkd++;
             }
             Assert.Equal(Guids.Length, checkd);
@@ -100,7 +100,7 @@ public class GuidKeyEncodingTests
             IndexDef ixd = def.Indexes.First(i => !i.IsPrimaryKey);
             Assert.False(ixd.Columns[0].Ascending); // it really is descending
             int kIdx = def.FindColumn("K")!.Index;
-            var decoder = new RowDecoder(def.Columns, db.Format);
+            var decoder = new RowCodec(def.Columns, db.Format);
 
             int checkd = 0;
             foreach (var (accessKey, rowId) in new IndexCursor(table.Channel, ixd.RootPage).RawEntries())
@@ -109,11 +109,11 @@ public class GuidKeyEncodingTests
 
                 var values = new object?[def.Columns.Count];
                 values[kIdx] = g;
-                byte[] ours = IndexKeyEncoder.Encode(ixd.Columns, values);
+                byte[] ours = IndexKeyCodec.Encode(ixd.Columns, values);
 
                 Assert.True(accessKey.AsSpan().SequenceEqual(ours),
                     $"'{g}': access={Convert.ToHexString(accessKey)} ours={Convert.ToHexString(ours)}");
-                Assert.Equal(g, (Guid)IndexKeyDecoder.Decode(ixd.Columns, accessKey)[0]!);
+                Assert.Equal(g, (Guid)IndexKeyCodec.Decode(ixd.Columns, accessKey)[0]!);
                 checkd++;
             }
             Assert.Equal(Guids.Length, checkd);

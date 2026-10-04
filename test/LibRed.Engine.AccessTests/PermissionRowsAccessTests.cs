@@ -68,7 +68,7 @@ public class PermissionRowsAccessTests(ITestOutputHelper output) : TempDatabaseT
             .ToDictionary(r => (int)r[idCol]!, r => (string)r[nameCol]!);
 
         Table aces = db.OpenTable("MSysACEs");
-        TableDef def = aces.Definition;
+        TableDefinition def = aces.Definition;
         int oid = def.RequireColumn("ObjectId").Index, sid = def.RequireColumn("SID").Index,
             acm = def.RequireColumn("ACM").Index, inherit = def.RequireColumn("FInheritable").Index;
         return string.Join("; ", aces.Rows()

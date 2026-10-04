@@ -9,7 +9,7 @@ namespace LibRed.Core.Tests;
 // decides how its index keys are encoded. A column written under a different order than its siblings is a
 // mixed-collation table Access never produces, and its keys sort by rules the rest of the file does not use.
 //
-// The order reaches a column through whoever is writing it, and "whoever" is a TableCreator. Left unstated it
+// The order reaches a column through whoever is writing it, and "whoever" is a SchemaEditor. Left unstated it
 // used to fall back to General-Legacy, which is right only for a database that happens to use General-Legacy:
 // on a General (v1) database every DDL path that did not pass the order explicitly wrote v0 columns into a v1
 // file. CREATE TABLE and ADD COLUMN passed it; ALTER COLUMN did not, and it rebuilds the whole table.
@@ -18,7 +18,7 @@ public class ColumnCollationInheritanceTests
     private static string V1Database(string prefix)
     {
         string path = TemporaryDatabase.CreatePath(prefix);
-        DatabaseCreator.CreateEmpty(path, collation: Collation.General);   // the Access 2010+ "General" order
+        JetDatabase.Create(path, collation: Collation.General);   // the Access 2010+ "General" order
         return path;
     }
 

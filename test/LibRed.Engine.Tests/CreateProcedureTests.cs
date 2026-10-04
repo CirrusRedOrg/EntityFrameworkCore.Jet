@@ -252,7 +252,7 @@ public class CreateProcedureTests
 
             using (var db = JetDatabase.Open(path, readOnly: false)) // fresh open: read from the file
             {
-                Assert.Equal(expected, db.Catalog.ActionQueries["P"].Sql);
+                Assert.Equal(expected, db.Catalog.FindQuery("P")!.Sql);
                 Assert.Equal(affected, new QueryEngine(db).ExecuteNonQuery("EXECUTE [P]"));
             }
         }
@@ -278,7 +278,7 @@ public class CreateProcedureTests
                 Assert.Equal(
                     "PARAMETERS [pCity] TEXT(50), [pCountry] TEXT(20); " +
                     "UPDATE [Customers] SET [City] = pCity WHERE Country = pCountry",
-                    db.Catalog.ActionQueries["ByCountry"].Sql);
+                    db.Catalog.FindQuery("ByCountry")!.Sql);
 
                 Assert.Equal(7, engine.ExecuteNonQuery("EXECUTE [ByCountry] 'Ankh-Morpork', 'UK'"));
                 Assert.Equal(

@@ -1,6 +1,7 @@
 using LibRed.Crypto;
 using LibRed.Formats;
-using System.Buffers.Binary;
+using LibRed.Pages;
+using LibRed.Storage;
 
 namespace LibRed.IO;
 
@@ -87,7 +88,11 @@ public sealed class PageChannel : IDisposable
         _locks = locks ?? MonitorLockManager.AcquireKey(_identity);
         _cache = PageCache.AcquireKey(_identity);
         _cache.InitFileLength(stream.Length);
+        Allocator = new PageAllocator(this);
     }
+
+    /// <summary>The allocator owning this channel's page allocation and release paths.</summary>
+    internal PageAllocator Allocator { get; }
 
     /// <summary>Whether a transaction is currently open on this channel.</summary>
     public bool InTransaction => _active is not null;
@@ -200,7 +205,7 @@ public sealed class PageChannel : IDisposable
             var page0 = new byte[format.PageSize];
             stream.Seek(0, SeekOrigin.Begin);
             stream.ReadExactly(page0);
-            int databaseKey = DecodeDatabaseKey(page0);
+            int databaseKey = DatabaseDefinitionPage.ReadDatabaseKey(page0, format);
             // A nonzero database key means the pages are encrypted. ACE (.accdb) uses Office Agile encryption
             // (with a password); the pre-ACE Jet 3/4 formats (.mdb and the .mdw workgroup file) use the legacy
             // RC4 scheme keyed by the database key alone (no password).
@@ -208,8 +213,8 @@ public sealed class PageChannel : IDisposable
             // descriptor) — detect by descriptor, trying Agile first then Standard. The pre-ACE Jet 3/4 formats
             // (.mdb and the .mdw workgroup file) use the legacy RC4 scheme keyed by the database key alone.
             IPageCodec? codec = format.IsAccdb
-                ? (IPageCodec?)AgileEncryption.TryCreate(page0, databaseKey, password)
-                    ?? OfficeStandardEncryption.TryCreate(page0, databaseKey, password)
+                ? (IPageCodec?)AgileEncryption.TryCreate(page0, databaseKey, password, format)
+                    ?? OfficeStandardEncryption.TryCreate(page0, databaseKey, password, format)
                 : JetLegacyEncryption.TryCreate(databaseKey);
 
             // A nonzero database key means the file is encrypted; if no codec recognised the descriptor the scheme
@@ -232,17 +237,6 @@ public sealed class PageChannel : IDisposable
 
     /// <summary>The database file this channel reads and writes.</summary>
     internal string Path => _path;
-
-    /// <summary>Decodes the 4-byte database (encryption) key at page-0 <c>0x3E</c> through the fixed header mask.</summary>
-    private static int DecodeDatabaseKey(ReadOnlySpan<byte> page0)
-    {
-        ReadOnlySpan<byte> mask = JetFormatBase.PageZeroHeaderMask;
-        int start = JetFormatBase.PageZeroHeaderMaskStart;
-        Span<byte> key = stackalloc byte[4];
-        for (int i = 0; i < 4; i++)
-            key[i] = (byte)(page0[JetFormatBase.DatabaseKeyOffset + i] ^ mask[JetFormatBase.DatabaseKeyOffset - start + i]);
-        return BinaryPrimitives.ReadInt32LittleEndian(key);
-    }
 
     /// <summary>Rejects a page number that cannot exist in this file. Page numbers come out of the file
     /// itself, so a bad one is corruption — without this the read seeks past the end and throws
@@ -271,7 +265,7 @@ public sealed class PageChannel : IDisposable
     /// the page is read from disk and cached, then returned. The returned bytes are live cache state: valid
     /// only until the next write to or eviction of this page.
     /// </summary>
-    public PageBuffer ReadPageShared(int pageNumber)
+    internal PageBuffer ReadPageShared(int pageNumber)
     {
         // Read-your-own-writes: a page this transaction has written lives only in the overlay until commit.
         if (_active is not null && _overlay.TryGetValue(pageNumber, out byte[]? buffered))
@@ -344,7 +338,7 @@ public sealed class PageChannel : IDisposable
     /// physical end (the map pre-accounts for growth, and allocation defers the physical write), and
     /// writing the page is what materialises it — the same growth Access performs on such a write.
     /// </summary>
-    public void WritePage(int pageNumber, ReadOnlySpan<byte> source) => WritePage(pageNumber, source, parsed: null);
+    internal void WritePage(int pageNumber, ReadOnlySpan<byte> source) => WritePage(pageNumber, source, parsed: null);
 
     /// <summary>
     /// Writes a page as <see cref="WritePage(int, ReadOnlySpan{byte})"/> does, and keeps <paramref name="parsed"/>
@@ -352,7 +346,7 @@ public sealed class PageChannel : IDisposable
     /// written. The caller vouches that it is exactly what parsing <paramref name="source"/> gives. Attached in the
     /// same publication as the write, so no other channel's write of the page can come between the two.
     /// </summary>
-    public void WritePage(int pageNumber, ReadOnlySpan<byte> source, object? parsed)
+    internal void WritePage(int pageNumber, ReadOnlySpan<byte> source, object? parsed)
     {
         if (_readOnly)
             throw new InvalidOperationException("This channel was opened read-only.");
@@ -439,21 +433,6 @@ public sealed class PageChannel : IDisposable
             _published = true;
         }
         finally { _locks?.ExitExclusive(pageNumber); }
-    }
-
-    /// <summary>
-    /// Allocates a fresh page by growing the file by one page, returning its number. Jet also
-    /// recycles freed pages via usage maps; appending at the end is always valid since the page
-    /// count is simply the file length divided by the page size.
-    /// </summary>
-    public int AllocatePage()
-    {
-        if (_readOnly)
-            throw new InvalidOperationException("This channel was opened read-only.");
-
-        int pageNumber = PageCount;
-        WritePage(pageNumber, new byte[PageSize]);
-        return pageNumber;
     }
 
     /// <summary>
@@ -610,19 +589,18 @@ public sealed class PageChannel : IDisposable
     internal bool RaiseFormatVersion(byte version)
     {
         byte[] page0 = ReadPage(0).Span.ToArray();
-        if (page0[JetFormatBase.VersionOffset] >= version) return false;
+        if (JetFormatBase.ReadVersionByte(page0) >= version) return false;
 
         // A Jet MDB carries the "Standard Jet DB" identifier, which JetFormatBase.Detect pairs with version
         // 0x00/0x01 only. Raising one to an ACE version writes a file nothing can reopen — not LibRed, not
-        // Access. DatabaseCreator refuses to create that same pair; refuse to upgrade into it too.
+        // Access. JetDatabase refuses to create that same pair; refuse to upgrade into it too.
         if (!Format.IsAccdb)
             throw new NotSupportedException(
                 $"Cannot raise this database to version 0x{version:X2}: it is a Jet MDB " +
                 $"(\"{JetFormatBase.JetIdentifier}\"), and only an ACCDB can take that version. " +
                 "The statement needs a data type this format cannot store.");
 
-        page0[JetFormatBase.VersionOffset] = version;
-        page0[JetFormatBase.MinorVersionOffset] = 0x00;
+        Format.WriteVersion(page0, version, minor: 0x00);
         WritePage(0, page0);
         Format = JetFormatBase.FromVersionByte(version);
         return true;
@@ -635,7 +613,7 @@ public sealed class PageChannel : IDisposable
     /// page 0 is cached by then.</summary>
     internal void ResyncFormatVersion()
     {
-        byte onDisk = ReadPage(0).Span[JetFormatBase.VersionOffset];
+        byte onDisk = JetFormatBase.ReadVersionByte(ReadPage(0).Span);
         if ((byte)Format.Version == onDisk) return;
         try
         {
@@ -739,7 +717,7 @@ public sealed class PageChannel : IDisposable
     /// <summary>Retrieves a higher-layer parse of a page previously stored via <see cref="SetParsedPage"/>
     /// (e.g. an index page's decoded entries), or false if none is cached. The parse is dropped automatically
     /// when the page is written (any channel) or evicted, so a hit is always consistent with the current bytes.</summary>
-    public bool TryGetParsedPage(int pageNumber, out object? parsed)
+    internal bool TryGetParsedPage(int pageNumber, out object? parsed)
     {
         // A page buffered in this transaction's overlay has uncommitted bytes; the shared parsed cache reflects
         // the committed image, so it is served from the transaction's own parses instead.
@@ -751,7 +729,7 @@ public sealed class PageChannel : IDisposable
     /// <summary>Caches a higher-layer parse of a (resident) page so repeated reads — e.g. a B-tree descent that
     /// re-visits the same root/internal pages — can skip re-decoding it. The caller must not mutate the object
     /// afterwards, as it is shared with other readers of the same file.</summary>
-    public void SetParsedPage(int pageNumber, object parsed)
+    internal void SetParsedPage(int pageNumber, object parsed)
     {
         // A transaction-local parse goes with the transaction's bytes, never onto the shared (committed) entry.
         if (_active is not null && _overlay.ContainsKey(pageNumber))

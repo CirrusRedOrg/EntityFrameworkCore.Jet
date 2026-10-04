@@ -16,5 +16,5 @@ public abstract class Page
     public abstract PageType Type { get; }
 
     /// <summary>Decodes this page's fields from the supplied buffer using version-specific offsets.</summary>
-    public abstract void Read(PageBuffer buffer, JetFormatBase format);
+    internal abstract void Read(PageBuffer buffer, JetFormatBase format);
 }

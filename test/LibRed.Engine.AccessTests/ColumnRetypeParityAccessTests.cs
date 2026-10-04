@@ -1,7 +1,9 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
+using LibRed.IO;
+using LibRed.Pages;
 using LibRed.Storage;
 using Xunit;
 
@@ -61,18 +63,23 @@ public class ColumnRetypeParityAccessTests
 
             using (OleDbConnection c = AceTestDatabase.Open(acePath)) Exec(c, alter);
             OleDbConnection.ReleaseObjectPool();
+            JetFormatBase format;
             using (var db = JetDatabase.Open(libredPath, readOnly: false))
+            {
+                format = db.Format;
                 new QueryEngine(db).ExecuteNonQuery(alter);
+            }
 
             Assert.Equal(Describe(acePath, table), Describe(libredPath, table));
 
             byte[] ace = File.ReadAllBytes(acePath), libred = File.ReadAllBytes(libredPath);
             Assert.Equal(ace.Length, libred.Length);
             (int catalogPage, int usageMapPage, int lowestRecord) = Landmarks(acePath, table);
-            for (int page = 1; page < ace.Length / 4096; page++)
+            int pageSize = format.PageSize;
+            for (int page = 1; page < ace.Length / pageSize; page++)
             {
-                var differ = Enumerable.Range(0, 4096).Where(i => ace[page * 4096 + i] != libred[page * 4096 + i]).ToList();
-                if (differ.Count == 0 || BinaryPrimitives.ReadInt32LittleEndian(ace.AsSpan(page * 4096 + 4)) == catalogPage) continue;
+                var differ = Enumerable.Range(0, pageSize).Where(i => ace[page * pageSize + i] != libred[page * pageSize + i]).ToList();
+                if (differ.Count == 0 || (int)DataPage.ReadOwner(ace.AsSpan(page * pageSize, pageSize), format) == catalogPage) continue;
                 Assert.True(page == usageMapPage && differ.All(i => i < lowestRecord),
                     $"page {page} differs at 0x{differ[0]:X3} ({differ.Count} bytes)");
             }
@@ -90,7 +97,7 @@ public class ColumnRetypeParityAccessTests
     {
         var lines = new List<string>();
         using var db = JetDatabase.Open(path, readOnly: true);
-        TableDef t = db.Catalog.FindTable(tableName)!;
+        TableDefinition t = db.Catalog.FindTable(tableName)!;
         var tdef = db.ReadTableDefinition(t.DefinitionPage);
         lines.AddRange(t.Columns.Select(c => $"{c.Name} {c.Type} id {c.ColumnId} {Convert.ToHexString(c.RawDescriptor ?? [])}"));
         lines.AddRange(tdef.LongValueOwnedMaps.Select(m => $"maps {m.Key}: {m.Value} {tdef.LongValueFreeMaps[m.Key]}"));
@@ -106,13 +113,14 @@ public class ColumnRetypeParityAccessTests
     private static (int CatalogPage, int UsageMapPage, int LowestRecord) Landmarks(string path, string tableName)
     {
         using var db = JetDatabase.Open(path, readOnly: true);
-        TableDef t = db.Catalog.FindTable(tableName)!;
+        TableDefinition t = db.Catalog.FindTable(tableName)!;
         byte[] file = File.ReadAllBytes(path);
-        int holder = BinaryPrimitives.ReadInt32LittleEndian(file.AsSpan(t.DefinitionPage * 4096 + db.Format.TdefOwnedPagesOffset)) >> 8;
-        int rows = BinaryPrimitives.ReadUInt16LittleEndian(file.AsSpan(holder * 4096 + db.Format.DataRowCountOffset));
+        int pageSize = db.Format.PageSize;
+        int holder = PageBuffer.ReadRecordPointer(file, t.DefinitionPage * pageSize + db.Format.TdefOwnedPagesOffset).Page;
+        int rows = DataPage.ReadRowCount(file.AsSpan(holder * pageSize, pageSize), db.Format);
         int lowest = Enumerable.Range(0, rows)
-            .Select(i => BinaryPrimitives.ReadUInt16LittleEndian(file.AsSpan(holder * 4096 + db.Format.DataRowDirectoryOffset + i * 2)))
-            .Where(s => (s & 0x8000) == 0).Min(s => s & 0x1FFF);
+            .Select(i => DataPage.ReadSlot(file.AsSpan(holder * pageSize, pageSize), db.Format, i))
+            .Where(s => (s.Flags & RowSlotFlags.Deleted) == 0).Min(s => s.Offset);
         return (db.Catalog.FindTable("MSysObjects")!.DefinitionPage, holder, lowest);
     }
 

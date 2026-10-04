@@ -1,4 +1,5 @@
 using System.Data.OleDb;
+using LibRed.Catalog;
 using LibRed.Pages;
 using LibRed.Storage;
 using Xunit;
@@ -59,13 +60,13 @@ public class LongValueFreeMapAccessTests(ITestOutputHelper output) : TempDatabas
     {
         using var db = JetDatabase.Open(path, readOnly: true);
         Table table = db.OpenTable("L");
-        var tdef = new TableDefinitionPage();
+        var tdef = new TableDefinition();
         tdef.Read(table.Channel.ReadPage(table.Definition.DefinitionPage), table.Channel.Format);
         int id = table.Definition.RequireColumn("M").ColumnId;
         var maps = new UsageMap(table.Channel, table.Definition);
         int page = maps.PagesInMap(tdef.LongValueOwnedMaps[id].Row, tdef.LongValueOwnedMaps[id].Page).Single();
         bool free = maps.PagesInMap(tdef.LongValueFreeMaps[id].Row, tdef.LongValueFreeMaps[id].Page).Contains(page);
-        int space = BitConverter.ToUInt16(table.Channel.ReadPage(page).Span[2..4]);
+        int space = DataPage.ReadFreeSpace(table.Channel.ReadPage(page).Span, table.Channel.Format);
         return $"{space} bytes free, {(free ? "in the free map" : "out of it")}";
     }
 }

@@ -89,7 +89,6 @@ public class TransactionPhysicalRollbackAccessTests
 
                 db.BeginTransaction();
                 table.Update(rowId, newValues);
-                table.MoveIndexEntry(ixK, oldValues, newValues, rowId);
                 Assert.Single(table.SeekRows(ixK, [null, large]));
                 Assert.Empty(table.SeekRows(ixK, [null, oldKey]));
 

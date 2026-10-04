@@ -1,5 +1,8 @@
 using System.Data.OleDb;
+using LibRed.Catalog;
 using LibRed;
+using LibRed.IO;
+using LibRed.Pages;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -238,15 +241,17 @@ public class IndexUniqueEntryCountAccessTests(ITestOutputHelper output)
     {
         if (tables.Length == 0) tables = ["S"];
         using var db = JetDatabase.Open(path);
-        byte[] file = File.ReadAllBytes(path);
         return string.Join(" ", tables.SelectMany(name =>
         {
             var table = db.Catalog.FindTable(name)!;
-            int block = table.DefinitionPage * 4096 + 0x3F;
+            PageBuffer tdef = TableDefinition.ReadChain(db.Channel, table.DefinitionPage).Buffer;
             return table.Indexes.GroupBy(i => i.RealIndexOrdinal).Select(g => g.First())
                 .OrderBy(i => i.Name, StringComparer.Ordinal)
-                .Select(i => $"{name}.{i.Name}={BitConverter.ToInt32(file, block + i.RealIndexOrdinal * 12)}"
-                    + $"/{BitConverter.ToInt32(file, block + i.RealIndexOrdinal * 12 + 4)}");
+                .Select(i =>
+                {
+                    (int total, int unique) = TableDefinition.ReadIndexCounts(tdef.Span, db.Format, i.RealIndexOrdinal);
+                    return $"{name}.{i.Name}={total}/{unique}";
+                });
         }));
     }
 

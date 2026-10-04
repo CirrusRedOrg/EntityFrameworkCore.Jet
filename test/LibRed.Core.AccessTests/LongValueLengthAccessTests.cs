@@ -79,7 +79,7 @@ public class LongValueLengthAccessTests(ITestOutputHelper output) : TempDatabase
         using (var channel = LibRed.IO.PageChannel.Open(path))
         {
             byte[] expected = [0x00, 0x00, 0x00, 0x80, 0, 0, 0, 0, 0, 0, 0, 0];
-            TableDef definition = new JetCatalog(channel).FindTable("EmptyProbe")!;
+            TableDefinition definition = new JetCatalog(channel).FindTable("EmptyProbe")!;
             foreach (int number in new UsageMap(channel, definition).DataPages())
             {
                 var page = new DataPage();
@@ -88,7 +88,7 @@ public class LongValueLengthAccessTests(ITestOutputHelper output) : TempDatabase
                 {
                     if (page.Rows[row].IsDeleted) continue;
                     foreach ((int index, byte[] slot) in
-                        RowDecoder.LongValueDescriptors(definition.Columns, channel.Format, page.GetRow(row)))
+                        RowCodec.LongValueDescriptors(definition.Columns, channel.Format, page.GetRow(row)))
                     {
                         output.WriteLine(
                             $"{definition.Columns.Single(c => c.Index == index).Name}: {slot.Length} bytes"

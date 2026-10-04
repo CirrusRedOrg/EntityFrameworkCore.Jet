@@ -22,6 +22,46 @@ public class ComplexColumnTests
     }
 
     [Fact]
+    public void Deleting_the_owner_removes_its_attachments_and_rollback_restores_them()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "complex-delete-");
+        int complexId;
+        string flatName;
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                ComplexColumn column = TheAttachmentColumn(db);
+                flatName = column.FlatTable.Name;
+                var owner = db.OpenTable(column.OwnerTable.Name);
+                var (id, row) = owner.Rows().WithIds().First();
+                complexId = (int)row[column.OwnerTable.RequireColumn(column.ColumnName).Index]!;
+                Assert.NotEmpty(db.ReadComplexValues(column, complexId));
+                int counter = column.OwnerTable.ComplexAutoNumber;
+                object?[] attachment = db.ReadComplexValues(column, complexId).First();
+
+                db.BeginTransaction();
+                owner.Delete(id);
+                Assert.Null(owner.GetRow(id));
+                Assert.Empty(db.ReadComplexValues(column, complexId));
+                db.Rollback();
+                Assert.NotNull(db.OpenTable(owner.Name).GetRow(id));
+                Assert.Equal(attachment, db.ReadComplexValues(column, complexId).First());
+
+                db.OpenTable(owner.Name).Delete(id);
+                Assert.Empty(db.ReadComplexValues(column, complexId));
+                Assert.Equal(counter, db.OpenTable(owner.Name).Definition.ComplexAutoNumber);
+            }
+
+            using var reopened = JetDatabase.Open(path);
+            ComplexColumn restored = TheAttachmentColumn(reopened);
+            Assert.Equal(flatName, restored.FlatTable.Name);
+            Assert.Empty(reopened.ReadComplexValues(restored, complexId));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    [Fact]
     public void The_catalog_resolves_the_complex_column_to_its_flat_table()
     {
         using JetDatabase db = Northwind();
@@ -111,7 +151,7 @@ public class ComplexColumnTests
     public void A_complex_column_is_flagged_autonumber_but_does_not_claim_the_header_counter()
     {
         using JetDatabase db = Northwind();
-        TableDef table = db.Catalog.FindTable("MSysResources")!;
+        TableDefinition table = db.Catalog.FindTable("MSysResources")!;
         ColumnDef data = table.FindColumn("Data")!;
         ColumnDef id = table.FindColumn("Id")!;
 
@@ -163,7 +203,7 @@ public class ComplexColumnTests
             }
 
             using var reopened = JetDatabase.Open(path);
-            TableDef table = reopened.Catalog.FindTable("MSysResources")!;
+            TableDefinition table = reopened.Catalog.FindTable("MSysResources")!;
             Assert.Equal(JetDataType.Memo, table.FindColumn("Name")!.Type);
 
             // The column still resolves — to the same catalog row, the same flat table, and the same values
@@ -193,7 +233,7 @@ public class ComplexColumnTests
     }
 
     private static int ComplexIndexFlags(JetDatabase db) =>
-        db.Catalog.FindTable("MSysResources")!.Indexes.Single(i => i.Columns.Any(c => c.Column.Name == "Data")).Flags;
+        (int)db.Catalog.FindTable("MSysResources")!.Indexes.Single(i => i.Columns.Any(c => c.Column.Name == "Data")).Flags;
 
     // A complex column's catalog row names its column by NAME, and the catalog drops a row whose name the
     // owning table does not have — so a rename that left the row behind did not misname the column, it

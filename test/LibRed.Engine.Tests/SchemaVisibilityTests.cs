@@ -73,7 +73,7 @@ public class SchemaVisibilityTests
 
             first.ExecuteNonQuery("INSERT INTO Rows1 (Id) VALUES (1)");
 
-            // Same TableDef instance: the DML did not force the second connection to re-read the catalog.
+            // Same TableDefinition instance: the DML did not force the second connection to re-read the catalog.
             Assert.Same(cached, secondDb.Catalog.Tables.Single(t => t.Name == "Rows1"));
         }
         finally { TemporaryDatabase.Delete(path); }

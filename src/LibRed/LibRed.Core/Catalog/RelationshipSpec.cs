@@ -24,12 +24,12 @@ public sealed record RelationshipSpec(
     bool DeleteSetNull = false,
     // ON UPDATE SET NULL: the docs list it, but the ACE OLE DB provider rejects it via SQL DDL ("Invalid
     // argument"), so its on-disk storage (grbit flag + info-block +0x15 byte) couldn't be probed. The
-    // pathway is threaded through; TableCreator throws NotImplemented rather than guess the bytes. See the
+    // pathway is threaded through; SchemaEditor throws NotImplemented rather than guess the bytes. See the
     // libred-foreign-key-status memory / spec §11.
     bool UpdateSetNull = false,
     bool ReferencesPrimaryKey = false,
     // How many of the table's columns were declared before this constraint, which is what decides the order
-    // of the usage-map rows CREATE TABLE lays out (see TableCreator). Only a statement knows it; 0 — the
+    // of the usage-map rows CREATE TABLE lays out (see SchemaEditor). Only a statement knows it; 0 — the
     // default a direct caller gets — puts the constraint's map row ahead of every long-value column's, which
     // is what ACE writes for a constraint declared on the first column.
     int DeclaredAfterColumns = 0)

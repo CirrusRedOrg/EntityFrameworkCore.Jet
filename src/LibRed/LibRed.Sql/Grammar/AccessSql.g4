@@ -282,7 +282,7 @@ rowValue : DEFAULT | expression ;
 queryExpression : queryTerm (setOperator queryTerm)* orderByClause? offsetFetchClause? ownerAccessOption? ;
 
 // WITH OWNERACCESS OPTION: run the query with its owner's permissions. LibRed has no users to act for, so it
-// changes nothing when a query runs; a stored query keeps it (StoredQueryFormat.FlagOwnerAccess). ACE takes it
+// changes nothing when a query runs; a stored query keeps it (QueryOptions.OwnerAccess). ACE takes it
 // at the end of every SELECT — the first of a UNION's and a subquery's too — after a query's ORDER BY but not
 // before it, and at the end of an INSERT, UPDATE or DELETE (verified).
 ownerAccessOption : WITH OWNERACCESS OPTION ;

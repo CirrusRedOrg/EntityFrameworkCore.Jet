@@ -7,7 +7,7 @@ namespace LibRed.Ado.Tests;
 /// A LibRed-created database must contain the single-row <c>#Dual</c> helper table. EFCore.Jet's query generator
 /// renders FROM-less scalar queries (All/Any/Count/constant projections) as <c>FROM (SELECT COUNT(*) FROM `#Dual`)</c>,
 /// so without it those queries fail to bind. The DAO/ADOX creation path created it via EnsureDualTable; native
-/// creation (DatabaseCreator.CreateEmpty) must do the same — this guards that it does.
+/// creation (JetDatabase.Create) must do the same — this guards that it does.
 /// </summary>
 public class CreateDatabaseDualTableTests
 {

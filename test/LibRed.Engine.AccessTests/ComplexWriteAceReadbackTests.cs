@@ -145,12 +145,12 @@ public class ComplexWriteAceReadbackTests(ITestOutputHelper output)
         using var db = JetDatabase.Open(path);
         if (table is not null)
         {
-            TableDef owner = db.Catalog.FindTable(table)!;
+            TableDefinition owner = db.Catalog.FindTable(table)!;
             string columns = string.Join(",", owner.Columns.Select(c => c.Name));
             string indexes = string.Join(",", owner.Indexes.Select(i => i.Name.Split('_')[0]).Order(StringComparer.Ordinal));
             return $"columns=[{columns}] indexes=[{indexes}] {Remains(path)}";
         }
-        TableDef complexColumns = db.Catalog.FindTable("MSysComplexColumns")!;
+        TableDefinition complexColumns = db.Catalog.FindTable("MSysComplexColumns")!;
         int name = complexColumns.FindColumn("ColumnName")!.Index;
         var rows = db.OpenTable("MSysComplexColumns").Rows()
             .Select(r => Convert.ToString(r[name]) ?? "?")
@@ -185,7 +185,7 @@ public class ComplexWriteAceReadbackTests(ITestOutputHelper output)
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
                 var engine = new QueryEngine(db);
-                TableDef table = db.Catalog.FindTable("Table1")!;
+                TableDefinition table = db.Catalog.FindTable("Table1")!;
                 ColumnDef idColumn = table.Columns[0];
                 complexColumnCount = db.Catalog.ComplexColumns.Count(c => c.OwnerTable.Name == "Table1");
 
@@ -219,7 +219,7 @@ public class ComplexWriteAceReadbackTests(ITestOutputHelper output)
                 }
 
                 // The new row took one complex id, shared by every complex column.
-                TableDef table = db.Catalog.FindTable("Table1")!;
+                TableDefinition table = db.Catalog.FindTable("Table1")!;
                 object?[] newest = db.OpenTable("Table1").Rows()
                     .Last(r => !idsBefore.Contains(Convert.ToInt32(r[table.Columns[0].Index])));
                 var ids = db.Catalog.ComplexColumns.Where(c => c.OwnerTable.Name == "Table1")

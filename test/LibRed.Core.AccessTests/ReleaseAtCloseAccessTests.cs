@@ -1,5 +1,5 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
+using LibRed.Pages;
 using LibRed.Storage;
 using Xunit;
 
@@ -7,10 +7,12 @@ namespace LibRed.Core.Tests;
 
 // A session's freed pages go back to the global free map at close, and the close lengthens the released-pages map
 // to cover the highest page released (docs/format/page-05-usage-maps.md §9.1). The same DROP TABLE through ACE and
-// through LibRed, each on its own copy, must leave page 1 — both global maps — byte for byte the same.
+// through LibRed, each on its own copy, must leave both global maps — wherever page 0 points — byte for byte the same.
 [Collection(AceCollection.Name)]
 public class ReleaseAtCloseAccessTests : TempDatabaseTest
 {
+    private static readonly Formats.JetFormatBase Format = TestDatabases.FormatOf(TestDatabases.NorthwindAccdb);
+
     [Fact]
     public void A_dropped_table_leaves_both_global_maps_as_ace_leaves_them()
     {
@@ -27,7 +29,15 @@ public class ReleaseAtCloseAccessTests : TempDatabaseTest
                 insert.ExecuteNonQuery();
             }
         }
-        byte[] before = ReadPage(start, 1);
+        // Both maps are wherever page 0's pointers put them; neither engine moves them on a drop.
+        (int Row, int Page) free, released;
+        int releasedLengthBefore;
+        using (var db = JetDatabase.Open(start))
+        {
+            (free, released) = (db.DefinitionPage.FreePagesMap, db.DefinitionPage.ReleasedPagesMap);
+            releasedLengthBefore = TestDatabases.GlobalMap(db.Channel, Format.ReleasedPagesMapPointerOffset).Slot.Length;
+        }
+        byte[] before = TestDatabases.ReadPage(start, free.Page);
 
         string ace = TemporaryDatabase.CopyPath(start, "release-ace-");
         using (OleDbConnection connection = AceTestDatabase.Open(ace))
@@ -37,46 +47,47 @@ public class ReleaseAtCloseAccessTests : TempDatabaseTest
         using (var db = JetDatabase.Open(libred, readOnly: false))
             Assert.True(db.DropTable("Doomed"));
 
-        byte[] acePage = ReadPage(ace, 1), libredPage = ReadPage(libred, 1);
-        Assert.True(ReleasedLength(acePage) > ReleasedLength(before), "the drop did not lengthen ACE's released map");
-        Assert.Equal(ReleasedLength(acePage), ReleasedLength(libredPage));
-        Assert.True(acePage.AsSpan().SequenceEqual(libredPage), FreeMapDifference(start, before, acePage, libredPage));
+        var releasedLengths = new List<int>();
+        foreach (string path in new[] { ace, libred })
+        {
+            using var db = JetDatabase.Open(path);
+            Assert.Equal(free, db.DefinitionPage.FreePagesMap);
+            Assert.Equal(released, db.DefinitionPage.ReleasedPagesMap);
+            releasedLengths.Add(TestDatabases.GlobalMap(db.Channel, Format.ReleasedPagesMapPointerOffset).Slot.Length);
+        }
+        Assert.True(releasedLengths[0] > releasedLengthBefore, "the drop did not lengthen ACE's released map");
+        Assert.Equal(releasedLengths[0], releasedLengths[1]);
+
+        byte[] aceReleased = TestDatabases.ReadPage(ace, released.Page), libredReleased = TestDatabases.ReadPage(libred, released.Page);
+
+        byte[] acePage = TestDatabases.ReadPage(ace, free.Page), libredPage = TestDatabases.ReadPage(libred, free.Page);
+        Assert.True(acePage.AsSpan().SequenceEqual(libredPage), FreeMapDifference(start, free, before, acePage, libredPage));
+        if (released.Page != free.Page)
+            Assert.True(aceReleased.AsSpan().SequenceEqual(libredReleased), "the released map's holder differs");
     }
 
     /// <summary>The pages whose free bit differs between the two engines, with each page's type, owner and free
     /// bit in the file before the drop.</summary>
-    private static string FreeMapDifference(string start, byte[] before, byte[] acePage, byte[] libredPage)
+    private static string FreeMapDifference(string start, (int Row, int Page) free, byte[] before, byte[] acePage, byte[] libredPage)
     {
-        int beforeOffset = BinaryPrimitives.ReadUInt16LittleEndian(before.AsSpan(14)) & 0x1FFF;
-        int offset = BinaryPrimitives.ReadUInt16LittleEndian(acePage.AsSpan(14)) & 0x1FFF;
-        int first = BinaryPrimitives.ReadInt32LittleEndian(acePage.AsSpan(offset + 1));
+        (int beforeOffset, _) = DataPage.ReadSlot(before, Format, free.Row);
+        (int offset, _) = DataPage.ReadSlot(acePage, Format, free.Row);
+        int first = UsageMap.StartPage(acePage.AsSpan(offset), Format);
+        Span<byte> aceBits = UsageMap.InlineBits(acePage.AsSpan(offset), Format);
+        Span<byte> libredBits = UsageMap.InlineBits(libredPage.AsSpan(offset), Format);
+        Span<byte> beforeBits = UsageMap.InlineBits(before.AsSpan(beforeOffset), Format);
         var lines = new List<string>();
-        for (int i = offset + 5; i < acePage.Length; i++)
-            for (int bit = 0; bit < 8; bit++)
-                if (((acePage[i] ^ libredPage[i]) & (1 << bit)) != 0)
-                {
-                    int page = first + (i - offset - 5) * 8 + bit;
-                    byte[] bytes = ReadPage(start, page);
-                    int beforeByte = beforeOffset + 5 + (page - first) / 8;
-                    bool freeBefore = (before[beforeByte] & (1 << ((page - first) % 8))) != 0;
-                    lines.Add($"page {page} (type 0x{bytes[0]:X2} owner {BitConverter.ToInt32(bytes, 4)}, " +
-                              $"{(freeBefore ? "free" : "used")} before the drop): " +
-                              $"free in {((acePage[i] & (1 << bit)) != 0 ? "ACE" : "LibRed")} only");
-                }
-        return lines.Count == 0 ? "page 1 differs outside the free map" : string.Join("; ", lines);
-    }
-
-    private static int ReleasedLength(byte[] page1) =>
-        (BinaryPrimitives.ReadUInt16LittleEndian(page1.AsSpan(14)) & 0x1FFF)
-        - (BinaryPrimitives.ReadUInt16LittleEndian(page1.AsSpan(16)) & 0x1FFF);
-
-    private static byte[] ReadPage(string path, int page)
-    {
-        using var s = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        var bytes = new byte[4096];
-        s.Position = page * 4096L;
-        s.ReadExactly(bytes);
-        return bytes;
+        for (int bit = 0; bit < aceBits.Length * 8; bit++)
+            if (BitmapBits.Get(aceBits, bit) != BitmapBits.Get(libredBits, bit))
+            {
+                int page = first + bit;
+                byte[] bytes = TestDatabases.ReadPage(start, page);
+                bool freeBefore = BitmapBits.Get(beforeBits, page - first);
+                lines.Add($"page {page} (type 0x{bytes[0]:X2} owner {(int)DataPage.ReadOwner(bytes, Format)}, " +
+                          $"{(freeBefore ? "free" : "used")} before the drop): " +
+                          $"free in {(BitmapBits.Get(aceBits, bit) ? "ACE" : "LibRed")} only");
+            }
+        return lines.Count == 0 ? "the free map's holder differs outside the free map" : string.Join("; ", lines);
     }
 
     private static void Exec(OleDbConnection connection, string sql)

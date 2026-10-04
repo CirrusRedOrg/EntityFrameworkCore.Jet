@@ -85,13 +85,13 @@ public class DerivedTableViewAccessTests
         var obj = cat.FindTable("MSysObjects")!;
         var mq = cat.FindTable("MSysQueries")!;
         int oId = Col(obj, "Id"), oName = Col(obj, "Name");
-        int id = new Table(ch, obj).Rows()
+        int id = new Table(ch, obj, cat).Rows()
             .First(r => string.Equals(r[oName] as string, viewName, StringComparison.OrdinalIgnoreCase))[oId] is int i ? i : 0;
 
         int qObj = Col(mq, "ObjectId"), qAttr = Col(mq, "Attribute"),
             qExpr = Col(mq, "Expression"), qN1 = Col(mq, "Name1"), qN2 = Col(mq, "Name2");
         (List<byte>, List<string?>, List<string?>, List<string?>) acc = ([], [], [], []);
-        foreach (var r in new Table(ch, mq).Rows())
+        foreach (var r in new Table(ch, mq, cat).Rows())
         {
             if (Convert.ToInt32(r[qObj]) != id) continue;
             acc.Item1.Add(Convert.ToByte(r[qAttr]));
@@ -102,6 +102,6 @@ public class DerivedTableViewAccessTests
         return acc;
     }
 
-    private static int Col(TableDef t, string name) =>
+    private static int Col(TableDefinition t, string name) =>
         t.Columns.First(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase)).Index;
 }

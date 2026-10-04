@@ -45,6 +45,16 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "in=$(cat); printf '%s' \"$in\" | grep -qE '\"stop_hook_active\"[[:space:]]*:[[:space:]]*true' && exit 0; cd \"$CLAUDE_PROJECT_DIR\" || exit 0; [ -z \"$(git status --porcelain -- src ':(glob,exclude)src/**/docs/**')\" ] && exit 0; echo '{\"decision\":\"block\",\"reason\":\"src/ has changes. Before finishing, go through your diff: for every method, overload, wrapper, helper or constant you added, name the existing code that already does that job. If one exists, change or split that code instead and remove yours. See Change the existing path in CLAUDE.md.\"}'"
+          }
+        ]
+      }
     ]
   }
 }

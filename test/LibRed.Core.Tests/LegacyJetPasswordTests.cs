@@ -1,5 +1,6 @@
 using LibRed.Storage;
 using LibRed.Crypto;
+using LibRed.Pages;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -18,7 +19,7 @@ public class LegacyJetPasswordTests
     private static string CreateJet4()
     {
         string path = TemporaryDatabase.CreatePath("libred_jet4_", ".mdb");
-        DatabaseCreator.CreateEmpty(path, version: 0x01);
+        JetDatabase.Create(path, version: 0x01);
         return path;
     }
 
@@ -66,9 +67,7 @@ public class LegacyJetPasswordTests
                 DatabaseEncryption.SetJetPassword(db, password);
 
             // The 40-byte password field at 0x42 must match Access byte-for-byte.
-            Assert.Equal(
-                File.ReadAllBytes(reference)[0x42..(0x42 + 40)],
-                File.ReadAllBytes(tmp)[0x42..(0x42 + 40)]);
+            Assert.Equal(StoredPasswordField(reference), StoredPasswordField(tmp));
         }
         finally { TemporaryDatabase.Delete(tmp); }
     }
@@ -79,16 +78,15 @@ public class LegacyJetPasswordTests
         string tmp = CreateJet4();
         try
         {
-            byte[] original = File.ReadAllBytes(tmp);
+            byte[] original = StoredPasswordField(tmp);
             using (JetDatabase db = OpenExclusive(tmp))
                 DatabaseEncryption.SetJetPassword(db, "Test1");
-            Assert.NotEqual(original[0x42..(0x42 + 40)], File.ReadAllBytes(tmp)[0x42..(0x42 + 40)]);
+            Assert.NotEqual(original, StoredPasswordField(tmp));
 
             using (JetDatabase db = OpenExclusive(tmp))
                 DatabaseEncryption.RemoveJetPassword(db);
 
-            byte[] ours = File.ReadAllBytes(tmp);
-            Assert.Equal(original[0x42..(0x42 + 40)], ours[0x42..(0x42 + 40)]); // back to the unpassworded field
+            Assert.Equal(original, StoredPasswordField(tmp)); // back to the unpassworded field
         }
         finally { TemporaryDatabase.Delete(tmp); }
     }
@@ -107,12 +105,12 @@ public class LegacyJetPasswordTests
             using (JetDatabase db = OpenExclusive(tmp))
                 DatabaseEncryption.SetJetPassword(db, "Test1");
 
-            byte[] page0 = File.ReadAllBytes(tmp)[..4096];
+            byte[] page0 = Page0(tmp);
             List<byte[]> masked = StoredSids(tmp, "Test1");
             Assert.Equal(original.Count, masked.Count);
             Assert.NotEqual(original[0], masked[0]);
             using (var db = JetDatabase.Open(tmp, password: "Test1"))
-                Assert.Equal(SidKeystream.MaskAccount(page0, [0x02, 0x03]), OwnerOf(db, "MSysObjects")); // Engine
+                Assert.Equal(SidKeystream.MaskAccount(page0, SidKeystream.EngineAccount, db.Format), OwnerOf(db, "MSysObjects"));
 
             using (JetDatabase db = OpenExclusive(tmp, "Test1"))
                 DatabaseEncryption.RemoveJetPassword(db);
@@ -129,10 +127,10 @@ public class LegacyJetPasswordTests
     public void An_accdb_password_change_writes_the_key_field_and_remasks_every_stored_sid()
     {
         string tmp = TemporaryDatabase.CreatePath("libred_accdbpw_", ".accdb");
-        DatabaseCreator.CreateEmpty(tmp);
+        JetDatabase.Create(tmp);
         try
         {
-            byte[] originalField = File.ReadAllBytes(tmp)[0x42..(0x42 + 40)];
+            byte[] originalField = StoredPasswordField(tmp);
             List<byte[]> original = StoredSids(tmp, null);
 
             using (JetDatabase db = OpenExclusive(tmp))
@@ -145,7 +143,7 @@ public class LegacyJetPasswordTests
 
             using (JetDatabase db = OpenExclusive(tmp, "Ab"))
                 DatabaseEncryption.RemovePassword(db);
-            Assert.Equal(originalField, File.ReadAllBytes(tmp)[0x42..(0x42 + 40)]);
+            Assert.Equal(originalField, StoredPasswordField(tmp));
             Assert.Equal(original, StoredSids(tmp, null));
         }
         finally { TemporaryDatabase.Delete(tmp); }
@@ -153,16 +151,28 @@ public class LegacyJetPasswordTests
 
     private static void AssertKeyFieldAndEngineOwner(string path, string password)
     {
-        byte[] page0 = File.ReadAllBytes(path)[..4096];
-        byte[] header = (byte[])page0.Clone();
-        ReadOnlySpan<byte> mask = Formats.JetFormatBase.PageZeroHeaderMask;
-        for (int i = 0; i < mask.Length; i++) header[Formats.JetFormatBase.PageZeroHeaderMaskStart + i] ^= mask[i];
-        byte[] dateMask = BitConverter.GetBytes((int)BitConverter.ToDouble(header, 0x72));
-        byte[] field = [.. Enumerable.Range(0, 40).Select(i => (byte)(header[0x42 + i] ^ dateMask[i % 4]))];
-        Assert.All(field, b => Assert.Equal(header[0x3E], b));
+        Formats.JetFormatBase format = TestDatabases.FormatOf(path);
+        byte[] page0 = Page0(path);
+        byte[] creationDate = new byte[sizeof(double)];
+        DatabaseDefinitionPage.ReadMasked(page0, format.CreationDateOffset, creationDate, format);
+        byte[] field = new byte[format.PasswordSize];
+        DatabaseDefinitionPage.ReadMasked(page0, format.PasswordOffset, field, format);
+        DatabaseDefinitionPage.XorPasswordDateMask(field, creationDate);
+        byte keyLowByte = (byte)DatabaseDefinitionPage.ReadDatabaseKey(page0, format);
+        Assert.All(field, b => Assert.Equal(keyLowByte, b));
 
         using var db = JetDatabase.Open(path, password: password);
-        Assert.Equal(SidKeystream.MaskAccount(page0, [0x02, 0x03]), OwnerOf(db, "MSysObjects")); // Engine
+        Assert.Equal(SidKeystream.MaskAccount(page0, SidKeystream.EngineAccount, format), OwnerOf(db, "MSysObjects"));
+    }
+
+    /// <summary>Page 0 of the file at <paramref name="path"/>, as stored.</summary>
+    private static byte[] Page0(string path) => File.ReadAllBytes(path)[..TestDatabases.FormatOf(path).PageSize];
+
+    /// <summary>The password field (<c>0x42</c>, 40 bytes) of the file at <paramref name="path"/>, as stored.</summary>
+    private static byte[] StoredPasswordField(string path)
+    {
+        Formats.JetFormatBase format = TestDatabases.FormatOf(path);
+        return File.ReadAllBytes(path)[format.PasswordOffset..(format.PasswordOffset + format.PasswordSize)];
     }
 
     private static JetDatabase OpenExclusive(string path, string password) =>
@@ -202,7 +212,7 @@ public class LegacyJetPasswordTests
             byte[] encoded = File.ReadAllBytes(tmp);
 
             Assert.NotEqual(before, encoded);                                   // pages actually changed
-            Assert.NotEqual(0u, BitConverter.ToUInt32(encoded, 0x3E));          // dbKey masked-nonzero on disk
+            Assert.NotEqual(0u, BitConverter.ToUInt32(encoded, TestDatabases.FormatOf(tmp).DatabaseKeyOffset)); // dbKey masked-nonzero on disk
 
             // Encoded is still a database: the key at 0x3E is all a reader needs, so it opens without a password.
             using (var db = JetDatabase.Open(tmp))
@@ -223,19 +233,18 @@ public class LegacyJetPasswordTests
         {
             using (JetDatabase db = OpenExclusive(tmp))
                 DatabaseEncryption.SetJetPassword(db, "Test1");
-            byte[] passwordField = File.ReadAllBytes(tmp)[0x42..(0x42 + 40)];
+            byte[] passwordField = StoredPasswordField(tmp);
 
             using (JetDatabase db = OpenExclusive(tmp))
                 DatabaseEncryption.SetJetEncoding(db);
 
             // The password field is on page 0, which page encoding must never transform.
-            byte[] both = File.ReadAllBytes(tmp);
-            Assert.Equal(passwordField, both[0x42..(0x42 + 40)]);
+            Assert.Equal(passwordField, StoredPasswordField(tmp));
 
             // Removing the encoding leaves the password field intact.
             using (JetDatabase db = OpenExclusive(tmp))
                 DatabaseEncryption.RemoveJetEncoding(db);
-            Assert.Equal(passwordField, File.ReadAllBytes(tmp)[0x42..(0x42 + 40)]);
+            Assert.Equal(passwordField, StoredPasswordField(tmp));
         }
         finally { TemporaryDatabase.Delete(tmp); }
     }
@@ -271,7 +280,9 @@ public class LegacyJetPasswordTests
 
             using (JetDatabase db = OpenExclusive(tmp))
                 DatabaseEncryption.RemoveJetPassword(db);
-            Assert.NotEqual(withMaximumPassword[0x42..(0x42 + 40)], File.ReadAllBytes(tmp)[0x42..(0x42 + 40)]);
+            Formats.JetFormatBase format = TestDatabases.FormatOf(tmp);
+            Assert.NotEqual(withMaximumPassword[format.PasswordOffset..(format.PasswordOffset + format.PasswordSize)],
+                StoredPasswordField(tmp));
         }
         finally { TemporaryDatabase.Delete(tmp); }
     }

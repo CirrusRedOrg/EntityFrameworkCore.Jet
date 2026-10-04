@@ -1,3 +1,5 @@
+using static LibRed.Storage.IndexKeyCodec;
+
 namespace LibRed.Storage;
 
 /// <summary>
@@ -14,7 +16,7 @@ namespace LibRed.Storage;
 /// base letter's primary weight and record the accent in a secondary section (see below); a handful of
 /// other characters are still reported unencodable.
 /// <para>
-/// The sort-order version is the column descriptor's <c>0x0D</c> field (spec §3.4). Access 2010+
+/// The sort-order version is the column descriptor's <c>0x0E</c> field (spec §3.4). Access 2010+
 /// introduced a different default "General" order (1033, version 1) with other key bytes; this class
 /// does <b>not</b> implement it. A version-1 column/index therefore needs a separate weight table —
 /// see the spec §10.4 note.
@@ -22,11 +24,6 @@ namespace LibRed.Storage;
 /// </remarks>
 internal static class JetTextCollation
 {
-    private const byte EndPrimary = 0x01;
-    private const byte EndKey = 0x00;
-    private const byte InlineStart = 0x80;
-    private const byte InlineMid = 0x06;
-
     /// <summary>ARABIC SHADDA — the gemination mark. Not an ignorable like the harakat around it: it
     /// doubles the preceding weight. See the rule in <c>TryEncode</c>.</summary>
     private const char Shadda = (char)0x0651;
@@ -70,7 +67,6 @@ internal static class JetTextCollation
         [(char)0x0650] = 0xA5,             // kasra
         [(char)0x0652] = 0xA6,             // sukun
     };
-    private const byte DefaultSecondary = 0x02; // a character with no accent
 
     // Secondary (diacritic) weight per Unicode combining mark — depends only on the accent, not the base
     // letter (verified against ACE: acute weighs 0x0E on a/e/i/o/u/y alike, etc.).
@@ -250,19 +246,6 @@ internal static class JetTextCollation
         return ligatures;
     }
 
-    /// <summary>
-    /// Appends the order-preserving collation key body for <paramref name="value"/> (everything
-    /// after the start flag: primary weights, end-of-primary marker, any ignorable-char inline
-    /// codes, and the terminator). Trailing spaces are dropped. Returns false if any character is
-    /// not yet supported.
-    /// </summary>
-    /// <param name="value">The text to encode.</param>
-    /// <param name="output">The key body is appended to this.</param>
-    /// <param name="tailoring">Per-character overrides for a locale order other than General; null for
-    /// General itself. See <see cref="JetLocaleTailoring"/>.</param>
-    public static bool TryEncode(string value, List<byte> output, LocaleTailoring? tailoring = null) =>
-        TryEncode(value, output, tailoring, out _);
-
     /// <summary>The word-sort inline code ACE gives a control character other than NUL and tab through carriage
     /// return: the 60 of them — U+0001–0008, U+000E–001F, DEL and U+0080–009F — take consecutive codes
     /// <c>0x03</c>–<c>0x3D</c> in code-point order (measured against ACE, every one).</summary>
@@ -280,19 +263,105 @@ internal static class JetTextCollation
         return value is not null;
     }
 
-    [ThreadStatic] private static EncodeScratch? t_scratch;
-
-    /// <summary>The lists <see cref="TryEncode(string, List{byte}, LocaleTailoring?, out bool)"/> builds a key in,
-    /// kept per thread and reused.</summary>
-    private sealed class EncodeScratch
+    /// <summary>
+    /// Ends a text key the way both sort-order versions end it, from the weights a version has worked out: the
+    /// primaries, the diacritic section, the kana section, the inline records, and <see cref="EndKey"/>.
+    /// [MS-UCODEREF] frames the key as primaries SEP diacritics SEP case SEP extra SEP specials TERM, and Access
+    /// emits that frame leaving the case section EMPTY — which is why case and width fold, since the Case Weight is
+    /// where width lives.
+    /// </summary>
+    /// <param name="output">The key being built.</param>
+    /// <param name="primaries">The primary weight bytes.</param>
+    /// <param name="secondaries">One diacritic weight per primary weight.</param>
+    /// <param name="reverseDiacritics">A French-style order, which writes the diacritic section backwards.</param>
+    /// <param name="kana">Per kana, whether it is a small form.</param>
+    /// <param name="marks">Per kana, its mark code.</param>
+    /// <param name="inline">The inline records: each one's position in primary weights, script member and weight.</param>
+    internal static void AppendSections(List<byte> output, List<byte> primaries, List<byte> secondaries,
+        bool reverseDiacritics, List<bool> kana, List<byte> marks,
+        List<(int Position, byte ScriptMember, byte Weight)> inline)
     {
+        output.AddRange(primaries);
+        output.Add(SectionSeparator);
+
+        // Diacritic section: only emitted when a character carries a non-default weight; it lists the weight of
+        // every primary weight from the first up to and including the last accented one.
+        //
+        // A French-style order writes it BACKWARDS, so accents are weighed from the end of the word and coté
+        // sorts before côte. The trimming mirrors too — the run of defaults comes off the LEFT, because that is
+        // the end that becomes trailing once reversed. [MS-UCODEREF] calls the flag IsReverseDW and states both
+        // halves; verified against ACE, where côté is [02 12 02 0E] trimmed to [12 02 0E] and stored 0E 02 12.
+        if (reverseDiacritics)
+        {
+            int firstAccent = secondaries.FindIndex(w => w != DefaultSecondary);
+            if (firstAccent >= 0)
+                for (int i = secondaries.Count - 1; i >= firstAccent; i--) output.Add(secondaries[i]);
+        }
+        else
+        {
+            int lastAccent = secondaries.FindLastIndex(w => w != DefaultSecondary);
+            for (int i = 0; i <= lastAccent; i++) output.Add(secondaries[i]);
+        }
+
+        if (kana.Count > 0) JetKanaSection.Append(output, kana, marks);
+
+        // The inline records follow the remaining separators: the end of the diacritics, an empty case section
+        // and an empty extra section — 01 01 01. A kana section fills the extra section, and the run is then
+        // FF 01 (measured from "あ-" and "-あ"; what the FF denotes is not established).
+        if (inline.Count > 0)
+        {
+            if (kana.Count > 0)
+            {
+                output.Add(KanaRunSeparator);
+                output.Add(SectionSeparator);
+            }
+            else
+            {
+                output.Add(SectionSeparator);
+                output.Add(SectionSeparator);
+                output.Add(SectionSeparator);
+            }
+            foreach ((int position, byte scriptMember, byte weight) in inline)
+            {
+                // [MS-UCODEREF] SpecialWeightType is (Position: 16-bit, ScriptMember, PrimaryWeight), and its
+                // Position is emitted big-endian — "Byte1 = Position >> 8, Byte2 = Position & 0xff" — so this is
+                // ONE sixteen-bit field with bit 15 set, not a 0x80 marker followed by a byte. Both readings give
+                // the same bytes below 0x100 and only the field reading survives past it, which is why treating
+                // 0x80 as a marker looked right for every short value and silently produced a wrong key for
+                // anything longer. Measured against ACE: a hyphen at character 250 is 83 EF.
+                int position16 = InlineStart << 8 | (0x07 + 4 * position);
+                output.Add((byte)(position16 >> 8));
+                output.Add((byte)position16);
+                output.Add(scriptMember);
+                output.Add(weight);
+            }
+        }
+        output.Add(EndKey);
+    }
+
+    /// <summary>The lists a key is built in — by <see cref="TryEncode"/> and by version 1's encoder alike — kept per
+    /// thread and reused. A text comparison encodes both sides every time, and building five lists per string made
+    /// a GROUP BY over a text column spend most of its time collecting them. Safe because neither encoder re-enters
+    /// either, and both are done with the lists once <see cref="AppendSections"/> has written the key.</summary>
+    internal sealed class EncodeScratch
+    {
+        [ThreadStatic] private static EncodeScratch? t_current;
+
+        /// <summary>This thread's lists, cleared.</summary>
+        public static EncodeScratch ForThisThread()
+        {
+            EncodeScratch scratch = t_current ??= new EncodeScratch();
+            scratch.Clear();
+            return scratch;
+        }
+
         public List<byte> Primaries { get; } = [];
         public List<byte> Secondaries { get; } = [];
-        public List<(int Position, byte Code)> Inline { get; } = [];
+        public List<(int Position, byte ScriptMember, byte Weight)> Inline { get; } = [];
         public List<bool> Kana { get; } = [];
         public List<byte> KanaMarks { get; } = [];
 
-        public void Clear()
+        private void Clear()
         {
             Primaries.Clear();
             Secondaries.Clear();
@@ -302,26 +371,20 @@ internal static class JetTextCollation
         }
     }
 
+    /// <summary>
+    /// Appends the order-preserving collation key body for <paramref name="value"/> (everything after the start
+    /// flag: primary weights, the section separators, any ignorable-char inline codes, and the terminator).
+    /// Trailing spaces are dropped. Returns false if any character is not yet supported.
+    /// </summary>
     /// <param name="value">The text to encode.</param>
     /// <param name="output">The key body is appended to this.</param>
-    /// <param name="tailoring">Per-character overrides for a locale order other than General; null for General.</param>
-    /// <param name="hasWordSortRecord">
-    /// Whether the key carries an inline word-sort section. The caller needs this to decide whether an
-    /// over-long entry may be truncated: the checksum that replaces the dropped bytes is unverified when
-    /// those bytes hold such a record, because the record is precisely what cannot be observed.
-    /// </param>
-    /// <inheritdoc cref="TryEncode(string, List{byte}, LocaleTailoring?)"/>
-    public static bool TryEncode(
-        string value, List<byte> output, LocaleTailoring? tailoring, out bool hasWordSortRecord)
+    /// <param name="tailoring">Per-character overrides for a locale order other than General; null for
+    /// General itself. See <see cref="JetLocaleTailoring"/>.</param>
+    public static bool TryEncode(string value, List<byte> output, LocaleTailoring? tailoring = null)
     {
-        hasWordSortRecord = false;
         ReadOnlySpan<char> s = value.AsSpan().TrimEnd(' ');
 
-        // The working lists are this thread's, cleared rather than allocated: a text comparison encodes both
-        // sides every time, and building five lists per string made a GROUP BY over a text column spend most of
-        // its time collecting them. Safe because nothing here re-enters TryEncode.
-        EncodeScratch scratch = t_scratch ??= new EncodeScratch();
-        scratch.Clear();
+        EncodeScratch scratch = EncodeScratch.ForThisThread();
 
         // Build the primary weight bytes and a parallel secondary weight per byte (0x02 = no accent).
         List<byte> primaries = scratch.Primaries;
@@ -332,7 +395,7 @@ internal static class JetTextCollation
         // "ß-" is 0x0F because ß expands to two one-byte weights. Latin-only strings cannot tell the two
         // rules apart, which is why this read as "bytes" for so long. secondaries.Count is the weight count,
         // since every weight contributes exactly one secondary slot.
-        List<(int Position, byte Code)> inline = scratch.Inline;
+        List<(int Position, byte ScriptMember, byte Weight)> inline = scratch.Inline;
         // One entry per kana in the string: true for a small form. Emitted as a section of its own.
         List<bool> kana = scratch.Kana;
         // What each kana is — a letter, a prolonged sound mark or an iteration mark. Packed like the small
@@ -408,8 +471,8 @@ internal static class JetTextCollation
                  TryGetControlInlineCode(c, out code)) &&
                 tailoring?.TryMatchSingle(c, out _) != true)
             {
-                inline.Add((secondaries.Count, code));
-                lastWeight = new CopiedPrimary(InlineMid, code);
+                inline.Add((secondaries.Count, WordSortScriptMember, code));
+                lastWeight = new CopiedPrimary(WordSortScriptMember, code);
                 lastWeightIsKana = false;
                 continue;
             }
@@ -421,7 +484,7 @@ internal static class JetTextCollation
             // primary — がー is 7F 0A then 7F 02, "ga" lengthened by "a" — and inherits its small flag,
             // while marking itself in a second packed section. With no kana ahead of it there is nothing to
             // lengthen, and it stays the ordinary FF FF primary the table already holds.
-            if (c is (char)0x30FC or (char)0xFF70 && kanaVowel != 0 && kanaWeight == secondaries.Count - 1)
+            if (JetKanaSection.IsProlongedSoundMark(c) && kanaVowel != 0 && kanaWeight == secondaries.Count - 1)
             {
                 AddWeight([JetKanaSection.KanaPage, kanaVowel], DefaultSecondary);
                 kana.Add(kanaSmall);
@@ -450,9 +513,10 @@ internal static class JetTextCollation
             // With no kana immediately before it there is nothing to voice, and the mark falls through to be
             // weighed on its own — ACE stores it as ignorable. Both halves of the guard matter: for a lone
             // mark kanaWeight and Count-1 are each -1, which would otherwise pass and index the list at -1.
-            if (c is (char)0xFF9E or (char)0xFF9F && kanaWeight >= 0 && kanaWeight == secondaries.Count - 1)
+            if (JetKanaSection.TryGetHalfwidthVoicing(c, out byte voiced) && kanaWeight >= 0
+                && kanaWeight == secondaries.Count - 1)
             {
-                secondaries[kanaWeight] = c == (char)0xFF9E ? (byte)0x03 : (byte)0x04;
+                secondaries[kanaWeight] = voiced;
                 keepRepeatable = true;
                 continue;
             }
@@ -472,7 +536,7 @@ internal static class JetTextCollation
                 keepRepeatable = true;
                 if (repeatable is null)
                 {
-                    primaries.AddRange((byte[])[0xFF, 0xFF]);
+                    primaries.AddRange(UnweightedPrimary);
                     continue;
                 }
                 AddWeight(repeatable.Value.ToArray(), markSecondary, final: true);
@@ -505,7 +569,7 @@ internal static class JetTextCollation
                 if (lastWeight.Length > 0)
                     AddWeight(lastWeight.ToArray(), DefaultSecondary, final: true);
                 else
-                    primaries.AddRange((byte[])[0xFF, 0xFF]);
+                    primaries.AddRange(UnweightedPrimary);
                 continue;
             }
 
@@ -532,66 +596,7 @@ internal static class JetTextCollation
                 return false; // not handled yet
         }
 
-        output.AddRange(primaries);
-        output.Add(EndPrimary);
-
-        // Secondary (diacritic) section: only emitted when a character carries a non-default weight; it lists
-        // the secondary weight of every byte from the first up to and including the last accented one.
-        //
-        // A French-style order writes it BACKWARDS, so accents are weighed from the end of the word and coté
-        // sorts before côte. The trimming mirrors too — the run of defaults comes off the LEFT, because that
-        // is the end that becomes trailing once reversed. [MS-UCODEREF] calls the flag IsReverseDW and states
-        // both halves; verified against ACE, where côté is [02 12 02 0E] trimmed to [12 02 0E] and stored
-        // 0E 02 12.
-        if (tailoring?.ReverseDiacritics == true)
-        {
-            int firstAccent = secondaries.FindIndex(w => w != DefaultSecondary);
-            if (firstAccent >= 0)
-                for (int i = secondaries.Count - 1; i >= firstAccent; i--)
-                    output.Add(secondaries[i]);
-        }
-        else
-        {
-            int lastAccent = secondaries.FindLastIndex(w => w != DefaultSecondary);
-            for (int i = 0; i <= lastAccent; i++)
-                output.Add(secondaries[i]);
-        }
-
-        hasWordSortRecord = inline.Count > 0;
-
-        if (kana.Count > 0) JetKanaSection.Append(output, kana, marks);
-
-        // Apostrophe/hyphen inline (tertiary) section. Its introducer depends on whether a kana section came
-        // first: 01 01 01 on its own, but FF 01 after one — measured from "あ-" and "-あ".
-        if (inline.Count > 0)
-        {
-            if (kana.Count > 0)
-            {
-                output.Add(0xFF);
-                output.Add(0x01);
-            }
-            else
-            {
-                output.Add(0x01);
-                output.Add(0x01);
-                output.Add(0x01);
-            }
-            foreach (var (position, code) in inline)
-            {
-                // [MS-UCODEREF] SpecialWeightType is (Position: 16 bit integer, ScriptMember, PrimaryWeight),
-                // and its Position is emitted big-endian — "Byte1 = Position >> 8, Byte2 = Position & 0xff" —
-                // so this is ONE sixteen-bit field with bit 15 set, not a 0x80 marker followed by a byte.
-                // Both readings give the same bytes below 0x100 and only the field reading survives past it,
-                // which is why treating 0x80 as a marker looked right for every short value and silently
-                // produced a wrong key for anything longer. Measured: a hyphen at character 250 is 83 EF.
-                int position16 = InlineStart << 8 | (0x07 + 4 * position);
-                output.Add((byte)(position16 >> 8));
-                output.Add((byte)position16);
-                output.Add(InlineMid);
-                output.Add(code);
-            }
-        }
-        output.Add(EndKey);
+        AppendSections(output, primaries, secondaries, tailoring?.ReverseDiacritics == true, kana, marks, inline);
         return true;
 
         // One character's weights, with no contraction and no tailoring: the path a ligature's components
@@ -637,7 +642,7 @@ internal static class JetTextCollation
             // Locales share it. A locale CAN reweigh a character here, but measuring all 21 against General
             // showed the departures are tiny — most add one or two entries across the whole range, Croatian
             // eleven — and every one is listed in its tailoring, which is consulted first.
-            // `LocaleCollationAccessTests` asserts the whole range for every locale, so a missed departure
+            // `CreatedDatabaseCollationAccessTests` asserts the whole range for the locale cases, so a missed departure
             // fails rather than writing a silently wrong key.
             else if (JetTextCollationTableV0.TryGet(character, out TailoredWeight? block))
             {

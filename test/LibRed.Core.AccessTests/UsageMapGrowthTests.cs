@@ -1,9 +1,6 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed;
 using LibRed.Catalog;
-using LibRed.IO;
-using LibRed.Pages;
 using LibRed.Storage;
 using Xunit;
 
@@ -42,18 +39,18 @@ public class UsageMapGrowthTests
             using (var db = JetDatabase.Open(path))
             {
                 var table = db.OpenTable("Big");
-                var pages = new UsageMap(table.Channel, table.Definition).DataPages().ToList();
-                Assert.True(pages.Max() > 511, $"expected owned pages past 511, max={pages.Max()}");
+                var maps = new UsageMap(table.Channel, table.Definition);
+                var pages = maps.DataPages().ToList();
+                int window = db.Format.UsageMapInlineBitmapSize * 8;
+                Assert.True(pages.Max() >= window, $"expected owned pages past {window - 1}, max={pages.Max()}");
 
-                PageBuffer tdef = table.Channel.ReadPage(table.Definition.DefinitionPage);
-                int mapRow = tdef.ReadByte(db.Format.TdefOwnedPagesOffset);
-                int mapPage = tdef.ReadInt24(db.Format.TdefOwnedPagesOffset + 1);
-                var holder = new DataPage();
-                holder.Read(table.Channel.ReadPage(mapPage), db.Format);
-                int recLen = holder.GetRow(mapRow).Length;
-                Assert.True(recLen > 69, $"owned map should have grown past the 64-byte bitmap, recLen={recLen}");
+                (int mapRow, int mapPage) = table.Channel.ReadPage(table.Definition.DefinitionPage)
+                    .ReadRecordPointer(db.Format.TdefOwnedPagesOffset);
+                int recLen = maps.ReadRecordAt(mapRow, mapPage).Length;
+                Assert.True(recLen > db.Format.UsageMapInlineRecordSize,
+                    $"owned map should have grown past the full-width record, recLen={recLen}");
                 // The grown bitmap must cover the highest owned page.
-                Assert.True((recLen - 5) * 8 > pages.Max());
+                Assert.True((recLen - db.Format.UsageMapInlineHeaderSize) * 8 > pages.Max());
             }
 
             // Access opens the file, counts every row, and reads one that lives past page 512.

@@ -58,7 +58,7 @@ internal static class LikeCandidates
         string path = TemporaryDatabase.CreatePath("like-pairs-", ".accdb");
         try
         {
-            DatabaseCreator.CreateEmpty(path, collation: collation);
+            JetDatabase.Create(path, collation: collation);
             using OleDbConnection ace = AceTestDatabase.Open(path);
             using (OleDbCommand create = ace.CreateCommand())
             {
@@ -99,7 +99,7 @@ internal static class LikeCandidates
         string path = TemporaryDatabase.CreatePath("like-pairs-libred-", ".accdb");
         try
         {
-            DatabaseCreator.CreateEmpty(path, collation: collation);
+            JetDatabase.Create(path, collation: collation);
             using var db = JetDatabase.Open(path, readOnly: false);
             var engine = new QueryEngine(db);
             engine.ExecuteNonQuery("CREATE TABLE Pairs (Id LONG, V TEXT(10), P TEXT(10))");

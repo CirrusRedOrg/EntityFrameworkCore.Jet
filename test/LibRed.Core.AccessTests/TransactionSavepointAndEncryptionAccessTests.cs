@@ -204,7 +204,6 @@ public class TransactionSavepointAndEncryptionAccessTests
             table.Definition.FindColumn("B")!.Index,
             memoIndex,
         });
-        table.MoveIndexEntry(ixK, oldValues, newValues, rowId);
     }
 
     private static object? Value(Table table, object?[] row, string column) =>

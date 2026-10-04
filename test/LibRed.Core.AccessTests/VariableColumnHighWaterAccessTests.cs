@@ -1,9 +1,6 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed;
 using LibRed.Catalog;
-using LibRed.Formats;
-using LibRed.IO;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -183,7 +180,7 @@ public class VariableColumnHighWaterAccessTests(ITestOutputHelper output)
     // afterwards then carry a shorter count and a narrower bitmap than the rows before them.
     //
     // Done on an all-fixed table, which stacks the other open case on top: with no variable columns a row
-    // has no offset table to pin the fixed-region length, so RowEncoder derives it from the live columns and
+    // has no offset table to pin the fixed-region length, so RowCodec derives it from the live columns and
     // it shrinks too. Both halves of the row get shorter at once, and ACE has to read across the change.
     [Fact]
     public void Ace_reads_rows_after_the_highest_id_column_is_dropped()
@@ -216,7 +213,7 @@ public class VariableColumnHighWaterAccessTests(ITestOutputHelper output)
     }
 
     // The third writer of a row, after INSERT and UPDATE: the in-place ALTER COLUMN re-lay. It does not go
-    // through RowEncoder.Encode at all — BuildRelaidRecord takes the old row's variable chunks POSITIONALLY,
+    // through RowCodec.Encode at all — BuildRelaidRecord takes the old row's variable chunks POSITIONALLY,
     // straight off the row, and appends the retyped column's chunk on the end. That is right only while the
     // row's chunk count equals the TDEF's 0x2B, because the retyped column's declared variable index is
     // taken from 0x2B.
@@ -297,20 +294,11 @@ public class VariableColumnHighWaterAccessTests(ITestOutputHelper output)
         try
         {
             run(path);
-            int definitionPage;
-            string indexes;
-            using (var database = JetDatabase.Open(path))
-            {
-                TableDef table = database.Catalog.FindTable("R")!;
-                definitionPage = table.DefinitionPage;
-                indexes = string.Join(" ", table.Columns.Where(c => !c.IsFixedLength)
-                    .OrderBy(c => c.VariableIndex).Select(c => $"{c.Name}:{c.VariableIndex}"));
-            }
-            using var channel = PageChannel.Open(path, readOnly: true);
-            byte[] page = channel.ReadPage(definitionPage).Span.ToArray();
-            int varCount = BinaryPrimitives.ReadUInt16LittleEndian(
-                page.AsSpan(channel.Format.TdefVariableColumnsOffset, 2));
-            return $"varCount={varCount} indexes={indexes}";
+            using var database = JetDatabase.Open(path);
+            TableDefinition table = database.Catalog.FindTable("R")!;
+            string indexes = string.Join(" ", table.Columns.Where(c => !c.IsFixedLength)
+                .OrderBy(c => c.VariableIndex).Select(c => $"{c.Name}:{c.VariableIndex}"));
+            return $"varCount={table.VariableColumnCount} indexes={indexes}";
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -386,37 +374,17 @@ public class VariableColumnHighWaterAccessTests(ITestOutputHelper output)
         Assert.Equal(ace, libred);
     }
 
-    /// <summary>Descriptor byte 0x07 for every column, read raw off the TDEF page — <see cref="ColumnDef"/>
-    /// does not surface it, and the point here is the stored byte rather than the derived model.</summary>
+    /// <summary>Descriptor byte 0x07 for every column, as stored — <see cref="ColumnDef.VariableTableIndex"/>,
+    /// which carries the byte on fixed columns too, rather than the derived <see cref="ColumnDef.VariableIndex"/>.</summary>
     private static string DescribeVarTableIndex(Action<string> run)
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "vartab-");
         try
         {
             run(path);
-            int definitionPage;
-            List<(string Name, int Index)> columns;
-            using (var database = JetDatabase.Open(path))
-            {
-                TableDef table = database.Catalog.FindTable("X")!;
-                definitionPage = table.DefinitionPage;
-                columns = table.Columns.Select(c => (c.Name, c.Index)).ToList();
-            }
-
-            using var channel = PageChannel.Open(path, readOnly: true);
-            var tdef = new Pages.TableDefinitionPage();
-            tdef.Read(channel, definitionPage);
-            byte[] page = channel.ReadPage(definitionPage).Span.ToArray();
-            JetFormatBase format = channel.Format;
-            int columnBlock = format.TdefRealIndexBlockOffset + tdef.IndexCount * format.RealIndexEntrySize;
-
-            return string.Join(" ", columns.Select(c =>
-            {
-                int entry = columnBlock + c.Index * format.ColumnDescriptorSize;
-                int stored = BinaryPrimitives.ReadUInt16LittleEndian(
-                    page.AsSpan(entry + format.ColumnVariableIndexOffset, 2));
-                return $"{c.Name}:{stored}";
-            }));
+            using var database = JetDatabase.Open(path);
+            return string.Join(" ", database.Catalog.FindTable("X")!.Columns.Select(c =>
+                $"{c.Name}:{c.VariableTableIndex}"));
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -471,25 +439,16 @@ public class VariableColumnHighWaterAccessTests(ITestOutputHelper output)
         {
             run(path);
 
-            int definitionPage;
-            string indexes;
-            using (var database = JetDatabase.Open(path))
-            {
-                TableDef table = database.Catalog.FindTable("V")!;
-                definitionPage = table.DefinitionPage;
-                indexes = string.Join(" ", table.Columns
-                    .Where(c => !c.IsFixedLength)
-                    .OrderBy(c => c.VariableIndex)
-                    .Select(c => $"{c.Name}:{c.VariableIndex}"));
-            }
+            using var database = JetDatabase.Open(path);
+            TableDefinition table = database.Catalog.FindTable("V")!;
+            string indexes = string.Join(" ", table.Columns
+                .Where(c => !c.IsFixedLength)
+                .OrderBy(c => c.VariableIndex)
+                .Select(c => $"{c.Name}:{c.VariableIndex}"));
 
-            using var channel = PageChannel.Open(path, readOnly: true);
-            byte[] page = channel.ReadPage(definitionPage).Span.ToArray();
-            int At(int offset) => BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(offset, 2));
-
-            return $"maxCols={At(channel.Format.TdefMaxColumnsOffset)} " +
-                   $"varCount={At(channel.Format.TdefVariableColumnsOffset)} " +
-                   $"colCount={At(channel.Format.TdefColumnCountOffset)} " +
+            return $"maxCols={table.ColumnIdHighWater} " +
+                   $"varCount={table.VariableColumnCount} " +
+                   $"colCount={table.Columns.Count} " +
                    $"varIndexes={indexes}";
         }
         finally { TemporaryDatabase.Delete(path); }

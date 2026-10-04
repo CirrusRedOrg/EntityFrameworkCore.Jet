@@ -9,7 +9,7 @@ namespace LibRed.Core.Tests;
 //
 // A rename has to validate the new name, because it reaches the same bytes as a create.
 //
-// TableCreator.Create, AddIndex, AddForeignKey, AddColumn and AddCheckConstraint all call JetName.Validate:
+// SchemaEditor.Create, AddIndex, AddForeignKey, AddColumn and AddCheckConstraint all call JetName.Validate:
 // over 64 characters corrupts the file for ACE, and . ! ` [ ] make a name unreferenceable in ACE SQL, both
 // verified. RenameTable and RenameColumn checked only for collisions, so they could write exactly the names
 // Create refuses - the same guarded-on-create, unguarded-on-modify split as the index and record limits.
@@ -80,7 +80,7 @@ public class RenameNameValidationAccessTests(ITestOutputHelper output) : TempDat
             }
 
         using var database = JetDatabase.Open(path);
-        Assert.Contains("View", database.Catalog.Views.Keys);
+        Assert.Contains("View", database.Catalog.Queries.Keys);
         Assert.NotNull(database.Catalog.FindTable("Trail "));
     }
 

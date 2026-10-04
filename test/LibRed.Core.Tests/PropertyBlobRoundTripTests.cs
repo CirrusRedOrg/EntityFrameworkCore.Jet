@@ -6,7 +6,7 @@ namespace LibRed.Core.Tests;
 
 // The LvProp property blob must round-trip EVERY property faithfully — including ones LibRed does not model
 // (a numeric DecimalPlaces, a designer ValidationRule/Format) — because an ALTER that edits a table's defaults
-// or nullability rewrites the whole blob (TableCreator.MutateLvPropForColumn does Read -> Write). Property.RawValue
+// or nullability rewrites the whole blob (SchemaEditor.MutateLvPropForColumn does Read -> Write). Property.RawValue
 // and Flags preserve each entry's exact stored value bytes and flag byte, so an unmodelled property survives
 // rather than being mangled or silently converted into a definition-protected property.
 public class PropertyBlobRoundTripTests

@@ -25,7 +25,7 @@ TDEF is handed out and overwritten like any other free page. LibRed names it
 
 ## Writing
 
-LibRed sets the same marker in `TableCreator.DropTable`, as the last step of giving the table's pages back
+LibRed sets the same marker through `TableDefinition.MarkReleased` in `SchemaEditor.DropTable`, as the last step of giving the table's pages back
 (the owned/free maps, the per-column long-value maps, and the map-holder rows are covered in
 [page-05 §9](page-05-usage-maps.md)).
 

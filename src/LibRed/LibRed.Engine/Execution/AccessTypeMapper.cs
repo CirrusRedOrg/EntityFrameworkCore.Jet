@@ -1,6 +1,7 @@
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.Sql.Ast;
+using LibRed.Storage;
 
 namespace LibRed.Engine.Execution;
 
@@ -152,7 +153,7 @@ internal static class AccessTypeMapper
             // VARIABLE region (verified: every GUID column ACE's DDL creates reads back fixed=False, at 1,
             // 2, 10, 250 and 252 columns alike — it is not a fallback for wide tables, and SELECT INTO
             // agrees). ACE's own system tables are the exception: MSysComplexType_GUID.Value is fixed, and
-            // DatabaseCreator reproduces that. ACE reads either layout back correctly, so this is about
+            // JetDatabase reproduces that. ACE reads either layout back correctly, so this is about
             // matching what ACE writes; it also stops a GUID column spending fixed-record budget ACE does
             // not spend, which made a 252-GUID table ACE creates happily exceed the declared record cap.
             "GUID" or "UNIQUEIDENTIFIER"
@@ -183,7 +184,7 @@ internal static class AccessTypeMapper
             // Up to 4000 bytes, stored inline like VARBINARY under its own type code, and bare BIGBINARY takes
             // the maximum (verified vs ACE). There is no fixed-length form in DDL.
             "BIGBINARY"
-                => Binary(column, isFixed: false, JetDataType.BigBinary, RecordLayout.MaxBigBinaryBytes),
+                => Binary(column, isFixed: false, JetDataType.BigBinary, RowCodec.MaxBigBinaryBytes),
 
             // Long-value columns: variable-length with no fixed byte length. The in-row value is a
             // 12-byte long-value descriptor; short values are stored inline after it.

@@ -16,7 +16,7 @@ public class GeneralV1CollationTests
     private static byte[] Encode(string value, Collation collation, bool ascending = true)
     {
         var column = new ColumnDef { Name = "t", Type = JetDataType.Text, Index = 0, Collation = collation };
-        return IndexKeyEncoder.Encode([(column, ascending)], [value]);
+        return IndexKeyCodec.Encode([(column, ascending)], [value]);
     }
 
     private static string Hex(byte[] bytes) => Convert.ToHexString(bytes);
@@ -167,8 +167,8 @@ public class GeneralV1CollationTests
         var b = new ColumnDef { Name = "b", Type = JetDataType.Text, Index = 1, Collation = Collation.General };
         string text = new('a', 200);
 
-        Assert.True(IndexKeyEncoder.Encode([(a, true)], [text]).Length < 510);
-        Assert.Equal(510, IndexKeyEncoder.Encode([(a, true), (b, true)], [text, text]).Length);
+        Assert.True(IndexKeyCodec.Encode([(a, true)], [text]).Length < 510);
+        Assert.Equal(510, IndexKeyCodec.Encode([(a, true), (b, true)], [text, text]).Length);
     }
 
     // An astral character is weighed by BOTH halves where the table has weights for both: U+10000 is the

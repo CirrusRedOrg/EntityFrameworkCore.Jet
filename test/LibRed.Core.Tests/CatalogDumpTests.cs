@@ -38,7 +38,7 @@ public class CatalogDumpTests(ITestOutputHelper output)
         var sb = new StringBuilder();
         sb.Append($"Database: {db.DefinitionPage.FormatIdentifier}  ({db.Format.Version}, page size {db.Format.PageSize})\n");
 
-        foreach (TableDef table in db.Catalog.Tables.OrderBy(t => t.DefinitionPage))
+        foreach (TableDefinition table in db.Catalog.Tables.OrderBy(t => t.DefinitionPage))
         {
             var tdef = db.ReadTableDefinition(table.DefinitionPage);
 

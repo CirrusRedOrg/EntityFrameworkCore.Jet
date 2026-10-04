@@ -56,7 +56,7 @@ public class CjkSortOrderGeneratorTest(ITestOutputHelper output)
                 {
                     if (!ace.TryGetValue(text, out string? key)) { refused++; continue; }
                     string ours;
-                    try { ours = Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [text])); }
+                    try { ours = Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [text])); }
                     catch (NotSupportedException) { ours = "(refused)"; }
                     if (ours == key) { agreed++; continue; }
                     if (TryReadOneWeight(key, out byte[] primary, out byte secondary))

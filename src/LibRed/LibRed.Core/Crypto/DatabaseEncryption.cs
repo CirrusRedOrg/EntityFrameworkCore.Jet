@@ -1,5 +1,6 @@
 using LibRed.Formats;
 using LibRed.IO;
+using LibRed.Pages;
 using LibRed.Storage;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
@@ -37,19 +38,6 @@ namespace LibRed.Crypto;
 /// </remarks>
 public static class DatabaseEncryption
 {
-    private const int KeyOffset = 0x3E;          // 4-byte database (encoding) key, XOR-masked by the page-0 header mask
-    private const int LengthOffset = 0x299;      // 2-byte EncryptionInfo blob length (Access's "is encrypted" signal)
-    private const int DescriptorOffset = 0x29B;  // the EncryptionInfo blob itself
-
-    // The descriptor shares page 0 with the user commit-byte table at 0xE00, which a fresh file seeds with the
-    // neutral 00 01 pairs — an all-zero table reads to Access as "every user is mid-write", i.e. corrupt. So a
-    // descriptor may only occupy the zero padding that ends at 0xDFF, not merely fit within the page.
-    private const int DescriptorPaddingEnd = 0xE00;
-
-    private const int JetPasswordOffset = 0x42;  // 40-byte legacy Jet database-password field (header-masked)
-    private const int JetPasswordSize = 40;      // 20 UTF-16LE chars
-    private const int HeaderDateOffset = 0x72;   // 8-byte creation-date OLE double (header-masked)
-
     /// <summary>How a page is re-encoded on its way into the replacement file. The page arrives decrypted,
     /// whatever the database was stored under, so this is the new encoding alone.</summary>
     private delegate void PageTransform(int page, Span<byte> bytes);
@@ -63,9 +51,9 @@ public static class DatabaseEncryption
         Rewrite(database, (page0, format) =>
         {
             ValidateScheme(scheme, format);
-            if (DecodeDatabaseKey(page0) != 0)
+            if (DatabaseDefinitionPage.ReadDatabaseKey(page0, format) != 0)
                 throw new InvalidOperationException("Database is already encrypted; use ChangePassword.");
-            return Encrypt(page0, password, scheme);
+            return Encrypt(page0, password, scheme, format);
         });
     }
 
@@ -74,11 +62,11 @@ public static class DatabaseEncryption
     /// encrypted.</summary>
     public static void RemovePassword(JetDatabase database)
     {
-        Rewrite(database, (page0, _) =>
+        Rewrite(database, (page0, format) =>
         {
-            if (DecodeDatabaseKey(page0) == 0)
+            if (DatabaseDefinitionPage.ReadDatabaseKey(page0, format) == 0)
                 throw new InvalidOperationException("Database is not encrypted.");
-            ClearEncryption(page0);
+            ClearEncryption(page0, format);
             return null; // the pages arrive decrypted, so writing them through unchanged is the removal
         });
     }
@@ -95,9 +83,9 @@ public static class DatabaseEncryption
         {
             if (!format.IsAccdb)
                 throw new ArgumentException("Office-Standard encryption requires an .accdb (ACE) database.", nameof(database));
-            if (DecodeDatabaseKey(page0) != 0)
+            if (DatabaseDefinitionPage.ReadDatabaseKey(page0, format) != 0)
                 throw new InvalidOperationException("Database is already encrypted; use ChangePassword.");
-            return EncryptRc4(page0, password, keyBits, hash);
+            return EncryptRc4(page0, password, keyBits, hash, format);
         });
     }
 
@@ -110,10 +98,10 @@ public static class DatabaseEncryption
         Rewrite(database, (page0, format) =>
         {
             ValidateScheme(scheme, format);
-            if (DecodeDatabaseKey(page0) == 0)
+            if (DatabaseDefinitionPage.ReadDatabaseKey(page0, format) == 0)
                 throw new InvalidOperationException("Database is not encrypted; use SetPassword.");
-            ClearEncryption(page0); // the old descriptor may be longer than the new one
-            return Encrypt(page0, newPassword, scheme);
+            ClearEncryption(page0, format); // the old descriptor may be longer than the new one
+            return Encrypt(page0, newPassword, scheme, format);
         });
     }
 
@@ -127,10 +115,10 @@ public static class DatabaseEncryption
         {
             if (!format.IsAccdb)
                 throw new ArgumentException("Office-Standard encryption requires an .accdb (ACE) database.", nameof(database));
-            if (DecodeDatabaseKey(page0) == 0)
+            if (DatabaseDefinitionPage.ReadDatabaseKey(page0, format) == 0)
                 throw new InvalidOperationException("Database is not encrypted; use SetPasswordRc4.");
-            ClearEncryption(page0);
-            return EncryptRc4(page0, newPassword, keyBits, hash);
+            ClearEncryption(page0, format);
+            return EncryptRc4(page0, newPassword, keyBits, hash, format);
         });
     }
 
@@ -150,8 +138,10 @@ public static class DatabaseEncryption
     public static void SetJetPassword(JetDatabase database, string password)
     {
         ArgumentException.ThrowIfNullOrEmpty(password);
-        if (password.Length > JetPasswordSize / 2)
-            throw new ArgumentException($"A Jet database password is at most {JetPasswordSize / 2} characters.", nameof(password));
+        ArgumentNullException.ThrowIfNull(database);
+        int maxLength = database.Format.PasswordSize / 2; // UTF-16LE
+        if (password.Length > maxLength)
+            throw new ArgumentException($"A Jet database password is at most {maxLength} characters.", nameof(password));
 
         RewriteJetPassword(database, password,
             "The legacy Jet password applies to .mdb, not .accdb — use SetPassword.");
@@ -181,7 +171,7 @@ public static class DatabaseEncryption
         var page0 = new byte[channel.PageSize];
         channel.ReadPage(0, page0);
         byte[] before = (byte[])page0.Clone();
-        WritePasswordField(page0, Encoding.Unicode.GetBytes(password));
+        DatabaseDefinitionPage.WritePassword(page0, Encoding.Unicode.GetBytes(password), channel.Format);
 
         database.BeginTransaction();
         try
@@ -195,7 +185,7 @@ public static class DatabaseEncryption
             database.Rollback();
             throw;
         }
-        database.Catalog.Invalidate(); // it holds the SIDs it read from MSysObjects' own row
+        database.Catalog.Invalidate(); // its catalog tables' rows changed under it
     }
 
     /// <summary>
@@ -213,7 +203,8 @@ public static class DatabaseEncryption
             if (rows.Count == 0) continue;
 
             int longest = rows.Max(r => ((byte[])r.Values[column]!).Length);
-            byte[] oldStream = SidKeystream.For(before, longest), newStream = SidKeystream.For(after, longest);
+            byte[] oldStream = SidKeystream.For(before, longest, database.Format);
+            byte[] newStream = SidKeystream.For(after, longest, database.Format);
             var changed = new HashSet<int> { column };
             foreach ((RowId id, object?[] values) in rows)
             {
@@ -222,27 +213,6 @@ public static class DatabaseEncryption
                 table.Update(id, values, changed);
             }
         }
-    }
-
-    // Encodes the header-masked 0x42 field: plaintext = value zero-padded to 40 bytes, XORed with the 4-byte
-    // little-endian (int)creationDateDouble mask (cycled); the on-disk bytes are that plaintext XORed with the page-0
-    // header mask. Reading (jackcess/LibRed) is the exact inverse. An .mdb's value is its Jet password, UTF-16LE;
-    // an .accdb's is the low byte of its database key, 40 times over (zero when unencrypted).
-    private static void WritePasswordField(byte[] page0, ReadOnlySpan<byte> value)
-    {
-        ReadOnlySpan<byte> hmask = JetFormatBase.PageZeroHeaderMask;
-        int start = JetFormatBase.PageZeroHeaderMaskStart;
-
-        Span<byte> date = stackalloc byte[8];
-        for (int i = 0; i < 8; i++) date[i] = (byte)(page0[HeaderDateOffset + i] ^ hmask[HeaderDateOffset - start + i]);
-        Span<byte> dateMask = stackalloc byte[4];
-        BinaryPrimitives.WriteInt32LittleEndian(dateMask, (int)BitConverter.ToDouble(date));
-
-        Span<byte> field = stackalloc byte[JetPasswordSize];
-        field.Clear();
-        value.CopyTo(field);
-        for (int i = 0; i < JetPasswordSize; i++)
-            page0[JetPasswordOffset + i] = (byte)(field[i] ^ dateMask[i % 4] ^ hmask[JetPasswordOffset - start + i]);
     }
 
     /// <summary>Applies legacy Jet 4 (<c>.mdb</c>) page encoding — the "Encode Database" feature — RC4-encrypting
@@ -257,11 +227,11 @@ public static class DatabaseEncryption
     {
         Rewrite(database, (page0, format) =>
         {
-            RequireJet4Mdb(page0, format);
-            if (DecodeDatabaseKey(page0) != 0)
+            RequireJet4Mdb(format);
+            if (DatabaseDefinitionPage.ReadDatabaseKey(page0, format) != 0)
                 throw new InvalidOperationException("Database is already encoded.");
 
-            WriteDatabaseKey(page0, dbKey); // page 0 (the header) is never encoded
+            DatabaseDefinitionPage.WriteDatabaseKey(page0, dbKey, format); // page 0 (the header) is never encoded
             return new JetLegacyEncryption(dbKey).EncryptPage;
         });
     }
@@ -272,20 +242,20 @@ public static class DatabaseEncryption
     {
         Rewrite(database, (page0, format) =>
         {
-            RequireJet4Mdb(page0, format);
-            if (DecodeDatabaseKey(page0) == 0)
+            RequireJet4Mdb(format);
+            if (DatabaseDefinitionPage.ReadDatabaseKey(page0, format) == 0)
                 throw new InvalidOperationException("Database is not encoded.");
 
-            WriteDatabaseKey(page0, 0);
+            DatabaseDefinitionPage.WriteDatabaseKey(page0, 0, format);
             return null; // the channel decoded them on the way in
         });
     }
 
-    private static void RequireJet4Mdb(byte[] page0, JetFormatBase format)
+    private static void RequireJet4Mdb(JetFormatBase format)
     {
         if (format.IsAccdb)
             throw new ArgumentException("Legacy Jet encoding applies to .mdb, not .accdb.", nameof(format));
-        if (page0[0x14] == 0) // version byte: 0 = Jet 3 (2048-byte pages), 1 = Jet 4
+        if (format.Version == JetVersion.Version3)
             throw new NotSupportedException("Jet 3 (Access 97) page encoding is not supported.");
     }
 
@@ -301,7 +271,7 @@ public static class DatabaseEncryption
         // Settle what this session would otherwise write only as it closes — the pages it freed go back to the
         // global map then (page-05 §9.1). Doing it now puts them in the copy; left until the Dispose below, they
         // would land in the file the replacement is about to overwrite.
-        new PageAllocator(channel).ReturnReleasedPages();
+        channel.Allocator.ReturnReleasedPages();
 
         var page0 = new byte[channel.PageSize];
         channel.ReadPage(0, page0);
@@ -314,7 +284,9 @@ public static class DatabaseEncryption
         bool remask = channel.Format.IsAccdb;
         if (remask)
         {
-            WritePasswordField(page0, Enumerable.Repeat((byte)DecodeDatabaseKey(page0), JetPasswordSize).ToArray());
+            JetFormatBase format = channel.Format;
+            DatabaseDefinitionPage.WritePassword(page0,
+                Enumerable.Repeat((byte)DatabaseDefinitionPage.ReadDatabaseKey(page0, format), format.PasswordSize).ToArray(), format);
             database.BeginTransaction();
         }
 
@@ -373,7 +345,7 @@ public static class DatabaseEncryption
         return channel;
     }
 
-    private static PageTransform Encrypt(byte[] page0, string password, AccessEncryption scheme)
+    private static PageTransform Encrypt(byte[] page0, string password, AccessEncryption scheme, JetFormatBase format)
     {
         int dbKey = NewDatabaseKey();
         byte[] descriptor;
@@ -381,38 +353,45 @@ public static class DatabaseEncryption
         switch (scheme)
         {
             case AccessEncryption.Agile: (descriptor, codec) = AgileEncryption.Create(password, dbKey); break;
-            case AccessEncryption.OfficeStandardAes: (descriptor, codec) = OfficeStandardEncryption.Create(password, aes: true, dbKey); break;
-            case AccessEncryption.OfficeStandardRc4: (descriptor, codec) = OfficeStandardEncryption.Create(password, aes: false, dbKey); break;
+            case AccessEncryption.OfficeStandardAes: (descriptor, codec) = OfficeStandardEncryption.Create(password, dbKey); break;
+            case AccessEncryption.OfficeStandardRc4:
+                (descriptor, codec) = OfficeStandardEncryption.CreateRc4(password, keyBits: 40, HashAlgorithmName.SHA1, dbKey); break;
             default: throw new ArgumentOutOfRangeException(nameof(scheme));
         }
-        return ApplyEncryption(page0, dbKey, descriptor, codec);
+        return ApplyEncryption(page0, dbKey, descriptor, codec, format);
     }
 
-    private static PageTransform EncryptRc4(byte[] page0, string password, int keyBits, StandardHash hash)
+    private static PageTransform EncryptRc4(byte[] page0, string password, int keyBits, StandardHash hash,
+        JetFormatBase format)
     {
         int dbKey = NewDatabaseKey();
         var (descriptor, codec) = OfficeStandardEncryption.CreateRc4(password, keyBits, ToHashName(hash), dbKey);
-        return ApplyEncryption(page0, dbKey, descriptor, codec);
+        return ApplyEncryption(page0, dbKey, descriptor, codec, format);
     }
 
     private static int NewDatabaseKey()
     {
-        int dbKey = BinaryPrimitives.ReadInt32LittleEndian(RandomBytes(4));
+        int dbKey = BinaryPrimitives.ReadInt32LittleEndian(RandomNumberGenerator.GetBytes(sizeof(int)));
         return dbKey == 0 ? 1 : dbKey; // 0 would read back as "unencrypted"
     }
 
-    // Writes the database key and the 0x299 length signal + descriptor onto page 0, and returns the transform
-    // that encrypts every later page.
-    private static PageTransform ApplyEncryption(byte[] page0, int dbKey, byte[] descriptor, IPageCodec codec)
+    // Writes the database key and the EncryptionInfo length signal + descriptor onto page 0, and returns the
+    // transform that encrypts every later page.
+    private static PageTransform ApplyEncryption(byte[] page0, int dbKey, byte[] descriptor, IPageCodec codec,
+        JetFormatBase format)
     {
-        WriteDatabaseKey(page0, dbKey);
-        if (DescriptorOffset + descriptor.Length > DescriptorPaddingEnd)
+        DatabaseDefinitionPage.WriteDatabaseKey(page0, dbKey, format);
+        // The descriptor shares page 0 with the user commit-byte table, which a fresh file seeds with the neutral
+        // 00 01 pairs — an all-zero table reads to Access as "every user is mid-write", i.e. corrupt. So it may
+        // only occupy the zero padding that ends where the table begins, not merely fit within the page.
+        int descriptorOffset = format.EncryptionInfoOffset, paddingEnd = format.CommitByteTableOffset;
+        if (descriptorOffset + descriptor.Length > paddingEnd)
             throw new NotSupportedException(
                 $"The {descriptor.Length}-byte EncryptionInfo descriptor does not fit page 0's padding "
-                + $"({DescriptorPaddingEnd - DescriptorOffset} bytes); writing it would overrun the user "
-                + "commit-byte table at 0xE00, which Access reads as corruption.");
-        BinaryPrimitives.WriteUInt16LittleEndian(page0.AsSpan(LengthOffset, 2), (ushort)descriptor.Length);
-        descriptor.CopyTo(page0, DescriptorOffset);
+                + $"({paddingEnd - descriptorOffset} bytes); writing it would overrun the user "
+                + $"commit-byte table at 0x{paddingEnd:X3}, which Access reads as corruption.");
+        BinaryPrimitives.WriteUInt16LittleEndian(page0.AsSpan(format.EncryptionInfoLengthOffset, 2), (ushort)descriptor.Length);
+        descriptor.CopyTo(page0, descriptorOffset);
         return codec.EncryptPage;
     }
 
@@ -426,16 +405,18 @@ public static class DatabaseEncryption
         _ => throw new ArgumentOutOfRangeException(nameof(hash)),
     };
 
-    private static void ClearEncryption(byte[] page0)
+    private static void ClearEncryption(byte[] page0, JetFormatBase format)
     {
         // Clamp to the padding window rather than trusting the stored length. On an .accdb the frame has been
         // through Agile's or Standard's bound check by now, but a legacy .mdb never uses this frame at all, so
-        // those two bytes hold whatever they hold, and 2 + blobLen could reach 65537, wiping page-0 structures
-        // past the padding (the commit-byte table at 0xE00 among them) or throwing outright.
-        int blobLen = BinaryPrimitives.ReadUInt16LittleEndian(page0.AsSpan(LengthOffset, 2));
-        int clearLength = Math.Min(2 + blobLen, DescriptorPaddingEnd - LengthOffset);
-        Array.Clear(page0, LengthOffset, clearLength);  // the length signal + the descriptor
-        WriteDatabaseKey(page0, 0);                     // decodes back to 0 = unencrypted
+        // those two bytes hold whatever they hold, and the frame they declare could reach 65537 bytes, wiping
+        // page-0 structures past the padding (the commit-byte table among them) or throwing outright.
+        int lengthOffset = format.EncryptionInfoLengthOffset;
+        int blobLen = DatabaseDefinitionPage.ReadEncryptionInfoLength(page0, format);
+        int clearLength = Math.Min(format.EncryptionInfoOffset - lengthOffset + blobLen,
+            format.CommitByteTableOffset - lengthOffset);
+        Array.Clear(page0, lengthOffset, clearLength);  // the length signal + the descriptor
+        DatabaseDefinitionPage.WriteDatabaseKey(page0, 0, format);             // decodes back to 0 = unencrypted
     }
 
     private static void ValidateScheme(AccessEncryption scheme, JetFormatBase format)
@@ -467,24 +448,4 @@ public static class DatabaseEncryption
                 throw new ArgumentOutOfRangeException(nameof(scheme));
         }
     }
-
-    private static int DecodeDatabaseKey(byte[] page0)
-    {
-        ReadOnlySpan<byte> mask = JetFormatBase.PageZeroHeaderMask;
-        int start = JetFormatBase.PageZeroHeaderMaskStart;
-        Span<byte> key = stackalloc byte[4];
-        for (int i = 0; i < 4; i++) key[i] = (byte)(page0[KeyOffset + i] ^ mask[KeyOffset - start + i]);
-        return BinaryPrimitives.ReadInt32LittleEndian(key);
-    }
-
-    private static void WriteDatabaseKey(byte[] page0, int dbKey)
-    {
-        ReadOnlySpan<byte> mask = JetFormatBase.PageZeroHeaderMask;
-        int start = JetFormatBase.PageZeroHeaderMaskStart;
-        Span<byte> k = stackalloc byte[4];
-        BinaryPrimitives.WriteInt32LittleEndian(k, dbKey);
-        for (int i = 0; i < 4; i++) page0[KeyOffset + i] = (byte)(k[i] ^ mask[KeyOffset - start + i]);
-    }
-
-    private static byte[] RandomBytes(int n) { byte[] b = new byte[n]; RandomNumberGenerator.Fill(b); return b; }
 }

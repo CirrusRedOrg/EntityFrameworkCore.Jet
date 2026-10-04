@@ -290,7 +290,7 @@ Build correctness first with lock seams stubbed; drop the Jet lock manager in la
    writes now buffer in the overlay, savepoint frames live in `Transaction`, and rollback
    discards pages rather than restoring and truncating them.
 2. **L3 statement atomicity.** ✅ done. Wrap every `QueryEngine` statement in an implicit txn;
-   convert the audit's non-atomic writers (`RowInserter`, `TableCreator`, `ViewCreator`,
+   convert the audit's non-atomic writers (`RowInserter`, `SchemaEditor`, `JetCatalog`,
    usage-map/LVAL) to rely on it. Regression: inject a late failure mid-statement, assert
    no partial state.
 3. **Cascade worklist.** ✅ done for DELETE. Replace recursive cascade delete with the

@@ -1,5 +1,6 @@
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
 using LibRed.Storage;
 using Xunit;
 
@@ -20,7 +21,7 @@ public class DropTableReclamationTests
         string path = TemporaryDatabase.CreatePath("libred_drop_lval_");
         try
         {
-            DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
             string big = new('x', 3000);   // far past the inline threshold, so each value owns LVAL pages
 
             int filled, freeBefore, tdefPage;
@@ -79,29 +80,25 @@ public class DropTableReclamationTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
-    /// <summary>How many pages the global free-pages map (page 1, row 0) currently calls free.</summary>
+    /// <summary>How many of the file's pages the global free-pages map — wherever page 0's <c>0x18</c> puts it —
+    /// currently calls free.</summary>
     private static int FreePages(JetDatabase db)
     {
         var channel = db.OpenTable("MSysObjects").Channel;
-        int free = 0;
-        for (int page = 2; page < channel.PageCount; page++)
-            if (IsFree(channel, page)) free++;
-        return free;
-    }
+        (_, _, byte[] holder, LibRed.Pages.DataPage.RowSlot slot) =
+            TestDatabases.GlobalMap(channel, channel.Format.FreePagesMapPointerOffset);
+        byte[] record = holder[slot.Offset..(slot.Offset + slot.Length)];
+        // Inline form only: a file this small never grows the free map past it.
+        Assert.Equal(UsageMapType.Inline, UsageMap.RecordType(record));
+        int start = UsageMap.StartPage(record, channel.Format);
+        Span<byte> bits = UsageMap.InlineBits(record, channel.Format);
 
-    private static bool IsFree(LibRed.IO.PageChannel channel, int page)
-    {
-        var buffer = new byte[channel.PageSize];
-        channel.ReadPage(1, buffer);
-        var holder = new LibRed.Pages.DataPage();
-        holder.Read(channel.ReadPage(1), channel.Format);
-        if (holder.RowCount < 1) return false;
-        var slot = holder.Rows[0];
-        if (buffer[slot.Offset] != 0x00) return false;      // inline form only; a tiny file never grows past it
-        int start = BitConverter.ToInt32(buffer, slot.Offset + 1);
-        int bit = page - start;
-        int index = slot.Offset + 5 + bit / 8;
-        if (bit < 0 || index >= slot.Offset + slot.Length) return false;
-        return (buffer[index] & (1 << (bit % 8))) != 0;
+        int free = 0;
+        for (int page = 0; page < channel.PageCount; page++)
+        {
+            int bit = page - start;
+            if (bit >= 0 && bit / 8 < bits.Length && BitmapBits.Get(bits, bit)) free++;
+        }
+        return free;
     }
 }

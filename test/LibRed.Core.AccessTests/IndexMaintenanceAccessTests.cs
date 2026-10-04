@@ -100,15 +100,11 @@ public class IndexMaintenanceAccessTests
         newValues[keyIndex] = newKey;
         newValues[textIndex] = text;
         table.Update(rowId, newValues);
-        table.MoveIndexEntry(pk, oldValues, newValues, rowId);
-        table.MoveIndexEntry(ixK, oldValues, newValues, rowId);
     }
 
     private static void Delete(Table table, IndexDef pk, IndexDef ixK, int id)
     {
         (RowId rowId, object?[] values) = table.SeekRowsWithIds(pk, [id]).Single();
-        table.RemoveIndexEntry(pk, values, rowId);
-        table.RemoveIndexEntry(ixK, values, rowId);
         table.Delete(rowId);
     }
 
@@ -118,7 +114,7 @@ public class IndexMaintenanceAccessTests
         foreach ((byte[] stored, RowId rowId) in new IndexCursor(table.Channel, index.RootPage).RawEntries())
         {
             object?[] row = Assert.IsType<object?[]>(table.GetRow(rowId));
-            Assert.Equal(stored, IndexKeyEncoder.Encode(index.Columns, row));
+            Assert.Equal(stored, IndexKeyCodec.Encode(index.Columns, row));
             entries++;
         }
         Assert.Equal(RowCount - 1, entries);

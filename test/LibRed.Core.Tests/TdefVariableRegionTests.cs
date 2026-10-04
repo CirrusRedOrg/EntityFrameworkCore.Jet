@@ -43,22 +43,27 @@ public class TdefVariableRegionTests
                 ? [new("M", JetDataType.Memo, 0, IsFixedLength: false)]
                 : [new("C", JetDataType.Int32, 4, IsFixedLength: true)];
 
-        byte[] page = TdefBuilder.Build(Format, TableType.User, specs, Collation.GeneralLegacy).Page;
-        int columnBlock = Format.TdefRealIndexBlockOffset;
+        byte[] page = TableDefinition.Build(Format, TableType.User, specs, Collation.GeneralLegacy).Page;
+        // Where the regions are in the sound definition, before any corruption: with no index, the long-value
+        // list follows the column names directly.
+        TableDefinition.Regions regions = TableDefinition.Regions.Of(page, Format);
+        int columnBlock = regions.ColumnDescriptors;
         int namePos = columnBlock + specs.Length * Format.ColumnDescriptorSize;
-        int lvalPos = SkipNames(page, namePos, specs.Length);
+        int lvalPos = regions.IndexNames;
         int declaredLength = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(Format.TdefLengthOffset, 4));
+        int overlongName = Format.MaxNameBytes + sizeof(char);
 
         switch (corruption)
         {
             case "column-name-too-long":
-                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(namePos, 2), 130);
-                page.AsSpan(namePos + 2, 130).Fill((byte)'A');
-                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(namePos + 132, 2), 0xFFFF);
-                declaredLength = namePos + 134;
+                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(namePos, Format.TdefNameLengthSize), (ushort)overlongName);
+                page.AsSpan(namePos + Format.TdefNameLengthSize, overlongName).Fill((byte)'A');
+                BinaryPrimitives.WriteUInt16LittleEndian(
+                    page.AsSpan(namePos + Format.TdefNameLengthSize + overlongName, 2), JetFormatBase.TdefLongValueMapTerminator);
+                declaredLength = namePos + Format.TdefNameLengthSize + overlongName + sizeof(ushort);
                 break;
             case "column-name-out-of-bounds":
-                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(namePos, 2), 128);
+                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(namePos, Format.TdefNameLengthSize), (ushort)Format.MaxNameBytes);
                 break;
             case "duplicate-column-id":
                 BinaryPrimitives.WriteUInt16LittleEndian(
@@ -66,31 +71,33 @@ public class TdefVariableRegionTests
                 break;
             case "column-id-255":
                 BinaryPrimitives.WriteUInt16LittleEndian(
-                    page.AsSpan(columnBlock + Format.ColumnNumberOffset, 2), 255);
+                    page.AsSpan(columnBlock + Format.ColumnNumberOffset, 2), (ushort)Format.MaxColumnsPerTable);
                 break;
             case "unknown-column-type":
                 page[columnBlock + Format.ColumnTypeOffset] = 0xFF;
                 break;
             case "missing-lval-terminator":
-                declaredLength -= 2;
+                declaredLength -= sizeof(ushort);
                 break;
             case "lval-for-non-lval-column":
                 WriteLvalEntry(page, lvalPos, 0);
-                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(lvalPos + 10, 2), 0xFFFF);
-                declaredLength += 10;
+                BinaryPrimitives.WriteUInt16LittleEndian(
+                    page.AsSpan(lvalPos + Format.TdefLongValueMapEntrySize, 2), JetFormatBase.TdefLongValueMapTerminator);
+                declaredLength += Format.TdefLongValueMapEntrySize;
                 break;
             case "duplicate-lval-column":
                 WriteLvalEntry(page, lvalPos, 0);
-                WriteLvalEntry(page, lvalPos + 10, 0);
-                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(lvalPos + 20, 2), 0xFFFF);
-                declaredLength += 20;
+                WriteLvalEntry(page, lvalPos + Format.TdefLongValueMapEntrySize, 0);
+                BinaryPrimitives.WriteUInt16LittleEndian(
+                    page.AsSpan(lvalPos + 2 * Format.TdefLongValueMapEntrySize, 2), JetFormatBase.TdefLongValueMapTerminator);
+                declaredLength += 2 * Format.TdefLongValueMapEntrySize;
                 break;
             case "odd-name-length":
-                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(namePos, 2), 1);
+                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(namePos, Format.TdefNameLengthSize), 1);
                 break;
             case "invalid-name-utf16":
-                page[namePos + 2] = 0x00;
-                page[namePos + 3] = 0xD8; // unpaired UTF-16 high surrogate
+                page[namePos + Format.TdefNameLengthSize] = 0x00;
+                page[namePos + Format.TdefNameLengthSize + 1] = 0xD8; // unpaired UTF-16 high surrogate
                 break;
             case "trailing-after-lval":
                 page[declaredLength] = 0;
@@ -103,7 +110,7 @@ public class TdefVariableRegionTests
         }
 
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefLengthOffset, 4), declaredLength);
-        var definition = new TableDefinitionPage();
+        var definition = new TableDefinition();
         Assert.Throws<InvalidDataException>(() =>
             definition.Read(new PageBuffer(page.AsMemory(0, declaredLength), 99), Format));
     }
@@ -113,19 +120,18 @@ public class TdefVariableRegionTests
     {
         ColumnSpec[] specs = [new("C", JetDataType.Int32, 4, IsFixedLength: true)];
         IndexSpec[] indexes = [new("I", ["C"], IsPrimaryKey: false, IsUnique: false, RootPage: 42)];
-        byte[] page = TdefBuilder.Build(Format, TableType.User, specs, Collation.GeneralLegacy, indexes).Page;
+        byte[] page = TableDefinition.Build(Format, TableType.User, specs, Collation.GeneralLegacy, indexes).Page;
 
-        int pos = Format.TdefRealIndexBlockOffset + Format.RealIndexEntrySize
-            + Format.ColumnDescriptorSize;
-        pos = SkipNames(page, pos, 1);
-        int indexNamePos = pos + 52 + 28; // §3.5 data block + §3.6 logical-info block
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(indexNamePos, 2), 130);
-        page.AsSpan(indexNamePos + 2, 130).Fill((byte)'I');
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(indexNamePos + 132, 2), 0xFFFF);
-        int declaredLength = indexNamePos + 134;
+        int indexNamePos = TableDefinition.Regions.Of(page, Format).IndexNames;
+        int overlongName = Format.MaxNameBytes + sizeof(char);
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(indexNamePos, Format.TdefNameLengthSize), (ushort)overlongName);
+        page.AsSpan(indexNamePos + Format.TdefNameLengthSize, overlongName).Fill((byte)'I');
+        BinaryPrimitives.WriteUInt16LittleEndian(
+            page.AsSpan(indexNamePos + Format.TdefNameLengthSize + overlongName, 2), JetFormatBase.TdefLongValueMapTerminator);
+        int declaredLength = indexNamePos + Format.TdefNameLengthSize + overlongName + sizeof(ushort);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefLengthOffset, 4), declaredLength);
 
-        var definition = new TableDefinitionPage();
+        var definition = new TableDefinition();
         Assert.Throws<InvalidDataException>(() =>
             definition.Read(new PageBuffer(page.AsMemory(0, declaredLength), 99), Format));
     }
@@ -142,7 +148,7 @@ public class TdefVariableRegionTests
     [InlineData("logical-index-region-overflow")]
     public void Malformed_header_counts_and_lengths_are_rejected_before_region_allocation(string corruption)
     {
-        byte[] page = TdefBuilder.Build(Format, TableType.User,
+        byte[] page = TableDefinition.Build(Format, TableType.User,
             [new("C", JetDataType.Int32, 4, IsFixedLength: true)], Collation.GeneralLegacy).Page;
         int declaredLength = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(Format.TdefLengthOffset, 4));
 
@@ -159,16 +165,18 @@ public class TdefVariableRegionTests
                 BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefLengthOffset, 4), declaredLength + 1);
                 break;
             case "too-many-columns":
-                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(Format.TdefColumnCountOffset, 2), 256);
+                BinaryPrimitives.WriteUInt16LittleEndian(
+                    page.AsSpan(Format.TdefColumnCountOffset, 2), (ushort)(Format.MaxColumnsPerTable + 1));
                 break;
             case "variable-column-high-water-overflow":
-                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(Format.TdefVariableColumnsOffset, 2), 256);
+                BinaryPrimitives.WriteUInt16LittleEndian(
+                    page.AsSpan(Format.TdefVariableColumnsOffset, 2), (ushort)(Format.MaxColumnsPerTable + 1));
                 break;
             case "negative-index-count":
                 BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefIndexCountOffset, 4), -1);
                 break;
             case "too-many-indexes":
-                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefIndexCountOffset, 4), 33);
+                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefIndexCountOffset, 4), Format.MaxIndexesPerTable + 1);
                 break;
             case "negative-logical-index-count":
                 BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefLogicalIndexCountOffset, 4), -1);
@@ -178,7 +186,7 @@ public class TdefVariableRegionTests
                 break;
         }
 
-        var definition = new TableDefinitionPage();
+        var definition = new TableDefinition();
         Assert.Throws<InvalidDataException>(() =>
             definition.Read(new PageBuffer(page.AsMemory(0, declaredLength), 99), Format));
     }
@@ -188,32 +196,16 @@ public class TdefVariableRegionTests
     {
         ColumnSpec[] specs = [new("M", JetDataType.Memo, 0, IsFixedLength: false)];
         LongValueColumnSpec[] maps = [new(ColumnId: 0, UsedRow: 2, FreeRow: 3, MapPage: 17)];
-        byte[] page = TdefBuilder.Build(Format, TableType.User, specs, Collation.GeneralLegacy, longValueColumns: maps).Page;
+        byte[] page = TableDefinition.Build(Format, TableType.User, specs, Collation.GeneralLegacy, longValueColumns: maps).Page;
         int declaredLength = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(Format.TdefLengthOffset, 4));
 
-        var definition = new TableDefinitionPage();
+        var definition = new TableDefinition();
         definition.Read(new PageBuffer(page.AsMemory(0, declaredLength), 99), Format);
 
         Assert.Equal((2, 17), definition.LongValueOwnedMaps[0]);
         Assert.Equal((3, 17), definition.LongValueFreeMaps[0]);
     }
 
-    private static int SkipNames(byte[] page, int pos, int count)
-    {
-        for (int i = 0; i < count; i++)
-        {
-            int length = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(pos, 2));
-            pos += 2 + length;
-        }
-        return pos;
-    }
-
-    private static void WriteLvalEntry(byte[] page, int pos, ushort columnId)
-    {
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(pos, 2), columnId);
-        page[pos + 2] = 2;
-        page[pos + 3] = 17;
-        page[pos + 6] = 3;
-        page[pos + 7] = 17;
-    }
+    private static void WriteLvalEntry(byte[] page, int pos, ushort columnId) =>
+        TableDefinition.LongValueMapEntry(Format, columnId, usedRow: 2, freeRow: 3, mapPage: 17).CopyTo(page, pos);
 }

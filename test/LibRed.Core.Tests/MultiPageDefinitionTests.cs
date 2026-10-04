@@ -1,6 +1,7 @@
 using LibRed;
 using LibRed.Catalog;
 using LibRed.IO;
+using LibRed.Pages;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -29,9 +30,9 @@ public class MultiPageDefinitionTests
             using (var ch = PageChannel.Open(path, readOnly: true))
             {
                 var def = new JetCatalog(ch).FindTable("Wide")!;
-                var buf = ch.ReadPage(def.DefinitionPage);
-                Assert.True(buf.ReadInt32(0x08) > ch.Format.PageSize);              // definition exceeds one page
-                Assert.NotEqual(0, buf.ReadInt32(ch.Format.TdefNextPageOffset));    // a continuation page exists
+                (PageBuffer definition, IReadOnlyList<int> continuations) = TableDefinition.ReadChain(ch, def.DefinitionPage);
+                Assert.True(definition.Length > ch.Format.PageSize); // definition exceeds one page
+                Assert.NotEmpty(continuations);                      // a continuation page exists
             }
 
             using (var db = JetDatabase.Open(path))
@@ -70,7 +71,8 @@ public class MultiPageDefinitionTests
             using (var ch = PageChannel.Open(path, readOnly: true))
             {
                 var chainFree = new List<int>();
-                for (int page = new JetCatalog(ch).FindTable("L")!.DefinitionPage; page != 0; page = ch.ReadPage(page).ReadInt32(ch.Format.TdefNextPageOffset))
+                int first = new JetCatalog(ch).FindTable("L")!.DefinitionPage;
+                foreach (int page in (int[])[first, .. TableDefinition.ReadChain(ch, first).ContinuationPages])
                     chainFree.Add(ch.ReadPage(page).ReadUInt16(ch.Format.TdefFreeSpaceOffset));
                 Assert.Equal(free, chainFree);
             }

@@ -37,8 +37,8 @@ public class IndexLeafParseCacheTests
     /// <summary>Checks every cached parse of the table's index pages, returning how many there were.</summary>
     private static int AssertCachedParsesMatch(JetDatabase db)
     {
-        TableDef table = db.OpenTable("T").Definition;
-        var writer = new IndexWriter(db.Channel, table);
+        TableDefinition table = db.OpenTable("T").Definition;
+        var writer = new IndexTree(db.Channel, table);
         int cached = 0;
         for (int page = 0; page < db.Channel.PageCount; page++)
         {

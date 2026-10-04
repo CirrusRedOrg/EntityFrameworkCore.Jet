@@ -120,7 +120,7 @@ public sealed class LibRedConnection : DbConnection
     /// <paramref name="connectionString"/> — **natively, no DAO/ADOX, cross-platform**.
     /// </summary>
     /// <remarks>
-    /// <see cref="Storage.DatabaseCreator.CreateEmpty"/> synthesises the file from scratch (page 0,
+    /// <see cref="JetDatabase.Create"/> synthesises the file from scratch (page 0,
     /// the free map, and the bootstrap system catalog), then LibRed's ordinary writers populate it.
     /// Produces an <c>.accdb</c> that LibRed reads and writes fully; the remaining Access-compatibility
     /// system tables are still being filled in.
@@ -144,7 +144,7 @@ public sealed class LibRedConnection : DbConnection
         if (string.IsNullOrEmpty(path))
             throw new ArgumentException("The connection string is missing a Data Source.", nameof(connectionString));
 
-        Storage.DatabaseCreator.CreateEmpty(path, (byte)version, collation);
+        JetDatabase.Create(path, (byte)version, collation);
         CreateDualTable(path);
     }
 

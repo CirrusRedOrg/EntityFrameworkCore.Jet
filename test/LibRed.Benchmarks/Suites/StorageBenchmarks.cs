@@ -21,7 +21,7 @@ public class StorageBenchmarks
     private IndexDef _primaryKey = null!;
     private IndexDef _onK = null!;
 
-    // Seek values are addressed by the table's column ordinal, not by key position (IndexKeyEncoder reads
+    // Seek values are addressed by the table's column ordinal, not by key position (IndexKeyCodec reads
     // values[column.Index]), so a seek key is a full-width row with only the key columns filled in.
     private object?[] _idKey = null!;
     private object?[] _kKey = null!;
@@ -59,7 +59,7 @@ public class StorageBenchmarks
     [GlobalCleanup]
     public void Cleanup() => _database.Dispose();
 
-    /// <summary>Every row, decoded in full: the cost of the page walk plus <c>RowDecoder</c> for the whole
+    /// <summary>Every row, decoded in full: the cost of the page walk plus <c>RowCodec</c> for the whole
     /// table. The upper bound on how fast any unfiltered query over this table can be.</summary>
     [Benchmark]
     public long FullScan() => Consume.Drain(_bench.Rows());

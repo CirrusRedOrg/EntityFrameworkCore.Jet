@@ -1,5 +1,6 @@
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
 using LibRed.Storage;
 using Xunit;
 
@@ -8,6 +9,20 @@ namespace LibRed.Core.Tests;
 /// <summary>Synthesising a new database's pages from scratch (native, DAO/ADOX-free creation).</summary>
 public class DatabaseCreatorTests
 {
+    /// <summary>A page 0 pointing where <paramref name="layout"/>'s own page 0 points.</summary>
+    private static byte[] BuildDefinitionPage(Pages.DatabaseDefinitionPage layout, byte version, bool isAccdb,
+        int codePage, Collation collation, double creationDays) =>
+        Pages.DatabaseDefinitionPage.Build(version, isAccdb, codePage, collation, creationDays,
+            layout.FreePagesMap.Page, layout.CatalogRootPage, layout.AcesRootPage, layout.QueriesRootPage,
+            layout.RelationshipsRootPage, layout.AccountsRootPage, layout.GroupsRootPage);
+
+    /// <summary>Northwind's page 0, for a test that needs some real file's layout to point at.</summary>
+    private static Pages.DatabaseDefinitionPage NorthwindPage0()
+    {
+        using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
+        return db.DefinitionPage;
+    }
+
     [Theory]
     [InlineData(nameof(TestDatabases.NorthwindAccdb))]
     [InlineData(nameof(TestDatabases.BuiltInDataTypesAccdb))]
@@ -18,14 +33,15 @@ public class DatabaseCreatorTests
         using var db = JetDatabase.Open(path);
         var dp = db.DefinitionPage;
 
-        byte[] synth = DatabaseCreator.BuildDefinitionPage(
+        byte[] synth = BuildDefinitionPage(dp,
             dp.JetVersion, isAccdb: true, dp.CodePage, dp.Collation,
             (dp.DatabaseCreationDate - new DateTime(1899, 12, 30)).TotalDays);
 
         // The whole page-0 header (0x00–0x9F: identifier, version, the masked field block, and the
         // cleartext "4.0" tail) is reproduced byte-for-byte. (0xA0–0xDFF is zero; 0xE00+ is an
         // undecoded usage structure LibRed doesn't need — not asserted here.)
-        Assert.Equal(real[0x00..0xA0], synth[0x00..0xA0]);
+        Assert.Equal(real[..(JetFormatBase.EngineVersionOffset + JetFormatBase.EngineVersionLength)],
+            synth[..(JetFormatBase.EngineVersionOffset + JetFormatBase.EngineVersionLength)]);
     }
 
     /// <summary>Every Access-authored fixture in Data\ whose order LibRed can create: one per locale.</summary>
@@ -57,11 +73,12 @@ public class DatabaseCreatorTests
         using var db = JetDatabase.Open(path);
         var dp = db.DefinitionPage;
 
-        byte[] synth = DatabaseCreator.BuildDefinitionPage(
+        byte[] synth = BuildDefinitionPage(dp,
             dp.JetVersion, isAccdb: true, JetCodePages.For(dp.Collation)!.Value, dp.Collation,
             (dp.DatabaseCreationDate - new DateTime(1899, 12, 30)).TotalDays);
 
-        Assert.Equal(Convert.ToHexString(real[0x00..0xA0]), Convert.ToHexString(synth[0x00..0xA0]));
+        Assert.Equal(Convert.ToHexString(real[..(JetFormatBase.EngineVersionOffset + JetFormatBase.EngineVersionLength)]),
+            Convert.ToHexString(synth[..(JetFormatBase.EngineVersionOffset + JetFormatBase.EngineVersionLength)]));
     }
 
     // Creation refuses an order without a measured code page, so every order LibRed can encode must have one.
@@ -89,7 +106,7 @@ public class DatabaseCreatorTests
         string path = TemporaryDatabase.CreatePath("libred_syscols_");
         try
         {
-            DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
             using var created = JetDatabase.Open(path);
             using var real = JetDatabase.Open(TestDatabases.NorthwindAccdb);
 
@@ -100,8 +117,8 @@ public class DatabaseCreatorTests
             ];
             foreach (string name in systemTables)
             {
-                TableDef expected = real.Catalog.FindTable(name)!;
-                TableDef actual = created.Catalog.FindTable(name)!;
+                TableDefinition expected = real.Catalog.FindTable(name)!;
+                TableDefinition actual = created.Catalog.FindTable(name)!;
                 foreach (ColumnDef column in expected.Columns)
                     Assert.True(column.RawDescriptor!.AsSpan().SequenceEqual(actual.FindColumn(column.Name)!.RawDescriptor),
                         $"{name}.{column.Name}: Access {Convert.ToHexString(column.RawDescriptor!)}, " +
@@ -117,13 +134,12 @@ public class DatabaseCreatorTests
         string path = TemporaryDatabase.CreatePath("libred_create_");
         try
         {
-            DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
 
             // Freshly created: opens, and the two bootstrap system tables are in the catalog.
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
-                Assert.Equal(2, db.DefinitionPage.CatalogRootPage);
-                Assert.NotNull(db.OpenTable("MSysObjects"));
+                Assert.Equal(db.OpenTable("MSysObjects").Definition.DefinitionPage, db.DefinitionPage.CatalogRootPage);
                 Assert.NotNull(db.OpenTable("MSysACEs"));
 
                 // Create a user table, insert, and read back — through the ordinary writers.
@@ -162,7 +178,7 @@ public class DatabaseCreatorTests
             .Replace(".accdb", ".mdb", StringComparison.OrdinalIgnoreCase);
         try
         {
-            DatabaseCreator.CreateEmpty(path, version: 0x01);
+            JetDatabase.Create(path, version: 0x01);
 
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
@@ -194,13 +210,13 @@ public class DatabaseCreatorTests
     [InlineData((byte)0x03, "Standard ACE DB", (byte)0x01)]
     public void Synthesized_page0_pairs_the_identifier_with_the_version(byte version, string id, byte minor)
     {
-        byte[] page = DatabaseCreator.BuildDefinitionPage(
+        byte[] page = BuildDefinitionPage(NorthwindPage0(),
             version, isAccdb: id.StartsWith("Standard ACE", StringComparison.Ordinal),
             1252, Collation.GeneralLegacy, 46000);
 
-        Assert.Equal(id, System.Text.Encoding.ASCII.GetString(page, 0x04, id.Length));
-        Assert.Equal(version, page[0x14]);
-        Assert.Equal(minor, page[0x15]);
+        Assert.Equal(id, System.Text.Encoding.ASCII.GetString(page, JetFormatBase.FormatIdentifierOffset, id.Length));
+        Assert.Equal(version, page[JetFormatBase.VersionOffset]);
+        Assert.Equal(minor, page[JetFormatBase.FromVersionByte(version).MinorVersionOffset]);
     }
 
     // A new database is dated when it is made, and its SIDs are the default workgroup's, masked with the keystream
@@ -216,19 +232,19 @@ public class DatabaseCreatorTests
         try
         {
             DateTime before = DateTime.Now;
-            DatabaseCreator.CreateEmpty(path, version);
-            byte[] page0 = File.ReadAllBytes(path)[..4096];
+            JetDatabase.Create(path, version);
+            byte[] page0 = File.ReadAllBytes(path)[..TestDatabases.FormatOf(path).PageSize];
 
             using var db = JetDatabase.Open(path);
             Assert.InRange(db.DefinitionPage.DatabaseCreationDate, before.AddSeconds(-1), DateTime.Now.AddSeconds(1));
 
             // The default workgroup's accounts, as System.mdw's MSysAccounts holds them.
-            byte[] engine = LibRed.Crypto.SidKeystream.MaskAccount(page0, [0x02, 0x03]);
+            byte[] engine = LibRed.Crypto.SidKeystream.MaskAccount(page0, [0x02, 0x03], db.Format);
             byte[][] grantees =
             [
-                LibRed.Crypto.SidKeystream.MaskAccount(page0, [0x03, 0x01]),  // admin user
-                LibRed.Crypto.SidKeystream.MaskAccount(page0, [0x02, 0x01]),  // Users group
-                LibRed.Crypto.SidKeystream.MaskAccount(page0, [0x02, 0x04]),  // Creator
+                LibRed.Crypto.SidKeystream.MaskAccount(page0, [0x03, 0x01], db.Format),  // admin user
+                LibRed.Crypto.SidKeystream.MaskAccount(page0, [0x02, 0x01], db.Format),  // Users group
+                LibRed.Crypto.SidKeystream.MaskAccount(page0, [0x02, 0x04], db.Format),  // Creator
             ];
 
             Table objects = db.OpenTable("MSysObjects");
@@ -253,7 +269,8 @@ public class DatabaseCreatorTests
     public void Synthesized_page0_round_trips_through_the_reader()
     {
         var created = new DateTime(2026, 7, 14, 12, 0, 0);
-        byte[] page = DatabaseCreator.BuildDefinitionPage(
+        var layout = NorthwindPage0();
+        byte[] page = BuildDefinitionPage(layout,
             0x02, isAccdb: true, 1252, Collation.GeneralLegacy, (created - new DateTime(1899, 12, 30)).TotalDays);
 
         var dp = new LibRed.Pages.DatabaseDefinitionPage();
@@ -265,7 +282,11 @@ public class DatabaseCreatorTests
         Assert.Equal(1033, dp.DefaultCollationLcid);
         Assert.Equal(0, dp.DefaultCollationVersion);
         Assert.Equal(0, dp.DatabaseKey);
-        Assert.Equal(2, dp.CatalogRootPage);
+        Assert.Equal(
+            (layout.FreePagesMap, layout.ReleasedPagesMap, layout.CatalogRootPage, layout.AcesRootPage,
+                layout.QueriesRootPage, layout.RelationshipsRootPage, layout.AccountsRootPage, layout.GroupsRootPage),
+            (dp.FreePagesMap, dp.ReleasedPagesMap, dp.CatalogRootPage, dp.AcesRootPage,
+                dp.QueriesRootPage, dp.RelationshipsRootPage, dp.AccountsRootPage, dp.GroupsRootPage));
         Assert.Equal(created, dp.DatabaseCreationDate, TimeSpan.FromSeconds(1));
     }
 }

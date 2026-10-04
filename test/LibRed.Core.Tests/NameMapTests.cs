@@ -1,5 +1,6 @@
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -67,7 +68,7 @@ public class NameMapTests
     {
         NameMap map = new()
         {
-            Records = [new NameMapRecord(Guid.Empty, 0, "Unresolved"), new NameMapRecord(Table1, 0, "Table1")],
+            Records = [new NameMap.Entry(Guid.Empty, 0, "Unresolved"), new NameMap.Entry(Table1, 0, "Table1")],
         };
 
         NameMap read = NameMap.ReadProperty(map.WriteProperty());
@@ -107,7 +108,7 @@ public class NameMapTests
         string path = TemporaryDatabase.CopyPath(Fixture, "namemap-row-");
         try
         {
-            NameMapRow row;
+            NameMap.CatalogRow row;
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
                 row = Assert.Single(db.ReadNameMaps());
@@ -126,7 +127,7 @@ public class NameMapTests
 
             using (var db = JetDatabase.Open(path, readOnly: true))
             {
-                NameMapRow after = Assert.Single(db.ReadNameMaps());
+                NameMap.CatalogRow after = Assert.Single(db.ReadNameMaps());
                 Assert.Equal("Renamed", after.Name);
                 Assert.Equal(row.Id, after.Id);
                 Assert.Equal("Renamed", after.Map!.Records[0].Name);
@@ -145,25 +146,25 @@ public class NameMapTests
             NameMap original;
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
-                original = Assert.IsType<NameMap>(db.ReadNameMapProperty("Table1", 1));
+                original = Assert.IsType<NameMap>(db.ReadNameMapProperty("Table1", ObjectType.Table));
                 Assert.Equal("Table1", original.Records[0].Name);
                 NameMap renamed = original with
                 {
                     Records = [original.Records[0] with { Name = "Renamed" }, .. original.Records.Skip(1)],
                 };
-                db.UpdateNameMapProperty("Table1", 1, renamed);
-                Assert.Throws<InvalidOperationException>(() => db.ReadNameMapProperty("NoSuchTable", 1));
+                db.UpdateNameMapProperty("Table1", ObjectType.Table, renamed);
+                Assert.Throws<InvalidOperationException>(() => db.ReadNameMapProperty("NoSuchTable", ObjectType.Table));
             }
 
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
-                NameMap after = Assert.IsType<NameMap>(db.ReadNameMapProperty("Table1", 1));
+                NameMap after = Assert.IsType<NameMap>(db.ReadNameMapProperty("Table1", ObjectType.Table));
                 Assert.Equal("Renamed", after.Records[0].Name);
                 Assert.Equal(original.Version, after.Version);
                 Assert.NotNull(TableProperty(db, "GUID"));
 
-                db.UpdateNameMapProperty("Table1", 1, null);
-                Assert.Null(db.ReadNameMapProperty("Table1", 1));
+                db.UpdateNameMapProperty("Table1", ObjectType.Table, null);
+                Assert.Null(db.ReadNameMapProperty("Table1", ObjectType.Table));
                 Assert.NotNull(TableProperty(db, "GUID"));
             }
         }
@@ -180,15 +181,15 @@ public class NameMapTests
     }
 
     // Records hold their slot as an array, so record equality compares it by reference.
-    private sealed class NameMapRecordComparer : IEqualityComparer<NameMapRecord>
+    private sealed class NameMapRecordComparer : IEqualityComparer<NameMap.Entry>
     {
         public static readonly NameMapRecordComparer Instance = new();
 
-        public bool Equals(NameMapRecord? x, NameMapRecord? y) =>
+        public bool Equals(NameMap.Entry? x, NameMap.Entry? y) =>
             x is not null && y is not null && x with { Slot = NoSlot } == y with { Slot = NoSlot } && x.Slot.AsSpan().SequenceEqual(y.Slot);
 
         private static readonly byte[] NoSlot = [];
 
-        public int GetHashCode(NameMapRecord obj) => obj.ItemGuid.GetHashCode();
+        public int GetHashCode(NameMap.Entry obj) => obj.ItemGuid.GetHashCode();
     }
 }

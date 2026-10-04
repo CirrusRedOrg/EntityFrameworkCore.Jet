@@ -11,7 +11,7 @@ namespace LibRed.Core.Tests;
 // DDL on CREATE TABLE, ALTER COLUMN and ADD COLUMN alike ("Size of field is too long"); LibRed accepted
 // Text(2000) and Binary(4000) on all three and produced a table ACE opens but cannot query.
 //
-// DECLARED RECORD SIZE. TdefBuilder checked only that the fixed region fits the TDEF's 2-byte offset
+// DECLARED RECORD SIZE. TableDefinition checked only that the fixed region fits the TDEF's 2-byte offset
 // fields (65535). ACE's real limit is the 4060-byte record cap applied to the widest row the declaration
 // permits, and a table over it makes the whole database unopenable - "Unrecognized database format", the
 // same damage as a 100-character rename. A plain CreateTable of 252 GUID columns did exactly that.

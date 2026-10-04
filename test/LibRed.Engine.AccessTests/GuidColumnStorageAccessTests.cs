@@ -22,7 +22,7 @@ public class GuidColumnStorageAccessTests : TempDatabaseTest
         new QueryEngine(database).ExecuteNonQuery(
             "CREATE TABLE `W` (`Id` INTEGER PRIMARY KEY, `G` GUID NULL, `H` UNIQUEIDENTIFIER NULL)");
 
-        TableDef table = database.Catalog.FindTable("W")!;
+        TableDefinition table = database.Catalog.FindTable("W")!;
         Assert.All(table.Columns.Where(c => c.Name is "G" or "H"), column =>
         {
             Assert.False(column.IsFixedLength);

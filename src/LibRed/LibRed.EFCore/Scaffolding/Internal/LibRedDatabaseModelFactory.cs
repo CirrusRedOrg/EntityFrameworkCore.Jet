@@ -72,7 +72,7 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
     {
         var tables = new List<DatabaseTable>();
 
-        foreach (TableDef definition in database.Catalog.UserTables)
+        foreach (TableDefinition definition in database.Catalog.UserTables)
         {
             _logger.TableFound(definition.Name);
 
@@ -95,7 +95,7 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
     {
         foreach (DatabaseTable table in tables)
         {
-            TableDef definition = database.Catalog.FindTable(table.Name)!;
+            TableDefinition definition = database.Catalog.FindTable(table.Name)!;
 
             for (int ordinal = 0; ordinal < definition.Columns.Count; ordinal++)
             {
@@ -163,7 +163,7 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
     {
         foreach (DatabaseTable table in tables)
         {
-            TableDef definition = database.Catalog.FindTable(table.Name)!;
+            TableDefinition definition = database.Catalog.FindTable(table.Name)!;
 
             foreach (IndexDef index in definition.Indexes)
             {

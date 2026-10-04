@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Text;
 using LibRed;
+using LibRed.Formats;
 using LibRed.Pages;
 using LibRed.Storage;
 using Xunit;
@@ -22,8 +23,6 @@ namespace LibRed.Engine.Tests;
 [Collection(AceCollection.Name)]
 public class PageGroupProbeTest(ITestOutputHelper output)
 {
-    private const int PageSize = 4096;
-
     [Theory(Explicit = true)]
     [InlineData(0)]
     [InlineData(40)]
@@ -35,6 +34,8 @@ public class PageGroupProbeTest(ITestOutputHelper output)
         object workspace = Invoke(engine, "CreateWorkspace", "", "admin", "", 2)!;
         object db = Invoke(workspace, "CreateDatabase", origin, ";LANGID=0x0409;CP=1252;COUNTRY=0", 128)!;
         Invoke(db, "Close");
+        int pageSize;
+        using (FileStream stream = File.OpenRead(origin)) pageSize = JetFormatBase.Detect(stream).PageSize;
 
         var setup = new List<string>
         {
@@ -76,7 +77,7 @@ public class PageGroupProbeTest(ITestOutputHelper output)
                 new QueryEngine(database).ExecuteNonQuery(bulk);
 
             var report = new StringBuilder();
-            report.AppendLine(CultureInfo.InvariantCulture, $"before: {new FileInfo(origin).Length / PageSize} pages");
+            report.AppendLine(CultureInfo.InvariantCulture, $"before: {new FileInfo(origin).Length / pageSize} pages");
             Describe(report, "ACE", ace);
             Describe(report, "LibRed", libred);
             output.WriteLine(report.ToString());
@@ -223,7 +224,9 @@ public class PageGroupProbeTest(ITestOutputHelper output)
                     command.CommandText = statement;
                     command.ExecuteNonQuery();
                 }
-            report.AppendLine(CultureInfo.InvariantCulture, $"after setup: {new FileInfo(origin).Length / PageSize} pages");
+            int pageSize;
+            using (FileStream stream = File.OpenRead(origin)) pageSize = JetFormatBase.Detect(stream).PageSize;
+            report.AppendLine(CultureInfo.InvariantCulture, $"after setup: {new FileInfo(origin).Length / pageSize} pages");
 
             Dictionary<int, string> previous = Kinds(origin);
             foreach ((string label, string[] sql) in runs)
@@ -247,7 +250,7 @@ public class PageGroupProbeTest(ITestOutputHelper output)
                     }
 
                     Dictionary<int, string> kinds = Kinds(open);
-                    int pages = (int)(new FileInfo(open).Length / PageSize);
+                    int pages = (int)(new FileInfo(open).Length / pageSize);
                     HashSet<int> free;
                     string owners;
                     using (var database = JetDatabase.Open(open, readOnly: true))
@@ -316,6 +319,8 @@ public class PageGroupProbeTest(ITestOutputHelper output)
                     command.ExecuteNonQuery();
                 }
 
+            int pageSize;
+            using (FileStream stream = File.OpenRead(origin)) pageSize = JetFormatBase.Detect(stream).PageSize;
             Dictionary<int, string> previous = [];
             string previousReserved = "";
             foreach (int rows in samples)
@@ -338,13 +343,13 @@ public class PageGroupProbeTest(ITestOutputHelper output)
 
                     Dictionary<int, string> used = Used(open);
                     byte[] file = File.ReadAllBytes(open);
-                    int pages = file.Length / PageSize;
+                    int pages = file.Length / pageSize;
                     HashSet<int> free;
                     using (var database = JetDatabase.Open(open, readOnly: true))
                         free = GlobalFree(database.OpenTable("Bulk"), 512);
                     int first = used.Keys.Min();
                     string reserved = Ranges(Enumerable.Range(first, 512 - first)
-                        .Where(p => !free.Contains(p) && (p >= pages || file[p * PageSize] == 0 && file[p * PageSize + 1] == 0)));
+                        .Where(p => !free.Contains(p) && (p >= pages || PageHeader.ReadType(file.AsSpan(p * pageSize)) == 0)));
                     string freeInFile = Ranges(free.Where(p => p < pages));
 
                     var changes = new List<string>();
@@ -450,7 +455,9 @@ public class PageGroupProbeTest(ITestOutputHelper output)
             runs.Add(($"preload {rows}", [.. steps.Select(s => s.Sql), $"{select}{rows} ORDER BY 1"]));
 
         var report = new StringBuilder();
-        report.AppendLine(CultureInfo.InvariantCulture, $"DAO-made origin: {new FileInfo(origin).Length / PageSize} pages");
+        int pageSize;
+        using (FileStream stream = File.OpenRead(origin)) pageSize = JetFormatBase.Detect(stream).PageSize;
+        report.AppendLine(CultureInfo.InvariantCulture, $"DAO-made origin: {new FileInfo(origin).Length / pageSize} pages");
         try
         {
             Dictionary<int, string> previous = Kinds(origin);
@@ -476,7 +483,7 @@ public class PageGroupProbeTest(ITestOutputHelper output)
 
                     Dictionary<int, string> kinds = Kinds(open);
                     byte[] file = File.ReadAllBytes(open);
-                    int pages = file.Length / PageSize;
+                    int pages = file.Length / pageSize;
                     HashSet<int> free;
                     using (var database = JetDatabase.Open(open, readOnly: true))
                         free = GlobalFree(database.OpenTable("MSysObjects"), 512);
@@ -505,12 +512,16 @@ public class PageGroupProbeTest(ITestOutputHelper output)
     private static Dictionary<int, string> Kinds(string path)
     {
         byte[] file = File.ReadAllBytes(path);
+        JetFormatBase format = JetFormatBase.Detect(new MemoryStream(file));
+        int pageSize = format.PageSize;
         var kinds = new Dictionary<int, string>();
-        for (int page = 1; page < file.Length / PageSize; page++)
+        for (int page = 1; page < file.Length / pageSize; page++)
         {
-            ReadOnlySpan<byte> p = file.AsSpan(page * PageSize, PageSize);
-            if (p[0] == 0 && p[1] == 0) continue;
-            int owner = BinaryPrimitives.ReadInt32LittleEndian(p[4..]);
+            ReadOnlySpan<byte> p = file.AsSpan(page * pageSize, pageSize);
+            if (PageHeader.ReadType(p) == 0) continue;
+            int owner = PageHeader.ReadType(p) == PageType.DataPage
+                ? (int)DataPage.ReadOwner(p, format)
+                : IndexTree.ReadOwner(p, format);
             kinds[page] = PageHeader.ReadType(p) switch
             {
                 PageType.DataPage => $"D@{owner}",
@@ -523,28 +534,34 @@ public class PageGroupProbeTest(ITestOutputHelper output)
         return kinds;
     }
 
-    /// <summary>File length, pages whose type byte is 0 (never written), and the pages set in the global free
-    /// (page 1 row 0) and released (page 1 row 1) maps, whole map range.</summary>
+    /// <summary>File length, pages whose type byte is 0 (never written), and the pages set in the global free and
+    /// released maps — wherever page 0's pointers put them — whole map range.</summary>
     private static string Maps(string path)
     {
         byte[] file = File.ReadAllBytes(path);
-        int pages = file.Length / PageSize;
         using var database = JetDatabase.Open(path, readOnly: true);
+        JetFormatBase format = database.Format;
+        int pages = file.Length / format.PageSize;
         Table any = database.OpenTable("Bulk");
-        var holder = new DataPage();
-        holder.Read(any.Channel.ReadPageShared(1), any.Channel.Format);
-        var zero = Enumerable.Range(1, pages - 1).Where(p => file[p * PageSize] == 0 && file[p * PageSize + 1] == 0);
-        return $"{pages} pages; zero [{Ranges(zero)}]; free [{Ranges(Bits(holder.GetRow(0)))}]; " +
-               $"released [{Ranges(Bits(holder.GetRow(1)))}]";
+        (int freeRow, int freePage) = database.DefinitionPage.FreePagesMap;
+        (int releasedRow, int releasedPage) = database.DefinitionPage.ReleasedPagesMap;
+        var freeHolder = new DataPage();
+        freeHolder.Read(any.Channel.ReadPageShared(freePage), any.Channel.Format);
+        var releasedHolder = new DataPage();
+        releasedHolder.Read(any.Channel.ReadPageShared(releasedPage), any.Channel.Format);
+        var zero = Enumerable.Range(1, pages - 1).Where(p => PageHeader.ReadType(file.AsSpan(p * format.PageSize)) == 0);
+        return $"{pages} pages; zero [{Ranges(zero)}]; free [{Ranges(Bits(freeHolder.GetRow(freeRow), format))}]; " +
+               $"released [{Ranges(Bits(releasedHolder.GetRow(releasedRow), format))}]";
 
-        static List<int> Bits(ReadOnlySpan<byte> map)
+        static List<int> Bits(ReadOnlySpan<byte> map, JetFormatBase format)
         {
             var set = new List<int>();
-            if (map[0] != 0) { set.Add(-1); return set; }
-            int start = BinaryPrimitives.ReadInt32LittleEndian(map[1..]);
-            for (int i = 5; i < map.Length; i++)
+            if (UsageMap.RecordType(map) != UsageMapType.Inline) { set.Add(-1); return set; }
+            int start = UsageMap.StartPage(map, format);
+            int header = format.UsageMapInlineHeaderSize;
+            for (int i = header; i < map.Length; i++)
                 for (int bit = 0; bit < 8; bit++)
-                    if ((map[i] & (1 << bit)) != 0) set.Add(start + (i - 5) * 8 + bit);
+                    if ((map[i] & (1 << bit)) != 0) set.Add(start + (i - header) * 8 + bit);
             return set;
         }
     }
@@ -591,7 +608,9 @@ public class PageGroupProbeTest(ITestOutputHelper output)
                     command.CommandText = statement;
                     command.ExecuteNonQuery();
                 }
-            report.AppendLine(CultureInfo.InvariantCulture, $"before: {new FileInfo(origin).Length / PageSize} pages");
+            int pageSize;
+            using (FileStream stream = File.OpenRead(origin)) pageSize = JetFormatBase.Detect(stream).PageSize;
+            report.AppendLine(CultureInfo.InvariantCulture, $"before: {new FileInfo(origin).Length / pageSize} pages");
 
             Dictionary<int, string> previous = [];
             for (int rows = preloaded + 1; rows <= 1000; rows++)
@@ -612,7 +631,7 @@ public class PageGroupProbeTest(ITestOutputHelper output)
                     foreach (int page in previous.Keys.Where(p => !used.ContainsKey(p)).Order()) changes.Add($"-{page}");
                     if (changes.Count > 0)
                         report.AppendLine(CultureInfo.InvariantCulture,
-                            $"{rows,5} ({new FileInfo(ace).Length / PageSize}): {string.Join(" ", changes)}");
+                            $"{rows,5} ({new FileInfo(ace).Length / pageSize}): {string.Join(" ", changes)}");
                     previous = used;
                     if (rows % 100 == 0) report.AppendLine(CultureInfo.InvariantCulture, $"      {Runs(ace)}");
                 }
@@ -631,19 +650,21 @@ public class PageGroupProbeTest(ITestOutputHelper output)
         using var database = JetDatabase.Open(path, readOnly: true);
         Table bulk = database.OpenTable("Bulk");
         int tdef = bulk.Definition.DefinitionPage;
-        HashSet<int> free = GlobalFree(bulk, file.Length / PageSize);
+        JetFormatBase format = database.Format;
+        int pageSize = format.PageSize;
+        HashSet<int> free = GlobalFree(bulk, file.Length / pageSize);
         var parts = new List<string>();
         int start = -1, startId = -1, nextId = -1; string kind = "";
-        for (int page = tdef + 1; page <= file.Length / PageSize; page++)
+        for (int page = tdef + 1; page <= file.Length / pageSize; page++)
         {
             string k; int first = -1, last = -1;
-            if (page == file.Length / PageSize) k = "end";
+            if (page == file.Length / pageSize) k = "end";
             else
             {
-                ReadOnlySpan<byte> p = file.AsSpan(page * PageSize, PageSize);
+                ReadOnlySpan<byte> p = file.AsSpan(page * pageSize, pageSize);
                 k = PageHeader.ReadType(p) switch
                 {
-                    PageType.DataPage when BinaryPrimitives.ReadInt32LittleEndian(p[4..]) == tdef => "D",
+                    PageType.DataPage when (int)DataPage.ReadOwner(p, format) == tdef => "D",
                     PageType.LeafIndexPage => "L",
                     PageType.IntermediateIndexPage => "I",
                     _ when free.Contains(page) => ".",
@@ -659,7 +680,7 @@ public class PageGroupProbeTest(ITestOutputHelper output)
             }
             if (k == "D") nextId = last + 1;
         }
-        return $"{file.Length / PageSize} pages | " + string.Join(" ", parts);
+        return $"{file.Length / pageSize} pages | " + string.Join(" ", parts);
 
         string Run(int from, int to, string what) =>
             (from == to ? $"{from}" : $"{from}-{to}") + (what == "D" ? $"D{startId}" : what);
@@ -672,13 +693,15 @@ public class PageGroupProbeTest(ITestOutputHelper output)
         byte[] file = File.ReadAllBytes(path);
         using var database = JetDatabase.Open(path, readOnly: true);
         int tdef = database.OpenTable("Bulk").Definition.DefinitionPage;
+        JetFormatBase format = database.Format;
+        int pageSize = format.PageSize;
         var used = new Dictionary<int, string>();
-        for (int page = tdef + 1; page < file.Length / PageSize; page++)
+        for (int page = tdef + 1; page < file.Length / pageSize; page++)
         {
-            ReadOnlySpan<byte> p = file.AsSpan(page * PageSize, PageSize);
+            ReadOnlySpan<byte> p = file.AsSpan(page * pageSize, pageSize);
             string? kind = PageHeader.ReadType(p) switch
             {
-                PageType.DataPage when BinaryPrimitives.ReadInt32LittleEndian(p[4..]) == tdef => "D",
+                PageType.DataPage when (int)DataPage.ReadOwner(p, format) == tdef => "D",
                 PageType.LeafIndexPage => "L",
                 PageType.IntermediateIndexPage => "I",
                 _ when p[0] == 0 => null,
@@ -696,7 +719,7 @@ public class PageGroupProbeTest(ITestOutputHelper output)
         var ids = new List<int>();
         for (int row = 0; row < data.RowCount; row++)
             if (data.Rows[row] is { IsDeleted: false, HasOverflow: false })
-                ids.Add(BinaryPrimitives.ReadInt32LittleEndian(data.GetRow(row)[2..]));
+                ids.Add(BinaryPrimitives.ReadInt32LittleEndian(data.GetRow(row)[bulk.Channel.Format.RowColumnCountSize..]));
         return ids.Count == 0 ? (-2, -2) : (ids.Min(), ids.Max());
     }
 
@@ -708,21 +731,23 @@ public class PageGroupProbeTest(ITestOutputHelper output)
         int bulkTdef = bulk.Definition.DefinitionPage;
         var owned = new HashSet<int>(bulk.UsageMap.DataPages());
         var freeSpace = new HashSet<int>(bulk.UsageMap.FreeDataPages());
-        HashSet<int> globalFree = GlobalFree(bulk, file.Length / PageSize);
+        JetFormatBase format = database.Format;
+        int pageSize = format.PageSize;
+        HashSet<int> globalFree = GlobalFree(bulk, file.Length / pageSize);
 
         report.AppendLine(CultureInfo.InvariantCulture,
-            $"==== {name}: {file.Length / PageSize} pages; Bulk tdef {bulkTdef}; owned [{Ranges(owned)}]; " +
+            $"==== {name}: {file.Length / pageSize} pages; Bulk tdef {bulkTdef}; owned [{Ranges(owned)}]; " +
             $"free-space [{Ranges(freeSpace)}]; global free (in file) [{Ranges(globalFree)}]");
-        for (int page = 1; page < file.Length / PageSize; page++)
+        for (int page = 1; page < file.Length / pageSize; page++)
         {
-            ReadOnlySpan<byte> p = file.AsSpan(page * PageSize, PageSize);
+            ReadOnlySpan<byte> p = file.AsSpan(page * pageSize, pageSize);
             PageType type = PageHeader.ReadType(p);
-            int tdef = BinaryPrimitives.ReadInt32LittleEndian(p[4..]);
+            int tdef = type == PageType.DataPage ? (int)DataPage.ReadOwner(p, format) : IndexTree.ReadOwner(p, format);
             string what = type switch
             {
                 PageType.DataPage when tdef == bulkTdef => $"D  {BulkIds(bulk, page)}",
                 PageType.DataPage => $"d  tdef {tdef}",
-                PageType.LeafIndexPage => $"{(tdef == bulkTdef ? "L" : "l")}  tdef {tdef} entries-end 0x{BinaryPrimitives.ReadUInt16LittleEndian(p[2..]):X}",
+                PageType.LeafIndexPage => $"{(tdef == bulkTdef ? "L" : "l")}  tdef {tdef} entries-end 0x{IndexTree.ReadFreeSpace(p, format):X}",
                 PageType.IntermediateIndexPage => $"{(tdef == bulkTdef ? "I" : "i")}  tdef {tdef}",
                 _ => $"type 0x{p[0]:X2}",
             };
@@ -741,24 +766,28 @@ public class PageGroupProbeTest(ITestOutputHelper output)
         for (int row = 0; row < data.RowCount; row++)
         {
             if (data.Rows[row] is not { IsDeleted: false, HasOverflow: false }) continue;
-            ids.Add(BinaryPrimitives.ReadInt32LittleEndian(data.GetRow(row)[2..]));
+            ids.Add(BinaryPrimitives.ReadInt32LittleEndian(data.GetRow(row)[bulk.Channel.Format.RowColumnCountSize..]));
         }
         return ids.Count == 0 ? "empty" : $"{ids.Count} rows ids {ids.Min()}-{ids.Max()}";
     }
 
-    /// <summary>The global free-pages map: page 1 row 0 in every file ACE writes, an inline map with a set bit
-    /// for a free page.</summary>
+    /// <summary>The global free-pages map, wherever page 0's <c>0x18</c> puts it: an inline map with a set bit for
+    /// a free page.</summary>
     private static HashSet<int> GlobalFree(Table any, int pages)
     {
+        var page0 = new DatabaseDefinitionPage();
+        page0.Read(any.Channel.ReadPageShared(0), any.Channel.Format);
+        (int row, int mapPage) = page0.FreePagesMap;
         var holder = new DataPage();
-        holder.Read(any.Channel.ReadPageShared(1), any.Channel.Format);
-        ReadOnlySpan<byte> map = holder.GetRow(0);
+        holder.Read(any.Channel.ReadPageShared(mapPage), any.Channel.Format);
+        ReadOnlySpan<byte> map = holder.GetRow(row);
         var free = new HashSet<int>();
-        if (map[0] != 0) return free;
-        int start = BinaryPrimitives.ReadInt32LittleEndian(map[1..]);
-        for (int i = 5; i < map.Length; i++)
+        if (UsageMap.RecordType(map) != UsageMapType.Inline) return free;
+        int start = UsageMap.StartPage(map, any.Channel.Format);
+        int header = any.Channel.Format.UsageMapInlineHeaderSize;
+        for (int i = header; i < map.Length; i++)
             for (int bit = 0; bit < 8; bit++)
-                if ((map[i] & (1 << bit)) != 0 && start + (i - 5) * 8 + bit < pages) free.Add(start + (i - 5) * 8 + bit);
+                if ((map[i] & (1 << bit)) != 0 && start + (i - header) * 8 + bit < pages) free.Add(start + (i - header) * 8 + bit);
         return free;
     }
 

@@ -2,7 +2,7 @@ namespace LibRed.Catalog;
 
 /// <summary>
 /// Describes a single column of a table: its name, type, physical layout and flags.
-/// Decoded from the column descriptors in a <see cref="Pages.TableDefinitionPage"/>.
+/// Decoded from the column descriptors in a <see cref="TableDefinition"/>.
 /// </summary>
 public sealed class ColumnDef
 {
@@ -121,7 +121,7 @@ public sealed class ColumnDef
     /// the reserved words at <c>0x03</c> and <c>0x11</c> and the undocumented flag bits included, which no
     /// modelled property carries. Nothing writes from it: every DDL edits the descriptor in place, so those
     /// bytes are never re-emitted. Null for a freshly-built (never-read) column.</summary>
-    public byte[]? RawDescriptor { get; init; }
+    internal byte[]? RawDescriptor { get; init; }
 
     /// <summary>Catalog flag bits (byte 0x0F) to force-set on a created column — the system-catalog column marker
     /// (0x10) and security-identifier marker (0x20) Access sets on the columns of its own catalog tables. 0 for

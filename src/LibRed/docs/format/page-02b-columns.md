@@ -325,7 +325,7 @@ column's rank among the variable columns ordered by ascending id.
 
 Two limits bind a declaration, both enforced by ACE when it **opens the file**, so writing past either
 damages the database rather than just the table. Verified against ACE 16 (OLE DB); LibRed applies both in
-`Catalog/RecordLayout.cs`, on create and on every incremental path.
+`Catalog/RowCodec.cs`, on create and on every incremental path.
 
 **Per field: 510 bytes** — 255 Text characters, or 510 bytes of Binary, fixed or variable alike. ACE
 refuses a wider column through its own DDL identically on `CREATE TABLE`, `ALTER COLUMN` and `ADD COLUMN`

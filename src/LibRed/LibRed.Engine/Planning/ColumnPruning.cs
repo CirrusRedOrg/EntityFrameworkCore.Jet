@@ -97,9 +97,9 @@ internal static class ColumnPruning
     };
 
     /// <summary>The decode mask for <paramref name="table"/> from the names a read may use — by
-    /// <see cref="LibRed.Catalog.ColumnDef.Index"/>, as <c>RowDecoder</c> takes it — or null to decode every
+    /// <see cref="LibRed.Catalog.ColumnDef.Index"/>, as <c>RowCodec</c> takes it — or null to decode every
     /// column, when there are no names or every column is among them.</summary>
-    internal static bool[]? Mask(LibRed.Catalog.TableDef table, IReadOnlySet<string>? names)
+    internal static bool[]? Mask(LibRed.Catalog.TableDefinition table, IReadOnlySet<string>? names)
     {
         if (names is null) return null;
         var mask = new bool[table.Columns.Count];

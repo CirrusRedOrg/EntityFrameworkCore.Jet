@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed;
 using LibRed.Catalog;
@@ -28,48 +27,18 @@ public class IndexUsageMapTests(ITestOutputHelper output) : TempDatabaseTest
         for (int p = 1; p < pageCount; p++)
         {
             ReadOnlySpan<byte> span = table.Channel.ReadPage(p).Span;
-            if (span[0] is not (0x03 or 0x04)) continue;
-            if (BinaryPrimitives.ReadInt32LittleEndian(span.Slice(0x04, 4)) == table.Definition.DefinitionPage)
+            if (PageHeader.ReadType(span) is not (PageType.IntermediateIndexPage or PageType.LeafIndexPage)) continue;
+            if (IndexTree.ReadOwner(span, format) == table.Definition.DefinitionPage)
                 pages.Add(p);
         }
         return pages;
     }
 
-    /// <summary>The union of every index's own usage map, walking the TDEF to each 52-byte index block.</summary>
-    private static SortedSet<int> UnionOfIndexMaps(Table table, JetFormatBase format)
+    /// <summary>The union of every index's own usage map.</summary>
+    private static SortedSet<int> UnionOfIndexMaps(Table table)
     {
-        var tdef = table.Channel.ReadPage(table.Definition.DefinitionPage);
-        int dataCount = tdef.ReadInt32(format.TdefIndexCountOffset);
-        int colCount = tdef.ReadUInt16(format.TdefColumnCountOffset);
-
-        int pos = format.TdefRealIndexBlockOffset + dataCount * format.RealIndexEntrySize
-                  + colCount * format.ColumnDescriptorSize;
-        for (int i = 0; i < colCount; i++) pos += 2 + tdef.ReadUInt16(pos);
-
-        var union = new SortedSet<int>();
-        for (int i = 0; i < dataCount; i++)
-        {
-            int block = pos + i * 52;
-            int mapRow = tdef.ReadByte(block + 0x22);
-            int mapPage = tdef.ReadInt24(block + 0x23);
-            var holder = new DataPage();
-            holder.Read(table.Channel.ReadPage(mapPage), format);
-            union.UnionWith(BitsOf(holder.GetRow(mapRow)));
-        }
-        return union;
-    }
-
-    private static IEnumerable<int> BitsOf(ReadOnlySpan<byte> record)
-    {
-        // Only inline maps arise here (an index B-tree well under 2 GB); a reference map would need expanding.
-        if (record[0] != 0x00) throw new InvalidOperationException($"Unexpected usage-map type 0x{record[0]:X2}.");
-        int start = BinaryPrimitives.ReadInt32LittleEndian(record.Slice(1, 4));
-        var pages = new List<int>();
-        for (int k = 5; k < record.Length; k++)
-            for (int b = 0; b < 8; b++)
-                if ((record[k] & (1 << b)) != 0)
-                    pages.Add(start + (k - 5) * 8 + b);
-        return pages;
+        var maps = new UsageMap(table.Channel, table.Definition);
+        return [.. table.Definition.Indexes.SelectMany(i => maps.PagesInMap(i.UsageMap.Row, i.UsageMap.Page))];
     }
 
     [Fact]
@@ -94,7 +63,7 @@ public class IndexUsageMapTests(ITestOutputHelper output) : TempDatabaseTest
             }
 
             SortedSet<int> actual = IndexPagesOwnedByTable(path, table, db.Format);
-            SortedSet<int> mapped = UnionOfIndexMaps(table, db.Format);
+            SortedSet<int> mapped = UnionOfIndexMaps(table);
 
             Assert.True(actual.Count > 2, "expected the B-trees to have split beyond their creation roots");
             Assert.Equal(actual, mapped); // no page missing, none spurious
@@ -123,7 +92,7 @@ public class IndexUsageMapTests(ITestOutputHelper output) : TempDatabaseTest
             var table = db.OpenTable("T");
 
             // Access's own map must cover exactly the index pages it wrote — the invariant LibRed reproduces.
-            Assert.Equal(IndexPagesOwnedByTable(path, table, db.Format), UnionOfIndexMaps(table, db.Format));
+            Assert.Equal(IndexPagesOwnedByTable(path, table, db.Format), UnionOfIndexMaps(table));
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -154,7 +123,7 @@ public class IndexUsageMapTests(ITestOutputHelper output) : TempDatabaseTest
 
         // The index has to span more than its root, or the test measures nothing.
         using (var built = JetDatabase.Open(start))
-            Assert.True(UnionOfIndexMaps(built.OpenTable("T"), built.Format).Count > 3,
+            Assert.True(UnionOfIndexMaps(built.OpenTable("T")).Count > 3,
                 "expected the indexes to have split beyond their creation roots");
 
         string ace = TemporaryDatabase.CopyPath(start, "idxmap-dropix-ace-");
@@ -199,7 +168,7 @@ public class IndexUsageMapTests(ITestOutputHelper output) : TempDatabaseTest
         }
 
         using (var built = JetDatabase.Open(start))
-            Assert.True(UnionOfIndexMaps(built.OpenTable("C"), built.Format).Count > 3,
+            Assert.True(UnionOfIndexMaps(built.OpenTable("C")).Count > 3,
                 "expected the indexes to have split beyond their creation roots");
 
         string ace = TemporaryDatabase.CopyPath(start, "idxmap-dropfk-ace-");

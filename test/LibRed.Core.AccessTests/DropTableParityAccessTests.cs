@@ -13,7 +13,7 @@ namespace LibRed.Core.Tests;
 [Collection(AceCollection.Name)]
 public class DropTableParityAccessTests(ITestOutputHelper output) : TempDatabaseTest
 {
-    private const int PageSize = 4096;
+    private static readonly Formats.JetFormatBase Format = TestDatabases.FormatOf(TestDatabases.NorthwindAccdb);
 
     [Theory]
     [InlineData("primary key", "CREATE TABLE Doomed (Id LONG CONSTRAINT pk PRIMARY KEY, M MEMO)", 40, 20_000)]
@@ -78,14 +78,14 @@ public class DropTableParityAccessTests(ITestOutputHelper output) : TempDatabase
     [Fact(Explicit = true)]
     public void Libred_converts_the_released_map_without_a_bitmap_page_for_an_empty_range()
     {
-        const int Range2 = 2 * 32_736;
+        int range2 = 2 * Format.UsageMapPagesPerBitmapPage;
         string start = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "droppar-start-");
         using (OleDbConnection connection = AceTestDatabase.Open(start)) FillWide(connection, "A", 700);
         using (OleDbConnection connection = AceTestDatabase.Open(start)) FillWide(connection, "C", 1);
         using (OleDbConnection connection = AceTestDatabase.Open(start)) FillWide(connection, "B", 1);
-        for (int rows = 1; new FileInfo(start).Length / PageSize < Range2 + 40;)
+        for (int rows = 1; new FileInfo(start).Length / Format.PageSize < range2 + 40;)
         {
-            int add = (int)Math.Clamp(Range2 + 40 - new FileInfo(start).Length / PageSize, 64, 32_000);
+            int add = (int)Math.Clamp(range2 + 40 - new FileInfo(start).Length / Format.PageSize, 64, 32_000);
             using (OleDbConnection connection = AceTestDatabase.Open(start)) AppendWide(connection, "B", rows, add);
             rows += add;
         }
@@ -105,7 +105,7 @@ public class DropTableParityAccessTests(ITestOutputHelper output) : TempDatabase
             Assert.True(db.DropTable("C"));
         }
 
-        output.WriteLine($"comparing {new FileInfo(ace).Length / PageSize} pages");
+        output.WriteLine($"comparing {new FileInfo(ace).Length / Format.PageSize} pages");
         string difference = Difference(ace, libred);
         output.WriteLine(difference);
         Assert.Equal("", difference);
@@ -171,7 +171,7 @@ public class DropTableParityAccessTests(ITestOutputHelper output) : TempDatabase
             using (var db = JetDatabase.Open(libred, readOnly: false))
                 Assert.True(db.DropTable(table));
 
-        output.WriteLine($"{label}: comparing {new FileInfo(ace).Length / PageSize} pages");
+        output.WriteLine($"{label}: comparing {new FileInfo(ace).Length / Format.PageSize} pages");
         string difference = Difference(ace, libred);
         output.WriteLine(difference);
         Assert.Equal("", difference);
@@ -185,25 +185,25 @@ public class DropTableParityAccessTests(ITestOutputHelper output) : TempDatabase
     {
         byte[] ace = File.ReadAllBytes(acePath), libred = File.ReadAllBytes(libredPath);
         var differences = new StringBuilder();
-        int pages = Math.Max(ace.Length, libred.Length) / PageSize, lines = 0;
+        int pages = Math.Max(ace.Length, libred.Length) / Format.PageSize, lines = 0;
         for (int page = 1; page < pages && lines < 200; page++)
         {
-            int at = page * PageSize;
-            bool inAce = at + PageSize <= ace.Length, inLibRed = at + PageSize <= libred.Length;
+            int at = page * Format.PageSize;
+            bool inAce = at + Format.PageSize <= ace.Length, inLibRed = at + Format.PageSize <= libred.Length;
             if (!inAce || !inLibRed)
             {
                 differences.AppendLine($"page {page}: present in {(inAce ? "ACE" : "LibRed")} only");
                 lines++;
                 continue;
             }
-            if (BitConverter.ToInt32(ace, at + 4) == 2) continue;
+            if (LibRed.Pages.DataPage.ReadOwner(ace.AsSpan(at, Format.PageSize), Format) == 2) continue;
             if (LibRed.Pages.PageHeader.ReadType(ace.AsSpan(at)) is LibRed.Pages.PageType.IntermediateIndexPage or LibRed.Pages.PageType.LeafIndexPage) continue;
 
-            for (int i = 0, shown = 0; i < PageSize && shown < 8; i++)
+            for (int i = 0, shown = 0; i < Format.PageSize && shown < 8; i++)
                 if (ace[at + i] != libred[at + i])
                 {
                     differences.AppendLine(
-                        $"page {page} (type 0x{ace[at]:X2} owner {BitConverter.ToInt32(ace, at + 4)}) " +
+                        $"page {page} (type 0x{ace[at]:X2} owner {(int)LibRed.Pages.DataPage.ReadOwner(ace.AsSpan(at, Format.PageSize), Format)}) " +
                         $"+0x{i:X3}: ace={ace[at + i]:X2} libred={libred[at + i]:X2}");
                     shown++;
                     lines++;

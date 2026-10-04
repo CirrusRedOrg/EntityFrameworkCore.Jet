@@ -96,7 +96,7 @@ public class CreateIndexTests
     }
 
     // A descending index: the index-data block records the column as descending (Ascending = false),
-    // and inserts encode reversed key bytes (IndexKeyEncoder handles the inversion).
+    // and inserts encode reversed key bytes (IndexKeyCodec handles the inversion).
     [Fact]
     public void Descending_index_records_direction_and_inserts()
     {

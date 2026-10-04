@@ -6,10 +6,10 @@ namespace LibRed.Core.Tests;
 
 // An index spans at most 10 columns, and the incremental CREATE INDEX path has to say so.
 //
-// The index-data block carries exactly IndexBlockFormat.MaxColumns slots, with no count field and no
-// continuation, so an eleventh cannot be represented. TdefBuilder rejects that when a table is created with
-// its indexes; TableCreator.InsertIndex is the other way in - CREATE INDEX and ADD FOREIGN KEY on an
-// existing table - and used to check nothing. BuildIndexDataBlock filled ten slots and marked the rest
+// The index-data block carries exactly JetFormatBase.IndexDataMaxColumns slots, with no count field and no
+// continuation, so an eleventh cannot be represented. TableDefinition rejects that when a table is created with
+// its indexes; SchemaEditor.InsertIndex is the other way in - CREATE INDEX and ADD FOREIGN KEY on an
+// existing table - and used to check nothing. The data-block builder filled ten slots and marked the rest
 // unused, so LibRed accepted an 11-column index and stored a 10-column one.
 //
 // That is a nastier failure than the other limit overruns found alongside it. Exceeding the 32-index cap

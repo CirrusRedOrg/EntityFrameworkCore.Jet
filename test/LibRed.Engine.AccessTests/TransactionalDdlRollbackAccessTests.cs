@@ -27,14 +27,14 @@ public class TransactionalDdlRollbackAccessTests
                 e.ExecuteNonQuery("CREATE TABLE TransientDdl (Id LONG PRIMARY KEY)");
                 e.ExecuteNonQuery("ALTER TABLE DdlTxn ALTER COLUMN V TEXT(80)");
 
-                TableDef changed = db.Catalog.FindTable("DdlTxn")!;
+                TableDefinition changed = db.Catalog.FindTable("DdlTxn")!;
                 Assert.Contains(changed.Indexes, i => i.Name == "UX_DdlTxn_Code");
                 Assert.Equal(160, changed.FindColumn("V")!.Length);
                 Assert.NotNull(db.Catalog.FindTable("TransientDdl"));
                 Assert.Single(e.ExecuteQuery("SELECT Id FROM DdlTxnView").Rows);
 
                 e.ExecuteNonQuery("ROLLBACK");
-                TableDef restored = db.Catalog.FindTable("DdlTxn")!;
+                TableDefinition restored = db.Catalog.FindTable("DdlTxn")!;
                 Assert.DoesNotContain(restored.Indexes, i => i.Name == "UX_DdlTxn_Code");
                 Assert.Equal(40, restored.FindColumn("V")!.Length);
                 Assert.Null(db.Catalog.FindTable("TransientDdl"));
@@ -75,7 +75,7 @@ public class TransactionalDdlRollbackAccessTests
                 Assert.Throws<LibRed.Sql.Binding.SqlBindException>(() => e.ExecuteQuery("SELECT Id FROM DdlTxnView"));
 
                 e.ExecuteNonQuery("ROLLBACK");
-                TableDef restored = db.Catalog.FindTable("DdlTxn")!;
+                TableDefinition restored = db.Catalog.FindTable("DdlTxn")!;
                 Assert.Contains(restored.Indexes, i => i.Name == "UX_DdlTxn_Code");
                 Assert.Equal(JetDataType.Int32, restored.FindColumn("N")!.Type);
                 Assert.NotNull(db.Catalog.FindTable("KeptTable"));
@@ -113,7 +113,7 @@ public class TransactionalDdlRollbackAccessTests
                 e.ExecuteNonQuery("CREATE TABLE InnerOnly (Id LONG PRIMARY KEY)");
                 e.ExecuteNonQuery("ROLLBACK");
 
-                TableDef restoredOuter = db.Catalog.FindTable("DdlTxn")!;
+                TableDefinition restoredOuter = db.Catalog.FindTable("DdlTxn")!;
                 Assert.Contains(restoredOuter.Indexes, i => i.Name == "UX_DdlTxn_Code");
                 Assert.Equal(JetDataType.Int32, restoredOuter.FindColumn("N")!.Type);
                 Assert.Null(db.Catalog.FindTable("InnerOnly"));

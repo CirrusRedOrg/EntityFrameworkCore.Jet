@@ -95,7 +95,7 @@ for each byte b:
 Confirmed numerically against the shipped implementation over 12,800 random inputs at every length from 1 to
 64 bytes, plus the all-zero, all-`0xFF` and leading-zero edges. The shipped code keeps the
 `fold-then-XOR-the-tail` shape because it is the cheaper expression of the same function; the equivalence is
-recorded in `JetIndexKeyChecksum`'s remarks so the "special case" is not mistaken for a guess again.
+recorded in `IndexKeyCodec`'s remarks so the "special case" is not mistaken for a guess again.
 
 ## The other three questions
 
@@ -121,7 +121,7 @@ recorded in `JetIndexKeyChecksum`'s remarks so the "special case" is not mistake
 all-text past the cap, numeric-tailed below and past it for each of `LONG`/`CURRENCY`/`DOUBLE`, and a dropped
 word-sort record at seven mark/position combinations. The probe pattern, if you need to go further: create and
 insert through ACE, read the entries back with `IndexCursor(...).RawEntries()`, and compare against
-`IndexKeyEncoder.EncodeWithoutLengthLimit` — the untruncated key is what you need in order to reason about
+`IndexKeyCodec.EncodeWithoutLengthLimit` — the untruncated key is what you need in order to reason about
 what ACE dropped.
 
 The one methodological lesson worth carrying: **a rule derived from inputs that cannot falsify it is not a

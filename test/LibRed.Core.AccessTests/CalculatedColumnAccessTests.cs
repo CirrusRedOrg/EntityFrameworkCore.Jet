@@ -14,7 +14,7 @@ namespace LibRed.Core.Tests;
 //
 // LibRed cannot create a calculated column (Access SQL has no syntax for one), so DAO's object model is
 // the author here — the same path Access's UI uses. Each column gets its own table because ACE validates
-// the expression when the TableDef is appended, and one rejected expression would take the rest with it.
+// the expression when the TableDefinition is appended, and one rejected expression would take the rest with it.
 [Collection(AceCollection.Name)]
 public class CalculatedColumnAccessTests(ITestOutputHelper output)
 {
@@ -249,11 +249,13 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
 
             // A bare 12-byte descriptor with a non-inline flag is the proof it spilled; an inline slot would
             // carry its payload with it and the test would be passing on a value that never left the row.
-            Assert.Equal(LibRed.Formats.LongValueFormat.DescriptorSize, fromAce.Length);
-            Assert.Equal(LibRed.Formats.LongValueFormat.DescriptorSize, fromLibRed.Length);
+            LibRed.Formats.JetFormatBase format;
+            using (var db = JetDatabase.Open(path, readOnly: true)) format = db.Format;
+            Assert.Equal(format.LongValueDescriptorSize, fromAce.Length);
+            Assert.Equal(format.LongValueDescriptorSize, fromLibRed.Length);
             Assert.NotEqual(
-                LibRed.Formats.LongValueFormat.FlagInline,
-                (byte)(fromLibRed[3] & LibRed.Formats.LongValueFormat.FlagMask));
+                LibRed.Storage.LongValueStore.StorageKind.Inline,
+                LibRed.Storage.LongValueStore.Read(fromLibRed, format).Storage);
 
             using var check = AceTestDatabase.Open(path);
             using var select = check.CreateCommand();
@@ -463,7 +465,7 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
         string path = TemporaryDatabase.CreatePath("calc-create-");
         try
         {
-            DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
                 db.CreateTable("T", [
@@ -534,7 +536,7 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
         string libPath = TemporaryDatabase.CreatePath("calc-raise-lib-");
         try
         {
-            DatabaseCreator.CreateEmpty(basePath);
+            JetDatabase.Create(basePath);
             File.Copy(basePath, acePath, overwrite: true);
             File.Copy(basePath, libPath, overwrite: true);
 
@@ -551,9 +553,11 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
                 ]);
 
             byte[] ace = PageZero(acePath), lib = PageZero(libPath);
-            output.WriteLine($"ACE: version 0x{ace[0x14]:X2} minor 0x{ace[0x15]:X2}");
-            output.WriteLine($"lib: version 0x{lib[0x14]:X2} minor 0x{lib[0x15]:X2}");
-            var differences = Enumerable.Range(0, 0xE00)
+            Formats.JetFormatBase format = TestDatabases.FormatOf(acePath);
+            int version = Formats.JetFormatBase.VersionOffset, minor = format.MinorVersionOffset;
+            output.WriteLine($"ACE: version 0x{ace[version]:X2} minor 0x{ace[minor]:X2}");
+            output.WriteLine($"lib: version 0x{lib[version]:X2} minor 0x{lib[minor]:X2}");
+            var differences = Enumerable.Range(0, format.CommitByteTableOffset)
                 .Where(i => ace[i] != lib[i])
                 .Select(i => $"0x{i:X3} ace={ace[i]:X2} lib={lib[i]:X2}")
                 .ToList();
@@ -586,7 +590,7 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
         string path = TemporaryDatabase.CreatePath("calc-invalid-");
         try
         {
-            DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
             using var db = JetDatabase.Open(path, readOnly: false);
             var ex = Assert.Throws<LibRed.Storage.Calculated.CalculatedExpressionException>(
                 () => db.CreateTable("T", [
@@ -711,8 +715,8 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
             {
                 if (page.Rows[row].IsDeleted) continue;
                 byte[] raw = page.GetRow(row).ToArray();
-                byId[BitConverter.ToInt32(raw, 2 + id.FixedOffset)] =
-                    RowDecoder.CalculatedSlots(t.Definition.Columns, t.Channel.Format, raw)[index];
+                byId[BitConverter.ToInt32(raw, t.Channel.Format.RowColumnCountSize + id.FixedOffset)] =
+                    RowCodec.CalculatedSlots(t.Definition.Columns, t.Channel.Format, raw)[index];
             }
         }
         return (byId[1], byId[2]);
@@ -1388,7 +1392,7 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
         string path = TemporaryDatabase.CreatePath("calc-tick-");
         try
         {
-            DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
             using (var connection = AceTestDatabase.Open(path))
             {
                 Execute(connection, "CREATE TABLE T (Id LONG, Qty LONG)");
@@ -1443,7 +1447,7 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
 
             object workspace = Invoke(engine!, "CreateWorkspace", "", "admin", "", UseJet)!;
 
-            // Control first: DAO refuses to mutate a field of a SAVED TableDef whether or not anything is
+            // Control first: DAO refuses to mutate a field of a SAVED TableDefinition whether or not anything is
             // calculated, so a refusal there says nothing about calculated columns.
             output.WriteLine($"  [control] DAO rename an ordinary column: {DaoField(workspace, path,
                 "T_CLong", "A", f => SetProperty(f, "Name", "Renamed"))}");
@@ -1601,7 +1605,7 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
     }
 
     /// <summary>Opens the database with DAO, applies <paramref name="mutate"/> to one field of a saved
-    /// TableDef, and reports what happened.</summary>
+    /// TableDefinition, and reports what happened.</summary>
     private static string DaoField(object workspace, string path, string table, string column, Action<object> mutate)
     {
         object? database = null;

@@ -1,4 +1,5 @@
 using LibRed.Catalog;
+using LibRed.Formats;
 using LibRed.Storage;
 
 namespace LibRed.Engine.Schema;
@@ -144,10 +145,10 @@ public static class SchemaRowsets
             case "Tables":
                 // Tables and views together, ordered by name, as ACE returns them. A stored query with declared
                 // parameters is a procedure rather than a view, so it appears in neither this rowset nor Views.
-                foreach (TableDef t in catalog.Tables)
+                foreach (TableDefinition t in catalog.Tables)
                     if (TableType(t) is { } type)
                         rows.Add([null, null, t.Name, type, null, null, null, null, null]);
-                foreach (string name in ViewNames(catalog))
+                foreach ((string name, _) in Views(catalog))
                     rows.Add([null, null, name, "VIEW", null, null, null, null, null]);
                 rows.Sort(ByName(database, 2));
                 break;
@@ -155,7 +156,7 @@ public static class SchemaRowsets
             case "Columns":
                 // Every object ACE lists columns for except the system tables: user tables, the Access-owned
                 // hidden tables, and views.
-                foreach (TableDef t in catalog.Tables)
+                foreach (TableDefinition t in catalog.Tables)
                 {
                     if (TableType(t) is not { } type || type == "SYSTEM TABLE") continue;
                     foreach (ColumnDef c in t.Columns)
@@ -172,7 +173,7 @@ public static class SchemaRowsets
                 // A column the query passes through unchanged reports the stored column behind it, facets and
                 // all; a computed one has only the type the expression yields. Either way the writability flag
                 // is WRITE rather than the WRITEUNKNOWN a stored column carries, as ACE reports a view's.
-                foreach (string view in ViewNames(catalog))
+                foreach ((string view, _) in Views(catalog))
                 {
                     var described = ViewColumns(database, view);
                     for (int i = 0; i < described.Count; i++)
@@ -211,7 +212,7 @@ public static class SchemaRowsets
                 // to a table). Every LOGICAL index is listed, so a column covered by a named index, a primary
                 // key and a relationship appears once under each name, all reporting the one real index's
                 // columns and statistics — as ACE lists them. CARDINALITY is the distinct-entry count.
-                foreach (TableDef t in catalog.Tables)
+                foreach (TableDefinition t in catalog.Tables)
                 {
                     if (TableType(t) is not { } type || type == "SYSTEM TABLE") continue;
                     foreach ((string name, IndexDef ix, bool isPrimaryKey) in LogicalIndexes(t))
@@ -225,8 +226,8 @@ public static class SchemaRowsets
                 break;
 
             case "Views":
-                foreach (string name in ViewNames(catalog))
-                    rows.Add([null, null, name, catalog.Views[name], null, true, null, null, null]);
+                foreach ((string name, string sql) in Views(catalog))
+                    rows.Add([null, null, name, sql, null, true, null, null, null]);
                 rows.Sort(ByName(database, 2));
                 break;
 
@@ -234,11 +235,9 @@ public static class SchemaRowsets
                 // A stored query is a procedure when it declares parameters, and an action query always is.
                 // ACE's PROCEDURE_DEFINITION carries the PARAMETERS clause ahead of the statement; LibRed does
                 // not reconstruct the parameters' declared types yet, so the statement alone is reported.
-                foreach ((string name, string sql) in catalog.Views)
-                    if (catalog.QueryParameters.ContainsKey(name))
-                        rows.Add([null, null, name, ProcedureTypeReturnsRows, sql, null, null, null]);
-                foreach ((string name, StoredActionQuery query) in catalog.ActionQueries)
-                    rows.Add([null, null, name, ProcedureTypeReturnsRows, query.Sql, null, null, null]);
+                foreach ((string name, StoredQuery query) in catalog.Queries)
+                    if (query.IsAction || query is { Sql: not null, Parameters.Count: > 0 })
+                        rows.Add([null, null, name, ProcedureTypeReturnsRows, query.Sql, null, null, null]);
                 rows.Sort(ByName(database, 2));
                 break;
 
@@ -258,7 +257,7 @@ public static class SchemaRowsets
                 break;
 
             case "PrimaryKeys":
-                foreach (TableDef t in ConstraintTables(catalog))
+                foreach (TableDefinition t in ConstraintTables(catalog))
                     if (t.Indexes.FirstOrDefault(ix => ix.IsPrimaryKey) is { } pk)
                         for (int i = 0; i < pk.Columns.Count; i++)
                             rows.Add([null, null, t.Name, pk.Columns[i].Column.Name, null, null, (long)(i + 1), pk.Name]);
@@ -266,7 +265,7 @@ public static class SchemaRowsets
 
             case "TableConstraints":
                 // ACE orders the rows by constraint name, then — for the many keys Access names alike — by table.
-                foreach ((TableDef table, string name, string kind, IndexDef? _, ForeignKey? __) in Constraints(catalog))
+                foreach ((TableDefinition table, string name, string kind, IndexDef? _, ForeignKey? __) in Constraints(catalog))
                     rows.Add([null, null, name, null, null, table.Name, kind, false, false, null]);
                 rows.Sort(ByName(database, 2, thenBy: 5));
                 break;
@@ -277,7 +276,7 @@ public static class SchemaRowsets
                 // table's primary-key column instead of the one the relationship's index actually holds
                 // (Employees.ReportsTo read back as EmployeeID); the rule behind those two is not established,
                 // and the key's own columns are what the rowset is defined to carry.
-                foreach ((TableDef table, string name, string _, IndexDef? index, ForeignKey? fk) in Constraints(catalog))
+                foreach ((TableDefinition table, string name, string _, IndexDef? index, ForeignKey? fk) in Constraints(catalog))
                 {
                     if (fk is not null)
                         for (int i = 0; i < fk.Columns.Count; i++)
@@ -291,7 +290,7 @@ public static class SchemaRowsets
                 break;
 
             case "ConstraintColumnUsage":
-                foreach ((TableDef table, string name, string _, IndexDef? index, ForeignKey? __) in Constraints(catalog))
+                foreach ((TableDefinition table, string name, string _, IndexDef? index, ForeignKey? __) in Constraints(catalog))
                     if (index is not null)
                         foreach (var column in index.Columns)
                             rows.Add([null, null, table.Name, column.Column.Name, null, null, null, null, name]);
@@ -307,7 +306,7 @@ public static class SchemaRowsets
                 break;
 
             case "CheckConstraints":
-                foreach (TableDef t in catalog.Tables)
+                foreach (TableDefinition t in catalog.Tables)
                 {
                     if (TableType(t) is not { } type || type == "SYSTEM TABLE") continue;
                     foreach ((string name, string expression) in t.CheckConstraints)
@@ -318,7 +317,7 @@ public static class SchemaRowsets
             case "Statistics":
                 // Every table, system ones included, with the row count the TDEF carries. Views have no
                 // cardinality to report and ACE lists none.
-                foreach (TableDef t in catalog.Tables)
+                foreach (TableDefinition t in catalog.Tables)
                     if (TableType(t) is not null)
                         rows.Add([null, null, t.Name, (decimal)t.RowCount]);
                 rows.Sort(ByName(database, 2));
@@ -328,10 +327,10 @@ public static class SchemaRowsets
                 // Each stored query's declared parameters, in declaration order. Access declares a parameter's
                 // type but neither a default nor whether it takes null, so those report as the rowset's
                 // "no default" and nullable. An untyped parameter — Access's `Value` — reports no type.
-                foreach ((string name, IReadOnlyList<StoredQueryParameter> parameters) in catalog.QueryParameters)
-                    for (int i = 0; i < parameters.Count; i++)
+                foreach ((string name, StoredQuery query) in catalog.Queries)
+                    for (int i = 0; i < query.Parameters.Count; i++)
                     {
-                        StoredQueryParameter p = parameters[i];
+                        StoredQueryParameter p = query.Parameters[i];
                         // The declared facets where the parameter row records them: a text length (reported
                         // in characters and in bytes, two per character as the Columns collection reports a
                         // column's), and a decimal's precision and scale. A type that records none falls back
@@ -352,7 +351,7 @@ public static class SchemaRowsets
                 // Which stored column each of a view's columns comes from, where one does — the provenance the
                 // planner already tracks. A computed column has no base column and so no row here.
                 var owners = ColumnOwners(catalog);
-                foreach (string view in ViewNames(catalog))
+                foreach ((string view, _) in Views(catalog))
                     foreach (var column in ViewColumns(database, view))
                         if (column.Source is { } source && owners.TryGetValue(source, out string? owner))
                             rows.Add([null, null, view, null, null, owner, source.Name]);
@@ -363,16 +362,16 @@ public static class SchemaRowsets
 
     /// <summary>The tables whose constraints are reported: the same set whose columns are, so a system table's
     /// constraints stay out of the rowsets as ACE keeps them.</summary>
-    private static IEnumerable<TableDef> ConstraintTables(JetCatalog catalog) =>
+    private static IEnumerable<TableDefinition> ConstraintTables(JetCatalog catalog) =>
         catalog.Tables.Where(t => TableType(t) is { } type && type != "SYSTEM TABLE");
 
     /// <summary>Every constraint on those tables: a primary key, each other unique index, and each foreign key
     /// the table declares. A foreign key's columns come from the index backing it, so it reports the columns
     /// it constrains.</summary>
-    private static IEnumerable<(TableDef Table, string Name, string Kind, IndexDef? Index, ForeignKey? ForeignKey)>
+    private static IEnumerable<(TableDefinition Table, string Name, string Kind, IndexDef? Index, ForeignKey? ForeignKey)>
         Constraints(JetCatalog catalog)
     {
-        foreach (TableDef t in ConstraintTables(catalog))
+        foreach (TableDefinition t in ConstraintTables(catalog))
         {
             foreach (IndexDef ix in t.Indexes.Where(ix => ix.IsPrimaryKey))
                 yield return (t, ix.Name, "PRIMARY KEY", ix, null);
@@ -386,7 +385,7 @@ public static class SchemaRowsets
     }
 
     /// <summary>The index on the child table that stores a relationship's key columns.</summary>
-    private static IndexDef? BackingIndex(ForeignKey fk, TableDef child)
+    private static IndexDef? BackingIndex(ForeignKey fk, TableDefinition child)
     {
         var columns = fk.Columns.Select(c => c.Column).ToHashSet(StringComparer.OrdinalIgnoreCase);
         return child.Indexes.FirstOrDefault(ix =>
@@ -397,8 +396,7 @@ public static class SchemaRowsets
     /// relationship names some other unique index.</summary>
     private static string? ParentKeyName(ForeignKey fk, JetCatalog catalog)
     {
-        TableDef? parent = catalog.Tables.FirstOrDefault(t =>
-            t.Name.Equals(fk.ReferencedTable, StringComparison.OrdinalIgnoreCase));
+        TableDefinition? parent = catalog.FindTable(fk.ReferencedTable);
         if (parent is null) return null;
 
         var columns = fk.Columns.Select(c => c.ReferencedColumn).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -445,7 +443,7 @@ public static class SchemaRowsets
                 continue;
             }
 
-            TableDef? owner = catalog.Tables.FirstOrDefault(t => t.Name == table);
+            TableDefinition? owner = catalog.FindTable(table);
             described.Add(new Execution.ResultColumn(
                 column.Name, clrType, table, c.Name,
                 AllowNull: Nullable(c),
@@ -475,7 +473,7 @@ public static class SchemaRowsets
     {
         var owners = new Dictionary<ColumnDef, string>(ReferenceEqualityComparer.Instance as IEqualityComparer<ColumnDef>
             ?? EqualityComparer<ColumnDef>.Default);
-        foreach (TableDef t in catalog.Tables)
+        foreach (TableDefinition t in catalog.Tables)
             foreach (ColumnDef c in t.Columns)
                 owners[c] = t.Name;
         return owners;
@@ -515,26 +513,19 @@ public static class SchemaRowsets
         _ => "VarBinary",
     };
 
-    // MSysObjects.Flags decides what an object is called in the schema rowsets, the way Access classifies it —
-    // not its name (measured on ACE 16): the system bit makes it a SYSTEM TABLE, the hidden bit an ACCESS TABLE
-    // (the navigation-pane and resource tables), and an object carrying ExcludedFlags is not listed at all —
-    // the MSysComplexType_* tables, flags 0x80030000.
-    private const uint SystemFlag = 0x80000000;
-    private const uint HiddenFlag = 0x00000008;
-    private const uint ExcludedFlags = 0x00030000;
-
-    /// <summary>What ACE calls this object in the schema rowsets, or null when it lists the object nowhere.</summary>
-    private static string? TableType(TableDef t) =>
-        (t.ObjectFlags & ExcludedFlags) != 0 ? null
-        : (t.ObjectFlags & SystemFlag) != 0 ? "SYSTEM TABLE"
-        : (t.ObjectFlags & HiddenFlag) != 0 ? "ACCESS TABLE"
+    /// <summary>What ACE calls this object in the schema rowsets, or null when it lists the object nowhere.
+    /// MSysObjects.Flags decides it, the way Access classifies an object — not its name (measured on ACE 16).</summary>
+    private static string? TableType(TableDefinition t) =>
+        (t.ObjectFlags & ObjectAttributes.ComplexStorage) != 0 ? null
+        : (t.ObjectFlags & ObjectAttributes.System) != 0 ? "SYSTEM TABLE"
+        : (t.ObjectFlags & ObjectAttributes.Hidden) != 0 ? "ACCESS TABLE"
         : "TABLE";
 
     /// <summary>Each of the table's logical indexes paired with the real index that stores it, primary key
     /// first and the rest by name, as ACE orders them. The parent half of a relationship is left out: Access
     /// names it <c>.r…</c> and keeps it out of its own schema views. A table read from a definition that
     /// carries no logical list (one LibRed built itself, say) falls back to its real indexes, one name each.</summary>
-    private static IEnumerable<(string Name, IndexDef Index, bool IsPrimaryKey)> LogicalIndexes(TableDef t)
+    private static IEnumerable<(string Name, IndexDef Index, bool IsPrimaryKey)> LogicalIndexes(TableDefinition t)
     {
         IEnumerable<(string Name, IndexDef Index, bool IsPrimaryKey)> all = t.LogicalIndexes.Count > 0
             ? t.LogicalIndexes
@@ -549,9 +540,12 @@ public static class SchemaRowsets
             .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase);
     }
 
-    /// <summary>The stored SELECT queries that are views: a query declaring parameters is a procedure.</summary>
-    private static IEnumerable<string> ViewNames(JetCatalog catalog) =>
-        catalog.Views.Keys.Where(name => !catalog.QueryParameters.ContainsKey(name));
+    /// <summary>The stored SELECT queries that are views, with their SQL: a query declaring parameters is a procedure,
+    /// and one that does not reconstruct has no SQL to report.</summary>
+    private static IEnumerable<(string Name, string Sql)> Views(JetCatalog catalog) =>
+        catalog.Queries
+            .Where(q => q.Value is { IsAction: false, Sql: not null, Parameters.Count: 0 })
+            .Select(q => (q.Key, q.Value.Sql!));
 
     /// <summary>Orders rows by the name in <paramref name="column"/>, then by <paramref name="thenBy"/>, as ACE does: in
     /// the database's collation — <c>Order_Details</c> before <c>Orders</c>, an underscore sorting before letters — not

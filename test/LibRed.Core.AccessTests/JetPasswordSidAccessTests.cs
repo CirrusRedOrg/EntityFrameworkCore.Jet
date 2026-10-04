@@ -41,7 +41,7 @@ public class JetPasswordSidAccessTests
         string source = TemporaryDatabase.CreatePath("jetpw_libred_", ".mdb");
         try
         {
-            DatabaseCreator.CreateEmpty(source, version: 0x01);
+            JetDatabase.Create(source, version: (byte)Formats.JetVersion.Version4);
             Compare(engine!, source);
         }
         finally { TemporaryDatabase.Delete(source); }
@@ -64,7 +64,9 @@ public class JetPasswordSidAccessTests
             List<byte[]> access = StoredSids(byAccess), ours = StoredSids(byLibRed);
             Assert.NotEqual(StoredSids(source, null)[0], access[0]); // Access did re-mask them
             Assert.Equal(access, ours);
-            Assert.Equal(File.ReadAllBytes(byAccess)[0x42..0x6A], File.ReadAllBytes(byLibRed)[0x42..0x6A]);
+            Formats.JetFormatBase format = TestDatabases.FormatOf(byAccess);
+            Range password = format.PasswordOffset..(format.PasswordOffset + format.PasswordSize);
+            Assert.Equal(File.ReadAllBytes(byAccess)[password], File.ReadAllBytes(byLibRed)[password]);
         }
         finally
         {

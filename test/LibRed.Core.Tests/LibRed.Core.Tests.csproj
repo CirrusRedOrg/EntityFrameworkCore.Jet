@@ -35,8 +35,7 @@
          wholesale (..\Shared\**\*.cs) and do not all reference LibRed.Core. -->
     <Compile Include="..\LibRed.Shared\TemporaryDatabase.cs" Link="TemporaryDatabase.cs" />
     <Compile Include="..\LibRed.Shared\TempDatabaseTest.cs" Link="TempDatabaseTest.cs" />
-    <Compile Include="..\LibRed.Shared\TestDatabases.cs" Link="TestDatabases.cs" />
-    <Using Include="LibRed.Tests.Shared" />
+    <Compile Include="..\LibRed.Shared\TestDatabases.cs" Link="TestDatabases.cs" />    <Using Include="LibRed.Tests.Shared" />
   </ItemGroup>
 
   <ItemGroup>

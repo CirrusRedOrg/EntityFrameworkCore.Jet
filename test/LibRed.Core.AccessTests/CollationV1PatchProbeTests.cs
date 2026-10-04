@@ -4,6 +4,7 @@ using LibRed;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.IO;
+using LibRed.Pages;
 using LibRed.Storage;
 using Xunit;
 
@@ -152,7 +153,7 @@ public class CollationV1PatchProbeTests(ITestOutputHelper output)
             Name = "K", Type = JetDataType.Text, Index = 0, Collation = collation,
         };
         return keys.Count(k =>
-            Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [k.Key])) != k.Value);
+            Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [k.Key])) != k.Value);
     }
 
     /// <summary>
@@ -166,7 +167,7 @@ public class CollationV1PatchProbeTests(ITestOutputHelper output)
         string path = TemporaryDatabase.CreatePath("v1patch-", ".accdb");
         try
         {
-            DatabaseCreator.CreateEmpty(path, collation: GeneralV1);
+            JetDatabase.Create(path, collation: GeneralV1);
 
             using (OleDbConnection connection = AceTestDatabase.Open(path))
             {
@@ -229,28 +230,23 @@ public class CollationV1PatchProbeTests(ITestOutputHelper output)
         if (header)
         {
             byte[] page0 = channel.ReadPage(0).Span.ToArray();
-            byte[] mask = JetFormatBase.PageZeroHeaderMask.ToArray();
-            int maskStart = JetFormatBase.PageZeroHeaderMaskStart;
-            ushort langId = (ushort)target.Order;
-            page0[0x6E] = (byte)((langId & 0xFF) ^ mask[0x6E - maskStart]);
-            page0[0x6F] = (byte)((langId >> 8) ^ mask[0x6F - maskStart]);
-            page0[0x70] = (byte)(target.SortId ^ mask[0x70 - maskStart]);
-            page0[0x71] = (byte)(target.Version ^ mask[0x71 - maskStart]);
+            Span<byte> langId = stackalloc byte[sizeof(ushort)];
+            BinaryPrimitives.WriteUInt16LittleEndian(langId, (ushort)target.Order);
+            DatabaseDefinitionPage.WriteMasked(page0, format.CollationSortOrderOffset, langId, format);
+            DatabaseDefinitionPage.WriteMasked(page0, format.CollationSortIdOffset, [target.SortId], format);
+            DatabaseDefinitionPage.WriteMasked(page0, format.CollationVersionOffset, [target.Version], format);
             channel.WritePage(0, page0);
         }
 
         if (columnName is null) return;
 
-        TableDef table = new JetCatalog(channel).FindTable(tableName)!;
+        TableDefinition table = new JetCatalog(channel).FindTable(tableName)!;
         int columnIndex = table.Columns.Single(c => c.Name == columnName).Index;
 
         // The descriptors follow the real-index data blocks; each is ColumnDescriptorSize bytes, in column
         // order. Single-page TDEF only, which is all this probe's table needs. Not masked, unlike page 0.
         byte[] tdef = channel.ReadPage(table.DefinitionPage).Span.ToArray();
-        int realIndexes = BinaryPrimitives.ReadInt32LittleEndian(
-            tdef.AsSpan(format.TdefIndexCountOffset, 4));
-        int descriptor = format.TdefRealIndexBlockOffset + realIndexes * format.RealIndexEntrySize
-                         + columnIndex * format.ColumnDescriptorSize;
+        int descriptor = TableDefinition.Regions.Of(tdef, format).ColumnDescriptors + columnIndex * format.ColumnDescriptorSize;
 
         BinaryPrimitives.WriteUInt16LittleEndian(
             tdef.AsSpan(descriptor + format.ColumnLocaleOffset, 2), (ushort)target.Order);

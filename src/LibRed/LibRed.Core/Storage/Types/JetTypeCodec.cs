@@ -11,7 +11,7 @@ namespace LibRed.Storage.Types;
 /// the per-type quirks: the 1899-12-30 OLE date epoch, Jet CURRENCY (scaled int64),
 /// GUID byte order, and UTF-16LE text. A memo/OLE value that lives on LVAL pages is handled as its
 /// descriptor here — resolving the pages needs page access this codec deliberately does not have, and is
-/// <c>RowDecoder</c>'s job through its <c>LongValueReader</c>.
+/// <c>RowCodec</c>'s job through its <c>LongValueStore</c>.
 /// </summary>
 public static class JetTypeCodec
 {
@@ -32,7 +32,7 @@ public static class JetTypeCodec
             JetDataType.Int32 or JetDataType.Single or JetDataType.Complex => 4,
             JetDataType.Int64 or JetDataType.Double or JetDataType.DateTime or JetDataType.Currency => 8,
             JetDataType.Guid => 16,
-            JetDataType.FixedPoint => 17,
+            JetDataType.FixedPoint => NumericLength,
             JetDataType.DateTimeExtended => ExtendedDateTimeLength,
             _ => -1,
         };
@@ -62,7 +62,10 @@ public static class JetTypeCodec
             case JetDataType.Double:
                 return BinaryPrimitives.ReadDoubleLittleEndian(value);
             case JetDataType.DateTime:
-                return DateTime.FromOADate(BinaryPrimitives.ReadDoubleLittleEndian(value));
+                double serial = BinaryPrimitives.ReadDoubleLittleEndian(value);
+                return TryFromOaDate(serial, out DateTime date)
+                    ? date
+                    : throw new InvalidDataException($"Column '{column.Name}' holds {serial}, which is not a date.");
             case JetDataType.DateTimeExtended: // ACE 17 DATETIME2
                 return DecodeExtendedDateTime(value);
             case JetDataType.Currency:
@@ -78,7 +81,7 @@ public static class JetTypeCodec
                 return DecodeNumeric(value, column.Scale);
 
             // Long values live on LVAL pages, so the inline bytes are only a descriptor. Resolving them needs
-            // page access this codec deliberately does not have: RowDecoder holds the LongValueReader and
+            // page access this codec deliberately does not have: RowCodec holds the LongValueStore and
             // substitutes the real value, and hands the raw bytes here only when it has none.
             case JetDataType.Memo:
             case JetDataType.Ole:
@@ -130,7 +133,7 @@ public static class JetTypeCodec
     /// <remarks>
     /// <para>The padding byte is <c>0x00</c>, not a space: verified by reading the row bytes ACE itself wrote
     /// (<c>… 3A 37 00</c>). It matters beyond byte-faithfulness — the whole 42 bytes go into the index key
-    /// verbatim (see <c>IndexKeyEncoder</c>), so a space there would put every key we wrote out of step with
+    /// verbatim (see <c>IndexKeyCodec</c>), so a space there would put every key we wrote out of step with
     /// ACE's and make its seeks miss our rows.</para>
     /// <para>The precision is always 7. ACE's DDL accepts no other form: <c>DATETIME2(7)</c> and every other
     /// parenthesised spelling is a syntax error, so a Date/Time Extended column can only be declared bare, and
@@ -155,18 +158,25 @@ public static class JetTypeCodec
     /// <summary>The fixed on-disk width of a DATETIME2 (Date/Time Extended) value.</summary>
     internal const int ExtendedDateTimeLength = 42;
 
+    // A Decimal/Numeric value's fixed layout: a sign byte, then a 128-bit magnitude as four 32-bit little-endian
+    // words in big-endian word order — top, high, middle, low.
+    private const int NumericLength = 17;
+    private const byte NumericNegative = 0x80; // in the sign byte, at 0
+    private const int NumericTopWord = 1, NumericHighWord = 5, NumericMidWord = 9, NumericLowWord = 13;
+
     /// <summary>
-    /// Decodes a Jet Decimal/Numeric value (17 bytes): a sign byte (0x80 = negative) followed
-    /// by a 128-bit magnitude stored as four 32-bit little-endian words in big-endian word
-    /// order (the low word last). The value is the magnitude divided by 10^scale.
+    /// Decodes a Jet Decimal/Numeric value (<see cref="NumericLength"/> bytes): a sign byte
+    /// (<see cref="NumericNegative"/> = negative) followed by a 128-bit magnitude stored as four 32-bit
+    /// little-endian words in big-endian word order (the low word last). The value is the magnitude divided by
+    /// 10^scale.
     /// </summary>
     private static decimal DecodeNumeric(ReadOnlySpan<byte> value, byte scale)
     {
-        bool negative = (value[0] & 0x80) != 0;
-        uint lo = BinaryPrimitives.ReadUInt32LittleEndian(value.Slice(13, 4));
-        uint mid = BinaryPrimitives.ReadUInt32LittleEndian(value.Slice(9, 4));
-        uint hi = BinaryPrimitives.ReadUInt32LittleEndian(value.Slice(5, 4));
-        uint top = BinaryPrimitives.ReadUInt32LittleEndian(value.Slice(1, 4));
+        bool negative = (value[0] & NumericNegative) != 0;
+        uint lo = BinaryPrimitives.ReadUInt32LittleEndian(value.Slice(NumericLowWord, sizeof(uint)));
+        uint mid = BinaryPrimitives.ReadUInt32LittleEndian(value.Slice(NumericMidWord, sizeof(uint)));
+        uint hi = BinaryPrimitives.ReadUInt32LittleEndian(value.Slice(NumericHighWord, sizeof(uint)));
+        uint top = BinaryPrimitives.ReadUInt32LittleEndian(value.Slice(NumericTopWord, sizeof(uint)));
 
         if (top != 0)
             throw new OverflowException("Numeric value exceeds the range of System.Decimal.");
@@ -237,7 +247,7 @@ public static class JetTypeCodec
     /// and all.</remarks>
     internal static decimal CurrencyFromScaled(long raw)
     {
-        byte scale = 4;
+        byte scale = CurrencyScale;
         while (scale > 0 && raw % 10 == 0)
         {
             raw /= 10;
@@ -248,6 +258,15 @@ public static class JetTypeCodec
         ulong magnitude = raw < 0 ? (ulong)(-(raw + 1)) + 1 : (ulong)raw;
         return new decimal((int)(uint)magnitude, (int)(uint)(magnitude >> 32), 0, raw < 0, scale);
     }
+
+    /// <summary>A value as a CURRENCY stores it — the inverse of <see cref="CurrencyFromScaled"/>: the decimal
+    /// (through <see cref="JetDecimalConverter"/>, never the runtime's conversion) × 10,000, rounded.</summary>
+    internal static long CurrencyToScaled(object value, IFormatProvider c) =>
+        (long)decimal.Round(JetDecimalConverter.ToDecimal(value, c) * CurrencyFactor);
+
+    /// <summary>A CURRENCY's fixed decimal places — OLE Automation's <c>CY</c>, an int64 scaled by 10,000.</summary>
+    private const byte CurrencyScale = 4;
+    private const decimal CurrencyFactor = 10000m;
 
     /// <summary>Plain UTF-16LE text, as <see cref="Encoding.Unicode"/> decodes it.</summary>
     /// <remarks>Without a surrogate code unit, and at an even length, UTF-16LE bytes ARE the string's chars, so
@@ -275,19 +294,19 @@ public static class JetTypeCodec
     /// one reaches here as the pre-built descriptor of a value
     /// <see cref="LibRed.Storage.RowInserter"/> has already put on LVAL pages.
     /// </summary>
-    public static byte[] Encode(ColumnDef column, object value) => Encode(column, column.Type, value);
+    public static byte[] Encode(ColumnDef column, object value, JetFormatBase format) => Encode(column, column.Type, value, format);
 
     /// <summary>Encodes <paramref name="value"/> as <paramref name="type"/> rather than the column's declared
     /// type — the write-side counterpart of the <see cref="Decode(ColumnDef, JetDataType, ReadOnlySpan{byte})"/>
     /// overload, and needed for the same reason: a calculated column's payload is encoded in its
     /// <c>ResultType</c>, not in the promoted type its descriptor carries.</summary>
-    internal static byte[] Encode(ColumnDef column, JetDataType type, object value)
+    internal static byte[] Encode(ColumnDef column, JetDataType type, object value, JetFormatBase format)
     {
         var c = System.Globalization.CultureInfo.InvariantCulture;
 
         // A long value already written to an LVAL page arrives as its pre-built 12-byte reference
         // descriptor, which is written verbatim (memo/OLE columns only).
-        if (value is LibRed.Storage.LongValueDescriptor descriptor)
+        if (value is LibRed.Storage.LongValueStore.DescriptorValue descriptor)
             return descriptor.Bytes;
 
         // Jet represents a boolean as -1 (true) / 0 (false). EF maps a CLR bool onto a numeric
@@ -319,10 +338,10 @@ public static class JetTypeCodec
             case JetDataType.DateTimeExtended: // ACE 17 DATETIME2
                 return EncodeExtendedDateTime(Convert.ToDateTime(value, c));
             case JetDataType.Currency:
-                return Bytes(8, b => BinaryPrimitives.WriteInt64LittleEndian(b, (long)decimal.Round(JetDecimalConverter.ToDecimal(value, c) * 10000m)));
+                return Bytes(8, b => BinaryPrimitives.WriteInt64LittleEndian(b, CurrencyToScaled(value, c)));
             case JetDataType.Guid:
                 // Coerced, not cast: every other type here accepts what the caller has (AsText, AsBinary, ToOaDate,
-                // Convert.To*), and TableCreator.ConvertValue already parses a string GUID on the ALTER path. A hard
+                // Convert.To*), and SchemaEditor.ConvertValue already parses a string GUID on the ALTER path. A hard
                 // cast turned a string reaching a GUID column into an InvalidCastException with no column named.
                 return (value switch
                 {
@@ -341,9 +360,9 @@ public static class JetTypeCodec
                 return EncodeNumeric(column, JetDecimalConverter.ToDecimal(value, c));
 
             // Long values (memo/OLE): store the payload inline after the 12-byte descriptor (memo
-            // text as UTF-16LE, OLE as raw bytes). LongValueReader reads this back via the inline flag. Only a
+            // text as UTF-16LE, OLE as raw bytes). LongValueStore reads this back via the inline flag. Only a
             // value the caller has already decided to inline reaches here; anything larger is written to LVAL
-            // pages, single or chained, by LongValueWriter before the row is encoded.
+            // pages, single or chained, by LongValueStore before the row is encoded.
             case JetDataType.Memo:
                 {
                     // An inline memo compresses whether or not the column was declared WITH COMPRESSION — the
@@ -351,10 +370,10 @@ public static class JetTypeCodec
                     // the caller has already decided to inline reach here, so no storage-form test is needed.
                     string memo = AsText(value, c);
                     return EncodeInlineLongValue(
-                        TryCompressText(column, memo, requireCapableFlag: false) ?? Encoding.Unicode.GetBytes(memo));
+                        TryCompressText(column, memo, requireCapableFlag: false) ?? Encoding.Unicode.GetBytes(memo), format);
                 }
             case JetDataType.Ole:
-                return EncodeInlineLongValue(AsBinary(column, value));
+                return EncodeInlineLongValue(AsBinary(column, value), format);
 
             default:
                 throw new NotSupportedException($"Encoding {column.Type} is not supported yet.");
@@ -450,7 +469,7 @@ public static class JetTypeCodec
     /// The padding exists for the short case — ACE stores fixed text space-padded to the full width — but it
     /// truncates the long case just as silently, so <c>CHAR(3)</c> accepted 'abcdef' and stored 'abc' while the
     /// variable column of the same width raised. Same message and units as the variable-width check in
-    /// <c>RowEncoder</c>, because to a caller it is the same mistake.</summary>
+    /// <c>RowCodec</c>, because to a caller it is the same mistake.</summary>
     internal static void EnsureFitsFixedWidth(ColumnDef column, int encodedLength, int declaredUnits)
     {
         if (encodedLength <= column.Length) return;
@@ -514,8 +533,9 @@ public static class JetTypeCodec
     };
 
     /// <summary>The OLE-automation epoch (1899-12-30), which is also Jet's zero date and the base for
-    /// storing a <see cref="TimeSpan"/> / <see cref="TimeOnly"/> as a date offset.</summary>
-    private static readonly DateTime OleEpoch = new(1899, 12, 30);
+    /// storing a <see cref="TimeSpan"/> / <see cref="TimeOnly"/> as a date offset — on the way in here, on the way
+    /// out of a reader, and for a parameter bound to one.</summary>
+    public static readonly DateTime OleEpoch = new(1899, 12, 30);
 
     /// <summary>
     /// Converts a date/time-ish CLR value to the OLE-automation double stored in a Jet DateTime
@@ -547,25 +567,30 @@ public static class JetTypeCodec
     /// <summary>The earliest date ACE stores: 0100-01-01, serial -657434.</summary>
     private static readonly DateTime MinOaDate = new(100, 1, 1);
 
-    /// <summary>
-    /// Builds an <b>inline</b> long-value (memo/OLE) in-row value: a 12-byte descriptor
-    /// (length combined with the <c>0x80</c> inline flag, then 8 unused bytes) followed by the payload.
-    /// This is the exact shape <see cref="LibRed.Storage.LongValueReader"/> reads back for an inline
-    /// value.
-    /// </summary>
-    internal static byte[] EncodeInlineLongValue(ReadOnlySpan<byte> payload)
+    /// <summary>The date at an OLE Automation serial read from a file, or false where <see cref="DateTime.FromOADate"/>
+    /// would refuse it — not finite, or outside its range — so a caller reports a bad value as it chooses rather than
+    /// as an argument error from inside the conversion.</summary>
+    internal static bool TryFromOaDate(double serial, out DateTime date)
     {
-        LongValueFormat.ValidateLength(payload.Length);
-        var result = new byte[12 + payload.Length];
-        BinaryPrimitives.WriteUInt32LittleEndian(result, (uint)payload.Length | 0x80000000u);
-        payload.CopyTo(result.AsSpan(12));
-        return result;
+        // FromOADate's own bounds, both exclusive: 0100-01-01 through 9999-12-31.
+        const double MinSerial = -657435.0, MaxSerial = 2958466.0;
+        bool valid = double.IsFinite(serial) && serial > MinSerial && serial < MaxSerial;
+        date = valid ? DateTime.FromOADate(serial) : default;
+        return valid;
     }
 
-    /// <summary>Inverse of <see cref="DecodeNumeric"/>: 17 bytes, sign + 128-bit magnitude (top word 0).</summary>
+    /// <summary>
+    /// Builds an <b>inline</b> long-value (memo/OLE) in-row value: the descriptor
+    /// (<see cref="LongValueStore.StorageKind.Inline"/>, no pointer, no stamp) followed by the payload. This is the exact
+    /// shape <see cref="LibRed.Storage.LongValueStore"/> reads back for an inline value.
+    /// </summary>
+    internal static byte[] EncodeInlineLongValue(ReadOnlySpan<byte> payload, JetFormatBase format) =>
+        [.. LongValueStore.Descriptor(format, payload.Length, LongValueStore.StorageKind.Inline), .. payload];
+
     /// <summary>The largest precision Jet/ACE accepts on a NUMERIC/DECIMAL column.</summary>
     internal const byte MaxNumericPrecision = 28;
 
+    /// <summary>Inverse of <see cref="DecodeNumeric"/>.</summary>
     private static byte[] EncodeNumeric(ColumnDef column, decimal value)
     {
         byte scale = column.Scale;
@@ -587,17 +612,17 @@ public static class JetTypeCodec
         // Truncate toward zero: ACE coerces excess scale rather than refusing it, and truncation matches it in
         // every measured case (1.23456 → 1.2345, 1.99999 → 1.9999, -1.23455 → -1.2345). Was decimal.Round(…, 0)
         // — ToEven — which differed silently, each engine reading its own answer back happily.
-        // IndexKeyEncoder.EncodeFixedPoint must quantise identically or keys stop matching their rows.
+        // IndexKeyCodec.EncodeFixedPoint must quantise identically or keys stop matching their rows.
         decimal magnitude = decimal.Truncate(Math.Abs(value) * factor);
 
         int[] bits = decimal.GetBits(magnitude); // [lo, mid, hi, flags]; magnitude has scale 0
-        var result = new byte[17];
+        var result = new byte[NumericLength];
         // IsNegative, not < 0: a negative zero read back from ACE's row (-0.0000m) has to be written back as one.
-        result[0] = (byte)(decimal.IsNegative(value) ? 0x80 : 0x00);
-        // bytes[1..5) top word = 0; hi at 5, mid at 9, lo at 13 (see DecodeNumeric).
-        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(5, 4), (uint)bits[2]);
-        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(9, 4), (uint)bits[1]);
-        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(13, 4), (uint)bits[0]);
+        result[0] = decimal.IsNegative(value) ? NumericNegative : (byte)0x00;
+        // The top word stays 0: a System.Decimal is 96 bits.
+        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(NumericHighWord, sizeof(uint)), (uint)bits[2]);
+        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(NumericMidWord, sizeof(uint)), (uint)bits[1]);
+        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(NumericLowWord, sizeof(uint)), (uint)bits[0]);
         return result;
     }
 

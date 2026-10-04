@@ -1,8 +1,4 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
-using LibRed.Catalog;
-using LibRed.Formats;
-using LibRed.IO;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -15,7 +11,7 @@ namespace LibRed.Engine.Tests;
 //
 // It found two, both of them beliefs rather than oversights:
 //
-//   0x09, the repeated column id, on EVERY column of every type. TdefBuilder wrote zero, with a comment
+//   0x09, the repeated column id, on EVERY column of every type. TableDefinition wrote zero, with a comment
 //   saying real files store zero there - read off the system tables, where they do. Every genuine user
 //   table in every fixture carries the id, and so does everything that creates one: ACE's SQL DDL, DAO's
 //   object model, and DAO-executed SQL. Compaction preserves whatever is there, so it is set at creation.
@@ -67,26 +63,13 @@ public class ColumnDescriptorByteParityAccessTests(ITestOutputHelper output) : T
     private static string Copy(string prefix) => TemporaryDatabase.CopyPath(
         Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), prefix);
 
-    /// <summary>The descriptor bytes for column "V" — the second column of table W. A two-column table's
-    /// definition fits one page, so the page is sliced directly rather than stitching a TDEF chain.</summary>
+    /// <summary>The descriptor bytes for column "V" of table W, as read from its definition.</summary>
     private static byte[]? Descriptor(string path, Action<string> create)
     {
         try { create(path); }
         catch { return null; }
 
-        int definitionPage;
-        using (var database = JetDatabase.Open(path, readOnly: true))
-        {
-            TableDef? table = database.Catalog.FindTable("W");
-            if (table is null) return null;
-            definitionPage = table.DefinitionPage;
-        }
-
-        using var channel = PageChannel.Open(path, readOnly: true);
-        JetFormatBase format = channel.Format;
-        byte[] page = channel.ReadPage(definitionPage).Span.ToArray();
-        int dataCount = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(format.TdefIndexCountOffset, 4));
-        int start = format.TdefRealIndexBlockOffset + dataCount * format.RealIndexEntrySize;
-        return page.AsSpan(start + format.ColumnDescriptorSize, format.ColumnDescriptorSize).ToArray();
+        using var database = JetDatabase.Open(path, readOnly: true);
+        return database.Catalog.FindTable("W")?.Columns.Single(c => c.Name == "V").RawDescriptor;
     }
 }

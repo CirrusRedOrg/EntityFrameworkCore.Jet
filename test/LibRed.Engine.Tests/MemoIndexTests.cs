@@ -5,7 +5,7 @@ using Xunit;
 namespace LibRed.Engine.Tests;
 
 // A Memo (Long Text) column is indexable in Access; its index key is the text collation key over the first
-// 255 characters. Exercise the write paths (RowInserter → IndexKeyEncoder) end-to-end through the engine.
+// 255 characters. Exercise the write paths (RowInserter → IndexKeyCodec) end-to-end through the engine.
 public class MemoIndexTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()

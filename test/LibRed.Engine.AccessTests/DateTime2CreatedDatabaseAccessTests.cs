@@ -44,10 +44,10 @@ public class DateTime2CreatedDatabaseAccessTests : TempDatabaseTest
         {
             // Created at the DEFAULT format — ACE 12, the one that cannot hold the type.
             LibRedConnection.CreateDatabase($"Data Source={path}");
-            Assert.Equal(0x02, VersionByte(path));
 
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
+                Assert.Equal(JetVersion.Version12_2007, db.Format.Version);
                 var engine = new QueryEngine(db);
                 engine.ExecuteNonQuery("CREATE TABLE `E` (`Id` INTEGER PRIMARY KEY, `V` DATETIME2 NULL)");
                 Assert.Equal(JetVersion.Version17_2019, db.Format.Version);
@@ -56,7 +56,8 @@ public class DateTime2CreatedDatabaseAccessTests : TempDatabaseTest
                     new Dictionary<string, object?> { ["v"] = value });
             }
 
-            Assert.Equal(0x06, VersionByte(path));
+            using (var reopened = JetDatabase.Open(path))
+                Assert.Equal(JetVersion.Version17_2019, reopened.Format.Version);
 
             using var connection = AceTestDatabase.Open(path);
             using var command = connection.CreateCommand();
@@ -70,13 +71,6 @@ public class DateTime2CreatedDatabaseAccessTests : TempDatabaseTest
                 Enumerable.Range(0, 6).Select(i => Convert.ToInt32(reader.GetValue(i))).ToArray());
         }
         finally { TemporaryDatabase.Delete(path); }
-    }
-
-    private static byte VersionByte(string path)
-    {
-        using var stream = File.OpenRead(path);
-        stream.Seek(0x14, SeekOrigin.Begin);
-        return (byte)stream.ReadByte();
     }
 
     [Fact]

@@ -1037,7 +1037,7 @@ INNER JOIN (SELECT @p1 AS `Value`
 FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_0`
 UNION
 SELECT @p2 AS `Value`
-FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_1`) AS `p` ON `e`.`EmployeeID` = ASCW(`p`.`Value`)
+FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_1`) AS `p` ON `e`.`EmployeeID` = (CLNG(ASCW(`p`.`Value`)) BAND 65535)
 """,
                 //
                 """
@@ -1046,7 +1046,7 @@ FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_1`) AS `p` ON `e`.`EmployeeID` = ASCW(
 SELECT `e`.`EmployeeID`
 FROM `Employees` AS `e`
 INNER JOIN (SELECT @p1 AS `Value`
-FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_0`) AS `p` ON `e`.`EmployeeID` = ASCW(`p`.`Value`)
+FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_0`) AS `p` ON `e`.`EmployeeID` = (CLNG(ASCW(`p`.`Value`)) BAND 65535)
 """);
         }
 

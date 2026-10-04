@@ -1,4 +1,4 @@
-using System.Buffers.Binary;
+using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
 using LibRed.Storage;
@@ -33,51 +33,56 @@ public class GlobalMapGrowthTests : TempDatabaseTest
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "global-growth-");
         using var channel = PageChannel.Open(path, readOnly: false);
-        var allocator = new PageAllocator(channel);
-        while (channel.PageCount < 512) allocator.Allocate();
-        Assert.Equal(69, ReadMap(channel).Length);
-        Assert.Equal(512, allocator.Allocate());
+        var allocator = channel.Allocator;
+        int pagesPerBitmapPage = channel.Format.UsageMapPagesPerBitmapPage;
+        int window = channel.Format.UsageMapInlineBitmapSize * 8;
+        while (channel.PageCount < window) allocator.Allocate();
+        Assert.Equal(channel.Format.UsageMapInlineRecordSize, ReadMap(channel).Length);
+        Assert.Equal(window, allocator.Allocate());
         byte[] grown = ReadMap(channel);
-        Assert.Equal(73, grown.Length);
+        Assert.Equal(channel.Format.UsageMapInlineRecordSize + channel.Format.UsageMapInlineGrowthSize, grown.Length);
         Assert.Equal(new byte[] { 0xFE, 0xFF, 0xFF, 0xFF }, grown[^4..]);
 
         while (channel.PageCount < 32000) allocator.Allocate();
-        Assert.Equal(4005, ReadMap(channel).Length);
-        byte[] before = channel.ReadPage(1).Span.ToArray();
+        Assert.Equal(4005, ReadMap(channel).Length);   // measured from ACE at 32,000 pages, not derived
+        int holder = TestDatabases.GlobalMap(channel, channel.Format.FreePagesMapPointerOffset).Page;
+        byte[] before = channel.ReadPage(holder).Span.ToArray();
         channel.BeginTransaction();
         Assert.Equal(32001, allocator.Allocate());
         Assert.Equal(32002, channel.PageCount);
-        Assert.Equal(69, ReadMap(channel).Length);
+        Assert.Equal(channel.Format.UsageMapReferenceRecordSize, ReadMap(channel).Length);
         channel.RollbackTransaction();
         Assert.Equal(32000, channel.PageCount);
-        Assert.Equal(before, channel.ReadPage(1).Span.ToArray());
+        Assert.Equal(before, channel.ReadPage(holder).Span.ToArray());
 
         Assert.Equal(32001, allocator.Allocate());
         byte[] reference = ReadMap(channel);
-        Assert.Equal(1, reference[0]);
-        Assert.Equal(32000, BinaryPrimitives.ReadInt32LittleEndian(reference.AsSpan(1)));
+        Assert.Equal(UsageMapType.Reference, UsageMap.RecordType(reference));
+        Assert.Equal(32000, UsageMap.ReferencePointer(reference, 0, channel.Format));
         AssertBitmap(channel, 32000, 32002);
-        while (channel.PageCount < 32736) allocator.Allocate();
-        Assert.Equal(32737, allocator.Allocate());
+        while (channel.PageCount < pagesPerBitmapPage) allocator.Allocate();
+        Assert.Equal(pagesPerBitmapPage + 1, allocator.Allocate());
         reference = ReadMap(channel);
-        Assert.Equal(32736, BinaryPrimitives.ReadInt32LittleEndian(reference.AsSpan(5)));
-        AssertBitmap(channel, 32736, 2);
-        allocator.Free(32737);
-        Assert.Equal(32737, allocator.Allocate());
+        Assert.Equal(pagesPerBitmapPage, UsageMap.ReferencePointer(reference, 1, channel.Format));
+        AssertBitmap(channel, pagesPerBitmapPage, 2);
+        allocator.Free(pagesPerBitmapPage + 1);
+        Assert.Equal(pagesPerBitmapPage + 1, allocator.Allocate());
     }
 
+    /// <summary>The global free map's record, wherever page 0 says it is.</summary>
     private static byte[] ReadMap(PageChannel channel)
     {
-        var page = new DataPage();
-        page.Read(channel.ReadPage(1), channel.Format);
-        return page.GetRow(0).ToArray();
+        (_, _, byte[] holder, DataPage.RowSlot slot) = TestDatabases.GlobalMap(channel, channel.Format.FreePagesMapPointerOffset);
+        return holder[slot.Offset..(slot.Offset + slot.Length)];
     }
 
     private static void AssertBitmap(PageChannel channel, int number, int firstFree)
     {
         byte[] bitmap = channel.ReadPage(number).Span.ToArray();
-        Assert.Equal(new byte[] { 5, 1, 0, 0 }, bitmap[..4]);
-        for (int bit = 0; bit < (bitmap.Length - 4) * 8; bit++)
-            Assert.Equal(bit >= firstFree, (bitmap[4 + bit / 8] & (1 << (bit % 8))) != 0);
+        Assert.Equal(PageType.PageUsageBitmap, PageHeader.ReadType(bitmap));
+        Assert.Equal(new byte[] { 0, 0 }, bitmap[sizeof(ushort)..channel.Format.UsageMapBitmapPageHeaderSize]);
+        Span<byte> bits = UsageMap.BitmapPageBits(bitmap, channel.Format);
+        for (int bit = 0; bit < bits.Length * 8; bit++)
+            Assert.Equal(bit >= firstFree, BitmapBits.Get(bits, bit));
     }
 }

@@ -181,7 +181,7 @@ internal static class IndexSelection
     /// <summary>If <paramref name="conjunct"/> is a range comparison of column <paramref name="colName"/> against
     /// a value (either orientation), returns the operator as if the column were on the left (so <c>5 &lt; K</c>
     /// yields <c>K &gt; 5</c>) and the value expression; else null.</summary>
-    private static (BinaryOperator Op, Expression Value)? Bound(Expression conjunct, string colName, string alias, TableDef def)
+    private static (BinaryOperator Op, Expression Value)? Bound(Expression conjunct, string colName, string alias, TableDefinition def)
     {
         if (conjunct is not BinaryExpression { Operator: var op } cmp
             || op is not (BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual
@@ -199,7 +199,7 @@ internal static class IndexSelection
     /// <remarks>BETWEEN takes its bounds in either order, so which is the lower has to be known when planning. That
     /// limits this to two literals of the same kind: numbers, texts or dates. A Null bound makes the whole test Null,
     /// which a seek has no way to say, so it is left to the filter.</remarks>
-    private static (Expression Low, Expression High)? Between(Expression conjunct, string colName, string alias, TableDef def)
+    private static (Expression Low, Expression High)? Between(Expression conjunct, string colName, string alias, TableDefinition def)
     {
         if (conjunct is not BetweenExpression { Negated: false } between
             || Column(between.Value, alias, def) is not { } column
@@ -458,7 +458,7 @@ internal static class IndexSelection
 
     /// <summary>The column reference if <paramref name="e"/> is a column of the given scan (its qualifier is
     /// the scan's alias, or it is unqualified and the table has such a column), else null.</summary>
-    private static ColumnReference? Column(Expression e, string alias, TableDef def)
+    private static ColumnReference? Column(Expression e, string alias, TableDefinition def)
     {
         if (e is not ColumnReference c) return null;
         if (c.Table is { } t && !string.Equals(t, alias, StringComparison.OrdinalIgnoreCase)) return null;

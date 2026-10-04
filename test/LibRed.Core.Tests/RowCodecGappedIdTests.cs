@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using LibRed;
 using LibRed.Catalog;
 using LibRed.Storage;
@@ -28,14 +27,14 @@ public class RowCodecGappedIdTests
 
         // Three live columns, id 1 is a DEAD gap (as a burned type-change would leave: ids 0, 2, 3).
         var cols = Int32Cols(("A", 0, 0), ("B", 2, 4), ("C", 3, 8));
-        byte[] row = new RowEncoder(cols, db.Format).Encode([10, 20, 30]);
+        byte[] row = new RowCodec(cols, db.Format).Encode([10, 20, 30]);
 
         // Leading count = max id + 1 = 4 (NOT the live count 3).
-        Assert.Equal(4, BinaryPrimitives.ReadUInt16LittleEndian(row));
+        Assert.Equal(4, RowCodec.Layout.ReadColumnCount(row, db.Format));
         // 1-byte null bitmap: live ids 0,2,3 present, the dead id 1 clear → 0x0D.
         Assert.Equal(0x0D, row[^1]);
         // Round-trips (the decoder sizes the bitmap from the stored count, not the live count).
-        Assert.Equal(new object?[] { 10, 20, 30 }, new RowDecoder(cols, db.Format).Decode(row));
+        Assert.Equal(new object?[] { 10, 20, 30 }, new RowCodec(cols, db.Format).Decode(row));
     }
 
     [Fact]
@@ -46,10 +45,10 @@ public class RowCodecGappedIdTests
         // Two live columns with ids 0 and 3 (ids 1,2 dead); B (id 3) is null — its bit is beyond the live
         // count of 2, which is exactly the case that read back null before the fix.
         var cols = Int32Cols(("A", 0, 0), ("B", 3, 4));
-        byte[] row = new RowEncoder(cols, db.Format).Encode([7, null]);
+        byte[] row = new RowCodec(cols, db.Format).Encode([7, null]);
 
-        Assert.Equal(4, BinaryPrimitives.ReadUInt16LittleEndian(row));       // count spans id 3
+        Assert.Equal(4, RowCodec.Layout.ReadColumnCount(row, db.Format));          // count spans id 3
         Assert.Equal(0x01, row[^1]);                                         // A(0) present; dead 1,2 and null B(3) clear
-        Assert.Equal(new object?[] { 7, null }, new RowDecoder(cols, db.Format).Decode(row));
+        Assert.Equal(new object?[] { 7, null }, new RowCodec(cols, db.Format).Decode(row));
     }
 }

@@ -52,17 +52,10 @@ public sealed class IndexCursor(PageChannel channel, int rootPage)
 
             if (page.Type == PageType.LeafIndexPage)
             {
-                foreach ((byte[] key, int pointer) in IndexTree.DecodeEntries(page))
+                // Walked in order, stored keys never go backwards: DecodeEntries holds that within the page, and
+                // is handed the last key of the leaf before so it holds across the boundary as well.
+                foreach ((byte[] key, int pointer) in IndexTree.DecodeEntries(page, previous))
                 {
-                    // The one invariant a B-tree exists for: walked in order, stored keys never go backwards.
-                    // Nothing else checks it, and a walk that silently accepts a descending step is a walk that
-                    // cannot tell a sound tree from one this engine mis-split — the keys come back, the seeks
-                    // that binary-search the same pages do not. Equal keys are ordinary (a non-unique index),
-                    // and a descending index inverts its bytes, so the stored order ascends either way.
-                    if (previous is not null && previous.AsSpan().SequenceCompareTo(key) > 0)
-                        throw new InvalidDataException(
-                            $"Index page {pageNumber} entry {Convert.ToHexString(key)} sorts before the entry "
-                            + $"before it, {Convert.ToHexString(previous)}.");
                     previous = key;
                     yield return (key, RowId.FromPacked(pointer));
                 }

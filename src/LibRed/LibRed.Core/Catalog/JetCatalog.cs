@@ -341,35 +341,29 @@ public sealed class JetCatalog
     }
 
     private readonly PageChannel _channel;
-    private IReadOnlyList<TableDefinition>? _tables;
-    private TableDefinition? _catalogDef;
-    // The objects of the Tables container looked up by name (FindObject) — a table's TableDefinition, a StoredQuery, null for
-    // neither. Dropped whenever the catalog is invalidated.
-    private readonly Dictionary<string, object?> _objects = [with(StringComparer.OrdinalIgnoreCase)];
-    private IReadOnlyList<ForeignKey>? _relationships;
-    private IReadOnlyList<ComplexColumn>? _complexColumns;
-    private long _seenSchemaGeneration;
 
-    internal JetCatalog(PageChannel channel)
+    internal JetCatalog(PageChannel channel, int? catalogPage = null)
     {
-        _catalogPage = CatalogRoot(channel);
+        _catalogPage = catalogPage ?? CatalogRoot(channel);
         _channel = channel;
-        _seenSchemaGeneration = channel.SchemaGeneration;
     }
 
     /// <summary>MSysObjects' own definition, read from the TDEF page page 0's catalog root names — what every
     /// catalog lookup reads it by.</summary>
-    private TableDefinition MSysObjects => _catalogDef ??= ReadTableDefinition(_catalogPage, "MSysObjects", isSystem: true);
+    private TableDefinition MSysObjects => ReadTableDefinition(_catalogPage, "MSysObjects", isSystem: true);
 
     /// <summary>All tables in the database (user and system).</summary>
     public IReadOnlyList<TableDefinition> Tables
     {
         get
         {
-            EnsureFresh();
-            return _tables ??= ObjectNames(ObjectType.Table).Select(name => FindTable(name)
-                ?? throw new InvalidDataException($"Catalog table '{name}' could not be resolved through its name index."))
-                .ToList().AsReadOnly();
+            TableDefinition mo = MSysObjects;
+            var columns = mo.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
+            var tables = new List<TableDefinition>();
+            foreach (object?[] row in new Table(_channel, mo, this).Rows())
+                if (row[columns["Type"]] is short t && (ObjectType)t == ObjectType.Table)
+                    tables.Add(ReadTable(row, mo, columns));
+            return tables.AsReadOnly();
         }
     }
 
@@ -401,30 +395,36 @@ public sealed class JetCatalog
         get
         {
             Dictionary<string, StoredQuery> queries = [with(StringComparer.OrdinalIgnoreCase)];
-            foreach (string name in ObjectNames(ObjectType.Query))
-                if (FindQuery(name) is { } query)
-                    queries[name] = query;
+            TableDefinition mo = MSysObjects;
+            var columns = mo.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
+            var names = new Dictionary<int, string>();
+            TableDefinition? mq = null;
+            foreach (object?[] row in new Table(_channel, mo, this).Rows())
+            {
+                if (row[columns["Type"]] is not short t) continue;
+                if ((ObjectType)t == ObjectType.Query)
+                    names[(int)row[columns["Id"]]!] = (string)row[columns["Name"]]!;
+                else if ((ObjectType)t == ObjectType.Table && string.Equals(row[columns["Name"]] as string, "MSysQueries", StringComparison.OrdinalIgnoreCase))
+                    mq = ReadTable(row, mo, columns);
+            }
+            if (mq is null || names.Count == 0) return queries;
+            var queryColumns = mq.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
+            foreach (var group in new Table(_channel, mq, this).Rows().Where(r => r[queryColumns["ObjectId"]] is int id && names.ContainsKey(id))
+                         .GroupBy(r => (int)r[queryColumns["ObjectId"]]!))
+                if (ReadQuery(group.ToList(), queryColumns) is { } query)
+                    queries[names[group.Key]] = query;
             return queries;
         }
     }
 
-    /// <summary>Drops the cached catalog so a freshly created table is picked up on next read.</summary>
-    internal void Invalidate(bool markChanged = true)
-    {
-        _tables = null;
-        _catalogDef = null;
-        _objects.Clear();
-        _relationships = null;
-        _complexColumns = null;
-        _seenSchemaGeneration = _channel.SchemaGeneration;
-        if (markChanged) _channel.MarkSchemaChanged();
-    }
+    /// <summary>Publishes a schema change. Catalog results belong to their calling operation.</summary>
+    internal void Invalidate() => _channel.MarkSchemaChanged();
 
     /// <summary>Every complex (multi-value / attachment) column in the database, wired to the table its
     /// values live in. Empty when the file has no <c>MSysComplexColumns</c> — a Jet 4 database has none.</summary>
     public IReadOnlyList<ComplexColumn> ComplexColumns
     {
-        get { EnsureFresh(); return _complexColumns ??= LoadComplexColumns().AsReadOnly(); }
+        get { return LoadComplexColumns().AsReadOnly(); }
     }
 
     /// <summary>The complex column <paramref name="column"/> of <paramref name="table"/>, or null when that
@@ -442,7 +442,15 @@ public sealed class JetCatalog
     private List<ComplexColumn> LoadComplexColumns()
     {
         var resolved = new List<ComplexColumn>();
-        if (FindTable("MSysComplexColumns") is not { } definition) return resolved;
+        TableDefinition mo = MSysObjects;
+        var columns = mo.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
+        var rows = new Table(_channel, mo, this).Rows()
+            .Where(r => r[columns["Type"]] is short t && (ObjectType)t == ObjectType.Table)
+            .ToDictionary(r => (int)r[columns["Id"]]!);
+        object?[]? complexRow = rows.Values.FirstOrDefault(r => string.Equals(r[columns["Name"]] as string, "MSysComplexColumns", StringComparison.OrdinalIgnoreCase));
+        if (complexRow is null) return resolved;
+        TableDefinition definition = ReadTable(complexRow, mo, columns);
+        var definitions = new Dictionary<int, TableDefinition> { [definition.DefinitionPage] = definition };
 
         if (definition.FindColumn("ColumnName") is not { Index: var name } || definition.FindColumn("ComplexID") is not { Index: var id }
             || definition.FindColumn("ConceptualTableID") is not { Index: var owner }
@@ -453,7 +461,7 @@ public sealed class JetCatalog
         foreach (object?[] row in new Storage.Table(_channel, definition, this).Rows())
         {
             if (row[name] is not string columnName) continue;
-            if (TableWithId(row[owner]) is not { } ownerTable || TableWithId(row[flat]) is not { } flatTable) continue;
+            if (Resolve(row[owner]) is not { } ownerTable || Resolve(row[flat]) is not { } flatTable) continue;
             if (ownerTable.FindColumn(columnName) is null) continue;
 
             // Structural, never by name: the primary index names the per-value id, and the one non-unique
@@ -466,30 +474,35 @@ public sealed class JetCatalog
             resolved.Add(new ComplexColumn(
                 columnName, row[id] is null ? 0 : Convert.ToInt32(row[id], CultureInfo.InvariantCulture),
                 ownerTable, flatTable, ownerLink, valueId,
-                elementType is { } element ? TableWithId(row[element])?.Name : null));
+                elementType is { } element ? Resolve(row[element])?.Name : null));
         }
         return resolved;
+
+        TableDefinition? Resolve(object? value)
+        {
+            if (value is null) return null;
+            int page = Convert.ToInt32(value, CultureInfo.InvariantCulture);
+            if (definitions.TryGetValue(page, out TableDefinition? table)) return table;
+            if (!rows.TryGetValue(page, out object?[]? objectRow)) return null;
+            return definitions[page] = ReadTable(objectRow, mo, columns);
+        }
     }
 
     /// <summary>The table whose MSysObjects id (its TDEF page) is <paramref name="id"/>.</summary>
-    internal TableDefinition? TableWithId(object? id) =>
-        id is null ? null
-        : Tables.FirstOrDefault(t => t.DefinitionPage == Convert.ToInt32(id, CultureInfo.InvariantCulture));
-
-    private void EnsureFresh()
+    internal TableDefinition? TableWithId(object? id)
     {
-        long generation = _channel.SchemaGeneration;
-        if (generation == _seenSchemaGeneration) return;
-        Invalidate(markChanged: false);
-        // The file's format version is schema too, and another connection can raise it — adding a BIGINT or a
-        // DATETIME2 column moves the byte on page 0. Without this, a handle open across that change goes on
-        // reporting the version the file had when IT opened, and would refuse a column the file can now hold.
-        _channel.ResyncFormatVersion();
-        _seenSchemaGeneration = generation;
+        if (id is null) return null;
+        TableDefinition mo = MSysObjects;
+        var columns = mo.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
+        int page = Convert.ToInt32(id, CultureInfo.InvariantCulture);
+        object?[]? row = new Table(_channel, mo, this).RowsWhere([columns["Id"], columns["Type"]],
+            r => r[columns["Id"]] is int p && p == page && r[columns["Type"]] is short t && (ObjectType)t == ObjectType.Table)
+            .Select(r => r.Values).FirstOrDefault();
+        return row is null ? null : ReadTable(row, mo, columns);
     }
 
     /// <summary>All relationships (foreign keys) defined in the database.</summary>
-    public IReadOnlyList<ForeignKey> Relationships { get { EnsureFresh(); return _relationships ??= LoadRelationships().AsReadOnly(); } }
+    public IReadOnlyList<ForeignKey> Relationships { get { return LoadRelationships().AsReadOnly(); } }
 
     /// <summary>Relationships for which <paramref name="table"/> is the referencing (child) table.</summary>
     public IEnumerable<ForeignKey> ForeignKeysOf(string table) =>
@@ -507,30 +520,28 @@ public sealed class JetCatalog
     /// <summary>
     /// The object called <paramref name="name"/> in the Tables container, found by one seek in <c>MSysObjects</c> and
     /// returned as what its <c>Type</c> makes it: a table's <see cref="TableDefinition"/>, a <see cref="StoredQuery"/>, or null
-    /// for any other kind of object, or none. Kept until the catalog is next invalidated.
+    /// for any other kind of object, or none. The result is not retained by the catalog.
     /// </summary>
     private object? FindObject(string name)
     {
-        EnsureFresh();
-        if (_objects.TryGetValue(name, out object? found)) return found;
-
-        if (FindObjectRow(JetCatalog.ObjectContainerParentId, name) is not { } row) return _objects[name] = null;
-        return _objects[name] = row[MSysObjects.RequireColumn("Type").Index] switch
+        TableDefinition mo = MSysObjects;
+        var columns = mo.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
+        if (FindObjectRow(JetCatalog.ObjectContainerParentId, name, mo) is not { } row) return null;
+        return row[columns["Type"]] switch
         {
-            short t when (ObjectType)t == ObjectType.Table => ReadTable(row),
-            short t when (ObjectType)t == ObjectType.Query => ReadQuery(row),
+            short t when (ObjectType)t == ObjectType.Table => ReadTable(row, mo, columns),
+            short t when (ObjectType)t == ObjectType.Query => ReadQuery((int)row[columns["Id"]]!),
             _ => null,
         };
     }
 
     /// <summary>A table's definition from its <c>MSysObjects</c> row: its TDEF — the row's <c>Id</c> is that page — with
     /// what the row adds, its flags and the column and table properties in its <c>LvProp</c>.</summary>
-    private TableDefinition ReadTable(object?[] row)
+    private TableDefinition ReadTable(object?[] row, TableDefinition mo, Dictionary<string, int> columns)
     {
-        TableDefinition mo = MSysObjects;
-        int definitionPage = (int)row[mo.RequireColumn("Id").Index]!;
-        string name = (string)row[mo.RequireColumn("Name").Index]!;
-        var flags = (ObjectAttributes)unchecked((uint)(int)row[mo.RequireColumn("Flags").Index]!);
+        int definitionPage = (int)row[columns["Id"]]!;
+        string name = (string)row[columns["Name"]]!;
+        var flags = (ObjectAttributes)unchecked((uint)(int)row[columns["Flags"]]!);
 
         // A table is "system" (excluded from the user-table list, as Access's own schema view
         // does) if it is flagged system or hidden, or is named as engine/temporary infrastructure:
@@ -540,10 +551,10 @@ public sealed class JetCatalog
                         || name.StartsWith('~')
                         || name.StartsWith('#');
 
-        TableDefinition definition = ReadTableDefinition(definitionPage, name, isSystem);
+        TableDefinition definition = definitionPage == _catalogPage ? mo : ReadTableDefinition(definitionPage, name, isSystem);
         definition.ObjectFlags = flags;
         // Attach column DefaultValue and table CHECK properties from the extended-properties (LvProp) blob.
-        if (row[mo.RequireColumn("LvProp").Index] is byte[] { Length: > 0 } blob)
+        if (row[columns["LvProp"]] is byte[] { Length: > 0 } blob)
         {
             IReadOnlyList<PropertyBlob.Property> properties = PropertyBlob.Read(blob);
             var defaults = PropertyBlob.ReadColumnDefaults(properties);
@@ -573,18 +584,22 @@ public sealed class JetCatalog
 
     /// <summary>A stored query from its <c>MSysObjects</c> row: rebuilt from its own MSysQueries rows, keyed by the
     /// row's <c>Id</c>. Null when it has none to rebuild from.</summary>
-    private StoredQuery? ReadQuery(object?[] row)
+    private StoredQuery? ReadQuery(int id)
     {
-        int id = (int)row[MSysObjects.RequireColumn("Id").Index]!;
         if (FindTable("MSysQueries") is not { } mq) return null;
 
-        int oid = mq.RequireColumn("ObjectId").Index, attr = mq.RequireColumn("Attribute").Index,
-            expr = mq.RequireColumn("Expression").Index, flag = mq.RequireColumn("Flag").Index,
-            n1 = mq.RequireColumn("Name1").Index, n2 = mq.RequireColumn("Name2").Index,
-            order = mq.RequireColumn("Order").Index, lvExtra = mq.RequireColumn("LvExtra").Index;
+        var columns = mq.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
+        int oid = columns["ObjectId"];
         List<object?[]> queryRows = [.. new Table(_channel, mq, this).RowsWhere([oid], r => r[oid] is int o && o == id)
             .Select(r => r.Values)];
+        return ReadQuery(queryRows, columns);
+    }
+
+    private static StoredQuery? ReadQuery(List<object?[]> queryRows, Dictionary<string, int> columns)
+    {
         if (queryRows.Count == 0) return null;
+        int attr = columns["Attribute"], expr = columns["Expression"], flag = columns["Flag"],
+            n1 = columns["Name1"], n2 = columns["Name2"], order = columns["Order"], lvExtra = columns["LvExtra"];
 
         // Reconstruct it: an action query → its readback, otherwise a SELECT → its view SQL.
         // The Attribute=1 row is the OPERATION row and its Flag is the query KIND, of which SELECT (1) is one
@@ -615,19 +630,6 @@ public sealed class JetCatalog
         return query with { Parameters = parameters };
     }
 
-    /// <summary>The names of the Tables container's objects of <paramref name="type"/>, read from <c>MSysObjects</c> —
-    /// what the whole-catalog lists (<see cref="Tables"/>, <see cref="Queries"/>) go through
-    /// <see cref="FindObject"/> with.</summary>
-    private List<string> ObjectNames(ObjectType type)
-    {
-        EnsureFresh();
-        int nameIndex = MSysObjects.RequireColumn("Name").Index, typeIndex = MSysObjects.RequireColumn("Type").Index;
-        var objects = new Table(_channel, MSysObjects, this);
-        return [.. objects.Rows(objects.DecodeOnly([nameIndex, typeIndex]))
-            .Where(r => r[typeIndex] is short t && (ObjectType)t == type)
-            .Select(r => (string)r[nameIndex]!)];
-    }
-
     /// <summary>The <c>MSysObjects</c> id of the object of <paramref name="type"/> named <paramref name="name"/>,
     /// or null when there is none.</summary>
     /// <remarks>Every object is the row of that name in its kind's container (system-catalog §11), so it is sought
@@ -636,8 +638,9 @@ public sealed class JetCatalog
     /// row under the root, found by its name.</remarks>
     internal int? FindObjectId(string name, ObjectType type)
     {
-        EnsureFresh();
-        int idIdx = MSysObjects.RequireColumn("Id").Index, typeIdx = MSysObjects.RequireColumn("Type").Index;
+        TableDefinition mo = MSysObjects;
+        var columns = mo.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
+        int idIdx = columns["Id"], typeIdx = columns["Type"];
 
         int? container = type switch
         {
@@ -654,11 +657,11 @@ public sealed class JetCatalog
                 ObjectType.Form => "Forms",
                 _ => null,
             }) is { } containerName
-                && FindObjectRow(JetCatalog.ContainerParentId, containerName) is { } containerRow
+                && FindObjectRow(JetCatalog.ContainerParentId, containerName, mo) is { } containerRow
                     ? Convert.ToInt32(containerRow[idIdx], CultureInfo.InvariantCulture)
                     : null,
         };
-        return container is { } parent && FindObjectRow(parent, name) is { } row && row[typeIdx] is short t && (ObjectType)t == type
+        return container is { } parent && FindObjectRow(parent, name, mo) is { } row && row[typeIdx] is short t && (ObjectType)t == type
             ? Convert.ToInt32(row[idIdx], CultureInfo.InvariantCulture)
             : null;
     }
@@ -667,11 +670,11 @@ public sealed class JetCatalog
     /// Sought through MSysObjects' unique <c>(ParentId, Name)</c> index when its name collation can be encoded;
     /// otherwise scanned through the same parent/name predicate. The seek can over-return on a text key, so the
     /// name is checked again on what it finds.</summary>
-    internal object?[]? FindObjectRow(int container, string name)
+    internal object?[]? FindObjectRow(int container, string name, TableDefinition? definition = null)
     {
-        EnsureFresh();
-        TableDefinition mo = MSysObjects;
-        int parentIndex = mo.RequireColumn("ParentId").Index, nameIndex = mo.RequireColumn("Name").Index;
+        TableDefinition mo = definition ?? MSysObjects;
+        var columns = mo.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
+        int parentIndex = columns["ParentId"], nameIndex = columns["Name"];
         IndexDef byName = mo.Indexes.FirstOrDefault(i =>
                 i.Columns is [{ Column.Index: var parent }, { Column.Index: var named }]
                 && parent == parentIndex && named == nameIndex)
@@ -697,16 +700,19 @@ public sealed class JetCatalog
 
     private List<ForeignKey> LoadRelationships()
     {
-        TableDefinition? def = FindTable("MSysRelationships");
-        if (def is null) return [];
+        TableDefinition mo = MSysObjects;
+        var objectColumns = mo.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
+        var objectRows = new Table(_channel, mo, this).Rows()
+            .Where(r => r[objectColumns["Type"]] is short t && (ObjectType)t == ObjectType.Table)
+            .ToDictionary(r => (string)r[objectColumns["Name"]]!, StringComparer.OrdinalIgnoreCase);
+        if (!objectRows.TryGetValue("MSysRelationships", out object?[]? relationshipRow)) return [];
+        TableDefinition def = ReadTable(relationshipRow, mo, objectColumns);
 
-        int nameIdx = def.RequireColumn("szRelationship").Index;
-        int childTableIdx = def.RequireColumn("szObject").Index;
-        int childColumnIdx = def.RequireColumn("szColumn").Index;
-        int parentTableIdx = def.RequireColumn("szReferencedObject").Index;
-        int parentColumnIdx = def.RequireColumn("szReferencedColumn").Index;
-        int orderIdx = def.RequireColumn("icolumn").Index;
-        int flagsIdx = def.RequireColumn("grbit").Index;
+        var columns = def.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
+        int nameIdx = columns["szRelationship"], childTableIdx = columns["szObject"], childColumnIdx = columns["szColumn"],
+            parentTableIdx = columns["szReferencedObject"], parentColumnIdx = columns["szReferencedColumn"],
+            orderIdx = columns["icolumn"], flagsIdx = columns["grbit"];
+        var children = new Dictionary<string, TableDefinition?>(StringComparer.OrdinalIgnoreCase);
 
         // One row per column; group by relationship name and order columns by icolumn.
         var groups = new Dictionary<string, (string Child, string Parent, RelationshipFlags Flags,
@@ -730,7 +736,10 @@ public sealed class JetCatalog
                 // The actions come from the child's relationship block in its TDEF (0x15/0x16), not from grbit:
                 // made to disagree, ACE cascades by the block (measured against ACE). grbit answers only for a
                 // relationship with no block — an unenforced one, which has nothing to cascade.
-                LogicalIndexDef? block = FindTable(kvp.Value.Child)?.LogicalIndexes.FirstOrDefault(l =>
+                if (!children.TryGetValue(kvp.Value.Child, out TableDefinition? child))
+                    children[kvp.Value.Child] = child = objectRows.TryGetValue(kvp.Value.Child, out object?[]? childRow)
+                        ? ReadTable(childRow, mo, objectColumns) : null;
+                LogicalIndexDef? block = child?.LogicalIndexes.FirstOrDefault(l =>
                     l.IsRelationship && !l.IsIncomingRelationship &&
                     string.Equals(l.Name, kvp.Key, StringComparison.OrdinalIgnoreCase));
                 RelationshipFlags flags = kvp.Value.Flags;

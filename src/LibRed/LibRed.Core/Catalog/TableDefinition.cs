@@ -405,7 +405,7 @@ public sealed class TableDefinition : Page
         _logicalIndexes.Clear();
         for (int i = 0; i < LogicalIndexCount; i++) // 0x2F — the logical-index (slot) count
         {
-            (string name, namePos) = ReadName(buffer, namePos, $"logical index {i}", format);
+            (string name, namePos) = ReadName(buffer, namePos, "logical index", format);
             LogicalIndexSpec info = ReadInfoBlock(
                 buffer.Span.Slice(regions.InfoBlocks + i * format.IndexInfoBlockSize, format.IndexInfoBlockSize), format, name);
 
@@ -505,7 +505,7 @@ public sealed class TableDefinition : Page
         int namePos = columnBlock + ColumnCount * format.ColumnDescriptorSize;
         for (int i = 0; i < ColumnCount; i++)
         {
-            (string name, namePos) = ReadName(buffer, namePos, $"column {i}", format);
+            (string name, namePos) = ReadName(buffer, namePos, "column", format);
 
             var d = descriptors[i];
             bool isFixed = (d.Flags & ColumnFlags.FixedLength) != 0;
@@ -573,9 +573,9 @@ public sealed class TableDefinition : Page
     /// <paramref name="tdef"/>, since the length comes out of the file.</summary>
     internal static int NameEntryEnd(ReadOnlySpan<byte> tdef, int pos, JetFormatBase format, string kind)
     {
-        int text = CheckedRegionEnd(pos, 1, format.TdefNameLengthSize, tdef.Length, $"{kind} name length");
+        int text = CheckedRegionEnd(pos, 1, format.TdefNameLengthSize, tdef.Length, kind);
         return CheckedRegionEnd(text, 1,
-            BinaryPrimitives.ReadUInt16LittleEndian(tdef.Slice(pos, format.TdefNameLengthSize)), tdef.Length, $"{kind} name");
+            BinaryPrimitives.ReadUInt16LittleEndian(tdef.Slice(pos, format.TdefNameLengthSize)), tdef.Length, kind);
     }
 
     /// <summary>Reads the name entry at <paramref name="pos"/> and returns its text and where the entry
@@ -1249,7 +1249,8 @@ public sealed class TableDefinition : Page
     {
         JetFormatBase format = channel.Format;
         ValidatePageNumber(channel, firstPage, "TDEF root");
-        PageBuffer first = channel.ReadPage(firstPage);
+        // Shared reads: each page is only checked and copied into the assembled buffer below, never written into or kept.
+        PageBuffer first = channel.ReadPageShared(firstPage);
         if (PageHeader.ReadType(first.Span) != PageType.TableDefinition)
             throw new InvalidDataException(
                 $"TDEF root page {firstPage} is type 0x{(ushort)PageHeader.ReadType(first.Span):X4}, expected 0x0102.");
@@ -1285,7 +1286,7 @@ public sealed class TableDefinition : Page
             if (!visited.Add(next))
                 throw new InvalidDataException($"TDEF page {firstPage} contains a continuation cycle at page {next}.");
 
-            PageBuffer continuation = channel.ReadPage(next);
+            PageBuffer continuation = channel.ReadPageShared(next);
             if (PageHeader.ReadType(continuation.Span) != PageType.TableDefinition)
                 throw new InvalidDataException(
                     $"TDEF continuation page {next} is type 0x{(ushort)PageHeader.ReadType(continuation.Span):X4}, expected 0x0102.");
@@ -1365,7 +1366,7 @@ public sealed class TableDefinition : Page
                 descriptors, columnCount, format.ColumnDescriptorSize, tdef.Length, "column descriptors");
 
             for (int i = 0; i < columnCount; i++)
-                pos = NameEntryEnd(tdef, pos, format, $"column {i}");
+                pos = NameEntryEnd(tdef, pos, format, "column");
 
             int dataBlocks = pos;
             int infoBlocks = CheckedRegionEnd(
@@ -1408,7 +1409,7 @@ public sealed class TableDefinition : Page
         for (int i = 0; i < regions.ColumnCount; i++)
         {
             byte[] descriptor = buf.Slice(regions.ColumnDescriptors + i * format.ColumnDescriptorSize, format.ColumnDescriptorSize).ToArray();
-            int end = NameEntryEnd(buf.Span, np, format, $"column {i}");
+            int end = NameEntryEnd(buf.Span, np, format, "column");
             columns.Add((descriptor, buf.Slice(np, end - np).ToArray()));
             np = end;
         }
@@ -1423,7 +1424,7 @@ public sealed class TableDefinition : Page
         for (int i = 0; i < regions.LogicalCount; i++)
         {
             byte[] info = buf.Slice(regions.InfoBlocks + i * format.IndexInfoBlockSize, format.IndexInfoBlockSize).ToArray();
-            int end = NameEntryEnd(buf.Span, np, format, $"logical index {i}");
+            int end = NameEntryEnd(buf.Span, np, format, "logical index");
             logical.Add((info, buf.Slice(np, end - np).ToArray()));
             np = end;
         }

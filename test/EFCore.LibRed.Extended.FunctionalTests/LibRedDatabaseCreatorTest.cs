@@ -656,8 +656,8 @@ namespace EntityFrameworkCore.LibRed.Extended.FunctionalTests
             var creator = GetDatabaseCreator(testDatabase);
 
             var ex = async
-                ? await Assert.ThrowsAsync<Exception>(() => creator.CreateAsync())
-                : Assert.Throws<Exception>(() => creator.Create());
+                ? await Assert.ThrowsAsync<System.IO.IOException>(() => creator.CreateAsync())
+                : Assert.Throws<System.IO.IOException>(() => creator.Create());
             //todo:check message
         }
     }

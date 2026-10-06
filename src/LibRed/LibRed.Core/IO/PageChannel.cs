@@ -79,7 +79,7 @@ public sealed class PageChannel : IDisposable
     {
         _stream = stream;
         _readOnly = readOnly;
-        Format = format;
+        _format = format;
         _path = path;
         _codec = codec;
         _identity = FileIdentity.Key(path);
@@ -87,6 +87,7 @@ public sealed class PageChannel : IDisposable
         _ownsLocks = locks is null;
         _locks = locks ?? MonitorLockManager.AcquireKey(_identity);
         _cache = PageCache.AcquireKey(_identity);
+        _seenSchemaGeneration = _cache.SchemaGeneration;
         _cache.InitFileLength(stream.Length);
         Allocator = new PageAllocator(this);
     }
@@ -136,14 +137,23 @@ public sealed class PageChannel : IDisposable
     /// <summary>Whether this channel has published a page write since it opened.</summary>
     internal bool HasPublishedWrites => _published;
 
-    /// <summary>
-    /// The resolved on-disk format. Settable only by <see cref="RaiseFormatVersion"/> and its rollback
-    /// counterpart: a database's format version can move up in place when DDL introduces a type that needs a
-    /// newer one, which is what Access itself does.
-    /// </summary>
-    public JetFormatBase Format { get; private set; }
+    private JetFormatBase _format;
+    private long _seenSchemaGeneration;
 
-    internal long SchemaGeneration => _cache.SchemaGeneration;
+    /// <summary>
+    /// The resolved on-disk format, refreshed when another handle publishes a schema change. A database's
+    /// format version can move up in place when DDL introduces a type that needs a newer one, which is what
+    /// Access itself does. Local upgrades and rollback update the same format state.
+    /// </summary>
+    public JetFormatBase Format
+    {
+        get
+        {
+            if (_seenSchemaGeneration != _cache.SchemaGeneration)
+                ResyncFormatVersion();
+            return _format;
+        }
+    }
 
     internal void MarkSchemaChanged()
     {
@@ -151,7 +161,7 @@ public sealed class PageChannel : IDisposable
         else _cache.MarkSchemaChanged();
     }
 
-    public int PageSize => Format.PageSize;
+    public int PageSize => _format.PageSize;
 
     /// <summary>Number of pages currently in the file — or, inside a transaction, the logical count including
     /// pages the overlay has allocated but not yet written to disk. Read from the shared cache's record of the
@@ -602,7 +612,7 @@ public sealed class PageChannel : IDisposable
 
         Format.WriteVersion(page0, version, minor: 0x00);
         WritePage(0, page0);
-        Format = JetFormatBase.FromVersionByte(version);
+        _format = JetFormatBase.FromVersionByte(version);
         return true;
     }
 
@@ -613,11 +623,13 @@ public sealed class PageChannel : IDisposable
     /// page 0 is cached by then.</summary>
     internal void ResyncFormatVersion()
     {
-        byte onDisk = JetFormatBase.ReadVersionByte(ReadPage(0).Span);
-        if ((byte)Format.Version == onDisk) return;
+        long generation = _cache.SchemaGeneration;
+        byte onDisk = JetFormatBase.ReadVersionByte(ReadPageShared(0).Span);
+        _seenSchemaGeneration = generation;
+        if ((byte)_format.Version == onDisk) return;
         try
         {
-            Format = JetFormatBase.FromVersionByte(onDisk);
+            _format = JetFormatBase.FromVersionByte(onDisk);
         }
         catch (NotSupportedException)
         {

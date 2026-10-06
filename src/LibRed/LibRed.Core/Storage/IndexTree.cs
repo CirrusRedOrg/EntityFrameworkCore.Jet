@@ -1192,8 +1192,14 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
     /// The prefix covers the entry <b>whole</b>, so it can reach into the trailer — with many equal keys the
     /// rows are consecutive on one data page and share the trailer's leading bytes too. Both the key and the
     /// trailer are therefore taken from the reconstructed entry, never from the stored bytes.
+    /// </para>
+    /// <para>
+    /// The keys are checked to ascend as they decode, here rather than in any one reader, because a seek
+    /// binary-searches the same entries a walk enumerates. <paramref name="previous"/> is the last key before this
+    /// page, for a caller walking a chain of them. Equal keys are ordinary (a non-unique index), and a descending
+    /// index inverts its bytes, so the stored order ascends either way.
     /// </para></summary>
-    internal static IEnumerable<(byte[] Key, int Trailer)> DecodeEntries(CheckedPage page)
+    internal static IEnumerable<(byte[] Key, int Trailer)> DecodeEntries(CheckedPage page, byte[]? previous = null)
     {
         byte[] prefix = [];
         bool first = true;
@@ -1209,6 +1215,11 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
             stored[..(key.Length - fromLead)].CopyTo(key.AsSpan(fromLead));
             int trailer = Trailer(lead, stored, page.Format);
             if (first) { prefix = stored[..page.CompressedByteCount].ToArray(); first = false; }
+            if (previous is not null && previous.AsSpan().SequenceCompareTo(key) > 0)
+                throw new InvalidDataException(
+                    $"Index page {page.Buffer.PageNumber} entry {Convert.ToHexString(key)} sorts before the entry "
+                    + $"before it, {Convert.ToHexString(previous)}.");
+            previous = key;
             yield return (key, trailer);
         }
     }

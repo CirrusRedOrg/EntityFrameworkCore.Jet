@@ -36,7 +36,7 @@ public sealed class JetDatabase : IDisposable
 
         // Find MSysObjects via the page-0 bootstrap pointer: its page is also its own MSysObjects Id, but that row
         // can only be read once the table has been found.
-        Catalog = new JetCatalog(channel);
+        Catalog = new JetCatalog(channel, DefinitionPage.CatalogRootPage);
     }
 
     /// <summary>The decoded database definition page (page 0).</summary>
@@ -253,14 +253,12 @@ public sealed class JetDatabase : IDisposable
 
     /// <summary>
     /// Rolls the current transaction back, restoring every touched page and dropping any pages the
-    /// transaction allocated. The catalog cache is invalidated so subsequent reads pick up the
-    /// restored TDEFs/row counts rather than stale in-memory copies.
+    /// transaction allocated.
     /// </summary>
     public void Rollback()
     {
         if (!_channel.InTransaction) return;
         _channel.RollbackTransaction();
-        Catalog.Invalidate(markChanged: false);
         RereadDefinitionPage();   // page 0 moves too, when a rolled-back statement raised the format version
     }
 
@@ -269,12 +267,10 @@ public sealed class JetDatabase : IDisposable
     public Savepoint CreateSavepoint() => _channel.CreateSavepoint();
 
     /// <summary>Rolls back to <paramref name="savepoint"/>, undoing writes made since it was created; the
-    /// transaction (and savepoint) stay open. Invalidates the catalog cache, as a full rollback does, since a
-    /// restored page may be a TDEF/catalog page.</summary>
+    /// transaction (and savepoint) stay open.</summary>
     public void RollbackToSavepoint(Savepoint savepoint)
     {
         _channel.RollbackToSavepoint(savepoint);
-        Catalog.Invalidate(markChanged: false);
         RereadDefinitionPage();
     }
 
@@ -573,7 +569,7 @@ public sealed class JetDatabase : IDisposable
     public bool RenameTable(string oldName, string newName)
     {
         bool renamed = new Catalog.SchemaEditor(_channel, Catalog, Collation).RenameTable(oldName, newName);
-        if (renamed) Catalog.Invalidate(); // the cached TableDefs still carry the old name
+        if (renamed) Catalog.Invalidate();
         return renamed;
     }
 

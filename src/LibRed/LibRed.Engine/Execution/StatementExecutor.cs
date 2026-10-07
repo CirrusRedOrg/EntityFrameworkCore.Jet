@@ -138,7 +138,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private void EnforceCheckConstraints(TableDefinition definition, object?[] values)
     {
         if (definition.CheckConstraints.Count == 0) return;
-        var schema = definition.Columns.Select(c => OutputColumn.Of(definition.Name, c)).ToList();
+        var schema = definition.Columns.Select(c => OutputColumn.Of(definition.Name, definition, c)).ToList();
         var evaluator = new ExpressionEvaluator(new EvalScope(schema, values, null), _scalarRunner, _parameters, _session);
         foreach (var (name, expression) in definition.CheckConstraints)
         {
@@ -1293,7 +1293,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         {
             Table t = _database.OpenTable(n.Name);
             string alias = n.Alias ?? n.Name;
-            tables.Add(new SourceTable(alias, t, t.Definition.Columns.Select(c => OutputColumn.Of(alias, c)).ToList(), null));
+            tables.Add(new SourceTable(alias, t, t.Definition.Columns.Select(c => OutputColumn.Of(alias, t.Definition, c)).ToList(), null));
             kinds.Add(kind);
             ons.Add(on);
             groupBases.Add(null);

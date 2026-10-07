@@ -179,7 +179,7 @@ public static class SchemaRowsets
                     for (int i = 0; i < described.Count; i++)
                     {
                         var column = described[i];
-                        ColumnDef? c = column.Source;
+                        ColumnDef? c = column.Source?.Column;
                         bool nullable = c is not null ? ViewNullable(c) : column.ClrType != typeof(bool);
                         rows.Add(c is not null
                             ? [null, null, view, column.Name, null, null, (long)(i + 1),
@@ -350,11 +350,10 @@ public static class SchemaRowsets
             case "ViewColumns":
                 // Which stored column each of a view's columns comes from, where one does — the provenance the
                 // planner already tracks. A computed column has no base column and so no row here.
-                var owners = ColumnOwners(catalog);
                 foreach ((string view, _) in Views(catalog))
                     foreach (var column in ViewColumns(database, view))
-                        if (column.Source is { } source && owners.TryGetValue(source, out string? owner))
-                            rows.Add([null, null, view, null, null, owner, source.Name]);
+                        if (column.Source is { } source)
+                            rows.Add([null, null, view, null, null, source.Table.Name, source.Column.Name]);
                 break;
         }
         return rows;
@@ -423,16 +422,14 @@ public static class SchemaRowsets
     /// <c>GetColumnSchema</c>: each column's type and, where a stored column stands behind it, that column's
     /// table, declared facets and constraints. Same rules as the <c>Columns</c> collection, so a caller reading
     /// a query's schema and one reading the table's metadata are told the same thing.</summary>
-    internal static IReadOnlyList<Execution.ResultColumn> Describe(
-        IReadOnlyList<Execution.OutputColumn> columns, JetCatalog catalog)
+    internal static IReadOnlyList<Execution.ResultColumn> Describe(IReadOnlyList<Execution.OutputColumn> columns)
     {
-        var owners = ColumnOwners(catalog);
         var described = new List<Execution.ResultColumn>(columns.Count);
 
         foreach (Execution.OutputColumn column in columns)
         {
             Type clrType = column.ClrType ?? typeof(object);
-            if (column.Source is not { } c || !owners.TryGetValue(c, out string? table))
+            if (column.Source is not (var owner, var c))
             {
                 described.Add(new Execution.ResultColumn(
                     column.Name, clrType, AllowNull: clrType != typeof(bool), IsExpression: true, IsReadOnly: true,
@@ -443,14 +440,13 @@ public static class SchemaRowsets
                 continue;
             }
 
-            TableDefinition? owner = catalog.FindTable(table);
             described.Add(new Execution.ResultColumn(
-                column.Name, clrType, table, c.Name,
+                column.Name, clrType, owner.Name, c.Name,
                 AllowNull: Nullable(c),
                 IsExpression: false,
                 IsAutoIncrement: c.IsAutoNumber,
-                IsKey: owner is not null && owner.Indexes.Any(ix => ix.IsPrimaryKey && Covers(ix, c)),
-                IsUnique: owner is not null && owner.Indexes.Any(ix => ix.IsUnique && ix.Columns.Count == 1 && Covers(ix, c)),
+                IsKey: owner.Indexes.Any(ix => ix.IsPrimaryKey && Covers(ix, c)),
+                IsUnique: owner.Indexes.Any(ix => ix.IsUnique && ix.Columns.Count == 1 && Covers(ix, c)),
                 IsLong: IsLong(c),
                 // A calculated column cannot be written, and neither can a value a query computed from one.
                 IsReadOnly: c.IsCalculated,
@@ -465,18 +461,6 @@ public static class SchemaRowsets
 
         static bool Covers(IndexDef index, ColumnDef column) =>
             index.Columns.Any(c => ReferenceEquals(c.Column, column));
-    }
-
-    /// <summary>Which table owns each column, by the column's own identity, so a query's output column can be
-    /// traced back to the table it came from.</summary>
-    private static Dictionary<ColumnDef, string> ColumnOwners(JetCatalog catalog)
-    {
-        var owners = new Dictionary<ColumnDef, string>(ReferenceEqualityComparer.Instance as IEqualityComparer<ColumnDef>
-            ?? EqualityComparer<ColumnDef>.Default);
-        foreach (TableDefinition t in catalog.Tables)
-            foreach (ColumnDef c in t.Columns)
-                owners[c] = t.Name;
-        return owners;
     }
 
     /// <summary>The provider's name for a column's type, as the DataTypes collection spells it — which for text

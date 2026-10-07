@@ -272,6 +272,8 @@ internal sealed partial class ExpressionEvaluator(
             "MID" => Mid(f),
             "INSTR" => Instr(f),
             "REPLACE" => Replace(f),
+            "CONCAT_WS" => ConcatWs(f),
+            "TRANSLATE" => Translate(f),
 
             // Date/time functions (verified vs ACE). A date argument is read as CDate reads it: text as a date in
             // the regional format, otherwise as a number, and a number as the date at that serial. Settings and
@@ -283,6 +285,10 @@ internal sealed partial class ExpressionEvaluator(
             "DATESERIAL" => DateParts(f, DateSerial),
             "TIMESERIAL" => DateParts(f, static (h, m, s) => OaDate((h * 3600 + m * 60 + s) / 86400.0)),
             "NOW" => DateTime.Now,
+            // SQL Server's: GetUtcDate is a datetime (whole ms), the Sys ones datetime2 (100 ns).
+            "GETUTCDATE" => OaDate(DateTime.UtcNow.ToOADate()),
+            "SYSDATETIME" => DateTime.Now,
+            "SYSUTCDATETIME" => DateTime.UtcNow,
             "DATE" => DateTime.Today,
             "TIME" => DateTime.FromOADate(0).Add(DateTime.Now.TimeOfDay),
             "YEAR" => Convert1(f, v => ToDate(v).Year),
@@ -452,7 +458,8 @@ internal sealed partial class ExpressionEvaluator(
             // GREATEST/LEAST(expression [, ...n]), as SQL Server and PostgreSQL take them: one argument or more.
             "GREATEST" or "LEAST" => (1, int.MaxValue),
 
-            "NOW" or "DATE" or "TIME" or "TIMER" or "GENUNIQUEID" or "GENGUID" => (0, 0),
+            "NOW" or "DATE" or "TIME" or "TIMER" or "GENUNIQUEID" or "GENGUID"
+                or "GETUTCDATE" or "SYSDATETIME" or "SYSUTCDATETIME" => (0, 0),
             "DATEADD" => (3, 3),
             "DATEDIFF" or "DATEDIFF_BIG" => (3, 5),
             "DATEPART" => (2, 4),
@@ -469,6 +476,8 @@ internal sealed partial class ExpressionEvaluator(
             "PI" => (0, 0),
             "RND" => (0, 1),
             "REPLACE" => (3, 6),
+            "CONCAT_WS" => (3, int.MaxValue),
+            "TRANSLATE" => (3, 3),
             "FORMAT" => (1, 4),
             "FORMATCURRENCY" or "FORMATNUMBER" or "FORMATPERCENT" => (1, 5),
             "FORMATDATETIME" => (1, 2),
@@ -1480,6 +1489,32 @@ internal sealed partial class ExpressionEvaluator(
 
         object? characters = Evaluate(f.Arguments[1]);
         return characters is null ? null : trim(ConcatText(value), ConcatText(characters).ToCharArray());
+    }
+
+    /// <summary>SQL Server's <c>CONCAT_WS</c>: Null values are skipped, a Null separator is empty.</summary>
+    private string ConcatWs(FunctionCall f) =>
+        string.Join(Evaluate(f.Arguments[0]) is { } separator ? ConcatText(separator) : "",
+            f.Arguments.Skip(1).Select(Evaluate).OfType<object>().Select(ConcatText));
+
+    /// <summary>SQL Server's <c>TRANSLATE</c>: characters match as Replace matches; a surrogate pair is one.</summary>
+    private string? Translate(FunctionCall f)
+    {
+        object? text = Evaluate(f.Arguments[0]), from = Evaluate(f.Arguments[1]), to = Evaluate(f.Arguments[2]);
+        if (text is null || from is null || to is null) return null;
+
+        string[] characters = [.. ConcatText(from).EnumerateRunes().Select(r => r.ToString())];
+        string[] translations = [.. ConcatText(to).EnumerateRunes().Select(r => r.ToString())];
+        if (characters.Length != translations.Length)
+            throw new ArgumentException("Invalid procedure call: TRANSLATE's lists differ in length.");
+
+        var result = new StringBuilder();
+        foreach (Rune rune in ConcatText(text).EnumerateRunes())
+        {
+            string character = rune.ToString();
+            int at = Array.FindIndex(characters, c => Text.Equals(c, character));
+            result.Append(at >= 0 ? translations[at] : character);
+        }
+        return result.ToString();
     }
 
     /// <summary>Applies a conversion to a single argument, propagating NULL.</summary>

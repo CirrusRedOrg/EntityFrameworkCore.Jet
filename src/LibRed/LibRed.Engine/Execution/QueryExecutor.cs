@@ -18,29 +18,30 @@ internal enum ColumnOrigin { Expression, Aggregate, SetOperation }
 /// <param name="Scale">A Decimal's places.</param>
 /// <param name="Null">Marks a column that is a bare <c>NULL</c>, which has no type of its own, unlike one
 /// whose type is merely unknown.</param>
-/// <param name="Source">The stored column this output passes through unchanged, where it does — carried so a
-/// caller describing a query (the schema rowsets, for a view's columns) can report the declared type and its
-/// length rather than only the CLR type. Null for anything computed.</param>
+/// <param name="Source">The stored column this output passes through unchanged, with the table it was read from, where
+/// it does — carried so a caller describing a query can report the declared type, its length and the table rather than
+/// only the CLR type. Null for anything computed.</param>
 /// <param name="Origin">What computes the column, where <paramref name="Source"/> does not stand behind it.</param>
 /// <param name="Variant">Marks a column of Variants (<c>CVar</c> and what keeps one): its values keep their own types
 /// until a result, a scalar subquery or a set operation writes them out as text; <paramref name="ClrType"/> is that
 /// text.</param>
 internal readonly record struct OutputColumn(
     string? Qualifier, string Name, Type? ClrType = null, bool Currency = false, int? Scale = null,
-    bool Null = false, LibRed.Catalog.ColumnDef? Source = null, ColumnOrigin Origin = ColumnOrigin.Expression,
-    bool Variant = false)
+    bool Null = false, (LibRed.Catalog.TableDefinition Table, LibRed.Catalog.ColumnDef Column)? Source = null,
+    ColumnOrigin Origin = ColumnOrigin.Expression, bool Variant = false)
 {
-    /// <summary>The output of a stored column.</summary>
-    public static OutputColumn Of(string? qualifier, LibRed.Catalog.ColumnDef column) =>
+    /// <summary>The output of <paramref name="table"/>'s stored <paramref name="column"/>.</summary>
+    public static OutputColumn Of(string? qualifier, LibRed.Catalog.TableDefinition table, LibRed.Catalog.ColumnDef column) =>
         new(qualifier, column.Name, Schema.JetClrTypeMap.ToClrType(column.Type),
             column.Type == LibRed.Catalog.JetDataType.Currency,
             column.Type == LibRed.Catalog.JetDataType.FixedPoint ? column.Scale : null,
-            Source: column);
+            Source: (table, column));
 
     /// <summary>A computed column of <paramref name="type"/>, computed by <paramref name="expression"/>.
     /// <paramref name="source"/> is the stored column it merely renames, where it is one.</summary>
     public static OutputColumn Computed(
-        string name, Type? clrType, NumberType type, Expression expression, LibRed.Catalog.ColumnDef? source = null) =>
+        string name, Type? clrType, NumberType type, Expression expression,
+        (LibRed.Catalog.TableDefinition Table, LibRed.Catalog.ColumnDef Column)? source = null) =>
         new(null, name, clrType, type.Class == NumberClass.Currency,
             type.Class == NumberClass.Decimal ? type.Places : null, expression is LiteralExpression { Value: null },
             source);
@@ -180,7 +181,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             rows,
             columns.Select(c => c.ClrType ?? typeof(object)).ToList(),
             // Only a caller that asks for the schema pays to build it.
-            () => Schema.SchemaRowsets.Describe(columns, _database.Catalog));
+            () => Schema.SchemaRowsets.Describe(columns));
     }
 
     /// <summary>
@@ -644,7 +645,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 {
                     var table = _database.OpenTable(scan.Table);
                     string alias = scan.Alias ?? scan.Table;
-                    var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, c)).ToList();
+                    var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, table.Definition, c)).ToList();
                     return (columns, _describing ? [] : table.Rows(ColumnPruning.Mask(table.Definition, scan.Decode)));
                 }
 
@@ -652,7 +653,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 {
                     var table = _database.OpenTable(seek.Table);
                     string alias = seek.Alias ?? seek.Table;
-                    var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, c)).ToList();
+                    var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, table.Definition, c)).ToList();
                     if (_describing) return (columns, []);
 
                     // Evaluate the key(s) in the outer scope (so an index-nested-loop join can key off the outer
@@ -679,7 +680,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 {
                     var table = _database.OpenTable(range.Table);
                     string alias = range.Alias ?? range.Table;
-                    var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, c)).ToList();
+                    var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, table.Definition, c)).ToList();
                     if (_describing) return (columns, []);
 
                     var evaluator = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session);
@@ -1420,13 +1421,13 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             "SGN" or "SIGN" => typeof(int),
             "CSTR" or "FORMAT" or "LCASE" or "UCASE" or "TRIM" or "LTRIM" or "RTRIM"
                 or "LEFT" or "RIGHT" or "MID" or "REPLACE" or "STRING" or "SPACE" or "HEX"
-                or "OCT" or "WEEKDAYNAME" or "MONTHNAME" or "PARTITION" => typeof(string),
+                or "OCT" or "WEEKDAYNAME" or "MONTHNAME" or "PARTITION" or "CONCAT_WS" or "TRANSLATE" => typeof(string),
             // DateDiff counts into Access's Long Integer whatever the interval, and DateDiff_Big into an Int64
             "DATEDIFF_BIG" => typeof(long),
             "LEN" or "DATALENGTH" or "INSTR" or "INSTRREV" or "ASC" or "ASCW" or "DATEPART" or "DATEDIFF"
                 or "YEAR" or "MONTH" or "DAY" or "HOUR" or "MINUTE" or "SECOND" or "WEEKDAY" => typeof(int),
             "CDATE" or "NOW" or "DATE" or "TIME" or "DATEADD" or "DATESERIAL" or "TIMESERIAL"
-                or "DATEVALUE" or "TIMEVALUE" => typeof(DateTime),
+                or "DATEVALUE" or "TIMEVALUE" or "GETUTCDATE" or "SYSDATETIME" or "SYSUTCDATETIME" => typeof(DateTime),
             "SQR" or "SIN" or "COS" or "TAN" or "ATN" or "LOG" or "EXP" or "RND"
                 or "SQRT" or "LN" or "LOG10" or "POWER" or "ASIN" or "ACOS" or "ATAN" or "ATAN2" or "SINH" or "COSH"
                 or "TANH" or "DEGREES" or "RADIANS" or "PI"
@@ -1629,7 +1630,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             var innerTable = _database.OpenTable(seek.Table);
             string innerAlias = seek.Alias ?? seek.Table;
             int innerWidth = innerTable.Definition.Columns.Count;
-            var seekColumns = innerTable.Definition.Columns.Select(c => OutputColumn.Of(innerAlias, c)).ToList();
+            var seekColumns = innerTable.Definition.Columns.Select(c => OutputColumn.Of(innerAlias, innerTable.Definition, c)).ToList();
             var seekShape = new JoinShape(leftColumns.Concat(seekColumns).ToList(), leftColumns.Count, join.Keep);
             IReadOnlyList<OutputColumn> joinColumns = seekShape.Columns;
             int[] keyCols = seek.Index.Columns.Select(c => c.Column.Index).ToArray();

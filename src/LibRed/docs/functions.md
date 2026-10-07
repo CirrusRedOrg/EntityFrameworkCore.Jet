@@ -276,8 +276,22 @@ Two standard predicates, operators rather than functions, both never Null (ACE r
 - **`x IS [NOT] DISTINCT FROM y`** — `<>` / `=` with Null taken as a value: two Nulls are not distinct, a Null
   and a value are.
 
+### String
+
+- **`CONCAT_WS(separator, value, value, …)`**, SQL Server's — the values joined by the separator, each written as `&`
+  writes it. A Null value is left out with no separator for it, so all of them Null give `''`, and a Null separator
+  is an empty one. A separator and at least two values.
+- **`TRANSLATE(text, characters, translations)`**, SQL Server's — each character of the text that is one of
+  `characters` becomes the one at the same place in `translations`, once: `TRANSLATE('abc', 'ab', 'bc')` is `'bcc'`.
+  It is what as many `Replace` calls would do, so a character matches as `Replace` matches text, in the database sort
+  order. A surrogate pair is one character. Any argument Null gives Null; `characters` and `translations` must have
+  as many characters.
+
 ### Date and time
 
+- **`GetUtcDate()`**, **`SysDateTime()`** and **`SysUtcDateTime()`**, SQL Server's — the current date and time, in
+  UTC for the two with UTC in their name. `GetUtcDate` is SQL Server's `datetime`, so a Date/Time here: whole
+  milliseconds. `SysDateTime` and `SysUtcDateTime` are its `datetime2`, and keep the 100-ns ticks a `DATETIME2` holds.
 - **`DatePart`** also takes `"ms"`, `"mcs"` and `"ns"`: the millisecond, microsecond and nanosecond of the time.
 - **`DateAdd`** also takes `"ms"`.
 - **`DateDiff`** also takes `"ms"` — Returns an Int32

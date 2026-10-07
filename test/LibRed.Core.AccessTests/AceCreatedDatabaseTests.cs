@@ -19,7 +19,7 @@ public class AceCreatedDatabaseTests
         try
         {
             // Create the database, a user table, and a row entirely through LibRed — no Access, no DAO/ADOX.
-            DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
                 db.CreateTable("People", new[]

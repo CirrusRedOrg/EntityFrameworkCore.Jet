@@ -60,14 +60,14 @@ public class CompositeIndexOrderingAccessTests
             using var db = JetDatabase.Open(path);
             Table table = db.OpenTable("CompositeKeys");
             IndexDef index = table.Definition.Indexes.Single(i => i.Name == "IX_CompositeKeys");
-            var decoder = new RowDecoder(table.Definition.Columns, db.Format);
+            var decoder = new RowCodec(table.Definition.Columns, db.Format);
             int valueIndex = table.Definition.FindColumn("V")!.Index;
             var libredOrder = new List<int>();
 
             foreach ((byte[] storedKey, RowId rowId) in new IndexCursor(table.Channel, index.RootPage).RawEntries())
             {
                 object?[] row = decoder.Decode(db.ReadDataPage(rowId.Page).GetRow(rowId.Row));
-                byte[] encoded = IndexKeyEncoder.Encode(index.Columns, row);
+                byte[] encoded = IndexKeyCodec.Encode(index.Columns, row);
                 int value = Convert.ToInt32(row[valueIndex]);
                 Assert.True(storedKey.AsSpan().SequenceEqual(encoded),
                     $"V={value}: ACE={Convert.ToHexString(storedKey)} LibRed={Convert.ToHexString(encoded)}");

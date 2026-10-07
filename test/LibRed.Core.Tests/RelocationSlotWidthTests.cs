@@ -46,19 +46,18 @@ public class RelocationSlotWidthTests
     private static (int Page, int Index, int Offset, int Length) FirstOverflowSlot(Table table)
     {
         PageChannel channel = table.Channel;
-        int dir = channel.Format.DataRowDirectoryOffset;
+        JetFormatBase format = channel.Format;
         foreach (int pageNumber in table.UsageMap.DataPages())
         {
             PageBuffer page = channel.ReadPage(pageNumber);
-            int rowCount = page.ReadUInt16(channel.Format.DataRowCountOffset);
+            int rowCount = DataPage.ReadRowCount(page.Span, format);
             int prevEnd = page.Length;
             for (int i = 0; i < rowCount; i++)
             {
-                int raw = page.ReadUInt16(dir + i * 2);
-                int offset = raw & RowPointer.OffsetMask;
+                (int offset, RowSlotFlags flags) = DataPage.ReadSlot(page.Span, format, i);
                 int length = prevEnd - offset;
                 prevEnd = offset;
-                if ((raw & RowPointer.DeletedFlag) == 0 && (raw & RowPointer.OverflowFlag) != 0)
+                if ((flags & (RowSlotFlags.Deleted | RowSlotFlags.Overflow)) == RowSlotFlags.Overflow)
                     return (pageNumber, i, offset, length);
             }
         }
@@ -76,27 +75,26 @@ public class RelocationSlotWidthTests
             using var db = JetDatabase.Open(path, readOnly: true);
             Table table = db.OpenTable("R");
             PageChannel channel = table.Channel;
-            int dir = channel.Format.DataRowDirectoryOffset;
+            JetFormatBase format = channel.Format;
 
             var widths = new List<int>();
             foreach (int pageNumber in table.UsageMap.DataPages())
             {
                 PageBuffer page = channel.ReadPage(pageNumber);
-                int rowCount = page.ReadUInt16(channel.Format.DataRowCountOffset);
+                int rowCount = DataPage.ReadRowCount(page.Span, format);
                 int prevEnd = page.Length;
                 for (int i = 0; i < rowCount; i++)
                 {
-                    int raw = page.ReadUInt16(dir + i * 2);
-                    int offset = raw & RowPointer.OffsetMask;
+                    (int offset, RowSlotFlags flags) = DataPage.ReadSlot(page.Span, format, i);
                     int length = prevEnd - offset;
                     prevEnd = offset;
-                    if ((raw & RowPointer.DeletedFlag) == 0 && (raw & RowPointer.OverflowFlag) != 0)
+                    if ((flags & (RowSlotFlags.Deleted | RowSlotFlags.Overflow)) == RowSlotFlags.Overflow)
                         widths.Add(length);
                 }
             }
 
             Assert.NotEmpty(widths);
-            Assert.All(widths, w => Assert.Equal(4, w));
+            Assert.All(widths, w => Assert.Equal(PageBuffer.RecordPointerSize, w));
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -113,22 +111,22 @@ public class RelocationSlotWidthTests
             Table table = db.OpenTable("R");
             PageChannel channel = table.Channel;
             (int pageNumber, _, int offset, int length) = FirstOverflowSlot(table);
-            Assert.Equal(4, length);
+            Assert.Equal(PageBuffer.RecordPointerSize, length);
 
-            byte[] pointer = channel.ReadPage(pageNumber).Slice(offset, 4).ToArray();
+            byte[] pointer = channel.ReadPage(pageNumber).Slice(offset, PageBuffer.RecordPointerSize).ToArray();
 
-            byte[] trimmed = RowRelocationReader.Resolve(
+            byte[] trimmed = DataPage.ResolveRelocation(
                 channel, table.Definition.DefinitionPage,
-                new RowSlot(offset, 4, IsDeleted: false, HasOverflow: true), pointer).Bytes.ToArray();
+                new DataPage.RowSlot(offset, PageBuffer.RecordPointerSize, IsDeleted: false, HasOverflow: true), pointer).Bytes.ToArray();
 
             // The Northwind shape: the pointer followed by 51 bytes of the row as it was before it moved.
             byte[] wide = new byte[55];
             pointer.CopyTo(wide, 0);
-            for (int i = 4; i < wide.Length; i++) wide[i] = (byte)(i * 7);
+            for (int i = PageBuffer.RecordPointerSize; i < wide.Length; i++) wide[i] = (byte)(i * 7);
 
-            byte[] fromWide = RowRelocationReader.Resolve(
+            byte[] fromWide = DataPage.ResolveRelocation(
                 channel, table.Definition.DefinitionPage,
-                new RowSlot(offset, wide.Length, IsDeleted: false, HasOverflow: true), wide).Bytes.ToArray();
+                new DataPage.RowSlot(offset, wide.Length, IsDeleted: false, HasOverflow: true), wide).Bytes.ToArray();
 
             Assert.Equal(trimmed, fromWide);
         }
@@ -147,9 +145,10 @@ public class RelocationSlotWidthTests
             Table table = db.OpenTable("R");
             (_, _, int offset, _) = FirstOverflowSlot(table);
 
-            var error = Assert.Throws<InvalidDataException>(() => RowRelocationReader.Resolve(
+            var error = Assert.Throws<InvalidDataException>(() => DataPage.ResolveRelocation(
                 table.Channel, table.Definition.DefinitionPage,
-                new RowSlot(offset, 3, IsDeleted: false, HasOverflow: true), new byte[3]));
+                new DataPage.RowSlot(offset, PageBuffer.RecordPointerSize - 1, IsDeleted: false, HasOverflow: true),
+                new byte[PageBuffer.RecordPointerSize - 1]));
             Assert.Contains("4-byte pointer", error.Message);
         }
         finally { TemporaryDatabase.Delete(path); }

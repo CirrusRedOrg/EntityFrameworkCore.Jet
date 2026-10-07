@@ -1,9 +1,10 @@
+using System.Buffers.Binary;
 using System.Data.OleDb;
 using Xunit;
 
 namespace LibRed.Core.Tests;
 
-// What the 2-byte user commit slots at 0xE00 actually hold (measured 2026-08-26 against
+// What the 2-byte user commit slots at the end of page 0 actually hold (measured 2026-08-26 against
 // Microsoft.ACE.OLEDB.16.0). The format docs had described them two different ways — page-00 §2.2 as
 // "per-file last-commit states", page-05 as an undecoded "counter" — so this pins it down.
 //
@@ -15,7 +16,10 @@ namespace LibRed.Core.Tests;
 [Collection(AceCollection.Name)]
 public class CommitByteTableTests
 {
-    private const int Slot1 = 0xE02;   // 0xE00 is slot 0 (exclusive mode); slot 1 is the first shared user
+    private static readonly Formats.JetFormatBase Format = TestDatabases.FormatOf(TestDatabases.NorthwindAccdb);
+
+    // Slot 0 is the exclusive-mode state; slot 1 is the first shared user.
+    private static readonly int Slot1 = Format.CommitByteTableOffset + Format.CommitByteSlotSize;
 
     // The counter on disk LAGS the last write by one: its final increment is not flushed until the next write
     // (or until the connection closes, which lands the pending one plus its own). So the count is taken
@@ -74,12 +78,13 @@ public class CommitByteTableTests
 
             // Slot 0 is the exclusive-mode state and stays put for a shared open; slots 2.. stay at the
             // neutral 00 01 because no second user ever registered.
-            Assert.Equal(before[0..2], after[0..2]);
-            Assert.Equal(before[4..16], after[4..16]);
-            Assert.All(Enumerable.Range(2, 6), i => Assert.Equal([0x00, 0x01], after[(i * 2)..(i * 2 + 2)]));
+            int slotSize = Format.CommitByteSlotSize;
+            Assert.Equal(before[0..slotSize], after[0..slotSize]);
+            Assert.Equal(before[(2 * slotSize)..(8 * slotSize)], after[(2 * slotSize)..(8 * slotSize)]);
+            Assert.All(Enumerable.Range(2, 6), i => Assert.Equal([0x00, 0x01], after[(i * slotSize)..(i * slotSize + slotSize)]));
 
             // And the one that did move only went up.
-            Assert.True(Counter(path, Slot1) > (before[2] | (before[3] << 8)));
+            Assert.True(Counter(path, Slot1) > BinaryPrimitives.ReadUInt16LittleEndian(before.AsSpan(slotSize, slotSize)));
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -129,19 +134,19 @@ public class CommitByteTableTests
     /// <summary>The slot's 16-bit little-endian value, read while ACE still holds the file open.</summary>
     private static int Counter(string path, int offset)
     {
-        byte[] pair = new byte[2];
+        byte[] pair = new byte[Format.CommitByteSlotSize];
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         stream.Seek(offset, SeekOrigin.Begin);
         stream.ReadExactly(pair);
-        return pair[0] | (pair[1] << 8);
+        return BinaryPrimitives.ReadUInt16LittleEndian(pair);
     }
 
-    /// <summary>The first eight slots (0xE00..0xE0F).</summary>
+    /// <summary>The first eight slots.</summary>
     private static byte[] Slots(string path)
     {
-        byte[] slots = new byte[16];
+        byte[] slots = new byte[8 * Format.CommitByteSlotSize];
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        stream.Seek(0xE00, SeekOrigin.Begin);
+        stream.Seek(Format.CommitByteTableOffset, SeekOrigin.Begin);
         stream.ReadExactly(slots);
         return slots;
     }

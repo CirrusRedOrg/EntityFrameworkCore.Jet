@@ -47,13 +47,13 @@ public class BigIntKeyEncodingTests
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-bigint-ver-");
         try
         {
-            Assert.Equal(0x02, VersionByte(path));
+            Assert.Equal(JetVersion.Version12_2007, TestDatabases.FormatOf(path).Version);
 
             using (OleDbConnection connection = AceTestDatabase.Open(path))
                 Exec(connection, "CREATE TABLE BVer (K BIGINT, V LONG)");
 
             // 0x05, not the 0x06 that DATETIME2 forces: the two types arrived in different formats.
-            Assert.Equal(0x05, VersionByte(path));
+            Assert.Equal(JetVersion.Version16_2016, TestDatabases.FormatOf(path).Version);
             using var db = JetDatabase.Open(path);
             Assert.Equal(JetVersion.Version16_2016, db.Format.Version);
         }
@@ -116,7 +116,7 @@ public class BigIntKeyEncodingTests
             var def = table.Definition;
             IndexDef index = def.Indexes.Single(i => i.Columns.Any(c => c.Column.Name == "K"));
             int kIdx = def.FindColumn("K")!.Index;
-            var decoder = new RowDecoder(def.Columns, db.Format);
+            var decoder = new RowCodec(def.Columns, db.Format);
 
             int checkedKeys = 0;
             foreach ((byte[] accessKey, RowId rowId) in new IndexCursor(table.Channel, index.RootPage).RawEntries())
@@ -125,7 +125,7 @@ public class BigIntKeyEncodingTests
 
                 var values = new object?[def.Columns.Count];
                 values[kIdx] = value;
-                byte[] ours = IndexKeyEncoder.Encode(index.Columns, values);
+                byte[] ours = IndexKeyCodec.Encode(index.Columns, values);
 
                 Assert.True(accessKey.AsSpan().SequenceEqual(ours),
                     $"{value}: access={Convert.ToHexString(accessKey)} ours={Convert.ToHexString(ours)}");
@@ -142,12 +142,5 @@ public class BigIntKeyEncodingTests
         using OleDbCommand command = connection.CreateCommand();
         command.CommandText = sql;
         command.ExecuteNonQuery();
-    }
-
-    private static byte VersionByte(string path)
-    {
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        stream.Seek(0x14, SeekOrigin.Begin);
-        return (byte)stream.ReadByte();
     }
 }

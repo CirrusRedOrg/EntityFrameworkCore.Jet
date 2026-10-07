@@ -243,36 +243,39 @@ internal static class LibRedSchema
             ("IsConcurrencyType", typeof(bool)), ("IsLiteralSupported", typeof(bool)),
             ("LiteralPrefix", typeof(string)), ("LiteralSuffix", typeof(string)), ("NativeDataType", typeof(short)));
 
-        void Add(string name, int providerType, long size, string? createParameters, Type clr, bool autoIncrement,
-            bool fixedLength, bool fixedPrecisionScale, bool isLong, bool nullable, bool unsigned,
+        // CreateFormat is the DDL that declares a column of the type, {0} and {1} standing for its CreateParameters.
+        // ACE's list leaves it empty throughout; each one here creates a column the Columns collection reports as this
+        // same type.
+        void Add(string name, int providerType, long size, string? createFormat, string? createParameters, Type clr,
+            bool autoIncrement, bool fixedLength, bool fixedPrecisionScale, bool isLong, bool nullable, bool unsigned,
             short? maximumScale, short? minimumScale, string? prefix, string? suffix, short nativeType) =>
-            table.Rows.Add(name, providerType, size, DBNull.Value, (object?)createParameters ?? DBNull.Value,
+            table.Rows.Add(name, providerType, size, (object?)createFormat ?? DBNull.Value, (object?)createParameters ?? DBNull.Value,
                 clr.FullName, autoIncrement, DBNull.Value, false, fixedLength, fixedPrecisionScale, isLong,
                 nullable, true, true, unsigned,
                 (object?)maximumScale ?? DBNull.Value, (object?)minimumScale ?? DBNull.Value,
                 DBNull.Value, DBNull.Value, (object?)prefix ?? DBNull.Value, (object?)suffix ?? DBNull.Value, nativeType);
 
-        Add("Short", 2, 5, null, typeof(short), false, true, true, false, true, false, null, null, null, null, 2);
-        Add("Long", 3, 10, null, typeof(int), true, true, true, false, true, false, null, null, null, null, 3);
-        Add("Single", 4, 7, null, typeof(float), false, true, false, false, true, false, null, null, null, null, 4);
-        Add("Double", 5, 15, null, typeof(double), false, true, false, false, true, false, null, null, null, null, 5);
-        Add("Currency", 6, 19, null, typeof(decimal), false, true, true, false, true, false, null, null, null, null, 6);
-        Add("DateTime", 7, 8, null, typeof(DateTime), false, true, true, false, true, true, null, null, "#", "#", 7);
-        Add("Bit", 11, 2, null, typeof(bool), false, true, true, false, false, true, null, null, null, null, 11);
-        Add("Byte", 17, 3, null, typeof(byte), false, true, true, false, true, true, null, null, null, null, 17);
-        Add("GUID", 72, 16, null, typeof(Guid), false, true, true, false, true, true, null, null, null, null, 72);
-        Add("BigBinary", 204, 4000, null, typeof(byte[]), false, false, false, false, true, true, null, null, "0x", null, 128);
-        Add("LongBinary", 205, 1073741823, null, typeof(byte[]), false, false, true, true, true, true, null, null, "0x", null, 128);
-        Add("VarBinary", 204, 510, "max length", typeof(byte[]), false, false, true, false, true, true, null, null, "0x", null, 128);
-        Add("LongText", 203, 536870910, null, typeof(string), false, false, true, true, true, true, null, null, "'", "'", 130);
-        Add("VarChar", 202, 255, "max length", typeof(string), false, false, true, false, true, true, null, null, "'", "'", 130);
-        Add("Decimal", 131, 28, "precision,scale", typeof(decimal), false, true, true, false, true, false, 28, 0, null, null, 131);
+        Add("Short", 2, 5, "SHORT", null, typeof(short), false, true, true, false, true, false, null, null, null, null, 2);
+        Add("Long", 3, 10, "LONG", null, typeof(int), true, true, true, false, true, false, null, null, null, null, 3);
+        Add("Single", 4, 7, "SINGLE", null, typeof(float), false, true, false, false, true, false, null, null, null, null, 4);
+        Add("Double", 5, 15, "DOUBLE", null, typeof(double), false, true, false, false, true, false, null, null, null, null, 5);
+        Add("Currency", 6, 19, "CURRENCY", null, typeof(decimal), false, true, true, false, true, false, null, null, null, null, 6);
+        Add("DateTime", 7, 8, "DATETIME", null, typeof(DateTime), false, true, true, false, true, true, null, null, "#", "#", 7);
+        Add("Bit", 11, 2, "BIT", null, typeof(bool), false, true, true, false, false, true, null, null, null, null, 11);
+        Add("Byte", 17, 3, "BYTE", null, typeof(byte), false, true, true, false, true, true, null, null, null, null, 17);
+        Add("GUID", 72, 16, "GUID", null, typeof(Guid), false, true, true, false, true, true, null, null, null, null, 72);
+        Add("BigBinary", 204, 4000, "BIGBINARY({0})", "max length", typeof(byte[]), false, false, false, false, true, true, null, null, "0x", null, 128);
+        Add("LongBinary", 205, 1073741823, "LONGBINARY", null, typeof(byte[]), false, false, true, true, true, true, null, null, "0x", null, 128);
+        Add("VarBinary", 204, 510, "VARBINARY({0})", "max length", typeof(byte[]), false, false, true, false, true, true, null, null, "0x", null, 128);
+        Add("LongText", 203, 536870910, "LONGTEXT", null, typeof(string), false, false, true, true, true, true, null, null, "'", "'", 130);
+        Add("VarChar", 202, 255, "VARCHAR({0})", "max length", typeof(string), false, false, true, false, true, true, null, null, "'", "'", 130);
+        Add("Decimal", 131, 28, "DECIMAL({0},{1})", "precision,scale", typeof(decimal), false, true, true, false, true, false, 28, 0, null, null, 131);
 
         // The fixed-length text and binary forms, which ACE's list omits although the engine has both: a
         // CHAR(n)/NCHAR(n) column is stored fixed, and so is BINARY(n) — even though ACE then reports the
         // binary one as variable. Without these rows a fixed column's TYPE_NAME would have nothing to join to.
-        Add("Char", 130, 255, "max length", typeof(string), false, true, true, false, true, true, null, null, "'", "'", 130);
-        Add("Binary", 128, 510, "max length", typeof(byte[]), false, true, true, false, true, true, null, null, "0x", null, 128);
+        Add("Char", 130, 255, "CHAR({0})", "max length", typeof(string), false, true, true, false, true, true, null, null, "'", "'", 130);
+        Add("Binary", 128, 510, "BINARY({0})", "max length", typeof(byte[]), false, true, true, false, true, true, null, null, "0x", null, 128);
 
         // BIGINT and DATETIME2 arrived after ACE's OLE DB provider, whose list still omits them although it
         // reports columns of both. Any ACCDB can hold them: a file too old for one is raised to the format it
@@ -280,8 +283,8 @@ internal static class LibRedSchema
         // .mdb lists exactly the types ACE does.
         if (database.Format.Version >= LibRed.Formats.JetVersion.Version12_2007)
         {
-            Add("BigInt", 20, 19, null, typeof(long), false, true, true, false, true, false, null, null, null, null, 20);
-            Add("DateTime2", 135, 42, null, typeof(DateTime), false, true, true, false, true, true, null, null, "#", "#", 135);
+            Add("BigInt", 20, 19, "BIGINT", null, typeof(long), false, true, true, false, true, false, null, null, null, null, 20);
+            Add("DateTime2", 135, 42, "DATETIME2", null, typeof(DateTime), false, true, true, false, true, true, null, null, "#", "#", 135);
         }
 
         return table;

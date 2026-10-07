@@ -21,7 +21,7 @@ namespace LibRed.Benchmarks.Harness;
 /// state a compacted database is in — a benchmark against an incrementally-grown index would be measuring
 /// fragmentation history rather than the seek.</description></item>
 /// </list>
-/// The file is generated from scratch by LibRed itself (<see cref="DatabaseCreator.CreateEmpty"/>), so the
+/// The file is generated from scratch by LibRed itself (<see cref="JetDatabase.Create"/>), so the
 /// corpus needs no Access engine and the benchmarks build on Linux and macOS exactly as on Windows.
 /// </remarks>
 public static class Corpus
@@ -91,7 +91,7 @@ public static class Corpus
     private static void Build(string path, int scale)
     {
         var sw = Stopwatch.StartNew();
-        DatabaseCreator.CreateEmpty(path);
+        JetDatabase.Create(path);
 
         using var db = JetDatabase.Open(path, readOnly: false);
         var engine = new QueryEngine(db);
@@ -183,8 +183,9 @@ public static class Corpus
         }
     }
 
-    /// <summary>A note whose text is stable per row and contains the <c>qx</c> needle in roughly one row in
-    /// twenty — enough for the unanchored-LIKE case to return rows without returning most of the table.</summary>
+    /// <summary>A note whose text is stable per row and contains the <c>qx</c> needle in every twentieth row —
+    /// one row in forty overall, since half of those are the rows with no note — enough for the unanchored-LIKE
+    /// case to return rows without returning most of the table.</summary>
     private static string Note(Random rnd, int i)
     {
         string body = $"note {i} {rnd.Next(100_000):D5} lorem ipsum dolor sit amet consectetur";

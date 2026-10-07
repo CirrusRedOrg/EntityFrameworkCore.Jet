@@ -10,8 +10,8 @@ namespace LibRed.Core.Tests;
 // A table definition too big for one page must match ACE's, and split where ACE splits.
 //
 // TdefByteParityAccessTests compares the whole definition but every shape in it fits a single page. Beyond
-// that the definition spills onto continuation pages, and the splitting is LibRed's own: TdefBuilder emits
-// one oversized buffer and TableCreator.WriteDefinition cuts it up.
+// that the definition spills onto continuation pages, and the splitting is LibRed's own: TableDefinition emits
+// one oversized buffer and TableDefinition.WriteChain cuts it up.
 //
 // Stitching alone would not catch a wrong split — the same content can be divided differently and still
 // reassemble — so the definition page's own next-page link and free space are compared as well.
@@ -61,17 +61,16 @@ public class MultiPageTdefParityAccessTests : TempDatabaseTest
     {
         using var channel = PageChannel.Open(path, readOnly: true);
         byte[] page = channel.ReadPage(new JetCatalog(channel).FindTable("W")!.DefinitionPage).Span.ToArray();
-        return $"next={BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(4, 4))} "
-            + $"free={BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(2, 2))}";
+        return $"next={BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(channel.Format.TdefNextPageOffset, 4))} "
+            + $"free={BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(channel.Format.TdefFreeSpaceOffset, 2))}";
     }
 
     /// <summary>The stitched definition and how many pages it spans.</summary>
     private static (byte[] Bytes, int Pages) Definition(string path)
     {
         using var channel = PageChannel.Open(path, readOnly: true);
-        TableDef table = new JetCatalog(channel).FindTable("W")!;
-        (PageBuffer buffer, IReadOnlyList<int> continuation) = TdefChainReader.Read(channel, table.DefinitionPage);
-        return (buffer.Slice(0, buffer.ReadInt32(channel.Format.TdefLengthOffset)).ToArray(),
-            continuation.Count + 1);
+        TableDefinition table = new JetCatalog(channel).FindTable("W")!;
+        (PageBuffer buffer, IReadOnlyList<int> continuation) = TableDefinition.ReadChain(channel, table.DefinitionPage);
+        return (buffer.Span.ToArray(), continuation.Count + 1);
     }
 }

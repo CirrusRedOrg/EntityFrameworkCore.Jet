@@ -1,6 +1,7 @@
 using LibRed.Crypto;
 using LibRed.Formats;
-using System.Buffers.Binary;
+using LibRed.Pages;
+using LibRed.Storage;
 
 namespace LibRed.IO;
 
@@ -19,6 +20,10 @@ public sealed class PageChannel : IDisposable
     // coexisting handles coherent because they all read/write through the same pool. Never null after Open.
     private readonly string _path;
     private readonly PageCache _cache;
+
+    // The file's identity (FileIdentity.Key), worked out once: it names this file in both shared registries, on
+    // the way in and on the way out, and each working-out is file-system calls on every open and close.
+    private readonly string _identity;
 
     // Page decryptor for a password-encrypted database (null when the file is unencrypted). Applied to
     // every page as it comes off disk; page 0 (the readable header) is a no-op inside the codec.
@@ -40,6 +45,11 @@ public sealed class PageChannel : IDisposable
     // lock. `_txPageCount` is the logical page count during a transaction (committed pages plus any the overlay
     // allocated), since deferred allocations do not grow the file until commit.
     private readonly Dictionary<int, byte[]> _overlay = [];
+    // Higher-layer parses of overlay pages (see SetParsedPage), private to the transaction as the bytes are. The
+    // shared cache's parse describes the committed image, so it cannot serve an overlay page; without this every
+    // read of a page the transaction had written decoded it again — an index leaf, ~600 entries, several times
+    // per index for every row inserted. A page's parse goes whenever its overlay bytes change.
+    private readonly Dictionary<int, object> _overlayParsed = [];
     // Committed plaintext image from which each transactional page was first derived. At commit, every image
     // must still match; otherwise another channel committed the same page and publishing this stale overlay
     // would silently lose that writer's change.
@@ -52,6 +62,16 @@ public sealed class PageChannel : IDisposable
     // a rollback discards the staged pages, and a savepoint rollback truncates them to the savepoint's count.
     private readonly List<int> _releasing = [];
     private readonly List<int> _released = [];
+
+    // What the open transaction's writes depend on being TRUE of OTHER rows — a foreign key's parent row
+    // existing, say. Reading a row writes no page, so such a dependency is invisible to the page-conflict
+    // check above, and two transactions can each check the other's precondition and commit to a state neither
+    // would have allowed (write skew). Each condition is re-evaluated at commit, under the publication lock,
+    // so a commit that would leave a dangling reference is refused instead. A savepoint rollback truncates
+    // them with the writes that needed them. A condition registered under a key is held once: `_dependencyKeys`
+    // holds the keys of the conditions `_dependencies` still has.
+    private readonly List<(Func<bool> StillHolds, string Violation, object? Key)> _dependencies = [];
+    private readonly HashSet<object> _dependencyKeys = [];
     // Whether anything this channel wrote has been published, so a close knows the session changed the file.
     private bool _published;
 
@@ -59,15 +79,21 @@ public sealed class PageChannel : IDisposable
     {
         _stream = stream;
         _readOnly = readOnly;
-        Format = format;
+        _format = format;
         _path = path;
         _codec = codec;
+        _identity = FileIdentity.Key(path);
         // A test may inject its own manager; otherwise share the per-path one (refcounted, released on Dispose).
         _ownsLocks = locks is null;
-        _locks = locks ?? MonitorLockManager.Acquire(path);
-        _cache = PageCache.Acquire(path);
+        _locks = locks ?? MonitorLockManager.AcquireKey(_identity);
+        _cache = PageCache.AcquireKey(_identity);
+        _seenSchemaGeneration = _cache.SchemaGeneration;
         _cache.InitFileLength(stream.Length);
+        Allocator = new PageAllocator(this);
     }
+
+    /// <summary>The allocator owning this channel's page allocation and release paths.</summary>
+    internal PageAllocator Allocator { get; }
 
     /// <summary>Whether a transaction is currently open on this channel.</summary>
     public bool InTransaction => _active is not null;
@@ -84,6 +110,24 @@ public sealed class PageChannel : IDisposable
         (_active is not null ? _releasing : _released).Add(page);
     }
 
+    /// <summary>
+    /// Records a condition this transaction's writes depend on — something it read and found true of rows it
+    /// did not write, such as the parent row a foreign key needs. <paramref name="stillHolds"/> is evaluated
+    /// again at commit, and a commit whose condition has since stopped holding is refused with
+    /// <paramref name="violation"/>. Outside a transaction there is nothing to record: the statement's check
+    /// and its write are one publication, which no other connection can interleave with.
+    /// <para>A <paramref name="key"/> names the condition, by its own equality: one already held under an equal
+    /// key is not registered again, so a transaction inserting a thousand children of one parent checks that
+    /// parent once at commit, not a thousand times.</para>
+    /// </summary>
+    public void DependOn(Func<bool> stillHolds, string violation, object? key = null)
+    {
+        ArgumentNullException.ThrowIfNull(stillHolds);
+        if (_active is null) return;
+        if (key is not null && !_dependencyKeys.Add(key)) return;
+        _dependencies.Add((stillHolds, violation, key));
+    }
+
     /// <summary>The committed pages held for release at close, in the order they were freed.</summary>
     internal IReadOnlyList<int> PagesReleasedAtClose => _released;
 
@@ -93,14 +137,23 @@ public sealed class PageChannel : IDisposable
     /// <summary>Whether this channel has published a page write since it opened.</summary>
     internal bool HasPublishedWrites => _published;
 
-    /// <summary>
-    /// The resolved on-disk format. Settable only by <see cref="RaiseFormatVersion"/> and its rollback
-    /// counterpart: a database's format version can move up in place when DDL introduces a type that needs a
-    /// newer one, which is what Access itself does.
-    /// </summary>
-    public JetFormatBase Format { get; private set; }
+    private JetFormatBase _format;
+    private long _seenSchemaGeneration;
 
-    internal long SchemaGeneration => _cache.SchemaGeneration;
+    /// <summary>
+    /// The resolved on-disk format, refreshed when another handle publishes a schema change. A database's
+    /// format version can move up in place when DDL introduces a type that needs a newer one, which is what
+    /// Access itself does. Local upgrades and rollback update the same format state.
+    /// </summary>
+    public JetFormatBase Format
+    {
+        get
+        {
+            if (_seenSchemaGeneration != _cache.SchemaGeneration)
+                ResyncFormatVersion();
+            return _format;
+        }
+    }
 
     internal void MarkSchemaChanged()
     {
@@ -108,31 +161,44 @@ public sealed class PageChannel : IDisposable
         else _cache.MarkSchemaChanged();
     }
 
-    public int PageSize => Format.PageSize;
+    public int PageSize => _format.PageSize;
 
     /// <summary>Number of pages currently in the file — or, inside a transaction, the logical count including
     /// pages the overlay has allocated but not yet written to disk. Read from the shared cache's record of the
     /// file's length rather than the stream, so it costs no syscall.</summary>
-    public int PageCount => _active is not null ? _txPageCount : (int)(_cache.FileLength / PageSize);
+    /// <remarks>Inside a transaction it is never less than the file's own count: another handle can commit pages
+    /// onto the end of the file while this transaction is open, and a row, index entry or long value on one of them
+    /// is committed data this transaction must be able to read — a commit-time dependency check reads exactly
+    /// that. Alone on the file the two are the same, since this transaction's own pages do not reach the file
+    /// until it commits.</remarks>
+    public int PageCount => _active is not null
+        ? Math.Max(_txPageCount, (int)(_cache.FileLength / PageSize))
+        : (int)(_cache.FileLength / PageSize);
 
     /// <summary>
     /// Opens a database file, sniffs its Jet/ACE version from page 0 and resolves the
     /// matching <see cref="JetFormatBase"/>.
     /// </summary>
-    public static PageChannel Open(string path, bool readOnly = true, string? password = null, ILockManager? locks = null)
+    /// <remarks><c>exclusive</c> takes the file for this channel alone (<c>FileShare.None</c>), the equivalent
+    /// of ACE's <c>Mode=Share Exclusive</c>: the open fails while anyone else holds the file, and nobody else
+    /// can open it until this channel closes. Off by default, because the ordinary state of a Jet database is
+    /// shared. Operations that rewrite the whole file — changing a password or the page encoding — require it,
+    /// exactly as ACE requires an exclusive connection for the same statements.</remarks>
+    public static PageChannel Open(string path, bool readOnly = true, string? password = null,
+        ILockManager? locks = null, bool exclusive = false)
     {
         // A Jet/ACE file is a shared-file database — Access, ODBC and OLE DB all open it with multiple
         // concurrent handles (a store's long-lived connection plus per-context connections to the same
-        // file, as EF's test infrastructure does). So we share read+write rather than taking the file
-        // exclusively; an exclusive open (FileShare.None) would throw IOException the moment a second
-        // connection touched the same .accdb. Coexisting handles stay coherent by sharing a single per-file
-        // write-through buffer pool (PageCache) rather than each caching independently — one pool means one
-        // connection's writes are seen by the others, as the old straight-to-disk reads guaranteed.
+        // file, as EF's test infrastructure does). So the default is to share read+write; an exclusive open
+        // (FileShare.None) throws IOException the moment a second connection touches the same .accdb, which
+        // is exactly what the caller of one asks for. Coexisting handles stay coherent by sharing a single
+        // per-file write-through buffer pool (PageCache) rather than each caching independently — one pool
+        // means one connection's writes are seen by the others, as the old straight-to-disk reads guaranteed.
         var stream = new FileStream(
             path,
             FileMode.Open,
             readOnly ? FileAccess.Read : FileAccess.ReadWrite,
-            FileShare.ReadWrite);
+            exclusive ? FileShare.None : FileShare.ReadWrite);
 
         try
         {
@@ -149,7 +215,7 @@ public sealed class PageChannel : IDisposable
             var page0 = new byte[format.PageSize];
             stream.Seek(0, SeekOrigin.Begin);
             stream.ReadExactly(page0);
-            int databaseKey = DecodeDatabaseKey(page0);
+            int databaseKey = DatabaseDefinitionPage.ReadDatabaseKey(page0, format);
             // A nonzero database key means the pages are encrypted. ACE (.accdb) uses Office Agile encryption
             // (with a password); the pre-ACE Jet 3/4 formats (.mdb and the .mdw workgroup file) use the legacy
             // RC4 scheme keyed by the database key alone (no password).
@@ -157,8 +223,8 @@ public sealed class PageChannel : IDisposable
             // descriptor) — detect by descriptor, trying Agile first then Standard. The pre-ACE Jet 3/4 formats
             // (.mdb and the .mdw workgroup file) use the legacy RC4 scheme keyed by the database key alone.
             IPageCodec? codec = format.IsAccdb
-                ? (IPageCodec?)AgileEncryption.TryCreate(page0, databaseKey, password)
-                    ?? OfficeStandardEncryption.TryCreate(page0, databaseKey, password)
+                ? (IPageCodec?)AgileEncryption.TryCreate(page0, databaseKey, password, format)
+                    ?? OfficeStandardEncryption.TryCreate(page0, databaseKey, password, format)
                 : JetLegacyEncryption.TryCreate(databaseKey);
 
             // A nonzero database key means the file is encrypted; if no codec recognised the descriptor the scheme
@@ -166,7 +232,7 @@ public sealed class PageChannel : IDisposable
             if (databaseKey != 0 && codec is null)
                 throw new NotSupportedException("The database is encrypted with an unsupported scheme.");
 
-            return new PageChannel(stream, format, readOnly, path, codec, locks);
+            return new PageChannel(stream, format, readOnly, path, codec, locks) { IsExclusive = exclusive };
         }
         catch
         {
@@ -175,16 +241,12 @@ public sealed class PageChannel : IDisposable
         }
     }
 
-    /// <summary>Decodes the 4-byte database (encryption) key at page-0 <c>0x3E</c> through the fixed header mask.</summary>
-    private static int DecodeDatabaseKey(ReadOnlySpan<byte> page0)
-    {
-        ReadOnlySpan<byte> mask = JetFormatBase.PageZeroHeaderMask;
-        int start = JetFormatBase.PageZeroHeaderMaskStart;
-        Span<byte> key = stackalloc byte[4];
-        for (int i = 0; i < 4; i++)
-            key[i] = (byte)(page0[JetFormatBase.DatabaseKeyOffset + i] ^ mask[JetFormatBase.DatabaseKeyOffset - start + i]);
-        return BinaryPrimitives.ReadInt32LittleEndian(key);
-    }
+    /// <summary>Whether this channel holds the file to itself — see the <c>exclusive</c> argument to
+    /// <see cref="Open"/>. Rewriting the file as a whole is only allowed on such a channel.</summary>
+    public bool IsExclusive { get; private init; }
+
+    /// <summary>The database file this channel reads and writes.</summary>
+    internal string Path => _path;
 
     /// <summary>Rejects a page number that cannot exist in this file. Page numbers come out of the file
     /// itself, so a bad one is corruption — without this the read seeks past the end and throws
@@ -213,7 +275,7 @@ public sealed class PageChannel : IDisposable
     /// the page is read from disk and cached, then returned. The returned bytes are live cache state: valid
     /// only until the next write to or eviction of this page.
     /// </summary>
-    public PageBuffer ReadPageShared(int pageNumber)
+    internal PageBuffer ReadPageShared(int pageNumber)
     {
         // Read-your-own-writes: a page this transaction has written lives only in the overlay until commit.
         if (_active is not null && _overlay.TryGetValue(pageNumber, out byte[]? buffered))
@@ -238,7 +300,7 @@ public sealed class PageChannel : IDisposable
             _stream.Seek(offset, SeekOrigin.Begin);
             _stream.ReadExactly(buffer);
             _codec?.DecryptPage(pageNumber, buffer);
-            _cache.Store(pageNumber, buffer);
+            _cache.Adopt(pageNumber, buffer); // handed back read-only, as a cache hit's array is
             return new PageBuffer(buffer, pageNumber);
         }
         finally { _locks?.ExitShared(pageNumber); }
@@ -286,7 +348,15 @@ public sealed class PageChannel : IDisposable
     /// physical end (the map pre-accounts for growth, and allocation defers the physical write), and
     /// writing the page is what materialises it — the same growth Access performs on such a write.
     /// </summary>
-    public void WritePage(int pageNumber, ReadOnlySpan<byte> source)
+    internal void WritePage(int pageNumber, ReadOnlySpan<byte> source) => WritePage(pageNumber, source, parsed: null);
+
+    /// <summary>
+    /// Writes a page as <see cref="WritePage(int, ReadOnlySpan{byte})"/> does, and keeps <paramref name="parsed"/>
+    /// as its parse (see <see cref="SetParsedPage"/>), so the next read of the page need not decode the bytes just
+    /// written. The caller vouches that it is exactly what parsing <paramref name="source"/> gives. Attached in the
+    /// same publication as the write, so no other channel's write of the page can come between the two.
+    /// </summary>
+    internal void WritePage(int pageNumber, ReadOnlySpan<byte> source, object? parsed)
     {
         if (_readOnly)
             throw new InvalidOperationException("This channel was opened read-only.");
@@ -297,7 +367,7 @@ public sealed class PageChannel : IDisposable
         // ACE-only full-database probe: the file reaches exactly 2 GiB (524288 Jet4/ACE pages)
         // and rejects the next allocation. Check before staging a page or extending the stream.
         if ((long)pageNumber >= (1L << 31) / PageSize)
-            throw new InvalidOperationException("The database cannot grow beyond the ACE 2 GiB file-size limit.");
+            throw new InvalidOperationException("The database cannot grow beyond 2 GiB, the maximum file size.");
 
         // Inside a transaction, defer the write into the private overlay — invisible to other channels until
         // commit. Snapshot the page's prior overlay state (once per savepoint frame) so a savepoint rollback can
@@ -309,20 +379,26 @@ public sealed class PageChannel : IDisposable
             if (_active.NeedsBeforeImage(pageNumber))
                 _active.RecordBeforeImage(pageNumber, _overlay.TryGetValue(pageNumber, out byte[]? prior) ? prior : null);
             _overlay[pageNumber] = source[..PageSize].ToArray();
+            if (parsed is null) _overlayParsed.Remove(pageNumber);
+            else _overlayParsed[pageNumber] = parsed;
             if (pageNumber >= _txPageCount) _txPageCount = pageNumber + 1;
             return;
         }
 
-        WriteThrough(pageNumber, source);
+        WriteThrough(pageNumber, source, parsed);
     }
 
     /// <summary>Writes a page to disk and the shared cache (the committed path): encrypts a copy on the way to
     /// disk for an encrypted file while caching plaintext, growing the file if the page lies past its end. Used
     /// for non-transactional writes and to publish each overlay page on commit.</summary>
-    private void WriteThrough(int pageNumber, ReadOnlySpan<byte> source)
+    private void WriteThrough(int pageNumber, ReadOnlySpan<byte> source, object? parsed)
     {
         byte[] copy = source[..PageSize].ToArray();
-        _cache.PublishLocked(() => WriteThroughUnderPublishLock(pageNumber, copy));
+        _cache.PublishLocked(() =>
+        {
+            WriteThroughUnderPublishLock(pageNumber, copy);
+            if (parsed is not null) _cache.SetParsed(pageNumber, parsed);
+        });
     }
 
     /// <summary>Runs a logical read against one committed page-set generation. Shared: other readers on this
@@ -333,7 +409,9 @@ public sealed class PageChannel : IDisposable
     /// publish as one unit.</summary>
     internal T WriteExclusive<T>(Func<T> action) => _cache.PublishLocked(action);
 
-    private void WriteThroughUnderPublishLock(int pageNumber, ReadOnlySpan<byte> source)
+    /// <remarks><paramref name="source"/> is a whole page the cache takes over as it stands — this channel's own
+    /// copy of a write, an overlay page, or a committed baseline — so it must be one nothing writes into again.</remarks>
+    private void WriteThroughUnderPublishLock(int pageNumber, byte[] source)
     {
         _locks?.EnterExclusive(pageNumber);
         try
@@ -341,11 +419,11 @@ public sealed class PageChannel : IDisposable
             // The cache holds plaintext and the disk holds ciphertext (for an encrypted file), so encrypt a copy
             // on the way to disk — the mirror of ReadPage's decrypt — while caching the plaintext. Page 0 is a
             // no-op inside the codec (never page-encrypted).
-            ReadOnlySpan<byte> toDisk = source[..PageSize];
+            ReadOnlySpan<byte> toDisk = source.AsSpan(0, PageSize);
             byte[]? encrypted = null;
             if (_codec is not null)
             {
-                encrypted = source[..PageSize].ToArray();
+                encrypted = source.AsSpan(0, PageSize).ToArray();
                 _codec.EncryptPage(pageNumber, encrypted);
                 toDisk = encrypted;
             }
@@ -361,29 +439,14 @@ public sealed class PageChannel : IDisposable
 
             // Write through: the pool now holds the just-written (plaintext) image, so a subsequent read (this
             // channel or any other on the file) sees it without touching disk.
-            _cache.Store(pageNumber, source[..PageSize]);
+            _cache.Adopt(pageNumber, source);
             _published = true;
         }
         finally { _locks?.ExitExclusive(pageNumber); }
     }
 
     /// <summary>
-    /// Allocates a fresh page by growing the file by one page, returning its number. Jet also
-    /// recycles freed pages via usage maps; appending at the end is always valid since the page
-    /// count is simply the file length divided by the page size.
-    /// </summary>
-    public int AllocatePage()
-    {
-        if (_readOnly)
-            throw new InvalidOperationException("This channel was opened read-only.");
-
-        int pageNumber = PageCount;
-        WritePage(pageNumber, new byte[PageSize]);
-        return pageNumber;
-    }
-
-    /// <summary>
-    /// Begins a page-level transaction. Subsequent <see cref="WritePage"/> calls snapshot the
+    /// Begins a page-level transaction. Subsequent <see cref="WritePage(int, ReadOnlySpan{byte})"/> calls snapshot the
     /// original bytes of each page they touch, so <see cref="RollbackTransaction"/> can undo them.
     /// Reads continue to see writes made within the transaction (read-your-writes). Nesting is not
     /// supported.
@@ -394,9 +457,7 @@ public sealed class PageChannel : IDisposable
             throw new InvalidOperationException("This channel was opened read-only.");
         if (_active is not null)
             throw new InvalidOperationException("A transaction is already in progress.");
-        _overlay.Clear();
-        _commitBaselines.Clear();
-        _releasing.Clear();
+        ClearTransactionState();
         _schemaDirty = false;
         _txPageCount = PageCount; // committed count at start (PageCount is still file-based while _active is null)
         return _active = new Transaction(_txPageCount);
@@ -425,6 +486,12 @@ public sealed class PageChannel : IDisposable
                         $"Transaction write conflict on page {page}: another connection committed a change to this page.");
             }
 
+            // And what the transaction merely READ and relied on. Evaluated here, inside the publication lock,
+            // so nothing can change between the check and the publish it guards.
+            foreach ((Func<bool> stillHolds, string violation, _) in _dependencies)
+                if (!stillHolds())
+                    throw new InvalidOperationException(violation);
+
             // Keep the transaction open until every page has published. If a later page fails, restore the
             // already-published prefix from its validated committed baselines so the caller can still roll back.
             var published = new List<int>(pages.Length);
@@ -433,6 +500,10 @@ public sealed class PageChannel : IDisposable
                 foreach (int page in pages)
                 {
                     WriteThroughUnderPublishLock(page, _overlay[page]);
+                    // The overlay bytes are now the committed bytes, so a parse of them stays true: handed on, the
+                    // next statement's read of the page does not decode it again — each SQL statement is a
+                    // transaction of its own, and consecutive inserts write the same index leaves.
+                    if (_overlayParsed.TryGetValue(page, out object? parsed)) _cache.SetParsed(page, parsed);
                     published.Add(page);
                 }
             }
@@ -475,10 +546,8 @@ public sealed class PageChannel : IDisposable
             }
 
             _active = null;
-            _overlay.Clear();
-            _commitBaselines.Clear();
-            _released.AddRange(_releasing);
-            _releasing.Clear();
+            _released.AddRange(_releasing);   // the pages it freed are now the session's to hold until close
+            ClearTransactionState();
             if (_schemaDirty) _cache.MarkSchemaChanged();
             _schemaDirty = false;
         });
@@ -493,12 +562,24 @@ public sealed class PageChannel : IDisposable
     public void RollbackTransaction()
     {
         if (_active is null) return;
-        _overlay.Clear();
-        _commitBaselines.Clear();
-        _releasing.Clear();   // a rolled-back free frees nothing
+        ClearTransactionState();   // including the staged releases: a rolled-back free frees nothing
         _schemaDirty = false;
         _active = null;
         ResyncFormatVersion();   // a discarded format raise must not stay raised in memory
+    }
+
+    /// <summary>Drops everything the open transaction accumulated — its unpublished pages, the images they
+    /// were derived from, the conditions its writes depend on, and the page releases it staged. A commit has
+    /// already moved the releases into the session's committed list before calling this; a rollback has not,
+    /// which is the whole difference between them.</summary>
+    private void ClearTransactionState()
+    {
+        _overlay.Clear();
+        _overlayParsed.Clear();
+        _commitBaselines.Clear();
+        _dependencies.Clear();
+        _dependencyKeys.Clear();
+        _releasing.Clear();
     }
 
     /// <summary>
@@ -508,7 +589,7 @@ public sealed class PageChannel : IDisposable
     /// so callers can call this unconditionally.
     /// </summary>
     /// <remarks>
-    /// The write goes through <see cref="WritePage"/> rather than to the stream, so it joins the calling
+    /// The write goes through <see cref="WritePage(int, ReadOnlySpan{byte})"/> rather than to the stream, so it joins the calling
     /// statement's transaction overlay: the upgrade commits with the DDL that needed it, or is discarded with
     /// it. Page 0 is never page-encrypted, so the write is byte-transparent even on an encrypted file.
     /// Only those two bytes move. The ACE format classes above 0x02 override nothing but
@@ -518,31 +599,46 @@ public sealed class PageChannel : IDisposable
     internal bool RaiseFormatVersion(byte version)
     {
         byte[] page0 = ReadPage(0).Span.ToArray();
-        if (page0[JetFormatBase.VersionOffset] >= version) return false;
+        if (JetFormatBase.ReadVersionByte(page0) >= version) return false;
 
         // A Jet MDB carries the "Standard Jet DB" identifier, which JetFormatBase.Detect pairs with version
         // 0x00/0x01 only. Raising one to an ACE version writes a file nothing can reopen — not LibRed, not
-        // Access. DatabaseCreator refuses to create that same pair; refuse to upgrade into it too.
+        // Access. JetDatabase refuses to create that same pair; refuse to upgrade into it too.
         if (!Format.IsAccdb)
             throw new NotSupportedException(
                 $"Cannot raise this database to version 0x{version:X2}: it is a Jet MDB " +
-                $"(\"{JetFormatBase.JetIdentifier}\"), and only an ACCDB carries an ACE version byte. " +
+                $"(\"{JetFormatBase.JetIdentifier}\"), and only an ACCDB can take that version. " +
                 "The statement needs a data type this format cannot store.");
 
-        page0[JetFormatBase.VersionOffset] = version;
-        page0[JetFormatBase.MinorVersionOffset] = 0x00;
+        Format.WriteVersion(page0, version, minor: 0x00);
         WritePage(0, page0);
-        Format = JetFormatBase.FromVersionByte(version);
+        _format = JetFormatBase.FromVersionByte(version);
         return true;
     }
 
-    /// <summary>Re-derives <see cref="Format"/> from the version byte now visible on page 0. Cheap, and only
-    /// on the rollback paths, so it costs nothing in the ordinary case.</summary>
-    private void ResyncFormatVersion()
+    /// <summary>Re-derives <see cref="Format"/> from the version byte now visible on page 0 — after a rollback
+    /// that may have discarded a raise, and when another handle's schema change becomes visible, since a raise
+    /// is something ANOTHER connection can do to this file and this one would otherwise go on reporting the
+    /// version the file had when it opened. Only on those paths, so it costs nothing in the ordinary case, and
+    /// page 0 is cached by then.</summary>
+    internal void ResyncFormatVersion()
     {
-        byte onDisk = ReadPage(0).Span[JetFormatBase.VersionOffset];
-        if ((byte)Format.Version != onDisk)
-            Format = JetFormatBase.FromVersionByte(onDisk);
+        long generation = _cache.SchemaGeneration;
+        byte onDisk = JetFormatBase.ReadVersionByte(ReadPageShared(0).Span);
+        _seenSchemaGeneration = generation;
+        if ((byte)_format.Version == onDisk) return;
+        try
+        {
+            _format = JetFormatBase.FromVersionByte(onDisk);
+        }
+        catch (NotSupportedException)
+        {
+            // A version byte this build does not know is not a reason to fail a rollback. The open already
+            // decided how to read the file — JetFormatBase.Detect reads an unknown ACE byte with the latest
+            // known layout — and re-deriving it strictly here disagrees with that decision, so every rollback
+            // on such a file threw although the file had opened and read perfectly well. The format the open
+            // chose stands.
+        }
     }
 
     /// <summary>Opens a savepoint in the current transaction; pass the handle to
@@ -551,7 +647,7 @@ public sealed class PageChannel : IDisposable
     {
         if (_active is null)
             throw new InvalidOperationException("No transaction is in progress.");
-        return _active.Save(_txPageCount, _releasing.Count);
+        return _active.Save(_txPageCount, _releasing.Count, _dependencies.Count);
     }
 
     /// <summary>Rolls the transaction back to <paramref name="savepoint"/>: undoes every write made since it was
@@ -561,9 +657,16 @@ public sealed class PageChannel : IDisposable
         if (_active is null)
             throw new InvalidOperationException("No transaction is in progress.");
         int releaseCount = _active.ReleaseCountAt(savepoint);
+        int dependencyCount = _active.DependencyCountAt(savepoint);
         var (before, pageCount) = _active.TakeForRollbackTo(savepoint);
         RestoreOverlay(before, pageCount);
         _releasing.RemoveRange(releaseCount, _releasing.Count - releaseCount);
+        // The writes that needed them are undone, so the conditions are no longer anything to hold the commit to —
+        // and a key they held is free to be registered again by a write made after the rollback.
+        _dependencies.RemoveRange(dependencyCount, _dependencies.Count - dependencyCount);
+        _dependencyKeys.Clear();
+        foreach ((_, _, object? key) in _dependencies)
+            if (key is not null) _dependencyKeys.Add(key);
     }
 
     /// <summary>Releases <paramref name="savepoint"/>, merging its changes into the enclosing scope. Only the
@@ -585,6 +688,7 @@ public sealed class PageChannel : IDisposable
         {
             if (image is null) _overlay.Remove(page);
             else _overlay[page] = image;
+            _overlayParsed.Remove(page);
         }
         _txPageCount = pageCount;
         foreach (int page in _commitBaselines.Keys.Where(p => !_overlay.ContainsKey(p)).ToArray())
@@ -597,43 +701,54 @@ public sealed class PageChannel : IDisposable
         int committedPageCount = (int)(_cache.FileLength / PageSize);
         if (pageNumber < 0 || pageNumber >= committedPageCount) return null;
 
-        var buffer = new byte[PageSize];
-        if (_cache.TryRead(pageNumber, buffer)) return buffer;
+        // The cache's own array serves: it is never written into (a store replaces it), and a baseline is only
+        // compared and, on a failed publish, written back — so a copy of it bought nothing, once per page a
+        // transaction touched and again for each page at commit.
+        if (_cache.TryGetArray(pageNumber, out byte[] cached)) return cached;
 
         _locks?.EnterShared(pageNumber);
         try
         {
-            if (_cache.TryRead(pageNumber, buffer)) return buffer;
+            if (_cache.TryGetArray(pageNumber, out cached)) return cached;
+            var buffer = new byte[PageSize];
             _stream.Seek((long)pageNumber * PageSize, SeekOrigin.Begin);
             _stream.ReadExactly(buffer);
             _codec?.DecryptPage(pageNumber, buffer);
-            _cache.Store(pageNumber, buffer);
+            _cache.Adopt(pageNumber, buffer); // a baseline is only ever compared or published, never written into
             return buffer;
         }
         finally { _locks?.ExitShared(pageNumber); }
     }
 
+    // One array is one image: the cache replaces an array rather than writing into it, so a baseline that is still
+    // the committed array has not changed. Only a page reloaded since (evicted, read back) needs its bytes compared.
     private static bool SamePage(byte[]? left, byte[]? right) =>
-        left is null ? right is null : right is not null && left.AsSpan().SequenceEqual(right);
+        ReferenceEquals(left, right)
+        || left is not null && right is not null && left.AsSpan().SequenceEqual(right);
 
     /// <summary>Retrieves a higher-layer parse of a page previously stored via <see cref="SetParsedPage"/>
     /// (e.g. an index page's decoded entries), or false if none is cached. The parse is dropped automatically
     /// when the page is written (any channel) or evicted, so a hit is always consistent with the current bytes.</summary>
-    public bool TryGetParsedPage(int pageNumber, out object? parsed)
+    internal bool TryGetParsedPage(int pageNumber, out object? parsed)
     {
         // A page buffered in this transaction's overlay has uncommitted bytes; the shared parsed cache reflects
-        // the committed image, so don't serve it — force a re-parse of the overlay bytes instead.
-        if (_active is not null && _overlay.ContainsKey(pageNumber)) { parsed = null; return false; }
+        // the committed image, so it is served from the transaction's own parses instead.
+        if (_active is not null && _overlay.ContainsKey(pageNumber))
+            return _overlayParsed.TryGetValue(pageNumber, out parsed);
         return _cache.TryGetParsed(pageNumber, out parsed);
     }
 
     /// <summary>Caches a higher-layer parse of a (resident) page so repeated reads — e.g. a B-tree descent that
     /// re-visits the same root/internal pages — can skip re-decoding it. The caller must not mutate the object
     /// afterwards, as it is shared with other readers of the same file.</summary>
-    public void SetParsedPage(int pageNumber, object parsed)
+    internal void SetParsedPage(int pageNumber, object parsed)
     {
-        // Don't attach a transaction-local parse to the shared (committed) cache entry for an overlay page.
-        if (_active is not null && _overlay.ContainsKey(pageNumber)) return;
+        // A transaction-local parse goes with the transaction's bytes, never onto the shared (committed) entry.
+        if (_active is not null && _overlay.ContainsKey(pageNumber))
+        {
+            _overlayParsed[pageNumber] = parsed;
+            return;
+        }
         _cache.SetParsed(pageNumber, parsed);
     }
 
@@ -643,7 +758,7 @@ public sealed class PageChannel : IDisposable
     {
         if (!_readOnly) _stream.Flush(flushToDisk: false);
         _stream.Dispose();
-        PageCache.Release(_path); // last channel on this file drops the shared pool
-        if (_ownsLocks) MonitorLockManager.Release(_path); // and the shared lock manager
+        PageCache.ReleaseKey(_identity); // last channel on this file drops the shared pool
+        if (_ownsLocks) MonitorLockManager.ReleaseKey(_identity); // and the shared lock manager
     }
 }

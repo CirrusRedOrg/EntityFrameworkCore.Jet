@@ -29,8 +29,8 @@ public class DropViewAccessTests
             {
                 Assert.True(db.DropQueryObject("Doomed"));
                 Assert.False(db.DropQueryObject("Nope"));                 // missing → false
-                Assert.False(db.Catalog.Views.ContainsKey("Doomed"));     // gone
-                Assert.True(db.Catalog.Views.ContainsKey("Keep"));        // survivor intact
+                Assert.Null(db.Catalog.FindQuery("Doomed"));              // gone
+                Assert.NotNull(db.Catalog.FindQuery("Keep"));             // survivor intact
             }
 
             using var conn = Open(path);

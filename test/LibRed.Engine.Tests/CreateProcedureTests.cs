@@ -231,6 +231,17 @@ public class CreateProcedureTests
         "SELECT ShipperID, CompanyName INTO [ShipperCopy] FROM [Shippers] WHERE ShipperID > 1", 2)]
     [InlineData("INSERT INTO Shippers (CompanyName) SELECT ContactName FROM Customers WHERE Country = 'UK'",
         "INSERT INTO [Shippers] ([CompanyName]) SELECT ContactName FROM [Customers] WHERE Country = 'UK'", 7)]
+    // A make-table or append query's DISTINCT and TOP [PERCENT] are kept on the option row, and read back.
+    [InlineData("SELECT DISTINCT Country INTO CountryCopy FROM Customers",
+        "SELECT DISTINCT Country INTO [CountryCopy] FROM [Customers]", 21)]
+    [InlineData("SELECT TOP 5 CompanyName INTO CustomerCopy FROM Customers",
+        "SELECT TOP 5 CompanyName INTO [CustomerCopy] FROM [Customers]", 5)]
+    [InlineData("SELECT TOP 10 PERCENT CompanyName INTO CustomerCopy FROM Customers",
+        "SELECT TOP 10 PERCENT CompanyName INTO [CustomerCopy] FROM [Customers]", 10)]
+    [InlineData("INSERT INTO Shippers (CompanyName) SELECT DISTINCT Country FROM Customers WHERE Country = 'UK'",
+        "INSERT INTO [Shippers] ([CompanyName]) SELECT DISTINCT Country FROM [Customers] WHERE Country = 'UK'", 1)]
+    [InlineData("UPDATE Customers SET City = 'X' WHERE Country = 'UK' WITH OWNERACCESS OPTION",
+        "UPDATE [Customers] SET [City] = 'X' WHERE Country = 'UK' WITH OWNERACCESS OPTION", 7)]
     public void Action_query_body_round_trips_through_the_file(string body, string expected, int affected)
     {
         string path = Fresh();
@@ -241,7 +252,7 @@ public class CreateProcedureTests
 
             using (var db = JetDatabase.Open(path, readOnly: false)) // fresh open: read from the file
             {
-                Assert.Equal(expected, db.Catalog.ActionQueries["P"].Sql);
+                Assert.Equal(expected, db.Catalog.FindQuery("P")!.Sql);
                 Assert.Equal(affected, new QueryEngine(db).ExecuteNonQuery("EXECUTE [P]"));
             }
         }
@@ -267,7 +278,7 @@ public class CreateProcedureTests
                 Assert.Equal(
                     "PARAMETERS [pCity] TEXT(50), [pCountry] TEXT(20); " +
                     "UPDATE [Customers] SET [City] = pCity WHERE Country = pCountry",
-                    db.Catalog.ActionQueries["ByCountry"].Sql);
+                    db.Catalog.FindQuery("ByCountry")!.Sql);
 
                 Assert.Equal(7, engine.ExecuteNonQuery("EXECUTE [ByCountry] 'Ankh-Morpork', 'UK'"));
                 Assert.Equal(

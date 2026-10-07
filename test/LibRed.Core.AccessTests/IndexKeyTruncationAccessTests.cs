@@ -83,7 +83,7 @@ public class IndexKeyTruncationAccessTests(ITestOutputHelper output)
     private static string Build(string prefix, string columns, string indexColumns, Func<int, object[]> row)
     {
         string path = TemporaryDatabase.CreatePath(prefix);
-        DatabaseCreator.CreateEmpty(path);
+        JetDatabase.Create(path);
         using var connection = AceTestDatabase.Open(path);
         Exec(connection, $"CREATE TABLE Probe ({columns})");
         Exec(connection, $"CREATE INDEX IX ON Probe {indexColumns}");
@@ -116,7 +116,7 @@ public class IndexKeyTruncationAccessTests(ITestOutputHelper output)
             if (!rows.TryGetValue(rowId, out object?[]? values)) continue;
             compared++;
             string ace = Convert.ToHexString(stored);
-            string ours = Convert.ToHexString(IndexKeyEncoder.Encode(columns, values));
+            string ours = Convert.ToHexString(IndexKeyCodec.Encode(columns, values));
             if (ace == ours) continue;
             mismatched++;
             output.WriteLine($"ACE {ace}");

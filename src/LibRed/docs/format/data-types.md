@@ -13,41 +13,77 @@
 | `0x05` | Currency | int64 LE, scaled: value / 10000 |
 | `0x06` | Single | 4-byte IEEE |
 | `0x07` | Double | 8-byte IEEE |
-| `0x08` | DateTime | 8-byte IEEE double, OLE-automation epoch (1899-12-30) |
+| `0x08` | DateTime | 8-byte IEEE double, OLE-automation epoch (1899-12-30); nothing before 0100-01-01 (serial -657434) — ACE refuses an earlier date or serial |
 | `0x09` | Binary | raw bytes |
 | `0x0A` | Text | UTF-16LE, or compressed Unicode (§7); inline ≤ 255 chars |
 | `0x0B` | OLE | long value (§8) |
 | `0x0C` | Memo | long value (§8); text once resolved |
 | `0x0F` | GUID | 16 raw bytes. Stored as a *variable*-length column when declared through SQL (see below) |
 | `0x10` | FixedPoint (Numeric/Decimal) | 17 bytes: sign byte (`0x80` = negative) + 128-bit magnitude (four 32-bit little-endian words, low word last); value = magnitude / 10^scale. Precision/scale from the column descriptor (§3.4) |
-| `0x11` | *unmodelled* — see below | raw bytes |
+| `0x11` | BigBinary — **BIGBINARY(n)** | raw bytes, inline, up to 4000 (see below) |
 | `0x12` | Complex (multi-value / attachment) | descriptor parsed; contents not materialized (out of scope for SQL/EF) |
 | `0x13` | Int64 — **BIGINT** (ACE 16 / Access 2016) | 8-byte little-endian signed integer. Stored as a *variable*-length column (see below) |
 | `0x14` | DateTimeExtended — **DATETIME2** (ACE 17 / Access 2019+) | fixed 42-byte ASCII `<day>:<time>:<precision>` (see below) |
 
-> **Unmodelled codes are read, not refused.** `0x0D`, `0x0E` and `0x11` are held open in `JetDataType` as
+> **Unmodelled codes are read, not refused.** `0x0D` and `0x0E` are held open in `JetDataType` as
 > `Unknown*` placeholders: a TDEF carrying one still parses, the column decodes to its **raw bytes**, and only
 > *writing* such a column is refused. This is not tidiness — the catalog reads **every** table's definition,
-> so a reader that refuses one unrecognised column cannot open the database at all.
+> so a reader that refuses one unrecognised column cannot open the database at all. Neither has ever been
+> observed.
+
+**`0x11` is BigBinary — a binary value bounded by a single data page.** It holds up to 4000 bytes, which sits
+just inside the 4060-byte record cap ([page-01 §5](page-01-data-and-rows.md)), and the value is always stored
+**inline** in the row, never as a long value. So it is the largest binary a row can carry on one page without
+the long-value machinery — and a full-size one leaves the row's other columns almost nothing.
+
+ACE's DDL declares it as `BIGBINARY(n)`, and a bare `BIGBINARY` takes the maximum, 4000; `BIGBINARY(4001)` is
+refused with "Size of field is too long", as `VARBINARY(511)` is. The descriptor is byte-for-byte the one ACE
+writes for the same `VARBINARY(n)` except for the type byte — variable, same flags, length in bytes — and DDL
+has no fixed-length form. It needs no format raise: ACE creates one in an ACE 12 file without touching the
+version byte, and Jet 4 `.mdb` files carry it.
+
+The value lives in the row's variable section exactly as a `VARBINARY` value does, at every size, so it counts
+against the record cap: two BigBinary columns take 2000 + 2000 bytes in one row, and 4000 + 4000 is refused
+with "Record is too large." — where two `LONGBINARY` columns take 4000 + 4000, since only their 12-byte
+descriptors are in the row. ACE reports the column as binary in all its metadata — OLE DB `DATA_TYPE` 128 with
+the declared length and no fixed or long flag, ADOX `adVarBinary` with its `DefinedSize`, DAO `Type` 17 — and
+names it `BigBinary` only in its DataTypes list, where it is the binary type above 510 bytes.
+
+**In a query it is an OLE Object, not a binary.** Stored inline or not, ACE puts it under every restriction a
+long value has, with the same messages it gives `LONGBINARY` (verified, statement for statement, against both):
+
+| Use | BigBinary and OLE alike |
+| --- | --- |
+| `=`, `<`, column-to-column comparison, `LIKE` in `WHERE` | accepted |
+| `LEN`, `LENB`, `MID`, `&` | accepted |
+| `ORDER BY` | "Cannot sort on Memo, OLE, or Hyperlink Object" |
+| `GROUP BY` | "Cannot group on Memo, OLE, or Hyperlink Object" |
+| `DISTINCT` | "Cannot include Memo, OLE, or Hyperlink Object when you select unique values" |
+| `MAX` (an aggregate argument) | "Cannot have Memo, OLE, or Hyperlink Object fields in aggregate argument" |
+| `JOIN … ON` it | "Cannot join on Memo, OLE, or Hyperlink Object" |
+| selected by a `UNION` | "Cannot use Memo, OLE, or Hyperlink Object field … in the SELECT clause of a union query" |
+| `IN (SELECT` it `…)` | "Invalid Memo, OLE, or Hyperlink Object in subquery" |
+
+**It cannot be indexed** either. ACE refuses it on every route an OLE column is refused on, with the same
+message — `CREATE INDEX`, `PRIMARY KEY`, `UNIQUE`, a foreign key, and `ALTER COLUMN` of an indexed column to
+`BIGBINARY` — see [§10.4](page-03-04-index-btree.md).
+
+So against `LONGBINARY` it gives up size (4000 bytes against about 1 GB) and row budget, and gains nothing a
+query can use; what it saves is the long-value page a `LONGBINARY` value past the inline size needs.
+
+> **Access's legacy object store is a BigBinary column.** `MSysAccessObjects.Data` is `0x11`, *fixed*, 3992
+> bytes, holding chunks of an **OLE Compound File** (signature `D0 CF 11 E0 A1 B1 1A E1`) — Access's own
+> object storage, the VBA project and its type-library references (one chunk reads
+> `ado\msado21.tlb#Microsoft…`). A single stream sliced across rows; LibRed hands the bytes back and does not
+> interpret the container. ACE still reports that fixed column as variable, the same collapse it makes for
+> `BINARY(n)`.
 >
-> **`0x11` is the only one seen in the wild**, and never on a user column: it is always
-> `MSysAccessObjects.Data`, fixed length, 3992 bytes. The contents are chunks of an **OLE Compound File**
-> (signature `D0 CF 11 E0 A1 B1 1A E1`) — Access's own object storage, holding the VBA project and its
-> type-library references (one chunk reads `ado\msado21.tlb#Microsoft…`). A single stream sliced across rows.
-> LibRed hands the bytes back and does not interpret the container.
->
-> **It belongs to the legacy object-storage table, not to any feature.** Access later replaced
-> `MSysAccessObjects` with `MSysAccessStorage`, which uses modelled types, and a file has one or the other.
-> The discriminator is **not** the format version — Jet 4 `.mdb` files with page-0 version byte `0x01` split
-> either way. It is the generation Access chose **when it created the database**, recorded as the
-> `AccessVersion` property on the `MSysDb` object: `08.50` (Access 2000) uses the legacy store, `09.50`
-> (Access 2002+) does not. Adding a type-library reference to a current `.accdb` does **not** produce it.
->
-> So a current Access still writes `0x11` today if asked for a new Access 2000 database — but only that way.
-> A file created by anything else (DAO, LibRed) gets `MSysAccessStorage` when Access first opens it, whatever
-> its engine format, and so never grows a `0x11` column afterwards.
->
-> `0x0D` and `0x0E` have never been observed; they are placeholders only.
+> Access later replaced `MSysAccessObjects` with `MSysAccessStorage`, which uses no BigBinary column, and a
+> file has one or the other. The discriminator is **not** the format version — Jet 4 `.mdb` files with page-0
+> version byte `0x01` split either way. It is the generation Access chose **when it created the database**,
+> recorded as the `AccessVersion` property on the `MSysDb` object: `08.50` (Access 2000) uses the legacy
+> store, `09.50` (Access 2002+) does not. A file created by anything else (DAO, LibRed) gets
+> `MSysAccessStorage` when Access first opens it.
 
 LibRed's scalar reader requires the exact fixed widths listed above before invoking the numeric,
 GUID, date, or decimal codec. Text, Binary, Memo/OLE descriptors, and Complex values remain
@@ -63,7 +99,7 @@ to add."* The permitted magnitude follows the standard rule: `p` total digits wi
 most `p − s` before it, and `DECIMAL(18,4)` accepts up to `99999999999999.9999` and refuses `10^14`.
 
 The enforcement covers **every path that can put a value in the column** — `INSERT`, `UPDATE`,
-`INSERT … SELECT`, and an `ALTER COLUMN` that *narrows* the declaration over rows already stored. That last one
+`INSERT … SELECT`, and an `ALTER COLUMN` that *narrows* or retypes the declaration over rows already stored. That last one
 is what makes it an invariant over the whole column rather than a filter on one statement: ACE will not shrink
 a declaration to something its existing data would violate.
 
@@ -71,7 +107,7 @@ a declaration to something its existing data would violate.
 > zero**. `1.23456` into a `DECIMAL(18,4)` stores `1.2345`, `1.99999` stores `1.9999`, `-1.23455` stores
 > `-1.2345` — truncation in every case, over both midpoint parities and both signs.
 >
-> LibRed matches it in `JetTypeCodec.EncodeNumeric`, and `IndexKeyEncoder.EncodeFixedPoint` **must** quantise
+> LibRed matches it in `JetTypeCodec.EncodeNumeric`, and `IndexKeyCodec.EncodeFixedPoint` **must** quantise
 > identically: the key is the same unscaled integer the row stores, so quantising one differently files a value
 > under a number its row does not contain. Rounding (`decimal.Round(…, 0)`, `ToEven`) is the obvious
 > implementation and is wrong: it stores `1.2346` and `2.0000` for ACE's `1.2345` and `1.9999`, and a row and
@@ -92,7 +128,7 @@ the row keeps the bytes; the encoding itself is [§10.4](page-03-04-index-btree.
 **`GUID` is variable-length too — but only where ACE's DDL made it.** Every GUID column ACE's SQL creates
 carries length 16 with the fixed flag clear, whatever the table's width (it is not a fallback for wide
 tables), and `SELECT … INTO` produces the same. ACE's **own system tables are the exception**:
-`MSysComplexType_GUID` `Value` is *fixed* (verified), and `DatabaseCreator` reproduces that — so "GUID is
+`MSysComplexType_GUID` `Value` is *fixed* (verified), and `JetDatabase` reproduces that — so "GUID is
 variable" is a rule about declarations, not about GUID storage everywhere.
 
 Unlike BIGINT this is not a wrong-value hazard: ACE reads a value back correctly from either layout
@@ -140,6 +176,13 @@ A text value that begins with the 2-byte marker `FF FE` is **compressed**: the f
 are one per character (ASCII range), not UTF-16. Otherwise the value is UTF-16LE. Applies to
 both `Text` and resolved `Memo`.
 
+> **A leading U+FEFF is indistinguishable from the marker, and the format does not resolve it.** U+FEFF in
+> UTF-16LE *is* `FF FE`, so a value whose first character is one cannot be told from a compressed value by its
+> bytes. Such a value is stored as plain UTF-16 — the collision is made, not avoided — and reads back wrongly:
+> `U+FEFF`+`abc` as `abc`, a lone `U+FEFF` as the empty string, two of them as `U+00FF U+00FE`. That is what
+> Access itself returns for its own value (verified), so the character is not recoverable at all. Only the
+> first position is ambiguous: `a`+U+FEFF+`b` round-trips intact.
+
 The descriptor's `0x10` extended flag `0x01` records the column as compression-*capable*. ACE sets it only
 when the column is declared `WITH COMPRESSION` (or `WITH COMP`); a plain `TEXT`/`MEMO` column created through
 SQL DDL leaves it **clear**.
@@ -177,7 +220,9 @@ byte-for-byte):
   compresses (whatever the capable flag says), a single-page one compresses only on a `WITH COMPRESSION`
   column, and a chained one never does; the compressed size never approaches any limit.
   Microsoft's "only instances that, when compressed, will fit within 4096 bytes" describes the wrong
-  quantity; see [long-values.md](long-values.md) for the measured boundary.
+  quantity; see [long-values.md](long-values.md) for the measured boundary. The uncompressed length also picks
+  the *page* for a compressed single-page value, and its uncompressed bytes are left in that page's free space
+  ([long-values.md](long-values.md#writing-long-values)).
 
 > **The mixed form is real, and ACE writes it readily.** A value can toggle between 1-byte and 2-byte runs
 > mid-string: after the `FF FE` marker the value starts in 1-byte mode and every `0x00` byte at a character
@@ -238,9 +283,11 @@ Points verified against ACE that aren't obvious from that page:
   amount of data you attempted to add."* The fixed form is the one worth recording: because ACE stores fixed
   text space-padded to the full width, a writer that pads is one line away from silently *truncating* the
   over-long case instead of refusing it. The width check therefore belongs on the encode path for fixed
-  columns (`JetTypeCodec.EnsureFitsFixedWidth`, before padding) and on the shared row-assembly path for variable ones (`RowEncoder.AssembleRow`, so the ALTER re-lay passes it too).
+  columns (`JetTypeCodec.EnsureFitsFixedWidth`, before padding) and on the shared row-assembly path for variable ones (`RowCodec.AssembleRow`, so the ALTER re-lay passes it too).
 - **Narrowing an existing column is checked against its rows.** `ALTER TABLE … ALTER COLUMN c TEXT(5)` on a
-  column holding wider values is refused rather than leaving rows that violate the declaration.
+  column holding wider values is refused rather than leaving rows that violate the declaration — and so is a
+  retype whose converted values are too wide: a Memo or a `LONG` to `TEXT(1)`, a `LONG` to `BINARY(1)`. ACE
+  refuses every one with *"The field is too small to accept the amount of data you attempted to add."*
 - `DECIMAL(p,s)` / `NUMERIC(p,s)` use precision `1..28` and scale `0..p`, and these are **ACE's own bounds,
   refused at DDL with two distinct messages**: *"Invalid precision for decimal data type."* for `(0)`, `(0,0)`
   and `(29)`, *"Invalid scale for decimal data type."* for `(5,7)`. `(1,0)` and `(28,28)` are both accepted, so
@@ -250,7 +297,7 @@ Points verified against ACE that aren't obvious from that page:
   255/510 above — while an explicit `(p)`/`(p,s)` is stamped exactly as written; the column is 17 bytes and
   fixed-length either way. **A precision of 0 cannot be declared at all**, which fits ACE's own OLE DB reader
   being unable to materialise such a column — a 0 leaves the value no declared shape to be read back into.
-  LibRed rejects out-of-range dimensions in `AccessTypeMapper` and, because a direct Core caller bypasses that, in `TdefBuilder` too; an unspecified
+  LibRed rejects out-of-range dimensions in `AccessTypeMapper` and, because a direct Core caller bypasses that, in `TableDefinition` too; an unspecified
   precision resolves to 18 on write rather than reaching the file as 0.
 - The grammar parses **two-word** type names (`CHARACTER VARYING`, `BIT VARYING`); three-word
   (`NATIONAL CHARACTER VARYING`) is not parsed yet. `HYPERLINK`/`XML`/`SQL_VARIANT`/`VARIANT`/`COMP` have no

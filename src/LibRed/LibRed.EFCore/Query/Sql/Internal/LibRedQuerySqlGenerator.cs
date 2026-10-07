@@ -46,6 +46,35 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
             => selectExpression.Tables is not [ValuesExpression]
                && base.TryGenerateWithoutWrappingSelect(selectExpression);
 
+        /// <summary>
+        ///     A VALUES table as the standard writes it, its columns named by a column list after the alias:
+        ///     <c>(VALUES (0, CLNG(1)), (1, 2)) AS `v`(`_ord`, `Value`)</c>. EF's base names them on a leading SELECT
+        ///     instead, with the other rows after <c>UNION ALL VALUES</c>, for databases that have no column list;
+        ///     LibRed's engine has one.
+        /// </summary>
+        protected override Expression VisitValues(ValuesExpression valuesExpression)
+        {
+            base.VisitValues(valuesExpression);
+
+            Sql.Append("(");
+            GenerateList(valuesExpression.ColumnNames, name => Sql.Append(_sqlGenerationHelper.DelimitIdentifier(name)));
+            Sql.Append(")");
+
+            return valuesExpression;
+        }
+
+        /// <inheritdoc cref="VisitValues" />
+        protected override void GenerateValues(ValuesExpression valuesExpression)
+        {
+            if (valuesExpression.RowValues is not { Count: > 0 } rowValues)
+            {
+                throw new InvalidOperationException(RelationalStrings.EmptyCollectionNotSupportedAsInlineQueryRoot);
+            }
+
+            Sql.Append("VALUES ");
+            GenerateList(rowValues, row => Visit(row));
+        }
+
         private void GenerateList<T>(
             IReadOnlyList<T> items,
             Action<T> generationAction,
@@ -248,6 +277,17 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
                 Sql.Append("(");
                 Visit(convertExpression.Operand);
                 Sql.Append(@" & '')");
+                return convertExpression;
+            }
+
+            // .NET converts a char to a number by its code point, so (uint)'1' is 49. Passing the operand
+            // through leaves a one-character string, which Jet then coerces by parsing it: 1, not 49.
+            if (typeMapping.ClrType.IsInteger() && typeMapping.ClrType != typeof(char) && convertExpression.Operand.Type == typeof(char))
+            {
+                // Widen ASCW's signed Int16 before masking: ACE otherwise sign-extends a 16-bit left operand.
+                Sql.Append("(CLNG(ASCW(");
+                Visit(convertExpression.Operand);
+                Sql.Append(")) BAND 65535)");
                 return convertExpression;
             }
 

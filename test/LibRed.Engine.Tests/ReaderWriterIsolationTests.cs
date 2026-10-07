@@ -108,13 +108,201 @@ public class ReaderWriterIsolationTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // Write skew across two connections. The commit's conflict check covers the pages a transaction WROTE, and
+    // a foreign-key check writes nothing — it reads the parent row. So one connection can insert a child while
+    // another deletes the parent, each finding the other's precondition satisfied, and the file ends up with a
+    // child referencing nothing. The insert's dependency is re-checked at commit, which is where it is caught.
+    [Fact]
+    public void A_child_insert_cannot_commit_after_its_parent_is_deleted_by_another_connection()
+    {
+        string path = CreateDatabase("write-skew-");
+        try
+        {
+            using var childDb = JetDatabase.Open(path, readOnly: false);
+            using var parentDb = JetDatabase.Open(path, readOnly: false);
+            var child = new QueryEngine(childDb);
+            var parent = new QueryEngine(parentDb);
+
+            child.ExecuteNonQuery("CREATE TABLE Parents (Id LONG PRIMARY KEY)");
+            child.ExecuteNonQuery(
+                "CREATE TABLE Children (Id LONG PRIMARY KEY, ParentId LONG REFERENCES Parents (Id))");
+            child.ExecuteNonQuery("INSERT INTO Parents (Id) VALUES (1)");
+            child.ExecuteNonQuery("INSERT INTO Parents (Id) VALUES (2)");
+
+            child.ExecuteNonQuery("BEGIN TRANSACTION");
+            child.ExecuteNonQuery("INSERT INTO Children (Id, ParentId) VALUES (10, 1)");  // parent 1 is there
+
+            parent.ExecuteNonQuery("DELETE FROM Parents WHERE Id = 1");                   // ... until now
+
+            var conflict = Assert.Throws<InvalidOperationException>(() => child.ExecuteNonQuery("COMMIT"));
+            Assert.Contains("no longer exists", conflict.Message, StringComparison.Ordinal);
+
+            // Nothing of the transaction survived, so the file has no child row referencing the deleted parent.
+            child.ExecuteNonQuery("ROLLBACK");
+            Assert.Empty(parent.ExecuteQuery("SELECT Id FROM Children").Rows);
+
+            // And the check is specific: deleting a DIFFERENT parent does not hold up the same insert.
+            child.ExecuteNonQuery("BEGIN TRANSACTION");
+            child.ExecuteNonQuery("INSERT INTO Children (Id, ParentId) VALUES (11, 2)");
+            parent.ExecuteNonQuery("INSERT INTO Parents (Id) VALUES (3)");
+            parent.ExecuteNonQuery("DELETE FROM Parents WHERE Id = 3");
+            child.ExecuteNonQuery("COMMIT");
+            Assert.Single(parent.ExecuteQuery("SELECT Id FROM Children").Rows);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // The same write skew from the other end: the delete found no children, and another connection's child insert
+    // found the parent it had not seen deleted. The delete's dependency is re-checked at its commit.
+    [Fact]
+    public void A_parent_delete_cannot_commit_after_another_connection_adds_a_child_for_it()
+    {
+        string path = CreateDatabase("write-skew-parent-");
+        try
+        {
+            using var parentDb = JetDatabase.Open(path, readOnly: false);
+            using var childDb = JetDatabase.Open(path, readOnly: false);
+            var parent = new QueryEngine(parentDb);
+            var child = new QueryEngine(childDb);
+
+            parent.ExecuteNonQuery("CREATE TABLE Parents (Id LONG PRIMARY KEY)");
+            parent.ExecuteNonQuery(
+                "CREATE TABLE Children (Id LONG PRIMARY KEY, ParentId LONG REFERENCES Parents (Id))");
+            parent.ExecuteNonQuery("INSERT INTO Parents (Id) VALUES (1)");
+            parent.ExecuteNonQuery("INSERT INTO Parents (Id) VALUES (2)");
+
+            parent.ExecuteNonQuery("BEGIN TRANSACTION");
+            parent.ExecuteNonQuery("DELETE FROM Parents WHERE Id = 1");                   // no children yet
+
+            child.ExecuteNonQuery("INSERT INTO Children (Id, ParentId) VALUES (10, 1)");  // ... until now
+
+            var conflict = Assert.Throws<InvalidOperationException>(() => parent.ExecuteNonQuery("COMMIT"));
+            Assert.Contains("was added for the row", conflict.Message, StringComparison.Ordinal);
+
+            parent.ExecuteNonQuery("ROLLBACK");
+            Assert.Equal(2, child.ExecuteQuery("SELECT Id FROM Parents").Rows.Count());
+
+            // Specific to the key: a child added for a DIFFERENT parent does not hold up the delete.
+            parent.ExecuteNonQuery("BEGIN TRANSACTION");
+            parent.ExecuteNonQuery("DELETE FROM Parents WHERE Id = 2");
+            child.ExecuteNonQuery("INSERT INTO Children (Id, ParentId) VALUES (11, 1)");
+            parent.ExecuteNonQuery("COMMIT");
+            Assert.Single(child.ExecuteQuery("SELECT Id FROM Parents").Rows);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // The dependency is on the parent being needed, not on it having been checked: once the child has moved to
+    // another parent, the one it was inserted against can go, and the commit has nothing to object to.
+    [Fact]
+    public void A_child_moved_to_another_parent_commits_after_the_first_parent_is_deleted_by_another_connection()
+    {
+        string path = CreateDatabase("write-skew-moved-");
+        try
+        {
+            using var childDb = JetDatabase.Open(path, readOnly: false);
+            using var parentDb = JetDatabase.Open(path, readOnly: false);
+            var child = new QueryEngine(childDb);
+            var parent = new QueryEngine(parentDb);
+
+            child.ExecuteNonQuery("CREATE TABLE Parents (Id LONG PRIMARY KEY)");
+            child.ExecuteNonQuery(
+                "CREATE TABLE Children (Id LONG PRIMARY KEY, ParentId LONG REFERENCES Parents (Id))");
+            child.ExecuteNonQuery("INSERT INTO Parents (Id) VALUES (1)");
+            child.ExecuteNonQuery("INSERT INTO Parents (Id) VALUES (2)");
+
+            child.ExecuteNonQuery("BEGIN TRANSACTION");
+            child.ExecuteNonQuery("INSERT INTO Children (Id, ParentId) VALUES (10, 1)");
+            child.ExecuteNonQuery("UPDATE Children SET ParentId = 2 WHERE Id = 10");
+
+            parent.ExecuteNonQuery("DELETE FROM Parents WHERE Id = 1");
+
+            child.ExecuteNonQuery("COMMIT");
+            Assert.Equal(2, Convert.ToInt32(parent.ExecuteQuery("SELECT ParentId FROM Children").Rows.Single()[0]));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // Renaming inside the transaction changes every name the dependency was registered under — the child table,
+    // its column, the parent table — but not the relationship, which still joins the same tables over the same
+    // columns. The parent it relied on is still needed, so its deletion elsewhere still stops the commit.
+    [Fact]
+    public void A_child_insert_cannot_commit_after_its_parent_is_deleted_even_when_the_tables_were_renamed()
+    {
+        string path = CreateDatabase("write-skew-renamed-");
+        try
+        {
+            using var childDb = JetDatabase.Open(path, readOnly: false);
+            using var parentDb = JetDatabase.Open(path, readOnly: false);
+            var child = new QueryEngine(childDb);
+            var parent = new QueryEngine(parentDb);
+
+            child.ExecuteNonQuery("CREATE TABLE Parents (Id LONG PRIMARY KEY)");
+            child.ExecuteNonQuery(
+                "CREATE TABLE Children (Id LONG PRIMARY KEY, ParentId LONG REFERENCES Parents (Id))");
+            child.ExecuteNonQuery("INSERT INTO Parents (Id) VALUES (1)");
+
+            child.ExecuteNonQuery("BEGIN TRANSACTION");
+            child.ExecuteNonQuery("INSERT INTO Children (Id, ParentId) VALUES (10, 1)");
+            child.ExecuteNonQuery("ALTER TABLE Children RENAME TO Kids");
+            child.ExecuteNonQuery("ALTER TABLE Kids RENAME COLUMN ParentId TO Pid");
+            child.ExecuteNonQuery("ALTER TABLE Parents RENAME TO Folks");
+
+            parent.ExecuteNonQuery("DELETE FROM Parents WHERE Id = 1");
+
+            var conflict = Assert.Throws<InvalidOperationException>(() => child.ExecuteNonQuery("COMMIT"));
+            Assert.Contains("no longer exists", conflict.Message, StringComparison.Ordinal);
+            child.ExecuteNonQuery("ROLLBACK");
+            Assert.Empty(parent.ExecuteQuery("SELECT Id FROM Children").Rows);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // Adding a relationship checks the child rows already there against their parents, which is the same write
+    // skew as an insert's check: nothing it read is written. ACE closes it by holding both tables exclusively
+    // until the transaction ends; LibRed checks the rows again when the transaction commits. The parent goes by a
+    // key UPDATE rather than a DELETE: a delete rewrites the parent TDEF's row count, and the ADD wrote that page
+    // too (its incoming relationship block), so the page check alone already refuses that commit.
+    [Fact]
+    public void An_added_relationship_cannot_commit_after_a_parent_it_was_checked_against_is_gone()
+    {
+        string path = CreateDatabase("write-skew-add-");
+        try
+        {
+            using var childDb = JetDatabase.Open(path, readOnly: false);
+            using var parentDb = JetDatabase.Open(path, readOnly: false);
+            var child = new QueryEngine(childDb);
+            var parent = new QueryEngine(parentDb);
+
+            child.ExecuteNonQuery("CREATE TABLE Parents (Id LONG PRIMARY KEY)");
+            child.ExecuteNonQuery("CREATE TABLE Children (Id LONG PRIMARY KEY, ParentId LONG)");
+            child.ExecuteNonQuery("INSERT INTO Parents (Id) VALUES (1)");
+            child.ExecuteNonQuery("INSERT INTO Children (Id, ParentId) VALUES (10, 1)");
+
+            child.ExecuteNonQuery("BEGIN TRANSACTION");
+            child.ExecuteNonQuery(
+                "ALTER TABLE Children ADD CONSTRAINT FK_Child FOREIGN KEY (ParentId) REFERENCES Parents (Id)");
+
+            parent.ExecuteNonQuery("UPDATE Parents SET Id = 5 WHERE Id = 1");
+
+            var conflict = Assert.Throws<InvalidOperationException>(() => child.ExecuteNonQuery("COMMIT"));
+            Assert.Contains("no longer exists", conflict.Message, StringComparison.Ordinal);
+            child.ExecuteNonQuery("ROLLBACK");
+            Assert.Empty(childDb.Catalog.ForeignKeysOf("Children"));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     private static void RunCrossingCommit(string? password)
     {
         string path = CreateDatabase("reader-crossing-");
         try
         {
             if (password is not null)
-                DatabaseEncryption.SetPassword(path, password, AccessEncryption.Agile);
+            {
+                using var encrypt = JetDatabase.Open(path, readOnly: false, exclusive: true);
+                DatabaseEncryption.SetPassword(encrypt, password, AccessEncryption.Agile);
+            }
 
             using var writerDb = JetDatabase.Open(path, readOnly: false, password: password);
             using var readerDb = JetDatabase.Open(path, readOnly: false, password: password);

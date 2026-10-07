@@ -188,6 +188,29 @@ public class CreateTableDefaultTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // A table shares its name space with the queries and linked tables of the Tables container, and with nothing
+    // else — ACE's rule, and its message. A relationship's name is free for a table.
+    [Fact]
+    public void Table_name_colliding_with_a_query_throws_but_a_relationship_name_is_free()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE VIEW `WidgetView` AS SELECT `ShipperID` FROM `Shippers`");
+            var ex = Assert.Throws<SchemaObjectExistsException>(() =>
+                e.ExecuteNonQuery("CREATE TABLE `widgetview` (`Id` INTEGER)"));
+            Assert.Equal("Table 'widgetview' already exists.", ex.Message);
+
+            e.ExecuteNonQuery("CREATE TABLE `Widget` (`Id` INTEGER PRIMARY KEY, `ShipperID` INTEGER, " +
+                              "CONSTRAINT `WidgetShipper` FOREIGN KEY (`ShipperID`) REFERENCES `Shippers` (`ShipperID`))");
+            e.ExecuteNonQuery("CREATE TABLE `WidgetShipper` (`Id` INTEGER)");
+            Assert.Contains(db.Catalog.Tables, t => t.Name == "WidgetShipper");
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     [Fact]
     public void Temporary_table_throws_not_supported()
     {

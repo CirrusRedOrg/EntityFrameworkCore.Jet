@@ -42,9 +42,27 @@ public class CreateViewTests
 
             using (var db = JetDatabase.Open(path)) // fresh open: read from the file
             {
-                Assert.Equal("SELECT 1 AS [n]", db.Catalog.Views["Const"]);
+                Assert.Equal("SELECT 1 AS [n]", db.Catalog.FindQuery("Const")!.Sql);
                 Assert.Equal(1, new QueryEngine(db).ExecuteQuery("SELECT `n` FROM `Const`").Rows.Single()[0]);
             }
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // CREATE VIEW drops a leading space from the name, where CREATE PROCEDURE refuses one — both measured against
+    // ACE (RenameNameValidationAccessTests).
+    [Fact]
+    public void A_leading_space_is_dropped_from_a_view_name_and_refused_in_a_procedure_name()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE VIEW [ Spaced] AS SELECT 1 AS [n]");
+            Assert.Contains("Spaced", db.Catalog.Queries.Keys);
+
+            Assert.Throws<ArgumentException>(() => e.ExecuteNonQuery("CREATE PROCEDURE [ Proc] AS SELECT 1 AS [n]"));
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -179,8 +197,27 @@ public class CreateViewTests
         {
             using var db = JetDatabase.Open(path, readOnly: false);
             // Northwind already has a Customers table.
-            Assert.Throws<SchemaObjectExistsException>(() =>
+            var ex = Assert.Throws<SchemaObjectExistsException>(() =>
                 new QueryEngine(db).ExecuteNonQuery("CREATE VIEW `Customers` AS SELECT `CustomerID` FROM `Customers`"));
+            Assert.Equal("Object 'Customers' already exists.", ex.Message);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // A view collides only with the tables, queries and linked tables of the Tables container, as in ACE — a
+    // relationship lives in another container, so its name is free for a view.
+    [Fact]
+    public void View_may_take_a_relationships_name()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE TABLE `Widget` (`Id` INTEGER PRIMARY KEY, `ShipperID` INTEGER, " +
+                              "CONSTRAINT `WidgetShipper` FOREIGN KEY (`ShipperID`) REFERENCES `Shippers` (`ShipperID`))");
+            e.ExecuteNonQuery("CREATE VIEW `WidgetShipper` AS SELECT `Id` FROM `Widget`");
+            Assert.Empty(e.ExecuteQuery("SELECT * FROM `WidgetShipper`").Rows);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

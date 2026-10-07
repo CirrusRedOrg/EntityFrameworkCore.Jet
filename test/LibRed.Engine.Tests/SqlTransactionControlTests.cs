@@ -68,11 +68,80 @@ public class SqlTransactionControlTests : TempDatabaseTest
         Assert.Empty(Ids(e));
     }
 
+    // A statement that fails inside a transaction runs under a savepoint of its own, which is rolled back — and
+    // has to be closed as well. Left open it sits above the savepoint the enclosing BEGIN pushed, so that
+    // level's COMMIT is no longer releasing the innermost savepoint and refuses: one failed statement would
+    // make every later nested COMMIT throw, on a transaction the failure was supposed to leave intact.
+    [Fact]
+    public void A_failed_statement_leaves_the_enclosing_levels_committable()
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery("BEGIN TRANSACTION");
+        e.ExecuteNonQuery("INSERT INTO t (id) VALUES (1)");
+        e.ExecuteNonQuery("BEGIN TRANSACTION");
+        e.ExecuteNonQuery("INSERT INTO t (id) VALUES (2)");
+        Assert.Throws<ConstraintViolationException>(() => e.ExecuteNonQuery("INSERT INTO t (id) VALUES (2)"));
+
+        e.ExecuteNonQuery("COMMIT");   // inner: releases its savepoint
+        e.ExecuteNonQuery("COMMIT");   // outer: commits the transaction
+        Assert.Equal([1, 2], Ids(e));
+    }
+
+    [Fact]
+    public void A_failed_statement_leaves_the_enclosing_levels_rollable()
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery("BEGIN TRANSACTION");
+        e.ExecuteNonQuery("INSERT INTO t (id) VALUES (1)");
+        e.ExecuteNonQuery("BEGIN TRANSACTION");
+        e.ExecuteNonQuery("INSERT INTO t (id) VALUES (2)");
+        Assert.Throws<ConstraintViolationException>(() => e.ExecuteNonQuery("INSERT INTO t (id) VALUES (1)"));
+
+        e.ExecuteNonQuery("ROLLBACK");  // inner: undoes id=2 only
+        e.ExecuteNonQuery("COMMIT");    // outer: keeps id=1
+        Assert.Equal([1], Ids(e));
+    }
+
     [Fact]
     public void Commit_with_no_transaction_open_throws()
     {
         var e = Fresh();
         Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("COMMIT"));
+    }
+
+    [Theory]
+    [InlineData("DELETE FROM Children WHERE Id = 10", 0)]
+    [InlineData("UPDATE Children SET ParentId = 2 WHERE Id = 10", 1)]
+    [InlineData("UPDATE Children SET ParentId = NULL WHERE Id = 10", 1)]
+    public void Commit_does_not_require_a_parent_after_its_child_reference_is_removed(string change, int children)
+    {
+        QueryEngine e = Fresh();
+        e.ExecuteNonQuery("CREATE TABLE Parents (Id LONG PRIMARY KEY)");
+        e.ExecuteNonQuery("CREATE TABLE Children (Id LONG PRIMARY KEY, ParentId LONG REFERENCES Parents (Id))");
+        e.ExecuteNonQuery("INSERT INTO Parents VALUES (1), (2)");
+        e.ExecuteNonQuery("BEGIN TRANSACTION");
+        e.ExecuteNonQuery("INSERT INTO Children VALUES (10, 1)");
+        e.ExecuteNonQuery(change);
+        e.ExecuteNonQuery("DELETE FROM Parents WHERE Id = 1");
+        e.ExecuteNonQuery("COMMIT");
+        Assert.Equal(children, Convert.ToInt32(e.ExecuteQuery("SELECT COUNT(*) FROM Children").Rows.Single()[0]));
+        Assert.Equal(2, Convert.ToInt32(e.ExecuteQuery("SELECT Id FROM Parents").Rows.Single()[0]));
+    }
+
+    [Fact]
+    public void Commit_does_not_require_a_parent_after_its_relationship_is_dropped()
+    {
+        QueryEngine e = Fresh();
+        e.ExecuteNonQuery("CREATE TABLE Parents (Id LONG PRIMARY KEY)");
+        e.ExecuteNonQuery("CREATE TABLE Children (Id LONG PRIMARY KEY, ParentId LONG, CONSTRAINT FK_Child FOREIGN KEY (ParentId) REFERENCES Parents (Id))");
+        e.ExecuteNonQuery("INSERT INTO Parents VALUES (1)");
+        e.ExecuteNonQuery("BEGIN TRANSACTION");
+        e.ExecuteNonQuery("INSERT INTO Children VALUES (10, 1)");
+        e.ExecuteNonQuery("ALTER TABLE Children DROP CONSTRAINT FK_Child");
+        e.ExecuteNonQuery("DELETE FROM Parents WHERE Id = 1");
+        e.ExecuteNonQuery("COMMIT");
+        Assert.Single(e.ExecuteQuery("SELECT * FROM Children").Rows);
+        Assert.Empty(e.ExecuteQuery("SELECT * FROM Parents").Rows);
     }
 
     [Fact]

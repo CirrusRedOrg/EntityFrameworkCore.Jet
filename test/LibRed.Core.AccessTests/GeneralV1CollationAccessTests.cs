@@ -9,7 +9,7 @@ namespace LibRed.Core.Tests;
 // from ACE; this re-derives them from a live database, so a change in ACE (or a wrong assumption about which
 // weight table it uses) is caught rather than absorbed.
 //
-// The v1 database is one LibRed creates itself (DatabaseCreator.CreateEmpty with Collation.General) — which
+// The v1 database is one LibRed creates itself (JetDatabase.Create with Collation.General) — which
 // is also the point: nothing else here can make one. DAO always writes v0, ignoring the application setting,
 // and Access only honours "New database sort order" through its own UI. So this doubles as the test that
 // LibRed's create-with-collation produces a file ACE accepts as a General database.
@@ -26,7 +26,7 @@ public class GeneralV1CollationAccessTests
     private static string CreateV1Database(string prefix)
     {
         string path = TemporaryDatabase.CreatePath(prefix);
-        DatabaseCreator.CreateEmpty(path, collation: Collation.General);
+        JetDatabase.Create(path, collation: Collation.General);
         return path;
     }
 
@@ -72,7 +72,7 @@ public class GeneralV1CollationAccessTests
 
                 Assert.Equal(
                     (value, Convert.ToHexString(stored)),
-                    (value, Convert.ToHexString(IndexKeyEncoder.Encode(index.Columns, aligned))));
+                    (value, Convert.ToHexString(IndexKeyCodec.Encode(index.Columns, aligned))));
                 checkedKeys++;
             }
 
@@ -88,7 +88,7 @@ public class GeneralV1CollationAccessTests
     {
         var column = new ColumnDef { Name = "K", Type = JetDataType.Text, Index = 0, Collation = Collation.General };
         string[] unique = Samples
-            .GroupBy(v => Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [v])))
+            .GroupBy(v => Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [v])))
             .Select(g => g.First())
             .ToArray();
 

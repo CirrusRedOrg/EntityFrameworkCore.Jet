@@ -20,7 +20,7 @@ public sealed record ViewColumnSpec(string Expression, string? Alias);
 /// A declared parameter of a stored (procedure) query: its name and Jet type code, stored as an MSysQueries
 /// <c>Attribute=2</c> row (Name1 = name, Flag = <paramref name="TypeCode"/>). The row's <c>LvExtra</c> carries
 /// the declared facets, and Access renders the query's PARAMETERS clause from it — see
-/// <see cref="StoredQueryFormat.PackParameterFacets"/> for which types have one and how a decimal's precision
+/// <see cref="StoredQuery.PackParameterFacets"/> for which types have one and how a decimal's precision
 /// and scale pack into the single value.
 /// </summary>
 public sealed record ViewParameterSpec(string Name, byte TypeCode, int? Size = null, int? Scale = null);
@@ -60,7 +60,8 @@ public sealed record AppendColumnSpec(string Column, string ValueExpression);
 /// does, in <paramref name="Body"/>, and differs only in the action row and in what its column rows mean:
 /// <paramref name="Values"/> holds an append's columns or an update's assignments, <paramref name="TargetTable"/>
 /// the table an append or make-table writes into, and the body's own columns are a make-table's output list.
-/// <paramref name="Parameters"/> are declared exactly as a parameterized SELECT declares them.
+/// <paramref name="Parameters"/> are declared exactly as a parameterized SELECT declares them, and
+/// <paramref name="OwnerAccess"/> is WITH OWNERACCESS OPTION, stored as the view stores it.
 /// </summary>
 public sealed record ActionQuerySpec(
     ActionQueryKind Kind,
@@ -69,12 +70,8 @@ public sealed record ActionQuerySpec(
     IReadOnlyList<AppendColumnSpec>? Values = null,
     ViewSpec? Body = null,
     IReadOnlyList<ViewParameterSpec>? Parameters = null,
-    string? DeleteTarget = null);
-
-/// <summary>A stored action query read back from the catalog. <paramref name="Sql"/> is the reconstructed,
-/// executable statement when LibRed supports the kind; otherwise it is null and <paramref name="UnsupportedReason"/>
-/// explains why executing it throws.</summary>
-public sealed record StoredActionQuery(string? Sql, string? UnsupportedReason);
+    string? DeleteTarget = null,
+    bool OwnerAccess = false);
 
 /// <summary>A parameter a stored query declares, in declaration order. <paramref name="Type"/> is the Jet type
 /// Access recorded for it, or null for its untyped parameter — the one Access renders as the keyword
@@ -89,6 +86,8 @@ public sealed record StoredQueryParameter(
 /// ORDER BY (all verbatim text) — that Access stores as MSysQueries rows. <paramref name="GroupBy"/> and
 /// <paramref name="Having"/> together are what Access calls a "totals" query: the aggregate output columns
 /// are ordinary column rows, and only the grouping keys and the group filter get rows of their own.
+/// <paramref name="TopPercent"/> makes <paramref name="Top"/> a percentage. <paramref name="OwnerAccess"/> is WITH
+/// OWNERACCESS OPTION: an option-row bit, and nothing LibRed acts on.
 /// </summary>
 public sealed record ViewSpec(
     bool Distinct,
@@ -100,4 +99,6 @@ public sealed record ViewSpec(
     string? Having = null,
     IReadOnlyList<ViewParameterSpec>? Parameters = null,
     IReadOnlyList<ViewOrderBySpec>? OrderBy = null,
-    int? Top = null);
+    int? Top = null,
+    bool TopPercent = false,
+    bool OwnerAccess = false);

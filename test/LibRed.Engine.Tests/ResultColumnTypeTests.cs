@@ -132,6 +132,73 @@ public class ResultColumnTypeTests(ResultColumnTypeTests.Database database)
         Assert.IsType<decimal>(rows.Single()[0]);
     }
 
+    // A scalar subquery declares its column's type, so a choice over it widens with it. Untyped, the Integer 0 alone
+    // declared IIF(x IS NULL, 0, x): the money sum doubled came back a Decimal under a declared Integer, and the
+    // other column's value was rounded into one.
+    [Fact]
+    public void A_scalar_subquery_declares_its_type_through_a_choice()
+    {
+        var (types, rows) = database.Query(
+            "SELECT IIF(t3.x < 0, 9, t3.x + 8), t3.x + t3.x FROM (SELECT IIF(t2.x IS NULL, 0, t2.x) AS x "
+            + "FROM (SELECT (SELECT SUM(M) FROM T) AS x FROM T q) t2) t3", CultureInfo.GetCultureInfo("en-US"));
+        Assert.Equal([typeof(decimal), typeof(decimal)], types);
+        Assert.All(rows, row => Assert.Equal(new object?[] { 20.5m, 25m }, row));
+    }
+
+    [Theory]
+    // Rows taking different arms still come back in the one declared type.
+    [InlineData("IIF(Id = 1, 9, (SELECT SUM(M) FROM T))", 9, 12.5)]
+    // ... and a choice inside arithmetic too: linq2db's coalesced sum, taking the 0 arm, came back an Integer.
+    [InlineData("1000 - IIF(Id = 1, 0, (SELECT SUM(M) FROM T))", 1000, 987.5)]
+    // A correlated subquery is typed without the outer row.
+    [InlineData("(SELECT SUM(i.M) FROM T i WHERE i.Id = o.Id)", 10.5, 2)]
+    public void A_scalar_subquery_column_is_its_type_on_every_row(string expression, double first, double second)
+    {
+        (Type declared, object?[] values) = Column($"SELECT o.Id, {expression} AS c FROM T o ORDER BY o.Id");
+        Assert.Equal(typeof(decimal), declared);
+        Assert.Equal(new object?[] { (decimal)first, (decimal)second }, values);
+    }
+
+    // A choice with an arm nothing can type declares nothing, rather than letting its typed arms declare alone.
+    [Fact]
+    public void A_choice_with_an_untyped_arm_declares_nothing() =>
+        Assert.Equal(typeof(object),
+            database.Query("SELECT IIF(Id = 1, 0, (SELECT o.M FROM T i WHERE i.Id = 1)) FROM T o",
+                CultureInfo.GetCultureInfo("en-US")).ColumnTypes[0]);
+
+    // A Variant keeps its own type through an expression and is written out as text; a Mixed choice — text beside
+    // another kind — is text; either as an operand counts as a Double (verified vs ACE in VariantAccessTests).
+    [Theory]
+    [InlineData("CVar(B)", typeof(string), "3", "4")]
+    [InlineData("CVar(B) + CVar(B)", typeof(string), "6", "8")]
+    [InlineData("CVar(B) + 1", typeof(double), 4.0, 5.0)]
+    [InlineData("CVar(B) * CVar(B)", typeof(double), 9.0, 16.0)]
+    [InlineData("IIF(Id = 1, CVar(B), 5)", typeof(string), "3", "5")]
+    [InlineData("IIF(Id = 1, X, 2)", typeof(string), "abc", "2")]
+    [InlineData("IIF(Id = 1, Y, 2)", typeof(int), -1, 2)]
+    public void A_variant_or_a_mixed_choice_is_typed_as_ace_types_it(string expression, Type declared, object? first, object? second)
+    {
+        (Type type, object?[] values) = Column($"SELECT Id, {expression} AS c FROM T ORDER BY Id");
+        Assert.Equal(declared, type);
+        Assert.Equal([first, second], values);
+    }
+
+    // A Variant sorts, groups and takes Max as its text, so 200000 comes before 70000.
+    [Fact]
+    public void A_variant_sorts_and_takes_max_as_its_text()
+    {
+        var culture = CultureInfo.GetCultureInfo("en-US");
+        Assert.Equal([2, 1], database.Query("SELECT Id FROM T ORDER BY CVar(L)", culture).Rows.Select(r => r[0]));
+        Assert.Equal("70000", database.Query("SELECT MAX(CVar(L)) FROM T", culture).Rows.Single()[0]);
+    }
+
+    // CVar(Null) is left untyped, as a bare Null is. ACE makes a union with an arm of them text, but EFCore.Jet writes
+    // one for every projected Null, and LibRed keeps the union's values as the other arm has them.
+    [Fact]
+    public void A_union_with_a_cvar_null_arm_keeps_the_other_arms_values() =>
+        Assert.Equal([null, (byte)3],
+            database.Query(Union("CVar(NULL)", "B"), CultureInfo.GetCultureInfo("en-US")).Rows.Select(r => r[0]));
+
     [Fact]
     public void Values_keep_their_widened_value()
     {

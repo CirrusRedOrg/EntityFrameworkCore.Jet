@@ -122,32 +122,16 @@ public class WideMemoUsageMapAccessTests(ITestOutputHelper output) : TempDatabas
     {
         using var channel = PageChannel.Open(path, readOnly: true);
         JetFormatBase format = channel.Format;
-        TableDef def = new JetCatalog(channel).FindTable(table)!;
-        (PageBuffer buf, _) = TdefChainReader.Read(channel, def.DefinitionPage);
+        TableDefinition def = new JetCatalog(channel).FindTable(table)!;
 
-        int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);
-        int colCount = buf.ReadUInt16(format.TdefColumnCountOffset);
-        int pos = format.TdefRealIndexBlockOffset + dataCount * format.RealIndexEntrySize
-                  + colCount * format.ColumnDescriptorSize;
-        for (int i = 0; i < colCount; i++) pos += 2 + buf.ReadUInt16(pos);
-
-        int primary = Int24(buf, format.TdefOwnedPagesOffset + 1);
+        (_, int primary) = channel.ReadPage(def.DefinitionPage).ReadRecordPointer(format.TdefOwnedPagesOffset);
         var primaryPage = new DataPage();
         primaryPage.Read(channel.ReadPage(primary), format);
 
-        var entries = new List<string>();
-        for (int i = 0; i < dataCount; i++)
-        {
-            int block = pos + i * IndexBlockFormat.DataBlockSize;
-            int row = buf.ReadByte(block + IndexBlockFormat.UsageMapRowOffset);
-            int page = Int24(buf, block + IndexBlockFormat.UsageMapRowOffset + 1);
-            entries.Add($"{row}@{(page == primary ? "primary" : "own")}");
-        }
+        IEnumerable<string> entries = def.Indexes.Select(i =>
+            $"{i.UsageMap.Row}@{(i.UsageMap.Page == primary ? "primary" : "own")}");
 
-        return $"{dataCount} indexes; primary map {primaryPage.Rows.Count} rows; "
+        return $"{def.Indexes.Count} indexes; primary map {primaryPage.Rows.Count} rows; "
             + $"index rows: {string.Join(", ", entries)}";
     }
-
-    private static int Int24(PageBuffer buf, int offset) =>
-        buf.ReadByte(offset) | (buf.ReadByte(offset + 1) << 8) | (buf.ReadByte(offset + 2) << 16);
 }

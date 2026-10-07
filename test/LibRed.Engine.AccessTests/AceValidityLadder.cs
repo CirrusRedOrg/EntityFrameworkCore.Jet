@@ -16,7 +16,7 @@ namespace LibRed.Engine.Tests;
 ///   <item>ACE inserts, updates and deletes through its own allocator and index maintenance</item>
 ///   <item>LibRed reads the file back after ACE has written to it</item>
 /// </list>
-/// Rung 4 earns its place: ACE writing means ACE trusting page 1's free map enough to allocate against it, and
+/// Rung 4 earns its place: ACE writing means ACE trusting the global free map enough to allocate against it, and
 /// a file can pass 1-3 on a free map that is quietly wrong.
 /// </summary>
 /// <remarks>Shared so both arms judge by one standard — a finding from either has to be comparable.</remarks>
@@ -163,7 +163,7 @@ internal static class AceValidityLadder
         try
         {
             using var db = JetDatabase.Open(path, readOnly: true);
-            foreach (TableDef table in db.Catalog.UserTables)
+            foreach (TableDefinition table in db.Catalog.UserTables)
                 foreach (object?[] row in db.OpenTable(table.Name).Rows())
                     _ = row.Length;
             return null;

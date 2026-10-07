@@ -31,31 +31,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         MigrationsSqlGeneratorDependencies dependencies,
         ICommandBatchPreparer commandBatchPreparer) : MigrationsSqlGenerator(dependencies)
     {
-        private IReadOnlyList<MigrationOperation> _operations = null!;
         private readonly ICommandBatchPreparer _commandBatchPreparer = commandBatchPreparer;
-
-        /// <summary>
-        ///     Generates commands from a list of operations.
-        /// </summary>
-        /// <param name="operations"> The operations. </param>
-        /// <param name="model"> The target model which may be <see langword="null" /> if the operations exist without a model. </param>
-        /// <param name="options"> The options to use when generating commands. </param>
-        /// <returns> The list of commands to be executed or scripted. </returns>
-        public override IReadOnlyList<MigrationCommand> Generate(
-            IReadOnlyList<MigrationOperation> operations,
-            IModel? model = null,
-            MigrationsSqlGenerationOptions options = MigrationsSqlGenerationOptions.Default)
-        {
-            _operations = operations;
-            try
-            {
-                return base.Generate(operations, model, options);
-            }
-            finally
-            {
-                _operations = null!;
-            }
-        }
 
         /// <summary>
         ///     <para>
@@ -184,7 +160,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 Dependencies.MigrationsLogger.ColumnOrderIgnoredWarning(operation);
             }
 
-            IEnumerable<ITableIndex>? indexesToRebuild = null;
             var column = model?.GetRelationalModel().FindTable(operation.Table, operation.Schema)
                 ?.Columns.FirstOrDefault(c => c.Name == operation.Name);
 
@@ -225,12 +200,11 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 addColumnOperation.AddAnnotations(operation.GetAnnotations());
 
                 // TODO: Use a column rebuild instead
-                indexesToRebuild = GetIndexesToRebuild(column, operation).ToList();
-                DropIndexes(indexesToRebuild, builder);
+                // No index to drop first and recreate after: Jet cannot index a calculated column in any usable
+                // way (ACE accepts CREATE INDEX on one, then refuses every INSERT into the table).
                 Generate(dropColumnOperation, model, builder, terminate: false);
                 builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
                 Generate(addColumnOperation, model, builder);
-                CreateIndexes(indexesToRebuild, builder);
                 builder.EndCommand();
 
                 return;
@@ -266,12 +240,8 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                     || operation is { IsNullable: false, OldColumn.IsNullable: true };
             }
 
-            if (narrowed)
-            {
-                indexesToRebuild = GetIndexesToRebuild(column, operation).ToList();
-                DropIndexes(indexesToRebuild, builder);
-            }
-
+            // No DROP INDEX / CREATE INDEX around the ALTER: Jet's ALTER COLUMN rebuilds the indexes over the column
+            // itself, keeping each one's name, columns, order and flags, the primary key included.
             var newAnnotations = operation.GetAnnotations().Where(a => a.Name != JetAnnotationNames.Identity);
             var oldAnnotations = operation.OldColumn.GetAnnotations().Where(a => a.Name != JetAnnotationNames.Identity);
 
@@ -391,11 +361,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                     builder);
 
                 builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
-            }
-
-            if (narrowed)
-            {
-                CreateIndexes(indexesToRebuild!, builder);
             }
 
             builder.EndCommand();
@@ -968,87 +933,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(columnName))
                 .Append(" DROP DEFAULT")
                 .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
-        }
-
-        /// <summary>
-        ///     Gets the list of indexes that need to be rebuilt when the given column is changing.
-        /// </summary>
-        /// <param name="column"> The column. </param>
-        /// <param name="currentOperation"> The operation which may require a rebuild. </param>
-        /// <returns> The list of indexes affected. </returns>
-        protected virtual IEnumerable<ITableIndex> GetIndexesToRebuild(
-            IColumn? column,
-            MigrationOperation currentOperation)
-        {
-            if (column == null)
-            {
-                yield break;
-            }
-
-            var table = column.Table;
-            var createIndexOperations = _operations.SkipWhile(o => o != currentOperation)
-                .Skip(1)
-                .OfType<CreateIndexOperation>()
-                .ToList();
-            foreach (var index in table.Indexes)
-            {
-                var indexName = index.Name;
-                if (createIndexOperations.Any(o => o.Name == indexName))
-                {
-                    continue;
-                }
-
-                if (index.Columns.Any(c => c == column))
-                {
-                    yield return index;
-                }
-                else if (index[JetAnnotationNames.Include] is IReadOnlyList<string> includeColumns
-                         && includeColumns.Contains(column.Name))
-                {
-                    yield return index;
-                }
-            }
-        }
-
-        /// <summary>
-        ///     Generates SQL to drop the given indexes.
-        /// </summary>
-        /// <param name="indexes"> The indexes to drop. </param>
-        /// <param name="builder"> The command builder to use to build the commands. </param>
-        protected virtual void DropIndexes(
-            IEnumerable<ITableIndex> indexes,
-            MigrationCommandListBuilder builder)
-        {
-            foreach (var index in indexes)
-            {
-                var table = index.Table;
-                var operation = new DropIndexOperation
-                {
-                    Schema = table.Schema,
-                    Table = table.Name,
-                    Name = index.Name
-                };
-                operation.AddAnnotations(index.GetAnnotations());
-
-                Generate(operation, table.Model.Model, builder, terminate: false);
-                builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
-            }
-        }
-
-        /// <summary>
-        ///     Generates SQL to create the given indexes.
-        /// </summary>
-        /// <param name="indexes"> The indexes to create. </param>
-        /// <param name="builder"> The command builder to use to build the commands. </param>
-        protected virtual void CreateIndexes(
-            IEnumerable<ITableIndex> indexes,
-            MigrationCommandListBuilder builder)
-        {
-            foreach (var index in indexes)
-            {
-                Generate(CreateIndexOperation.CreateFrom(index), index.Table.Model.Model, builder, terminate: false);
-                builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
-            }
         }
 
         private static bool IsIdentity(ColumnOperation operation)

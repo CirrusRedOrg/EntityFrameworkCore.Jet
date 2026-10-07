@@ -199,7 +199,7 @@ public class AceAlterColumnTests
     // Faithful round-trip: changing ONE column's type must not disturb another column's on-disk descriptor.
     // ACE authors the table (so the untouched column's bytes are ACE's, not LibRed's defaults); LibRed retypes a
     // different, same-width column (no layout shift), then the untouched column's 25 descriptor bytes must be
-    // byte-identical — the RawDescriptor passthrough, not a rebuild-from-model that would stamp defaults.
+    // byte-identical — the ALTER edits the TDEF in place, never re-emitting a descriptor from the model.
     [Fact]
     public void Libred_type_change_preserves_an_untouched_columns_descriptor_bytes()
     {

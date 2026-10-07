@@ -52,7 +52,7 @@ public class TextKeyEncodingTests
             var def = table.Definition;
             IndexDef pk = def.Indexes.Single(i => i.IsPrimaryKey);
             int kIdx = def.FindColumn("K")!.Index;
-            var decoder = new RowDecoder(def.Columns, db.Format);
+            var decoder = new RowCodec(def.Columns, db.Format);
 
             int checkd = 0;
             foreach (var (accessKey, rowId) in new IndexCursor(table.Channel, pk.RootPage).RawEntries())
@@ -61,7 +61,7 @@ public class TextKeyEncodingTests
 
                 var values2 = new object?[def.Columns.Count];
                 values2[kIdx] = k;
-                byte[] ours = IndexKeyEncoder.Encode(pk.Columns, values2);
+                byte[] ours = IndexKeyCodec.Encode(pk.Columns, values2);
 
                 Assert.True(accessKey.AsSpan().SequenceEqual(ours),
                     $"'{k}': access={Convert.ToHexString(accessKey)} ours={Convert.ToHexString(ours)}");
@@ -102,7 +102,7 @@ public class TextKeyEncodingTests
             IndexDef ixK = def.Indexes.First(i => i.Columns.Any(c => c.Column.Name == "K"));
             Assert.False(ixK.Columns.First(c => c.Column.Name == "K").Ascending); // descending
             int kIdx = def.FindColumn("K")!.Index;
-            var decoder = new RowDecoder(def.Columns, db.Format);
+            var decoder = new RowCodec(def.Columns, db.Format);
 
             int checkd = 0;
             foreach (var (accessKey, rowId) in new IndexCursor(table.Channel, ixK.RootPage).RawEntries())
@@ -110,7 +110,7 @@ public class TextKeyEncodingTests
                 string k = (string)decoder.Decode(db.ReadDataPage(rowId.Page).GetRow(rowId.Row))[kIdx]!;
                 var vals = new object?[def.Columns.Count];
                 vals[kIdx] = k;
-                byte[] ours = IndexKeyEncoder.Encode(ixK.Columns, vals);
+                byte[] ours = IndexKeyCodec.Encode(ixK.Columns, vals);
                 Assert.True(accessKey.AsSpan().SequenceEqual(ours),
                     $"'{k}': access={Convert.ToHexString(accessKey)} ours={Convert.ToHexString(ours)}");
                 checkd++;

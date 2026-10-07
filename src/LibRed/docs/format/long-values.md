@@ -17,7 +17,7 @@ Flags (byte `0x03` masked with `0xC0`; its low six bits belong to the length):
 - `0x80` **inline** — the payload follows the descriptor in the row.
 - `0x40` **single LVAL page** — the row at (page, row) *is* the whole payload. Several such values **share**
   a page; deleting one retires its row to a 0-length deleted + overflow tombstone and re-lays the page, and
-  the page is released as type `0x09` once the last of them is gone
+  the page is released as type `0x0109` once the last of them is gone
   ([page-05 §9](page-05-usage-maps.md)).
 - `0x00` **multi-page** — the payload is chained across LVAL pages; each chunk's row begins
   with a 4-byte pointer (`[row:1][page:3]`) to the next chunk (zero on the last), followed by chunk
@@ -116,11 +116,11 @@ character at both ends, 536,870,911 accepted and 536,870,912 refused.
 > chaining. What fixes the boundary at 3816, rather than the 4076 a row can actually hold, is **not
 > established**; the ~260-byte margin is unexplained.
 
-LVAL pages are data pages (type `0x01`) whose owner field (`0x04`) is the ASCII marker `LVAL`.
+LVAL pages are data pages (type `0x0101`) whose owner field (`0x04`) is the ASCII marker `LVAL`.
 
 > **Reader and reclamation guardrails.** LibRed requires the complete 12-byte descriptor before reading
 > its fields, accepts only the three flags above, and bounds inline data against the bytes actually present.
-> Every external pointer must name an in-file type-`0x01` page with the `LVAL` owner marker and a live,
+> Every external pointer must name an in-file type-`0x0101` page with the `LVAL` owner marker and a live,
 > ordinary row slot. Chained rows must contain their 4-byte next pointer, make payload progress, never repeat
 > a `(page,row)`, terminate at zero exactly when the declared length is reached, and neither underfill nor
 > overrun that length. Before reclaiming a replaced chain, LibRed validates the complete chain and requires
@@ -176,7 +176,7 @@ the long values:
 > **Writing.** LibRed inlines a memo/OLE value only up to **64 bytes** (same for Jet3/Jet4): the 12-byte
 > descriptor with length + the `0x80` flag (bytes `0x04`–`0x0B` zero) then the payload (memo = UTF-16LE,
 > OLE = raw bytes). A value of **65–3816 bytes** is written as one row on an **LVAL page** (`0x40`
-> descriptor, `LongValueWriter`; rows share a page, see below) — `RowInserter` materialises it before
+> descriptor, `LongValueStore`; rows share a page, see below) — `RowInserter` materialises it before
 > encoding. This matters for Access, not just LibRed: Access
 > tolerates an inline value its reader resolves, but **rejects an over-64-byte value inlined** (e.g. it
 > opens the database yet fails to *run* a view whose subquery `Expression` was inlined; on an LVAL page
@@ -184,6 +184,24 @@ the long values:
 > a **chain** (`0x00` descriptor): the payload is split into 4072-byte data chunks,
 > each on its own page with a 4-byte next-pointer, matching ACE byte-for-byte (verified: LibRed and
 > Access both read back memo values from 65 bytes to 100 KB — single-page and multi-page).
+>
+> **A row's values are written chains first.** ACE writes every chained value of the row, in column order, and
+> only then its single-page values, in column order — so a single-page value in an earlier column takes a
+> page after the chains, not before them. Measured on one inserted row with each pairing: two chains, two
+> single-page values (either the larger first), and a single-page value before a chain, which alone differs
+> from plain column order. LibRed writes in the same order, and the pages match ACE's.
+>
+> **A compressed single-page value is placed by its uncompressed size, and leaves its uncompressed bytes
+> behind.** ACE writes the value's uncompressed UTF-16 bytes where they would sit — ending at the page end on a
+> fresh page, or at the lowest existing row on a shared one — then the compressed row, ending at the same place,
+> over their upper end; the rest of the uncompressed image stays in the page's free space. So a page takes the
+> value only if it has room for the *uncompressed* bytes and a directory entry: `String(1800,'e')` then
+> `String(1200,'f')` in a `MEMO WITH COMPRESSION` column put the second value on a new page, though its 1,202
+> compressed bytes would have fit beside the first; `String(1000,'f')` shared the page. The free-space field and
+> the free-pages map count the compressed row. Measured on a fresh page (300 and 1,800 characters), on a shared
+> page, and at that boundary; the exact room test (whether the directory entry counts on top of the
+> uncompressed bytes) is not measured. A value that does not compress, or a column without compression, leaves
+> nothing behind. LibRed does the same, byte for byte.
 >
 > **LibRed writes the §3.3.2 entry + empty usage maps for every memo/OLE column** — byte-faithful with
 > ACE, whose usage-map page lays the records out as: row 0 table-owned, row 1 table-free, then one row
@@ -210,23 +228,31 @@ the long values:
 > the primary page full, ACE does not compact or reuse it but allocates a page holding the new index's map
 > alone, at row 0 (verified: after `CREATE INDEX` the primary page still has its 57 rows and the new index
 > block's `+0x22` pointer reads row 0 of a fresh page). Only when the primary page still has room for
-> another 69-byte record does the new index's map go there, appended after the existing rows. Each column's
+> another 69-byte record does the new index's map go there, appended after the existing rows — **always
+> appended, never a reused row**: `DROP INDEX` leaves the dropped index's map row in place, and the next
+> `CREATE INDEX` still takes a new row after the last one — a page of rows 0–4 that loses an index and gains
+> one grows to 6 rows, with the new index at row 5 (verified). The row therefore cannot be derived from the
+> table's shape. Each column's
 > §3.3.2 `used_pages`/`free_pages` pointers, and the index blocks' `+0x22` pointers, carry the resolved
 > (row, page). For a fresh table all these maps are empty. When LibRed writes a value to an LVAL page (§8),
 > it **sets that page's bit in the column's owned-pages *and* free-pages maps** — both §3.3.2
-> pointers are parsed from the TDEF (`TableDefinitionPage.LongValueOwnedMaps` / `LongValueFreeMaps`, keyed
+> pointers are parsed from the TDEF (`TableDefinition.LongValueOwnedMaps` / `LongValueFreeMaps`, keyed
 > by column id) and the inline bitmap bit is set. **Pages are packed like Access:** a value up to one row
 > is appended to the first **free-map** page with room (many small values share a page as separate rows);
 > only when none has room is a fresh page allocated (owned + free). A page is dropped from the free map
-> once it can't hold the smallest long value (65-byte payload + its 2-byte slot). This reproduces Access's
+> once it can't hold a **256-byte** value and its 2-byte slot — **257 bytes free or fewer** (verified vs ACE,
+> memo and OLE alike: 257 free leaves the map, 258 stays) — not once it can't hold the smallest long value; a
+> page is also kept when a value too large for it goes elsewhere. This reproduces Access's
 > layout — a column **owns** every page it has filled but **frees** only the current append target, so
-> medium memos share a few pages (full ones owned-only, the current one owned+free), not one each. The same
-> packing is used for the MSysObjects **LvProp** property blob (via `RowInserter.StorePackedLongValue`) —
-> but always to a page, never inline (Access reads object properties only from a page), so two tables'
-> DEFAULT/CHECK blobs share one LvProp page. A chained value uses dedicated pages. A page outside the inline
-> map's window is handled by the shared `UsageMapWriter.SetBit`, which grows the inline record in place and
+> medium memos share a few pages (full ones owned-only, the current one owned+free), not one each. The
+> MSysObjects **LvProp** property blob follows the same rules as any long value (via
+> `RowInserter.StorePackedLongValue`) — **inline up to 64 bytes**, packed onto a page above that, so two
+> tables' larger DEFAULT/CHECK blobs share one LvProp page. Verified against ACE: a table's blob of 51–63
+> bytes (a single `Required` or `DefaultValue`) is inline in its MSysObjects row, and one of 65 bytes or more
+> is on a page. A chained value uses dedicated pages. A page outside the inline
+> map's window is handled by the shared `UsageMap.SetBit`, which grows the inline record in place and
 converts it to a reference map when it no longer fits — a long-value column's maps are not a special case,
-and `MapPages` reads either form back.
+and `UsageMap.PagesInMap` reads either form back.
 
 > **The terminating `0xFFFF` is mandatory on write — even for a table with no long-value
 > columns** (where the list is empty and the `0xFFFF` is the only bytes here). Omitting it makes
@@ -236,6 +262,15 @@ and `MapPages` reads either form back.
 > pointer, not these maps), but the terminator **must be written**. A table with memo/OLE columns must
 > additionally allocate the usage-map records and emit a real `{col_num, used, free}` entry per long-value
 > column — verified against ACE-authored tables.
+>
+> **An entry can carry an owned-pages map and no free-pages map** — its free pointer is page 0. Access writes
+> exactly two columns that way, `MSysNameMap.NameMap` and `MSysAccessXML.LValue`; every other long-value
+> column examined has both. Such a column **never shares a page**: each value over 64 bytes is on an LVAL
+> page of its own, recorded in the owned map alone (measured: one page per stored value in every such file).
+> LibRed writes to one the same way — a fresh page per value, owned bit only, nothing packed — and ACE reads
+> the result back and keeps it through a compact (verified, single-page and chained values). LibRed retires a
+> value from one by clearing its owned bit and releasing the page, there being no free map to update — not
+> measured against ACE.
 >
 > The §3.3.2 entry is only strictly *required* once a value spills to LVAL pages — an entry-less table
 > still round-trips inline values through both LibRed and Access, but Access fails *"Not a valid bookmark"*

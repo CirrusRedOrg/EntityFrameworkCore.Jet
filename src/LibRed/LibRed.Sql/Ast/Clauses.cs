@@ -7,8 +7,10 @@ public abstract record TableReference : SqlNode;
 public sealed record NamedTable(string Name, string? Alias) : TableReference;
 
 /// <summary>A derived table (subquery) in the FROM clause. The query is any <see cref="SqlStatement"/>
-/// query — a <see cref="SelectStatement"/> or a <see cref="SetOperationStatement"/> (e.g. a UNION).</summary>
-public sealed record SubqueryTable(SqlStatement Query, string? Alias) : TableReference;
+/// query — a <see cref="SelectStatement"/> or a <see cref="SetOperationStatement"/> (e.g. a UNION).
+/// <paramref name="Columns"/> is its column list, <c>AS t(a, b)</c>, naming its columns in order; null without
+/// one.</summary>
+public sealed record SubqueryTable(SqlStatement Query, string? Alias, IReadOnlyList<string>? Columns = null) : TableReference;
 
 /// <summary>
 /// <see cref="Full"/> is a LibRed extension - ACE has no full outer join. So are <see cref="CrossApply"/> and

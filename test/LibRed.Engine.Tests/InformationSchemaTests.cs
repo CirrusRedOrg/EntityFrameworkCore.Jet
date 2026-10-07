@@ -26,6 +26,17 @@ public class InformationSchemaTests : TempDatabaseTest
         Assert.Equal(0, miss);
     }
 
+    // RELATION_TYPE is grbit's one-to-one bit, which SQL never sets — not the uniqueness of whatever index covers
+    // the child columns. A foreign key from one primary key to another is still one-to-many.
+    [Fact]
+    public void Relations_view_reports_a_sql_foreign_key_between_primary_keys_as_many()
+    {
+        var e = Seeded();
+        e.ExecuteNonQuery("CREATE TABLE Part (Id LONG PRIMARY KEY, CONSTRAINT fk_part FOREIGN KEY (Id) REFERENCES Widget (Id))");
+        var row = e.ExecuteQuery("SELECT `RELATION_TYPE` FROM `INFORMATION_SCHEMA.RELATIONS` WHERE `RELATION_NAME` = 'fk_part'").Rows.Single();
+        Assert.Equal("MANY", row[0]);
+    }
+
     [Fact]
     public void Columns_view_lists_columns()
     {

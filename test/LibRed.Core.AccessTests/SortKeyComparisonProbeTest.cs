@@ -17,7 +17,7 @@ namespace LibRed.Core.Tests;
 //
 // Four encodings per string, so the shapes can be compared directly:
 //   1. ACE      - the bytes ACE stored in its own index (ground truth).
-//   2. LibRed   - IndexKeyEncoder over the same value.
+//   2. LibRed   - IndexKeyCodec over the same value.
 //   3. ICU/NLS  - CompareInfo.GetSortKey, which is what .NET gives you. Since .NET 5 this is ICU on every
 //                 platform unless System.Globalization.UseNls is set, so it is NOT the Win32 sort key.
 //   4. LCMapStringEx(LCMAP_SORTKEY) - the Win32 NLS API Jet itself used, called directly so the comparison
@@ -79,7 +79,7 @@ public class SortKeyComparisonProbeTest(ITestOutputHelper output)
 
                 var aligned = new object?[table.Definition.Columns.Count];
                 aligned[keyColumn.Index] = values[keyColumn.Index];
-                byte[] libred = IndexKeyEncoder.Encode(index.Columns, aligned);
+                byte[] libred = IndexKeyCodec.Encode(index.Columns, aligned);
 
                 output.WriteLine($"\"{value}\"  (row V={values[valueColumn.Index]})");
                 output.WriteLine($"    ACE     {Hex(stored)}");
@@ -125,7 +125,7 @@ public class SortKeyComparisonProbeTest(ITestOutputHelper output)
     private static byte[] JetTextPrimary(char ch)
     {
         var column = new ColumnDef { Name = "t", Type = JetDataType.Text, Index = 0, Collation = Collation.GeneralLegacy };
-        byte[] key = IndexKeyEncoder.Encode([(column, true)], [ch.ToString()]);
+        byte[] key = IndexKeyCodec.Encode([(column, true)], [ch.ToString()]);
         int end = Array.IndexOf(key, (byte)0x01, 1);
         return end < 0 ? [] : key[1..end];
     }

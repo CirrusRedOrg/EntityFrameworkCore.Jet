@@ -7031,10 +7031,10 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 WHERE (
     SELECT COALESCE(SUM(`v`.`Value`), 0)
-    FROM (SELECT CLNG(100) AS `Value` UNION ALL VALUES ((
+    FROM (VALUES (CLNG(100)), ((
         SELECT COUNT(*)
         FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`))) AS `v`) > 101
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`))) AS `v`(`Value`)) > 101
 """);
         }
 

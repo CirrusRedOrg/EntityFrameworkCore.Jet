@@ -38,14 +38,16 @@ public sealed class MonitorLockManager : ILockManager, IDisposable
     private static readonly Dictionary<string, (MonitorLockManager Manager, int RefCount)> Registry =
         [with(StringComparer.Ordinal)];
 
-    private static string Key(string path) => Path.GetFullPath(path).ToLowerInvariant();
+    private static string Key(string path) => FileIdentity.Key(path);
 
 
     /// <summary>The shared manager for a file path (creating it on first use); each call must be paired with a
     /// <see cref="Release"/>.</summary>
-    public static MonitorLockManager Acquire(string path)
+    public static MonitorLockManager Acquire(string path) => AcquireKey(Key(path));
+
+    /// <summary><see cref="Acquire"/> by a key <see cref="FileIdentity"/> has already given.</summary>
+    internal static MonitorLockManager AcquireKey(string key)
     {
-        string key = Key(path);
         lock (Registry)
         {
             if (Registry.TryGetValue(key, out var slot))
@@ -60,9 +62,11 @@ public sealed class MonitorLockManager : ILockManager, IDisposable
     }
 
     /// <summary>Drops one reference; the last release disposes the manager (and its lock stripes).</summary>
-    public static void Release(string path)
+    public static void Release(string path) => ReleaseKey(Key(path));
+
+    /// <summary><see cref="Release"/> by a key <see cref="FileIdentity"/> has already given.</summary>
+    internal static void ReleaseKey(string key)
     {
-        string key = Key(path);
         lock (Registry)
         {
             if (!Registry.TryGetValue(key, out var slot)) return;

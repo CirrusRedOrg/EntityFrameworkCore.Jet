@@ -2,7 +2,7 @@ namespace LibRed.Catalog;
 
 /// <summary>
 /// Describes a single column of a table: its name, type, physical layout and flags.
-/// Decoded from the column descriptors in a <see cref="Pages.TableDefinitionPage"/>.
+/// Decoded from the column descriptors in a <see cref="TableDefinition"/>.
 /// </summary>
 public sealed class ColumnDef
 {
@@ -109,21 +109,30 @@ public sealed class ColumnDef
 
     /// <summary>The text collation (LCID + sort id + sort-order version) for a non-numeric column — read from
     /// the descriptor's locale bytes (<c>0x0B/0x0C</c>), sort id (<c>0x0D</c>) and version byte
-    /// (<c>0x0E</c>). Numeric columns reuse the locale bytes for precision/scale and carry no collation.
+    /// (<c>0x0E</c>). Numeric columns reuse the locale bytes for precision/scale, and complex columns for their
+    /// <c>MSysComplexColumns</c> key; neither carries a collation.
     /// Defaults to General legacy.</summary>
     /// <remarks>The version is at <c>0x0E</c>, not <c>0x0D</c>. Reading it from <c>0x0D</c> — which is 0 in
     /// both General orders — made LibRed report every database as v0, so the byte is worth naming exactly.
-    /// LibRed encodes index keys for 405 collation configurations, not only General legacy.</remarks>
+    /// LibRed encodes index keys for 417 collation configurations, not only General legacy.</remarks>
     public Collation Collation { get; init; } = Collation.GeneralLegacy;
 
-    /// <summary>The column's original on-disk descriptor bytes (the 25-byte Jet4 record), captured verbatim on
-    /// read. Every documented field is now modelled explicitly, so this is carried only to re-emit the
-    /// genuinely <b>reserved/unknown</b> bytes on a rewrite — the reserved words at <c>0x03</c> and <c>0x11</c>,
-    /// and the undocumented bits of the two flag bytes (<c>0x0F</c>/<c>0x10</c>) — instead of stamping zero over
-    /// them (the faithful round-trip rule). Null for a freshly-built (never-read) column.</summary>
-    public byte[]? RawDescriptor { get; init; }
+    /// <summary>The column's on-disk descriptor bytes (the 25-byte Jet4 record), captured verbatim on read —
+    /// the reserved words at <c>0x03</c> and <c>0x11</c> and the undocumented flag bits included, which no
+    /// modelled property carries. Nothing writes from it: every DDL edits the descriptor in place, so those
+    /// bytes are never re-emitted. Null for a freshly-built (never-read) column.</summary>
+    internal byte[]? RawDescriptor { get; init; }
 
-    /// <summary>Undocumented flag bits (byte 0x0F) to force-set — the system-catalog column marker (0x10) and
-    /// security-identifier marker (0x20) Access sets on MSys* columns. 0 for ordinary columns.</summary>
+    /// <summary>Catalog flag bits (byte 0x0F) to force-set on a created column — the system-catalog column marker
+    /// (0x10) and security-identifier marker (0x20) Access sets on the columns of its own catalog tables. 0 for
+    /// every other column.</summary>
     public byte SystemFlags { get; init; }
+
+    /// <summary>Whether a created column belongs to a table the engine makes for itself, which writes 0x09 — the
+    /// second copy of the column id — as zero.</summary>
+    internal bool IsEngineColumn { get; init; }
+
+    /// <summary>Extended flag bits (byte 0x10) LibRed does not model, to set on a created column — the attachment
+    /// value column marker (0x10). 0 for every other column.</summary>
+    internal byte ExtendedFlags { get; init; }
 }

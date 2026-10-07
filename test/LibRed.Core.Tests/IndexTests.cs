@@ -161,6 +161,6 @@ public class IndexTests
         }
     }
 
-    private static RowDecoder NewDecoder(JetDatabase db, Table table) =>
-        new(table.Definition.Columns, db.Format, new LongValueReader(table.Channel));
+    private static RowCodec NewDecoder(JetDatabase db, Table table) =>
+        new(table.Definition.Columns, db.Format, longValues: new LongValueStore(table.Channel));
 }

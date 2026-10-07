@@ -39,26 +39,37 @@ EFCore → Ado → Engine → Sql
 EF Core services **both** providers share. Nothing under `src/LibRed` references `EFCore.Jet` or
 `EFCore.Jet.Data`, which is what keeps LibRed off the ACE-bound, Windows-only path.
 
-## Layering inside LibRed.Core
+## Ownership inside LibRed.Core
 
-```
-Storage  (Table, TableCursor, RowDecoder, UsageMap, Types/JetTypeCodec)
-   ↓
-Catalog  (JetCatalog → TableDef / ColumnDef / IndexDef, JetDataType)
-   ↓
-Pages    (DatabaseDefinition, TableDefinition, Data, Index, UsageMap, Lval)
-   ↓
-IO       (PageChannel, PageBuffer)   ← Crypto decrypts pages here
-   ↓
-Formats  (JetFormatBase — Jet 4 / ACE offsets & constants; a future Jet3Format overrides)
-```
+Each stored structure owns its layout and both directions of its codec. Schema changes use these owners
+through `SchemaEditor`; there is one table definition, one database definition and one allocator per channel.
+
+Engine uses Core's public API only. `JetDatabase` owns schema operations, and `Table.Insert`, `Update` and
+`Delete` maintain the row and its indexes together; deletion also removes the row's owned complex values.
+Raw page writes, allocation, schema writers and separate
+index mutations are internal. Published table and catalog metadata collections are read-only views.
+SQL expression checks, relationships and cascades are enforced by Engine before calling these storage operations.
+
+| Area | Owners |
+| --- | --- |
+| Database and data pages | `DatabaseDefinitionPage`, `DataPage` (including released states and relocation targets) |
+| Table definitions | `TableDefinition`: metadata, descriptors, index blocks, chain reads and writes |
+| Rows and values | `RowCodec` (layout and declaration limits), `JetTypeCodec`, `CalculatedValue`, `LongValueStore` |
+| Indexes | `IndexTree` (leaf and intermediate pages), `IndexKeyCodec` (encoding, decoding and truncation checksum), `IndexCursor` (traversal) |
+| Maps and allocation | `UsageMap` reads and writes maps; `PageChannel.Allocator` owns page reuse, growth and release |
+| Catalog and schema | `JetCatalog`, `SchemaEditor`, `PropertyBlob`, `NameMap`, `StoredQuery`, `ComplexAttachment` |
+| File access | `PageChannel`, `PageBuffer`, cache, transactions and locks; Crypto codecs transform pages here |
+| Version differences | `JetFormatBase` and its Jet/ACE implementations; format code and flag enums |
+
+Page types `0x0108` and `0x0109` are release states of `TableDefinition` and `DataPage`. The unknown
+`0x0106` and `0x0107` layouts have no implementation. See [the format reference](docs/format/README.md).
 
 ## Status
 
 Well past scaffolding — LibRed reads, writes and **creates** real `.mdb`/`.accdb` files, runs SQL end-to-end,
 and EF Core runs its specification suite against it in two SQL modes.
 
-The cross-platform claim is tested rather than asserted: CI runs the engine suite and both EF Core
+The cross-platform claim is tested rather than asserted: CI runs the engine and core suites and both EF Core
 specification suites on Linux, Windows, macOS, ubuntu-arm and windows-arm, with no Access engine installed on
 any of them. The suites that *do* install ACE exist to cross-check LibRed's output against the real engine,
 which is a different job.
@@ -80,15 +91,18 @@ Treat the number as of its date — an EF Core version bump moves it.
 - **Views & stored queries** — a query is written the way Access does: an `MSysObjects` type-5 row
   (negative synthetic id) plus the query decomposed byte-faithfully into `MSysQueries` rows — and Access
   opens the file and runs it. Covered: `CREATE VIEW` (`SELECT` with joins, `WHERE`, `DISTINCT`, `BETWEEN`,
-  `#date#` literals, column aliases, `Table.*`, nested/parenthesised joins), **GROUP BY totals**, **`TOP`
+  `#date#` literals, column aliases, `Table.*`, nested/parenthesised joins), **GROUP BY totals** with
+  `HAVING`, **`TOP`
   + `ORDER BY`**, and **derived-table / `UNION` sources** (the long subquery text lands on an LVAL page so
   Access executes it); **`CREATE PROCEDURE`** (parameterized — bare or parenthesised list, `@name`),
-  including **action-query** bodies (`CREATE TABLE` / `INSERT … VALUES`); and **`EXECUTE`/`EXEC`**.
+  including **action-query** bodies (`CREATE TABLE`, `INSERT … VALUES`, `INSERT … SELECT`, `UPDATE`, `DELETE`
+  and `SELECT … INTO`); and **`EXECUTE`/`EXEC`**.
   LibRed's own engine **reads them all back** — reconstructing the SQL from `MSysQueries` and expanding a
   view referenced in `FROM` (or inside an expression subquery) to a derived table — so they run through
   LibRed too. Reading is not limited to what LibRed writes: the `Attribute=1` operation row is read as the
   query **kind** (Access writes it on plain SELECTs as well as on action queries), a query with no column
-  rows is Access's `SELECT *`, and `DISTINCTROW` and `TOP … PERCENT` are decoded from their own option bits.
+  rows is Access's `SELECT *`, and `DISTINCTROW`, `TOP … PERCENT` and `WITH OWNERACCESS OPTION` are decoded
+  from their own option bits.
   Measured over a corpus of 19 real-world databases: 479 of 592 stored queries come back as views, and 337 of
   those reproduce ACE's own SQL exactly once bracketing and whitespace are normalised.
 - **Write** — row insert with order-preserving index-key encoding and **full B-tree maintenance**
@@ -99,7 +113,8 @@ Treat the number as of its date — an EF Core version bump moves it.
   `int32`, which ACE does not treat as an error either); unique-index statistics; allocation through the
   global free-pages map; `MSysObjects` / `MSysACEs` catalog rows. `UPDATE`/`DELETE` write in place, relocate
   rows that no longer fit, maintain every index, and reclaim LVAL pages. Freed pages go back to that map
-  when the database closes, as ACE holds them — only an `UPDATE`'s replaced long value is reusable at once.
+  when the database closes, as ACE holds them — only an `UPDATE`'s replaced long value is reusable at once,
+  by the statements after it.
   `DROP TABLE` frees every page the table owns: data and long-value pages (each Memo/OLE column's hang off a
   per-column usage map, and are most of a memo-heavy table), every page of every index, the TDEF and its
   continuation pages, and a reference-form map's bitmap pages. It retires each map's records from their
@@ -147,10 +162,15 @@ Treat the number as of its date — an EF Core version bump moves it.
   is retailored at all and a word needs two accents before the order diverges. Covered: French, German
   (incl. Phone Book), Spanish Traditional and Modern, Czech, Slovak, Polish, Hungarian (incl. Technical),
   Croatian, Bosnian, Serbian, Slovenian, Romanian, Turkish, Estonian, Latvian, Lithuanian, Icelandic,
-  Norwegian/Danish, Swedish/Finnish, Ukrainian, Macedonian, Vietnamese, Georgian Modern, Indic and Thai.
+  Norwegian/Danish, Swedish/Finnish, Ukrainian, Macedonian, Vietnamese, Georgian Modern, Indic and Thai —
+  and the **Chinese, Japanese and Korean** orders (Pronunciation, Stroke Count, Bopomofo, Radical/Stroke,
+  in both versions where Access offers both): General plus a measured table of ideograph weights, and for
+  Korean a reordering that sorts Hangul first. The two "Unicode" CJK orders stay refused — Access creates
+  them but ACE will not open them. Iteration marks (`々`, `ゝ`, …) repeat the weight before them, as ACE's do.
   The collation itself is **one 32-bit LCID** — LANGID plus a sort id that distinguishes an alternate order
   for the same language (Hungarian Technical from Hungarian, German Phone Book from German) — plus the
-  version byte. Five orders DAO still offers (Arabic, Greek, Hebrew, Dutch, Cyrillic) are **inert**: ACE
+  version byte. A database created in an order carries that language's ANSI code page on page 0, as
+  Access's do. Five orders DAO still offers (Arabic, Greek, Hebrew, Dutch, Cyrillic) are **inert**: ACE
   records them faithfully and then encodes General keys anyway, verified over 82 samples. Also handled:
   the 510-byte index-entry limit with ACE's own truncation checksum, characters above the BMP, and the
   16-bit inline word-sort position. See `docs/format/page-03-04-index-btree.md` and
@@ -159,23 +179,39 @@ Treat the number as of its date — an EF Core version bump moves it.
   in every documented Access form: table-level `FOREIGN KEY [NO INDEX] (…) REFERENCES …`, column-level
   `… REFERENCES …`, and `ON UPDATE`/`ON DELETE` in either order. A relationship is persisted to
   `MSysRelationships` with a child-side FK index and **byte-faithful** logical-index linkage on both
-  tables' TDEFs (Access opens the file and enumerates it), with referential-integrity enforcement on
-  `INSERT` and **`CASCADE` / `SET NULL` referential actions** on `UPDATE`/`DELETE`. `UNIQUE` creates a unique
-  non-primary index, and self-referencing foreign keys are handled inline.
+  tables' TDEFs (Access opens the file and enumerates it). Referential integrity is enforced on `INSERT`, on
+  an `UPDATE` of a child's key and on every row a cascade rewrites; `ALTER TABLE … ADD FOREIGN KEY` checks the
+  rows already there; and the referential actions — `ON UPDATE CASCADE`, `ON DELETE CASCADE`,
+  `ON DELETE SET NULL` — carry on down a chain, since a cascaded row applies its own relationships too. Inside a
+  transaction the check is made again at commit from both ends, so neither a child added nor a parent removed
+  by another connection meanwhile slips through. `UNIQUE` creates a unique non-primary index, and
+  self-referencing foreign keys are handled inline.
   Column `DEFAULT` values are persisted to the table's `LvProp` property blob (on an LVAL page),
   read back onto the column, and applied when an insert omits the column — **and Access honors them too**.
   Table-level `CHECK` constraints are persisted to the `LvProp` `CheckConstraints` property (verbatim
-  expression text) and read back onto `TableDef.CheckConstraints` — **and Access enforces them**.
+  expression text) and read back onto `TableDefinition.CheckConstraints` — **and Access enforces them**.
+  From files Access wrote, a relationship's 1:1 flag (`grbit` `0x01`) is read and reported as ONE/MANY by
+  `INFORMATION_SCHEMA`, and a column's `ValidationRule`/`ValidationText` are read off the same property blob,
+  reported by `INFORMATION_SCHEMA` and kept through a rewrite.
 - **SQL** — ANTLR front end (parser → binder via `ISchemaProvider` → planner → executor). Statements:
   `CREATE TABLE`, `CREATE [UNIQUE] INDEX … [WITH {PRIMARY|DISALLOW NULL|IGNORE NULL}]`, `CREATE VIEW`,
   `CREATE PROCEDURE`, `ALTER TABLE` (ADD/DROP COLUMN, ADD PK/FK/UNIQUE/CHECK, ALTER COLUMN incl. the
-  byte-faithful in-place type change, DROP CONSTRAINT), `DROP {TABLE|INDEX|VIEW|PROCEDURE}`, `INSERT`
+  byte-faithful in-place type change and `SET`/`DROP DEFAULT`, DROP CONSTRAINT, `RENAME TO`/`RENAME COLUMN`),
+  `DROP {TABLE|INDEX|VIEW|PROCEDURE}`, `INSERT`
   (with AutoNumber) — from `VALUES`, from a multi-row table value constructor, or from a query
   (`INSERT INTO … SELECT`, the append query) — `SELECT … INTO` (the make-table query), `UPDATE`, `DELETE`,
-  `EXECUTE`, `IF … THEN`, and `SELECT` with `WHERE`, joins, `GROUP BY`/aggregates, `HAVING`, `ORDER BY`,
-  `TOP [PERCENT]`, `ALL`/`DISTINCT`/`DISTINCTROW`, `UNION`/`INTERSECT`/`EXCEPT`, subqueries, and parameters.
+  `EXECUTE`, `IF … THEN`, `BEGIN`/`COMMIT`/`ROLLBACK [TRANSACTION|WORK]`, `SELECT @@IDENTITY`, and `SELECT`
+  with `WHERE`, joins, `GROUP BY`/aggregates, `HAVING`, `ORDER BY`, `TOP [PERCENT]`,
+  `ALL`/`DISTINCT`/`DISTINCTROW`, `UNION`/`INTERSECT`/`EXCEPT`, subqueries, and parameters.
+  `WITH OWNERACCESS OPTION` is taken wherever ACE takes it and changes nothing — LibRed has no users to act for —
+  but a stored query keeps it.
+  Access's bang notation: `[Table]![Column]` is `Table.Column`, and an unaliased one is named as written, as
+  ACE names it. A form control such as `[Forms]![frmMenu]![txtCity]` is reachable only as a parameter the
+  query declares; unlike ACE, LibRed does not make an undeclared one an implicit parameter. `Yes`/`On` and
+  `No`/`Off` are `True` and `False`; any word, reserved or not, names a column after a `.` or `!`
+  (`qryHistory.Key`); and an unbracketed name may be in any script (`Bevételek.Datum`, `Номер`).
   `WITH COMPRESSION` on a Text column is honoured end to end — it maps onto `SupportsCompressedUnicode`,
-  `TdefBuilder` writes the `0x01` extended-flag bit, and `JetTypeCodec` gates compressed encoding on it.
+  `TableDefinition` writes the `0x01` extended-flag bit, and `JetTypeCodec` gates compressed encoding on it.
   Function arguments are arity-checked against a per-function range table, so a wrong count raises rather
   than being silently ignored.
   Plan nodes: Scan / IndexScan / IndexSeek / IndexRangeSeek / Filter / Project / Join / HashJoin / Aggregate /
@@ -209,10 +245,19 @@ Treat the number as of its date — an EF Core version bump moves it.
   - `FULL [OUTER] JOIN` — ACE offers only inner/left/right, and its query designer cannot express a full one.
   - **`OFFSET … ROWS FETCH NEXT … ROWS ONLY`** paging, where the count may be any expression, not just a
     literal. Access has only `TOP n`, and only with a literal.
+  - **`TOP n [PERCENT] WITH TIES`** and **`FETCH … ROWS WITH TIES`** — the n rows and every further one whose
+    `ORDER BY` keys equal the last one's. ACE's own `TOP n` always keeps those ties (it chooses the same rows,
+    verified); LibRed's plain `TOP n` returns exactly n, so `WITH TIES` is how to ask for ACE's rows. It needs an
+    `ORDER BY` and is refused beside `DISTINCT`, and a view cannot store it.
   - **Standard scalar syntax** ACE lacks: `CASE`, `COALESCE`, `NULLIF`, `GREATEST`/`LEAST` (NULL arguments
     ignored, as SQL Server and PostgreSQL treat them — extended mode translates `Math.Max`/`Math.Min` to
     them), and the `VALUES` table value constructor standing in for a query.
-  - **Arguments ACE's own functions do not take**: `LOG(x, base)`, and SQL Server 2022's
+  - **A derived table's column list** — `(VALUES (1, 'a')) AS v(n, s)`, `(SELECT …) AS t(a, b)` — naming its
+    columns in order, as EF Core writes an inline collection. A view cannot store one.
+  - **Access's `Nz`**, which the Access application has and ACE's OLE DB provider does not, with Access's own
+    results — see [functions.md](docs/functions.md#nz).
+  - **Arguments ACE's own functions do not take**: `LOG(base, x)` (base first — SQL Server's is the other way
+    round), and SQL Server 2022's
     `LTRIM(x, characters)` / `RTRIM(x, characters)`, where the second argument is a set of characters to
     strip rather than a substring.
   - **Set operations in a subquery predicate** — `IN (… UNION …)`, `EXISTS (… EXCEPT …)`, and a scalar
@@ -237,33 +282,26 @@ Format-level detail on each on-disk gap lives in `docs/format/`.
 *On-disk / write gaps:*
 
 - **`ON UPDATE SET NULL`** — pathway threaded but throws; its Jet storage bytes are unverified because the
-  ACE OLE DB provider rejects the DDL (needs a UI/DAO-created sample to probe). `ON DELETE SET NULL` and
-  both `CASCADE` directions work.
-- **1:1 relationships** (`dbRelationUnique` = `0x01`) — never written; a 1:1 migration would render as
-  1:many in Access (the unique index still enforces uniqueness). Probe a real 1:1's `grbit` first.
-- **`ValidationRule`/`ValidationText` are read but not enforced** — UI-authored validation, distinct from a
-  SQL `CHECK`. `JetCatalog` parses both off the property blob, `INFORMATION_SCHEMA` reports them and they
-  survive a rewrite; evaluation is what is missing, so a row violating an Access-authored rule is accepted
-  where ACE would refuse it. The asymmetry is invisible at the call site — `CheckConstraints` comes from the
-  same blob, read by the same code, and *is* enforced.
-- **`AllowZeroLength` not modelled**, and column-level `CHECK` persistence is unprobed (its ACE storage
-  differs from the table-level form).
+  ACE OLE DB provider rejects the DDL (needs a UI/DAO-created sample to probe).
+- **1:1 relationships** (`dbRelationUnique` = `0x01`) — never written; a 1:1 migration would render as 1:many
+  in Access (the unique index still enforces uniqueness).
+- **`ValidationRule`/`ValidationText` are not enforced** — UI-authored validation, distinct from a SQL `CHECK`:
+  a row violating an Access-authored rule is accepted where ACE would refuse it.
+- **`AllowZeroLength` not modelled.**
+- **A column-level `CHECK`** (`Col LONG CHECK (Col > 0)`) is parsed and silently dropped — neither stored nor
+  enforced. Its ACE storage differs from the table-level form and is unprobed; a table-level `CHECK` over the
+  same column is the working route.
 - **Jet 3** format; strict **DAO Compact & Repair** compatibility (checklist captured — only relevant if
   targeting DAO C&R rather than "ACE opens + queries").
 - **`CREATE TEMPORARY TABLE`** — parsed only to throw `NotSupportedException`.
 
 *SQL surface / engine gaps:*
 
-- **Stored action queries** — only INSERT…VALUES and DDL bodies are written back to `MSysQueries`. The other
-  kinds (INSERT…SELECT, UPDATE, DELETE, make-table, crosstab, UNION, pass-through) read back as a *named*
-  refusal rather than executing, and a view carrying `HAVING` (attribute `0x0A`) is refused rather than
-  rebuilt. The gap is the write-back, not the grammar: all of these parse and execute as plain statements.
-- **`!` bang notation** (`[Table]![Col]`, `Forms![f]![ctl]`) — grammar gap, and the reason ~13% of the
-  stored queries LibRed rebuilds are then rejected by its own parser. Nearly all of those reference a form
-  control, which has no meaning outside Access anyway.
+- **Stored crosstab, pass-through and UNION-kind queries** — read back as a *named* refusal rather than
+  executing.
+- **`ALTER TABLE … RENAME INDEX`** — parsed and routed, but throws: the TDEF rewrite is not implemented.
 - **Function surface** — the evaluator's whitelist isn't proven identical to ACE's JES, and `Format`'s named
   date/currency formats are locale-dependent by design (not byte-identical cross-locale).
-- **Non-unique index statistics** — only unique indexes advance the live unique-entry count (`+4`) today.
 - **Single-writer concurrency** — LibRed is a **single-writer engine that merely tolerates extra open
   handles**, not a concurrent multi-user one. `PageChannel.Open` opens the file `FileShare.ReadWrite`
   (a Jet/ACE file is a shared-file database — Access/ODBC/OLE DB all open it with multiple handles, and
@@ -327,11 +365,14 @@ a Jet workaround removed, then a capability added underneath it.
 
 The mode is not visible to the engine. Anything the generator emits is ordinary SQL the parser accepts from
 any caller, so a hand-written Access query keeps behaving the way Access does — where the two disagree, the
-distinction is carried by **syntax**, not by a mode flag. `LibRedParameterBasedSqlProcessor` is the one place
-the mode is read in the pipeline, to skip the Jet-dialect rewrites (and `JetCompatibilityExpressionVisitor`,
-whose rejections — `ROW_NUMBER`, `CROSS`/`OUTER APPLY`, `EXCEPT`, `INTERSECT` — are exactly what extended
-mode is for).
+distinction is carried by **syntax**, not by a mode flag. The mode is read only on the EF side, to choose
+what LINQ becomes: `LibRedQuerySqlGeneratorFactory` picks the generator, `LibRedQueryTranslationPostprocessor`
+gates the skip/take emulation and ORDER BY lifting, `LibRedMethodCallTranslatorProvider` and
+`LibRedSqlTranslatingExpressionVisitorFactory` choose the translations, and `LibRedParameterBasedSqlProcessor`
+skips the Jet-dialect rewrites (and `JetCompatibilityExpressionVisitor`, whose rejections — `ROW_NUMBER`,
+`CROSS`/`OUTER APPLY`, `EXCEPT`, `INTERSECT` — are exactly what extended mode is for).
 
 Each mode has its own EF Core specification suite, because the same LINQ query produces different SQL and so
 needs different baselines: `test/EFCore.LibRed.FunctionalTests` (compatible) and
-`test/EFCore.LibRed.Extended.FunctionalTests` (extended). Both run on every push across all five platforms.
+`test/EFCore.LibRed.Extended.FunctionalTests` (extended). Both run across all five platforms on every push
+that touches LibRed.

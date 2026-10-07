@@ -25,6 +25,9 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
     [InlineData("DELETE FROM Shippers WHERE ShipperID > 900")]
     [InlineData("DELETE Shippers.* FROM Shippers WHERE ShipperID > 900")]
     [InlineData("SELECT ShipperID, CompanyName INTO ShipperCopy FROM Shippers WHERE ShipperID > 1")]
+    [InlineData("SELECT DISTINCT Country INTO CountryCopy FROM Customers")]
+    [InlineData("SELECT TOP 5 CompanyName INTO CustomerCopy FROM Customers")]
+    [InlineData("INSERT INTO Shippers (CompanyName) SELECT DISTINCT Country FROM Customers")]
     [InlineData("INSERT INTO Shippers (CompanyName, Phone) SELECT CompanyName, Phone FROM Customers WHERE Country = 'UK'")]
     public void A_libred_written_action_query_stores_the_rows_ace_stores(string body)
     {
@@ -175,6 +178,114 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
         }
     }
 
+    /// <summary>WITH OWNERACCESS OPTION is one more option row in a stored query, which ACE writes for a view and for
+    /// every kind of action query alike. LibRed acts on nothing it says, but keeps it: the rows are ACE's, ACE runs the
+    /// query LibRed stored, and LibRed reads the declaration back and runs the query itself.</summary>
+    [Theory]
+    [InlineData("CREATE VIEW [Q] AS SELECT CompanyName FROM Shippers WITH OWNERACCESS OPTION")]
+    // ACE's CREATE VIEW takes no ORDER BY ("Only simple SELECT queries are allowed in VIEWS"); a procedure does.
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT DISTINCT CompanyName FROM Shippers ORDER BY CompanyName WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT TOP 2 CompanyName FROM Shippers ORDER BY CompanyName WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT DISTINCT TOP 2 CompanyName FROM Shippers ORDER BY CompanyName WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT DISTINCT TOP 50 PERCENT CompanyName FROM Shippers ORDER BY CompanyName " +
+                "WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT CompanyName FROM Shippers WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS UPDATE Customers SET ContactTitle = 'Owner' WHERE Country = 'UK' WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS DELETE FROM Shippers WHERE ShipperID > 900 WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT ShipperID, CompanyName INTO ShipperCopy FROM Shippers WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers (CompanyName, Phone) SELECT CompanyName, Phone FROM Customers " +
+                "WHERE Country = 'UK' WITH OWNERACCESS OPTION")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers (CompanyName) VALUES ('Owner') WITH OWNERACCESS OPTION")]
+    public void An_owneraccess_query_is_stored_as_ace_stores_it(string sql)
+    {
+        string ourPath = Copy(), acePath = Copy(), readPath = Copy();
+        bool action = !sql.Contains(" AS SELECT CompanyName", StringComparison.Ordinal)
+            && !sql.Contains(" AS SELECT DISTINCT", StringComparison.Ordinal) && !sql.Contains(" AS SELECT TOP", StringComparison.Ordinal);
+        try
+        {
+            using (var db = TemporaryDatabase.OpenTracked(ourPath, readOnly: false))
+                new QueryEngine(db).ExecuteNonQuery(sql);
+
+            using (var connection = AceTestDatabase.Open(acePath))
+            {
+                using var create = connection.CreateCommand();
+                create.CommandText = sql;
+                create.ExecuteNonQuery();
+            }
+
+            Assert.Equal(QueryRows(acePath, "Q"), QueryRows(ourPath, "Q"));
+            Assert.Equal(ObjectFlags(acePath, "Q"), ObjectFlags(ourPath, "Q"));
+
+            // ACE runs the query LibRed stored — on a copy, so an action query leaves the file LibRed reads next alone.
+            File.Copy(ourPath, readPath, overwrite: true);
+            using (var connection = AceTestDatabase.Open(readPath))
+            {
+                using var run = connection.CreateCommand();
+                run.CommandText = "Q";
+                run.CommandType = CommandType.StoredProcedure;
+                run.ExecuteNonQuery();
+            }
+
+            // LibRed reads the declaration back with the query, and runs it.
+            using var ours = TemporaryDatabase.OpenTracked(ourPath, readOnly: false);
+            StoredQuery query = ours.Catalog.FindQuery("Q")!;
+            Assert.Equal(action, query.IsAction);
+            string? stored = query.Sql;
+            Assert.EndsWith(" WITH OWNERACCESS OPTION", stored);
+            var engine = new QueryEngine(ours);
+            if (action) engine.ExecuteStoredActionQuery("Q");
+            else Assert.NotEmpty(engine.ExecuteQuery("SELECT * FROM [Q]").Rows);
+        }
+        finally
+        {
+            TemporaryDatabase.Delete(ourPath);
+            TemporaryDatabase.Delete(acePath);
+            TemporaryDatabase.Delete(readPath);
+        }
+    }
+
+    /// <summary>A stored SELECT's DISTINCT, TOP and PERCENT are bits of one option row, as ACE writes them — and PERCENT
+    /// survives the round trip: ACE and LibRed return the same rows from the query LibRed stored.</summary>
+    [Theory]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT DISTINCT TOP 2 Country FROM Customers ORDER BY Country")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT TOP 10 PERCENT CompanyName FROM Customers ORDER BY CompanyName")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT DISTINCT TOP 25 PERCENT Country FROM Customers ORDER BY Country")]
+    public void A_queries_options_share_one_row_as_ace_writes_them(string sql)
+    {
+        string ourPath = Copy(), acePath = Copy();
+        try
+        {
+            using (var db = TemporaryDatabase.OpenTracked(ourPath, readOnly: false))
+                new QueryEngine(db).ExecuteNonQuery(sql);
+
+            using (var connection = AceTestDatabase.Open(acePath))
+            {
+                using var create = connection.CreateCommand();
+                create.CommandText = sql;
+                create.ExecuteNonQuery();
+            }
+
+            Assert.Equal(QueryRows(acePath, "Q"), QueryRows(ourPath, "Q"));
+
+            int aceRows = 0;
+            using (var connection = AceTestDatabase.Open(ourPath))
+            {
+                using var run = connection.CreateCommand();
+                run.CommandText = "Q";
+                run.CommandType = CommandType.StoredProcedure;
+                using var reader = run.ExecuteReader();
+                while (reader.Read()) aceRows++;
+            }
+            using var ours = TemporaryDatabase.OpenTracked(ourPath, readOnly: true);
+            Assert.Equal(aceRows, new QueryEngine(ours).ExecuteQuery("SELECT * FROM [Q]").Rows.Count());
+        }
+        finally
+        {
+            TemporaryDatabase.Delete(ourPath);
+            TemporaryDatabase.Delete(acePath);
+        }
+    }
+
     [Fact]
     public void A_written_action_query_reads_back_as_the_statement_it_was_written_from()
     {
@@ -187,7 +298,7 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
                 "CREATE PROCEDURE [P] AS UPDATE Customers SET ContactTitle = 'Owner' WHERE Country = 'UK'");
 
             // Round trip: what was written is read back as runnable SQL, and running it by name works.
-            StoredActionQuery stored = db.Catalog.ActionQueries["P"];
+            StoredQuery stored = db.Catalog.FindQuery("P")!;
             Assert.Null(stored.UnsupportedReason);
             Assert.Equal("UPDATE [Customers] SET [ContactTitle] = 'Owner' WHERE Country = 'UK'", stored.Sql);
             Assert.Equal(7, engine.ExecuteNonQuery("EXECUTE [P]"));
@@ -207,7 +318,7 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
     private static List<string> QueryRows(string path, string queryName)
     {
         using var db = JetDatabase.Open(path);
-        TableDef queries = db.Catalog.FindTable("MSysQueries")!;
+        TableDefinition queries = db.Catalog.FindTable("MSysQueries")!;
         int objectIdIndex = Index(queries, "ObjectId");
         int attributeIndex = Index(queries, "Attribute");
         int id = QueryObjectId(db, queryName);
@@ -233,7 +344,7 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
     private static int ObjectFlags(string path, string queryName)
     {
         using var db = JetDatabase.Open(path);
-        TableDef objects = db.Catalog.FindTable("MSysObjects")!;
+        TableDefinition objects = db.Catalog.FindTable("MSysObjects")!;
         int flagsIndex = Index(objects, "Flags");
         int idIndex = Index(objects, "Id");
         int id = QueryObjectId(db, queryName);
@@ -242,11 +353,11 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
 
     private static int QueryObjectId(JetDatabase db, string queryName)
     {
-        TableDef objects = db.Catalog.FindTable("MSysObjects")!;
+        TableDefinition objects = db.Catalog.FindTable("MSysObjects")!;
         int idIndex = Index(objects, "Id"), nameIndex = Index(objects, "Name");
         return (int)db.OpenTable("MSysObjects").Rows()
             .Single(row => string.Equals(row[nameIndex] as string, queryName, StringComparison.OrdinalIgnoreCase))[idIndex]!;
     }
 
-    private static int Index(TableDef table, string column) => table.FindColumn(column)!.Index;
+    private static int Index(TableDefinition table, string column) => table.FindColumn(column)!.Index;
 }

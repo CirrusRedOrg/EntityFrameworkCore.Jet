@@ -95,6 +95,70 @@ public class ReferentialActionTests
         });
     }
 
+    // SET NULL on a SELF-referencing table, where the row being nulled and the row being deleted are rows of
+    // one table. The action reads each child from the snapshot it took before the delete, so a child that the
+    // delete has already removed — or that an earlier child's nulling has already rewritten — is looked up by
+    // a key the table no longer holds, and the index says "entry not found".
+    [Fact]
+    public void Set_null_delete_on_a_self_referencing_table_nulls_the_children()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery(
+                "CREATE TABLE T (Id long PRIMARY KEY, ParentId long, "
+                + "CONSTRAINT FK_T FOREIGN KEY (ParentId) REFERENCES T (Id) ON DELETE SET NULL)");
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (1, NULL)");   // the root
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (2, 1)");      // three children of it
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (3, 1)");
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (4, 1)");
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (5, 2)");      // and a grandchild
+
+            Assert.Equal(1, e.ExecuteNonQuery("DELETE FROM T WHERE Id = 1"));
+
+            // The root is gone, its three children point at nothing, and the grandchild is untouched.
+            var rows = e.ExecuteQuery("SELECT Id, ParentId FROM T ORDER BY Id").Rows
+                .Select(r => (Convert.ToInt32(r[0]), r[1] is null ? -1 : Convert.ToInt32(r[1]))).ToArray();
+            Assert.Equal([(2, -1), (3, -1), (4, -1), (5, 2)], rows);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // The harder half: the row the action nulls is ALSO one the statement is deleting. Deleting the parent
+    // rewrites the child's FK, and the statement then reaches that child carrying the values it read before —
+    // whose key no longer names anything in the index.
+    [Fact]
+    public void Set_null_delete_reaches_a_child_the_same_statement_is_deleting()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery(
+                "CREATE TABLE T (Id long PRIMARY KEY, ParentId long, "
+                + "CONSTRAINT FK_T FOREIGN KEY (ParentId) REFERENCES T (Id) ON DELETE SET NULL)");
+            e.ExecuteNonQuery("CREATE INDEX IX_Parent ON T (ParentId)");
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (1, NULL)");
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (2, 1)");
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (3, 2)");
+            e.ExecuteNonQuery("INSERT INTO T (Id, ParentId) VALUES (4, 1)");
+
+            // 1 and 2 go together, and 2 is 1's child — so the action rewrites a row the delete also removes.
+            Assert.Equal(2, e.ExecuteNonQuery("DELETE FROM T WHERE Id = 1 OR Id = 2"));
+
+            var rows = e.ExecuteQuery("SELECT Id, ParentId FROM T ORDER BY Id").Rows
+                .Select(r => (Convert.ToInt32(r[0]), r[1] is null ? -1 : Convert.ToInt32(r[1]))).ToArray();
+            Assert.Equal([(3, -1), (4, -1)], rows);
+
+            // And the index agrees with the rows: a seek on the nulled column finds both survivors.
+            Assert.Equal(2, e.ExecuteQuery("SELECT Id FROM T WHERE ParentId IS NULL").Rows.Count());
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     // ON UPDATE SET NULL is a pathway only — its Jet storage bytes are unverified (ACE's OLE DB provider
     // rejects the DDL), so creating one throws NotImplemented rather than guessing the bytes.
     [Fact]
@@ -126,5 +190,136 @@ public class ReferentialActionTests
             Assert.False(fk.CascadeDelete);
         }
         finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // A cascade rewrites a child row, so it owes that row every invariant an UPDATE of it would: SET NULL may
+    // not null a Required column, and CASCADE may not drive two children onto one unique key. Table.Update
+    // enforces nothing itself, so without these checks the statement — which never names the child table —
+    // writes what the UPDATE path a few lines away explicitly refuses.
+    [Fact]
+    public void Set_null_refuses_to_null_a_required_child_column()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE TABLE P (Id long PRIMARY KEY)");
+            e.ExecuteNonQuery("CREATE TABLE C (Id long PRIMARY KEY, ParentId long NOT NULL, "
+                + "CONSTRAINT FK_C FOREIGN KEY (ParentId) REFERENCES P (Id) ON DELETE SET NULL)");
+            e.ExecuteNonQuery("INSERT INTO P (Id) VALUES (1)");
+            e.ExecuteNonQuery("INSERT INTO C (Id, ParentId) VALUES (100, 1)");
+
+            Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("DELETE FROM P WHERE Id = 1"));
+
+            // The child row is intact, not half-nulled.
+            Assert.Equal(1, Convert.ToInt32(e.ExecuteQuery("SELECT ParentId FROM C WHERE Id = 100").Rows.Single()[0]));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    [Fact]
+    public void Cascade_refuses_to_create_a_duplicate_child_key()
+    {
+        Run(" ON UPDATE CASCADE", e =>
+        {
+            // One child per parent, and a unique index over the FK column: moving parent 1 onto 2 would
+            // cascade its child onto the other child's key.
+            e.ExecuteNonQuery("DELETE FROM C WHERE Id = 101");
+            e.ExecuteNonQuery("INSERT INTO C (Id, ParentId) VALUES (102, 2)");
+            e.ExecuteNonQuery("CREATE UNIQUE INDEX UX_C ON C (ParentId)");
+
+            Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("UPDATE P SET Id = 2 WHERE Id = 1"));
+        });
+    }
+
+    // SET NULL may not null a primary-key column either — the same rule an UPDATE of the child meets.
+    [Fact]
+    public void Set_null_refuses_to_null_a_primary_key_column()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE TABLE P (Id long PRIMARY KEY)");
+            e.ExecuteNonQuery("CREATE TABLE C (ParentId long, X long, CONSTRAINT PK_C PRIMARY KEY (ParentId, X), "
+                + "CONSTRAINT FK_C FOREIGN KEY (ParentId) REFERENCES P (Id) ON DELETE SET NULL)");
+            e.ExecuteNonQuery("INSERT INTO P (Id) VALUES (1)");
+            e.ExecuteNonQuery("INSERT INTO C (ParentId, X) VALUES (1, 1)");
+
+            var error = Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("DELETE FROM P WHERE Id = 1"));
+            Assert.Contains("cannot contain a Null value", error.Message, StringComparison.Ordinal);
+            Assert.Equal(1, Convert.ToInt32(e.ExecuteQuery("SELECT ParentId FROM C").Rows.Single()[0]));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // A child whose key a cascade rewrites is a parent in its own right: A -> B -> C, each ON UPDATE CASCADE over
+    // B's unique Aid, carries A's new key all the way down.
+    [Fact]
+    public void Cascade_update_continues_down_a_chain()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = ChainOf(db, " ON UPDATE CASCADE", " ON UPDATE CASCADE");
+
+            e.ExecuteNonQuery("UPDATE A SET Id = 5");
+
+            Assert.Equal(5, Convert.ToInt32(e.ExecuteQuery("SELECT Aid FROM B").Rows.Single()[0]));
+            Assert.Equal(5, Convert.ToInt32(e.ExecuteQuery("SELECT Baid FROM C").Rows.Single()[0]));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // ON DELETE SET NULL changes the child's key, so the rows referencing THAT key follow their own rule: a
+    // cascade takes them to null too, and NO ACTION refuses — neither leaves a row pointing at a key that is gone.
+    [Fact]
+    public void Set_null_onto_a_referenced_key_cascades_to_its_children()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = ChainOf(db, " ON DELETE SET NULL", " ON UPDATE CASCADE");
+
+            e.ExecuteNonQuery("DELETE FROM A");
+
+            Assert.Null(e.ExecuteQuery("SELECT Aid FROM B").Rows.Single()[0]);
+            Assert.Null(e.ExecuteQuery("SELECT Baid FROM C").Rows.Single()[0]);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    [Fact]
+    public void Set_null_onto_a_referenced_key_with_no_action_children_is_refused()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = ChainOf(db, " ON DELETE SET NULL", "");
+
+            var error = Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("DELETE FROM A"));
+            Assert.Contains("table 'C' includes related records", error.Message, StringComparison.Ordinal);
+            Assert.Equal(1, Convert.ToInt32(e.ExecuteQuery("SELECT Aid FROM B").Rows.Single()[0]));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // A(Id) <- B(Aid, unique) <- C(Baid), one row each, all holding key 1.
+    private static QueryEngine ChainOf(JetDatabase db, string bRule, string cRule)
+    {
+        var e = new QueryEngine(db);
+        e.ExecuteNonQuery("CREATE TABLE A (Id long PRIMARY KEY)");
+        e.ExecuteNonQuery($"CREATE TABLE B (Id long PRIMARY KEY, Aid long, CONSTRAINT FK_B FOREIGN KEY (Aid) REFERENCES A (Id){bRule})");
+        e.ExecuteNonQuery("CREATE UNIQUE INDEX UX_B ON B (Aid)");
+        e.ExecuteNonQuery($"CREATE TABLE C (Id long PRIMARY KEY, Baid long, CONSTRAINT FK_C FOREIGN KEY (Baid) REFERENCES B (Aid){cRule})");
+        e.ExecuteNonQuery("INSERT INTO A (Id) VALUES (1)");
+        e.ExecuteNonQuery("INSERT INTO B (Id, Aid) VALUES (1, 1)");
+        e.ExecuteNonQuery("INSERT INTO C (Id, Baid) VALUES (1, 1)");
+        return e;
     }
 }

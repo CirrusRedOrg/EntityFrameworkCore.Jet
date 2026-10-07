@@ -1,10 +1,11 @@
+using System.Buffers.Binary;
 using LibRed.Storage;
 using Xunit;
 
 namespace LibRed.Core.Tests;
 
 /// <summary>
-/// <see cref="IndexWriter.CompareWithTrailer"/> compares <c>key ++ trailer</c> without building that array —
+/// <see cref="IndexTree.CompareWithTrailer"/> compares <c>key ++ trailer</c> without building that array —
 /// the leaf insert scans every entry on a page for every row inserted, so materialising a concatenation per
 /// comparison was the write path's largest allocator. These pin it against the naive construction it replaced.
 /// </summary>
@@ -34,15 +35,14 @@ public class IndexKeyTrailerComparisonTests
 
     private static readonly int[] Trailers = [0, 1, 0x0100, 0x7F000001, unchecked((int)0xFFFFFFFF), 0x00FFFFFF];
 
+    private static readonly int TrailerSize = TestDatabases.FormatOf(TestDatabases.NorthwindAccdb).IndexEntryTrailerSize;
+
     /// <summary>The construction the production code used to do, kept here as the oracle.</summary>
     private static int Naive(byte[] key, int trailer, byte[] other)
     {
-        var full = new byte[key.Length + 4];
+        var full = new byte[key.Length + TrailerSize];
         key.CopyTo(full, 0);
-        full[key.Length] = (byte)(trailer >> 24);
-        full[key.Length + 1] = (byte)(trailer >> 16);
-        full[key.Length + 2] = (byte)(trailer >> 8);
-        full[key.Length + 3] = (byte)trailer;
+        BinaryPrimitives.WriteInt32BigEndian(full.AsSpan(key.Length, TrailerSize), trailer);
 
         int n = Math.Min(full.Length, other.Length);
         for (int i = 0; i < n; i++)
@@ -61,15 +61,12 @@ public class IndexKeyTrailerComparisonTests
         foreach (byte[] otherKey in Keys)
         foreach (int otherTrailer in Trailers)
         {
-            byte[] other = new byte[otherKey.Length + 4];
+            byte[] other = new byte[otherKey.Length + TrailerSize];
             otherKey.CopyTo(other, 0);
-            other[otherKey.Length] = (byte)(otherTrailer >> 24);
-            other[otherKey.Length + 1] = (byte)(otherTrailer >> 16);
-            other[otherKey.Length + 2] = (byte)(otherTrailer >> 8);
-            other[otherKey.Length + 3] = (byte)otherTrailer;
+            BinaryPrimitives.WriteInt32BigEndian(other.AsSpan(otherKey.Length, TrailerSize), otherTrailer);
 
             int expected = Naive(key, trailer, other);
-            int actual = IndexWriter.CompareWithTrailer(key, trailer, other);
+            int actual = IndexTree.CompareWithTrailer(key, trailer, other);
             Assert.True(
                 Math.Sign(expected) == Math.Sign(actual),
                 $"key=[{Convert.ToHexString(key)}] trailer=0x{trailer:X8} vs [{Convert.ToHexString(other)}]: "
@@ -87,11 +84,11 @@ public class IndexKeyTrailerComparisonTests
         // the trailer's first byte on one side and the key's second byte on the other. Comparing keys first
         // would call [0x7F] smaller unconditionally.
         byte[] longer = [0x7F, 0x01, 0x00, 0x00, 0x00, 0x00];   // key [0x7F,0x01] ++ trailer 0
-        Assert.True(IndexWriter.CompareWithTrailer([0x7F], unchecked((int)0xFF000000), longer) > 0);
-        Assert.True(IndexWriter.CompareWithTrailer([0x7F], 0x00000000, longer) < 0);
+        Assert.True(IndexTree.CompareWithTrailer([0x7F], unchecked((int)0xFF000000), longer) > 0);
+        Assert.True(IndexTree.CompareWithTrailer([0x7F], 0x00000000, longer) < 0);
     }
 
     [Fact]
     public void Equal_key_and_trailer_compare_equal()
-        => Assert.Equal(0, IndexWriter.CompareWithTrailer([0x7F, 0x2A], 0x01020304, [0x7F, 0x2A, 0x01, 0x02, 0x03, 0x04]));
+        => Assert.Equal(0, IndexTree.CompareWithTrailer([0x7F, 0x2A], 0x01020304, [0x7F, 0x2A, 0x01, 0x02, 0x03, 0x04]));
 }

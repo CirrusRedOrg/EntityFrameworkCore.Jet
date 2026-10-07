@@ -7,9 +7,12 @@ namespace LibRed.Storage;
 /// A forward-only cursor over the rows of a table. Walks the table's data pages,
 /// decodes each inline row, and yields one value array per row.
 /// </summary>
-public sealed class TableCursor(Table table) : IEnumerable<object?[]>
+/// <param name="table">The table to read.</param>
+/// <param name="decode">Which columns to decode, or null for all; see <see cref="RowCodec"/>.</param>
+public sealed class TableCursor(Table table, bool[]? decode = null) : IEnumerable<object?[]>
 {
     private readonly Table _table = table;
+    private readonly bool[]? _decode = decode;
 
     public IEnumerator<object?[]> GetEnumerator()
     {
@@ -21,10 +24,11 @@ public sealed class TableCursor(Table table) : IEnumerable<object?[]>
     /// reference the row (e.g. back-filling an index over existing data).</summary>
     public IEnumerable<(RowId Id, object?[] Values)> WithIds()
     {
-        var decoder = new RowDecoder(
+        var decoder = new RowCodec(
             _table.Definition.Columns,
             _table.Channel.Format,
-            new LongValueReader(_table.Channel));
+            longValues: new LongValueStore(_table.Channel),
+            decode: _decode);
 
         foreach (int pageNumber in _table.UsageMap.DataPages())
         {
@@ -37,7 +41,7 @@ public sealed class TableCursor(Table table) : IEnumerable<object?[]>
 
             for (int i = 0; i < page.RowCount; i++)
             {
-                RowSlot slot = page.Rows[i];
+                DataPage.RowSlot slot = page.Rows[i];
                 if (slot.IsDeleted) continue; // deleted, or a relocated row's hidden target (reached via its pointer)
 
                 // A relocated row: the slot holds a 4-byte pointer (page<<8 | row) to the real row, which lives
@@ -45,7 +49,7 @@ public sealed class TableCursor(Table table) : IEnumerable<object?[]>
                 // index entries keep pointing here. Follow the pointer and decode the target's bytes.
                 if (slot.HasOverflow)
                 {
-                    RelocatedRow target = RowRelocationReader.Resolve(
+                    DataPage.RelocatedRow target = DataPage.ResolveRelocation(
                         _table.Channel, _table.Definition.DefinitionPage, slot, page.GetRow(i));
                     yield return (new RowId(pageNumber, i), decoder.Decode(target.Bytes));
                     continue;

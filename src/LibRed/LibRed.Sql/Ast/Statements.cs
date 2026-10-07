@@ -45,7 +45,12 @@ public sealed record SelectStatement(
     /// <c>TOP m</c> and so reuse the path that already exists for it. <see cref="TopPercent"/> is never set
     /// from a FETCH, which has no PERCENT form.
     /// </summary>
-    Expression? Offset = null) : SqlStatement;
+    Expression? Offset = null,
+    /// <summary>
+    /// <c>TOP n WITH TIES</c> (or <c>FETCH … WITH TIES</c>): <see cref="Top"/> also returns every further row whose
+    /// ORDER BY keys equal the last one's. It needs an ORDER BY.
+    /// </summary>
+    bool WithTies = false) : SqlStatement;
 
 /// <summary><c>EXECUTE|EXEC procedure [arg, …]</c> — invokes a stored procedure/query by name, passing
 /// positional argument values that bind to its declared parameters (in declaration order).</summary>
@@ -81,7 +86,9 @@ public sealed record SetOperationStatement(
     SqlStatement Right,
     IReadOnlyList<OrderByItem>? OrderBy = null,
     Expression? Top = null,
-    Expression? Offset = null) : SqlStatement;
+    Expression? Offset = null,
+    // FETCH … WITH TIES, as SelectStatement.WithTies.
+    bool WithTies = false) : SqlStatement;
 
 /// <summary>
 /// A table value constructor used as a query rather than as an INSERT's VALUES clause —
@@ -89,9 +96,8 @@ public sealed record SetOperationStatement(
 /// an inline collection.
 /// </summary>
 /// <remarks>
-/// The rows carry no column names of their own. In the set operation that always encloses one today, names
-/// come from the leading query per SQL, so none are needed; naming them would require the column alias list
-/// (<c>AS t(a, b)</c>) that derived tables do not yet support. Row values may reference outer columns, so the
+/// The rows carry no column names of their own: in a set operation names come from the leading query per SQL, and
+/// as a derived table the column list names them (<c>AS t(a, b)</c>). Row values may reference outer columns, so the
 /// expressions are evaluated per outer row rather than once. <c>DEFAULT</c> is rejected here — the standard
 /// permits it only inside an INSERT.
 /// </remarks>
@@ -163,10 +169,14 @@ public sealed record ForeignKeyConstraint(
     IReadOnlyList<string> ReferencedColumns,
     ReferentialAction OnDelete,
     ReferentialAction OnUpdate,
-    bool NoIndex = false);
+    bool NoIndex = false,
+    int DeclaredAfterColumns = 0);
 
-/// <summary>A UNIQUE constraint (table-level, or a column-level UNIQUE) over one or more columns.</summary>
-public sealed record UniqueConstraint(string? Name, IReadOnlyList<string> Columns);
+/// <summary>A UNIQUE constraint (table-level, or a column-level UNIQUE) over one or more columns.
+/// <para><b>DeclaredAfterColumns</b> is how many of the table's columns the statement declares before this
+/// constraint. It carries the constraint's place in the CREATE TABLE element list through to the storage
+/// layer, which lays the usage-map rows out in that order.</para></summary>
+public sealed record UniqueConstraint(string? Name, IReadOnlyList<string> Columns, int DeclaredAfterColumns = 0);
 
 /// <summary>A CHECK constraint: an optional name and the raw expression text (validated by Access, not
 /// yet enforced by LibRed).</summary>
@@ -181,8 +191,10 @@ public sealed record CreateTableStatement(
     IReadOnlyList<CheckConstraint> CheckConstraints,
     // The PRIMARY KEY's CONSTRAINT name, if one was given (column- or table-level). ACE names the primary
     // key index after the constraint (verified: the scaffolder round-trips it), so it must be preserved.
-    // When null (no name given), the engine picks its own stable fallback in TableCreator.
-    string? PrimaryKeyName = null) : SqlStatement;
+    // When null (no name given), the engine picks its own stable fallback in SchemaEditor.
+    string? PrimaryKeyName = null,
+    // How many columns are declared before the PRIMARY KEY constraint — see UniqueConstraint.
+    int PrimaryKeyDeclaredAfterColumns = 0) : SqlStatement;
 
 /// <summary>The optional WITH clause of CREATE INDEX: PRIMARY (make it the primary key), DISALLOW NULL
 /// (no nulls allowed), IGNORE NULL (rows with nulls excluded from the index).</summary>
@@ -218,7 +230,9 @@ public sealed record ViewOrderBy(string Expression, bool Descending);
 /// <summary>A view's decomposed SELECT (columns/tables/joins/where/group-by/having, all as verbatim text),
 /// which Access stores as MSysQueries rows. A GROUP BY makes it a "totals" query (aggregate columns are
 /// ordinary column rows; the group-by columns are separate rows), and <paramref name="Having"/> is that
-/// query's own filter over the groups, stored as its own <c>Attribute=0x0A</c> row.</summary>
+/// query's own filter over the groups, stored as its own <c>Attribute=0x0A</c> row.
+/// <paramref name="TopPercent"/> makes <paramref name="Top"/> a percentage, and <paramref name="OwnerAccess"/> is
+/// WITH OWNERACCESS OPTION, which a stored query keeps.</summary>
 public sealed record ViewDefinition(
     bool Distinct,
     IReadOnlyList<ViewColumn> Columns,
@@ -228,7 +242,9 @@ public sealed record ViewDefinition(
     IReadOnlyList<string> GroupBy,
     string? Having,
     IReadOnlyList<ViewOrderBy> OrderBy,
-    int? Top);
+    int? Top,
+    bool TopPercent = false,
+    bool OwnerAccess = false);
 
 /// <summary>CREATE VIEW view [(fields)] AS select — a stored query, decomposed for byte-faithful storage.</summary>
 public sealed record CreateViewStatement(
@@ -240,7 +256,9 @@ public sealed record CreateViewStatement(
 /// <summary>A CREATE PROCEDURE parameter: a name and its declared Access SQL type, with the
 /// <paramref name="Size"/> and <paramref name="Scale"/> it declares. The size also decides the type code —
 /// <c>Text(50)</c> is a Text parameter where a bare <c>Text</c> is a memo — and both are stored alongside it.</summary>
-public sealed record ProcedureParameter(string Name, string TypeName, int? Size = null, int? Scale = null);
+/// <summary>A declared parameter. <paramref name="Name"/> is the name it binds by; <paramref name="Stored"/> is the
+/// spelling Access stores, which keeps a bracketed name's brackets.</summary>
+public sealed record ProcedureParameter(string Name, string TypeName, int? Size = null, int? Scale = null, string? Stored = null);
 
 /// <summary>CREATE PROCEDURE name [param datatype, …] AS select — a parameterized stored query. Stored like
 /// a view (the decomposed <see cref="Definition"/>) plus a parameter row per declared parameter.</summary>
@@ -266,6 +284,7 @@ public sealed record AppendColumn(string Column, string ValueExpression);
 /// <paramref name="AppendColumns"/> are an INSERT's columns or an UPDATE's assignments,
 /// <paramref name="TargetTable"/> is the table an INSERT or a make-table writes into, and
 /// <paramref name="DeleteTarget"/> is the <c>table.*</c> a DELETE names when it names one.
+/// <paramref name="OwnerAccess"/> is WITH OWNERACCESS OPTION, which the stored query keeps.
 /// </summary>
 public sealed record CreateActionProcedureStatement(
     string Name,
@@ -275,7 +294,8 @@ public sealed record CreateActionProcedureStatement(
     IReadOnlyList<AppendColumn>? AppendColumns,
     ViewDefinition? Body = null,
     string? DeleteTarget = null,
-    IReadOnlyList<ProcedureParameter>? Parameters = null) : SqlStatement;
+    IReadOnlyList<ProcedureParameter>? Parameters = null,
+    bool OwnerAccess = false) : SqlStatement;
 
 /// <summary>One action of an ALTER TABLE statement (Access allows exactly one per statement).</summary>
 public abstract record AlterTableAction;

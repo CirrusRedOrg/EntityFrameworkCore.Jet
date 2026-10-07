@@ -118,7 +118,7 @@ jobs:
               - 'test/EFCore.LibRed.FunctionalTests/**'
               - 'test/EFCore.LibRed.Extended.FunctionalTests/**'
               - 'src/EFCore.Jet.Common/**'
-              # Northwind.accdb lives here and every LibRed suite links to it as its fixture.
+              # Northwind.accdb lives here and every LibRed.* test project links to it as its fixture.
               - 'test/JetProviderExceptionTests/**'
       - name: 'Decide What To Run'
         id: Decide
@@ -739,21 +739,35 @@ jobs:
       - name: 'Run Tests: LibRed.Core.AccessTests'
         if: env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.Core.AccessTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 5m
+        run: dotnet test .\test\LibRed.Core.AccessTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-crash --blame-hang-timeout 5m
       # The engine tests that cross-check against ACE. They belong here rather than in the cross-platform
       # LibRed job above, which runs on five platforms precisely to prove LibRed needs no ACE at all.
       - name: 'Run Tests: LibRed.Engine.AccessTests'
         if: always() && env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.Engine.AccessTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 5m
+        run: dotnet test .\test\LibRed.Engine.AccessTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-crash --blame-hang-timeout 5m
       - name: 'Run Tests: LibRed.Ado.Tests'
         if: always() && env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.Ado.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 5m
+        run: dotnet test .\test\LibRed.Ado.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-crash --blame-hang-timeout 5m
       - name: 'Run Tests: LibRed.EFCore.Tests'
         if: always() && env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.EFCore.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 5m
+        run: dotnet test .\test\LibRed.EFCore.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-crash --blame-hang-timeout 5m
+      # A run that dies partway reports only the tests that finished. The blame output names the test that
+      # was running (Sequence_*.xml) and holds any crash or hang dump, so keep it when a step fails.
+      - name: 'Upload Blame Results'
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: libredaccess-blame_ace_${{ matrix.aceVersion }}
+          path: |
+            test\LibRed.Core.AccessTests\TestResults\**
+            test\LibRed.Engine.AccessTests\TestResults\**
+            test\LibRed.Ado.Tests\TestResults\**
+            test\LibRed.EFCore.Tests\TestResults\**
+          if-no-files-found: ignore
+          retention-days: 7
 
   LibRedFunctional:
     needs:
@@ -888,12 +902,8 @@ jobs:
           $buildSha = '${{ github.sha }}'.SubString(0, 7);
           $pack = $officialBuild -or $ciBuildOnly
 
-          $pushToAzureArtifacts = $pack
-          $pushToMygetOrg = $pack
           $pushToNugetOrg = $pack -and $officialBuild
 
-          echo "pushToAzureArtifacts: $pushToAzureArtifacts"
-          echo "pushToMygetOrg: $pushToMygetOrg"
           echo "pushToNugetOrg: $pushToNugetOrg"
 
           echo "officialBuild: $officialBuild"
@@ -944,24 +954,12 @@ jobs:
             }
           }
 
-          echo "pushToAzureArtifacts=$pushToAzureArtifacts" >> $env:GITHUB_ENV
-          echo "pushToMygetOrg=$pushToMygetOrg" >> $env:GITHUB_ENV
           echo "pushToNugetOrg=$pushToNugetOrg" >> $env:GITHUB_ENV
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
         with:
           name: nupkgs
           path: nupkgs
-      - name: "NuGet Push - myget.org - Debug"
-        if: ${{ env.pushToMygetOrg == 'true' }}
-        working-directory: nupkgs
-        shell: pwsh
-        run: dotnet nuget push './Debug/withPdbs/**/*.nupkg' --api-key '${{ secrets.MYGETORG_CIRRUSRED_ALLPACKAGES_DEBUG_PUSHNEW }}' --source 'https://www.myget.org/F/cirrusred-debug/api/v3/index.json' --skip-duplicate
-      - name: "NuGet Push - myget.org - Release"
-        if: ${{ env.pushToMygetOrg == 'true' }}
-        working-directory: nupkgs
-        shell: pwsh
-        run: dotnet nuget push './Release/default/**/*.nupkg' --api-key '${{ secrets.MYGETORG_CIRRUSRED_ALLPACKAGES_PUSHNEW }}' --source 'https://www.myget.org/F/cirrusred/api/v3/index.json' --skip-duplicate
       - name: "NuGet Push - nuget.org - Release"
         if: ${{ env.pushToNugetOrg == 'true' }}
         working-directory: nupkgs

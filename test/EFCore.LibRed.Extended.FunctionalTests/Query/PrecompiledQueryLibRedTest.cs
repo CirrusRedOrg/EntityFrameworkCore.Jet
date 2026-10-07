@@ -1755,7 +1755,7 @@ SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT CLNG(7) AS `Value` UNION ALL VALUES (`b`.`Id`)) AS `v`
+    FROM (VALUES (CLNG(7)), (`b`.`Id`)) AS `v`(`Value`)
     WHERE `v`.`Value` > 8) = 2
 """);
     }

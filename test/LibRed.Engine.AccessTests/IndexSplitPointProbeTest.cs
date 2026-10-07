@@ -1,8 +1,10 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using System.Globalization;
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
+using LibRed.Pages;
+using LibRed.Storage;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -24,7 +26,6 @@ namespace LibRed.Engine.Tests;
 [Collection(AceCollection.Name)]
 public class IndexSplitPointProbeTest(ITestOutputHelper output)
 {
-    private const int PageSize = 4096;
     private const int EvenKeys = 900;   // enough for several full leaves at ~9 bytes an entry
 
     [Theory]
@@ -62,16 +63,22 @@ public class IndexSplitPointProbeTest(ITestOutputHelper output)
             byte[] o = File.ReadAllBytes(seeded), a = File.ReadAllBytes(aceCopy), l = File.ReadAllBytes(libredCopy);
 
             int tdef;
-            using (var db = JetDatabase.Open(seeded)) tdef = db.Catalog.FindTable("SplitProbe")!.DefinitionPage;
+            JetFormatBase format;
+            using (var db = JetDatabase.Open(seeded))
+            {
+                tdef = db.Catalog.FindTable("SplitProbe")!.DefinitionPage;
+                format = db.Format;
+            }
+            int pageSize = format.PageSize;
 
             output.WriteLine($"PROBE key {oddKey}: sizes orig={o.Length} ace={a.Length} libred={l.Length}");
-            foreach (int page in Union(Changed(o, a), Changed(o, l)).Order())
+            foreach (int page in Union(Changed(o, a, pageSize), Changed(o, l, pageSize)).Order())
             {
-                if (!Owned(o, page, tdef) && !Owned(a, page, tdef) && !Owned(l, page, tdef)) continue;
-                output.WriteLine($"PROBE   page {page} (was 0x{Type(o, page):X2}):"
-                    + $" free orig={Free(o, page)} ace={Free(a, page)} libred={Free(l, page)}"
-                    + $" | prefix orig={Prefix(o, page)} ace={Prefix(a, page)} libred={Prefix(l, page)}"
-                    + $" | {(Same(a, l, page) ? "IDENTICAL" : $"differs first @0x{FirstDiff(a, l, page):X3}")}");
+                if (!Owned(o, page, tdef, format) && !Owned(a, page, tdef, format) && !Owned(l, page, tdef, format)) continue;
+                output.WriteLine($"PROBE   page {page} (was 0x{Type(o, page, pageSize):X2}):"
+                    + $" free orig={Free(o, page, format)} ace={Free(a, page, format)} libred={Free(l, page, format)}"
+                    + $" | prefix orig={Prefix(o, page, format)} ace={Prefix(a, page, format)} libred={Prefix(l, page, format)}"
+                    + $" | {(Same(a, l, page, pageSize) ? "IDENTICAL" : $"differs first @0x{FirstDiff(a, l, page, pageSize):X3}")}");
             }
         }
         finally
@@ -88,40 +95,41 @@ public class IndexSplitPointProbeTest(ITestOutputHelper output)
         cmd.ExecuteNonQuery();
     }
 
-    private static byte Type(byte[] f, int p) => (p + 1) * PageSize <= f.Length ? f[p * PageSize] : (byte)0xFF;
+    private static byte Type(byte[] f, int p, int pageSize) => (p + 1) * pageSize <= f.Length ? f[p * pageSize] : (byte)0xFF;
 
-    private static bool Owned(byte[] f, int p, int tdef) =>
-        (p + 1) * PageSize <= f.Length && f[p * PageSize] is 0x03 or 0x04
-        && BinaryPrimitives.ReadInt32LittleEndian(f.AsSpan(p * PageSize + 4, 4)) == tdef;
+    private static bool Owned(byte[] f, int p, int tdef, JetFormatBase format) =>
+        (p + 1) * format.PageSize <= f.Length
+        && PageHeader.ReadType(f.AsSpan(p * format.PageSize)) is PageType.IntermediateIndexPage or PageType.LeafIndexPage
+        && IndexTree.ReadOwner(f.AsSpan(p * format.PageSize, format.PageSize), format) == tdef;
 
-    private static int Free(byte[] f, int p) => (p + 1) * PageSize <= f.Length
-        ? BinaryPrimitives.ReadUInt16LittleEndian(f.AsSpan(p * PageSize + 2, 2)) : -1;
+    private static int Free(byte[] f, int p, JetFormatBase format) => (p + 1) * format.PageSize <= f.Length
+        ? IndexTree.ReadFreeSpace(f.AsSpan(p * format.PageSize, format.PageSize), format) : -1;
 
-    private static int Prefix(byte[] f, int p) => (p + 1) * PageSize <= f.Length
-        ? BinaryPrimitives.ReadUInt16LittleEndian(f.AsSpan(p * PageSize + 0x18, 2)) : -1;
+    private static int Prefix(byte[] f, int p, JetFormatBase format) => (p + 1) * format.PageSize <= f.Length
+        ? IndexTree.ReadCompressedByteCount(f.AsSpan(p * format.PageSize, format.PageSize), format) : -1;
 
-    private static bool Same(byte[] x, byte[] y, int p) =>
-        (p + 1) * PageSize <= Math.Min(x.Length, y.Length)
-        && x.AsSpan(p * PageSize, PageSize).SequenceEqual(y.AsSpan(p * PageSize, PageSize));
+    private static bool Same(byte[] x, byte[] y, int p, int pageSize) =>
+        (p + 1) * pageSize <= Math.Min(x.Length, y.Length)
+        && x.AsSpan(p * pageSize, pageSize).SequenceEqual(y.AsSpan(p * pageSize, pageSize));
 
     private static IEnumerable<int> Union(HashSet<int> x, HashSet<int> y) => x.Union(y);
 
-    private static int FirstDiff(byte[] x, byte[] y, int p)
+    private static int FirstDiff(byte[] x, byte[] y, int p, int pageSize)
     {
-        int limit = Math.Min(Math.Min(x.Length, y.Length) - p * PageSize, PageSize);
+        int limit = Math.Min(Math.Min(x.Length, y.Length) - p * pageSize, pageSize);
         for (int i = 0; i < limit; i++)
-            if (x[p * PageSize + i] != y[p * PageSize + i]) return i;
+            if (x[p * pageSize + i] != y[p * pageSize + i]) return i;
         return -1;
     }
 
-    private static HashSet<int> Changed(byte[] left, byte[] right)
+    private static HashSet<int> Changed(byte[] left, byte[] right, int pageSize)
     {
         var changed = new HashSet<int>();
-        int pages = Math.Min(left.Length, right.Length) / PageSize;
+        int pages = Math.Min(left.Length, right.Length) / pageSize;
         for (int p = 0; p < pages; p++)
-            if (!left.AsSpan(p * PageSize, PageSize).SequenceEqual(right.AsSpan(p * PageSize, PageSize)))
+            if (!left.AsSpan(p * pageSize, pageSize).SequenceEqual(right.AsSpan(p * pageSize, pageSize)))
                 changed.Add(p);
-        for (int p = pages; p < Math.Max(left.Length, right.Length) / PageSize; p++) changed.Add(p);
+        for (int p = pages; p < Math.Max(left.Length, right.Length) / pageSize; p++) changed.Add(p);
         return changed;
     }
 }

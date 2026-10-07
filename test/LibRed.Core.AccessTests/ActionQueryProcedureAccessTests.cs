@@ -114,7 +114,7 @@ public class ActionQueryProcedureAccessTests
             using (var conn = OpenOleDb(path)) CreateProcedure(conn, "P", body);
 
             using var db = JetDatabase.Open(path);
-            StoredActionQuery query = db.Catalog.ActionQueries["P"];
+            StoredQuery query = db.Catalog.FindQuery("P")!;
             Assert.Equal(kind, ActionFlag(db, "P"));
             Assert.Null(query.UnsupportedReason);
             Assert.Equal(expected, query.Sql);
@@ -138,9 +138,9 @@ public class ActionQueryProcedureAccessTests
             }
 
             using var db = JetDatabase.Open(path);
-            Assert.Equal(["pTitle", "pCountry"], db.Catalog.QueryParameters["UpdateByCountry"].Select(p => p.Name));
+            Assert.Equal(["pTitle", "pCountry"], db.Catalog.FindQuery("UpdateByCountry")!.Parameters.Select(p => p.Name));
 
-            StoredActionQuery query = db.Catalog.ActionQueries["UpdateByCountry"];
+            StoredQuery query = db.Catalog.FindQuery("UpdateByCountry")!;
             Assert.Equal((short)4, ActionFlag(db, "UpdateByCountry"));
             // An action query declares its parameters exactly as a SELECT does, and is rebuilt with the same
             // leading clause — which is what makes the body's references to them parameters and not columns.
@@ -149,7 +149,7 @@ public class ActionQueryProcedureAccessTests
                 "PARAMETERS [pTitle] TEXT(50), [pCountry] TEXT(20); " +
                 "UPDATE [Customers] SET [ContactTitle] = pTitle WHERE Country = pCountry",
                 query.Sql);
-            Assert.Equal([50, 20], db.Catalog.QueryParameters["UpdateByCountry"].Select(p => p.Size));
+            Assert.Equal([50, 20], db.Catalog.FindQuery("UpdateByCountry")!.Parameters.Select(p => p.Size));
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -165,7 +165,7 @@ public class ActionQueryProcedureAccessTests
                     "TRANSFORM Count(*) SELECT Country FROM Customers GROUP BY Country PIVOT City");
 
             using var db = JetDatabase.Open(path);
-            StoredActionQuery query = db.Catalog.ActionQueries["ByCountry"];
+            StoredQuery query = db.Catalog.FindQuery("ByCountry")!;
             Assert.Null(query.Sql);
             // "Not supported" that doesn't say what it is leaves a caller no way to tell an unimplemented
             // feature from an unreadable file.
@@ -191,13 +191,15 @@ public class ActionQueryProcedureAccessTests
             }
 
             using var db = JetDatabase.Open(path);
-            Assert.False(db.Catalog.ActionQueries.ContainsKey("CountriesWithManyCustomers"));
+            StoredQuery view = db.Catalog.FindQuery("CountriesWithManyCustomers")!;
+            Assert.False(view.IsAction);
 
             // A grouped SELECT is a view, and its HAVING rides along: the Attribute=0x0A row beside the
             // Attribute=9 GROUP BY ones. Reading the GROUP BY while silently dropping the HAVING would
             // reconstruct a query that returns every country — a wrong answer, not a missing feature — so the
             // clause has to survive into the rebuilt SQL.
-            Assert.True(db.Catalog.Views.TryGetValue("CountriesWithManyCustomers", out string? sql));
+            string? sql = view.Sql;
+            Assert.NotNull(sql);
             Assert.Contains("GROUP BY", sql, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("HAVING", sql, StringComparison.OrdinalIgnoreCase);
         }
@@ -213,13 +215,13 @@ public class ActionQueryProcedureAccessTests
 
     private static short ActionFlag(JetDatabase database, string queryName)
     {
-        TableDef objectsDef = database.Catalog.FindTable("MSysObjects")!;
+        TableDefinition objectsDef = database.Catalog.FindTable("MSysObjects")!;
         int objectIdIndex = ColumnIndex(objectsDef, "Id");
         int objectNameIndex = ColumnIndex(objectsDef, "Name");
         int objectId = (int)database.OpenTable("MSysObjects")
             .Rows().Single(row => Equals(row[objectNameIndex], queryName))[objectIdIndex]!;
 
-        TableDef queriesDef = database.Catalog.FindTable("MSysQueries")!;
+        TableDefinition queriesDef = database.Catalog.FindTable("MSysQueries")!;
         int queryObjectIdIndex = ColumnIndex(queriesDef, "ObjectId");
         int attributeIndex = ColumnIndex(queriesDef, "Attribute");
         int flagIndex = ColumnIndex(queriesDef, "Flag");
@@ -228,6 +230,6 @@ public class ActionQueryProcedureAccessTests
         return (short)action[flagIndex]!;
     }
 
-    private static int ColumnIndex(TableDef definition, string name) =>
+    private static int ColumnIndex(TableDefinition definition, string name) =>
         definition.Columns.ToList().FindIndex(column => column.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 }

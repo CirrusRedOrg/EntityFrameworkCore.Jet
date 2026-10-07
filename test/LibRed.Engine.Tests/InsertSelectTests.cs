@@ -38,6 +38,24 @@ public class InsertSelectTests : TempDatabaseTest
         Assert.Equal("two", engine.ExecuteQuery("SELECT Name FROM Dst WHERE Id = 2").Rows.Single()[0]);
     }
 
+    // A VALUES list that is only the first operand of a set operation is a query source, not the single-record
+    // form. The grammar has VALUES as a query term alone, so it is the builder that tells the two apart — by
+    // whether anything follows the constructor.
+    [Fact]
+    public void A_values_list_inside_a_set_operation_appends_as_a_query()
+    {
+        QueryEngine engine = Fresh();
+        engine.ExecuteNonQuery("CREATE TABLE Src (Id LONG, Name TEXT(50))");
+        engine.ExecuteNonQuery("CREATE TABLE Dst (Id LONG, Name TEXT(50))");
+        engine.ExecuteNonQuery("INSERT INTO Src (Id, Name) VALUES (2, 'two')");
+
+        int affected = engine.ExecuteNonQuery(
+            "INSERT INTO Dst (Id, Name) VALUES (1, 'one') UNION ALL SELECT Id, Name FROM Src");
+
+        Assert.Equal(2, affected);
+        Assert.Equal([1, 2], engine.ExecuteQuery("SELECT Id FROM Dst ORDER BY Id").Rows.Select(r => Convert.ToInt32(r[0])));
+    }
+
     [Fact]
     public void Applies_the_sources_where_and_order()
     {

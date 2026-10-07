@@ -181,7 +181,7 @@ internal static class IndexSelection
     /// <summary>If <paramref name="conjunct"/> is a range comparison of column <paramref name="colName"/> against
     /// a value (either orientation), returns the operator as if the column were on the left (so <c>5 &lt; K</c>
     /// yields <c>K &gt; 5</c>) and the value expression; else null.</summary>
-    private static (BinaryOperator Op, Expression Value)? Bound(Expression conjunct, string colName, string alias, TableDef def)
+    private static (BinaryOperator Op, Expression Value)? Bound(Expression conjunct, string colName, string alias, TableDefinition def)
     {
         if (conjunct is not BinaryExpression { Operator: var op } cmp
             || op is not (BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual
@@ -199,7 +199,7 @@ internal static class IndexSelection
     /// <remarks>BETWEEN takes its bounds in either order, so which is the lower has to be known when planning. That
     /// limits this to two literals of the same kind: numbers, texts or dates. A Null bound makes the whole test Null,
     /// which a seek has no way to say, so it is left to the filter.</remarks>
-    private static (Expression Low, Expression High)? Between(Expression conjunct, string colName, string alias, TableDef def)
+    private static (Expression Low, Expression High)? Between(Expression conjunct, string colName, string alias, TableDefinition def)
     {
         if (conjunct is not BetweenExpression { Negated: false } between
             || Column(between.Value, alias, def) is not { } column
@@ -216,7 +216,11 @@ internal static class IndexSelection
         };
         if (!sameKind)
             return null;
-        return ExpressionEvaluator.CompareForSort(low, high) <= 0
+
+        // Text bounds are put in the index's order, which is its column's collation — the order the seek walks.
+        if (def.FindColumn(colName) is not { } indexed || low is string && !indexed.Collation.IsIndexKeyEncodable)
+            return null;
+        return ExpressionEvaluator.CompareForSort(low, high, LibRed.Storage.JetTextComparer.For(indexed.Collation)) <= 0
             ? (between.Low, between.High)
             : (between.High, between.Low);
     }
@@ -336,12 +340,25 @@ internal static class IndexSelection
 
     internal enum TypeKind { Numeric, Text, Binary, Temporal, Guid }
 
+    /// <summary>The kind a value compares as — the value-side partner of <see cref="Classify(JetDataType)"/>.
+    /// Null for <c>Null</c>, which has no kind of its own.</summary>
+    internal static TypeKind? KindOf(object? value) => value switch
+    {
+        null => null,
+        string or char => TypeKind.Text,
+        DateTime => TypeKind.Temporal,
+        Guid => TypeKind.Guid,
+        byte[] => TypeKind.Binary,
+        _ when ExpressionEvaluator.IsNumeric(value) => TypeKind.Numeric,
+        _ => null,
+    };
+
     internal static TypeKind? Classify(JetDataType t) => t switch
     {
         JetDataType.Boolean or JetDataType.Byte or JetDataType.Int16 or JetDataType.Int32 or JetDataType.Int64
             or JetDataType.Single or JetDataType.Double or JetDataType.Currency or JetDataType.FixedPoint => TypeKind.Numeric,
         JetDataType.Text or JetDataType.Memo => TypeKind.Text,
-        JetDataType.Binary or JetDataType.Ole => TypeKind.Binary,
+        JetDataType.Binary or JetDataType.BigBinary or JetDataType.Ole => TypeKind.Binary,
         JetDataType.DateTime or JetDataType.DateTimeExtended => TypeKind.Temporal,
         JetDataType.Guid => TypeKind.Guid,
         _ => null,
@@ -369,7 +386,7 @@ internal static class IndexSelection
         {
             if (col.Table is { } t && !string.Equals(t, d.Alias, StringComparison.OrdinalIgnoreCase))
                 continue;
-            if (ProjectionExprFor(d.Input, col.Column) is ColumnReference inner)
+            if (ProjectionExprFor(d, col.Column) is ColumnReference inner)
                 return ResolveKind(inner, d.Input, catalog);
         }
         return null;
@@ -394,11 +411,20 @@ internal static class IndexSelection
         _ => node.Children.SelectMany(DerivedTables),
     };
 
-    /// <summary>The expression a derived query projects under output name <paramref name="column"/>, or null.</summary>
-    private static Expression? ProjectionExprFor(PlanNode derivedBody, string column)
+    /// <summary>The expression a derived table projects under output name <paramref name="column"/>, or null. A column
+    /// list renames the columns by position, so there the name finds its position rather than a projected name.</summary>
+    private static Expression? ProjectionExprFor(DerivedTableNode derived, string column)
     {
-        if (FindProject(derivedBody) is not { } proj)
+        if (FindProject(derived.Input) is not { } proj)
             return null;
+        if (derived.Columns is { } names)
+        {
+            int position = names.ToList().FindIndex(n => string.Equals(n, column, StringComparison.OrdinalIgnoreCase));
+            return position >= 0 && position < proj.Projection.Count
+                && !proj.Projection.Any(i => i.Value is StarExpression or QualifiedStarExpression)
+                ? proj.Projection[position].Value
+                : null;
+        }
         foreach (SelectItem item in proj.Projection)
         {
             string name = item.Alias ?? (item.Value as ColumnReference)?.Column ?? "";
@@ -432,7 +458,7 @@ internal static class IndexSelection
 
     /// <summary>The column reference if <paramref name="e"/> is a column of the given scan (its qualifier is
     /// the scan's alias, or it is unqualified and the table has such a column), else null.</summary>
-    private static ColumnReference? Column(Expression e, string alias, TableDef def)
+    private static ColumnReference? Column(Expression e, string alias, TableDefinition def)
     {
         if (e is not ColumnReference c) return null;
         if (c.Table is { } t && !string.Equals(t, alias, StringComparison.OrdinalIgnoreCase)) return null;

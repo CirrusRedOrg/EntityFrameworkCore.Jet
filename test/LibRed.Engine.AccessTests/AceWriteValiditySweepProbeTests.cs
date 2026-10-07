@@ -116,7 +116,7 @@ public class AceWriteValiditySweepProbeTests(ITestOutputHelper output) : TempDat
             LibRedConnection.CreateDatabase($"Data Source={path}", collation: null, version: version);
 
             using var stream = File.OpenRead(path);
-            stream.Seek(0x14, SeekOrigin.Begin);
+            stream.Seek(JetFormatBase.VersionOffset, SeekOrigin.Begin);
             output.WriteLine($"{version}: version byte 0x{stream.ReadByte():X2}");
             stream.Dispose();
 
@@ -150,7 +150,7 @@ public class AceWriteValiditySweepProbeTests(ITestOutputHelper output) : TempDat
     /// <summary>The measurement the creation guard rests on: ACE does not merely avoid the 0x04 version byte,
     /// it REFUSES a file carrying one, and restamping 0x14 to 0x03 makes the identical bytes open. The spec
     /// previously inferred "reserved" from absence; this is the stronger fact.</summary>
-    /// <remarks>Built at 2010 and stamped by hand, since DatabaseCreator now refuses to write 0x04 — the
+    /// <remarks>Built at 2010 and stamped by hand, since JetDatabase now refuses to write 0x04 — the
     /// evidence must not depend on the guard being absent.</remarks>
     [Fact]
     public void Ace_refuses_the_0x04_version_byte_and_nothing_else_about_the_file()
@@ -180,7 +180,7 @@ public class AceWriteValiditySweepProbeTests(ITestOutputHelper output) : TempDat
     private static void Stamp(string path, byte version)
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite);
-        stream.Seek(0x14, SeekOrigin.Begin);
+        stream.Seek(JetFormatBase.VersionOffset, SeekOrigin.Begin);
         stream.WriteByte(version);
     }
 

@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed;
 using LibRed.Catalog;
@@ -24,19 +23,6 @@ public class LongValuePackingAccessTests
 
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
-    private static List<int> MapPages(PageChannel ch, (int Row, int Page) ptr)
-    {
-        var holder = new DataPage();
-        holder.Read(ch.ReadPage(ptr.Page), ch.Format);
-        byte[] map = holder.GetRow(ptr.Row).ToArray();
-        int start = BinaryPrimitives.ReadInt32LittleEndian(map.AsSpan(1, 4));
-        var pages = new List<int>();
-        for (int i = 5; i < map.Length; i++)
-            for (int bit = 0; bit < 8; bit++)
-                if ((map[i] & (1 << bit)) != 0) pages.Add(start + (i - 5) * 8 + bit);
-        return pages;
-    }
-
     [Fact]
     public void Small_long_values_share_lval_pages_and_round_trip()
     {
@@ -56,11 +42,12 @@ public class LongValuePackingAccessTests
             using (var ch = PageChannel.Open(path, readOnly: true))
             {
                 var t = new JetCatalog(ch).FindTable("Big")!;
-                var def = new TableDefinitionPage();
+                var def = new TableDefinition();
                 def.Read(ch, t.DefinitionPage);
                 int m = t.Columns.First(c => c.Name == "M").ColumnId;
-                var owned = MapPages(ch, def.LongValueOwnedMaps[m]);
-                var free = MapPages(ch, def.LongValueFreeMaps[m]);
+                var maps = new UsageMap(ch, t);
+                var owned = maps.PagesInMap(def.LongValueOwnedMaps[m].Row, def.LongValueOwnedMaps[m].Page).ToList();
+                var free = maps.PagesInMap(def.LongValueFreeMaps[m].Row, def.LongValueFreeMaps[m].Page).ToList();
 
                 Assert.True(owned.Count < N / 3, $"{N} values packed onto {owned.Count} pages"); // ~2, not 20
                 Assert.Single(free);                        // only the current append page is free

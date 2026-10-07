@@ -50,7 +50,7 @@ public class MemoKeyEncodingTests
             var def = table.Definition;
             var mcol = def.FindColumn("M")!;
             IndexDef index = def.Indexes.Single(i => !i.IsPrimaryKey && i.Columns.Any(c => c.Column.Name == "M"));
-            var decoder = new RowDecoder(def.Columns, db.Format, new LongValueReader(table.Channel));
+            var decoder = new RowCodec(def.Columns, db.Format, longValues: new LongValueStore(table.Channel));
 
             int checkedKeys = 0;
             foreach (var (accessKey, rowId) in new IndexCursor(table.Channel, index.RootPage).RawEntries())
@@ -59,7 +59,7 @@ public class MemoKeyEncodingTests
 
                 var values = new object?[def.Columns.Count];
                 values[mcol.Index] = s;
-                byte[] ours = IndexKeyEncoder.Encode(index.Columns, values);
+                byte[] ours = IndexKeyCodec.Encode(index.Columns, values);
 
                 Assert.True(accessKey.AsSpan().SequenceEqual(ours),
                     $"len {s.Length}: access={Convert.ToHexString(accessKey)} ours={Convert.ToHexString(ours)}");

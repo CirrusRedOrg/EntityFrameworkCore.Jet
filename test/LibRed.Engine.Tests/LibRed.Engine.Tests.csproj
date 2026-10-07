@@ -13,8 +13,8 @@
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)..\..\Key.snk</AssemblyOriginatorKeyFile>
     <Platforms>AnyCPU;x86;x64</Platforms>
-    <!-- A small interoperability subset verifies failed statements leave files readable by ACE. -->
-    <NoWarn>$(NoWarn);CA1416</NoWarn>
+    <!-- CA1416 stays on: this suite runs on every platform, and the analyzer is what catches a Windows-only
+         (ACE/DAO) call slipping in. Tests that need ACE belong in LibRed.Engine.AccessTests. -->
   </PropertyGroup>
 
   <ItemGroup>

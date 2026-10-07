@@ -36,7 +36,7 @@ public class SortKeyTableV1OverrideGeneratorTest(ITestOutputHelper output)
         // READ the resource it is about to replace — it bootstraps from a stale or absent one either way.
         JetTextCollationV1Overrides.Suppressed = true;
         string database = TemporaryDatabase.CreatePath("general-v1-gen-");
-        DatabaseCreator.CreateEmpty(database, collation: Collation.General);
+        JetDatabase.Create(database, collation: Collation.General);
         var column = new ColumnDef
         {
             Name = "K", Type = JetDataType.Text, Index = 0, Collation = Collation.General,
@@ -62,7 +62,7 @@ public class SortKeyTableV1OverrideGeneratorTest(ITestOutputHelper output)
                     if (key == EmptyKey) { ignorable.Add(text[0]); continue; }
 
                     string? ours = null;
-                    try { ours = Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [text])); }
+                    try { ours = Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [text])); }
                     catch (NotSupportedException) { }
                     if (ours == key) { agreed++; continue; }
 

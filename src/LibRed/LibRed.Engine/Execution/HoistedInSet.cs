@@ -13,8 +13,8 @@ namespace LibRed.Engine.Execution;
 /// within one type kind, which is the same constraint the hash join lives under: <c>5 = '5'</c> and
 /// <c>5 = 5.0</c>, but <c>'5' ≠ '5.0'</c>, so no single hash can agree with <c>=</c> across kinds. Numeric and
 /// text are taken because <see cref="ExpressionEvaluator.KeyHash"/> is defined to agree with
-/// <see cref="ExpressionEvaluator.KeyEqual"/> for exactly those (numeric via double, text via Access's
-/// case-insensitive, trailing-space-trimmed collation). Everything else — mixed kinds in the body, or a probe
+/// <see cref="ExpressionEvaluator.KeyEqual"/> for exactly those (numeric via double, text via the database's
+/// collation key). Everything else — mixed kinds in the body, or a probe
 /// of a different kind from the body — declines, and the caller scans the list as it always did. Declining
 /// costs nothing but the old behaviour; a wrong hash would silently drop matching rows.</para>
 /// <para>Dates deliberately do not qualify. The evaluator compares two <c>DateTime</c>s by their OLE Automation
@@ -32,8 +32,6 @@ internal sealed class HoistedInSet
         Text,
     }
 
-    private static readonly IEqualityComparer<object> Comparer = new EvaluatorEquality();
-
     private readonly HashSet<object> _values;
     private readonly Kind _kind;
 
@@ -49,12 +47,13 @@ internal sealed class HoistedInSet
 
     /// <summary>Builds a set over <paramref name="values"/>, or null when they cannot be hashed consistently
     /// (a kind outside <see cref="Kind"/>, or more than one kind among them). An empty or all-null body also
-    /// returns null: there is nothing to accelerate, and the caller's scan of it is already trivial.</summary>
-    public static HoistedInSet? TryBuild(IReadOnlyList<object?> values)
+    /// returns null: there is nothing to accelerate, and the caller's scan of it is already trivial. Text is
+    /// compared in <paramref name="text"/>'s collation, as <c>=</c> compares it.</summary>
+    public static HoistedInSet? TryBuild(IReadOnlyList<object?> values, LibRed.Storage.JetTextComparer text)
     {
         Kind? kind = null;
         bool hasNull = false;
-        var set = new HashSet<object>(Comparer);
+        var set = new HashSet<object>(new EvaluatorEquality(text));
 
         foreach (object? value in values)
         {
@@ -87,11 +86,11 @@ internal sealed class HoistedInSet
     };
 
     /// <summary>Equality and hashing delegated to the evaluator, so the set agrees with <c>=</c> exactly.</summary>
-    private sealed class EvaluatorEquality : IEqualityComparer<object>
+    private sealed class EvaluatorEquality(LibRed.Storage.JetTextComparer text) : IEqualityComparer<object>
     {
         public new bool Equals(object? a, object? b) =>
-            a is not null && b is not null && ExpressionEvaluator.KeyEqual(a, b);
+            a is not null && b is not null && ExpressionEvaluator.KeyEqual(a, b, text);
 
-        public int GetHashCode(object value) => ExpressionEvaluator.KeyHash(value);
+        public int GetHashCode(object value) => ExpressionEvaluator.KeyHash(value, text);
     }
 }

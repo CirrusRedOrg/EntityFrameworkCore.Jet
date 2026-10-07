@@ -22,6 +22,46 @@ public class ComplexColumnTests
     }
 
     [Fact]
+    public void Deleting_the_owner_removes_its_attachments_and_rollback_restores_them()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "complex-delete-");
+        int complexId;
+        string flatName;
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                ComplexColumn column = TheAttachmentColumn(db);
+                flatName = column.FlatTable.Name;
+                var owner = db.OpenTable(column.OwnerTable.Name);
+                var (id, row) = owner.Rows().WithIds().First();
+                complexId = (int)row[column.OwnerTable.RequireColumn(column.ColumnName).Index]!;
+                Assert.NotEmpty(db.ReadComplexValues(column, complexId));
+                int counter = column.OwnerTable.ComplexAutoNumber;
+                object?[] attachment = db.ReadComplexValues(column, complexId).First();
+
+                db.BeginTransaction();
+                owner.Delete(id);
+                Assert.Null(owner.GetRow(id));
+                Assert.Empty(db.ReadComplexValues(column, complexId));
+                db.Rollback();
+                Assert.NotNull(db.OpenTable(owner.Name).GetRow(id));
+                Assert.Equal(attachment, db.ReadComplexValues(column, complexId).First());
+
+                db.OpenTable(owner.Name).Delete(id);
+                Assert.Empty(db.ReadComplexValues(column, complexId));
+                Assert.Equal(counter, db.OpenTable(owner.Name).Definition.ComplexAutoNumber);
+            }
+
+            using var reopened = JetDatabase.Open(path);
+            ComplexColumn restored = TheAttachmentColumn(reopened);
+            Assert.Equal(flatName, restored.FlatTable.Name);
+            Assert.Empty(reopened.ReadComplexValues(restored, complexId));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    [Fact]
     public void The_catalog_resolves_the_complex_column_to_its_flat_table()
     {
         using JetDatabase db = Northwind();
@@ -111,7 +151,7 @@ public class ComplexColumnTests
     public void A_complex_column_is_flagged_autonumber_but_does_not_claim_the_header_counter()
     {
         using JetDatabase db = Northwind();
-        TableDef table = db.Catalog.FindTable("MSysResources")!;
+        TableDefinition table = db.Catalog.FindTable("MSysResources")!;
         ColumnDef data = table.FindColumn("Data")!;
         ColumnDef id = table.FindColumn("Id")!;
 
@@ -128,30 +168,107 @@ public class ComplexColumnTests
         Assert.Equal(1, table.ComplexAutoNumber);
     }
 
-    // The rebuild reconstructs every ColumnSpec from the live ColumnDefs, so it sees both flagged columns.
-    // Counting a complex column as a second claimant of the one header counter made this throw outright.
+    // The drop-and-recreate rebuild moves the table to a new definition page and rewrites every descriptor,
+    // which is exactly what a complex column's three links cannot survive on their own: its catalog row names
+    // the owner by that page, its descriptor's 0x0B carries the MSysComplexColumns key where an ordinary
+    // column carries the collation LANGID, and its values live in a flat table the drop would take with it.
+    // Carried across, an unrelated ALTER leaves the column resolving to the same values it did before —
+    // which is what ACE's own ALTER does (ComplexWriteAceReadbackTests).
+    //
+    // Asserting that the values still RESOLVE is the whole point: the earlier version of this test checked the
+    // AutoNumber flag and the 0x1C counter, which survived even while the column was being orphaned.
     [Fact]
-    public void A_table_with_both_counters_can_still_be_rebuilt()
+    public void A_table_with_a_complex_column_keeps_it_through_the_rebuild()
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "complex-alter-");
         try
         {
-            // Text -> Memo is a storage-type change, which takes the full logical rebuild.
+            string flatTable;
+            int complexId, counter, objectFlags;
+            List<(int Id, int Values)> before;
             using (var db = JetDatabase.Open(path, readOnly: false))
-                db.AlterColumn("MSysResources", "Name",
-                    new ColumnSpec("Name", JetDataType.Memo, 0, IsFixedLength: false));
+            {
+                ComplexColumn data = db.Catalog.FindComplexColumn("MSysResources", "Data")!;
+                flatTable = data.FlatTable.Name;
+                complexId = data.ComplexId;
+                counter = db.Catalog.FindTable("MSysResources")!.ComplexAutoNumber;
+                before = RecordValueCounts(db, data);
+                Assert.NotEmpty(before);
+                objectFlags = ObjectFlags(db, "MSysResources");
+                Assert.Equal(0x0004000A, objectFlags);      // owns a complex column (0x40000), hidden (0x0A)
+                Assert.Equal(0x0289, ComplexIndexFlags(db));
+
+                // Text -> Memo is a storage-type change, which takes the full logical rebuild.
+                db.AlterColumn("MSysResources", "Name", new ColumnSpec("Name", JetDataType.Memo, 0, IsFixedLength: false));
+            }
 
             using var reopened = JetDatabase.Open(path);
-            TableDef table = reopened.Catalog.FindTable("MSysResources")!;
-
+            TableDefinition table = reopened.Catalog.FindTable("MSysResources")!;
             Assert.Equal(JetDataType.Memo, table.FindColumn("Name")!.Type);
-            // Both counters survive the rewrite: the header pair still describes Id, and 0x1C is carried through.
-            Assert.Equal(2, table.FindColumn("Id")!.Seed);
-            Assert.True(table.FindColumn("Data")!.IsAutoNumber);
-            Assert.Equal(1, table.ComplexAutoNumber);
-            Assert.Single(reopened.OpenTable("MSysResources").Rows());
+
+            // The column still resolves — to the same catalog row, the same flat table, and the same values
+            // record by record — and the counter that hands out the next record id came across with it.
+            ComplexColumn after = Assert.Single(
+                reopened.Catalog.ComplexColumns.Where(c => c.OwnerTable.Name == "MSysResources"));
+            Assert.Equal(complexId, after.ComplexId);
+            Assert.Equal(flatTable, after.FlatTable.Name);
+            Assert.Equal(table.DefinitionPage, after.OwnerTable.DefinitionPage);
+            Assert.Equal(counter, table.ComplexAutoNumber);
+            Assert.Equal(before, RecordValueCounts(reopened, after));
+
+            // And the table and its index come back flagged as Access flags them: the table's MSysObjects.Flags
+            // whole (the complex-column bit and the hidden bits), the complex column's index with its 0x0200.
+            Assert.Equal(objectFlags, ObjectFlags(reopened, "MSysResources"));
+            Assert.Equal(0x0289, ComplexIndexFlags(reopened));
         }
         finally { TemporaryDatabase.Delete(path); }
+    }
+
+    private static int ObjectFlags(JetDatabase db, string table)
+    {
+        var objects = db.OpenTable("MSysObjects");
+        var def = objects.Definition;
+        return (int)objects.Rows().Single(r =>
+            (string?)r[def.FindColumn("Name")!.Index] == table && (short)r[def.FindColumn("Type")!.Index]! == 1)[def.FindColumn("Flags")!.Index]!;
+    }
+
+    private static int ComplexIndexFlags(JetDatabase db) =>
+        (int)db.Catalog.FindTable("MSysResources")!.Indexes.Single(i => i.Columns.Any(c => c.Column.Name == "Data")).Flags;
+
+    // A complex column's catalog row names its column by NAME, and the catalog drops a row whose name the
+    // owning table does not have — so a rename that left the row behind did not misname the column, it
+    // disconnected it: the values stayed on disk with nothing able to reach them.
+    [Fact]
+    public void Renaming_a_complex_column_keeps_it_resolving()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "complex-rename-");
+        try
+        {
+            List<(int Id, int Values)> before;
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                before = RecordValueCounts(db, db.Catalog.FindComplexColumn("MSysResources", "Data")!);
+                Assert.NotEmpty(before);
+                Assert.True(db.RenameColumn("MSysResources", "Data", "Payload"));
+            }
+
+            using var reopened = JetDatabase.Open(path);
+            Assert.Null(reopened.Catalog.FindComplexColumn("MSysResources", "Data"));
+            ComplexColumn renamed = reopened.Catalog.FindComplexColumn("MSysResources", "Payload")!;
+            Assert.Equal(before, RecordValueCounts(reopened, renamed));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    /// <summary>Each row's complex id and how many values it resolves to — the link the rebuild has to keep.</summary>
+    private static List<(int Id, int Values)> RecordValueCounts(JetDatabase db, ComplexColumn column)
+    {
+        int index = column.OwnerTable.FindColumn(column.ColumnName)!.Index;
+        return [.. db.OpenTable(column.OwnerTable.Name).Rows()
+            .Where(r => r[index] is not null)
+            .Select(r => Convert.ToInt32(r[index], System.Globalization.CultureInfo.InvariantCulture))
+            .Order()
+            .Select(id => (id, db.ReadComplexValues(column, id).Count))];
     }
 
     [Fact]

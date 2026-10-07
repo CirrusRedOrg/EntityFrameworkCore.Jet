@@ -1,5 +1,6 @@
 using LibRed.Catalog;
 using System.Collections.Frozen;
+using static LibRed.Storage.IndexKeyCodec;
 
 namespace LibRed.Storage;
 
@@ -30,13 +31,58 @@ internal sealed class LocaleTailoring
     public LocaleTailoring(
         IReadOnlyDictionary<string, TailoredWeight> entries,
         bool doublesDigraphs = false,
-        bool reverseDiacritics = false)
+        bool reverseDiacritics = false,
+        byte[]? leadBytes = null,
+        bool weighsDecompositions = true)
     {
         Entries = entries;
         DoublesDigraphs = doublesDigraphs;
         ReverseDiacritics = reverseDiacritics;
+        LeadBytes = leadBytes;
+        WeighsDecompositions = weighsDecompositions;
         MaxLength = entries.Count == 0 ? 0 : entries.Keys.Max(k => k.Length);
+
+        // Looked up by span, never by a string made for the purpose: every character of every key asks, and a
+        // string or two per question was most of what encoding a key allocated. Every table is an ordinal
+        // Dictionary, which takes the lookup as it is; anything else is copied into one.
+        Dictionary<string, TailoredWeight> table =
+            entries is Dictionary<string, TailoredWeight> dictionary
+            && dictionary.TryGetAlternateLookup<ReadOnlySpan<char>>(out _)
+                ? dictionary
+                : new Dictionary<string, TailoredWeight>(entries, StringComparer.Ordinal);
+        _bySpan = table.GetAlternateLookup<ReadOnlySpan<char>>();
     }
+
+    private readonly Dictionary<string, TailoredWeight>.AlternateLookup<ReadOnlySpan<char>> _bySpan;
+
+    /// <summary>
+    /// Whether the characters a General decomposition produces take this tailoring's weights.
+    /// </summary>
+    /// <remarks>
+    /// A Latin locale's letters reach into decompositions: Croatian's <c>Ǆ</c> expands to <c>D</c> + <c>Ž</c>,
+    /// and it is <i>Croatian's</i> <c>Ž</c> that ACE stores. A CJK table does not. Version 1's base table
+    /// expands the CJK radicals and compatibility ideographs to the unified ideograph they stand for —
+    /// <c>⼀</c> U+2F00 to <c>一</c>, <c>U+FA30</c> to <c>U+4FAE</c> — and ACE weighs them as General does,
+    /// never with the order's weight for that ideograph: 315 to 421 characters in each version-1 CJK order,
+    /// measured against ACE. The tables weigh the characters they list and nothing reached through a
+    /// decomposition.
+    /// </remarks>
+    public bool WeighsDecompositions { get; }
+
+    /// <summary>
+    /// A replacement for the lead byte of every weight the General table contributes, indexed by that byte —
+    /// or null for an order that keeps General's lead bytes, which is every order but one.
+    /// </summary>
+    /// <remarks>
+    /// Korean reorders whole scripts rather than letters: Hangul sorts first, so General's lead bytes
+    /// <c>81</c>–<c>F2</c> move down <c>0x37</c> and <c>4A</c>–<c>80</c> (Latin, Greek, Cyrillic, the other
+    /// scripts, kana, Bopomofo) move up <c>0x72</c> to make room — <c>A</c> is <c>BC</c>, <c>가</c> is
+    /// <c>4A 03</c>. It applies to each WEIGHT, not to each byte: the second byte of a two-byte weight keeps its
+    /// value (<c>ᄀ</c> <c>81 02</c> becomes <c>4A 02</c>), and an expansion has every weight moved (<c>Ĳ</c>
+    /// <c>59 5B</c> becomes <c>CB CD</c>). A tailored entry already states its final bytes and is not moved,
+    /// nor is a copy an iteration mark makes of a weight already moved.
+    /// </remarks>
+    public byte[]? LeadBytes { get; }
 
     public IReadOnlyDictionary<string, TailoredWeight> Entries { get; }
 
@@ -103,16 +149,13 @@ internal sealed class LocaleTailoring
     /// text never contained.
     /// </remarks>
     public bool TryMatchSingle(char character, out TailoredWeight weight) =>
-        Entries.TryGetValue(character.ToString(), out weight) ||
-        Entries.TryGetValue(character.ToString().ToUpperInvariant(), out weight);
+        TryGet(new ReadOnlySpan<char>(in character), out weight);
 
     private bool TryLongest(ReadOnlySpan<char> text, int start, out TailoredWeight weight, out int consumed)
     {
         for (int length = Math.Min(MaxLength, text.Length - start); length >= 1; length--)
         {
-            ReadOnlySpan<char> candidate = text.Slice(start, length);
-            if (Entries.TryGetValue(candidate.ToString(), out weight) ||
-                Entries.TryGetValue(candidate.ToString().ToUpperInvariant(), out weight))
+            if (TryGet(text.Slice(start, length), out weight))
             {
                 consumed = length;
                 return true;
@@ -121,6 +164,16 @@ internal sealed class LocaleTailoring
         weight = default;
         consumed = 0;
         return false;
+    }
+
+    /// <summary>The entry for <paramref name="key"/> as written, else for its invariant uppercase — the order
+    /// the class remarks give, which lets a locale disagree with invariant casing.</summary>
+    private bool TryGet(ReadOnlySpan<char> key, out TailoredWeight weight)
+    {
+        if (_bySpan.TryGetValue(key, out weight)) return true;
+        Span<char> upper = stackalloc char[key.Length];
+        key.ToUpperInvariant(upper);
+        return _bySpan.TryGetValue(upper, out weight);
     }
 }
 
@@ -134,17 +187,16 @@ internal sealed class LocaleTailoring
 /// Every weight here was measured from ACE: an indexed text column built by ACE inside a database carrying
 /// the order, with the stored index keys read back (<c>ContractionProbeTest</c>,
 /// <c>LocaleFixtureCollationProbeTest</c>) and then asserted byte-for-byte against this encoder over the
-/// whole of printable ASCII, Latin-1 and Latin Extended-A (<c>LocaleCollationAccessTests</c>).
+/// whole of printable ASCII, Latin-1 and Latin Extended-A (<c>CreatedDatabaseCollationAccessTests</c>).
 /// </remarks>
 internal static class JetLocaleTailoring
 {
-    private const byte DefaultSecondary = 0x02;
-
     /// <summary>The tailoring for a collation, or null when it has none — either because it is General
     /// itself, or because LibRed cannot express it. An <b>empty</b> tailoring is meaningful and not the same
     /// as null: it records that the order was measured to be indistinguishable from General.</summary>
     public static LocaleTailoring? For(Collation collation) =>
         Tailorings.GetValueOrDefault(collation)
+        ?? JetCjkSortOrders.For(collation)
         ?? (collation is { Version: 0, SortId: 0 } && GeneralV0.Contains(collation.Order) ? None : null);
 
     /// <summary>Shared by every order in <see cref="GeneralV0"/>: no entries, no reversal, nothing to do.

@@ -49,7 +49,8 @@ public class DateTime2KeyEncodingTests
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-dt2key-");
         try
         {
-            SetVersionByte(path, 0x06);
+            using (var raised = JetDatabase.Open(path, readOnly: false))
+                raised.EnsureFormatAtLeast(Formats.JetVersion.Version17_2019);
 
             using (OleDbConnection connection = AceTestDatabase.Open(path))
             {
@@ -64,7 +65,7 @@ public class DateTime2KeyEncodingTests
             var def = table.Definition;
             IndexDef index = def.Indexes.Single(i => i.Columns.Any(c => c.Column.Name == "K"));
             int kIdx = def.FindColumn("K")!.Index;
-            var decoder = new RowDecoder(def.Columns, db.Format);
+            var decoder = new RowCodec(def.Columns, db.Format);
 
             int checkedKeys = 0;
             foreach ((byte[] accessKey, RowId rowId) in new IndexCursor(table.Channel, index.RootPage).RawEntries())
@@ -73,7 +74,7 @@ public class DateTime2KeyEncodingTests
 
                 var values = new object?[def.Columns.Count];
                 values[kIdx] = value;
-                byte[] ours = IndexKeyEncoder.Encode(index.Columns, values);
+                byte[] ours = IndexKeyCodec.Encode(index.Columns, values);
 
                 Assert.True(accessKey.AsSpan().SequenceEqual(ours),
                     $"{value:O}: access={Convert.ToHexString(accessKey)} ours={Convert.ToHexString(ours)}");
@@ -90,13 +91,5 @@ public class DateTime2KeyEncodingTests
         using OleDbCommand command = connection.CreateCommand();
         command.CommandText = sql;
         command.ExecuteNonQuery();
-    }
-
-    /// <summary>Raises a copied file to the ACE 17 format. Page 0 offset 0x14 is the whole upgrade.</summary>
-    private static void SetVersionByte(string path, byte version)
-    {
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Write);
-        stream.Seek(0x14, SeekOrigin.Begin);
-        stream.WriteByte(version);
     }
 }

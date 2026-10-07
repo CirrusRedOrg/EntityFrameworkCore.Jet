@@ -1,4 +1,5 @@
 using LibRed.Catalog;
+using LibRed.Crypto;
 using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
@@ -7,7 +8,7 @@ using LibRed.Storage;
 namespace LibRed;
 
 /// <summary>
-/// The public entry point to the Core layer: opens a Jet/ACE database file and
+/// The public entry point to the Core layer: creates and opens Jet/ACE database files and
 /// exposes its catalog and tables. This is what the SQL engine and ADO provider
 /// build on; consumers wanting raw storage access start here.
 /// </summary>
@@ -15,6 +16,10 @@ public sealed class JetDatabase : IDisposable
 {
     private readonly PageChannel _channel;
     private bool _disposed;
+
+    /// <summary>The channel this database reads and writes through — for the operations that act on the file
+    /// as a whole rather than on its contents, such as changing the encryption.</summary>
+    internal PageChannel Channel => _channel;
 
     private JetDatabase(PageChannel channel)
     {
@@ -27,12 +32,11 @@ public sealed class JetDatabase : IDisposable
         // a file corrupt when one names a page past the end, and fails its first allocation when one names
         // anything but a usage map. A read-only open never allocates, so it reads such a file as ACE would.
         if (!channel.IsReadOnly)
-            new PageAllocator(channel).ValidateGlobalMaps();
+            channel.Allocator.ValidateGlobalMaps();
 
-        // Find MSysObjects via the page-0 bootstrap pointer (0x20); fall back to the format default
-        // if it reads as 0 (never observed — every file points at page 2).
-        int catalogPage = DefinitionPage.CatalogRootPage > 0 ? DefinitionPage.CatalogRootPage : channel.Format.CatalogPage;
-        Catalog = new JetCatalog(channel, catalogPage);
+        // Find MSysObjects via the page-0 bootstrap pointer: its page is also its own MSysObjects Id, but that row
+        // can only be read once the table has been found.
+        Catalog = new JetCatalog(channel, DefinitionPage.CatalogRootPage);
     }
 
     /// <summary>The decoded database definition page (page 0).</summary>
@@ -62,9 +66,9 @@ public sealed class JetDatabase : IDisposable
     public Collation Collation => DefinitionPage.Collation;
 
     /// <summary>Reads and decodes the table definition (TDEF) page at <paramref name="pageNumber"/>.</summary>
-    public TableDefinitionPage ReadTableDefinition(int pageNumber)
+    public TableDefinition ReadTableDefinition(int pageNumber)
     {
-        var tdef = new TableDefinitionPage();
+        var tdef = new TableDefinition();
         tdef.Read(_channel, pageNumber);
         return tdef;
     }
@@ -77,14 +81,110 @@ public sealed class JetDatabase : IDisposable
         return page;
     }
 
+    /// <summary>
+    /// Creates a new, empty database at <paramref name="path"/> from scratch — no DAO/ADOX. Hand-builds the
+    /// bootstrap for the given <paramref name="version"/> — Jet 4 (<c>0x01</c>, the Access 2000 /
+    /// 2002-2003 <c>.mdb</c>) or any ACCDB version — (page 0, the page-1 free map, and the
+    /// <c>MSysObjects</c>/<c>MSysACEs</c> TDEFs with their
+    /// usage maps + self-registering catalog rows), then the file is a normal LibRed database: further tables
+    /// are added through the ordinary writers. The file opens in the Access GUI: the <c>0xE00</c> user
+    /// commit-byte table is seeded here, and Access adds the system tables it wants (MSysAccessStorage, the
+    /// navigation-pane objects) itself — hand-creating those was tried and made things worse.
+    /// </summary>
+    /// <param name="path">Where the new file is written.</param>
+    /// <param name="version">The format version byte to create it at.</param>
+    /// <param name="collation">
+    /// The database's default text collating order, written to page 0 and inherited by every column created
+    /// in it. Defaults to General-Legacy (LCID 1033, version 0), which is what the engine writes; pass
+    /// <see cref="Collation.General"/> for the order Access 2010+ offers as "General".
+    /// <para>
+    /// Any order <see cref="Collation.IsIndexKeyEncodable"/> accepts can be created — 417 configurations
+    /// (405 at version 0, and the twelve orders that have a version-1 table), the
+    /// two General orders, every locale in <c>JetLocaleTailoring</c> and the CJK orders, each verified by having ACE build an
+    /// index in the created file and agree on the keys (<c>CreatedDatabaseCollationAccessTests</c>). It
+    /// cannot be otherwise: the system-table indexes are built here, in this order, so creating a database
+    /// REQUIRES encoding its collation. That is why a new locale is unavailable to this method until it is
+    /// implemented, and why measuring one for the first time needs DAO to author the file.
+    /// </para>
+    /// </param>
+    public static void Create(string path, byte version = 0x02, Collation? collation = null)
+    {
+        Collation sortOrder = collation ?? Collation.GeneralLegacy;
+
+        // ACE 15 (0x04) can be read but never created: ACE REFUSES a file carrying the byte, an empty one
+        // included, and restamping 0x14 to 0x03 opens the identical bytes
+        // (Ace_refuses_the_0x04_version_byte_and_nothing_else_about_the_file). FromVersionByte still maps 0x04
+        // onto the 0x03 layout, so reading one stays supported; only writing it is refused.
+        if (version == (byte)JetVersion.Version15_2013)
+            throw new NotSupportedException(
+                $"Cannot create a database at {nameof(JetVersion.Version15_2013)} (version byte 0x04): it is not a "
+                + $"valid format for a new database. Use {nameof(JetVersion.Version14_2010)}, the format Access 2013 "
+                + "databases use. Existing 0x04 files can still be opened for reading.");
+
+        JetFormatBase format = JetFormatBase.FromVersionByte(version);
+
+        // Page 0 carries the ANSI code page of the order's language, as ACE writes it — not a fixed 1252.
+        int codePage = JetCodePages.For(sortOrder) ?? throw new NotSupportedException(
+            $"Cannot create a database in {sortOrder}: the code page ACE writes for it has not been measured.");
+
+        // Jet 4 (0x01, the Access 2000 / 2002-2003 `.mdb`) and the ACCDB versions can both be created; the
+        // identifier follows the version byte in DatabaseDefinitionPage.Build, so the pair is always consistent and the
+        // file reopens. Jet 3 is rejected by FromVersionByte already — DAO cannot create one either
+        // ("Could not find installable ISAM"), so there is nothing to compare against.
+        //
+        // A Jet 4 file needs no other difference: DAO's own dbVersion40 database contains exactly the same
+        // four core system tables this method builds. Access adds MSysAccessStorage, the navigation-pane
+        // tables and the MSysDb properties (AccessVersion, Build, ProjVer, …) when it first opens the file,
+        // for a Jet 4 file just as for an ACCDB — measured by diffing a DAO-created Access 2000 database
+        // before and after Access opened it.
+        //
+        // It adds AccessVersion **09.50** and MSysAccessStorage even to a Jet 4 file. The legacy
+        // MSysAccessObjects store (08.50, and the only place the unmodelled 0x11 type appears) comes from
+        // Access *creating* the database itself in the Access 2000 generation — a new file from its own New
+        // dialog. So the generation is chosen at creation by Access, and a file created by anything else gets
+        // the modern one when Access first opens it. Nothing a creator can or should reproduce: DAO does not,
+        // and neither does this.
+        // A page's number is where it lands as the file is generated, in ACE's order: page 0 (built last, once
+        // the pages it points at have numbers), the global usage maps, the four core TDEFs, then their usage maps.
+        // Page 0's bootstrap pointers record where they went, and that is how Access finds the catalog.
+        var (pages, globalMapPage, objPage, acesPage, queriesPage, relPage) =
+            JetCatalog.BuildBootstrap(format, sortOrder);
+
+        // Created now, as Access would. The SIDs are worked out from the finished page 0 — its creation date,
+        // collation and empty password field all feed the keystream — so nothing in it may change after this.
+        // A database has no MSysAccounts or MSysGroups — those live in a workgroup file — so their pointers are zero.
+        byte[] page0 = pages[0] = DatabaseDefinitionPage.Build(version, format.IsAccdb, codePage, sortOrder,
+            DateTime.Now.ToOADate(), globalMapPage, objPage, acesPage, queriesPage, relPage,
+            accountsPage: 0, groupsPage: 0);
+        // The account SIDs as this file stores them: page 0 determines the keystream (page-00 §2.3).
+        byte[] sidUsers = SidKeystream.MaskAccount(page0, SidKeystream.UsersAccount, format);
+        byte[] sidAdmin = SidKeystream.MaskAccount(page0, SidKeystream.AdminAccount, format);
+        byte[] sidEngine = SidKeystream.MaskAccount(page0, SidKeystream.EngineAccount, format);
+        byte[] sidCreator = SidKeystream.MaskAccount(page0, SidKeystream.CreatorAccount, format);
+
+        // Creation is an explicit create-new operation. FileMode.Create would silently truncate an existing
+        // database before any of the format bootstrap work could validate or fail.
+        using (var fs = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            foreach (byte[]? p in pages) fs.Write(p!, 0, format.PageSize);
+
+        // Reopen through the normal stack and self-register the four core tables, so the catalog then finds
+        // them and every other table can go through SchemaEditor.
+        using var db = JetDatabase.Open(path, readOnly: false);
+        JetCatalog.InitializeBootstrap(db, sidUsers, sidAdmin, sidEngine, sidCreator);
+    }
+
     /// <summary>Opens a database file (read-only by default). For a password-encrypted ACCDB, supply
     /// <paramref name="password"/>; writable opens encrypt modified pages again before publishing them.</summary>
-    public static JetDatabase Open(string path, bool readOnly = true, string? password = null)
+    /// <remarks><c>exclusive</c> takes the file for this database alone, as ACE's <c>Mode=Share Exclusive</c>
+    /// does: the open fails while anything else holds it, and nothing else can open it until this one closes.
+    /// Changing the password or the page encoding needs such a database, because it rewrites the whole
+    /// file — see <see cref="Crypto.DatabaseEncryption"/>.</remarks>
+    public static JetDatabase Open(string path, bool readOnly = true, string? password = null, bool exclusive = false)
     {
         // Coordinate page access between every handle open on this file (EF holds several connections on one
         // .accdb): readers share a page, a writer excludes them. PageChannel shares one per-path manager
         // (refcounted, freed on the last close). Process-local for now; the file-based managers replace it.
-        var channel = PageChannel.Open(path, readOnly, password);
+        var channel = PageChannel.Open(path, readOnly, password, locks: null, exclusive);
         try
         {
             return new JetDatabase(channel);
@@ -153,14 +253,12 @@ public sealed class JetDatabase : IDisposable
 
     /// <summary>
     /// Rolls the current transaction back, restoring every touched page and dropping any pages the
-    /// transaction allocated. The catalog cache is invalidated so subsequent reads pick up the
-    /// restored TDEFs/row counts rather than stale in-memory copies.
+    /// transaction allocated.
     /// </summary>
     public void Rollback()
     {
         if (!_channel.InTransaction) return;
         _channel.RollbackTransaction();
-        Catalog.Invalidate(markChanged: false);
         RereadDefinitionPage();   // page 0 moves too, when a rolled-back statement raised the format version
     }
 
@@ -169,17 +267,19 @@ public sealed class JetDatabase : IDisposable
     public Savepoint CreateSavepoint() => _channel.CreateSavepoint();
 
     /// <summary>Rolls back to <paramref name="savepoint"/>, undoing writes made since it was created; the
-    /// transaction (and savepoint) stay open. Invalidates the catalog cache, as a full rollback does, since a
-    /// restored page may be a TDEF/catalog page.</summary>
+    /// transaction (and savepoint) stay open.</summary>
     public void RollbackToSavepoint(Savepoint savepoint)
     {
         _channel.RollbackToSavepoint(savepoint);
-        Catalog.Invalidate(markChanged: false);
         RereadDefinitionPage();
     }
 
     /// <summary>Releases <paramref name="savepoint"/>, merging its writes into the enclosing scope.</summary>
     public void ReleaseSavepoint(Savepoint savepoint) => _channel.ReleaseSavepoint(savepoint);
+
+    /// <inheritdoc cref="PageChannel.DependOn"/>
+    public void DependOn(Func<bool> stillHolds, string violation, object? key = null) =>
+        _channel.DependOn(stillHolds, violation, key);
 
     // --- nested transactions (shared by the ADO API and SQL BEGIN/COMMIT/ROLLBACK) ---
     // One physical transaction; nesting maps onto the savepoint stack. The depth counts every open level, so a
@@ -254,15 +354,13 @@ public sealed class JetDatabase : IDisposable
     public IReadOnlyList<object?[]> ReadComplexValues(ComplexColumn column, int complexId)
     {
         ArgumentNullException.ThrowIfNull(column);
-        var values = new List<object?[]>();
-        foreach (object?[] row in OpenTable(column.FlatTable.Name).Rows())
-        {
-            if (row[column.OwnerLink.Index] is not { } link
-                || Convert.ToInt32(link, System.Globalization.CultureInfo.InvariantCulture) != complexId)
-                continue;
-            values.Add([.. column.ValueColumns.Select(c => row[c.Index])]);
-        }
-        return values;
+        // Seeked by the owner link, whose index is what identifies the link column in the first place (see
+        // JetCatalog), so no other record's values are read to find this one's.
+        int link = column.OwnerLink.Index;
+        return [.. OpenTable(column.FlatTable.Name)
+            .RowsWithKey([link], [complexId], row => row[link] is { } owner
+                && Convert.ToInt32(owner, System.Globalization.CultureInfo.InvariantCulture) == complexId)
+            .Select(r => (object?[])[.. column.ValueColumns.Select(c => r.Values[c.Index])])];
     }
 
     /// <summary>
@@ -369,13 +467,15 @@ public sealed class JetDatabase : IDisposable
         IReadOnlyList<UniqueIndexSpec>? uniqueConstraints = null,
         IReadOnlyList<(string Column, string DefaultSql)>? columnDefaults = null,
         IReadOnlyList<(string Name, string Expression)>? checkConstraints = null,
-        string? primaryKeyName = null)
+        string? primaryKeyName = null,
+        int primaryKeyDeclaredAfterColumns = 0,
+        TableType tableType = TableType.User)
     {
         ValidateCalculated(columns, [.. columns.Select(c => c.Name)]);
         EnsureFormatForCalculated(columns);
-        new Storage.TableCreator(_channel, Catalog, Collation)
+        new Catalog.SchemaEditor(_channel, Catalog, Collation)
             .Create(name, columns, primaryKey, relationships, uniqueConstraints, columnDefaults, checkConstraints,
-                primaryKeyName);
+                primaryKeyName, primaryKeyDeclaredAfterColumns, tableType);
         Catalog.Invalidate();
     }
 
@@ -386,7 +486,7 @@ public sealed class JetDatabase : IDisposable
     public void CreateIndex(string table, string index, IReadOnlyList<(string Column, bool Descending)> columns,
         bool isUnique = false, bool isPrimary = false, bool disallowNull = false, bool ignoreNulls = false)
     {
-        new Storage.TableCreator(_channel, Catalog).AddIndex(table, index, columns, isUnique, isPrimary, disallowNull, ignoreNulls);
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).AddIndex(table, index, columns, isUnique, isPrimary, disallowNull, ignoreNulls);
         Catalog.Invalidate();
     }
 
@@ -394,7 +494,7 @@ public sealed class JetDatabase : IDisposable
     /// FOREIGN KEY. Writes the child backing index, the parent's incoming block and MSysRelationships.</summary>
     public void AddForeignKey(string childTable, RelationshipSpec relationship)
     {
-        new Storage.TableCreator(_channel, Catalog).AddForeignKey(childTable, relationship);
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).AddForeignKey(childTable, relationship);
         Catalog.Invalidate();
     }
 
@@ -402,7 +502,7 @@ public sealed class JetDatabase : IDisposable
     /// Merges into the table's LvProp CheckConstraints property; the engine enforces it on insert/update.</summary>
     public void AddCheckConstraint(string table, string name, string expression)
     {
-        new Storage.TableCreator(_channel, Catalog).AddCheckConstraint(table, name, expression);
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).AddCheckConstraint(table, name, expression);
         Catalog.Invalidate();
     }
 
@@ -410,25 +510,25 @@ public sealed class JetDatabase : IDisposable
     /// LvProp CheckConstraints property. Returns false if no CHECK of that name exists.</summary>
     public bool DropCheckConstraint(string table, string name)
     {
-        bool dropped = new Storage.TableCreator(_channel, Catalog).DropCheckConstraint(table, name);
+        bool dropped = new Catalog.SchemaEditor(_channel, Catalog, Collation).DropCheckConstraint(table, name);
         if (dropped) Catalog.Invalidate();
         return dropped;
     }
 
-    /// <summary>Changes a column's declared type — ALTER TABLE … ALTER COLUMN. A variable text/binary length
-    /// change is an in-place descriptor edit; a storage-type change rebuilds the table (converting values).</summary>
+    /// <summary>Changes a column's declared type — ALTER TABLE … ALTER COLUMN. Any type or length change, a text
+    /// column's length included, is <see cref="AlterColumnTypeInPlace"/>.</summary>
     public void AlterColumn(string table, string column, ColumnSpec newSpec)
     {
-        new Storage.TableCreator(_channel, Catalog).AlterColumn(table, column, newSpec);
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).AlterColumn(table, column, newSpec);
         Catalog.Invalidate();
     }
 
     /// <summary>Full in-place column type change, byte-for-byte like ACE for every shape (fixed/variable columns
-    /// and targets, fixed↔variable, and indexed targets): TDEF edit + row re-lay preserving the dead old slot +
-    /// index rebuild. Falls back to the logical rebuild only for a Memo/OLE (long-value) source or target.</summary>
+    /// and targets, fixed↔variable, indexed targets, and a Memo/OLE source or target): TDEF edit + row re-lay
+    /// preserving the dead old slot + a rebuild of the indexes over the column.</summary>
     public void AlterColumnTypeInPlace(string table, string column, ColumnSpec newSpec)
     {
-        new Storage.TableCreator(_channel, Catalog).AlterColumnTypeInPlace(table, column, newSpec);
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).AlterColumnTypeInPlace(table, column, newSpec);
         Catalog.Invalidate();
     }
 
@@ -436,7 +536,7 @@ public sealed class JetDatabase : IDisposable
     /// DefaultValue in the LvProp blob; the engine applies it on an omit-insert.</summary>
     public void SetColumnDefault(string table, string column, string defaultSql)
     {
-        new Storage.TableCreator(_channel, Catalog).SetColumnDefault(table, column, defaultSql);
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).SetColumnDefault(table, column, defaultSql);
         Catalog.Invalidate();
     }
 
@@ -445,7 +545,7 @@ public sealed class JetDatabase : IDisposable
     /// (ACE-verified). A no-op if the column had no default.</summary>
     public void DropColumnDefault(string table, string column)
     {
-        new Storage.TableCreator(_channel, Catalog).DropColumnDefault(table, column);
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).DropColumnDefault(table, column);
         Catalog.Invalidate();
     }
 
@@ -454,22 +554,22 @@ public sealed class JetDatabase : IDisposable
     /// the engine enforces it on insert and ACE reads it byte-faithfully (verified).</summary>
     public void SetColumnRequired(string table, string column, bool required)
     {
-        new Storage.TableCreator(_channel, Catalog).SetColumnRequired(table, column, required);
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).SetColumnRequired(table, column, required);
         Catalog.Invalidate();
     }
 
     /// <summary>Drops a named FOREIGN KEY constraint from a table — ALTER TABLE … DROP CONSTRAINT. Returns
     /// false if no such relationship exists (e.g. the name is a primary-key/unique index, not yet handled).</summary>
     public bool DropConstraint(string childTable, string name) =>
-        new Storage.TableCreator(_channel, Catalog).DropConstraint(childTable, name);
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).DropConstraint(childTable, name);
 
     /// <summary>Renames a table — ALTER TABLE … RENAME TO. Updates MSysObjects.Name and repoints the by-name
     /// table references in MSysRelationships; indexes and stored queries are left alone, matching ACE. Returns
     /// false if the table doesn't exist; throws if the new name is taken.</summary>
     public bool RenameTable(string oldName, string newName)
     {
-        bool renamed = new Storage.TableCreator(_channel, Catalog).RenameTable(oldName, newName);
-        if (renamed) Catalog.Invalidate(); // the cached TableDefs still carry the old name
+        bool renamed = new Catalog.SchemaEditor(_channel, Catalog, Collation).RenameTable(oldName, newName);
+        if (renamed) Catalog.Invalidate();
         return renamed;
     }
 
@@ -478,18 +578,20 @@ public sealed class JetDatabase : IDisposable
     /// DEFAULT. Returns false if the column doesn't exist; throws if the new name is taken on that table.</summary>
     public bool RenameColumn(string table, string oldName, string newName)
     {
-        bool renamed = new Storage.TableCreator(_channel, Catalog).RenameColumn(table, oldName, newName);
+        bool renamed = new Catalog.SchemaEditor(_channel, Catalog, Collation).RenameColumn(table, oldName, newName);
         if (renamed) Catalog.Invalidate();
         return renamed;
     }
 
     /// <summary>Drops a column — ALTER TABLE … DROP COLUMN. A metadata-only TDEF edit (survivors and rows are
-    /// untouched). Returns false if the column doesn't exist; throws for an indexed/keyed or memo/OLE column.</summary>
+    /// untouched), except that a memo/OLE column's long-value usage maps are retired with it, as ACE does.
+    /// Returns false if the column doesn't exist; throws for an indexed/keyed column (drop the index first).</summary>
     public bool DropColumn(string table, string column) =>
-        new Storage.TableCreator(_channel, Catalog).DropColumn(table, column);
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).DropColumn(table, column);
 
     /// <summary>Adds a column — ALTER TABLE … ADD COLUMN. Appends the descriptor/name and bumps the counts;
-    /// existing rows read it as NULL. Returns false if the column already exists; throws for memo/OLE.</summary>
+    /// existing rows read it as NULL. A memo/OLE column gets its long-value usage maps at the same time.
+    /// Returns false if the column already exists.</summary>
     public bool AddColumn(string table, Catalog.ColumnSpec column, string? defaultValue = null)
     {
         if (column.CalculatedExpression is not null)
@@ -499,7 +601,7 @@ public sealed class JetDatabase : IDisposable
             ValidateCalculated([column], visible);
             EnsureFormatForCalculated([column]);
         }
-        return new Storage.TableCreator(_channel, Catalog, Collation).AddColumn(table, column, defaultValue);
+        return new Catalog.SchemaEditor(_channel, Catalog, Collation).AddColumn(table, column, defaultValue);
     }
 
     /// <summary>Raises the file to ACE 14 when a calculated column is being created — the floor its own
@@ -530,23 +632,23 @@ public sealed class JetDatabase : IDisposable
     /// <summary>Drops an index — DROP INDEX … ON table. Removes its TDEF blocks and frees its B-tree root.
     /// Returns false if the index doesn't exist; throws if it backs a relationship.</summary>
     public bool DropIndex(string table, string index) =>
-        new Storage.TableCreator(_channel, Catalog).DropIndex(table, index);
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).DropIndex(table, index);
 
     /// <summary>Drops a table — DROP TABLE. Removes its MSysObjects + MSysACEs rows and frees its pages.
     /// Returns false if the table doesn't exist; throws if it is in a relationship.</summary>
     public bool DropTable(string table) =>
-        new Storage.TableCreator(_channel, Catalog).DropTable(table);
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).DropTable(table);
 
     /// <summary>Drops a view or stored procedure — DROP VIEW / DROP PROCEDURE (interchangeable, both target a
     /// type-5 query object). Removes its MSysObjects + MSysQueries + MSysACEs rows. Returns false if absent.</summary>
     public bool DropQueryObject(string name) =>
-        new Storage.TableCreator(_channel, Catalog).DropQueryObject(name);
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).DropQueryObject(name);
 
     /// <summary>Creates a view (a stored SELECT query) — the CREATE VIEW statement. Written the way Access
     /// does: an MSysObjects type-5 row plus the query decomposed into MSysQueries rows.</summary>
     public void CreateView(string name, ViewSpec spec)
     {
-        new Storage.ViewCreator(_channel, Catalog).Create(name, spec);
+        Catalog.CreateView(name, spec);
         Catalog.Invalidate();
     }
 
@@ -554,21 +656,50 @@ public sealed class JetDatabase : IDisposable
     /// query, as CREATE PROCEDURE persists them. Written byte-faithfully the way Access does.</summary>
     public void CreateActionQuery(string name, ActionQuerySpec spec)
     {
-        new Storage.ViewCreator(_channel, Catalog).CreateAction(name, spec);
+        Catalog.CreateActionQuery(name, spec);
+        Catalog.Invalidate();
+    }
+
+    /// <summary>Every <c>MSysNameMap</c> row — Access's Name AutoCorrect map, one row per object it tracks — with
+    /// its map decoded; empty when the file has no such table. The engine never maintains these: a row reflects
+    /// the names as Access last saw them (docs/format/system-catalog.md §11).</summary>
+    public IReadOnlyList<NameMap.CatalogRow> ReadNameMaps() =>
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).ReadNameMapRows();
+
+    /// <summary>Replaces the map of the <c>MSysNameMap</c> row for the object whose <c>GUID</c> property is
+    /// <paramref name="objectGuid"/> — and the row's name when <paramref name="name"/> is given. Returns false
+    /// when there is no such row; one is never added.</summary>
+    public bool UpdateNameMap(Guid objectGuid, NameMap map, string? name = null)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        return new Catalog.SchemaEditor(_channel, Catalog, Collation).WriteNameMapRow(objectGuid, map, name);
+    }
+
+    /// <summary>The <c>NameMap</c> property — the object's own copy of its Name AutoCorrect map — of the object
+    /// with this name and type — a table, a linked table, a form or a report; null when it has none. Throws when
+    /// there is no such object.</summary>
+    public NameMap? ReadNameMapProperty(string objectName, Formats.ObjectType objectType) =>
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).ReadNameMapProperty(objectName, objectType);
+
+    /// <summary>Sets the object's <c>NameMap</c> property, or removes it when <paramref name="map"/> is null,
+    /// leaving every other property as it was. Throws when there is no such object.</summary>
+    public void UpdateNameMapProperty(string objectName, Formats.ObjectType objectType, NameMap? map)
+    {
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).WriteNameMapProperty(objectName, objectType, map);
         Catalog.Invalidate();
     }
 
     /// <summary>Opens a table directly from its TDEF page, bypassing the catalog — used during database
     /// creation to seed the system tables before they self-register in <c>MSysObjects</c>.</summary>
-    public Storage.Table OpenTableAt(int tdefPage, string name, bool isSystem = true) =>
-        new(_channel, Catalog.ReadTableDefinitionAt(tdefPage, name, isSystem));
+    internal Storage.Table OpenTableAt(int tdefPage, string name, bool isSystem = true) =>
+        new(_channel, Catalog.ReadTableDefinition(tdefPage, name, isSystem), Catalog);
 
     /// <summary>Opens a table by name for row access.</summary>
     public Table OpenTable(string name)
     {
-        TableDef def = Catalog.FindTable(name)
+        TableDefinition def = Catalog.FindTable(name)
             ?? throw new ArgumentException($"Table '{name}' was not found.", nameof(name));
-        return new Table(_channel, def);
+        return new Table(_channel, def, Catalog);
     }
 
     /// <summary>Closes the database. A writable handle first returns the pages it released to the global free
@@ -583,7 +714,7 @@ public sealed class JetDatabase : IDisposable
             if (!_channel.IsReadOnly)
             {
                 _channel.RollbackTransaction();
-                new PageAllocator(_channel).ReturnReleasedPages();
+                _channel.Allocator.ReturnReleasedPages();
             }
         }
         catch (InvalidDataException)

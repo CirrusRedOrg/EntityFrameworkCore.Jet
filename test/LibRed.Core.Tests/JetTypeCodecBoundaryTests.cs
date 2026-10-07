@@ -1,5 +1,6 @@
 using System.Text;
 using LibRed.Catalog;
+using LibRed.Formats;
 using LibRed.Storage.Types;
 using Xunit;
 
@@ -7,6 +8,8 @@ namespace LibRed.Core.Tests;
 
 public class JetTypeCodecBoundaryTests
 {
+    private static readonly JetFormatBase Format = JetFormatBase.FromVersionByte(0x02);
+
     private static ColumnDef Column(
         JetDataType type, int length = 0, bool fixedLength = false, byte scale = 0)
         => new()
@@ -44,7 +47,7 @@ public class JetTypeCodecBoundaryTests
     public void Fixed_width_minimum_and_maximum_values_round_trip(JetDataType type, object value)
     {
         ColumnDef column = Column(type);
-        Assert.Equal(value, JetTypeCodec.Decode(column, JetTypeCodec.Encode(column, value)));
+        Assert.Equal(value, JetTypeCodec.Decode(column, JetTypeCodec.Encode(column, value, Format)));
     }
 
     [Theory]
@@ -76,7 +79,7 @@ public class JetTypeCodecBoundaryTests
     {
         decimal value = decimal.Parse(text, System.Globalization.CultureInfo.InvariantCulture);
         ColumnDef column = Column(JetDataType.FixedPoint, scale: 4);
-        byte[] encoded = JetTypeCodec.Encode(column, value);
+        byte[] encoded = JetTypeCodec.Encode(column, value, Format);
         Assert.Equal(value, JetTypeCodec.Decode(column, encoded));
         if (unscaledControl is not null)
             Assert.Equal(unscaledControl.Value, decimal.ToInt32(value * 10_000m));
@@ -111,6 +114,35 @@ public class JetTypeCodecBoundaryTests
         Assert.Equal("Å", JetTypeCodec.DecodeText(Encoding.Unicode.GetBytes("Å")));
     }
 
+    // Plain UTF-16 is copied rather than decoded when that cannot differ from the decoder, and compressed text
+    // with no switch byte is read as one Latin-1 run. Both must give exactly what the general paths give.
+    [Theory]
+    [InlineData("")]
+    [InlineData("plain ascii")]
+    [InlineData("café ñ ü")]
+    [InlineData("中文 text")]
+    [InlineData("pair \U0001F600 kept")]
+    public void Utf16_text_decodes_as_the_encoder_does(string text)
+    {
+        byte[] bytes = Encoding.Unicode.GetBytes(text);
+        Assert.Equal(Encoding.Unicode.GetString(bytes), JetTypeCodec.DecodeText(bytes));
+    }
+
+    [Theory]
+    [InlineData(new byte[] { 0x41, 0x00, 0x00, 0xD8 })]              // a lone high surrogate
+    [InlineData(new byte[] { 0x41, 0x00, 0x00, 0xDC, 0x42, 0x00 })]  // a lone low surrogate
+    [InlineData(new byte[] { 0x41, 0x00, 0x42 })]                    // an odd trailing byte
+    public void Malformed_utf16_is_still_handled_as_the_encoder_handles_it(byte[] bytes)
+        => Assert.Equal(Encoding.Unicode.GetString(bytes), JetTypeCodec.DecodeText(bytes));
+
+    [Theory]
+    [InlineData(new byte[] { 0xFF, 0xFE, 0x63, 0x61, 0x66, 0xE9 }, "café")]
+    [InlineData(new byte[] { 0xFF, 0xFE, 0x80, 0x9F, 0xFF }, "\u0080\u009Fÿ")]
+    [InlineData(new byte[] { 0xFF, 0xFE, 0x63, 0x61, 0x66, 0xE9, 0x00, 0x2D, 0x4E }, "café中")]
+    [InlineData(new byte[] { 0xFF, 0xFE, 0x61, 0x00, 0x2D, 0x4E, 0x00, 0x62 }, "a中b")]
+    public void Compressed_text_decodes_in_both_modes(byte[] bytes, string expected)
+        => Assert.Equal(expected, JetTypeCodec.DecodeText(bytes));
+
     // Padding short values is right — ACE stores fixed text space-padded to the full width. Over-long is NOT
     // truncation: this asserted that it was, which is where the bug lived. ACE refuses an over-long value on a
     // fixed column exactly as it does on a variable one (measured in FixedWidthOverflowAccessTests), so the
@@ -119,10 +151,10 @@ public class JetTypeCodecBoundaryTests
     public void Fixed_text_and_binary_are_padded_to_the_declared_width()
     {
         ColumnDef text = Column(JetDataType.Text, length: 6, fixedLength: true);
-        Assert.Equal("A  ", JetTypeCodec.Decode(text, JetTypeCodec.Encode(text, "A")));
+        Assert.Equal("A  ", JetTypeCodec.Decode(text, JetTypeCodec.Encode(text, "A", Format)));
 
         ColumnDef binary = Column(JetDataType.Binary, length: 3, fixedLength: true);
-        Assert.Equal(new byte[] { 1, 0, 0 }, JetTypeCodec.Encode(binary, new byte[] { 1 }));
+        Assert.Equal(new byte[] { 1, 0, 0 }, JetTypeCodec.Encode(binary, new byte[] { 1 }, Format));
     }
 
     [Fact]
@@ -130,11 +162,26 @@ public class JetTypeCodecBoundaryTests
     {
         ColumnDef text = Column(JetDataType.Text, length: 6, fixedLength: true);
         Assert.Contains("too small to accept",
-            Assert.Throws<InvalidOperationException>(() => JetTypeCodec.Encode(text, "ABCD")).Message);
+            Assert.Throws<InvalidOperationException>(() => JetTypeCodec.Encode(text, "ABCD", Format)).Message);
 
         ColumnDef binary = Column(JetDataType.Binary, length: 3, fixedLength: true);
         Assert.Contains("too small to accept",
-            Assert.Throws<InvalidOperationException>(() => JetTypeCodec.Encode(binary, new byte[] { 1, 2, 3, 4 })).Message);
+            Assert.Throws<InvalidOperationException>(() => JetTypeCodec.Encode(binary, new byte[] { 1, 2, 3, 4 }, Format)).Message);
+    }
+
+    // DATETIME2 is 42 ASCII bytes, "<day>:<time>:<precision>". The width was checked and the CONTENT was not,
+    // so a damaged value escaped as ArgumentOutOfRangeException (s[..-1] on a missing colon), FormatException
+    // (non-digits) or an overflow — never the InvalidDataException every other type reports.
+    [Theory]
+    [InlineData("no colons here at all, but exactly 42 bytes!")]
+    [InlineData("12345:only one colon and padding to 42.....")]
+    [InlineData("abcdefghijklmnopqrs:tuvwxyzabcdefghijklmn:07")]
+    [InlineData("9999999999999999999:0000000000000000000:07")]
+    public void A_damaged_extended_datetime_reports_corruption(string text)
+    {
+        byte[] value = Encoding.ASCII.GetBytes(text.PadRight(42)[..42]);
+        Assert.ThrowsAny<InvalidDataException>(() =>
+            JetTypeCodec.Decode(Column(JetDataType.DateTimeExtended, length: 42, fixedLength: true), value));
     }
 
     // Complex used to stand in for "unsupported" here. It no longer is — its four bytes are an Int32 complex
@@ -143,15 +190,15 @@ public class JetTypeCodecBoundaryTests
     public void Unsupported_encoding_reports_the_column_type()
     {
         var error = Assert.Throws<NotSupportedException>(() =>
-            JetTypeCodec.Encode(Column(JetDataType.Unknown11), new object()));
-        Assert.Contains(nameof(JetDataType.Unknown11), error.Message);
+            JetTypeCodec.Encode(Column(JetDataType.Unknown0D), new object(), Format));
+        Assert.Contains(nameof(JetDataType.Unknown0D), error.Message);
     }
 
     [Fact]
     public void A_complex_id_round_trips_as_an_int32()
     {
         ColumnDef column = Column(JetDataType.Complex, length: 4, fixedLength: true);
-        Assert.Equal(new byte[] { 0x2A, 0, 0, 0 }, JetTypeCodec.Encode(column, 42));
+        Assert.Equal(new byte[] { 0x2A, 0, 0, 0 }, JetTypeCodec.Encode(column, 42, Format));
         Assert.Equal(42, JetTypeCodec.Decode(column, JetDataType.Complex, new byte[] { 0x2A, 0, 0, 0 }));
     }
 }

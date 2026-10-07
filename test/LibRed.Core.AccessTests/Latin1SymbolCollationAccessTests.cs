@@ -56,7 +56,7 @@ public class Latin1SymbolCollationAccessTests
 
                 Assert.Equal(
                     (value, Convert.ToHexString(stored)),
-                    (value, Convert.ToHexString(IndexKeyEncoder.Encode(index.Columns, aligned))));
+                    (value, Convert.ToHexString(IndexKeyCodec.Encode(index.Columns, aligned))));
                 checkedKeys++;
             }
 
@@ -78,8 +78,8 @@ public class Latin1SymbolCollationAccessTests
             Name = "t", Type = JetDataType.Text, Index = 0, Collation = Collation.GeneralLegacy,
         };
         Assert.Equal(
-            Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [digit.ToString()])),
-            Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [superscript.ToString()])));
+            Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [digit.ToString()])),
+            Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [superscript.ToString()])));
     }
 
     private static void Exec(System.Data.OleDb.OleDbConnection connection, string sql)

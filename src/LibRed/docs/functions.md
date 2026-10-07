@@ -33,7 +33,7 @@ reference throws "Column not found" — a default is row-blind by design). The e
 - Values follow VBA sign and rounding conventions (`CInt`/`CLng`/`CByte` use banker's rounding).
 - **Dates compare by their OLE Automation serial**, not chronologically: below the 1899-12-30 epoch the day count
   goes negative while the time fraction stays positive, so 1899-12-29 06:00 is -1.25 and 18:00 is -1.75, and ACE
-  orders the later time first. LibRed matches that, because `IndexKeyEncoder` writes the same serial as the index
+  orders the later time first. LibRed matches that, because `IndexKeyCodec` writes the same serial as the index
   key and the two paths must agree (see `AcePreEpochDateProbeTest`). Date *functions* are unaffected — they work
   in date space.
 - **Argument counts are validated** against a per-function range, including optional arguments and Jet quirks:
@@ -45,9 +45,10 @@ reference throws "Column not found" — a default is row-blind by design). The e
 > Service (JES)**, the built-in set the ACE OLE DB provider carries **standalone**, and (2) the **Access
 > Application Expression Service**, the full VBA runtime available only inside `MSACCESS.EXE`. LibRed targets
 > the **JES (standalone)** surface — the correct reference for a standalone engine. Functions that live only
-> in the application service (`Nz`, `Split`, `Environ`, `CurDir`, `CurrentUser`, the domain aggregates
+> in the application service (`Split`, `Environ`, `CurDir`, `CurrentUser`, the domain aggregates
 > `DCount`/`DLookup`/…) are therefore **correctly absent**, matching the OLE DB provider ("Undefined
-> function"), not a gap.
+> function"), not a gap. The one exception is **`Nz`**, which queries written in Access use everywhere, so LibRed
+> has it as Access has it (below).
 
 ---
 
@@ -67,9 +68,47 @@ close but *not proven exhaustive* — re-run the sweep when in doubt.
   runtime proper would say `"True"`.
 - `CBool` accepts a numeric string (`"-1"`) and a non-integral number.
 - `CCur` rounds to 4 decimal places, and is ACE's route to a decimal.
-- `CVar` is a pass-through — LibRed has no distinct Variant type.
+- `CVar` makes a **Variant** — see below.
 
 (Verified against ACE in `LibRed.Core.Tests.AceVbaConversionProbeTest`.)
+
+#### Variants and choices of mixed kind
+
+`CVar(x)` gives a **Variant**, and so do `-v`, `v` plus a Variant, a mixed value or text, and an `IIf`, `Switch`
+or `Choose` whose values are all Variants. A Variant keeps its own type while an expression uses it:
+`CVar(3) + CVar(3)` is 6, `CVar(3) + '1'` is 4, and `CVar('10') > 9` compares as numbers. A derived table passes
+it on unchanged.
+
+An `IIf`, `Switch` or `Choose` whose values are of different kinds is **mixed**: text beside a number, a date, a
+Boolean, a GUID or a binary value, or a Variant beside anything that is not one — a nested choice of Variants
+included. A derived table holds a mixed value as text, so `X + X` over `IIf(…, '8', 2) AS X` is `'88'`.
+
+A Variant or a mixed value is **text** when it is written out, rendered as `CStr` renders it (a date in the
+regional format):
+
+- in a result column, and in the Text(255) column a make-table query creates for it;
+- from a scalar subquery and from a union — so a Variant subquery added to itself concatenates.
+
+Both **sort, group and take `Max`, `Min`, `First` and `Last` as their text**: `ORDER BY CVar(n)` puts 10 before 3,
+and `Max` over 3, 10 and 25 as Variants is `'3'`. Anywhere else each counts as a **Double** — beside a number in
+`+`, and in `-`, `*`, `/`, `^`, a numeric function, `Sum` or `Avg` — so `CVar(date) + 1` is a serial number; a
+mixed value counts as one in another choice too. `\` and `Mod` give a Long.
+
+Mixed is only a matter of kind: beside a number, a date makes a **date** (`IIf(…, date, 2)` is 1900-01-01 where it
+takes the 2) and a Boolean a **Long**.
+
+LibRed's `CASE`, `Coalesce`, `Greatest` and `Least`, which ACE does not have, follow `IIf`. It also leaves
+`CVar(Null)` untyped, as a bare Null is, where ACE makes it a Variant and so a union with an arm of them a text
+column: EFCore.Jet writes `CVar(Null)` for every projected Null, and the union keeps its other arm's types.
+
+#### Nz
+
+**`Nz(value [, valueIfNull])`** is `value`, or when it is Null `valueIfNull`. It is the Access application's, not the
+JES's — the OLE DB provider answers "Undefined function" — so its reference is Access itself (verified vs Access, the
+application, over the same rows). Its result is always a **Variant**, with all that brings: `Nz(K, 0)` is written
+out as the text `'0'`, `ORDER BY Nz(K, 0)` puts 10 before 2, and `Nz(K, 0) + 1` and `Nz(K, 0) > 2` work as numbers.
+With one argument a Null gives VBA's **Empty**, which is written out as `''` and read as 0 by arithmetic and as `''`
+by `&`: `Nz(Null) + 2` is 2, `Nz(Null) & 'x'` is `'x'`, `Len(Nz(Null))` is 0 and `Nz(Null) = 0` is True.
 
 ### Math
 
@@ -231,8 +270,28 @@ using; SQL written to run on ACE as well must leave them out.
 `Coalesce`, `Greatest` and `Least` declare the type their arguments unify to, as `CASE` does (`CASE` itself is
 syntax, not a function).
 
+Two standard predicates, operators rather than functions, both never Null (ACE rejects both):
+
+- **`x IS [NOT] TRUE` / `x IS [NOT] FALSE`** — a truth test in which Null is neither True nor False.
+- **`x IS [NOT] DISTINCT FROM y`** — `<>` / `=` with Null taken as a value: two Nulls are not distinct, a Null
+  and a value are.
+
+### String
+
+- **`CONCAT_WS(separator, value, value, …)`**, SQL Server's — the values joined by the separator, each written as `&`
+  writes it. A Null value is left out with no separator for it, so all of them Null give `''`, and a Null separator
+  is an empty one. A separator and at least two values.
+- **`TRANSLATE(text, characters, translations)`**, SQL Server's — each character of the text that is one of
+  `characters` becomes the one at the same place in `translations`, once: `TRANSLATE('abc', 'ab', 'bc')` is `'bcc'`.
+  It is what as many `Replace` calls would do, so a character matches as `Replace` matches text, in the database sort
+  order. A surrogate pair is one character. Any argument Null gives Null; `characters` and `translations` must have
+  as many characters.
+
 ### Date and time
 
+- **`GetUtcDate()`**, **`SysDateTime()`** and **`SysUtcDateTime()`**, SQL Server's — the current date and time, in
+  UTC for the two with UTC in their name. `GetUtcDate` is SQL Server's `datetime`, so a Date/Time here: whole
+  milliseconds. `SysDateTime` and `SysUtcDateTime` are its `datetime2`, and keep the 100-ns ticks a `DATETIME2` holds.
 - **`DatePart`** also takes `"ms"`, `"mcs"` and `"ns"`: the millisecond, microsecond and nanosecond of the time.
 - **`DateAdd`** also takes `"ms"`.
 - **`DateDiff`** also takes `"ms"` — Returns an Int32
@@ -287,7 +346,7 @@ behaviour over a grouped query are described in the [README](../README.md).
 
 ## Not supported (by design)
 
-- **Access-application-only** (JES-undefined, so correctly absent): `Nz`, `Split`, `CurDir`, `CurrentUser`,
+- **Access-application-only** (JES-undefined, so correctly absent): `Split`, `CurDir`, `CurrentUser`,
   `Environ`, `Randomize`, and the domain aggregates. `Split` also returns a Variant array (no scalar-SQL
   representation).
 - **No scalar-SQL form:** `IRR` / `NPV` (array argument); `Array` / `Join` / `CVErr` (VBA-only).

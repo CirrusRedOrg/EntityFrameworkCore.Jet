@@ -38,12 +38,13 @@ public class IndexSplitTests
                 for (int i = 1; i <= N; i++) t.Insert([i, $"r{i}"]);
             }
 
-            using (var ch = PageChannel.Open(path, readOnly: true))
+            using (var db = JetDatabase.Open(path))
             {
-                var pk = new LibRed.Catalog.JetCatalog(ch).FindTable("Big")!.Indexes.Single(x => x.IsPrimaryKey);
+                var pk = db.OpenTable("Big").Definition.Indexes.Single(x => x.IsPrimaryKey);
 
                 // The root grew into a node — the tree is genuinely multi-level, not a single fat leaf.
-                Assert.Equal(PageType.IntermediateIndexPage, (PageType)ch.ReadPage(pk.RootPage).ReadByte(0));
+                using var ch = PageChannel.Open(path, readOnly: true);
+                Assert.Equal(PageType.IntermediateIndexPage, PageHeader.ReadType(ch.ReadPage(pk.RootPage).Span));
 
                 var cursor = new IndexCursor(ch, pk.RootPage);
                 Assert.Equal(N, cursor.RowIds().Count());

@@ -1,36 +1,21 @@
 namespace LibRed.Formats;
 
 /// <summary>
-/// Version-specific layout description for a Jet/ACE database. Holds every byte
-/// offset, size and limit that differs between format versions, so the page
-/// parsers can read named constants instead of hard-coded magic numbers.
+/// Version-specific layout description for a Jet/ACE database. Names every byte offset, size and limit of the
+/// on-disk format; each format family sets its own values — <see cref="Jet4Format"/> for Jet 4 and, by
+/// inheritance, every ACE version, and <see cref="Jet3Format"/> for Jet 3.
 /// </summary>
 /// <remarks>
-/// The authoritative references for these values are the mdbtools source
-/// (<c>include/mdbtools.h</c>, <c>src/libmdb/</c>) and Jackcess
-/// (<c>com.healthmarketscience.jackcess.impl.JetFormat</c>).
+/// Two kinds of value live here rather than in a format: what has to be read before a format is known — the
+/// format identifier and version byte page 0 is recognised by, and the engine-version string an unknown ACE byte
+/// is checked against — and the marker values written inside the structures (<see cref="TdefRecordMarker"/>,
+/// <see cref="IndexDataMarker"/>, <see cref="IndexDataColumnUnused"/>, <see cref="IndexInfoNoForeignKey"/>,
+/// <see cref="TdefLongValueMapTerminator"/>, <see cref="LongValuePageMarker"/>). The authoritative references for the layouts are the mdbtools source (<c>include/mdbtools.h</c>,
+/// <c>src/libmdb/</c>) and Jackcess (<c>com.healthmarketscience.jackcess.impl.JetFormat</c>).
 /// </remarks>
 public abstract class JetFormatBase
 {
-    /// <summary>Offset of the one-byte format version marker within page 0.</summary>
-    public const int VersionOffset = 0x14;
-
-    /// <summary>Offset of the one-byte minor version that follows the version byte.</summary>
-    public const int MinorVersionOffset = 0x15;
-
-    /// <summary>The minor byte ACE writes when it CREATES a database of <paramref name="version"/>: <c>0x01</c>
-    /// for the 2010 format (<c>0x03</c>), <c>0x00</c> for every other. A version raise writes <c>0x00</c>
-    /// whatever the target, so a 2007 file raised to <c>0x03</c> does not carry the <c>0x01</c> a created one
-    /// does.</summary>
-    public static byte CreatedMinorVersion(byte version) => (byte)(version == 0x03 ? 0x01 : 0x00);
-
-    /// <summary>Offset of the cleartext ASCII engine-version string ("4.0", NUL-terminated) — past the masked
-    /// header window, so readable directly. Present on both Jet 4 (<c>.mdb</c>) and ACE (<c>.accdb</c>), which
-    /// are both the Jet-4.0 engine. Used to confirm an unknown version byte is still a 4.0-family database
-    /// before falling back to the latest known ACE layout.</summary>
-    public const int EngineVersionOffset = 0x9C;
-    public const int EngineVersionLength = 4;
-    private const string Jet40EngineVersion = "4.0";
+    // --- Format detection (page 0, read before the format is known) ---
 
     /// <summary>Offset of the ASCII format identifier string within page 0.</summary>
     public const int FormatIdentifierOffset = 0x04;
@@ -49,129 +34,254 @@ public abstract class JetFormatBase
     /// <see cref="JetLegacyEncryption"/>).</summary>
     public const string JetSystemIdentifier = "Jet System DB";
 
-    // --- Page 0 obfuscated header (0x18..0x98) ---
-    // The header is XOR-obfuscated with a fixed 128-byte mask (below). Field offsets and the mask
-    // are corroborated by mdbtools and Jackcess AND verified against real files here: the mask
-    // reproduces the code page (0x3C), collation LCID (0x6E) and creation date (0x72) bytes we
-    // recovered independently by known-plaintext, and it decodes every fixture's header to sensible
-    // values (see docs/format/page-00-database.md §2.1).
+    /// <summary>Offset of the one-byte format version marker within page 0.</summary>
+    public const int VersionOffset = 0x14;
+
+    /// <summary>Offset of the cleartext ASCII engine-version string ("4.0", NUL-terminated) — past the masked
+    /// header window, so readable directly. Present on both Jet 4 (<c>.mdb</c>) and ACE (<c>.accdb</c>), which
+    /// are both the Jet-4.0 engine. Used to confirm an unknown version byte is still a 4.0-family database
+    /// before falling back to the latest known ACE layout.</summary>
+    public const int EngineVersionOffset = 0x9C;
+    public const int EngineVersionLength = 4;
+    public const string Jet40EngineVersion = "4.0";
+
+    // --- File ---
+
+    /// <summary>Page size in bytes.</summary>
+    public abstract int PageSize { get; }
+
+    /// <summary>The logical version this format describes.</summary>
+    public abstract JetVersion Version { get; }
+
+    /// <summary>True for the ACCDB (ACE 12+) family, which uses different encryption and layout details.</summary>
+    public abstract bool IsAccdb { get; }
+
+    // --- Page 0 ---
+
+    /// <summary>Offset of the one-byte minor version that follows the version byte.</summary>
+    public abstract int MinorVersionOffset { get; }
+
+    // The header is XOR-obfuscated with a fixed mask: the RC4 keystream of a fixed key, the same for every file.
+    // Field offsets and the mask are corroborated by mdbtools and Jackcess AND verified against real files here:
+    // the mask reproduces the code page, collation LCID and creation date bytes we recovered independently by
+    // known-plaintext, and it decodes every fixture's header to sensible values (see
+    // docs/format/page-00-database.md §2.1).
 
     /// <summary>Start offset of the obfuscated page-0 header region (also the mask's first byte).</summary>
-    public const int PageZeroHeaderMaskStart = 0x18;
+    public abstract int PageZeroHeaderMaskStart { get; }
+
+    /// <summary>Length of the obfuscated page-0 header region, and so of the mask.</summary>
+    public abstract int PageZeroHeaderMaskLength { get; }
+
+    /// <summary>The fixed RC4 key whose keystream is the page-0 header mask.</summary>
+    public abstract ReadOnlySpan<byte> PageZeroHeaderMaskKey { get; }
+
+    /// <summary>The XOR mask applied to the page-0 header from <see cref="PageZeroHeaderMaskStart"/>: the first
+    /// <see cref="PageZeroHeaderMaskLength"/> bytes of the RC4 keystream under <see cref="PageZeroHeaderMaskKey"/>.</summary>
+    public ReadOnlySpan<byte> PageZeroHeaderMask
+    {
+        get
+        {
+            if (_pageZeroHeaderMask is null)
+            {
+                var mask = new byte[PageZeroHeaderMaskLength];
+                Crypto.Rc4Cipher.Apply(PageZeroHeaderMaskKey, mask); // the keystream, XOR'd over zeros
+                _pageZeroHeaderMask = mask;
+            }
+            return _pageZeroHeaderMask;
+        }
+    }
+
+    private byte[]? _pageZeroHeaderMask;
 
     /// <summary>Offset of the 4-byte <c>[row:1][page:3]</c> pointer to the global free-pages usage map — the
     /// map every allocation takes a page from. Page 1 row 0 in every file ACE writes, but ACE follows the
     /// pointer, row included, so a reader must too (docs/format/page-05-usage-maps.md §9.1).</summary>
-    public const int FreePagesMapPointerOffset = 0x18;
+    public abstract int FreePagesMapPointerOffset { get; }
 
     /// <summary>Offset of the 4-byte <c>[row:1][page:3]</c> pointer to the global released-pages usage map:
     /// pages released but not yet reusable, which ACE never allocates. Page 1 row 1 in every file ACE writes.</summary>
-    public const int ReleasedPagesMapPointerOffset = 0x1C;
+    public abstract int ReleasedPagesMapPointerOffset { get; }
 
     /// <summary>Offset of the 4-byte page number of the <c>MSysObjects</c> TDEF — the catalog root, the
     /// bootstrap pointer that lets the engine find the system catalog before it can read any table. It is
-    /// the first of four system-table pointers (<c>MSysObjects</c>/<c>MSysACEs</c>/<c>MSysQueries</c>/
-    /// <c>MSysRelationships</c> at <c>0x20</c>/<c>0x24</c>/<c>0x28</c>/<c>0x2C</c>, values 2/3/4/5 in every
-    /// file); the others are reachable via the catalog itself. Verified: each value equals the object's
-    /// <c>MSysObjects.Id</c> and the page it names is a TDEF.</summary>
-    public const int CatalogRootPointerOffset = 0x20;
+    /// the first of six system-table pointers (<c>MSysObjects</c>/<c>MSysACEs</c>/<c>MSysQueries</c>/
+    /// <c>MSysRelationships</c>, then <c>MSysAccounts</c>/<c>MSysGroups</c> in a workgroup file); the others
+    /// are reachable via the catalog itself. Verified: each value equals the object's <c>MSysObjects.Id</c>
+    /// and the page it names is a TDEF.</summary>
+    public abstract int CatalogRootPointerOffset { get; }
+
+    /// <summary>Offset of the 4-byte page number of the <c>MSysACEs</c> TDEF.</summary>
+    public abstract int AcesRootPointerOffset { get; }
+
+    /// <summary>Offset of the 4-byte page number of the <c>MSysQueries</c> TDEF.</summary>
+    public abstract int QueriesRootPointerOffset { get; }
+
+    /// <summary>Offset of the 4-byte page number of the <c>MSysRelationships</c> TDEF.</summary>
+    public abstract int RelationshipsRootPointerOffset { get; }
+
+    /// <summary>Offset of the 4-byte page number of the <c>MSysAccounts</c> TDEF in a workgroup file; zero in an
+    /// ordinary database, which has no such table.</summary>
+    public abstract int AccountsRootPointerOffset { get; }
+
+    /// <summary>Offset of the 4-byte page number of the <c>MSysGroups</c> TDEF in a workgroup file; zero in an
+    /// ordinary database, which has no such table.</summary>
+    public abstract int GroupsRootPointerOffset { get; }
 
     /// <summary>Offset of the 2-byte ANSI code page (LE): <c>0x04E4</c> = 1252, <c>0x04E2</c> = 1250.</summary>
-    public const int CodePageOffset = 0x3C;
+    public abstract int CodePageOffset { get; }
 
     /// <summary>Offset of the 4-byte database (encryption) key; 0 when the database has no password.</summary>
-    public const int DatabaseKeyOffset = 0x3E;
+    public abstract int DatabaseKeyOffset { get; }
 
-    /// <summary>Offset of the database password (Jet 4: 40 bytes; additionally masked by a
-    /// creation-date-derived value, so an empty password does not read as zeroes).</summary>
-    public const int PasswordOffset = 0x42;
+    /// <summary>Offset of the database password field, additionally masked by a creation-date-derived value,
+    /// so an empty password does not read as zeroes.</summary>
+    public abstract int PasswordOffset { get; }
+
+    /// <summary>Size of the database password field, UTF-16LE.</summary>
+    public abstract int PasswordSize { get; }
+
+    /// <summary>Offset of the 4-byte build number of the engine that created the file — stamped once and
+    /// preserved across copy and compact, so it is not a constant (docs/format/page-00-database.md).</summary>
+    public abstract int EngineBuildOffset { get; }
 
     /// <summary>Offset of the 4-byte default text collating sort order — a 32-bit Windows LCID whose
     /// otherwise-unused top byte carries the sort-order version. Byte for byte it mirrors a column
-    /// descriptor's <c>0x0B</c>..<c>0x0E</c>: LANGID at <c>0x6E</c> (2 bytes LE, <c>0x0409</c> = 1033 en-US),
-    /// sort id at <c>0x70</c>, version at <c>0x71</c>.</summary>
-    public const int CollationSortOrderOffset = 0x6E;
+    /// descriptor's <see cref="ColumnLocaleOffset"/> block: LANGID (2 bytes LE, <c>0x0409</c> = 1033 en-US),
+    /// then <see cref="CollationSortIdOffset"/>, then <see cref="CollationVersionOffset"/>.</summary>
+    public abstract int CollationSortOrderOffset { get; }
 
     /// <summary>Offset of the collation's 1-byte sort id — the LCID's high word, which is what distinguishes
     /// an alternate sort order from its base locale (German Phone Book <c>0x00010407</c> vs German
     /// <c>0x00000407</c>; Hungarian Technical <c>0x0001040E</c> vs Hungarian <c>0x0000040E</c>).</summary>
-    public const int CollationSortIdOffset = 0x70;
+    public abstract int CollationSortIdOffset { get; }
 
     /// <summary>Offset of the 1-byte collation sort-order version within the sort-order field (0/1).</summary>
-    public const int CollationVersionOffset = 0x71;
+    public abstract int CollationVersionOffset { get; }
 
     /// <summary>Offset of the 8-byte database creation timestamp: an OLE automation date
     /// (IEEE <c>double</c>, days from the 1899-12-30 epoch).</summary>
-    public const int CreationDateOffset = 0x72;
+    public abstract int CreationDateOffset { get; }
+
+    /// <summary>Offset of a 4-byte cleartext constant just past the masked window; undecoded.</summary>
+    public abstract int PageZeroConstantOffset { get; }
+
+    /// <summary>The value every file carries at <see cref="PageZeroConstantOffset"/>.</summary>
+    public abstract int PageZeroConstant { get; }
+
+    /// <summary>Offset of the 2-byte <c>EncryptionInfo</c> blob length (LE) — Access's "is this file
+    /// encrypted?" signal, 0 when unencrypted. Only meaningful for an ACCDB.</summary>
+    public abstract int EncryptionInfoLengthOffset { get; }
+
+    /// <summary>Offset of the <c>EncryptionInfo</c> descriptor, <see cref="EncryptionInfoLengthOffset"/> bytes
+    /// long: a binary Office "Standard" header or an XML Agile descriptor.</summary>
+    public abstract int EncryptionInfoOffset { get; }
+
+    /// <summary>Number of slots in the user commit-byte table: the exclusive-mode slot, then one per shared-mode
+    /// user (docs/format/page-00-database.md §2.2).</summary>
+    public abstract int CommitByteTableUsers { get; }
+
+    /// <summary>Size of one commit-byte table slot.</summary>
+    public abstract int CommitByteSlotSize { get; }
+
+    /// <summary>Offset of the user commit-byte table, which runs to the end of page 0:
+    /// <see cref="CommitByteTableUsers"/> slots of <see cref="CommitByteSlotSize"/> bytes, the first the
+    /// exclusive-mode commit state. Nothing else may be written over it — an <c>EncryptionInfo</c> descriptor has
+    /// to end before it.</summary>
+    public abstract int CommitByteTableOffset { get; }
+
+    // --- Data page layout ---
+
+    /// <summary>Offset of the 2-byte free-space count on a data page.</summary>
+    public abstract int DataFreeSpaceOffset { get; }
+
+    /// <summary>Offset of the 4-byte owning-table TDEF page (or the "LVAL" marker on long-value pages).</summary>
+    public abstract int DataOwnerOffset { get; }
 
     /// <summary>
-    /// The fixed 128-byte XOR mask applied to the page-0 header from <see cref="PageZeroHeaderMaskStart"/>
-    /// (Jet 4 / ACE; Jet 3 uses 126 bytes). This is Jackcess's <c>BASE_HEADER_MASK</c>, verified here to
-    /// reproduce the header bytes LibRed recovered from first principles and to decode real fixtures.
+    /// Offset of the 4-byte <b>chain stamp</b> on a data page. Zero on every page but the <b>first</b> of a
+    /// multi-page long-value chain, where it must equal the pointing descriptor's own stamp or ACE refuses to
+    /// materialise the value — see <c>docs/format/long-values.md</c>. Jet 3 has the row count where Jet 4 has
+    /// this (which is why Jet 4's row count sits four bytes later), so a Jet 3 file has nowhere to put one.
     /// </summary>
-    public static ReadOnlySpan<byte> PageZeroHeaderMask =>
-    [
-        0xB5, 0x6F, 0x03, 0x62, 0x61, 0x08, 0xC2, 0x55, 0xEB, 0xA9, 0x67, 0x72, 0x43, 0x3F, 0x00, 0x9C,
-        0x7A, 0x9F, 0x90, 0xFF, 0x80, 0x9A, 0x31, 0xC5, 0x79, 0xBA, 0xED, 0x30, 0xBC, 0xDF, 0xCC, 0x9D,
-        0x63, 0xD9, 0xE4, 0xC3, 0x7B, 0x42, 0xFB, 0x8A, 0xBC, 0x4E, 0x86, 0xFB, 0xEC, 0x37, 0x5D, 0x44,
-        0x9C, 0xFA, 0xC6, 0x5E, 0x28, 0xE6, 0x13, 0xB6, 0x8A, 0x60, 0x54, 0x94, 0x7B, 0x36, 0xF5, 0x72,
-        0xDF, 0xB1, 0x77, 0xF4, 0x13, 0x43, 0xCF, 0xAF, 0xB1, 0x33, 0x34, 0x61, 0x79, 0x5B, 0x92, 0xB5,
-        0x7C, 0x2A, 0x05, 0xF1, 0x7C, 0x99, 0x01, 0x1B, 0x98, 0xFD, 0x12, 0x4F, 0x4A, 0x94, 0x6C, 0x3E,
-        0x60, 0x26, 0x5F, 0x95, 0xF8, 0xD0, 0x89, 0x24, 0x85, 0x67, 0xC6, 0x1F, 0x27, 0x44, 0xD2, 0xEE,
-        0xCF, 0x65, 0xED, 0xFF, 0x07, 0xC7, 0x46, 0xA1, 0x78, 0x16, 0x0C, 0xED, 0xE9, 0x2D, 0x62, 0xD4,
-    ];
+    public abstract int DataChainStampOffset { get; }
 
-    // --- Table definition (TDEF) page layout ---
-    // Defaults below are for Jet 4 / ACE (verified against a real ACCDB). Jet 3 differs
-    // (18-byte column entries, 1-byte ASCII name lengths) and will override these.
+    /// <summary>Offset of the 2-byte row count on a data page.</summary>
+    public abstract int DataRowCountOffset { get; }
 
-    /// <summary>Offset of the 1-byte TDEF header flags (observed 0x01).</summary>
-    public virtual int TdefHeaderFlagsOffset => 0x01;
+    /// <summary>Offset of the row-offset slot directory, <see cref="DataRowDirectoryEntrySize"/> bytes per row.</summary>
+    public abstract int DataRowDirectoryOffset { get; }
 
-    /// <summary>Offset of the 2-byte free-space-remaining-in-this-page field.</summary>
-    public virtual int TdefFreeSpaceOffset => 0x02;
+    /// <summary>Size of one entry in the row-offset slot directory.</summary>
+    public abstract int DataRowDirectoryEntrySize { get; }
+
+    /// <summary>The row slot directory entry's offset bits; the bits above are its <see cref="RowSlotFlags"/>.</summary>
+    public abstract int DataRowOffsetMask { get; }
+
+    /// <summary>
+    /// The most rows a data page may hold. Not a space limit — an index entry addresses a row as
+    /// <c>page &lt;&lt; 8 | row</c> (page-03-04-index-btree.md §10.2), and a long-value descriptor its row in one
+    /// byte too, so the slot number has to fit one byte.
+    /// </summary>
+    public abstract int MaxRowsPerPage { get; }
+
+    /// <summary>Size of the column-count field at the start of a row record. The count (the highest column id ever
+    /// handed out, plus one) also sets the width of the row's null bitmap: one bit per column id.</summary>
+    public abstract int RowColumnCountSize { get; }
+
+    /// <summary>Size of one entry of a row's variable-offset table — <c>numVar + 1</c> entries, end-first, the last
+    /// the variable-data start.</summary>
+    public abstract int RowVariableOffsetSize { get; }
+
+    /// <summary>Size of a row's variable-column count (<c>numVar</c>), which follows its offset table.</summary>
+    public abstract int RowVariableCountSize { get; }
+
+    /// <summary>The largest record the engine will store, excluding anything that lives on LVAL pages.</summary>
+    public abstract int MaxRecordSize { get; }
+
+    // --- Table definition (TDEF) page header ---
+
+    /// <summary>Offset of the 2-byte free-space count: the bytes still free in this page. (Before it, at 0x00,
+    /// the 2-byte page type — <see cref="Pages.PageHeader"/>.)</summary>
+    public abstract int TdefFreeSpaceOffset { get; }
 
     /// <summary>Offset of the 4-byte pointer to the next TDEF page (0 if the definition fits one page).</summary>
-    public virtual int TdefNextPageOffset => 0x04;
+    public abstract int TdefNextPageOffset { get; }
 
     /// <summary>Offset of the 4-byte total TDEF definition length.</summary>
-    public virtual int TdefLengthOffset => 0x08;
+    public abstract int TdefLengthOffset { get; }
 
-    /// <summary>Offset of the 4-byte TDEF record marker (0x00000659); see <see cref="TdefRecordMarker"/>.</summary>
-    public virtual int TdefRecordMarkerOffset => 0x0C;
-
-    /// <summary>Offset of the 2-byte maximum-column-count high-water (the next column id to assign).</summary>
-    public virtual int TdefMaxColumnsOffset => 0x29;
+    /// <summary>Offset of the 4-byte TDEF record marker; see <see cref="TdefRecordMarker"/>.</summary>
+    public abstract int TdefRecordMarkerOffset { get; }
 
     /// <summary>The 0x00000659 record marker written at the TDEF header (<see cref="TdefRecordMarkerOffset"/>),
     /// each column descriptor (+0x01) and each index-info block (+0x00). Access validates it; the reader ignores it.</summary>
     public const uint TdefRecordMarker = 0x00000659;
 
-    /// <summary>Size of the 8-byte continuation header that prefixes each TDEF continuation page's payload
-    /// (also the free-space reserve the first page leaves for it).</summary>
-    public const int TdefContinuationHeaderSize = 8;
-
     /// <summary>Offset of the 4-byte row count.</summary>
-    public virtual int TdefRowCountOffset => 0x10;
+    public abstract int TdefRowCountOffset { get; }
 
     /// <summary>Offset of the 4-byte highest-AutoNumber-assigned value (the last id used; next = +increment).</summary>
-    public virtual int TdefLastAutoNumberOffset => 0x14;
+    public abstract int TdefLastAutoNumberOffset { get; }
 
     /// <summary>Offset of the 4-byte AutoNumber increment (default 1; a custom COUNTER sets it).</summary>
-    public virtual int TdefAutoNumberIncrementOffset => 0x18;
+    public abstract int TdefAutoNumberIncrementOffset { get; }
 
     /// <summary>Offset of the 4-byte complex-type AutoNumber high-water (mdbtools <c>ct_autonum</c>) — the
     /// next id for a complex (multi-value/attachment) column. 0 for every table without such a column.</summary>
-    public virtual int TdefComplexAutoNumberOffset => 0x1C;
+    public abstract int TdefComplexAutoNumberOffset { get; }
 
     /// <summary>Offset of the 1-byte table type (0x4E 'N' user, 0x53 'S' system).</summary>
-    public virtual int TdefTableTypeOffset => 0x28;
+    public abstract int TdefTableTypeOffset { get; }
+
+    /// <summary>Offset of the 2-byte maximum-column-count high-water (the next column id to assign).</summary>
+    public abstract int TdefMaxColumnsOffset { get; }
 
     /// <summary>Offset of the 2-byte variable-length column count.</summary>
-    public virtual int TdefVariableColumnsOffset => 0x2B;
+    public abstract int TdefVariableColumnsOffset { get; }
 
     /// <summary>Offset of the 2-byte total column count.</summary>
-    public virtual int TdefColumnCountOffset => 0x2D;
+    public abstract int TdefColumnCountOffset { get; }
 
     /// <summary>
     ///     Offset of the 4-byte <b>logical</b> index count — the §3.6 index-info blocks, one per named index.
@@ -183,11 +293,11 @@ public abstract class JetFormatBase
     /// <remarks>
     ///     Named for the meaning rather than the offset's history, because the history is a trap: this was
     ///     previously <c>TdefRealIndexCountOffset</c>, which inverts the reference vocabulary. mdbtools calls
-    ///     <c>0x2F</c> <c>num_idx</c> ("number of logical indexes") and <c>0x33</c> <c>num_real_idx</c>;
-    ///     Jackcess calls them <c>OFFSET_NUM_INDEX_SLOTS</c> and <c>OFFSET_NUM_INDEXES</c>. "Real" belongs to
-    ///     <c>0x33</c>, not here.
+    ///     it <c>num_idx</c> ("number of logical indexes") and <see cref="TdefIndexCountOffset"/>
+    ///     <c>num_real_idx</c>; Jackcess calls them <c>OFFSET_NUM_INDEX_SLOTS</c> and <c>OFFSET_NUM_INDEXES</c>.
+    ///     "Real" belongs to the other one, not here.
     /// </remarks>
-    public virtual int TdefLogicalIndexCountOffset => 0x2F;
+    public abstract int TdefLogicalIndexCountOffset { get; }
 
     /// <summary>
     ///     Offset of the 4-byte <b>real</b> index count — the §3.5 index-data blocks, one per B-tree actually
@@ -195,129 +305,317 @@ public abstract class JetFormatBase
     ///     <see cref="TdefRealIndexBlockOffset"/> and the index-data blocks that follow the column names.
     ///     mdbtools calls it <c>num_real_idx</c>; Jackcess calls it <c>OFFSET_NUM_INDEXES</c>.
     /// </summary>
-    public virtual int TdefIndexCountOffset => 0x33;
-
-    /// <summary>Offset where the real-index block begins; column descriptors follow it.</summary>
-    public virtual int TdefRealIndexBlockOffset => 0x3F;
-
-    /// <summary>Size in bytes of each real-index entry in the block before the column descriptors.</summary>
-    public virtual int RealIndexEntrySize => 12;
-
-    /// <summary>Size in bytes of one column descriptor.</summary>
-    public virtual int ColumnDescriptorSize => 25;
-
-    // --- Column descriptor layout (offsets within a single descriptor) ---
-    public virtual int ColumnTypeOffset => 0x00;
-    public virtual int ColumnNumberOffset => 0x05;
-    public virtual int ColumnVariableIndexOffset => 0x07; // position among variable columns (0 for fixed)
-    // A second copy of the column id. Every creator writes it on a user table — ACE's SQL DDL, DAO's object
-    // model and DAO-executed SQL alike — while the engine's own bootstrap tables (MSysObjects and friends,
-    // and the f_<GUID> complex-column tables) leave it zero. It stops tracking 0x05 after an ALTER COLUMN
-    // type change, which burns a new id there and leaves this at the old one (§3.8).
-    public virtual int ColumnSecondaryNumberOffset => 0x09;
-    public virtual int ColumnPrecisionOffset => 0x0B; // Decimal/Numeric columns only
-    public virtual int ColumnScaleOffset => 0x0C;     // Decimal/Numeric columns only
-    // Non-numeric columns instead use 0x0B..0x0E for the text collation, and the four bytes together are a
-    // 32-bit Windows LCID with the sort-order version in its otherwise-unused top byte:
-    //   0x0B/0x0C  LANGID, little-endian (0x0409 = General/en-US)
-    //   0x0D       sort id — the high word of the LCID, which is what separates an alternate sort order from
-    //              its base locale (German Phone Book = 0x00010407, Hungarian Technical = 0x0001040E)
-    //   0x0E       sort-order version (0 = the legacy compacted table, 1 = the Access 2010 NLS order)
-    public virtual int ColumnLocaleOffset => 0x0B;
-    public virtual int ColumnCollationSortIdOffset => 0x0D;
-    public virtual int ColumnCollationVersionOffset => 0x0E;
-    public virtual int ColumnFlagsOffset => 0x0F;
-    /// <summary>Extended column flags (0x10): bit 0x01 = compressed-Unicode capable, 0xC0 = calculated column.</summary>
-    public virtual int ColumnExtendedFlagsOffset => 0x10;
-    public virtual int ColumnFixedOffsetOffset => 0x15;
-    public virtual int ColumnLengthOffset => 0x17;
-
-    // Column flag byte (0x0F). Every documented bit is modelled (read into ColumnDef, written from it); the
-    // undocumented bits (0x08/0x10/0x20, zero in every file observed) are the only ones carried through raw.
-    /// <summary>Column flag: the column is fixed-length.</summary>
-    public const byte ColumnFlagFixedLength = 0x01;
-    /// <summary>Column flag: the column is updatable (set on essentially every column).</summary>
-    public const byte ColumnFlagUpdatable = 0x02;
-    /// <summary>Column flag: the column is an AutoNumber.</summary>
-    public const byte ColumnFlagAutoNumber = 0x04;
-    /// <summary>Column flag: an AutoNumber column that generates GUIDs (Replication ID) rather than Longs.</summary>
-    public const byte ColumnFlagGuidAutoNumber = 0x40;
-    /// <summary>Column flag: a hyperlink (a Memo column presented as a hyperlink).</summary>
-    public const byte ColumnFlagHyperlink = 0x80;
-    /// <summary>Mask of the documented flag bits — the complement is undocumented and preserved from raw.</summary>
-    public const byte ColumnFlagsDocumented =
-        ColumnFlagFixedLength | ColumnFlagUpdatable | ColumnFlagAutoNumber | ColumnFlagGuidAutoNumber | ColumnFlagHyperlink;
-
-    // Extended flag byte (0x10).
-    /// <summary>Extended flag: the column can store compressed Unicode text (§7).</summary>
-    public const byte ColumnExtFlagCompressedUnicode = 0x01;
-    /// <summary>Extended flag: a calculated (computed) column (ACE 14+); the 0xC0 pair.</summary>
-    public const byte ColumnExtFlagCalculated = 0xC0;
-    /// <summary>Mask of the documented extended-flag bits — the complement is preserved from raw.</summary>
-    public const byte ColumnExtFlagsDocumented = ColumnExtFlagCompressedUnicode | ColumnExtFlagCalculated;
-    // Note: nullability is NOT in the column flag byte (bit 0x02 is set on every column). A NOT NULL column
-    // is marked by a boolean `Required` property in the LvProp blob instead — see PropertyBlob / §11.
-
-    // --- Data page layout (Jet 4 / ACE) ---
-
-    /// <summary>Offset of the 2-byte free-space count on a data page.</summary>
-    public virtual int DataFreeSpaceOffset => 0x02;
-
-    /// <summary>Offset of the 4-byte owning-table TDEF page (or the "LVAL" marker on long-value pages).</summary>
-    public virtual int DataOwnerOffset => 0x04;
-
-    /// <summary>
-    /// Offset of the 4-byte <b>chain stamp</b> on a data page. Zero on every page but the <b>first</b> of a
-    /// multi-page long-value chain, where it must equal the pointing descriptor's own stamp or ACE refuses to
-    /// materialise the value — see <c>docs/format/long-values.md</c>. Jet 3 has the row count at this offset
-    /// instead (which is why Jet 4's row count sits four bytes later), so a Jet 3 file has nowhere to put one;
-    /// <c>Jet3Format</c> does not override the data-page offsets today, and this is one of the things it will
-    /// have to when Jet 3 writing is built out.
-    /// </summary>
-    public virtual int DataChainStampOffset => 0x08;
-
-    /// <summary>Offset of the 2-byte row count on a data page.</summary>
-    public virtual int DataRowCountOffset => 0x0C;
-
-    /// <summary>Offset of the row-offset slot directory (2 bytes per row).</summary>
-    public virtual int DataRowDirectoryOffset => 0x0E;
-
-    /// <summary>Size of the column-count field at the start of a row record (2 bytes in Jet 4 / ACE, 1 in Jet 3).</summary>
-    public virtual int RowColumnCountSize => 2;
-
-    /// <summary>
-    /// The largest record ACE will store — <b>4060 bytes</b>, excluding anything that lives on LVAL pages,
-    /// where ACE raises "Record is too large." Measured across three table shapes whose row overhead differs
-    /// by 23 bytes (9, 12 and 20 text columns), and the total lands on 4060 every time, so it is a flat cap
-    /// rather than something derived from the row's layout (<c>RecordSizeAccessTests</c>).
-    /// </summary>
-    /// <remarks>
-    /// It is 20 bytes below what the page could hold — 4096 less the 14-byte header and a 2-byte slot leaves
-    /// 4080 — and that reserve is not explained. Enforcing it is not optional politeness: a record between
-    /// 4061 and 4080 fits the page and LibRed used to write it happily, but ACE then <b>cannot read the
-    /// row</b>, failing with an unrelated "another user are attempting to change the same data" error.
-    /// </remarks>
-    public virtual int MaxRecordSize => 4060;
-
-    /// <summary>Page number of the system catalog table MSysObjects (its TDEF page).</summary>
-    public virtual int CatalogPage => 2;
+    public abstract int TdefIndexCountOffset { get; }
 
     /// <summary>Offset in a TDEF of the owned-pages usage-map pointer: 1 byte row, then a 3-byte page.</summary>
-    public virtual int TdefOwnedPagesOffset => 0x37;
+    public abstract int TdefOwnedPagesOffset { get; }
 
     /// <summary>Offset in a TDEF of the free-pages usage-map pointer (same 1-byte row + 3-byte page shape):
     /// the subset of the table's owned data pages that still have room for a row. Once earlier pages fill,
     /// Access leaves only the page it is currently appending to marked here.</summary>
-    public virtual int TdefFreePagesOffset => 0x3B;
+    public abstract int TdefFreePagesOffset { get; }
 
-    /// <summary>Page size in bytes (2048 for Jet 3, 4096 for Jet 4 and all ACE versions).</summary>
-    public int PageSize { get; protected set; } = 4096;
+    /// <summary>Offset where the real-index block begins; column descriptors follow it.</summary>
+    public abstract int TdefRealIndexBlockOffset { get; }
 
-    /// <summary>The logical version this format describes.</summary>
-    public abstract JetVersion Version { get; }
+    /// <summary>Size of the header that prefixes each TDEF continuation page's payload (also the free-space
+    /// reserve the first page leaves for it).</summary>
+    public abstract int TdefContinuationHeaderSize { get; }
 
-    /// <summary>True for the ACCDB (ACE 12+) family, which uses different encryption and layout details.</summary>
-    public virtual bool IsAccdb => false;
+    // --- TDEF limits ---
+
+    /// <summary>The most columns a table can have, and one past the highest column id. The count and id fields are
+    /// wider, so more could be written, but Access would refuse to open the table.</summary>
+    public abstract int MaxColumnsPerTable { get; }
+
+    /// <summary>
+    /// The most indexes a table can have — and the cap applies to BOTH TDEF counts, the index-data blocks
+    /// (<see cref="TdefIndexCountOffset"/>) and the logical index-info blocks
+    /// (<see cref="TdefLogicalIndexCountOffset"/>). Microsoft states it against the logical one: "Number of
+    /// indexes in a table: 32, including indexes created internally to maintain table relationships,
+    /// single-field and composite indexes."
+    /// </summary>
+    /// <remarks>
+    /// The logical count is the one that binds, because a data block must be named by a logical block, so the
+    /// data count never exceeds it. A table many others reference gains a logical block per incoming
+    /// relationship and no data block, so it overruns on the logical count while the data count still looks
+    /// healthy. Building EF Core's <c>ComplexNavigationsSharedType</c> model, <c>Level1</c> reached 46 logical
+    /// against 31 data, and the resulting file was unreadable by Access ("Unrecognized database format", the
+    /// table missing entirely). Measured in <c>IndexCountLimitAccessTests</c>; see
+    /// <c>docs/format/page-02d-constraints.md</c>.
+    /// </remarks>
+    public abstract int MaxIndexesPerTable { get; }
+
+    /// <summary>The longest name a TDEF stores — a column's or an index's — in bytes as stored.</summary>
+    public abstract int MaxNameBytes { get; }
+
+    /// <summary>Size of the byte-length prefix on each TDEF name entry (column and index names alike); the text
+    /// follows it.</summary>
+    public abstract int TdefNameLengthSize { get; }
+
+    // --- TDEF real-index block: one entry per real index, at TdefRealIndexBlockOffset ---
+
+    /// <summary>Size in bytes of each real-index entry in the block before the column descriptors.</summary>
+    public abstract int RealIndexEntrySize { get; }
+
+    /// <summary>Offset in a real-index entry of its 4-byte total entry count (the row count).</summary>
+    public abstract int RealIndexRowCountOffset { get; }
+
+    /// <summary>Offset in a real-index entry of its 4-byte unique entry count — cumulative, never decremented by
+    /// Access.</summary>
+    public abstract int RealIndexUniqueCountOffset { get; }
+
+    // --- TDEF column descriptor: one per column, after the real-index block (offsets within a descriptor) ---
+
+    /// <summary>Size in bytes of one column descriptor.</summary>
+    public abstract int ColumnDescriptorSize { get; }
+
+    public abstract int ColumnTypeOffset { get; }
+
+    /// <summary>Offset of the 2-byte low half of <see cref="TdefRecordMarker"/> in a column descriptor.
+    /// Access needs it; the reader ignores it.</summary>
+    public abstract int ColumnRecordMarkerOffset { get; }
+
+    public abstract int ColumnNumberOffset { get; }
+
+    /// <summary>Position among variable columns (0 for fixed).</summary>
+    public abstract int ColumnVariableIndexOffset { get; }
+
+    /// <summary>A second copy of the column id. Every creator writes it on a user table — ACE's SQL DDL, DAO's
+    /// object model and DAO-executed SQL alike — while the engine's own bootstrap tables (MSysObjects and
+    /// friends, and the f_&lt;GUID&gt; complex-column tables) leave it zero. It stops tracking
+    /// <see cref="ColumnNumberOffset"/> after an ALTER COLUMN type change, which burns a new id there and leaves
+    /// this at the old one (§3.8).</summary>
+    public abstract int ColumnSecondaryNumberOffset { get; }
+
+    /// <summary>Decimal/Numeric columns only.</summary>
+    public abstract int ColumnPrecisionOffset { get; }
+
+    /// <summary>Decimal/Numeric columns only.</summary>
+    public abstract int ColumnScaleOffset { get; }
+
+    /// <summary>
+    /// Non-numeric columns use the precision/scale bytes and the two after them for the text collation, and
+    /// the four bytes together are a 32-bit Windows LCID with the sort-order version in its otherwise-unused
+    /// top byte: the LANGID, little-endian (0x0409 = General/en-US), at this offset; then
+    /// <see cref="ColumnCollationSortIdOffset"/>; then <see cref="ColumnCollationVersionOffset"/>.
+    /// </summary>
+    public abstract int ColumnLocaleOffset { get; }
+
+    /// <summary>The sort id — the high word of the LCID, which is what separates an alternate sort order from
+    /// its base locale (German Phone Book = 0x00010407, Hungarian Technical = 0x0001040E).</summary>
+    public abstract int ColumnCollationSortIdOffset { get; }
+
+    /// <summary>The sort-order version (0 = the legacy compacted table, 1 = the Access 2010 NLS order).</summary>
+    public abstract int ColumnCollationVersionOffset { get; }
+
+    /// <summary>The column flag byte — <see cref="ColumnFlags"/>. Nullability is NOT in it (updatable is set
+    /// on every column): a NOT NULL column is marked by a boolean <c>Required</c> property in the LvProp blob
+    /// instead — see PropertyBlob / §11.</summary>
+    public abstract int ColumnFlagsOffset { get; }
+
+    /// <summary>The extended column flag byte — <see cref="ColumnExtendedFlags"/>.</summary>
+    public abstract int ColumnExtendedFlagsOffset { get; }
+
+    public abstract int ColumnFixedOffsetOffset { get; }
+    public abstract int ColumnLengthOffset { get; }
+
+    // --- TDEF index-data block (§3.5): one per real index, after the column names ---
+
+    /// <summary>Size of one index-data block.</summary>
+    public abstract int IndexDataBlockSize { get; }
+
+    /// <summary>The 4-byte marker that opens an index-data block.</summary>
+    public const uint IndexDataMarker = 0x783;
+
+    /// <summary>Offset of the block's column slots — a fixed array of <see cref="IndexDataMaxColumns"/>, with no
+    /// count field, so an index spans at most that many columns.</summary>
+    public abstract int IndexDataColumnsOffset { get; }
+
+    /// <summary>Number of column slots in an index-data block: the most columns an index can span.</summary>
+    public abstract int IndexDataMaxColumns { get; }
+
+    /// <summary>Size of one column slot: the 2-byte column id, then its <see cref="IndexColumnOrder"/> byte.</summary>
+    public abstract int IndexDataColumnSlotSize { get; }
+
+    /// <summary>Offset in a column slot of its <see cref="IndexColumnOrder"/> byte.</summary>
+    public abstract int IndexDataColumnOrderOffset { get; }
+
+    /// <summary>The column id in an unused slot (<c>0xFFFF</c>).</summary>
+    public const short IndexDataColumnUnused = -1;
+
+    /// <summary>Offset of the usage-map pointer for the index's own pages.</summary>
+    public abstract int IndexDataUsageMapOffset { get; }
+
+    /// <summary>Offset of the 4-byte B-tree root page.</summary>
+    public abstract int IndexDataRootPageOffset { get; }
+
+    /// <summary>Offset of the 2-byte <see cref="IndexAttributes"/>.</summary>
+    public abstract int IndexDataFlagsOffset { get; }
+
+    // --- TDEF index-info block (§3.6): one per logical index, linking a name to a data block ---
+
+    /// <summary>Size of one index-info block.</summary>
+    public abstract int IndexInfoBlockSize { get; }
+
+    /// <summary>Offset of the block's <see cref="TdefRecordMarker"/>.</summary>
+    public abstract int IndexInfoMarkerOffset { get; }
+
+    /// <summary>Offset of the 4-byte logical index number (<c>index_num</c>).</summary>
+    public abstract int IndexInfoNumberOffset { get; }
+
+    /// <summary>Offset of the 4-byte number of the index-data block it uses (<c>index_num2</c>).</summary>
+    public abstract int IndexInfoDataNumberOffset { get; }
+
+    /// <summary>Offset of the <see cref="ForeignKeyType"/> byte.</summary>
+    public abstract int IndexInfoFkTypeOffset { get; }
+
+    /// <summary>Offset of the 4-byte <c>index_num</c> of the relationship's other end;
+    /// <see cref="IndexInfoNoForeignKey"/> when there is none.</summary>
+    public abstract int IndexInfoFkNumberOffset { get; }
+
+    /// <summary>The <see cref="IndexInfoFkNumberOffset"/> value of an index that is not a relationship's.</summary>
+    public const uint IndexInfoNoForeignKey = 0xFFFFFFFF;
+
+    /// <summary>Offset of the 4-byte TDEF page of the relationship's other table; 0 when there is none.</summary>
+    public abstract int IndexInfoFkTablePageOffset { get; }
+
+    /// <summary>Offset of the update <see cref="RelationshipAction"/> byte.</summary>
+    public abstract int IndexInfoUpdateActionOffset { get; }
+
+    /// <summary>Offset of the delete <see cref="RelationshipAction"/> byte.</summary>
+    public abstract int IndexInfoDeleteActionOffset { get; }
+
+    /// <summary>Offset of the <see cref="IndexInfoType"/> byte.</summary>
+    public abstract int IndexInfoTypeOffset { get; }
+
+    // --- TDEF long-value map list: ends the definition, after the index names (§3.3.2) ---
+
+    /// <summary>Size of one entry in the long-value column usage-map list that ends the definition, after the
+    /// index names: the 2-byte column id, then the owned- and free-pages map pointers (§3.3.2).</summary>
+    public abstract int TdefLongValueMapEntrySize { get; }
+
+    /// <summary>Offset in a long-value map entry of its owned-pages map pointer.</summary>
+    public abstract int TdefLongValueMapOwnedOffset { get; }
+
+    /// <summary>Offset in a long-value map entry of its free-pages map pointer.</summary>
+    public abstract int TdefLongValueMapFreeOffset { get; }
+
+    /// <summary>The column id that ends the long-value map list — written even when the list is empty, and
+    /// counted in the definition length.</summary>
+    public const ushort TdefLongValueMapTerminator = 0xFFFF;
+
+    // --- Long values (Memo / OLE / long binary): an in-row descriptor, and LVAL pages ---
+
+    /// <summary>The owner field of a long-value page (<see cref="DataOwnerOffset"/>): ASCII "LVAL".</summary>
+    public const uint LongValuePageMarker = 0x4C41564C;
+
+    /// <summary>Bytes in an in-row long-value descriptor. Every consumer must have all of them before reading
+    /// any field — the descriptor arrives as a row's variable chunk, so its width is whatever the offset table
+    /// declared, not something the column guarantees. An inline value's payload follows it.</summary>
+    public abstract int LongValueDescriptorSize { get; }
+
+    /// <summary>The bits of the descriptor's first 4 bytes holding the value's length; the bits above are its
+    /// <see cref="LongValueStore.StorageKind"/>.</summary>
+    public abstract int LongValueLengthMask { get; }
+
+    /// <summary>Offset in the descriptor of the record pointer to a single-page value's row, or to a chained
+    /// value's first chunk.</summary>
+    public abstract int LongValueDescriptorPointerOffset { get; }
+
+    /// <summary>
+    /// Offset in the descriptor of the 4-byte <b>chain stamp</b>, which must equal the
+    /// <see cref="DataChainStampOffset"/> stamp of the first page of the chain it points at. Non-zero only on the
+    /// chained form; ACE leaves it zero on inline and single-page values and checks it on neither. The value
+    /// itself is arbitrary — ACE writes <c>GetTickCount()</c> and so does LibRed — because what it proves is that
+    /// the descriptor and the chain came from the same write, not when. Patching either copy alone makes ACE
+    /// refuse to materialise the value.
+    /// </summary>
+    public abstract int LongValueDescriptorChainStampOffset { get; }
+
+    /// <summary>The largest payload kept inline in the row instead of being written to a long-value page.</summary>
+    public abstract int LongValueMaxInline { get; }
+
+    /// <summary>The largest value kept on a <b>single</b> LVAL page; anything longer is chained. The decision is
+    /// made on the <b>uncompressed</b> length, as are the inline and chained ones; compression is applied to
+    /// whatever form results, and a chained value is never compressed.</summary>
+    public abstract int LongValueMaxSinglePage { get; }
+
+    /// <summary>The largest LVAL page row: a single-page value up to this fits one row, and a chained value's
+    /// chunk row is this size — a record pointer to the next chunk, then data.</summary>
+    public abstract int LongValueMaxRowSize { get; }
+
+    // --- Usage maps (§9): a record on a usage-map data page, inline or reference (UsageMapType) ---
+
+    /// <summary>Offset in an inline record of its 4-byte start page — the page its bitmap's bit 0 stands for.</summary>
+    public abstract int UsageMapStartPageOffset { get; }
+
+    /// <summary>Size of an inline record's header (the type byte and the start page); the bitmap follows it.</summary>
+    public abstract int UsageMapInlineHeaderSize { get; }
+
+    /// <summary>Bitmap size of a full-width inline record: what a fresh map is written with, and the fixed
+    /// window a free-pages map slides.</summary>
+    public abstract int UsageMapInlineBitmapSize { get; }
+
+    /// <summary>Size of a full-width inline record: its header and <see cref="UsageMapInlineBitmapSize"/>.</summary>
+    public abstract int UsageMapInlineRecordSize { get; }
+
+    /// <summary>The step an inline bitmap grows in.</summary>
+    public abstract int UsageMapInlineGrowthSize { get; }
+
+    /// <summary>Bytes the global maps' holder page keeps free: an inline global map that would leave less
+    /// converts to reference form instead.</summary>
+    public abstract int UsageMapHolderReserve { get; }
+
+    /// <summary>Offset in a reference record of its 4-byte bitmap-page pointers.</summary>
+    public abstract int UsageMapReferencePointersOffset { get; }
+
+    /// <summary>Number of bitmap-page pointers in a reference record.</summary>
+    public abstract int UsageMapReferenceSlots { get; }
+
+    /// <summary>Size of a reference record: the type byte and <see cref="UsageMapReferenceSlots"/> pointers.</summary>
+    public abstract int UsageMapReferenceRecordSize { get; }
+
+    /// <summary>Bytes preceding the bitmap on a dedicated usage-bitmap page (type 0x0105).</summary>
+    public abstract int UsageMapBitmapPageHeaderSize { get; }
+
+    /// <summary>Number of pages one dedicated bitmap page covers; reference pointer <c>k</c> covers the range
+    /// starting at <c>k</c> times this.</summary>
+    public abstract int UsageMapPagesPerBitmapPage { get; }
+
+    // --- Index page layout: a node (0x0103) or a leaf (0x0104), §10 ---
+
+    /// <summary>Offset of the 2-byte free-space count on an index page.</summary>
+    public abstract int IndexFreeSpaceOffset { get; }
+
+    /// <summary>Offset of the 4-byte owning-table TDEF page on an index page.</summary>
+    public abstract int IndexOwnerOffset { get; }
+
+    /// <summary>Offset of a leaf's 4-byte link to the previous (lower-key) leaf.</summary>
+    public abstract int IndexPrevPageOffset { get; }
+
+    /// <summary>Offset of a leaf's 4-byte link to the next (higher-key) leaf — Access walks this for COUNT/scan.</summary>
+    public abstract int IndexNextPageOffset { get; }
+
+    /// <summary>Offset of a node's 4-byte child-tail page.</summary>
+    public abstract int IndexChildTailOffset { get; }
+
+    /// <summary>Offset of the 2-byte count of leading bytes every later entry shares with the first.</summary>
+    public abstract int IndexCompressedByteCountOffset { get; }
+
+    /// <summary>Offset of the level byte: 0 on a leaf, its height above the leaves on a node.</summary>
+    public abstract int IndexLevelOffset { get; }
+
+    /// <summary>Offset of the entry-position bitmask, whose set bits give the end of each entry within the
+    /// entry-data region; it runs up to <see cref="IndexEntryDataOffset"/>.</summary>
+    public abstract int IndexEntryMaskOffset { get; }
+
+    /// <summary>Offset of the entry-data region.</summary>
+    public abstract int IndexEntryDataOffset { get; }
+
+    /// <summary>Size of the big-endian trailer ending every index entry: a leaf entry's row (page, then row) or a
+    /// node entry's child page.</summary>
+    public abstract int IndexEntryTrailerSize { get; }
 
     /// <summary>
     /// Sniffs the format version byte from page 0 of <paramref name="stream"/> and
@@ -349,7 +647,7 @@ public abstract class JetFormatBase
             throw new NotSupportedException(
                 $"Not a Jet/ACE database: expected \"{JetIdentifier}\", \"{AceIdentifier}\" or \"{JetSystemIdentifier}\" at offset 0x{FormatIdentifierOffset:X2}, found \"{identifier}\".");
 
-        byte version = header[VersionOffset];
+        byte version = ReadVersionByte(header);
         bool identifierMatchesVersion = identifier == AceIdentifier
             ? version >= 0x02
             : version <= 0x01;
@@ -382,6 +680,17 @@ public abstract class JetFormatBase
         // Trim trailing NULs and spaces: the ACE/Jet identifiers fill the field exactly, but "Jet System DB"
         // (a workgroup file) is padded with spaces to the field width.
         System.Text.Encoding.ASCII.GetString(header.Slice(FormatIdentifierOffset, FormatIdentifierLength)).TrimEnd('\0', ' ');
+
+    /// <summary>Reads the version byte at <see cref="VersionOffset"/> from a page-0 header.</summary>
+    public static byte ReadVersionByte(ReadOnlySpan<byte> header) => header[VersionOffset];
+
+    /// <summary>Writes page 0's version byte and the minor byte beside it — the inverse of
+    /// <see cref="ReadVersionByte"/>, for a created file and for a version raise alike.</summary>
+    internal void WriteVersion(Span<byte> page0, byte version, byte minor)
+    {
+        page0[VersionOffset] = version;
+        page0[MinorVersionOffset] = minor;
+    }
 
     /// <summary>Maps the raw version byte at <see cref="VersionOffset"/> to a format instance.</summary>
     public static JetFormatBase FromVersionByte(byte versionByte) => versionByte switch

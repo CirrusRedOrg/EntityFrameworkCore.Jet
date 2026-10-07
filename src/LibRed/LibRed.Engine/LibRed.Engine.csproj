@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>$(JetTargetFramework)</TargetFramework>
+    <TargetFrameworks>$(LibRedTargetFrameworks)</TargetFrameworks>
     <RootNamespace>LibRed.Engine</RootNamespace>
     <AssemblyName>LibRed.Engine</AssemblyName>
     <Description>Query engine: plans and executes bound SQL statements (select/insert/update/delete, joins, filters, expressions) against the LibRed.Core storage layer.</Description>
@@ -11,6 +11,11 @@
   <ItemGroup>
     <ProjectReference Include="..\LibRed.Core\LibRed.Core.csproj" />
     <ProjectReference Include="..\LibRed.Sql\LibRed.Sql.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ACE's LIKE case pairs and expansions, measured (LikeFoldTableGeneratorTest); read by LikeMatcher. -->
+    <EmbeddedResource Include="Resources\LikeFold.bin" LogicalName="LibRed.Engine.Resources.LikeFold.bin" />
   </ItemGroup>
 
   <ItemGroup>

@@ -68,7 +68,7 @@ public class FixedFlagHonouredAccessTests : TempDatabaseTest
         };
 
         string path = TemporaryDatabase.CreatePath("fixedflag-");
-        LibRed.Storage.DatabaseCreator.CreateEmpty(
+        LibRed.JetDatabase.Create(
             path, version: type == JetDataType.Int64 ? (byte)0x05 : (byte)0x02);
         using (var database = JetDatabase.Open(path, readOnly: false))
         {

@@ -84,7 +84,7 @@ public class SelectIntoShapeProbeTest(ITestOutputHelper output) : TempDatabaseTe
             using var db = JetDatabase.Open(path);
             foreach (string table in (string[])["SiSrc", "SiA", "SiB", "SiC", "SiD", "SiE", "SiF"])
             {
-                TableDef? def = db.Catalog.Tables.FirstOrDefault(t => t.Name == table);
+                TableDefinition? def = db.Catalog.Tables.FirstOrDefault(t => t.Name == table);
                 if (def is null) { output.WriteLine($"  {table}: not created"); continue; }
 
                 output.WriteLine($"  {table}: " + string.Join(", ", def.Columns.Select(c =>

@@ -2039,7 +2039,7 @@ SELECT `t`.`Id`, `t`.`Name`
 FROM `TestEntities` AS `t`
 WHERE EXISTS (
     SELECT 1
-    FROM (SELECT CLNG(?) AS `Value` UNION ALL VALUES (?), (?)) AS `i`
+    FROM (VALUES (CLNG(?)), (?), (?)) AS `i`(`Value`)
     WHERE `i`.`Value` = `t`.`Id`)
 """,
                 //
@@ -2063,7 +2063,7 @@ SELECT `t`.`Id`, `t`.`Name`
 FROM `TestEntities` AS `t`
 WHERE EXISTS (
     SELECT 1
-    FROM (SELECT CLNG(1) AS `Value` UNION ALL VALUES (2), (3)) AS `i`
+    FROM (VALUES (CLNG(1)), (2), (3)) AS `i`(`Value`)
     WHERE `i`.`Value` = `t`.`Id`)
 """,
                 //

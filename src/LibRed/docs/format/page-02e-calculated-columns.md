@@ -28,7 +28,7 @@ value is a cache of ACE's own evaluation and anything else there produces a file
 - `ResultType` decides how the payload is read, rather than it being inferred from the payload's width;
 - `CalculatedExpression` parses and validates, `CalculatedEvaluator` evaluates — every function on the
   whitelist below, with Access's null semantics and its per-function argument rules;
-- `RowEncoder` recomputes on insert; `RowInserter.Update` does so only when a column the expression reads is
+- `RowCodec` recomputes on insert; `RowInserter.Update` does so only when a column the expression reads is
   in the changed set;
 - a Memo result too large to inline spills to a long-value page through a callback `RowInserter` hands the
   encoder — a calculated column is the one value the encoder *derives* rather than receives, so it cannot
@@ -219,7 +219,7 @@ primitives down into Core remains the answer if the duplication starts to bite.
 slot, the constant declared length. `CREATE TABLE` and `ADD COLUMN` write the
 `Expression`/`ResultType`/`FCMin*Ver` properties. A Memo result gets its long-value maps, keyed off the
 **result** type because the declared type is `Text` and says nothing — so neither the reader nor the
-write-side guard in `TdefBuilder` may demand that a map's owner be Memo/OLE. The ACE-14 gate goes through
+write-side guard in `TableDefinition` may demand that a map's owner be Memo/OLE. The ACE-14 gate goes through
 `EnsureFormatAtLeast`, raising the file rather than refusing, as for `BIGINT`/`DATETIME2`.
 
 **Validation runs before anything is written** (`CalculatedExpression.ParseValidated`): the whitelist above,
@@ -269,7 +269,7 @@ changed set, since callers hand back the whole row they just read and the slot l
 cached value.
 
 **ACE has no route to change an existing calculated column's expression.** DAO refuses to mutate any field
-of a *saved* `TableDef` — *"Operation is not supported for this type of object."* — and that refusal is
+of a *saved* `TableDefinition` — *"Operation is not supported for this type of object."* — and that refusal is
 generic: an ordinary column gets it too, so it says nothing about calculated columns specifically. Access's
 own designer must reach it by a path DAO does not expose. There is therefore no oracle for "alter the expression", and anything LibRed offers there is its own extension rather than
 ACE-matching behaviour.

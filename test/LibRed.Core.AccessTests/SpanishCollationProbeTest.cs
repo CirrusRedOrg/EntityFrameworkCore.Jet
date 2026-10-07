@@ -83,7 +83,7 @@ public class SpanishCollationProbeTest(ITestOutputHelper output)
         output.WriteLine($"{label}: LCID {db.DefaultCollationLcid} (0x{db.DefaultCollationLcid:X4}) " +
                          $"version {db.DefaultCollationVersion}  [{db.Collation}]");
 
-        foreach (TableDef definition in db.Catalog.UserTables)
+        foreach (TableDefinition definition in db.Catalog.UserTables)
         {
             var text = definition.Columns
                 .Where(c => c.Type is JetDataType.Text or JetDataType.Memo)

@@ -44,6 +44,7 @@ internal static class JetTextCollationV1Overrides
         primaries = secondaries = default;
         if (Suppressed) return false;
         Table table = Loaded.Value;
+        if (!IsSet(table.OverrideBits, c)) return false;
         int index = Array.BinarySearch(table.CodePoints, c);
         if (index < 0) return false;
         primaries = table.PrimaryBytes.AsSpan(table.PrimaryOffsets[index], table.PrimaryLengths[index]);
@@ -59,21 +60,21 @@ internal static class JetTextCollationV1Overrides
     /// them. They are stored as runs rather than weights, since the only fact worth keeping is membership:
     /// 5,029 characters collapse into a few hundred ranges.
     /// </remarks>
-    public static bool IsIgnorable(char c)
-    {
-        if (Suppressed) return false;
-        int[] starts = Loaded.Value.IgnorableStarts;
-        int index = Array.BinarySearch(starts, (int)c);
-        if (index >= 0) return true;
-        index = ~index - 1;
-        return index >= 0 && c < starts[index] + Loaded.Value.IgnorableLengths[index];
-    }
+    public static bool IsIgnorable(char c) => !Suppressed && IsSet(Loaded.Value.IgnorableBits, c);
 
+    /// <remarks>Both questions are asked of every character a version-1 key is built from, and the answer is
+    /// almost always no: 501 overrides and about 5,000 ignorables in 65,536 code points. A bit per code point —
+    /// 8 KB a set — answers in one read, where a binary search over each was a seventh of building a key. The
+    /// override's weights are still found by searching, but only for a character that has some.</remarks>
     private sealed record Table(
         char[] CodePoints,
         byte[] PrimaryLengths, int[] PrimaryOffsets, byte[] PrimaryBytes,
         byte[] SecondaryLengths, int[] SecondaryOffsets, byte[] SecondaryBytes,
-        int[] IgnorableStarts, int[] IgnorableLengths);
+        ulong[] OverrideBits, ulong[] IgnorableBits);
+
+    private static bool IsSet(ulong[] bits, char c) => (bits[c >> 6] & (1UL << (c & 63))) != 0;
+
+    private static void Set(ulong[] bits, int c) => bits[c >> 6] |= 1UL << (c & 63);
 
     private static readonly Lazy<Table> Loaded = new(Load);
 
@@ -97,34 +98,38 @@ internal static class JetTextCollationV1Overrides
         var codePoints = new char[count];
         var primaryOffsets = new int[count];
         var secondaryOffsets = new int[count];
+        var overrideBits = new ulong[(char.MaxValue + 1) / 64];
         int codePoint = 0, cursor = 0, primary = 0, secondary = 0;
         for (int i = 0; i < count; i++)
         {
             codePoint += ReadVarInt(deltas, ref cursor);
             codePoints[i] = (char)codePoint;
+            Set(overrideBits, codePoint);
             primaryOffsets[i] = primary;
             secondaryOffsets[i] = secondary;
             primary += primaryLengths[i];
             secondary += secondaryLengths[i];
         }
-        var starts = new int[rangeCount];
-        var lengths = new int[rangeCount];
+        var ignorableBits = new ulong[(char.MaxValue + 1) / 64];
         int start = 0, startCursor = 0, lengthCursor = 0;
         for (int i = 0; i < rangeCount; i++)
         {
             start += ReadVarInt(rangeStarts, ref startCursor);
-            starts[i] = start;
-            lengths[i] = ReadVarInt(rangeLengths, ref lengthCursor);
+            int length = ReadVarInt(rangeLengths, ref lengthCursor);
+            for (int c = start; c < start + length; c++)
+                Set(ignorableBits, c);
         }
 
         return new Table(
             codePoints,
             primaryLengths, primaryOffsets, primaryBytes,
             secondaryLengths, secondaryOffsets, secondaryBytes,
-            starts, lengths);
+            overrideBits, ignorableBits);
     }
 
-    private static byte[] ReadStream(BinaryReader reader)
+    /// <summary>Reads one length-prefixed zlib stream — the unit every generated collation resource is built
+    /// from.</summary>
+    internal static byte[] ReadStream(BinaryReader reader)
     {
         byte[] compressed = reader.ReadBytes(reader.ReadInt32());
         var output = new MemoryStream();
@@ -133,7 +138,9 @@ internal static class JetTextCollationV1Overrides
         return output.ToArray();
     }
 
-    private static int ReadVarInt(byte[] source, ref int offset)
+    /// <summary>Reads a little-endian base-128 integer, seven bits a byte, the high bit set on all but the last.
+    /// </summary>
+    internal static int ReadVarInt(byte[] source, ref int offset)
     {
         int value = 0, shift = 0;
         while (true)

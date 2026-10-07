@@ -53,7 +53,7 @@ public class AstralCollationProbeTest(ITestOutputHelper output)
                 stored++;
 
                 string? ours = null;
-                try { ours = Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [text])); }
+                try { ours = Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [text])); }
                 catch (NotSupportedException) { }
 
                 if (ours == key) { matched++; continue; }
@@ -107,7 +107,7 @@ public class AstralCollationProbeTest(ITestOutputHelper output)
                     stored++;
 
                     string? ours = null;
-                    try { ours = Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [text])); }
+                    try { ours = Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [text])); }
                     catch (NotSupportedException) { }
 
                     if (ours == key) { matched++; continue; }
@@ -169,7 +169,7 @@ public class AstralCollationProbeTest(ITestOutputHelper output)
                     previousKeyBytes = keyBytes;
 
                     string? ours = null;
-                    try { ours = Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [text])); }
+                    try { ours = Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [text])); }
                     catch (NotSupportedException) { }
                     if (ours == key) longestMatching = text.Length;
                 }
@@ -224,7 +224,7 @@ public class AstralCollationProbeTest(ITestOutputHelper output)
                     previous = key;
 
                     string? ours = null;
-                    try { ours = Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [text])); }
+                    try { ours = Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [text])); }
                     catch (NotSupportedException) { }
                     if (ours == key) libredMatches = text.Length;
                 }
@@ -263,7 +263,7 @@ public class AstralCollationProbeTest(ITestOutputHelper output)
                 {
                     if (!ace.TryGetValue(text, out string? key)) { output.WriteLine($"  {text.Length,4}  (not stored)"); continue; }
                     string? ours = null;
-                    try { ours = Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [text])); }
+                    try { ours = Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [text])); }
                     catch (NotSupportedException) { }
 
                     // Only the tails differ, so show those rather than 500 identical bytes.
@@ -304,7 +304,7 @@ public class AstralCollationProbeTest(ITestOutputHelper output)
             foreach (string text in samples)
             {
                 string? ours = null;
-                try { ours = Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [text])); }
+                try { ours = Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [text])); }
                 catch (NotSupportedException) { }
 
                 string key = ace.GetValueOrDefault(text, "");
@@ -333,7 +333,7 @@ public class AstralCollationProbeTest(ITestOutputHelper output)
             "set LIBRED_ASTRAL=1 — this probe needs ACE");
 
         string path = TemporaryDatabase.CreatePath("general-v1-multi-");
-        DatabaseCreator.CreateEmpty(path, collation: Collation.General);
+        JetDatabase.Create(path, collation: Collation.General);
         try
         {
             using (var connection = AceTestDatabase.Open(path))
@@ -373,7 +373,7 @@ public class AstralCollationProbeTest(ITestOutputHelper output)
         if (v1)
         {
             created = TemporaryDatabase.CreatePath("general-v1-astral-");
-            DatabaseCreator.CreateEmpty(created, collation: Collation.General);
+            JetDatabase.Create(created, collation: Collation.General);
         }
 
         return (created ?? TestDatabases.NorthwindAccdb, created, new ColumnDef

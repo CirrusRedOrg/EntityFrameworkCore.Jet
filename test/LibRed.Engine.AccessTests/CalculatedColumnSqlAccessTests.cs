@@ -19,7 +19,7 @@ public class CalculatedColumnSqlAccessTests(ITestOutputHelper output) : TempData
         string path = TemporaryDatabase.CreatePath("calc-sql-");
         try
         {
-            DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
             using (var database = JetDatabase.Open(path, readOnly: false))
             {
                 var engine = new QueryEngine(database);
@@ -58,7 +58,7 @@ public class CalculatedColumnSqlAccessTests(ITestOutputHelper output) : TempData
         string path = TemporaryDatabase.CreatePath("calc-efsql-");
         try
         {
-            DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
             using (var database = JetDatabase.Open(path, readOnly: false))
             {
                 var engine = new QueryEngine(database);
@@ -98,7 +98,7 @@ public class CalculatedColumnSqlAccessTests(ITestOutputHelper output) : TempData
         string path = TemporaryDatabase.CreatePath("check-tick-");
         try
         {
-            DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
             using (var database = JetDatabase.Open(path, readOnly: false))
                 new QueryEngine(database).ExecuteNonQuery(
                     "CREATE TABLE `T` (`Id` integer, `Qty` integer, CONSTRAINT `ck` CHECK (`Qty` > 0))");
@@ -142,7 +142,7 @@ public class CalculatedColumnSqlAccessTests(ITestOutputHelper output) : TempData
         string path = TemporaryDatabase.CreatePath("calc-index-");
         try
         {
-            DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
             using var database = JetDatabase.Open(path, readOnly: false);
             var engine = new QueryEngine(database);
             engine.ExecuteNonQuery("CREATE TABLE T (Id integer, Qty integer, C integer AS ([Qty]*2))");
@@ -164,7 +164,7 @@ public class CalculatedColumnSqlAccessTests(ITestOutputHelper output) : TempData
         string path = TemporaryDatabase.CreatePath("calc-key-");
         try
         {
-            DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
             using var database = JetDatabase.Open(path, readOnly: false);
             var ex = Assert.ThrowsAny<Exception>(() => { new QueryEngine(database).ExecuteNonQuery(sql); });
             output.WriteLine($"  {ex.Message}");
@@ -188,7 +188,7 @@ public class CalculatedColumnSqlAccessTests(ITestOutputHelper output) : TempData
         string path = TemporaryDatabase.CreatePath("calc-sqlbad-");
         try
         {
-            DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
             using var database = JetDatabase.Open(path, readOnly: false);
             var engine = new QueryEngine(database);
             var ex = Assert.ThrowsAny<Exception>(() => { engine.ExecuteNonQuery(sql); });

@@ -32,7 +32,7 @@ public class PropertyBlobTests
     [Fact]
     public void ReadColumnDefaults_parses_the_ace_blob()
     {
-        var defaults = PropertyBlob.ReadColumnDefaults(AceBlob);
+        var defaults = PropertyBlob.ReadColumnDefaults(PropertyBlob.Read(AceBlob));
         Assert.Equal("42", defaults["Age"]);
         Assert.Equal("'hi'", defaults["Nm"]);
         Assert.False(defaults.ContainsKey("Id"));
@@ -66,7 +66,7 @@ public class PropertyBlobTests
     [Fact]
     public void ReadCheckConstraints_parses_the_ace_check_blob()
     {
-        var checks = PropertyBlob.ReadCheckConstraints(AceCheckBlob);
+        var checks = PropertyBlob.ReadCheckConstraints(PropertyBlob.Read(AceCheckBlob));
         var (name, expr) = Assert.Single(checks);
         Assert.Equal("CK_BD", name);
         Assert.Equal("[BirthDate] < NOW()", expr);
@@ -80,7 +80,7 @@ public class PropertyBlobTests
             new("A", PropertyBlob.DefaultValueProperty, "0"),
             new("B", PropertyBlob.DefaultValueProperty, "-1"),
         ]);
-        var defaults = PropertyBlob.ReadColumnDefaults(blob);
+        var defaults = PropertyBlob.ReadColumnDefaults(PropertyBlob.Read(blob));
         Assert.Equal("0", defaults["A"]);
         Assert.Equal("-1", defaults["B"]);
     }

@@ -9119,7 +9119,7 @@ LEFT JOIN (
     ) AS `w0`
     WHERE `w0`.`row` <= COALESCE((
         SELECT `n`.`Value`
-        FROM (SELECT @numbers1 AS `Value` UNION ALL VALUES (@numbers2), (@numbers3)) AS `n`
+        FROM (VALUES (@numbers1), (@numbers2), (@numbers3)) AS `n`(`Value`)
         ORDER BY `n`.`Value`
         OFFSET 1 ROWS FETCH NEXT 1 ROWS ONLY), 0)
 ) AS `w1` ON `g`.`FullName` = `w1`.`OwnerFullName`

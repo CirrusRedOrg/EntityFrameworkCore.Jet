@@ -1,25 +1,30 @@
-# Index B-tree pages — types 0x03 / 0x04
+# Index B-tree pages — types 0x0103 / 0x0104
 
 > Part of the [LibRed Jet / ACE file-format reference](README.md). Cross-references use the original **§-numbers**; the [section map](README.md#section-map) says which file each lives in.
 
-## 10. Index B-tree pages — types `0x03` (node) and `0x04` (leaf)
+## 10. Index B-tree pages — types `0x0103` (node) and `0x0104` (leaf)
 
 ### 10.1 Header
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 1 | Page type (`0x03` node / `0x04` leaf) |
-| `0x01` | 1 | Flags (observed constant `0x01` — verified) |
-| `0x02` | 2 | Free space |
+| `0x00` | 2 | Page type (`0x0103` node / `0x0104` leaf; bytes `03 01` / `04 01`) |
+| `0x02` | 2 | Free-space count — bytes still free on the page |
 | `0x04` | 4 | Owning table TDEF page |
 | `0x08` | 4 | **The 4-byte field Jet4 inserted** right after the owner — purpose unknown, **`0` observed** on every ACE- and LibRed-written index page. Inserting it here is what pushes prev/next/tail/compress down by 4 vs Jet3 (see the Jet3→Jet4 note under `0x1B`). |
-| `0x0C` | 4 | **Previous leaf page** (`0` on the first/leftmost leaf), little-endian. **Verified against ACE:** on an ACE-built split index the higher-key leaf's `0x0C` points back at the lower-key leaf. |
-| `0x10` | 4 | **Next leaf page** (`0` on the last/rightmost leaf), little-endian. **Verified against ACE — and load-bearing:** Access's full-table `COUNT(*)`/scan descends to the leftmost leaf and walks this forward chain. If it is wrong (e.g. `next` written at `0x0C`), Access stops after the first leaf and **silently sees only those rows** — a data-loss/corruption hazard, since it then treats the rest of the table's space as free. LibRed maintains `0x0C`/`0x10` across splits (§10.5). (This is **Jet3's `0x0C` next-pointer shifted +4**; the child-tail that mdbtools lists at `0x10` is the *Jet3* tail position — in Jet4 it too shifted to `0x14`.) |
+| `0x0C` | 4 | **Previous leaf page** (`0` on the first/leftmost leaf), little-endian. **Verified against ACE:** on an ACE-built split index the higher-key leaf's `0x0C` points back at the lower-key leaf. A node that has split carries the same link to its left sibling at the same level (§10.5); the root never has one. |
+| `0x10` | 4 | **Next leaf page** (`0` on the last/rightmost leaf), little-endian; on a split node, its right sibling. **Verified against ACE — and load-bearing:** Access's full-table `COUNT(*)`/scan descends to the leftmost leaf and walks this forward chain. If it is wrong (e.g. `next` written at `0x0C`), Access stops after the first leaf and **silently sees only those rows** — a data-loss/corruption hazard, since it then treats the rest of the table's space as free. LibRed maintains `0x0C`/`0x10` across splits (§10.5). (This is **Jet3's `0x0C` next-pointer shifted +4**; the child-tail that mdbtools lists at `0x10` is the *Jet3* tail position — in Jet4 it too shifted to `0x14`.) |
 | `0x14` | 4 | **Child-tail** page (node pages: the rightmost child, referenced by no entry). **Verified** for Jet4/ACE: the tail pointer read here drives correct multi-level traversal. This is **Jet3's `0x10` tail shifted +4** by the `0x08` insertion, which is exactly why mdbtools (Jet3) documents the tail at `0x10`. |
 | `0x18` | 2 | Compressed-byte count (shared key prefix length, §10.3). Jet3's `0x14`, shifted +4. |
-| `0x1A` | 1 | The **1-byte field Jet4 inserted** just before the bitmask. ACE writes `0` on leaves and `1` on the root of a two-level split index, consistent with a **B-tree level/height** — but **only `0` and `1` have been observed** (no 3-level tree was built against ACE, so `2`+ is a guess). **Required only for leaves (verified):** writing `0x01` on a *leaf* makes ACE fail to open the whole database (`"could not find the object 'Databases'"`). **Node value is cosmetic (verified):** with correct leaf-chain offsets, nodes written with `0x1A=0` *and* prefix-compressed still give ACE the right `COUNT`/`SUM`, so Access reads a node's tail child regardless; leaf vs node is told by the page-type byte at `0x00`. LibRed still writes the height to match ACE byte-for-byte, but the only hard requirements are the leaf-chain offsets and a *leaf's* `0x1A=0`. |
+| `0x1A` | 1 | The **1-byte field Jet4 inserted** just before the bitmask. ACE writes `0` on leaves and `1` on the root of a two-level split index, consistent with a **B-tree level/height** — but **only `0` and `1` have been observed** (no 3-level tree was built against ACE, so `2`+ is a guess). **Required only for leaves (verified):** writing `0x01` on a *leaf* makes ACE fail to open the whole database (`"could not find the object 'Databases'"`). **Node value is cosmetic (verified):** with correct leaf-chain offsets, nodes written with `0x1A=0` *and* prefix-compressed still give ACE the right `COUNT`/`SUM`, so Access reads a node's tail child regardless; leaf vs node is told by the page type at `0x00`. LibRed still writes the height to match ACE byte-for-byte, but the only hard requirements are the leaf-chain offsets and a *leaf's* `0x1A=0`. |
 | `0x1B` | … | Entry-position bitmask. mdbtools **version-labels** this: bitmask at `0x16` (Jet3) / **`0x1B` (Jet4)**. The `+5` Jet3→Jet4 shift is **fully decomposed**: a **4-byte field inserted at `0x08`** (right after the owner) plus the **1-byte B-tree level at `0x1A`** = `+5`. Everything between is Jet3's field shifted by 4 (Jet3 → Jet4): prev `0x08`→`0x0C`, next `0x0C`→`0x10`, child-tail `0x10`→`0x14`, compressed count `0x14`→`0x18`, and the mask `0x16`→`0x1B`, the level accounting for its extra `+1`. No unexplained bytes remain in this header. (The Jet4 *positions* are ACE-verified; that these are exactly the bytes Jet3 lacks is not yet confirmed against a real Jet3 index page.) |
 | `0x1E0` | — | Start of entry data |
+
+> **"Lower-key" and "higher-key" above mean the stored key bytes, not the column value.** A descending key
+> is the ascending key with every byte inverted (§10.4), so a DESC index's chain runs from the greatest
+> value at the leftmost leaf to the least at the rightmost, and a range stated in values enters the tree at
+> its **upper** bound. Entering at the lower bound instead lands past the range's entries, which are all
+> behind it in the chain.
 
 ### 10.2 Entries
 
@@ -27,13 +32,16 @@ The entry bitmask (`0x1B` up to `0x1E0`) is a bitmap whose set bits, read in ord
 **end offsets** of successive entries within the entry-data region. Entry `n` spans
 `[prevEnd, end_n)` relative to `0x1E0` (first entry starts at 0).
 
+**The bits run LSB-first within each byte**: bit `i` of the byte at `0x1B + i/8` is `i & 7`, so offset 0 is
+the low bit of `0x1B` and offset 7 its high bit, offset 8 the low bit of `0x1C`, and so on.
+
 Each entry ends with a **4-byte big-endian** trailing pointer:
 - **Leaf:** `pointer` is a row id — page = `pointer >> 8`, row = `pointer & 0xFF`.
 - **Node:** the trailing 4 bytes are the **child page**; recurse into it. After all entries,
   also recurse into the header's child-tail page (`0x14`).
 
 > **Reader/traversal guardrails.** LibRed validates every page number before I/O, requires page type
-> `0x03`/`0x04` and a consistent owning TDEF, bounds every bitmask-derived entry before reading its
+> `0x0103`/`0x0104` and a consistent owning TDEF, bounds every bitmask-derived entry before reading its
 > 4-byte trailer *after reconstruction* (§10.3), and requires the compressed prefix to fit the first
 > entry. Node child/tail, leaf
 > previous/next, and indexed-row page pointers are checked against the file's page range; optional leaf
@@ -50,9 +58,14 @@ Each entry ends with a **4-byte big-endian** trailing pointer:
 > mutating it (the cached object is shared with every other reader of the file, so it must never be written
 > through). The guarantee is unchanged: a cached parse survives only while the bytes behind it are untouched —
 > any write from any channel drops it, eviction drops it, and a page buffered in an open transaction's overlay
-> is never served — so a hit carries what a re-read would, and the page's type and owning TDEF are still
+> is served only from that transaction's own parses, which its next write of the page, a savepoint rollback and
+> the rollback all drop, and which the commit hands to the shared cache with the bytes they describe — so a hit
+> carries what a re-read would, and the page's type and owning TDEF are still
 > checked before it is mutated. The copy is shallow by design: an entry is an immutable struct referencing its
 > key, so copying the list shares the key arrays and costs one array of structs rather than one array per entry.
+> A leaf rewritten in place (no split) is written together with the parse it was built from — its entries, the
+> prefix length stored, no child tail — so the next insert into it does not decode it again; that parse is what
+> decoding the written page gives, and the tests check it against a fresh decode after every insert.
 >
 > Because an overlay page is never served from the cache, this saves nothing for a page already written inside
 > the current transaction. Inserts outside a transaction, or early in one, gain the most; a long transaction
@@ -85,11 +98,13 @@ omits. Reconstruct: `fullEntry = prefix ++ stored`.
 
 > **Compression is optional on leaves.** A `compressedByteCount` of 0 (every entry stored in full)
 > is a valid *leaf* that Access reads without complaint — verified by rewriting a leaf uncompressed
-> and re-seeking it. **On node (`0x03`) pages, ACE writes them uncompressed (`0x18 = 0`)**, and
-> LibRed matches that. *Verified cosmetic:* compressing a node does **not** break Access — with correct
-> leaf-chain offsets, nodes compressed and `0x1A=0` still give the right `COUNT`/`SUM`. A broken tail descent
-> points at the leaf-chain offsets (§10.1), not at node compression. LibRed writes nodes uncompressed only to
-> stay byte-faithful with ACE, not because it's required.
+> and re-seeking it. **Node (`0x0103`) pages follow the same cycle as leaves** (below): a node is written
+> uncompressed until it fills, compressed in place when it does, and split when that is not enough, both halves
+> then written at the largest prefix they share. So the node of a small two-level tree reads `0x18 = 0` — it has
+> never filled — while the halves of a split node carry a prefix (verified: 16 separators at prefix 0 with 176
+> bytes free, then a 17th splits it into two nodes of 8 at prefix 1). Compression is not load-bearing on a node
+> either: with correct leaf-chain offsets, nodes compressed and `0x1A=0` still give Access the right
+> `COUNT`/`SUM`, and a broken tail descent points at the leaf-chain offsets (§10.1), not at node compression.
 >
 > **A leaf with ≤ 1 entry writes `0x18 = 0`.** Prefix compression describes a prefix *shared across
 > entries*, so with zero or one entry there is nothing to share — ACE writes `compressedByteCount = 0`,
@@ -123,11 +138,17 @@ omits. Reconstruct: `fullEntry = prefix ++ stored`.
 > End state alone misleads: a leaf that has never filled is uncompressed under ACE too. And recomputing the
 > prefix on split while keeping it on append is wrong — pages then fill uncompressed and split without ever
 > being compressed, giving 4 leaves and 11,820 bytes against ACE's 3 and 11,334.
+>
+> **Building an index follows the same rule** (verified): `CREATE INDEX` over a table's rows writes each leaf
+> at the prefix its filling reached, so an index whose entries all fit one page uncompressed is written
+> uncompressed — eleven text keys sharing ten bytes land at prefix `0` — however much they share. The whole
+> tree it writes is the one sequential inserts leave (§10.5).
 
 ### 10.4 Key encoding (order-preserving)
 
 Each key column is encoded so that raw byte comparison equals value comparison. LibRed both
-**decodes** these keys and **encodes** them (`IndexKeyEncoder`, the inverse), so it can insert
+**decodes** and **encodes** these keys through `IndexKeyCodec`, which also owns their layout,
+length limit and truncation checksum, so it can insert
 into an index. The encoder is verified **byte-for-byte against Access**: re-encoding the value
 decoded from Access's own stored key reproduces the exact bytes, and after a LibRed insert
 Access satisfies an indexed primary-key seek over the entry LibRed wrote.
@@ -136,11 +157,11 @@ Access satisfies an indexed primary-key seek over the entry LibRed wrote.
 > the `(LANGID, sort id, version)` triple in its descriptor at `0x0B`–`0x0E` (§3.4) — here
 > (1033, 0, **0**), the Access 2000–2007 order Access later renamed "General legacy". The other orders use
 > the *same framing* and different weights: see **Two General orders** and **Locale-specific orders** below.
-> Encoding must **gate on the whole triple** rather than assume, which is what `IndexKeyEncoder` does — it
+> Encoding must **gate on the whole triple** rather than assume, which is what `IndexKeyCodec` does — it
 > throws on anything it has no table for instead of emitting General bytes. That matters more than it
 > sounds: a wrong key does not fail, it silently disagrees with ACE's.
 
-Non-boolean columns are prefixed by a **flag byte**:
+Every column — Yes/No included — is prefixed by a **flag byte**:
 
 | | Ascending | Descending |
 | --- | --- | --- |
@@ -161,23 +182,29 @@ Then the value, transformed:
   stores; §5). A non-negative value uses sign `0xFF`; a **negative value is the bitwise complement
   of the whole 17-byte positive form** (sign becomes `0x00`, magnitude one's-complemented). Byte
   order therefore equals numeric order: negatives (`0x00`) precede non-negatives (`0xFF`), and
-  complementing makes a larger magnitude sort earlier among the negatives. **Zero encodes as
-  positive.** Descending inverts all bytes as usual. Verified byte-for-byte vs ACE, ascending and
-  descending; e.g. at scale 4, `1.0` → `7F FF 00…002710` (10000) and
+  complementing makes a larger magnitude sort earlier among the negatives. Zero encodes as positive,
+  **except a negative zero**: a value too small for the scale (`-0.00001` in `DECIMAL(18,4)`) truncates to
+  magnitude 0 and ACE keeps its sign, in the row (sign byte `0x80`, §5) and in the key (`7F 00 FF…FF`)
+  (verified). ACE's own `= 0` and `< 0` both exclude that row. Descending inverts all bytes as usual.
+  Verified byte-for-byte vs ACE, ascending and descending; e.g. at scale 4, `1.0` → `7F FF 00…002710` (10000) and
   `-1.0` → `7F 00 FF…FFD8EF` (`~10000`).
-- **Boolean:** no flag byte — a single constant: ascending `0x00` = true, `0xFF` = false
-  (true sorts first).
+- **Boolean (Yes/No):** the flag byte, then one byte: ascending `7F 00` = true, `7F FF` = false (true
+  sorts first); descending inverts both, `80 FF` = true, `80 00` = false (verified vs ACE, byte for byte in
+  both directions). The value is Access truthiness: `-1`, `1` and `7` all key as true. A Yes/No column
+  cannot be null, so the null flag does not occur.
 - **Memo (Long Text)** is **indexable** in Access (`CREATE INDEX` on a memo column succeeds — only
-  `OLE Object` is rejected, *"Invalid field definition … in definition of index or relationship"*). ACE
-  refuses an OLE column on **every** route into an index: `CREATE INDEX`, a `PRIMARY KEY` or `UNIQUE`
-  constraint in `CREATE TABLE` or added by `ALTER TABLE`, a foreign key in either place (before its type
-  match is checked), and `ALTER COLUMN` of an indexed column to OLE. It refuses up front and leaves nothing
-  behind — no table from a refused `CREATE TABLE`, the column and its index unchanged after a refused `ALTER`.
+  `OLE Object` and BigBinary are rejected, *"Invalid field definition … in definition of index or
+  relationship"*). ACE refuses an OLE column on **every** route into an index: `CREATE INDEX`, a
+  `PRIMARY KEY` or `UNIQUE` constraint in `CREATE TABLE` or added by `ALTER TABLE`, a foreign key in either
+  place (before its type match is checked), and `ALTER COLUMN` of an indexed column to OLE. It refuses up
+  front and leaves nothing behind — no table from a refused `CREATE TABLE`, the column and its index unchanged
+  after a refused `ALTER`. A BigBinary column (`0x11`, [§6](data-types.md)) is refused the same way on
+  `CREATE INDEX`, `PRIMARY KEY` and `UNIQUE` in `CREATE TABLE`, a foreign key, and `ALTER COLUMN` to it.
   Its key is the **ordinary Text collation key over the value's first 255 characters** — verified
   byte-for-byte vs ACE: a 256- or 300-character memo yields exactly the key of
   its 255-character prefix, so two memos differing only past character 255 share a key (fine for a
   non-unique index). Index keys are therefore encoded from the **logical** row values, before memo/OLE
-  values are materialised into their `LongValueDescriptor`s.
+  values are materialised into their `LongValueStore.DescriptorValue`s.
 > **Two General orders, two weight tables.** Everything in this Text section describes **General-Legacy**
 > (sort-order version `0`). The Access-2010+ **General** order (version `1`, the byte at column `0x0E` /
 > page-0 `0x71`) uses the *same framing* — start flag, primary weights, `0x01`, secondary section, inline
@@ -349,6 +376,11 @@ Then the value, transformed:
   > **Weights, not bytes.** The two agree for everything Latin, so only a two-byte weight tells them apart:
   > `£-` puts the hyphen at `0x0B` (`0x07 + 4×1`) although `£` is `34 A7`, and `©`, `½`, `Ω`, `б` all behave
   > the same, while `£A-` is `0x0F`. So both the secondary section and this one index by weight.
+  >
+  > **Except a version-1 Han character, which counts twice here.** Its four-byte `FD FF AW DW` primary takes
+  > two positions — `人-` puts the hyphen at `0x0F`, `人人-` at `0x17` — though it takes a single secondary
+  > slot. It is not a byte count halved: a one-byte version-1 primary (a Lao vowel) still counts once, and a
+  > Hangul syllable, a jamo and a kana once each. Version 0's Han weights are two bytes and count once.
 
   > **Why those two characters specifically:** this is Windows' documented **word sort**, the default for
   > the NLS sorting functions — *"all punctuation marks and other nonalphanumeric characters, except for the
@@ -409,6 +441,18 @@ Then the value, transformed:
 
   > **General v0 covers the whole Basic Multilingual Plane.** Every character ACE stores a key for, LibRed
   > encodes identically.
+  >
+  > **The control characters, DEL and `U+FEFF` are outside the measured table** and follow three rules,
+  > verified against ACE for all 66, alone and between two letters:
+  >
+  > | | v0 key |
+  > |---|---|
+  > | `U+0000`, `U+FEFF` | wholly ignorable — no weight and no record, so `a␀b` keys as `ab` |
+  > | tab, LF, VT, FF, CR (`U+0009`–`000D`) | a two-byte primary `08 03`–`08 07`, default secondary |
+  > | the other 60 (`U+0001`–`0008`, `U+000E`–`001F`, `U+007F`, `U+0080`–`009F`) | word-sort ignorables: an inline record `80 <pos> 06 <code>`, codes `0x03`–`0x3D` consecutive in code-point order |
+  >
+  > So `U+0001` is `7F 01 01 01 01 80 07 06 03 00` alone and tab is `7F 08 03 01 00`. General v1 keys all 66
+  > from the published table, also verified against ACE.
   > The weights are in an embedded resource (`SortKeyTableV0.bin`, 74 KB): 63,105 of them, 19,186 ignorable,
   > plus 40 word-sort ignorables and 276 kana — far past anything hand-maintainable. Most of v1's table can
   > be embedded from a published Microsoft file; v0's cannot at all, since its primaries are a Jet compaction
@@ -459,8 +503,35 @@ Then the value, transformed:
   > あいー    [01,01,11]     10|01 01 11 = 97          あああー  [01,01,01,11] = 95 B0
   > ```
   >
-  > So the section is `01 01 <small flags> FF <prolonged flags> 02 80 FF 80`. With no kana before it, `ー` is
-  > nothing special and keeps the ordinary `FF FF` primary the table holds for it.
+  > So the section is `01 01 <small flags> FF <mark codes> 02 80 FF 80`. With no kana before it, `ー` is an
+  > iteration mark instead (below).
+  >
+  > **Iteration marks repeat the weight before them.** `々`, `ゝ`/`ヽ`/`〱` and their voiced forms
+  > `ゞ`/`ヾ`/`〲` — and, in version 1 only, `〻` and the Yi `ꀕ`, which version 0 ignores — weigh as a
+  > **copy of the one weight the character before them contributed**, carrying the mark's *own* secondary:
+  > `々` `05`, `ゝ` `02`, `ゞ` `03`, `〻` `05`, `ꀕ` `07`. The copy does not inherit the secondary it repeats:
+  > `がゝ` is `が` twice with secondaries `03 02`, `é々` is `e` twice with `0E 05`. `ー` is one wherever it has
+  > no kana to lengthen — `人ー` and `aー` double the character before. The rules, all measured against ACE
+  > under both versions:
+  >
+  > - **After a kana the copy is a kana**: it joins the kana section with mark code `10` (`かゝ` closes
+  >   `FF 98`, where `かー` closes `FF 9C`), inherits the small flag (`ゃゝ` packs small+small), and a
+  >   following halfwidth voicing mark or long vowel mark reaches it (`ｶヽﾞ` voices the copy, `かゝー`
+  >   lengthens it). `々` after a kana is a kana repeat too, with its own `05`.
+  > - **A mark leaves what it copies unchanged**, so a chain repeats the same weight (`人々々`, `かゝゝ`), and
+  >   a kana repeat after `ー` copies the last kana *letter*, not the vowel (`かーゝ` = `か`,`あ`,`か`).
+  > - **Only a character that contributed exactly one weight can be copied** — or one inline record, whose
+  >   `06 xx` pair then moves into the primaries (`'々`). After an expansion (`ß`, `æ`, a ligature), at the
+  >   start of the string, or after a mark that found nothing, the mark weighs alone as its table's `FF FF`
+  >   and leaves nothing to copy after it: `ß々`, `々々` and `ー々` keep `FF FF`. A character contributing
+  >   nothing — a combining accent folding into the letter before, or an astral character in version 0 — is
+  >   transparent: `e`+U+0301+`々` and `a𐀀々` copy the letter.
+  > - **Version 1 copies the table's (script member, alphabetic weight) pair**, which is the primary itself
+  >   except where the encoding rearranges it: a Han character encodes as `FD FF AW DW` and is copied as
+  >   `05 AW` (`人々` = `FDFF3D26 053D`), a jamo encodes as `AW DW` and is copied as `04 AW` (`ᄀ々` =
+  >   `C002 04C0`).
+  > - **A locale that weighs the mark as a character of its own wins**: Japanese radical/stroke order gives
+  >   `々` a radical weight, and `人々` is then two different weights.
   >
   > **Version 1 builds the kana section identically** — same sound weights, same framing, byte for byte:
   > ACE encodes `U+304C` as `7F 7F0A 01 03 0101 FF 02 80 FF 80 00` under both orders. The two versions
@@ -475,7 +546,7 @@ Then the value, transformed:
   >   sound and voicing. The one fact it does not supply is the small flag, and that cannot be inferred from
   >   reaching that path: script member 3 also collects the circled forms, which are *not* small, and the
   >   iteration marks, the lone prolonged mark and the double hyphen, which are not kana letters at all and
-  >   which ACE gives the unweighted `FF FF` primary and no kana section.
+  >   which ACE gives the unweighted `FF FF` primary and no kana section when they stand alone.
   >
   > What `02 80 FF 80` denotes is still not established; it never varies, so it is emitted as a literal.
   >
@@ -549,8 +620,9 @@ Then the value, transformed:
   the fixed-type keys.
 
   **Locale-specific orders.** A database can be created with a sort order other than General; Access exposes
-  them as the "New Database Sort Order" list. Verified against ACE for **every non-CJK entry in that list**,
-  each compared against General v0 (plus orders only DAO can name):
+  them as the "New Database Sort Order" list. Verified against ACE for **every entry in that list** but the
+  two Unicode CJK orders ACE will not open, each compared against General of its version (plus orders only
+  DAO can name):
 
   - The stored value is a **true LCID**, not a small enum — Spanish Traditional is `1034` (`0x040A`) and
     Spanish **Modern** is `3082` (`0x0C0A`). DAO's `CollatingOrderEnum` lists only `dbSortSpanish = 1034`;
@@ -783,27 +855,79 @@ Then the value, transformed:
   > Georgian is the live counterexample on the second axis — `1079` at sort id 0 is in the set, `1079` at
   > sort id 1 is Georgian Modern with a tailoring of its own.
 
+  **The Chinese, Japanese and Korean orders.** Access offers fourteen, told apart by LANGID, sort id and
+  version:
+
+  | order | LCID | versions |
+  |---|---|---|
+  | Chinese Pronunciation | `0x00000804` | 1, 0 (`- Legacy`) |
+  | Chinese Stroke Count | `0x00020804` | 1, 0 |
+  | Chinese (Taiwan) Bopomofo | `0x00030404` | 1, 0 |
+  | Chinese (Taiwan) Stroke Count | `0x00000404` | 1, 0 |
+  | Japanese | `0x00000411` | 1, 0 |
+  | Japanese Radical/Stroke Count | `0x00040411` | 1 |
+  | Japanese Unicode | `0x00010411` | 0 |
+  | Korean | `0x00000412` | 0 |
+  | Korean Unicode | `0x00010412` | 0 |
+
+  Measured character by character over the **whole BMP** against ACE, every character the twelve ACE opens
+  weigh differently from General of their own version gets **one weight** in place of General's:
+
+  - The **ideographs** move, into the order's own sequence — pronunciation, stroke count, Bopomofo,
+    radical. The Chinese orders move 16,679 to 20,935 characters at version 0 and 24,144 to 27,752 at
+    version 1; Japanese 7,072 at either version, and Japanese Radical/Stroke Count 13,094. A version-0 entry
+    is a two-byte primary; a version-1 entry a two-byte primary **and a secondary** (`一` in Chinese Stroke
+    Count is `C0 02` with `10`), replacing General v1's `FD FF` Han weight. Japanese v0 and v1 depart at the
+    same code points, the v0 primary being the v1 one with a compacted lead byte (`一` is `81 56` against
+    `C4 56`).
+  - A few **symbols** move with them. The Japanese orders weigh `\` as `¥` (fullwidth `＼` keeps General's
+    weight), and give `―` (U+2015) the unweighted `FF FF` where General records it as a word-sort
+    ignorable; Japanese also moves the kanbun marks (U+3192–319F), the parenthesised and circled ideographs
+    (`㈠` is `C4 59`, beside `一`'s `C4 56`) and the era squares (U+337B–337F). Japanese Radical/Stroke
+    Count gives `〃々〆〇` weights of their own ahead of `一` (`々` is `C0 04` with `0D`), so there `人々` is
+    two different weights and not an iteration.
+  - **A decomposition does not reach the table.** Version 1's base table expands the CJK radicals and the
+    compatibility ideographs to the unified ideograph they stand for (`⼀` U+2F00 to `一`), and ACE weighs
+    them as General does — never with the order's weight for that ideograph. A Latin locale is the opposite:
+    Croatian's `Ǆ` = `D` + *Croatian's* `Ž`.
+  - An **iteration mark** copies the tailored weight of the ideograph before it.
+
+  **Korean** is General v0 plus a table, but also a **reordering of scripts**: Hangul sorts first, so the
+  lead byte of every weight General contributes moves — `81`–`F2` down `0x37`, `4A`–`80` (Latin, Greek,
+  Cyrillic, the other scripts, kana, Bopomofo) up `0x72`, everything below `4A` in place. `A` is `BC`, `가`
+  is `4A 03`. It moves each **weight**, not each byte: `ᄀ` `81 02` is `4A 02`, and `Ĳ`'s two weights `59 5B`
+  are `CB CD`. Every weight General gives the BMP moves by that rule, with no exception in either band. The
+  table then holds the **hanja**, weighed by their Hangul reading — the syllable's primary, and a secondary
+  telling apart the hanja that share it (`一` is `66 57` with `41`, `㈠` `66 57` with `47`) — and gives `\`
+  the weight of `₩`. A tailored weight and an iteration mark's copy are already final and do not move
+  again.
+
+  **"Japanese Unicode" and "Korean Unicode" cannot be measured.** Access 365 creates a database in either —
+  creating a file needs no collation — but ACE refuses to open one: *"Selected collating sequence not
+  supported by the operating system"*, because Windows no longer supports those alternate sorts. With no
+  engine to measure against, they stay refused.
+
   What remains: **Irish 1084**, unmeasured — Jet accepts it, but not in a process that has loaded the ACE
-  OLE DB provider, so its ACE keys are unknown; and the **CJK** orders, deliberately out of scope. Three
+  OLE DB provider, so its ACE keys are unknown; and the two **Unicode** CJK orders above. Three
   orders — Serbian Latin 2074, Bosnian Latin 5146 and Hindi 1081 — are unreachable at version 0 by construction: Jet refuses them with *"Incorrect collating
   sequence."*, and they are exactly the three already implemented at version 1.
 
   > **Everything above is verified by creation too.** For every combination `IsIndexKeyEncodable` accepts —
-  > every accepted order at version 0 plus the six orders with a version-1 table — a database LibRed
+  > every accepted order at version 0 plus every order with a version-1 table — a database LibRed
   > synthesises in that order, indexed by ACE, holds keys matching LibRed's byte for byte. A wrong LCID
   > cannot pass quietly: ACE indexes with whatever order that LCID really names.
 
-  *Not yet handled:* **Irish 1084** and the **CJK** orders (above). **Six** version-1 collations are
-  implemented — General v1, Indic v1, Romanian v1, and Croatian / Bosnian / Serbian v1 sharing one table —
-  and those six are the only non-CJK orders that differ from General v1, so the rest are covered by falling
-  back to it. DAO writes version 0 for every LANGID it accepts, so a v1 database needs another authoring
+  *Not yet handled:* **Irish 1084** and the two **Unicode** CJK orders (above). **Six** version-1 collations
+  besides the CJK ones are implemented — General v1, Indic v1, Romanian v1, and Croatian / Bosnian / Serbian
+  v1 sharing one table — and those six are the only non-CJK orders that differ from General v1, so the rest
+  are covered by falling back to it. DAO writes version 0 for every LANGID it accepts, so a v1 database needs another authoring
   route.
 - **GUID:** the start flag `0x7F`, then the 16 GUID bytes in **canonical string order** (i.e.
   `guid.ToString("N")` bytes — **not** the mixed-endian `.ToByteArray()` storage layout), split into two
   8-byte halves by a constant `0x09` marker, and terminated by `0x08` — a fixed **19-byte** key. Data
   bytes equal to `0x08`/`0x09` need no escaping (every field is at a fixed offset). Verified byte-for-byte
   against ACE; ACE also opens a LibRed-written GUID-PK
-  table and seeks a row by its key. Encoded/decoded by `IndexKeyEncoder`/`IndexKeyDecoder`. Example:
+  table and seeks a row by its key. Encoded/decoded by `IndexKeyCodec`. Example:
   `01020304-0506-0708-090a-0b0c0d0e0f10` → `7F 0102030405060708 09 090A0B0C0D0E0F10 08`.
   **Descending** inverts every byte of the ascending key **except the `0x09` field marker** (kept constant
   so the structure stays parseable — and it doesn't affect ordering since it's equal in every key): the
@@ -824,7 +948,7 @@ Then the value, transformed:
   prefix order). **Descending** inverts every byte **except the `0x09` continuation markers** (mirrors
   GUID): flag → `0x80`, data bytes and the terminator inverted, markers unchanged. Ascending is verified
   byte-for-byte against ACE-written keys (single- and multi-chunk); descending is **unverified** against ACE,
-  extrapolated from the verified GUID descending. `IndexKeyEncoder.EncodeBinaryChunked`.
+  extrapolated from the verified GUID descending. `IndexKeyCodec.EncodeBinaryChunked`.
 
 ### 10.4a Entry removal — a leaf is rewritten, not repacked
 
@@ -838,10 +962,36 @@ make a delete byte-identical to ACE's:
   two-entry leaf's live region by 4 bytes against ACE's on every leaf a cascading delete touches.
 - **Bytes past the new free-space boundary keep their previous contents** (§10.4c).
 
+Keeping the stored count means the rewrite has to re-store the survivors at a prefix it did not choose, and
+that prefix may reach past the key into the row pointer (§10.3). Each survivor is therefore stored as the
+tail of the **whole** entry, `key ++ trailer` — the same concatenation the read side reconstructs — and a
+stored entry can again be shorter than four bytes. Taking the tail of the key alone is not merely a different
+packing: where the prefix is longer than the key, there are no key bytes left to take. Verified on a leaf of
+equal keys stored at prefix 9 over a 7-byte key: the rewritten page reads back complete, in ACE and here.
+
 Both engines then agree byte for byte. Verified by deleting the same row through DAO and through LibRed on
 two separate copies and diffing whole files: an ordinary table (`[Order Details]`, 5 pages touched) and a
 table with four attachment columns whose delete cascades into the flat tables (`complex1.accdb`'s `Table1`,
 20 pages touched) each came back identical on every page, with LibRed touching no page ACE did not.
+
+### 10.4d A leaf the removal empties leaves the tree
+
+An underfull leaf is left alone (§10.4a), but a leaf whose **last** entry is removed is taken out of the tree
+rather than rewritten empty. Three things change together:
+
+- **The leaf chain closes over it.** Its left neighbour's `nextPage` (`0x10`) takes its `nextPage`, and its
+  right neighbour's `prevPage` (`0x0C`) takes its `prevPage`. A leaf that was the chain's head therefore
+  leaves the next leaf reading `prevPage = 0`.
+- **The parent node loses the child pointer.** Where the leaf was an entry's trailer, that separator entry
+  goes and the child-tail (`0x14`) is untouched. Where it was the child-tail, the last entry's child becomes
+  the tail and that entry goes. A node is left with **no entries and only its child-tail** rather than
+  collapsed into its remaining child: `entryCount = 0` over a live `0x14` is a valid node.
+- **The page is released** — cleared from the index's own pages map (`+0x22` of its data block) and returned
+  to the global map. Its **type stays `0x0104`**: unlike a released data page ([page-09](page-09-released-data.md))
+  an index page carries no released-page marker, and none of its bytes change.
+
+Two shapes keep an empty leaf, having nowhere to go: a leaf that **is** the root — an index with no rows is
+one empty leaf — and a leaf that is its parent's only remaining child.
 
 ### 10.4c Dead bytes past the free-space boundary
 
@@ -859,12 +1009,16 @@ ACE's across the whole vacated region. The rule is cheap to honour: build as nor
 destination's bytes from the new live end to the end of the page — but only when the destination is already
 this index's own page of the same type, since a recycled page is the zero-fill case.
 
-### 10.4b The 510-byte index entry limit
+### 10.4b The 510-byte index key limit
 
-**ACE stores an index entry of at most 510 bytes as built.** At exactly 510 it comes back byte-for-byte; a
+**ACE stores an index key of at most 510 bytes as built.** At exactly 510 it comes back byte-for-byte; a
 value that would need 511 comes back as 510: the first **508** bytes kept, and the rest replaced by a
 two-byte **checksum over the bytes that were dropped**. That is why two long values sharing a 508-byte
 prefix still sort apart instead of colliding.
+
+The 510 counts the **key alone** — the concatenated column weights — and the 4-byte row pointer that follows
+it is on top, so the longest entry on a leaf page is 514 bytes. The cap is on the whole key rather than on
+each column: two 200-character text columns weigh about 404 bytes each and are truncated as a pair.
 
 #### The checksum
 
@@ -894,7 +1048,7 @@ The function is **affine over GF(2)** — tails differing in one byte give `L(0x
 the end contributes `S^(d-1)` of itself whatever the message length. The eight table rows above follow from
 those contributions.
 
-Equivalently, and how `JetIndexKeyChecksum` implements it: fold every byte but the last in the form
+Equivalently, and how `IndexKeyCodec` implements it: fold every byte but the last in the form
 `crc = (crc >> 8) ^ T[crc & 0xFF] ^ b`, then XOR the last byte's `b << 8` into the result. The two are the
 same function.
 
@@ -934,31 +1088,57 @@ separator is the **maximum key of its child subtree**, stored as a full leaf key
 4-byte row pointer), so descend into the first child whose separator `≥` the new full key, else the
 child-tail (`0x14`). Slot the new entry into the target leaf in key order and rewrite the page.
 
-When a page would overflow, **split** it (LibRed's `IndexWriter`). Verified **against ACE** on a
+When a page would overflow, **split** it (LibRed's `IndexTree`). Verified **against ACE** on a
 multi-level tree LibRed wrote: Access's indexed point seek, indexed range, full `COUNT(*)`, non-indexed scan
 and `SUM` all return the correct result — i.e. every row is reachable both by the tree and by the leaf-chain
 scan Access uses.
 
 The split mechanics:
 
-- **Leaf split:** partition the sorted entries in half; the lower half stays on the original page,
-  the upper half goes to a newly allocated page. **The half is taken over the entries the page held
-  *before* the insert, and the new entry then joins whichever side its key falls in** — so the cut sits at
-  `mid = preInsertCount / 2`, and the original page keeps `mid + 1` entries for a key landing below `mid`
-  but `mid` for one landing on or above it. (Halving the post-insert list instead always hands the odd entry
-  to the right page, which is the same cut only for a key in the upper half.) Measured against ACE on a
-  602-entry leaf split by one further key: ACE keeps **302** entries for a new key at position 1 or 50 and
-  **301** at position 301, 302 or 400 — so the midpoint itself goes right. The doubly-linked leaf chain is maintained — the
+- **Compress, then split.** A page the new entry does not fit is first rewritten **in place** with its old
+  entries at the largest prefix they share (§10.3), and only when that still leaves no room is it split — over
+  that compressed image. Nothing reads the image once the split is written, but it is what stands past each
+  half's live end (see *Dead bytes* below). Verified on leaves and nodes.
+- **Leaf split:** partition the sorted entries in two; the lower part stays on the original page,
+  the upper part goes to a newly allocated page. **The cut is taken over the entries the page held *before*
+  the insert — every old entry that *starts* before the byte midpoint of the compressed old page stays left,
+  so the entry straddling the midpoint does too — and the new entry then joins whichever side its key falls
+  in**: left when its position is below the number of old entries kept, right otherwise. With equal-length
+  entries that is the old entries halved, the odd one left. Measured against ACE:
+
+  | leaf | new key at | ACE keeps left |
+  | --- | --- | --- |
+  | 17 equal entries (root or not) | position 1–8 | 10 |
+  | 17 equal entries | position 9–16 | 9 |
+  | 602 equal entries | position 1 or 50 | 302 |
+  | 602 equal entries | position 301, 302 or 400 | 301 |
+  | 91 entries of 38–40 bytes | position 52 | **45** — a count would keep 46 |
+
+  **A new *first* entry is the exception**: then the entries *including* it are halved by count, rounding up
+  — 9 of 18 (keys of 207 and 211 bytes alike) and 302 of 603. Whether the parent node splits in the same
+  insert makes no difference. The doubly-linked leaf chain is maintained — the
   new right page's *prev* (`0x0C`) points at the left, its *next* (`0x10`) inherits the left's old
   next, the left's *next* becomes the right, and the old next leaf's *prev* is repointed to the
   right. **Getting these offsets right is essential** — Access's scan walks the `0x10` next-chain
   from the leftmost leaf, so a mis-placed pointer makes it lose every row past the first leaf. The
   promoted separator is the **left half's maximum full key**, which stays in the leaf (a copy is
-  promoted, B+tree-style). Leaves are prefix-compressed; LibRed also writes node pages uncompressed
-  with `0x1A` set to their height above the leaves to match ACE byte-for-byte, though (unlike the
-  leaf-chain offsets) neither is *verified* to be required — see §10.1 `0x1A` and §10.3.
+  promoted, B+tree-style). **The left half keeps the prefix the page was stored at** (after the
+  compress step) and the right half is written at the largest prefix its entries share — except that when
+  the new entry became the left half's first, the left half is written **whole, at prefix 0**, though its
+  entries still share bytes. This is specific to a split: a new first entry that fits keeps the page's prefix
+  (verified: a 410-entry leaf at prefix 3 takes a key below all of them and stays at 3).
 - **Node split:** partition on a **middle entry** whose key is *promoted* (removed from the node);
-  its child becomes the left node's child-tail, and the old tail stays the right node's tail.
+  its child becomes the left node's child-tail, and the old tail stays the right node's tail. A node
+  fills, compresses in place and splits exactly as a leaf does (§10.3), and both halves are written at the
+  largest prefix they share. Nodes carry **sibling links** too: the halves point at each other through
+  `0x0C`/`0x10` and the old right neighbour's `0x0C` is repointed, as on a leaf (verified on a node split
+  under a root). Before promoting it, the child that split is repointed to its new right half, and that
+  repointed node is what the compress step writes. **A node has a right-edge split too:** when the new
+  separator is the node's last entry — the child that split was its tail, as on every split of an ascending
+  load — the left node keeps every old entry but the last, that one is promoted (its child becoming the left
+  node's tail), and the new separator starts the right node alone. Verified: a node of 16 separators taking a
+  17th is cut 15, promote 1, 1. A node carries `0x1A` set to its height above the leaves,
+  as ACE writes it, though (unlike the leaf-chain offsets) that is not *verified* to be required — see §10.1.
 - **Right-edge split.** When the incoming key is the highest on the page, both engines leave that page full
   and start a new one holding the new entry alone, instead of halving it: nothing sorts below a maximum key,
   so a middle split there strands half a page for ever. A writer that always splits down the middle spends
@@ -980,29 +1160,39 @@ The split mechanics:
   ascending backfill keeps meeting the right edge of a subtree. A *random* backfill into pre-packed pages is
   unmeasured.
 
-> **Open — the compressed length of a page whose FIRST entry is new.** A key that sorts below everything on
-> the page splits it at the same point as any other low key (verified: both engines keep 302 of 603), but ACE
-> then writes the left page with `compressedByteCount = 0` where the page had been stored at `3` and the
-> entries still share 3 bytes. Every other measured position keeps the `3`. Whether the trigger is "the new
-> entry became the page's first" or "a split writes its left page uncompressed unless the first entry is
-> unchanged" is **not** established — the two fit the measurements equally. Until it is, LibRed recomputes
-> the prefix and keeps compressing, which costs a byte difference only in this one case. The right page is
-> unaffected (its live bytes match exactly).
 - **Propagation:** the promoted separator `[key → left page]` is inserted into the parent, whose
   pointer to the just-split page is repointed to the new right page; if the parent overflows it
   splits in turn, up to the root.
-- **Root growth:** when the root itself splits, a new root node is allocated holding one entry
-  `[promoted → old root]` with the new page as its child-tail, and the index-data block's root
-  pointer (§3.5 `0x26`) is repointed to it. (The single-leaf → two-leaves case hits this on the
-  first overflow, changing the root page's type from leaf `0x04` to node `0x03`.)
+- **Root growth — the root never moves.** When the root itself splits, **both** halves go to newly allocated
+  pages, the left one allocated first, and the root page is rewritten in place as a node holding one entry
+  `[promoted → left]` with the right page as its child-tail. The index-data block's root pointer (§3.5
+  `0x26`) is therefore unchanged by any split — a leaf root turns node on its first overflow, keeping its page
+  number. Verified for a leaf root and for a node root.
+- **Dead bytes.** A split leaves bytes past each half's live end, and ACE's are reproducible:
+  - a page rewritten in place (the left half of an ordinary split, a root turned node) keeps what the
+    compressed image held there;
+  - the left half of a **root** split is a new page, but it too holds the root's compressed image past its
+    live end, as if the root had been copied there and cut;
+  - the right half is a new page's zeros — except when the new entry became the left half's first, when it
+    too holds the split page's image;
+  - a **node's** left half additionally holds the promoted middle entry just past its live end, stored at the
+    page's prefix: ACE writes it into the page and then ends the page before it.
 
-> Newly allocated split pages are taken from the global free-page map (§ page 1) and are registered in the
-> *index's own* owned-pages usage map as Access does — `IndexWriter.AllocateIndexPage` sets the bit for
+  Each verified byte for byte on a leaf root split (new key high and new key first), a node root split, and a
+  split of a non-root leaf by a new first key.
+- **`CREATE INDEX` over existing rows** writes the tree that inserting the keys one at a time in key order
+  would: every insert lands on the right edge, so the root keeps the page the index was created with, each
+  leaf fills uncompressed, is compressed in place when full and splits at the right edge, the nodes above do
+  the same, and pages are allocated in the order those splits happen, leaves and nodes interleaved. Verified
+  byte for byte, dead bytes included, on a tree of one node over three leaves and on one of two node levels.
+
+> Newly allocated split pages are taken from the global free-page map ([page-05 §9.1](page-05-usage-maps.md)) and are registered in the
+> *index's own* owned-pages usage map as Access does — `IndexTree.AllocateIndexPage` sets the bit for
 > every page it hands out, so the map covers the whole B-tree rather than just the root. See
 > [page-05 §9](page-05-usage-maps.md), which owns that rule.
 
 
-> **Indexable types — coverage vs ACE (§10.4).** `IndexKeyEncoder` encodes **every type ACE lets you
+> **Indexable types — coverage vs ACE (§10.4).** `IndexKeyCodec` encodes **every type ACE lets you
 > index**, all byte-verified: Boolean, Byte, Int16, Int32, Currency, Single, Double, DateTime, Text, GUID,
 > Binary, FixedPoint, Memo (its first 255 chars), **`Int64`/BIGINT** (`0x13`) and
 > **`DateTimeExtended`/DATETIME2** (`0x14`). ACE correctly **refuses** to index `OLE` (`0x0B`) and `Complex`
@@ -1010,7 +1200,7 @@ The split mechanics:
 >
 > `Int64`/BIGINT keys exactly as Currency does — an int64, sign bit flipped, big-endian — verified against ACE
 > including both extremes, ascending and descending. Note its **variable-length storage does not change
-> this**: the key dispatch is on the column's type, not on where the row keeps the bytes. `IndexKeyDecoder` decodes it too, unlike DATETIME2 —
+> this**: the key dispatch is on the column's type, not on where the row keeps the bytes. `IndexKeyCodec` decodes it too, unlike DATETIME2 —
 > it is a plain fixed-width numeric key.
 >
 > `DateTimeExtended` is **not** a fixed-width numeric key. ACE runs its whole 42-byte stored value through the
@@ -1019,5 +1209,5 @@ The split mechanics:
 > because the stored encoding is already order-preserving (both fields zero-padded to 19 digits), and it means
 > the value's trailing NUL is part of the key ([data-types](data-types.md)). Descending inverts every byte
 > except the `0x09` markers, exactly as for Binary. Verified against ACE in both directions.
-> `IndexKeyDecoder` does not decode it, for the same reason it does not decode Binary or Text: the chunked
+> `IndexKeyCodec` does not decode it, for the same reason it does not decode Binary or Text: the chunked
 > form stops the in-place walk, and the caller falls back to reading the row.

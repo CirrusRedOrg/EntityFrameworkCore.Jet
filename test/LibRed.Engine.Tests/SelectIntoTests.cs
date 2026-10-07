@@ -54,8 +54,8 @@ public class SelectIntoTests : TempDatabaseTest
         QueryEngine engine = WithSource();
         engine.ExecuteNonQuery("SELECT * INTO SiNew FROM SiSrc");
 
-        TableDef source = engine.Database.Catalog.Tables.Single(t => t.Name == "SiSrc");
-        TableDef made = engine.Database.Catalog.Tables.Single(t => t.Name == "SiNew");
+        TableDefinition source = engine.Database.Catalog.Tables.Single(t => t.Name == "SiSrc");
+        TableDefinition made = engine.Database.Catalog.Tables.Single(t => t.Name == "SiNew");
 
         Assert.NotEmpty(source.Indexes);                       // the source has a PK and an index
         Assert.Empty(made.Indexes);                            // the copy has neither
@@ -102,6 +102,18 @@ public class SelectIntoTests : TempDatabaseTest
         Assert.Equal("SiNew", error.ObjectName);
     }
 
+    // A query's name is taken too: tables and queries share the Tables container's name space.
+    [Fact]
+    public void A_query_named_like_the_target_is_an_error()
+    {
+        QueryEngine engine = WithSource();
+        engine.ExecuteNonQuery("CREATE VIEW SiView AS SELECT Id FROM SiSrc");
+
+        var error = Assert.Throws<SchemaObjectExistsException>(
+            () => engine.ExecuteNonQuery("SELECT Id INTO SiView FROM SiSrc"));
+        Assert.Equal("Table 'SiView' already exists.", error.Message);
+    }
+
     // An expression column is typed from the expression, since there is no source column to copy.
     [Fact]
     public void An_expression_column_is_typed_from_the_expression()
@@ -109,7 +121,7 @@ public class SelectIntoTests : TempDatabaseTest
         QueryEngine engine = WithSource();
         engine.ExecuteNonQuery("SELECT Id, Qty * 2 AS Doubled, Label & '!' AS Shout INTO SiNew FROM SiSrc");
 
-        TableDef made = engine.Database.Catalog.Tables.Single(t => t.Name == "SiNew");
+        TableDefinition made = engine.Database.Catalog.Tables.Single(t => t.Name == "SiNew");
         Assert.Equal(["Id", "Doubled", "Shout"], made.Columns.Select(c => c.Name));
         Assert.Equal(JetDataType.Int32, made.Columns[1].Type);
         Assert.Equal(JetDataType.Text, made.Columns[2].Type);

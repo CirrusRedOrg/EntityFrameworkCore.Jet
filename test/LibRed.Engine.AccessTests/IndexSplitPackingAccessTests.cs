@@ -1,6 +1,7 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed.IO;
+using LibRed.Pages;
+using LibRed.Storage;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -152,12 +153,12 @@ public class IndexSplitPackingAccessTests(ITestOutputHelper output) : TempDataba
             for (int page = 1; page < channel.PageCount; page++)
             {
                 byte[] bytes = channel.ReadPage(page).Span.ToArray();
-                if (bytes[0] != 0x04) continue;
-                if (BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(4, 4)) != definitionPage) continue;
+                if (PageHeader.ReadType(bytes) != PageType.LeafIndexPage) continue;
+                if (IndexTree.ReadOwner(bytes, channel.Format) != definitionPage) continue;
 
-                int pageFree = BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(2, 2));
+                int pageFree = IndexTree.ReadFreeSpace(bytes, channel.Format);
                 free.Add(pageFree);
-                prefix.Add(BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(0x18, 2)));
+                prefix.Add(IndexTree.ReadCompressedByteCount(bytes, channel.Format));
                 used += channel.Format.PageSize - pageFree;
             }
             // Both lists stay in PAGE order. Sorting one and not the other made the two columns disagree

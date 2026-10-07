@@ -15,6 +15,7 @@ public class PageAndRowCorruptionTests
 
     [Theory]
     [InlineData("wrong-page-type")]
+    [InlineData("wrong-page-type-high-byte")]
     [InlineData("short-page")]
     [InlineData("directory-past-page")]
     [InlineData("row-overlaps-directory")]
@@ -26,7 +27,12 @@ public class PageAndRowCorruptionTests
         switch (corruption)
         {
             case "wrong-page-type":
-                page[0] = (byte)PageType.TableDefinition;
+                PageHeader.WriteType(page, PageType.TableDefinition);
+                break;
+            case "wrong-page-type-high-byte":
+                // The type is the whole word: 01 02 is not a data page, though its low byte is. ACE skips such a
+                // page rather than reading it as rows.
+                page[1] = 0x02;
                 break;
             case "short-page":
                 page = page[..100];
@@ -35,14 +41,14 @@ public class PageAndRowCorruptionTests
                 BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(Format.DataRowCountOffset, 2), ushort.MaxValue);
                 break;
             case "row-overlaps-directory":
-                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(Format.DataRowDirectoryOffset, 2),
-                    (ushort)(Format.DataRowDirectoryOffset + 2));
+                DataPage.WriteSlot(page, Format, 0,
+                    Format.DataRowDirectoryOffset + Format.DataRowDirectoryEntrySize, RowSlotFlags.None);
                 break;
             case "row-offset-past-page":
-                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(Format.DataRowDirectoryOffset, 2), 5000);
+                DataPage.WriteSlot(page, Format, 0, 5000, RowSlotFlags.None);
                 break;
             case "ascending-row-offsets":
-                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(Format.DataRowDirectoryOffset + 2, 2), 4050);
+                DataPage.WriteSlot(page, Format, 1, 4050, RowSlotFlags.None);
                 break;
         }
 
@@ -62,13 +68,12 @@ public class PageAndRowCorruptionTests
     public void Zero_length_deleted_overflow_tombstone_remains_a_valid_slot_shape()
     {
         byte[] page = NewDataPage(rowCount: 2, firstOffset: 4000, secondOffset: 4000);
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(Format.DataRowDirectoryOffset + 2, 2),
-            (ushort)(4000 | 0x8000 | 0x4000));
+        DataPage.WriteSlot(page, Format, 1, 4000, RowSlotFlags.Deleted | RowSlotFlags.Overflow);
 
         var dataPage = new DataPage();
         dataPage.Read(new PageBuffer(page, 7), Format);
 
-        Assert.Equal(new RowSlot(4000, 0, IsDeleted: true, HasOverflow: true), dataPage.Rows[1]);
+        Assert.Equal(new DataPage.RowSlot(4000, 0, IsDeleted: true, HasOverflow: true), dataPage.Rows[1]);
     }
 
     [Fact]
@@ -77,7 +82,7 @@ public class PageAndRowCorruptionTests
         ColumnDef column = FixedColumn(JetDataType.Int32, length: 4);
         byte[] row = [1, 0, 0xFF, 0xFF, 0xFF, 0x7F, 1];
 
-        object?[] values = new RowDecoder([column], Format).Decode(row);
+        object?[] values = new RowCodec([column], Format).Decode(row);
 
         Assert.Equal(int.MaxValue, values[0]);
     }
@@ -113,7 +118,7 @@ public class PageAndRowCorruptionTests
             };
         }
 
-        Assert.Throws<InvalidDataException>(() => new RowDecoder([column], Format).Decode(row));
+        Assert.Throws<InvalidDataException>(() => new RowCodec([column], Format).Decode(row));
     }
 
     [Fact]
@@ -122,7 +127,7 @@ public class PageAndRowCorruptionTests
         ColumnDef column = FixedColumn(JetDataType.Int32, length: 4, columnId: 8);
         byte[] oldRow = [1, 0, 0];
 
-        object?[] values = new RowDecoder([column], Format).Decode(oldRow);
+        object?[] values = new RowCodec([column], Format).Decode(oldRow);
 
         Assert.Null(values[0]);
     }
@@ -137,7 +142,7 @@ public class PageAndRowCorruptionTests
         };
         byte[] oldRow = [1, 0, 0];
 
-        object?[] values = new RowDecoder([column], Format).Decode(oldRow);
+        object?[] values = new RowCodec([column], Format).Decode(oldRow);
 
         Assert.Null(values[0]);
     }
@@ -145,11 +150,10 @@ public class PageAndRowCorruptionTests
     private static byte[] NewDataPage(int rowCount, int firstOffset, int secondOffset)
     {
         var page = new byte[Format.PageSize];
-        page[0] = (byte)PageType.DataPage;
-        page[1] = 1;
+        PageHeader.WriteType(page, PageType.DataPage);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(Format.DataRowCountOffset, 2), (ushort)rowCount);
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(Format.DataRowDirectoryOffset, 2), (ushort)firstOffset);
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(Format.DataRowDirectoryOffset + 2, 2), (ushort)secondOffset);
+        DataPage.WriteSlot(page, Format, 0, firstOffset, RowSlotFlags.None);
+        DataPage.WriteSlot(page, Format, 1, secondOffset, RowSlotFlags.None);
         return page;
     }
 

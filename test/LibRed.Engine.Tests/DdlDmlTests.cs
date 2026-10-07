@@ -38,7 +38,8 @@ public class DdlDmlTests
                 Assert.Equal(expectedByte, db.DefinitionPage.JetVersion);   // page 0 was re-read, not left stale
             }
 
-            Assert.Equal(expectedByte, VersionByte(path));                  // and it reached the file
+            using (var reopened = JetDatabase.Open(path))
+                Assert.Equal(expected, reopened.Format.Version);            // and it reached the file
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -59,7 +60,8 @@ public class DdlDmlTests
                 Assert.Equal(JetVersion.Version16_2016, db.Format.Version);
             }
 
-            Assert.Equal(0x05, VersionByte(path));
+            using (var reopened = JetDatabase.Open(path))
+                Assert.Equal(JetVersion.Version16_2016, reopened.Format.Version);
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -87,16 +89,10 @@ public class DdlDmlTests
                 Assert.Equal(0x02, db.DefinitionPage.JetVersion);
             }
 
-            Assert.Equal(0x02, VersionByte(path));
+            using (var reopened = JetDatabase.Open(path))
+                Assert.Equal(JetVersion.Version12_2007, reopened.Format.Version);
         }
         finally { TemporaryDatabase.Delete(path); }
-    }
-
-    private static byte VersionByte(string path)
-    {
-        using var stream = File.OpenRead(path);
-        stream.Seek(0x14, SeekOrigin.Begin);
-        return (byte)stream.ReadByte();
     }
 
     // BIGINT written by LibRed rather than read from an ACE fixture, including through an index so the key
@@ -174,10 +170,9 @@ public class DdlDmlTests
         string path = CopyToTemp();
         try
         {
-            SetVersionByte(path, 0x06);
-
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
+                db.EnsureFormatAtLeast(JetVersion.Version17_2019);
                 var e = new QueryEngine(db);
                 e.ExecuteNonQuery("CREATE TABLE `E` (`Id` INTEGER PRIMARY KEY, `V` DATETIME2 NULL)");
                 foreach ((int id, DateTime? value) in cases)
@@ -208,8 +203,8 @@ public class DdlDmlTests
         string path = CopyToTemp();
         try
         {
-            SetVersionByte(path, 0x06);
             using var db = JetDatabase.Open(path, readOnly: false);
+            db.EnsureFormatAtLeast(JetVersion.Version17_2019);
             var e = new QueryEngine(db);
             e.ExecuteNonQuery("CREATE TABLE `E` (`Id` INTEGER PRIMARY KEY, `V` DATETIME2 NULL)");
             foreach ((int id, int ticks) in new[] { (1, 3), (2, 1), (3, 2) })
@@ -223,15 +218,6 @@ public class DdlDmlTests
             Assert.Equal(3, e.ExecuteQuery("SELECT COUNT(*) FROM (SELECT DISTINCT `V` FROM `E`) AS `D`").Rows.Single()[0]);
         }
         finally { TemporaryDatabase.Delete(path); }
-    }
-
-    /// <summary>Raises a copied file to the ACE 17 format. Page 0 offset 0x14 is the entire upgrade — see
-    /// docs/format/page-00-database.md and AceDateTime2UpgradeTests.</summary>
-    private static void SetVersionByte(string path, byte version)
-    {
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Write);
-        stream.Seek(0x14, SeekOrigin.Begin);
-        stream.WriteByte(version);
     }
 
     // Creating at a chosen format, rather than upgrading someone else's file. The default stays ACE 12 so an
@@ -253,7 +239,8 @@ public class DdlDmlTests
         try
         {
             LibRed.Data.LibRedConnection.CreateDatabase($"Data Source={path}", version: version);
-            Assert.Equal(createdByte, VersionByte(path));
+            using (var created = JetDatabase.Open(path))
+                Assert.Equal(createdByte, (byte)created.Format.Version);
 
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
@@ -265,7 +252,8 @@ public class DdlDmlTests
                 Assert.Equal(value, e.ExecuteQuery("SELECT `V` FROM `E`").Rows.Single()[0]);
             }
 
-            Assert.Equal(afterDatetime2, VersionByte(path));
+            using (var reopened = JetDatabase.Open(path))
+                Assert.Equal(afterDatetime2, (byte)reopened.Format.Version);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

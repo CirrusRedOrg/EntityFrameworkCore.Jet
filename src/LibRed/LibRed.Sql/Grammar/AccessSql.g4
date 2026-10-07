@@ -5,7 +5,8 @@
 // LibRed.Sql.Ast by AstBuilder, so the rest of the engine never sees these generated types.
 //
 // Dialect notes (vs ANSI): '&' string concat; MOD / '\' operators; TOP n (no OFFSET);
-// #1/1/2020# date literals; [bracketed] and `backtick` identifiers; booleans -1/0.
+// #1/1/2020# date literals; [bracketed] and `backtick` identifiers; Table!Column bang references;
+// booleans -1/0.
 
 grammar AccessSql;
 
@@ -51,14 +52,14 @@ executeStatement : (EXECUTE | EXEC) name=identifier (expression (COMMA expressio
 // UPDATE tableexpression SET col=expr, … [WHERE …]. The tableexpression is a table SOURCE (Access allows a
 // join here) or, as in a FROM clause, a comma list of them (verified vs ACE: UPDATE a, b SET … is accepted), and a
 // SET target may be table-qualified (col or alias.col) to touch a specific joined table.
-updateStatement : UPDATE tableSource (COMMA tableSource)* SET assignment (COMMA assignment)* whereClause? ;
+updateStatement : UPDATE tableSource (COMMA tableSource)* SET assignment (COMMA assignment)* whereClause? ownerAccessOption? ;
 assignment : target=columnRef EQ expression ;
 
 // DELETE [table.* | *] FROM tableexpression [WHERE …]. For a join, the `table.*` target selects which
 // table's rows to delete; a bare `*` (or no target) is only valid for a single table — a join without a
 // `table.*` target is ambiguous and rejected at execution (matching Access, which asks you to specify it).
 // As in a FROM clause, the tableexpression may be a comma list of sources (verified vs ACE).
-deleteStatement : DELETE (target=identifier DOT STAR | STAR)? FROM tableSource (COMMA tableSource)* whereClause? ;
+deleteStatement : DELETE (target=identifier DOT STAR | STAR)? FROM tableSource (COMMA tableSource)* whereClause? ownerAccessOption? ;
 
 // A FROM-less SELECT of system variables only — ACE allows `SELECT @@IDENTITY` / `SELECT @@ROWCOUNT`
 // (and a comma list of them) with no FROM clause. Listed before queryExpression so it is preferred; a
@@ -98,9 +99,10 @@ procParamList
     : LPAREN procParam (COMMA procParam)* RPAREN
     | procParam (COMMA procParam)*
     ;
-// A parameter name is an identifier or an @-prefixed parameter token (e.g. @Beginning_Date).
+// A parameter name is an identifier or an @-prefixed parameter token (e.g. @Beginning_Date), or a chain naming a form
+// control — `PARAMETERS [Forms]![frmSelector]![txtTo] DateTime`, the commonest thing an Access query declares.
 procParam : pname=procParamName dataType ;
-procParamName : identifier | PARAM ;
+procParamName : columnRef | PARAM ;
 
 // ALTER TABLE table { ADD [COLUMN] field type … | ADD CONSTRAINT … | ALTER COLUMN field type | DROP … }
 // (Access allows exactly one action per statement.) The CONSTRAINT clause reuses CREATE TABLE's
@@ -211,8 +213,9 @@ tableConstraint
     | (CONSTRAINT name=identifier)? CHECK LPAREN checkBody RPAREN                               # CheckTableConstraint
     ;
 
-// A CHECK expression is parsed as balanced-paren token soup and ignored (not enforced yet), so any
-// expression ACE accepts parses without needing full expression support.
+// A CHECK expression is parsed as balanced-paren token soup and kept as its original text, so any
+// expression ACE accepts parses without needing full expression support. A table-level CHECK's text is
+// stored and enforced (parsed properly when evaluated); a column-level one is dropped by AstBuilder.
 checkBody : ( ~(LPAREN | RPAREN) | LPAREN checkBody RPAREN )* ;
 
 // ON UPDATE / ON DELETE may appear in either order (Access documents UPDATE-then-DELETE; EF Core
@@ -243,11 +246,15 @@ referentialAction
 //
 // The multiple-record source is a queryExpression rather than a bare selectStatement, so a UNION can feed an
 // append — the shape EF emits from a Concat — which is a superset of what Access documents.
+//
+// The single-record form has no alternative of its own: `VALUES (…)` is already a query term (the table value
+// constructor, ValuesTerm), so the builder reads a source that is a lone ValuesTerm as the VALUES list. Spelling
+// it out here as well gave every `INSERT … VALUES` two derivations, and the parser settled the ambiguity by
+// full-context prediction on every single statement — the most expensive thing it does, and most of an insert's
+// cost.
 insertStatement
     : INSERT INTO table=identifier
-      ( (LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN)?
-        ( VALUES rowValues (COMMA rowValues)*
-        | source=queryExpression )
+      ( (LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN)? source=queryExpression
       | DEFAULT VALUES )
     ;
 
@@ -260,7 +267,8 @@ rowValues : LPAREN rowValue (COMMA rowValue)* RPAREN ;
 
 // A row value is DEFAULT, NULL, or any expression. NULL needs no alternative of its own — it is already a
 // literal. DEFAULT takes the column's declared default (or NULL when it has none), and the standard permits
-// it only inside an INSERT, which falls out of `rowValue` appearing nowhere else in the grammar.
+// it only inside an INSERT. The grammar admits it wherever a table value constructor appears; the builder
+// refuses it in any constructor that is not an INSERT's VALUES list.
 rowValue : DEFAULT | expression ;
 
 // Set operations over SELECTs (left-associative). UNION dedupes; UNION ALL keeps
@@ -271,7 +279,13 @@ rowValue : DEFAULT | expression ;
 // is what gives `(SELECT TOP 5 … ORDER BY x) UNION …` its meaning — the ordering is what makes that TOP
 // deterministic. This is the standard's own structure: <query expression> carries the ordering, <query term>
 // does not.
-queryExpression : queryTerm (setOperator queryTerm)* orderByClause? offsetFetchClause? ;
+queryExpression : queryTerm (setOperator queryTerm)* orderByClause? offsetFetchClause? ownerAccessOption? ;
+
+// WITH OWNERACCESS OPTION: run the query with its owner's permissions. LibRed has no users to act for, so it
+// changes nothing when a query runs; a stored query keeps it (QueryOptions.OwnerAccess). ACE takes it
+// at the end of every SELECT — the first of a UNION's and a subquery's too — after a query's ORDER BY but not
+// before it, and at the end of an INSERT, UPDATE or DELETE (verified).
+ownerAccessOption : WITH OWNERACCESS OPTION ;
 // A set-operation operand is an order-less SELECT or a parenthesised query expression (so `A UNION ALL (B UNION
 // C)` groups the right side as one term — EF emits this from Concat/Union nesting).
 queryTerm
@@ -300,6 +314,7 @@ setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 // `SELECT TOP 5 … UNION SELECT TOP 5 …` takes five rows from each side.
 querySpecification
     : SELECT predicate=selectPredicate? topClause? selectList (INTO into=identifier)? fromClause? whereClause? groupByClause? havingClause?
+      ownerAccessOption?
     ;
 
 // The optional row predicate. ALL is the default (return every row); DISTINCT dedupes on the output
@@ -313,8 +328,10 @@ havingClause : HAVING expression ;
 // Access allows only a literal after TOP, but LibRed also accepts a parameter (or a +/- expression of
 // literals/parameters) — EFCore.Jet normally inlines the value, and we can evaluate it directly instead.
 // Restricted to additive operands (no bare '*') so it can't swallow a following SELECT star ('TOP n *').
-// A trailing PERCENT returns that percentage of rows (ceil) instead of a fixed count.
-topClause : TOP topOperand ((PLUS | MINUS) topOperand)* percent=PERCENT? ;
+// A trailing PERCENT returns that percentage of rows (ceil) instead of a fixed count. WITH TIES (SQL Server's) also
+// returns every further row whose ORDER BY keys equal the last one's — ACE's own TOP always does, where LibRed's plain
+// TOP returns exactly n.
+topClause : TOP topOperand ((PLUS | MINUS) topOperand)* percent=PERCENT? (WITH ties=TIES)? ;
 topOperand : INTEGER_LITERAL | PARAM | LPAREN expression RPAREN ;
 
 // ANSI SQL:2008 paging, which EF Core's base QuerySqlGenerator.GenerateLimitOffset emits whenever the
@@ -338,9 +355,11 @@ topOperand : INTEGER_LITERAL | PARAM | LPAREN expression RPAREN ;
 // `Where_subquery_with_ElementAt_using_column_as_index` carries `OFFSET [s].[Id] ROWS`, and that baseline only
 // exists because the test passed against a real server. So this matches the engine's behaviour; it is the
 // documentation that is incomplete.
+//
+// The standard's WITH TIES may stand in for ONLY, with TOP … WITH TIES's meaning.
 offsetFetchClause
-    : OFFSET offset=expression rowKeyword (FETCH (NEXT | FIRST) limit=expression rowKeyword ONLY)?
-    | FETCH (FIRST | NEXT) limit=expression rowKeyword ONLY
+    : OFFSET offset=expression rowKeyword (FETCH (NEXT | FIRST) limit=expression rowKeyword (ONLY | WITH ties=TIES))?
+    | FETCH (FIRST | NEXT) limit=expression rowKeyword (ONLY | WITH ties=TIES)
     ;
 rowKeyword : ROW | ROWS ;
 
@@ -361,7 +380,7 @@ tableSource : tablePrimary joinClause* ;
 
 tablePrimary
     : table=identifier (AS? alias=identifier)?                  # NamedTablePrimary
-    | LPAREN queryExpression RPAREN (AS? alias=identifier)?     # SubqueryPrimary
+    | LPAREN queryExpression RPAREN (AS? alias=identifier derivedColumns?)?   # SubqueryPrimary
     | LPAREN tableSource RPAREN                                 # ParenJoinPrimary
     ;
 
@@ -424,6 +443,9 @@ expression
     | val=expression not=NOT? IN LPAREN sub=queryExpression RPAREN                            # InSubqueryExpr
     | val=expression not=NOT? IN LPAREN items+=expression (COMMA items+=expression)* RPAREN  # InExpr
     | operand=expression IS not=NOT? NULL                                   # IsNullExpr
+    // Standard SQL beyond ACE, which rejects both ('Invalid use of IS operator', 'Syntax error').
+    | operand=expression IS not=NOT? truth=(TRUE | FALSE)                   # IsTruthExpr
+    | left=expression IS not=NOT? DISTINCT FROM right=expression            # IsDistinctFromExpr
     // NOT binds looser than the comparisons and tighter than AND (VBA operator precedence; verified vs ACE:
     // NOT 1 = 2 is True). BNOT sits with it, and each bitwise operator with its logical one, left to right
     // (verified vs ACE: BNOT 1 + 1 is -3, NOT 0 BAND 1 is 1, 2 AND 1 BAND 3 is 3, 0 OR 0 BOR 4 is 4).
@@ -493,7 +515,15 @@ functionCall
 // followed by '(' and `PARTITION BY` never is, so the two never collide.
 functionName : identifier | LEFT | RIGHT | ASC | FIRST | PARTITION ;
 
-columnRef : (qualifier=identifier DOT)? name=identifier ;
+// A name, or a chain of them joined by '.' or Access's bang '!'. Two parts are table and column whichever joins them
+// (verified vs ACE: Customers!CustomerID reads as Customers.CustomerID in every clause). A longer chain names nothing
+// a query can reach — a form control such as Forms!frmMenu!cmbGroup, or [Forms]![f]![sub].[Form]![ctl] — and is
+// only ever a parameter the query declares. ACE refuses whitespace either side of a bang, which the builder checks.
+// After a separator any word names a column, reserved or not (verified vs ACE: t.Key, t.Select, t.From, t.And and
+// t.Mod all read the column; only Union and When are refused there, and after a bang the operator words as well,
+// which LibRed accepts all the same).
+columnRef : first=identifier (separators+=(DOT | BANG) rest+=memberName)* ;
+memberName : identifier | reservedKeyword ;
 
 identifier : IDENTIFIER | BRACKET_ID | BACKTICK_ID | nonReservedKeyword ;
 
@@ -504,8 +534,10 @@ literal
     | STRING_LITERAL    # StringLiteral
     | DATE_LITERAL      # DateLiteral
     | GUID_LITERAL      # GuidLiteral
-    | TRUE              # TrueLiteral
-    | FALSE             # FalseLiteral
+    // Yes and On are True, No and Off False, all four even where a column has that name — only a qualified
+    // reference reaches the column (verified vs ACE).
+    | (TRUE | YES | ON) # TrueLiteral
+    | (FALSE | NO | OFF) # FalseLiteral
     | NULL              # NullLiteral
     ;
 
@@ -556,6 +588,21 @@ frameExclusion : CURRENT ROW | GROUP | TIES | NO OTHERS ;
 nonReservedKeyword
     : RANGE | GROUPS | UNBOUNDED | PRECEDING | FOLLOWING | CURRENT | EXCLUDE | TIES | OTHERS
     | WITHIN | LAST | RESPECT | NULLS | FILTER
+    | YES | OFF
+    | OWNERACCESS | OPTION
+    ;
+
+// Every other keyword, which a name may be only after a separator — see columnRef.
+reservedKeyword
+    : SELECT | FROM | WHERE | TOP | AS | AND | OR | NOT | XOR | EQV | IMP | BAND | BOR | BXOR | BNOT | LIKE | MOD
+    | INNER | LEFT | RIGHT | FULL | OUTER | JOIN | IN | ON | ORDER | GROUP | IS | BY | HAVING | EXISTS | IF | THEN
+    | DISTINCTROW | DISTINCT | PERCENT | CROSS | APPLY | OVER | PARTITION | CASE | WHEN | ELSE | END | OFFSET
+    | FETCH | NEXT | FIRST | ROWS | ROW | ONLY | BETWEEN | UNION | ALL | INTERSECT | EXCEPT | CREATE | TABLE
+    | BEGIN | COMMIT | ROLLBACK | TRANSACTION | WORK | ALTER | RENAME | TO | ADD | DROP | COLUMN | INSERT | INTO
+    | VALUES | PRIMARY | KEY | CONSTRAINT | FOREIGN | REFERENCES | DELETE | UPDATE | CASCADE | RESTRICT | ACTION
+    | SET | DEFAULT | NO | UNIQUE | CLUSTERED | IDENTITY | NONCLUSTERED | INDEX | TEMPORARY | WITH | COMPRESSION
+    | COMP | DISALLOW | IGNORE | CHECK | VIEW | PROCEDURE | PARAMETERS | EXECUTE | EXEC | ASC | DESC | TRUE
+    | FALSE | NULL
     ;
 
 // An aggregate's FILTER: only the rows for which the condition is true go into it.
@@ -569,6 +616,11 @@ nthRowFrom : FROM edge=(FIRST | LAST) ;
 
 // Whether LAG, LEAD, FIRST_VALUE, LAST_VALUE and NTH_VALUE count the rows whose value is Null (the default) or skip them.
 nullTreatment : treatment=(RESPECT | IGNORE) NULLS ;
+
+// A derived table's column list, the standard's <derived column list>: (VALUES (1, 'a')) AS v(n, s) names the
+// columns n and s, as SQL Server and PostgreSQL take it and EF Core emits it for an inline collection. ACE has no
+// such syntax. Kept after the existing parser rules so adding it does not renumber their ids.
+derivedColumns : LPAREN names+=identifier (COMMA names+=identifier)* RPAREN ;
 
 // ---- Lexer ----
 
@@ -680,6 +732,9 @@ ASC    : [Aa][Ss][Cc] ;
 DESC   : [Dd][Ee][Ss][Cc] ;
 TRUE   : [Tt][Rr][Uu][Ee] ;
 FALSE  : [Ff][Aa][Ll][Ss][Ee] ;
+// Access's other spellings of True and False — not reserved; see nonReservedKeyword. ON is already a keyword.
+YES    : [Yy][Ee][Ss] ;
+OFF    : [Oo][Ff][Ff] ;
 NULL   : [Nn][Uu][Ll][Ll] ;
 // The window clauses' words — not reserved; see nonReservedKeyword.
 RANGE     : [Rr][Aa][Nn][Gg][Ee] ;
@@ -696,6 +751,9 @@ LAST      : [Ll][Aa][Ss][Tt] ;
 RESPECT   : [Rr][Ee][Ss][Pp][Ee][Cc][Tt] ;
 NULLS     : [Nn][Uu][Ll][Ll][Ss] ;
 FILTER    : [Ff][Ii][Ll][Tt][Ee][Rr] ;
+// WITH OWNERACCESS OPTION's words — not reserved; see nonReservedKeyword.
+OWNERACCESS : [Oo][Ww][Nn][Ee][Rr][Aa][Cc][Cc][Ee][Ss][Ss] ;
+OPTION      : [Oo][Pp][Tt][Ii][Oo][Nn] ;
 
 STAR     : '*' ;
 SLASH    : '/' ;
@@ -714,6 +772,8 @@ LPAREN : '(' ;
 RPAREN : ')' ;
 COMMA  : ',' ;
 DOT    : '.' ;
+// Access's bang, between the parts of a name. '!=' still lexes as NEQ, the longer match.
+BANG   : '!' ;
 SEMI   : ';' ;
 // A connection-scoped system variable: @@ROWCOUNT (rows affected by the last statement) and
 // @@IDENTITY (the last AutoNumber generated on this connection). Must precede PARAM so the '@@'
@@ -732,15 +792,18 @@ fragment EXPONENT : [Ee] [+-]? [0-9]+ ;
 // A doubled quote inside a string is an escaped quote ('Bon app''' → Bon app'); the AST un-doubles it.
 STRING_LITERAL  : '"' ( ~["] | '""' )* '"' | '\'' ( ~['] | '\'\'' )* '\'' ;
 DATE_LITERAL    : '#' ~[#]* '#' ;
-// Access GUID literal: {8-4-4-4-12 hex}. Braces appear nowhere else in the grammar.
-GUID_LITERAL    : '{' HEXDIGIT+ '-' HEXDIGIT+ '-' HEXDIGIT+ '-' HEXDIGIT+ '-' HEXDIGIT+ '}' ;
+// Access GUID literal: {8-4-4-4-12 hex}, or ACE's {guid {…}} form. Braces appear nowhere else in the grammar.
+GUID_LITERAL    : '{' GUID_BODY '}' | '{' [gG][uU][iI][dD] [ \t]* '{' GUID_BODY '}' [ \t]* '}' ;
+fragment GUID_BODY : HEXDIGIT+ '-' HEXDIGIT+ '-' HEXDIGIT+ '-' HEXDIGIT+ '-' HEXDIGIT+ ;
 fragment HEXDIGIT : [0-9A-Fa-f] ;
 BRACKET_ID      : '[' ~[\]]+ ']' ;
 BACKTICK_ID     : '`' ~[`]+ '`' ;
 // A trailing '$' is allowed so VBA "$" string-function variants (Left$, UCase$, Chr$, …) lex as a single
 // identifier. Longest-match makes "Left$" an IDENTIFIER (5 chars) rather than the LEFT keyword (4); the
 // evaluator strips the '$' and dispatches to the base function.
-IDENTIFIER      : [A-Za-z_][A-Za-z_0-9]* '$'? ;
+// Any script's letters, not just ASCII (verified vs ACE: Név, Номер, 名前, ΑΒΓ, straße and Ñandú all read unbracketed),
+// with a combining mark allowed after the first, as Devanagari and Thai spell a letter.
+IDENTIFIER      : [\p{L}_][\p{L}\p{M}\p{Nd}_]* '$'? ;
 
 WS      : [ \t\r\n]+ -> skip ;
 // SQL comments — EF Core query tags prepend a `-- tag` line comment to the statement; also block comments.

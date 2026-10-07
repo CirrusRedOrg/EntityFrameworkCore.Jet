@@ -4,7 +4,7 @@ using Xunit;
 namespace LibRed.Engine.Tests;
 
 // ACE rejects a value longer than a variable column's declared width — it neither stores nor clips it.
-// RowEncoder.EnsureFitsDeclaredLength matches that; these are the measurements it holds to.
+// RowCodec.EnsureFitsDeclaredLength matches that; these are the measurements it holds to.
 //
 // The text case uses a literal, not a parameter: parameter Size has its own clipping rule
 // (ParameterSizeAccessTests) and would confound the answer.
@@ -54,10 +54,56 @@ public class ColumnLengthAccessTests : TempDatabaseTest
         Assert.True(
             outcome.StartsWith("rejected", StringComparison.Ordinal),
             $"ACE no longer rejects six characters in a TEXT(5) column - it {outcome}. "
-            + "RowEncoder.EnsureFitsDeclaredLength should then stop rejecting them too.");
+            + "RowCodec.EnsureFitsDeclaredLength should then stop rejecting them too.");
 
         // The wording LibRed's own rejection is modelled on.
         Assert.Contains("too small", outcome, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // WITH COMPRESSION stores a Latin-1 value one byte per character, so a limit checked on the stored bytes
+    // would let a TEXT(5) take up to 8 characters. ACE's limit is the declared character count either way.
+    [Theory]
+    [InlineData("abcdef")]
+    [InlineData("abcdefgh")]
+    public void Ace_compressed_text_column_versus_an_overlong_value(string value)
+    {
+        string path = TemporaryDatabase.CopyPath(
+            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "collencomp-");
+
+        using OleDbConnection connection = AceTestDatabase.Open(path);
+        using (OleDbCommand ddl = connection.CreateCommand())
+        {
+            ddl.CommandText = "CREATE TABLE LenProbe (Id LONG PRIMARY KEY, V TEXT(5) WITH COMPRESSION)";
+            ddl.ExecuteNonQuery();
+        }
+        using (OleDbCommand ok = connection.CreateCommand())
+        {
+            ok.CommandText = "INSERT INTO LenProbe (Id, V) VALUES (1, 'abcde')";
+            ok.ExecuteNonQuery();
+        }
+
+        using OleDbCommand insert = connection.CreateCommand();
+        insert.CommandText = $"INSERT INTO LenProbe (Id, V) VALUES (2, '{value}')";
+        var error = Assert.Throws<OleDbException>(() => insert.ExecuteNonQuery());
+        Assert.Contains("too small", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("abcdef")]
+    [InlineData("abcdefgh")]
+    public void Libred_refuses_an_overlong_value_in_a_compressed_text_column(string value)
+    {
+        string path = TemporaryDatabase.CopyPath(
+            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "collencomp-lib-");
+
+        using var db = JetDatabase.Open(path, readOnly: false);
+        var engine = new QueryEngine(db);
+        engine.ExecuteNonQuery("CREATE TABLE LenProbe (Id LONG PRIMARY KEY, V TEXT(5) WITH COMPRESSION)");
+        engine.ExecuteNonQuery("INSERT INTO LenProbe (Id, V) VALUES (1, 'abcde')");
+
+        var error = Assert.Throws<InvalidOperationException>(() =>
+            engine.ExecuteNonQuery($"INSERT INTO LenProbe (Id, V) VALUES (2, '{value}')"));
+        Assert.Contains("too small", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Inserts <paramref name="value"/>, reporting what ACE did rather than throwing.</summary>

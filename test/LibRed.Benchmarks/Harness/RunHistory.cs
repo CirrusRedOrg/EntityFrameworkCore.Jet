@@ -17,7 +17,8 @@ namespace LibRed.Benchmarks.Harness;
 /// different before?", which is the question that actually comes up.</para>
 /// <para>This is the performance counterpart of <c>GreenTests/</c>: a committed baseline a later run is read
 /// against. It is append-only and one line per benchmark, so a regression shows up as an added line next to
-/// the old one rather than as a rewritten file, and <c>git log -p</c> on it reads as the history of a number.</para>
+/// the old one rather than as a rewritten file, and <c>git log -p</c> on it reads as the history of a number.
+/// Only a run passed <c>--record</c> writes here, so the quick one-case checks made while working stay out of it.</para>
 /// <para>Every row carries the commit and whether the tree was <b>dirty</b>, because a measurement from a tree
 /// with uncommitted changes cannot be attributed to anything — treat those rows as anecdotes. It also carries
 /// the machine name: these numbers are not comparable across machines, and a row that silently came from a

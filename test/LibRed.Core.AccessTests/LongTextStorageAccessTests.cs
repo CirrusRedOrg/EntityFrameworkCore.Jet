@@ -1,4 +1,6 @@
 using System.Data.OleDb;
+using LibRed.Catalog;
+using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
 using LibRed.Storage;
@@ -48,13 +50,12 @@ public class LongTextStorageAccessTests(ITestOutputHelper output) : TempDatabase
         Assert.False(memo.SupportsCompressedUnicode);
 
         using var channel = PageChannel.Open(path, readOnly: true);
-        int stored = (int)(System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(
-            RawDescriptor(channel, definition, memo.ColumnId)) & LibRed.Formats.LongValueFormat.LengthMask);
+        int stored = LongValueStore.Read(RawDescriptor(channel, definition, memo.ColumnId), channel.Format).Length;
         output.WriteLine($"U+{(int)fill:X4}: {characters} characters stored as {stored} bytes");
 
         Assert.Equal(characters * 2, stored);
         Assert.Equal(payload, Assert.IsType<string>(
-            new Table(channel, definition).Rows().Single()[memo.Index]));
+            new Table(channel, definition, new JetCatalog(channel)).Rows().Single()[memo.Index]));
     }
 
     // Microsoft says "only instances of MEMO columns that, when compressed, will fit within 4096 bytes or
@@ -96,16 +97,15 @@ public class LongTextStorageAccessTests(ITestOutputHelper output) : TempDatabase
 
         using var channel = PageChannel.Open(path, readOnly: true);
         byte[] raw = RawDescriptor(channel, definition, memo.ColumnId);
-        uint word = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(raw);
-        int stored = (int)(word & LibRed.Formats.LongValueFormat.LengthMask);
+        (int stored, LongValueStore.StorageKind storage, _, _, _) = LongValueStore.Read(raw, channel.Format);
         output.WriteLine($"{characters} chars: stored={stored} ({(double)stored / characters:0.###} b/ch) "
-            + $"flags=0x{(byte)(raw[3] & 0xC0):X2} descriptor={Convert.ToHexString(raw)}");
+            + $"flags=0x{(uint)storage >> 24:X2} descriptor={Convert.ToHexString(raw)}");
 
         Assert.Equal(expectCompressed ? characters + 2 : characters * 2, stored);
         // The storage form is the thing compression actually tracks: single page compresses, chained never does.
-        Assert.Equal(expectCompressed ? 0x40 : 0x00, raw[3] & 0xC0);
+        Assert.Equal(expectCompressed ? LongValueStore.StorageKind.SinglePage : LongValueStore.StorageKind.Chained, storage);
         Assert.Equal(payload, Assert.IsType<string>(
-            new Table(channel, definition).Rows().Single()[memo.Index]));
+            new Table(channel, definition, new JetCatalog(channel)).Rows().Single()[memo.Index]));
     }
 
     // The storage form is chosen on the UNCOMPRESSED length, identically whether or not the column can
@@ -189,15 +189,14 @@ public class LongTextStorageAccessTests(ITestOutputHelper output) : TempDatabase
     }
 
     /// <summary>The raw long-value descriptor ACE wrote into the row for one column.</summary>
-    private static byte[] RawDescriptor(PageChannel channel, Catalog.TableDef definition, int columnId) =>
+    private static byte[] RawDescriptor(PageChannel channel, Catalog.TableDefinition definition, int columnId) =>
         RawDescriptors(channel, definition, columnId).FirstOrDefault()
         ?? throw new InvalidOperationException($"No long-value descriptor found for column id {columnId}.");
 
     /// <summary>Every row's long-value descriptor for one column, in row order.</summary>
-    private static List<byte[]> RawDescriptors(PageChannel channel, Catalog.TableDef definition, int columnId)
+    private static List<byte[]> RawDescriptors(PageChannel channel, Catalog.TableDefinition definition, int columnId)
     {
         var found = new List<byte[]>();
-        var decoder = new RowDecoder(definition.Columns, channel.Format);
         foreach (int number in new UsageMap(channel, definition).DataPages())
         {
             var page = new DataPage();
@@ -205,9 +204,10 @@ public class LongTextStorageAccessTests(ITestOutputHelper output) : TempDatabase
             for (int row = 0; row < page.RowCount; row++)
             {
                 if (page.Rows[row].IsDeleted) continue;
-                foreach (var descriptor in decoder.LongValueRaw(page.GetRow(row)))
+                foreach (var descriptor in RowCodec.LongValueDescriptors(
+                             definition.Columns, channel.Format, page.GetRow(row)))
                     if (descriptor.Key == columnId)
-                        found.Add(descriptor.Value[..12]);
+                        found.Add(descriptor.Value[..channel.Format.LongValueDescriptorSize]);
             }
         }
         return found;

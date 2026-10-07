@@ -1,3 +1,5 @@
+using LibRed.Formats;
+
 namespace LibRed.Catalog;
 
 /// <summary>Describes an index: its columns (with sort direction), uniqueness and root page.</summary>
@@ -6,7 +8,13 @@ public sealed record IndexDef
     public required string Name { get; init; }
 
     /// <summary>Indexed columns in key order; <c>true</c> = ascending.</summary>
-    public IReadOnlyList<(ColumnDef Column, bool Ascending)> Columns { get; init; } = [];
+    public IReadOnlyList<(ColumnDef Column, bool Ascending)> Columns
+    {
+        get => _columns;
+        init => _columns = Array.AsReadOnly(value.ToArray());
+    }
+
+    private readonly IReadOnlyList<(ColumnDef Column, bool Ascending)> _columns = [];
 
     public bool IsUnique { get; init; }
     public bool IsPrimaryKey { get; init; }
@@ -19,6 +27,10 @@ public sealed record IndexDef
     /// required (index flag <c>0x08</c>). Surfaced by scaffolding as the index <c>DISALLOW NULL</c> filter.</summary>
     public bool Required { get; init; }
 
+    /// <summary>The whole flags word of the index-data block — the bits above included, and
+    /// <see cref="IndexAttributes.ComplexColumn"/> on an index over a complex column.</summary>
+    public IndexAttributes Flags { get; init; }
+
     /// <summary>
     /// The index's unique-entry count from the TDEF statistics block. This is a cumulative
     /// count of distinct entries ever added that Access increments but <b>never decrements</b>,
@@ -27,8 +39,12 @@ public sealed record IndexDef
     /// </summary>
     public int UniqueEntryCount { get; init; }
 
-    /// <summary>Page number of the index B-tree root. Updated in place when the root splits (grows a level).</summary>
+    /// <summary>Page number of the index B-tree root. Neither a split nor a bulk build moves it; a rebuild onto a fresh root does.</summary>
     public int RootPage { get; internal set; }
+
+    /// <summary>The (row, page) pointer to the index's own pages usage map, which records every page of its B-tree;
+    /// a zero page when the index has none.</summary>
+    public (int Row, int Page) UsageMap { get; init; }
 
     /// <summary>
     /// This index's position among the table's real indexes — the ordinal of its 12-byte statistics

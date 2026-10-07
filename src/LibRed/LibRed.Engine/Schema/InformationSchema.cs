@@ -79,12 +79,12 @@ public static class InformationSchema
                 // Same table set as every other view — user tables plus the '#Dual' internal helper, no
                 // MSys*/temp system tables — each classified by TABLE_TYPE. Consumers filter by type anyway
                 // (e.g. the creator's "has tables" check is TABLE_TYPE IN ('BASE TABLE','VIEW')).
-                foreach (TableDef t in tables)
+                foreach (TableDefinition t in tables)
                     rows.Add([t.Name, TableType(t), t.ValidationRule, t.ValidationText]);
                 break;
 
             case "COLUMNS":
-                foreach (TableDef t in tables)
+                foreach (TableDefinition t in tables)
                     foreach (ColumnDef c in t.Columns)
                         // DATA_TYPE / IS_NULLABLE / CHARACTER_MAXIMUM_LENGTH come from the shared JetStoreType so
                         // they always agree with the scaffolder. Precision/Scale are cast to int (they are byte on
@@ -99,7 +99,7 @@ public static class InformationSchema
                 break;
 
             case "INDEXES":
-                foreach (TableDef t in tables)
+                foreach (TableDefinition t in tables)
                     foreach (IndexDef ix in t.Indexes)
                         // IS_NULLABLE / IGNORES_NULLS mirror AdoxSchema.GetIndexes' AllowNullsEnum derivation,
                         // NOT uniqueness: an index is non-nullable only when it DISALLOW NULLs (Required, flag
@@ -109,7 +109,7 @@ public static class InformationSchema
                 break;
 
             case "INDEX_COLUMNS":
-                foreach (TableDef t in tables)
+                foreach (TableDefinition t in tables)
                     foreach (IndexDef ix in t.Indexes)
                         // ORDINAL_POSITION is 0-based here too, matching AdoxSchema.GetIndexColumns (which uses the
                         // loop index k directly). RELATION_COLUMNS below stays 1-based, as ADOX does there.
@@ -120,11 +120,9 @@ public static class InformationSchema
             case "RELATIONS":
                 foreach (ForeignKey fk in catalog.Relationships)
                     // RELATION_TYPE: EFCore.Jet's live provider is PreciseSchema, which overrides ADOX's value
-                    // with DAO's GetRelationTypes — "ONE" for a one-to-one relationship, else "MANY". This is
-                    // NOT a grbit flag (MSysRelationships.grbit only carries enforce/cascade/set-null); Access
-                    // encodes one-to-one by making the child-side FK backing index UNIQUE (a 1:many child index
-                    // is non-unique). So derive it from that index's uniqueness, which LibRed already models.
-                    rows.Add([fk.Name, fk.Table, fk.ReferencedTable, RelationType(fk, catalog),
+                    // with DAO's GetRelationTypes — "ONE" when the relation's attributes carry dbRelationUnique,
+                    // which is grbit 0x01, else "MANY".
+                    rows.Add([fk.Name, fk.Table, fk.ReferencedTable, fk.IsOneToOne ? "ONE" : "MANY",
                         RefAction(fk.CascadeDelete, fk.DeleteSetNull), RefAction(fk.CascadeUpdate, fk.UpdateSetNull),
                         fk.IsEnforced, fk.IsInherited]);
                 break;
@@ -136,7 +134,7 @@ public static class InformationSchema
                 break;
 
             case "CHECK_CONSTRAINTS":
-                foreach (TableDef t in tables)
+                foreach (TableDefinition t in tables)
                     foreach ((string name, string expr) in t.CheckConstraints)
                         rows.Add([t.Name, name, expr]);
                 break;
@@ -148,7 +146,7 @@ public static class InformationSchema
 
     // Classify TABLE_TYPE as EFCore.Jet's AdoxSchema / SchemaProvider does: a '#'-prefixed helper (#Dual) is an
     // INTERNAL TABLE, an MSys* table is a SYSTEM TABLE, everything else is a user BASE TABLE.
-    private static string TableType(TableDef t) =>
+    private static string TableType(TableDefinition t) =>
         t.Name.StartsWith('#') ? "INTERNAL TABLE"
         : t.Name.StartsWith("MSys", StringComparison.OrdinalIgnoreCase) ? "SYSTEM TABLE"
         : "BASE TABLE";
@@ -156,18 +154,4 @@ public static class InformationSchema
     private static string IndexType(IndexDef ix) => ix.IsPrimaryKey ? "PRIMARY" : ix.IsUnique ? "UNIQUE" : "INDEX";
 
     private static string RefAction(bool cascade, bool setNull) => cascade ? "CASCADE" : setNull ? "SET NULL" : "NO ACTION";
-
-    /// <summary>RELATION_TYPE — "ONE" for a one-to-one relationship, else "MANY", as DAO reports it. A
-    /// relationship is one-to-one when the child (referencing) table's backing index over the FK columns is
-    /// UNIQUE; a one-to-many child index is non-unique (see system-catalog.md). Defaults to "MANY" when no
-    /// matching child index is found (e.g. an unenforced FK that Access left unindexed).</summary>
-    private static string RelationType(ForeignKey fk, JetCatalog catalog)
-    {
-        TableDef? child = catalog.Tables.FirstOrDefault(t => t.Name.Equals(fk.Table, StringComparison.OrdinalIgnoreCase));
-        var fkColumns = fk.Columns.Select(c => c.Column).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        IndexDef? backing = child?.Indexes.FirstOrDefault(ix =>
-            ix.Columns.Count == fkColumns.Count
-            && ix.Columns.All(c => fkColumns.Contains(c.Column.Name)));
-        return backing?.IsUnique == true ? "ONE" : "MANY";
-    }
 }

@@ -18,7 +18,7 @@ namespace LibRed.Engine.Tests;
 /// live data in the suite.
 ///
 /// What matters most here is INTERNAL CONSISTENCY. LibRed has two paths to an ordered or filtered result: the
-/// index (IndexKeyEncoder writes the raw OA serial as the sort key, so it inherits ACE's ordering) and the
+/// index (IndexKeyCodec writes the raw OA serial as the sort key, so it inherits ACE's ordering) and the
 /// evaluator (which compares CLR DateTime values, and is therefore chronologically correct). If those two
 /// disagree, the same query returns different answers depending on whether the planner picks a seek or a scan.
 /// These tests pin that they agree, and record which convention the agreement follows.

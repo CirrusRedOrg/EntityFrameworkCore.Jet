@@ -731,21 +731,35 @@ jobs:
       - name: 'Run Tests: LibRed.Core.AccessTests'
         if: env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.Core.AccessTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 5m
+        run: dotnet test .\test\LibRed.Core.AccessTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-crash --blame-hang-timeout 5m
       # The engine tests that cross-check against ACE. They belong here rather than in the cross-platform
       # LibRed job above, which runs on five platforms precisely to prove LibRed needs no ACE at all.
       - name: 'Run Tests: LibRed.Engine.AccessTests'
         if: always() && env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.Engine.AccessTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 5m
+        run: dotnet test .\test\LibRed.Engine.AccessTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-crash --blame-hang-timeout 5m
       - name: 'Run Tests: LibRed.Ado.Tests'
         if: always() && env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.Ado.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 5m
+        run: dotnet test .\test\LibRed.Ado.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-crash --blame-hang-timeout 5m
       - name: 'Run Tests: LibRed.EFCore.Tests'
         if: always() && env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.EFCore.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 5m
+        run: dotnet test .\test\LibRed.EFCore.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-crash --blame-hang-timeout 5m
+      # A run that dies partway reports only the tests that finished. The blame output names the test that
+      # was running (Sequence_*.xml) and holds any crash or hang dump, so keep it when a step fails.
+      - name: 'Upload Blame Results'
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: libredaccess-blame_ace_${{ matrix.aceVersion }}
+          path: |
+            test\LibRed.Core.AccessTests\TestResults\**
+            test\LibRed.Engine.AccessTests\TestResults\**
+            test\LibRed.Ado.Tests\TestResults\**
+            test\LibRed.EFCore.Tests\TestResults\**
+          if-no-files-found: ignore
+          retention-days: 7
 
   LibRedFunctional:
     needs:

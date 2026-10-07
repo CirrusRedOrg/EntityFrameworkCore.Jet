@@ -17,3 +17,616 @@ utc	commit	dirty	host	suite	benchmark	params	mean_us	stddev_us	alloc_kb
 2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10_indexed	44.66	0.19	22.81
 2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sub.scalar_correlated	1413.78	18.64	3.39
 2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sub.scalar_correlated	185.70	1.45	80.85
+2026-09-26 15:45	a08c9eb3	dirty	DESKTOP-D1RBTPV	DdlBenchmarks	CreateIndexOverExistingRows	-	3155.75	455.25	2792.75
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=agg.group_low_card	10743.60	144.28	49.86
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=agg.group_low_card	15503.04	91.23	14653.90
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=join.hash_unindexed	3876.81	20.44	27.97
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=join.hash_unindexed	4364.72	27.13	5758.53
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=join.index_nested_loop	950.73	25.28	3.83
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=join.index_nested_loop	90.95	0.50	75.97
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=predicate.index_range	763.49	4.39	4.94
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=predicate.index_range	104.90	0.53	175.70
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=predicate.pk_point	706.33	9.45	3.53
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=predicate.pk_point	22.28	0.14	23.98
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=scan.three_columns	17996.95	53.12	941.88
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=scan.three_columns	6908.43	55.66	11339.35
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sort.top_10	5646.32	225.60	3.44
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10	6975.61	14.56	8998.52
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sort.top_10_indexed	3796.63	22.22	2.63
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10_indexed	20.92	0.22	27.50
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sub.scalar_correlated	1371.43	37.36	3.39
+2026-09-26 16:07	870346ad	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sub.scalar_correlated	123.49	0.45	118.11
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=agg.group_low_card	10611.98	106.56	49.86
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=agg.group_low_card	11636.75	742.07	9513.49
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=join.hash_unindexed	4075.93	106.43	27.97
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=join.hash_unindexed	4265.43	63.56	5540.05
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=join.index_nested_loop	918.38	35.76	3.83
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=join.index_nested_loop	83.08	0.29	62.49
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=predicate.index_range	796.82	26.42	4.94
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=predicate.index_range	81.27	0.32	80.90
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=predicate.pk_point	666.22	10.06	3.53
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=predicate.pk_point	22.48	0.10	23.70
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=scan.three_columns	18751.76	176.25	941.88
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=scan.three_columns	4391.28	24.31	5870.87
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sort.top_10	5521.39	172.16	3.44
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10	6018.04	44.37	5790.54
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sort.top_10_indexed	3977.17	125.73	2.67
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10_indexed	19.55	0.09	22.30
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sub.scalar_correlated	1318.04	16.95	3.39
+2026-09-26 16:24	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sub.scalar_correlated	120.90	0.86	106.64
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=agg.group_low_card	10603.61	66.40	49.86
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=agg.group_low_card	8372.37	437.67	8888.58
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=join.hash_unindexed	4009.32	80.89	27.97
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=join.hash_unindexed	2987.63	10.82	4911.08
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=join.index_nested_loop	963.97	21.47	3.84
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=join.index_nested_loop	80.44	1.76	61.57
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=predicate.index_range	826.29	11.71	4.94
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=predicate.index_range	66.92	0.18	73.87
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=predicate.pk_point	685.99	11.42	3.53
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=predicate.pk_point	21.90	0.16	23.48
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=scan.three_columns	17669.79	37.24	941.88
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=scan.three_columns	2706.86	18.90	5245.75
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sort.top_10	5363.66	48.15	3.44
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10	4637.08	12.42	5165.44
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sort.top_10_indexed	3798.43	32.80	2.63
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10_indexed	17.82	0.17	21.58
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sub.scalar_correlated	1350.68	44.79	3.39
+2026-09-26 16:41	870346ad	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sub.scalar_correlated	118.20	0.99	105.83
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=agg.group_low_card	10681.59	195.04	49.86
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=agg.group_low_card	4436.07	152.82	5780.63
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=join.hash_unindexed	3985.84	107.62	27.97
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=join.hash_unindexed	1680.76	12.45	2269.99
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=join.index_nested_loop	903.75	5.99	3.83
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=join.index_nested_loop	87.19	2.27	58.16
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=predicate.index_range	785.89	13.73	4.94
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=predicate.index_range	54.37	0.50	42.46
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=predicate.pk_point	701.82	10.54	3.53
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=predicate.pk_point	25.88	0.34	23.97
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=scan.three_columns	17838.69	205.94	941.88
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=scan.three_columns	1651.51	7.95	2840.70
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sort.top_10	5414.83	74.92	3.44
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10	3316.50	82.74	2292.07
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sort.top_10_indexed	3827.73	36.49	2.63
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10_indexed	19.17	0.10	19.30
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sub.scalar_correlated	1392.71	33.44	3.39
+2026-09-26 17:06	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sub.scalar_correlated	126.70	2.16	103.23
+2026-09-26 17:08	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=predicate.pk_point	636.17	8.88	3.52
+2026-09-26 17:08	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=predicate.pk_point	22.36	0.13	23.97
+2026-09-26 17:08	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sort.top_10_indexed	3850.75	45.49	2.63
+2026-09-26 17:08	0b877f69	dirty	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10_indexed	17.93	0.49	19.30
+2026-09-26 17:20	35a85556	dirty	DESKTOP-D1RBTPV	DdlBenchmarks	CreateEmptyDatabase	-	10893.04	1326.03	10206.94
+2026-09-26 17:20	35a85556	dirty	DESKTOP-D1RBTPV	DdlBenchmarks	CreateTable	-	699.60	135.58	1504.63
+2026-09-26 17:20	35a85556	dirty	DESKTOP-D1RBTPV	DdlBenchmarks	CreateIndexOverExistingRows	-	1346.20	220.81	2045.45
+2026-09-26 17:20	35a85556	dirty	DESKTOP-D1RBTPV	DdlBenchmarks	AddColumn	-	156.54	10.89	403.62
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	CatalogBenchmarks	OpenAndLoadCatalog	-	442.17	3.87	308.92
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	CatalogBenchmarks	OpenOnly	-	275.53	1.11	20.62
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	CatalogBenchmarks	EnumerateSchema	-	434.11	1.54	309.00
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.correlated_subquery	1427.79	7.39	1758.23
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.group_agg_join	4926.71	29.81	3187.49
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.group_by_customer	918.51	10.60	1204.66
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.left_join	1824.88	20.39	2385.76
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.like_prefix	63.01	0.38	103.92
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.order_by_text	1168.51	5.46	1154.45
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.orders_details_join	3386.70	56.17	1898.48
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.orders_scan	173.52	4.22	277.58
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.text_pk_lookup	25.40	0.17	25.06
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.three_way_join	4441.23	28.27	3330.06
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.top_10	356.02	2.24	247.39
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.unindexed_join	3561.87	67.40	4329.67
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	StorageBenchmarks	FullScan	Scale=10000	2874.99	14.91	4760.56
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	StorageBenchmarks	PointSeek	Scale=10000	1.06	0.00	1.55
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	StorageBenchmarks	DuplicateKeySeek	Scale=10000	4.66	0.01	5.63
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	StorageBenchmarks	RangeSeek	Scale=10000	43.35	0.26	49.74
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.count_distinct	3432.84	21.58	3801.79
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.distinct_rows	3760.41	48.68	3584.31
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.global	4873.54	44.60	2491.91
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_high_card	9932.56	88.29	8056.54
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_low_card	5265.49	33.28	5780.83
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_multi_agg	8775.84	111.69	8125.08
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_over_join	59409.94	1488.98	25580.25
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_text_key	103212.19	1742.52	104444.01
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.having	5572.40	64.99	6026.84
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=catalog.schema_columns	8.52	0.07	15.41
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=catalog.schema_tables	6.18	0.13	9.65
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.arithmetic	8633.77	31.18	7607.01
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.concat	2482.40	12.10	3682.75
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.date_add	2312.50	4.91	3387.22
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.date_functions	3585.92	42.46	3784.19
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.iif	1772.75	16.80	2062.52
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.math_functions	4649.28	18.74	4802.63
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.nested_iif	4176.28	10.80	3039.93
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.string_functions	4585.53	64.75	5555.90
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.cross_small	309.93	1.91	755.35
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.full_indexed	36829.20	36.32	18556.18
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.hash_unindexed	1812.36	12.73	2269.84
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.index_nested_loop	86.09	1.09	57.96
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.left_outer	15483.23	27.93	11075.39
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.self	3499.45	87.62	2911.56
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.small_probe	686.84	18.60	482.16
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.three_way	135.79	3.06	124.72
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.arithmetic	2630.59	47.07	2374.00
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.boolean	1271.17	6.66	1670.78
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.composite_eq	37.55	0.09	32.61
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.date_range	2423.57	16.74	2184.40
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.in_list	4671.08	93.41	2145.89
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.index_eq	26.09	0.06	23.81
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.index_open_range	49.85	0.13	38.65
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.index_range	63.11	0.14	42.44
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.is_null	1585.73	22.02	3097.08
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.like_contains	6764.21	9.93	12124.09
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.like_prefix	3813.77	22.01	8388.61
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.negated	2125.30	7.38	2140.19
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.or_two_indexes	17179.87	98.44	21654.10
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.pk_point	25.58	0.08	24.06
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.text_index_eq	28.18	0.44	26.81
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.unindexed_eq	2014.86	21.39	2138.51
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.count_star	814.22	14.75	1431.20
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.long_text	1717.13	31.60	3212.74
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.one_column	1039.64	14.74	1976.93
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.star	3022.02	68.18	4769.36
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.three_columns	1643.41	22.30	2840.79
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=setop.union_all	42.36	0.23	39.23
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=setop.union_distinct	574.19	4.00	485.24
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.by_indexed	10404.78	91.83	3455.19
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.by_two_columns	11570.00	129.29	3454.80
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.by_unindexed	9157.58	168.14	3455.25
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.top_10	3567.29	63.07	2292.06
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.top_10_indexed	20.41	0.36	19.33
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.top_percent	6665.59	158.79	3398.49
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.derived_table	5549.58	241.14	5860.23
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.exists_correlated	137.45	0.95	107.31
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.in_uncorrelated	2198.91	23.16	2598.19
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.not_exists	143.61	2.60	108.33
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.scalar_correlated	129.20	2.74	103.16
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=window.rank_partitioned	44.61	0.49	39.31
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=window.row_number	41.72	0.12	35.70
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	WriteBenchmarks	InsertSqlAutocommit	-	415.35	3.69	791.69
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	WriteBenchmarks	InsertSqlInTransaction	-	522.88	5.98	1076.52
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	WriteBenchmarks	InsertStorage	-	122.22	1.51	300.09
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	WriteBenchmarks	InsertStorageInTransaction	-	231.48	2.75	633.12
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	WriteBenchmarks	UpdateByPrimaryKey	-	44.78	2.63	51.37
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	WriteBenchmarks	UpdateIndexedColumn	-	97.00	1.17	190.46
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	WriteBenchmarks	DeleteByPrimaryKey	-	291.63	2.84	724.47
+2026-09-26 18:00	108e62c2	clean	DESKTOP-D1RBTPV	WriteBenchmarks	UpdateSetBased	-	440.94	8.62	545.73
+2026-09-26 18:16	108e62c2	dirty	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.order_by_text	155.96	0.80	125.03
+2026-09-26 18:16	108e62c2	dirty	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_text_key	21893.97	180.84	14751.64
+2026-09-26 18:16	108e62c2	dirty	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.or_two_indexes	14148.37	243.97	10883.46
+2026-09-26 18:16	108e62c2	dirty	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.by_unindexed	7225.64	111.85	3455.44
+2026-09-26 18:56	108e62c2	dirty	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.order_by_text	158.58	1.04	125.08
+2026-09-26 18:56	108e62c2	dirty	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.text_pk_lookup	23.36	0.33	24.09
+2026-09-26 18:56	108e62c2	dirty	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_text_key	28524.39	382.66	21080.05
+2026-09-26 18:56	108e62c2	dirty	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.hash_unindexed	1824.99	13.60	2270.03
+2026-09-26 18:56	108e62c2	dirty	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.like_contains	6851.32	15.33	12124.09
+2026-09-26 18:56	108e62c2	dirty	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.or_two_indexes	14699.94	37.39	10883.56
+2026-09-26 18:56	108e62c2	dirty	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.three_columns	1682.98	14.30	2840.80
+2026-09-26 19:00	108e62c2	dirty	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.order_by_text	158.76	0.88	125.09
+2026-09-26 19:00	108e62c2	dirty	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.or_two_indexes	8754.67	43.89	6981.04
+2026-09-26 19:10	108e62c2	dirty	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.order_by_text	118.78	0.15	124.28
+2026-09-26 19:10	108e62c2	dirty	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_text_key	19333.33	83.06	21157.63
+2026-09-26 19:10	108e62c2	dirty	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.or_two_indexes	6803.73	102.95	6981.00
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	CatalogBenchmarks	OpenAndLoadCatalog	-	216.59	4.87	308.31
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	CatalogBenchmarks	OpenOnly	-	64.63	0.56	20.01
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	CatalogBenchmarks	EnumerateSchema	-	219.97	5.38	308.38
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	DdlBenchmarks	CreateEmptyDatabase	-	9818.09	101.33	10191.73
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	DdlBenchmarks	CreateTable	-	625.98	8.65	1540.38
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	DdlBenchmarks	CreateIndexOverExistingRows	-	1207.62	169.02	2048.51
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	DdlBenchmarks	AddColumn	-	156.53	2.72	408.56
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	WriteBenchmarks	InsertSqlAutocommit	-	433.67	5.52	790.89
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	WriteBenchmarks	InsertSqlInTransaction	-	537.90	5.18	1075.72
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	WriteBenchmarks	InsertStorage	-	121.10	1.42	299.31
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	WriteBenchmarks	InsertStorageInTransaction	-	241.30	2.25	632.34
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	WriteBenchmarks	UpdateByPrimaryKey	-	45.45	1.13	51.56
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	WriteBenchmarks	UpdateIndexedColumn	-	96.69	1.46	189.83
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	WriteBenchmarks	DeleteByPrimaryKey	-	290.36	3.50	723.62
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	WriteBenchmarks	UpdateSetBased	-	471.94	12.39	546.48
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.count_distinct	4291.47	60.22	5442.27
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.distinct_rows	5346.02	238.66	5302.93
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.global	4806.04	134.01	2491.85
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_high_card	11505.34	398.70	9774.98
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=agg.group_low_card	8.49	0.18	10.10
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=agg.group_low_card	0.26	0.00	0.68
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=agg.group_low_card	9394.40	259.60	10549.17
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=agg.group_low_card	5193.02	108.23	7452.60
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_low_card	5340.90	161.42	7452.54
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_multi_agg	9103.28	104.75	9843.61
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_over_join	52620.47	500.25	28916.39
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_text_key	25269.26	924.54	21235.17
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.having	5474.22	106.04	7714.17
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=catalog.schema_columns	8.95	0.04	15.37
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=catalog.schema_tables	6.58	0.09	9.60
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.arithmetic	4051.70	20.59	5263.54
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.concat	2571.37	29.63	3682.63
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.date_add	2333.91	18.82	3387.10
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.date_functions	3461.35	20.78	3784.08
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.iif	1741.21	8.58	2062.41
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.math_functions	4622.52	25.13	4802.52
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.nested_iif	3718.74	30.51	3039.79
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.string_functions	4606.11	55.75	5555.79
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.cross_small	300.74	1.42	755.32
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.full_indexed	31408.59	98.67	18556.29
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=join.hash_unindexed	14.17	0.27	17.30
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=join.hash_unindexed	1.26	0.01	3.26
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=join.hash_unindexed	2976.71	18.64	4889.87
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=join.hash_unindexed	1690.29	38.43	2270.04
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.hash_unindexed	1625.72	26.35	2270.04
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=join.index_nested_loop	17.04	0.12	21.16
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=join.index_nested_loop	2.49	0.02	7.02
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=join.index_nested_loop	47.52	0.31	32.93
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=join.index_nested_loop	79.28	0.52	58.08
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.index_nested_loop	79.23	0.28	58.08
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.left_outer	16021.68	186.10	11075.51
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.self	4442.56	144.41	2911.73
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.small_probe	571.87	1.65	482.28
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.three_way	123.71	1.70	124.97
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.arithmetic	2322.47	30.03	2373.90
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.boolean	1189.79	12.25	1670.61
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.composite_eq	36.35	0.27	32.42
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.date_range	2466.39	35.76	2184.40
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.in_list	3340.72	48.20	2145.71
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.index_eq	24.79	0.14	23.67
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.index_open_range	46.59	0.44	38.62
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=predicate.index_range	9.00	0.06	10.42
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=predicate.index_range	0.82	0.01	1.98
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=predicate.index_range	51.34	0.51	60.89
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=predicate.index_range	54.00	0.36	42.49
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.index_range	54.18	0.45	42.49
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.is_null	1532.21	22.45	3096.93
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.like_contains	5483.70	83.59	8438.08
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.like_prefix	2837.68	28.69	5575.96
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.negated	1752.28	24.16	2140.06
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.or_two_indexes	7105.72	67.48	6980.89
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=predicate.pk_point	10.21	0.08	12.60
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=predicate.pk_point	0.89	0.01	2.47
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=predicate.pk_point	4.97	0.08	7.76
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=predicate.pk_point	24.68	0.22	23.92
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.pk_point	25.03	0.26	23.92
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.text_index_eq	24.15	0.07	22.53
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.unindexed_eq	1654.16	11.74	2138.34
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.count_star	717.92	14.72	1431.07
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.long_text	1858.79	66.65	3212.62
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.one_column	989.45	11.72	1976.81
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.star	3143.54	76.00	4769.22
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=scan.three_columns	7.34	0.03	9.76
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=scan.three_columns	0.29	0.00	0.62
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=scan.three_columns	2724.05	13.52	5234.72
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=scan.three_columns	1579.37	15.02	2840.68
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.three_columns	1645.95	40.98	2840.68
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=setop.union_all	40.88	1.17	39.17
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=setop.union_distinct	532.31	1.94	698.69
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.by_indexed	9672.17	46.87	3454.94
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.by_two_columns	10805.07	195.55	3454.52
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.by_unindexed	9866.61	45.75	3454.96
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=sort.top_10	9.40	0.02	10.98
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=sort.top_10	0.64	0.01	1.48
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=sort.top_10	4906.23	59.96	5159.43
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=sort.top_10	3191.34	13.32	2299.20
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.top_10	3242.42	28.34	2299.20
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=sort.top_10_indexed	8.14	0.05	9.34
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=sort.top_10_indexed	0.52	0.00	1.43
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=sort.top_10_indexed	5.44	0.06	10.17
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=sort.top_10_indexed	18.96	0.24	19.30
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.top_10_indexed	20.21	0.82	19.30
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.top_percent	7883.00	57.73	3398.22
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.derived_table	5505.64	32.86	7532.12
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.exists_correlated	134.40	1.11	107.63
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.in_uncorrelated	1963.95	24.53	2598.12
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.not_exists	133.10	0.49	108.60
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=sub.scalar_correlated	19.52	0.35	22.47
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=sub.scalar_correlated	1.02	0.01	2.80
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=sub.scalar_correlated	85.11	0.64	79.15
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=sub.scalar_correlated	127.87	2.35	103.15
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.scalar_correlated	125.26	1.58	103.15
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=window.rank_partitioned	43.69	0.12	40.88
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=window.row_number	41.61	0.38	36.45
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	StorageBenchmarks	FullScan	Scale=10000	2958.73	84.66	4760.56
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	StorageBenchmarks	PointSeek	Scale=10000	0.96	0.01	1.55
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	StorageBenchmarks	DuplicateKeySeek	Scale=10000	4.49	0.08	5.63
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	StorageBenchmarks	RangeSeek	Scale=10000	43.17	1.31	49.74
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=agg.group_low_card	10506.62	310.06	49.86
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=agg.group_low_card	5518.21	85.88	7452.57
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=join.hash_unindexed	3858.19	76.54	27.93
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=join.hash_unindexed	1685.89	43.95	2270.09
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=join.index_nested_loop	947.55	20.32	3.83
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=join.index_nested_loop	79.75	0.77	58.13
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.correlated_subquery	820.24	21.89	814.29
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.group_agg_join	4217.57	55.25	3487.38
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.group_by_customer	569.19	6.15	934.18
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.left_join	634.17	18.15	749.34
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.like_prefix	54.36	0.30	81.01
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.order_by_text	131.38	3.96	124.16
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.orders_details_join	2871.04	28.76	1898.68
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.orders_scan	165.31	1.29	277.46
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.text_pk_lookup	26.09	0.71	23.53
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.three_way_join	3265.34	13.08	2383.95
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.top_10	387.91	13.43	247.91
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.unindexed_join	1687.49	53.33	2151.38
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=predicate.index_range	760.78	13.37	4.94
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=predicate.index_range	53.88	0.25	42.54
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=predicate.pk_point	648.09	11.32	3.53
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=predicate.pk_point	24.72	0.16	23.97
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=scan.three_columns	17538.64	245.78	941.90
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=scan.three_columns	1583.94	7.37	2840.73
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sort.top_10	5215.83	38.20	3.44
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10	3214.33	33.83	2299.25
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sort.top_10_indexed	3726.07	48.18	2.63
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10_indexed	19.00	0.23	19.35
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sub.scalar_correlated	1242.74	11.66	3.39
+2026-09-27 07:34	ac9ced90	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sub.scalar_correlated	124.40	0.47	103.20
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	CatalogBenchmarks	OpenAndLoadCatalog	-	211.15	1.71	304.68
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	CatalogBenchmarks	OpenOnly	-	65.02	0.79	20.09
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	CatalogBenchmarks	EnumerateSchema	-	215.75	1.41	304.75
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	DdlBenchmarks	CreateEmptyDatabase	-	9827.19	119.89	8962.83
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	DdlBenchmarks	CreateTable	-	563.58	10.33	1319.87
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	DdlBenchmarks	CreateIndexOverExistingRows	-	1157.86	89.94	1830.31
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	DdlBenchmarks	AddColumn	-	156.74	12.51	380.06
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	WriteBenchmarks	InsertSqlAutocommit	-	101.18	1.63	148.81
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	WriteBenchmarks	InsertSqlInTransaction	-	69.37	0.95	148.50
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	WriteBenchmarks	InsertStorage	-	69.58	0.39	119.83
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	WriteBenchmarks	InsertStorageInTransaction	-	42.46	1.02	119.06
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	WriteBenchmarks	UpdateByPrimaryKey	-	42.16	1.01	38.85
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	WriteBenchmarks	UpdateIndexedColumn	-	81.40	1.85	112.83
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	WriteBenchmarks	DeleteByPrimaryKey	-	184.37	2.81	374.70
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	WriteBenchmarks	UpdateSetBased	-	460.47	19.35	502.13
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.count_distinct	1825.58	17.49	2445.48
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.distinct_rows	3213.73	40.86	2920.15
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.global	3351.53	14.61	2234.19
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_high_card	4373.77	140.39	4013.64
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=agg.group_low_card	8.82	0.23	10.10
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=agg.group_low_card	0.23	0.00	0.68
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=agg.group_low_card	4151.38	68.10	6056.99
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=agg.group_low_card	2294.27	15.67	2960.55
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_low_card	2233.44	7.08	2960.55
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_multi_agg	4415.82	53.67	4211.46
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_over_join	35523.12	205.70	10747.02
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_text_key	12690.43	67.74	6766.37
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.having	2436.64	27.80	3128.49
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=catalog.schema_columns	8.47	0.04	15.42
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=catalog.schema_tables	6.12	0.01	9.66
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.arithmetic	4028.44	19.18	5263.61
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.concat	2502.64	13.95	3682.71
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.date_add	2308.57	9.42	3387.17
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.date_functions	3481.68	15.84	3784.15
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.iif	1810.52	6.58	2062.48
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.math_functions	4605.81	18.13	4802.59
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.nested_iif	3703.82	18.23	2594.55
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.string_functions	4507.13	82.84	5555.86
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.cross_small	170.81	1.10	286.53
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.full_indexed	31350.69	95.72	8869.70
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=join.hash_unindexed	14.07	0.03	17.30
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=join.hash_unindexed	1.24	0.02	3.27
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=join.hash_unindexed	2966.48	19.87	4880.60
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=join.hash_unindexed	1707.79	87.23	2236.69
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.hash_unindexed	1607.02	6.99	2236.69
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=join.index_nested_loop	17.85	0.17	21.16
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=join.index_nested_loop	2.38	0.01	7.05
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=join.index_nested_loop	49.43	0.55	24.80
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=join.index_nested_loop	78.67	1.12	48.77
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.index_nested_loop	77.95	0.15	48.77
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.left_outer	14012.27	48.13	8419.88
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.self	3866.32	75.25	2906.80
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.small_probe	567.34	2.90	304.31
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.three_way	123.25	0.44	116.58
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.arithmetic	2225.84	7.89	2139.60
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.boolean	1131.51	5.67	1436.30
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.composite_eq	36.58	0.33	31.94
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.date_range	2441.59	13.76	2184.47
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.in_list	3240.16	20.33	2145.78
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.index_eq	25.32	0.09	23.05
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.index_open_range	44.76	0.17	35.88
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=predicate.index_range	9.26	0.04	10.42
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=predicate.index_range	0.80	0.01	1.98
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=predicate.index_range	51.29	0.09	60.35
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=predicate.index_range	54.59	0.78	42.00
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.index_range	52.85	0.15	42.00
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.is_null	1554.20	4.72	3097.00
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.like_contains	5391.24	29.73	8438.15
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.like_prefix	2731.62	28.42	5576.03
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.negated	1669.65	16.60	1905.75
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.or_two_indexes	6581.88	54.07	2610.49
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=predicate.pk_point	10.65	0.02	12.60
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=predicate.pk_point	0.82	0.00	2.47
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=predicate.pk_point	4.99	0.02	7.29
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=predicate.pk_point	24.87	0.26	23.50
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.pk_point	24.26	0.07	23.50
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.text_index_eq	23.83	0.13	21.57
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.unindexed_eq	1612.62	9.51	1904.04
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.count_star	675.83	3.62	1431.15
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.long_text	1646.99	0.60	3212.69
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.one_column	954.05	4.79	1976.88
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.star	2904.03	16.33	4769.29
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=scan.three_columns	7.51	0.04	9.76
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=scan.three_columns	0.26	0.00	0.62
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=scan.three_columns	2735.82	15.08	5234.73
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=scan.three_columns	1612.75	9.29	2840.75
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.three_columns	1555.40	4.74	2840.75
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=setop.union_all	39.05	0.35	37.86
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=setop.union_distinct	423.26	2.01	282.68
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.by_indexed	9118.99	71.99	3454.97
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.by_two_columns	9846.94	50.06	3454.59
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.by_unindexed	9649.03	35.03	3455.03
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=sort.top_10	9.29	0.02	10.98
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=sort.top_10	0.62	0.00	1.48
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=sort.top_10	4897.86	90.51	5159.45
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=sort.top_10	3293.26	4.42	2299.27
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.top_10	3218.53	13.29	2299.27
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=sort.top_10_indexed	7.99	0.04	9.34
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=sort.top_10_indexed	0.51	0.01	1.43
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=sort.top_10_indexed	5.61	0.17	9.82
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=sort.top_10_indexed	19.18	0.28	19.00
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.top_10_indexed	18.96	0.24	19.00
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.top_percent	7276.88	50.67	3398.23
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.derived_table	2381.30	25.47	3016.78
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.exists_correlated	133.68	0.99	101.61
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.in_uncorrelated	1976.27	7.52	2598.22
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.not_exists	135.56	0.48	102.58
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=sub.scalar_correlated	19.89	0.24	22.47
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=sub.scalar_correlated	0.96	0.03	2.80
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=sub.scalar_correlated	86.10	0.75	73.65
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=sub.scalar_correlated	122.53	0.62	97.70
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.scalar_correlated	122.39	0.72	97.70
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=window.rank_partitioned	41.63	0.16	37.95
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=window.row_number	39.23	0.11	34.27
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	StorageBenchmarks	FullScan	Scale=10000	2874.12	64.80	4760.56
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	StorageBenchmarks	PointSeek	Scale=10000	0.81	0.00	0.78
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	StorageBenchmarks	DuplicateKeySeek	Scale=10000	4.20	0.01	4.86
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	StorageBenchmarks	RangeSeek	Scale=10000	41.86	0.21	48.88
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=agg.group_low_card	10612.49	65.20	49.86
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=agg.group_low_card	2315.70	18.14	2960.54
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=join.hash_unindexed	4018.80	41.09	27.97
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=join.hash_unindexed	1638.92	9.94	2236.69
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=join.index_nested_loop	917.57	7.52	3.83
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=join.index_nested_loop	80.46	1.78	48.77
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.correlated_subquery	803.61	17.85	730.95
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.group_agg_join	3690.99	8.61	1207.93
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.group_by_customer	413.98	1.00	364.01
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.left_join	553.83	1.43	382.30
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.like_prefix	53.58	0.20	81.08
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.order_by_text	122.53	1.56	64.79
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.orders_details_join	2867.16	11.68	986.99
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.orders_scan	165.47	2.11	277.53
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.text_pk_lookup	23.91	0.11	22.85
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.three_way_join	3336.47	36.64	1068.02
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.top_10	392.59	1.84	247.98
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.unindexed_join	1378.46	2.22	903.17
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=predicate.index_range	831.71	12.66	4.94
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=predicate.index_range	53.19	0.12	42.00
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=predicate.pk_point	713.85	14.46	3.53
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=predicate.pk_point	25.98	0.63	23.50
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=scan.three_columns	19167.96	70.46	941.90
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=scan.three_columns	1593.16	11.46	2840.74
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sort.top_10	5394.58	27.06	3.44
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10	3363.69	49.18	2299.26
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sort.top_10_indexed	3895.23	27.97	2.68
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10_indexed	18.70	0.04	19.00
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sub.scalar_correlated	1321.68	15.39	3.39
+2026-09-27 22:03	1cd4a6b5	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sub.scalar_correlated	123.62	0.87	97.70
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	CatalogBenchmarks	OpenAndLoadCatalog	-	300.06	7.21	363.29
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	CatalogBenchmarks	OpenOnly	-	67.62	0.68	24.61
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	CatalogBenchmarks	EnumerateSchema	-	289.35	2.62	363.46
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	DdlBenchmarks	CreateEmptyDatabase	-	9375.09	76.54	6587.42
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	DdlBenchmarks	CreateTable	-	319.61	76.19	416.80
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	DdlBenchmarks	CreateIndexOverExistingRows	-	1110.46	87.43	1394.73
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	DdlBenchmarks	AddColumn	-	114.11	1.69	225.89
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	WriteBenchmarks	InsertSqlAutocommit	-	99.42	3.16	144.65
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	WriteBenchmarks	InsertSqlInTransaction	-	67.93	1.33	144.35
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	WriteBenchmarks	InsertStorage	-	68.69	0.77	114.60
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	WriteBenchmarks	InsertStorageInTransaction	-	40.33	0.46	113.84
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	WriteBenchmarks	UpdateByPrimaryKey	-	50.09	3.25	42.58
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	WriteBenchmarks	UpdateIndexedColumn	-	80.76	1.16	105.17
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	WriteBenchmarks	DeleteByPrimaryKey	-	160.32	1.24	276.77
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	WriteBenchmarks	UpdateSetBased	-	356.44	5.05	234.73
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.count_distinct	2128.85	12.35	2443.08
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.distinct_rows	3516.35	69.82	2917.17
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.global	3734.82	18.01	2233.61
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_high_card	5116.92	134.35	4011.55
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=agg.group_low_card	9.86	0.17	10.34
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=agg.group_low_card	0.23	0.00	0.69
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=agg.group_low_card	4523.34	30.17	6053.03
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=agg.group_low_card	2886.37	38.22	2958.47
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_low_card	2832.81	29.17	2958.47
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_multi_agg	5346.66	223.54	4210.30
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_over_join	35267.27	181.63	10745.09
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.group_text_key	12249.38	116.50	6764.10
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=agg.having	2996.20	24.50	3127.11
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=catalog.schema_columns	10.18	0.07	16.05
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=catalog.schema_tables	7.58	0.05	10.28
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.arithmetic	4024.54	31.92	5261.05
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.concat	2513.18	15.22	3680.15
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.date_add	2343.52	13.29	3384.62
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.date_functions	3774.00	19.76	3782.27
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.iif	1786.98	7.25	2059.93
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.math_functions	4752.87	47.55	4801.11
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.nested_iif	3888.07	23.77	2593.10
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=expr.string_functions	4701.76	49.52	5554.10
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.cross_small	175.04	1.18	279.61
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.full_indexed	30696.42	230.93	8866.26
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=join.hash_unindexed	14.25	0.14	17.38
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=join.hash_unindexed	1.21	0.02	3.01
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=join.hash_unindexed	3205.11	21.65	4872.69
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=join.hash_unindexed	1930.66	9.20	2229.43
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.hash_unindexed	1903.42	37.42	2229.43
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=join.index_nested_loop	18.30	0.41	21.20
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=join.index_nested_loop	2.71	0.02	7.05
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=join.index_nested_loop	47.22	0.17	24.89
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=join.index_nested_loop	81.39	0.54	50.12
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.index_nested_loop	80.96	0.59	50.12
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.left_outer	5712.90	93.67	5442.82
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.self	3475.83	42.35	2904.04
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.small_probe	568.63	2.45	301.05
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=join.three_way	126.95	1.45	113.95
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.arithmetic	2454.04	16.76	2137.21
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.boolean	1307.50	4.96	1434.07
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.composite_eq	39.64	0.35	34.59
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.date_range	2661.14	4.03	2181.89
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.in_list	3625.39	13.23	2143.87
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.index_eq	28.49	0.23	24.63
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.index_open_range	51.18	0.30	37.20
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=predicate.index_range	10.10	0.20	10.66
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=predicate.index_range	0.91	0.00	1.98
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=predicate.index_range	54.56	0.30	60.40
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=predicate.index_range	61.19	0.37	43.42
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.index_range	60.00	0.45	43.42
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.is_null	1642.98	14.11	3094.21
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.like_contains	5272.93	37.10	8435.49
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.like_prefix	2811.28	13.76	5573.36
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.negated	1923.18	14.49	1903.50
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.or_two_indexes	6529.73	19.04	2608.37
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=predicate.pk_point	11.56	0.20	12.84
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=predicate.pk_point	0.90	0.01	2.57
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=predicate.pk_point	4.82	0.02	7.34
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=predicate.pk_point	27.78	0.14	25.21
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.pk_point	27.75	0.43	25.21
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.text_index_eq	27.11	0.36	23.19
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=predicate.unindexed_eq	1841.30	11.62	1901.54
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.count_star	749.25	4.34	1428.31
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.long_text	1624.30	6.53	3209.75
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.one_column	1004.48	4.91	1973.78
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.star	3001.40	16.79	4765.95
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=scan.three_columns	8.33	0.15	9.99
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=scan.three_columns	0.25	0.00	0.61
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=scan.three_columns	2672.98	17.97	5230.78
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=scan.three_columns	1608.89	7.56	2837.96
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=scan.three_columns	1573.32	17.68	2837.96
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=setop.union_all	43.12	0.45	40.35
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=setop.union_distinct	487.37	1.07	284.94
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.by_indexed	8671.21	141.57	3452.26
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.by_two_columns	9643.49	176.17	3451.88
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.by_unindexed	9191.93	271.72	3452.32
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=sort.top_10	10.33	0.08	11.23
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=sort.top_10	0.70	0.01	1.45
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=sort.top_10	5324.19	61.80	5155.48
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=sort.top_10	3860.08	53.07	2296.57
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.top_10	3784.11	47.43	2296.54
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=sort.top_10_indexed	8.98	0.04	9.58
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=sort.top_10_indexed	0.45	0.01	1.40
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=sort.top_10_indexed	5.79	0.06	9.87
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=sort.top_10_indexed	22.47	0.19	20.13
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.top_10_indexed	22.13	0.15	20.13
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sort.top_percent	5894.90	49.37	3395.47
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.derived_table	2926.72	32.60	3016.19
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.exists_correlated	138.54	0.94	106.88
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.in_uncorrelated	2172.07	17.99	2592.18
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.not_exists	137.01	1.21	108.05
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	Parse	Scale=10000 Case=sub.scalar_correlated	19.90	0.11	22.78
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	BindAndPlan	Scale=10000 Case=sub.scalar_correlated	1.12	0.02	2.94
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	ExecutePrepared	Scale=10000 Case=sub.scalar_correlated	86.94	1.22	74.33
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	PipelineBenchmarks	EndToEnd	Scale=10000 Case=sub.scalar_correlated	125.80	0.36	101.24
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=sub.scalar_correlated	125.03	1.26	101.24
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=window.rank_partitioned	47.70	0.30	39.60
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	SyntheticQueryBenchmarks	Query	Scale=10000 Case=window.row_number	43.99	0.37	35.92
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	StorageBenchmarks	FullScan	Scale=10000	2851.51	18.44	4756.65
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	StorageBenchmarks	PointSeek	Scale=10000	0.87	0.01	0.78
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	StorageBenchmarks	DuplicateKeySeek	Scale=10000	4.38	0.07	4.86
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	StorageBenchmarks	RangeSeek	Scale=10000	41.69	0.31	48.88
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.correlated_subquery	752.97	11.96	731.68
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.group_agg_join	3650.85	57.55	1203.81
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.group_by_customer	426.23	3.03	360.23
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.left_join	555.97	1.29	374.12
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.like_prefix	55.34	0.44	77.32
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.order_by_text	122.83	1.79	61.00
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.orders_details_join	2760.83	16.02	982.85
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.orders_scan	163.08	0.87	273.73
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.text_pk_lookup	25.08	0.24	23.19
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.three_way_join	3183.96	34.09	1063.74
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.top_10	427.82	1.89	244.17
+2026-10-05 10:13	0d470f9e	clean	DESKTOP-D1RBTPV	NorthwindQueryBenchmarks	Query	Case=nw.unindexed_join	1374.72	2.63	899.07

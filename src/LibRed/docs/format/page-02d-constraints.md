@@ -16,7 +16,8 @@ statistics:
 **These two fields are maintained very differently (verified vs ACE):**
 
 - **Total entry count (`+0`) is *not* maintained on insert.** Access leaves it unchanged through live
-  inserts and updates — but **a delete decrements it** (see "On delete" below). It is written when the index
+  inserts — but **a delete decrements it** (see "On delete" below), and so does an **update that changes the
+  row's key** in that index (see "On update"). It is written when the index
   is **built over the rows present** —
   `CREATE INDEX` (unique or not), a foreign key's backing index, and the rebuild of an index whose column an
   `ALTER COLUMN` changes — to the **number of entries the index then holds** (the rows, less those an
@@ -32,7 +33,8 @@ statistics:
     collation-equal text (`'a'`, `'A'`) is one key; a **Null is a key** like any other (a second Null adds
     nothing), except in an **IGNORE NULL** index, which does not hold it and so never counts it. A key whose
     last row was deleted **counts again** when it returns. A multi-column index compares the whole tuple.
-  - An **UPDATE never advances it**, even one that gives a row a key no other row has.
+  - An **UPDATE never advances it**, even one that gives a row a key no other row has (it can lower it — see
+    "On update").
   - It is **one count per real index**: a relationship's logical index sharing a real index (a parent's
     primary key) does not advance it a second time.
   - **Building the index** — the same builds as `+0` above — sets it to the index's **distinct keys among
@@ -59,7 +61,22 @@ count, and it is gated on the total:
 > `3` after it: its total is `0`, so the delete skips it. The rule is visible only on an index that *was*
 > built over rows, where both fields move together.
 
-  LibRed maintains both this way — inserts and deletes in `RowInserter`, builds in `TableCreator`'s index
+**On update (verified).** An UPDATE that changes a row's key in an index — its entry moves — counts there
+differently from a delete:
+
+- **A block whose total reads `0` is left alone**, as on a delete.
+- **Otherwise the total drops by one** for each row whose entry moves, and **the unique count is then held to
+  no more than the total** — `unique = min(unique, total)`. Whether the old key had another holder does not
+  matter, and the new key advances nothing. So an index at 6/4 reads 5/4 after one row's key changes (to a key
+  it already held or to one it did not), one at 11/11 reads 6/6 after five rows' keys change, and changing
+  every key of a 6/4 index takes it to 0/0.
+- An index the row is absent from before the update — a Null key in an IGNORE NULL index — is not touched,
+  even when the update brings the row in.
+
+> The update rule could not be seen from an index built empty: its zero total leaves the pair alone whatever the
+> update does, which is how "an UPDATE changes neither count" looked right.
+
+  LibRed maintains both this way — inserts, deletes and updates in `RowInserter`, builds in `SchemaEditor`'s index
   back-fill, and the Memo/OLE retype (which LibRed does by rebuilding the whole table) restores every other
   index's counts afterwards — and exposes `+4` as `IndexDef.UniqueEntryCount`.
 
@@ -73,13 +90,16 @@ count, and it is gated on the total:
 | `0x22` | 1 | Usage-map row |
 | `0x23` | 3 | Usage-map page |
 | `0x26` | 4 | **B-tree root page** |
-| `0x2A` | 4 | Unknown / reserved (zero observed). mdbtools places a 1-byte index-flags field at `+0x2A`, but ACE's effective flags are at `0x2E` and this is zero in every file checked |
-| `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls (`WITH IGNORE NULL` — null-keyed rows excluded from the index), `0x08` required (`WITH DISALLOW NULL` / part of a primary key), `0x80` always-set (Access 2000+). Verified vs ACE: a plain index is `0x0080`, `IGNORE NULL` `0x0082`, `DISALLOW NULL` `0x0088`, a PK `0x0089`. There is **no clustered flag**: `CLUSTERED`/`NONCLUSTERED` after `PRIMARY KEY` or `UNIQUE` in a constraint is accepted and stores nothing (the file is byte-identical without it), and DAO's `Index.Clustered` reads `False` even on an index created with it set. |
+| `0x2A` | 4 | Unknown / reserved — zero in every file checked. mdbtools calls it uninitialised page residue (unverified) |
+| `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls (`WITH IGNORE NULL` — null-keyed rows excluded from the index), `0x08` required (`WITH DISALLOW NULL` / part of a primary key), `0x80` always-set (Access 2000+), `0x0200` an index over a **complex** (multi-value / attachment) column. Verified vs ACE: a plain index is `0x0080`, `IGNORE NULL` `0x0082`, `DISALLOW NULL` `0x0088`, a PK `0x0089`. Every index Access writes over a complex column is `0x0289` — unique, required, always-set and `0x0200` — and no other index carries `0x0200` (verified across Access-written files). A foreign key's child block (§3.6) carries `0x01` exactly when the relationship is one-to-one
+(`MSysRelationships.grbit` `0x01`), and **this bit, not `grbit`, is what ACE enforces**: made to disagree, a
+child index with the bit refuses a second child row with the same key although `grbit` says one-to-many, and
+one without it accepts the duplicate although `grbit` says one-to-one (verified vs ACE). There is **no clustered flag**: `CLUSTERED`/`NONCLUSTERED` after `PRIMARY KEY` or `UNIQUE` in a constraint is accepted and stores nothing (the file is byte-identical without it), and DAO's `Index.Clustered` reads `False` even on an index created with it set. |
 | `0x30` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 52-byte block |
 
 > **The 10-column cap must be enforced on the incremental path too**, as must the 32-index cap below.
-> `TdefBuilder` rejects an over-wide index when a table is created with its indexes, but `CREATE INDEX` and
-> `ADD FOREIGN KEY` on an existing table go through `TableCreator.InsertIndex`. A block builder that fills
+> `TableDefinition` rejects an over-wide index when a table is created with its indexes, but `CREATE INDEX` and
+> `ADD FOREIGN KEY` on an existing table go through `SchemaEditor.InsertIndex`. A block builder that fills
 > its ten slots and marks the rest unused silently stores a 10-column index for an 11-column request. ACE
 > refuses outright — *"Cannot have more than 10 fields in an index."*
 >
@@ -91,7 +111,7 @@ count, and it is gated on the total:
 > **not** `WITH IGNORE NULL`) rejects a duplicate **non-null** key but permits **multiple NULL** keys — two
 > rows may both be null in the indexed column(s). So uniqueness is enforced only over the non-null keys; a
 > row with a null in any indexed column is exempt (matching SQL's "nulls are distinct"). LibRed enforces
-> this on insert/update (`IndexWriter.KeyExists`, skipping null-keyed rows), and rejects
+> this on insert/update (`IndexTree.KeyExists`, skipping null-keyed rows), and rejects
 > `CREATE UNIQUE INDEX` when the rows that already exist are not unique — scanned up front, before the
 > TDEF is written, so a rejected statement leaves the file untouched. A `WITH IGNORE NULL` index
 > (`0x02`) additionally leaves null-keyed rows out of the B-tree entirely; a PK (`0x08` required) forbids
@@ -104,7 +124,19 @@ count, and it is gated on the total:
 > *"Index or primary key cannot contain a Null value."* That is what an `ADD COLUMN … PRIMARY KEY` on a table
 > holding rows meets, since the new column is NULL on every old row; the exception is an AutoNumber column,
 > which numbers the old rows as it is added (§3.1) and so takes the key. A `WITH IGNORE NULL`
-> index is not required and is accepted over the same rows.
+> index is not required and is accepted over the same rows. The rule holds on every later write too: an
+> `INSERT` or `UPDATE` that leaves a NULL in any column of a required index is refused with the same message.
+>
+> **An AutoNumber takes no `UPDATE`** (verified vs ACE) — *"Cannot update 'Id'; field not updateable."* — even
+> `SET Id = Id`, whether or not it is a key. On `INSERT` an explicit number is accepted and the counter carries
+> on after it (50, then 51); an explicit NULL is refused.
+>
+> **`ON UPDATE CASCADE` reaches the statement's own rows, and keeps going down.** Where the parent and child
+> ends are the same table, a row the cascade rewrites may also be a row the `UPDATE` is itself rewriting:
+> `Emp(Id, MgrId → Emp.Id)` holding `(1, null), (2, 1)` under `SET Id = Id + 100` comes out of ACE as
+> `(101, null), (102, 101)` — the cascaded key is in the row ACE writes, not overwritten by it. And a cascade
+> carries on through a grandchild: `P ← C ← G`, each `ON UPDATE CASCADE`, moves all three on `UPDATE P SET
+> Id = 5`. Both verified against ACE.
 
 A table has **at most 32 index-data blocks** (the `0x33` count, §3.1) — the Jet/ACE "32 indexes per
 table" limit, counting the indexes that back primary keys, unique constraints and the child side of
@@ -126,8 +158,9 @@ something *references* it. So the budget is:
 0x2F = 0x33 + one entry per INCOMING relationship (this table as the referenced end)
 ```
 
-The child side of a foreign key is a real index and costs one from each count; only the parent end is free
-of storage, reusing the index already over the referenced columns. So being *referenced* is what spends the
+The child side of a foreign key is a real index and costs one from each count — its **own**, even when a
+primary key or unique index already covers exactly those columns; only the parent end is free of storage,
+reusing the index already over the referenced columns. So being *referenced* is what spends the
 budget invisibly. A self-reference lands both ends on one table: one data block, two logical blocks.
 
 Because a data block must be named by a logical block, `0x33 ≤ 0x2F` always holds — which makes `0x2F` the
@@ -164,7 +197,7 @@ isolation: 33 plain indexes push both counts to 33 together.
 | `0x0C` | 1 | Foreign-key index type: `0x00` = none, `0x01` = **incoming** (this table is the parent/referenced end), `0x02` = **outgoing** (this table is the child/referencing end), `0x03` = **outgoing, `FOREIGN KEY NO INDEX`** (verified vs ACE: identical to `0x02` — same data block and same parent incoming `0x01` block — only this type byte differs) |
 | `0x0D` | 4 | Foreign-key index number: the `index_num` (`0x04`) of the **matching logical block on the other table**; `0xFFFFFFFF` when not a relationship |
 | `0x11` | 4 | Foreign-key table page (the *other* table's TDEF page; non-zero ⇒ a relationship index) |
-| `0x15` | 1 | Update action: `0x04` plain index; on a relationship `0x00` = no cascade, `0x01` = cascade update |
+| `0x15` | 1 | Update action: `0x04` plain index; on a relationship `0x00` = no cascade, `0x01` = cascade update. With `0x16`, what ACE acts on — not `MSysRelationships.grbit` (verified vs ACE: made to disagree, ACE follows these bytes) |
 | `0x16` | 1 | Delete action: `0x04` plain index; on a relationship `0x00` = no cascade, `0x01` = cascade delete, `0x02` = **`ON DELETE SET NULL`** (verified vs ACE) |
 | `0x17` | 1 | Index type: `0x00` = plain secondary, `0x01` = primary, `0x02` = foreign/relationship |
 | `0x18` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 28-byte block |
@@ -176,15 +209,25 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > **Writing a relationship's logical blocks (verified byte-for-byte vs ACE).** The **child** (referencing)
 > table gives its FK-column index a *single* logical block that **is** the relationship: `index_num2` → the FK-column data
 > block, `0x0C = 0x02` (outgoing), `0x11` = parent page, `0x17 = 0x02`, name = the constraint name.
+> That FK-column data block is a real index of the relationship's own, never shared with a primary key or
+> unique index over the same columns, and it is **non-unique unless the relationship is one-to-one**
+> (`MSysRelationships.grbit` `0x01`, which SQL never sets): then its unique flag (§3.5, `0x2E` bit `0x01`)
+> is set, and ACE refuses a second child row with the same key (verified vs ACE, on a child primary-key column
+> and on a plain one).
 > The **parent** (referenced) table gains an **extra** logical block beyond its data blocks:
 > `index_num2` → its referenced-key (PK) data block, `0x0C = 0x01` (incoming), `0x11` = child page,
-> `0x17 = 0x02`, name = an auto-generated hidden `.r?` name. The two ends cross-reference: each block's
-> `0x0D` holds the other block's `index_num` (`0x04`). Logical blocks are stored **sorted by name**;
-> `index_num` is assigned in creation order (a table's own indexes first, then relationships as added). Take
-> the next number as **`max(index_num) + 1`**, not as the logical block count: dropping a relationship removes
-> a block *without* renumbering the survivors' `index_num` (only their data ordinals shift), so after any
-> `DROP CONSTRAINT` the count sits below the max and a count-derived number collides with a live block —
-> leaving two blocks claiming the number each end's `0x0D` cross-link names.
+> `0x17 = 0x02`, name = the hidden name **`.r` followed by the letter `'A' + index_num`** — `.rB` for block 1,
+> `.rC` for 2, `.rD` for 3 (verified vs ACE, in `CREATE TABLE` and `ALTER TABLE` alike; the name past `Z` is
+> not measured). The two ends cross-reference: each block's `0x0D` holds the other block's `index_num`
+> (`0x04`). Logical blocks are stored **sorted by name, ignoring case** (verified: `a3` sorts before `IX2`, a
+> foreign key `fk` before `IX2`; how punctuation and accented letters order is not measured). `index_num` is
+> assigned in creation order (a table's own indexes first, then relationships as added), and a new block —
+> an index, an outgoing or an incoming relationship block — takes the **lowest number no block holds**
+> (verified vs ACE: with 1 and 2 free below a live 3, a new index takes 1; a parent's incoming block likewise
+> takes its lowest free number). Dropping an index or a relationship removes a block *without* renumbering the
+> survivors' `index_num` (only their data ordinals shift), so the free numbers are gaps: neither the logical
+> block count (which collides with a live block, leaving two blocks claiming the number each end's `0x0D`
+> cross-link names) nor `max(index_num) + 1` is the number ACE uses.
 >
 > The parent key must be a **unique or primary** index over the referenced columns. Over a plain
 > non-unique index ACE refuses the relationship — *"No unique index found for the referenced field of the
@@ -208,7 +251,9 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > `0x11` = the table's own page — an outgoing `0x02` block (`index_num2` → the FK-column index) and an
 > incoming `0x01` block (`index_num2` → the referenced-key index), cross-referenced by `index_num`. The
 > incoming block is numbered after the data-block logical indexes (`index_num` = data-block count).
-> Verified byte-for-byte against an ACE-created self-reference.
+> Verified byte-for-byte against an ACE-created self-reference. Added to an existing table, the outgoing
+> block takes the lowest free number and the incoming block the next free one above it (verified: with 1 free
+> below a live 2, outgoing 1 and incoming 3, named `.rD`).
 
 > **`index_num` (`0x04`) vs `index_num2` (`0x08`) (verified).** `0x04` is the
 > logical index's own unique number; `0x08` is the ordinal of the **real index-data block** (§3.5)

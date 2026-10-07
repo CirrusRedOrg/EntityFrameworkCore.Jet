@@ -312,7 +312,7 @@ public class ContractionProbeTest(ITestOutputHelper output)
                           "ا", "ب", "َ", "ُ", "ِ", "ّ"]);
 
         string path = TemporaryDatabase.CreatePath("presentation-v1-");
-        DatabaseCreator.CreateEmpty(path, collation: Collation.General);
+        JetDatabase.Create(path, collation: Collation.General);
         try
         {
             Dictionary<string, string> keys = AceKeys(path, [.. samples]);
@@ -324,7 +324,7 @@ public class ContractionProbeTest(ITestOutputHelper output)
             {
                 if (!keys.TryGetValue(sample, out string? ace)) continue;
                 string ours;
-                try { ours = Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [sample])); }
+                try { ours = Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [sample])); }
                 catch (NotSupportedException) { ours = "(refused)"; }
                 if (ours == ace) continue;
                 output.WriteLine($"   {Describe(sample),-10} ACE {ace,-26} ours {ours}");

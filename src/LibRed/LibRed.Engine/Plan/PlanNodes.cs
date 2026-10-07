@@ -4,7 +4,12 @@ using LibRed.Sql.Ast;
 namespace LibRed.Engine.Plan;
 
 /// <summary>Full-table scan of a base table, exposing its columns under <paramref name="Alias"/>.</summary>
-public sealed record ScanNode(string Table, string? Alias) : PlanNode;
+public sealed record ScanNode(string Table, string? Alias) : PlanNode
+{
+    /// <summary>The column names the query reads, when <c>ColumnPruning</c> has shown nothing else can reach the
+    /// output; every other column is left undecoded and reads as null. Null decodes them all.</summary>
+    public IReadOnlySet<string>? Decode { get; init; }
+}
 
 /// <summary>A FROM-less SELECT source: yields exactly one row with no columns, so a constant projection like
 /// <c>SELECT 2</c> evaluates once. ACE accepts a bare <c>SELECT 2</c> (verified) — this matches that.</summary>
@@ -17,7 +22,11 @@ public sealed record SingleRowNode : PlanNode;
 /// is lossy for text/binary), so the residual predicate is re-checked by the <see cref="FilterNode"/> above.
 /// A key may reference an outer row (index-nested-loop join).
 /// </summary>
-public sealed record IndexSeekNode(string Table, string? Alias, IndexDef Index, IReadOnlyList<Expression> Keys) : PlanNode;
+public sealed record IndexSeekNode(string Table, string? Alias, IndexDef Index, IReadOnlyList<Expression> Keys) : PlanNode
+{
+    /// <summary>As <see cref="ScanNode.Decode"/>.</summary>
+    public IReadOnlySet<string>? Decode { get; init; }
+}
 
 /// <summary>
 /// An index range scan: reads the rows of <paramref name="Table"/> whose single-column <paramref name="Index"/>
@@ -30,11 +39,16 @@ public sealed record IndexSeekNode(string Table, string? Alias, IndexDef Index, 
 /// That is the one case where the index may have several columns: the bounds are what the executor reads a
 /// single column for, and there are none.</para>
 /// </summary>
-public sealed record IndexRangeSeekNode(string Table, string? Alias, IndexDef Index, Expression? Low, Expression? High) : PlanNode;
+public sealed record IndexRangeSeekNode(string Table, string? Alias, IndexDef Index, Expression? Low, Expression? High) : PlanNode
+{
+    /// <summary>As <see cref="ScanNode.Decode"/>.</summary>
+    public IReadOnlySet<string>? Decode { get; init; }
+}
 
 /// <summary>A derived table: the output of <paramref name="Input"/> re-exposed under an alias. The alias
-/// is optional (Access permits an aliasless derived table); its columns are then unqualified.</summary>
-public sealed record DerivedTableNode(PlanNode Input, string? Alias) : PlanNode
+/// is optional (Access permits an aliasless derived table); its columns are then unqualified.
+/// <paramref name="Columns"/>, the column list of <c>AS t(a, b)</c>, renames them in order.</summary>
+public sealed record DerivedTableNode(PlanNode Input, string? Alias, IReadOnlyList<string>? Columns = null) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }
@@ -61,6 +75,11 @@ public sealed record ProjectNode(PlanNode Input, IReadOnlyList<SelectItem> Proje
 public sealed record JoinNode(PlanNode Left, PlanNode Right, JoinKind Kind, Expression? On) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Left, Right];
+
+    /// <summary>The column names the query reads, when <c>ColumnPruning</c> has shown nothing else can reach the
+    /// output: the join passes on only the columns with those names, and builds its rows that narrow. Null
+    /// passes on every column of both sides.</summary>
+    public IReadOnlySet<string>? Keep { get; init; }
 }
 
 /// <summary>
@@ -76,6 +95,9 @@ public sealed record HashJoinNode(
     IReadOnlyList<Expression> LeftKeys, IReadOnlyList<Expression> RightKeys, Expression On) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Left, Right];
+
+    /// <summary>As <see cref="JoinNode.Keep"/>.</summary>
+    public IReadOnlySet<string>? Keep { get; init; }
 }
 
 /// <summary>
@@ -91,10 +113,19 @@ public sealed record AggregateNode(
     IReadOnlyList<SelectItem> Projection,
     Expression? Having,
     IReadOnlyList<OrderByItem> OrderBy,
-    IReadOnlyList<WindowOutput>? Windows = null) : PlanNode
+    IReadOnlyList<WindowOutput>? Windows = null,
+    TieCut? Ties = null) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }
+
+/// <summary>
+/// <c>TOP n [PERCENT] WITH TIES</c> (or <c>[OFFSET m ROWS] FETCH … WITH TIES</c>), cut by the node that orders the
+/// rows, since only it holds their ORDER BY keys: skip <paramref name="Offset"/>, take <paramref name="Count"/> rows —
+/// a percentage of them all, ceil, when <paramref name="Percent"/> — and then every further row whose keys equal the
+/// last one's. It takes the place of a <see cref="LimitNode"/>.
+/// </summary>
+public sealed record TieCut(Expression Count, bool Percent, Expression? Offset);
 
 /// <summary>One window function and the name of the column <see cref="WindowNode"/> publishes its value under.
 /// The planner mints the name and rewrites the call in the projection into a reference to it.</summary>
@@ -125,7 +156,8 @@ public sealed record WindowNode(PlanNode Input, IReadOnlyList<WindowOutput> Outp
 /// when nothing between the two changes the row count; the <see cref="LimitNode"/> still applies the count itself,
 /// so this is purely a way to avoid ordering rows that cannot survive it.
 /// </param>
-public sealed record SortNode(PlanNode Input, IReadOnlyList<OrderByItem> Keys, Expression? Limit = null) : PlanNode
+/// <param name="Ties">A <c>WITH TIES</c> cut this sort makes itself, in place of a <see cref="LimitNode"/>.</param>
+public sealed record SortNode(PlanNode Input, IReadOnlyList<OrderByItem> Keys, Expression? Limit = null, TieCut? Ties = null) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }
@@ -138,8 +170,8 @@ public sealed record SortNode(PlanNode Input, IReadOnlyList<OrderByItem> Keys, E
 /// <remarks>
 /// The expressions may reference outer columns (EF emits <c>VALUES (`p`.`Int`)</c> inside a correlated
 /// subquery), so they are evaluated against the outer scope each time the node runs, not once at planning.
-/// The columns are unnamed: today this only ever appears as an operand of a set operation, whose names come
-/// from the leading query.
+/// The columns are unnamed: a set operation names them from its leading query, and a derived table's column list
+/// (<c>AS v(a, b)</c>) names them.
 /// </remarks>
 public sealed record ValuesNode(IReadOnlyList<IReadOnlyList<Expression>> Rows) : PlanNode
 {

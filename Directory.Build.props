@@ -30,6 +30,10 @@
     <JetTargetFramework>$(EfCoreTargetFramework)</JetTargetFramework>
     <JetTestTargetFramework>net11.0</JetTestTargetFramework>
     <JetTestWindowsOnlyTargetFramework>$(JetTestTargetFramework)-windows7.0</JetTestWindowsOnlyTargetFramework>
+    <!-- LibRed.Core, .Sql, .Engine and .Ado depend on no EF Core package, so they can serve a consumer who
+         is still on the current LTS. LibRed.EFCore is deliberately NOT in this list: it sits on EF Core 11,
+         which is net11.0-only, so it stays on $(JetTargetFramework) like the rest of the repository. -->
+    <LibRedTargetFrameworks>net10.0;$(JetTargetFramework)</LibRedTargetFrameworks>
   </PropertyGroup>
 
   <ItemGroup>

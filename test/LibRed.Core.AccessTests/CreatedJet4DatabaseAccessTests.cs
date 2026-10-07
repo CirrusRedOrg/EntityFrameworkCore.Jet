@@ -17,7 +17,7 @@ public class CreatedJet4DatabaseAccessTests(ITestOutputHelper output)
             .Replace(".accdb", ".mdb", StringComparison.OrdinalIgnoreCase);
         try
         {
-            DatabaseCreator.CreateEmpty(path, version: 0x01);
+            JetDatabase.Create(path, version: 0x01);
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
                 db.CreateTable("People", [

@@ -1,8 +1,9 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed.Catalog;
 using LibRed.Formats;
+using LibRed.Storage;
 using LibRed.IO;
+using LibRed.Pages;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -178,14 +179,13 @@ public class MemoCompressionAccessTests(ITestOutputHelper output) : TempDatabase
             for (int page = 1; page < channel.PageCount; page++)
             {
                 byte[] bytes = channel.ReadPage(page).Span.ToArray();
-                if (bytes[0] != 0x01) continue;
-                if (BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(4, 4)) != definitionPage) continue;
-                if (BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(format.DataRowCountOffset, 2)) == 0)
+                if (PageHeader.ReadType(bytes) != PageType.DataPage) continue;
+                if ((int)DataPage.ReadOwner(bytes, format) != definitionPage) continue;
+                if (DataPage.ReadRowCount(bytes, format) == 0)
                     continue;
 
-                int start = BinaryPrimitives.ReadUInt16LittleEndian(
-                    bytes.AsSpan(format.DataRowDirectoryOffset, 2)) & 0x1FFF;
-                int at = start + 2 + 4;
+                int start = DataPage.ReadSlot(bytes, format, 0).Offset;
+                int at = start + format.RowColumnCountSize + 4;
                 return Convert.ToHexString(bytes.AsSpan(at, format.PageSize - 7 - at));
             }
             return null;
@@ -238,16 +238,15 @@ public class MemoCompressionAccessTests(ITestOutputHelper output) : TempDatabase
             for (int page = 1; page < channel.PageCount; page++)
             {
                 byte[] bytes = channel.ReadPage(page).Span.ToArray();
-                if (bytes[0] != 0x01) continue;
-                if (BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(4, 4)) != definitionPage) continue;
-                if (BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(format.DataRowCountOffset, 2)) == 0)
+                if (PageHeader.ReadType(bytes) != PageType.DataPage) continue;
+                if ((int)DataPage.ReadOwner(bytes, format) != definitionPage) continue;
+                if (DataPage.ReadRowCount(bytes, format) == 0)
                     continue;
 
-                int start = BinaryPrimitives.ReadUInt16LittleEndian(
-                    bytes.AsSpan(format.DataRowDirectoryOffset, 2)) & 0x1FFF;
-                int at = start + 2 + 4;
-                int length = (int)(BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(at, 4)) & 0x3FFFFFFF);
-                return bytes.AsSpan(at + 12, length).ToArray();
+                int start = DataPage.ReadSlot(bytes, format, 0).Offset;
+                int at = start + format.RowColumnCountSize + 4;
+                int length = LongValueStore.Read(bytes.AsSpan(at), format).Length;
+                return bytes.AsSpan(at + format.LongValueDescriptorSize, length).ToArray();
             }
             return null;
         }
@@ -291,18 +290,16 @@ public class MemoCompressionAccessTests(ITestOutputHelper output) : TempDatabase
             for (int page = 1; page < channel.PageCount; page++)
             {
                 byte[] bytes = channel.ReadPage(page).Span.ToArray();
-                if (bytes[0] != 0x01) continue;
-                if (BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(4, 4)) != definitionPage) continue;
-                if (BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(format.DataRowCountOffset, 2)) == 0)
+                if (PageHeader.ReadType(bytes) != PageType.DataPage) continue;
+                if ((int)DataPage.ReadOwner(bytes, format) != definitionPage) continue;
+                if (DataPage.ReadRowCount(bytes, format) == 0)
                     continue;
 
-                int start = BinaryPrimitives.ReadUInt16LittleEndian(
-                    bytes.AsSpan(format.DataRowDirectoryOffset, 2)) & 0x1FFF;
-                int at = start + 2 + 4;   // past the row's column count and the LONG column
-                uint header = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(at, 4));
-                byte flags = (byte)(bytes[at + 3] & 0xC0);
-                return $"{(flags == 0x80 ? "inline" : flags == 0x40 ? "page" : "chained")} "
-                    + $"len={header & 0x3FFFFFFF}";
+                int start = DataPage.ReadSlot(bytes, format, 0).Offset;
+                int at = start + format.RowColumnCountSize + 4;   // past the row's column count and the LONG column
+                (int length, LongValueStore.StorageKind storage, _, _, _) = LongValueStore.Read(bytes.AsSpan(at), format);
+                return $"{(storage == LongValueStore.StorageKind.Inline ? "inline" : storage == LongValueStore.StorageKind.SinglePage ? "page" : "chained")} "
+                    + $"len={length}";
             }
             return null;
         }

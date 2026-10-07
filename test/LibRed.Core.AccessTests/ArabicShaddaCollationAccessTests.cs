@@ -74,7 +74,7 @@ public class ArabicShaddaCollationAccessTests
 
             Assert.Equal(
                 Convert.ToHexString(stored),
-                Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [value])));
+                Convert.ToHexString(IndexKeyCodec.Encode([(column, true)], [value])));
         }
         finally { TemporaryDatabase.Delete(path); }
     }

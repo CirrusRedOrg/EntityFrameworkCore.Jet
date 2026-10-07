@@ -20,7 +20,7 @@ public class LibRedDatabaseCreator(
     // connection used to run a CREATE/DROP DATABASE migration command. LibRedRelationalConnection
     // doesn't support that (there's nothing to connect to before the file exists), so these bypass
     // it entirely and go straight through LibRedConnection's own bootstrap (see its CreateDatabase
-    // remarks: DatabaseCreator.CreateEmpty synthesises the file from scratch - no DAO/ADOX).
+    // remarks: JetDatabase.Create synthesises the file from scratch - no DAO/ADOX).
     public override void Create()
         => LibRedConnection.CreateDatabase(relationalConnection.DbConnection.ConnectionString);
 

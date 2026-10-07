@@ -4,7 +4,7 @@ using Xunit;
 namespace LibRed.Core.Tests;
 
 // Ground truth for our DROP COLUMN guard: ACE REJECTS dropping a column that is part of an index/key or a
-// relationship — it never cascades, you must drop the dependent first. (Our TableCreator.DropColumn mirrors
+// relationship — it never cascades, you must drop the dependent first. (Our SchemaEditor.DropColumn mirrors
 // this: it throws for an indexed/keyed column and for a column participating in a relationship.)
 [Collection(AceCollection.Name)]
 public class DropColumnConstraintAccessTests

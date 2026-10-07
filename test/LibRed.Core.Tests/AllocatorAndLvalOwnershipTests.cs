@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
 using LibRed.Storage;
@@ -16,34 +17,38 @@ public class AllocatorAndLvalOwnershipTests
     public void Allocator_rejects_invalid_pages_marked_free(string corruption)
     {
         using var fixture = new Fixture();
-        (byte[] page, RowSlot slot) = GlobalMap(fixture.Table);
+        JetFormatBase format = fixture.Table.Channel.Format;
+        (_, int holder, byte[] page, DataPage.RowSlot slot) = TestDatabases.GlobalMap(fixture.Table.Channel, format.FreePagesMapPointerOffset);
         Span<byte> map = page.AsSpan(slot.Offset, slot.Length);
-        Assert.Equal(0, map[0]);
-        map[5..].Clear();
+        Assert.Equal(UsageMapType.Inline, UsageMap.RecordType(map));
+        Span<byte> bits = UsageMap.InlineBits(map, format);
+        bits.Clear();
 
-        int start = BinaryPrimitives.ReadInt32LittleEndian(map.Slice(1, 4));
-        int target = corruption == "reserved" ? 1 : fixture.Table.Channel.PageCount + 1;
+        // "reserved": the map's own holder page, which can never be handed out.
+        int start = UsageMap.StartPage(map, format);
+        int target = corruption == "reserved" ? holder : fixture.Table.Channel.PageCount + 1;
         int bit = target - start;
-        Assert.InRange(bit, 0, (map.Length - 5) * 8 - 1);
-        map[5 + bit / 8] |= (byte)(1 << (bit % 8));
-        fixture.Table.Channel.WritePage(1, page);
+        Assert.InRange(bit, 0, bits.Length * 8 - 1);
+        BitmapBits.Set(bits, bit, true);
+        fixture.Table.Channel.WritePage(holder, page);
 
-        Assert.Throws<InvalidDataException>(() => new PageAllocator(fixture.Table.Channel).Allocate());
+        Assert.Throws<InvalidDataException>(() => fixture.Table.Channel.Allocator.Allocate());
     }
 
     [Fact]
     public void Allocator_rejects_an_out_of_file_reference_bitmap_pointer()
     {
         using var fixture = new Fixture();
-        (byte[] page, RowSlot slot) = GlobalMap(fixture.Table);
+        JetFormatBase format = fixture.Table.Channel.Format;
+        (_, int holder, byte[] page, DataPage.RowSlot slot) = TestDatabases.GlobalMap(fixture.Table.Channel, format.FreePagesMapPointerOffset);
         Span<byte> map = page.AsSpan(slot.Offset, slot.Length);
-        Assert.True(map.Length >= 69);
+        Assert.True(map.Length >= format.UsageMapReferenceRecordSize);
         map.Clear();
-        map[0] = 1;
-        BinaryPrimitives.WriteInt32LittleEndian(map.Slice(1, 4), fixture.Table.Channel.PageCount + 1);
-        fixture.Table.Channel.WritePage(1, page);
+        UsageMap.NewReferenceRecord(format).CopyTo(map);
+        UsageMap.WriteReferencePointer(map, 0, format, fixture.Table.Channel.PageCount + 1);
+        fixture.Table.Channel.WritePage(holder, page);
 
-        Assert.Throws<InvalidDataException>(() => new PageAllocator(fixture.Table.Channel).Allocate());
+        Assert.Throws<InvalidDataException>(() => fixture.Table.Channel.Allocator.Allocate());
     }
 
     [Fact]
@@ -53,14 +58,14 @@ public class AllocatorAndLvalOwnershipTests
         int tablePage = fixture.Table.UsageMap.DataPages().First();
 
         Assert.Throws<InvalidDataException>(() =>
-            new LongValueWriter(fixture.Table.Channel).TryAppend(tablePage, [1]));
+            new LongValueStore(fixture.Table.Channel).TryAppend(tablePage, [1]));
     }
 
     [Fact]
     public void Lval_append_rejects_inconsistent_free_space_before_mutation()
     {
         using var fixture = new Fixture();
-        var writer = new LongValueWriter(fixture.Table.Channel);
+        var writer = new LongValueStore(fixture.Table.Channel);
         int pageNumber = writer.WriteNewPage([1]);
         byte[] page = fixture.Table.Channel.ReadPage(pageNumber).Span.ToArray();
         BinaryPrimitives.WriteUInt16LittleEndian(
@@ -75,7 +80,7 @@ public class AllocatorAndLvalOwnershipTests
     {
         using var fixture = new Fixture();
         ColumnDef column = fixture.Table.Definition.Columns.First(c => c.Type == JetDataType.Ole);
-        var definition = new TableDefinitionPage();
+        var definition = new TableDefinition();
         definition.Read(fixture.Table.Channel, fixture.Table.Definition.DefinitionPage);
         (_, int mapPage) = definition.LongValueOwnedMaps[column.ColumnId];
 
@@ -106,28 +111,20 @@ public class AllocatorAndLvalOwnershipTests
         PageBuffer page = table.Channel.ReadPage(id.Page);
         Assert.True(DataPage.TryReadRow(page, table.Channel.Format, id.Row, out _, out ReadOnlySpan<byte> row));
         ColumnDef memo = table.Definition.FindColumn("M")!;
-        byte[] descriptor = new RowDecoder(table.Definition.Columns, table.Channel.Format)
-            .LongValueRaw(row)[memo.Index];
-        int firstPage = descriptor[5] | descriptor[6] << 8 | descriptor[7] << 16;
+        byte[] descriptor = RowCodec
+            .LongValueDescriptors(table.Definition.Columns, table.Channel.Format, row)[memo.Index];
+        int firstPage = LongValueStore.Read(descriptor, table.Channel.Format).Page;
 
-        var definition = new TableDefinitionPage();
+        var definition = new TableDefinition();
         definition.Read(table.Channel, table.Definition.DefinitionPage);
         (int mapRow, int mapPage) = definition.LongValueOwnedMaps[memo.ColumnId];
-        new UsageMapWriter(table.Channel).SetBit(mapRow, mapPage, firstPage, set: false);
+        new UsageMap(table.Channel).SetBit(mapRow, mapPage, firstPage, set: false);
 
         object?[] updated = (object?[])values.Clone();
         updated[memo.Index] = new string('b', 5000);
         Assert.Throws<InvalidDataException>(() =>
             table.Update(id, updated, new HashSet<int> { memo.Index }));
         Assert.Equal(original, table.Rows().Single()[memo.Index]);
-    }
-
-    private static (byte[] Page, RowSlot Slot) GlobalMap(Table table)
-    {
-        byte[] page = table.Channel.ReadPage(1).Span.ToArray();
-        var parsed = new DataPage();
-        parsed.Read(table.Channel.ReadPage(1), table.Channel.Format);
-        return (page, parsed.Rows[0]);
     }
 
     private sealed class Fixture : IDisposable

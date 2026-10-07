@@ -1,7 +1,7 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed.Catalog;
 using LibRed.IO;
+using LibRed.Pages;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -82,7 +82,7 @@ public class RelationshipByteParityAccessTests(ITestOutputHelper output) : TempD
         try
         {
             using var database = JetDatabase.Open(path, readOnly: true);
-            TableDef rel = database.Catalog.FindTable("MSysRelationships")!;
+            TableDefinition rel = database.Catalog.FindTable("MSysRelationships")!;
             int Col(string name) => rel.Columns.Single(c => c.Name == name).Index;
             int szObject = Col("szObject"), szReferenced = Col("szReferencedObject");
             int szColumn = Col("szColumn"), szReferencedColumn = Col("szReferencedColumn");
@@ -112,16 +112,13 @@ public class RelationshipByteParityAccessTests(ITestOutputHelper output) : TempD
             string names;
             using (var database = JetDatabase.Open(path, readOnly: true))
             {
-                TableDef def = database.Catalog.FindTable(table)!;
+                TableDefinition def = database.Catalog.FindTable(table)!;
                 definitionPage = def.DefinitionPage;
                 names = string.Join(", ", def.Indexes.Select(i => i.Name));
             }
 
             using var channel = PageChannel.Open(path, readOnly: true);
-            byte[] page = channel.ReadPage(definitionPage).Span.ToArray();
-            int length = BinaryPrimitives.ReadInt32LittleEndian(
-                page.AsSpan(channel.Format.TdefLengthOffset, 4));
-            return (length > 0 && length <= page.Length ? page.AsSpan(0, length).ToArray() : page, names);
+            return (TableDefinition.ReadChain(channel, definitionPage).Buffer.Span.ToArray(), names);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

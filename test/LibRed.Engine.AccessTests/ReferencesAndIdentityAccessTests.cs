@@ -182,6 +182,41 @@ public class ReferencesAndIdentityAccessTests : TempDatabaseTest
     public void Add_column_constraints_match_ace(string statements, bool accepted)
         => AssertSameOutcome(statements, "T", insertColumn: "V", accepted);
 
+    // A key's values are held to the same rules on every write, not only when the index is built: a primary key
+    // and a WITH DISALLOW NULL index take no Null, from INSERT or UPDATE. An AutoNumber takes no UPDATE at all —
+    // not even to its own value, and whether or not it is a key — nor an explicit Null on INSERT, while an
+    // explicit number is accepted and the counter carries on after it.
+    public static TheoryData<string, bool> KeyWrites => new()
+    {
+        { "CREATE TABLE T (Id LONG, V TEXT(10), CONSTRAINT pk PRIMARY KEY (Id));INSERT INTO T (V) VALUES ('a')", false },
+        { "CREATE TABLE T (Id LONG CONSTRAINT pk PRIMARY KEY, V TEXT(10));INSERT INTO T (Id, V) VALUES (NULL, 'a')", false },
+        { "CREATE TABLE T (Id LONG CONSTRAINT pk PRIMARY KEY, V TEXT(10));INSERT INTO T (Id, V) VALUES (1, 'a');UPDATE T SET Id = NULL", false },
+        { "CREATE TABLE T (V TEXT(10), W LONG);CREATE INDEX ix ON T (W) WITH DISALLOW NULL;INSERT INTO T (V) VALUES ('a')", false },
+        { "CREATE TABLE T (V TEXT(10), W LONG);CREATE INDEX ix ON T (W) WITH DISALLOW NULL;INSERT INTO T (V, W) VALUES ('a', 1);UPDATE T SET W = NULL", false },
+        { "CREATE TABLE T (V TEXT(10), W LONG);CREATE INDEX ix ON T (W) WITH IGNORE NULL;INSERT INTO T (V) VALUES ('a')", true },
+        { "CREATE TABLE T (Id COUNTER CONSTRAINT pk PRIMARY KEY, V TEXT(10));INSERT INTO T (V) VALUES ('a');UPDATE T SET Id = 5", false },
+        { "CREATE TABLE T (Id COUNTER CONSTRAINT pk PRIMARY KEY, V TEXT(10));INSERT INTO T (V) VALUES ('a');UPDATE T SET Id = Id", false },
+        { "CREATE TABLE T (Id COUNTER, V TEXT(10));INSERT INTO T (V) VALUES ('a');UPDATE T SET Id = Id", false },
+        { "CREATE TABLE T (Id COUNTER, V TEXT(10));INSERT INTO T (V) VALUES ('a');UPDATE T SET Id = NULL", false },
+        { "CREATE TABLE T (Id COUNTER CONSTRAINT pk PRIMARY KEY, V TEXT(10));INSERT INTO T (Id, V) VALUES (50, 'a')", true },
+        { "CREATE TABLE T (Id COUNTER CONSTRAINT pk PRIMARY KEY, V TEXT(10));INSERT INTO T (Id, V) VALUES (NULL, 'a')", false },
+    };
+
+    [Theory]
+    [MemberData(nameof(KeyWrites))]
+    public void Key_and_autonumber_writes_match_ace(string statements, bool accepted)
+        => AssertSameOutcome(statements, "T", insertColumn: "V", accepted);
+
+    // An unnamed UNIQUE or CHECK gets a generated name, and a table name can use all 64 characters a name may
+    // have — so the generated name must still fit, or a table ACE creates is refused.
+    [Fact]
+    public void Unnamed_constraints_on_a_64_character_table_match_ace()
+    {
+        string table = new('T', 64);
+        AssertSameOutcome($"CREATE TABLE [{table}] (V TEXT(10) UNIQUE, W LONG)", table, insertColumn: null, accepted: true);
+        AssertSameOutcome($"CREATE TABLE [{table}] (V TEXT(10), W LONG, UNIQUE (V), CHECK (W > 0))", table, insertColumn: null, accepted: true);
+    }
+
     [Fact]
     public void Identity_on_alter_table_matches_ace()
     {
@@ -244,7 +279,7 @@ public class ReferencesAndIdentityAccessTests : TempDatabaseTest
         string? counter;
         using (var db = JetDatabase.Open(path))
         {
-            TableDef t = db.Catalog.FindTable(table)!;
+            TableDefinition t = db.Catalog.FindTable(table)!;
             description.AddRange(t.Columns.Select(c =>
                 $"{c.Name} {c.Type} autonumber={c.IsAutoNumber} required={!c.IsNullable}"));
             description.AddRange(db.Catalog.ForeignKeysOf(table).Select(fk =>

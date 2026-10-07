@@ -69,7 +69,7 @@ public class ThaiReorderProbeTest(ITestOutputHelper output)
         {
             if (!ace.TryGetValue(text, out string? stored)) continue;
             string? asGeneral = null;
-            try { asGeneral = Convert.ToHexString(IndexKeyEncoder.Encode([(general, true)], [text])); }
+            try { asGeneral = Convert.ToHexString(IndexKeyCodec.Encode([(general, true)], [text])); }
             catch (NotSupportedException) { refused++; continue; }
             if (asGeneral == stored) { same++; continue; }
             departures.Add($"  {Describe(text),-30} Thai {stored,-34} General {asGeneral}");

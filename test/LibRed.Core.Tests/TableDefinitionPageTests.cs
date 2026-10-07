@@ -10,15 +10,12 @@ namespace LibRed.Core.Tests;
 
 public class TableDefinitionPageTests
 {
-    // In Jet 4 / ACE the system catalog table MSysObjects has its TDEF on page 2.
-    private const int MSysObjectsPage = 2;
-
     [Fact]
     public void Reads_MSysObjects_table_definition()
     {
         using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
 
-        var tdef = db.ReadTableDefinition(MSysObjectsPage);
+        var tdef = db.ReadTableDefinition(db.DefinitionPage.CatalogRootPage);
 
         Assert.Equal(TableType.System, tdef.TableType);
         Assert.Equal(17, tdef.ColumnCount);
@@ -33,7 +30,7 @@ public class TableDefinitionPageTests
     {
         using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
 
-        var tdef = db.ReadTableDefinition(MSysObjectsPage);
+        var tdef = db.ReadTableDefinition(db.DefinitionPage.CatalogRootPage);
         var names = tdef.Columns.Select(c => c.Name).ToList();
 
         // Known MSysObjects columns (a few stable ones, observed in the file).
@@ -59,26 +56,28 @@ public class TableDefinitionPageTests
     {
         using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
         JetFormatBase format = db.Format;
-        byte[] page = TdefBuilder.Build(format, TableType.User,
-            [new ColumnSpec("C", JetDataType.Int32, 4, IsFixedLength: true)]).Page;
+        byte[] page = TableDefinition.Build(format, TableType.User,
+            [new ColumnSpec("C", JetDataType.Int32, 4, IsFixedLength: true)], Collation.GeneralLegacy).Page;
 
         switch (field)
         {
             case "columns":
-                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefColumnCountOffset, 2), 256);
+                BinaryPrimitives.WriteUInt16LittleEndian(
+                    page.AsSpan(format.TdefColumnCountOffset, 2), (ushort)(format.MaxColumnsPerTable + 1));
                 break;
             case "variable-columns":
-                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefVariableColumnsOffset, 2), 256);
+                BinaryPrimitives.WriteUInt16LittleEndian(
+                    page.AsSpan(format.TdefVariableColumnsOffset, 2), (ushort)(format.MaxColumnsPerTable + 1));
                 break;
             case "real-indexes":
-                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefIndexCountOffset, 4), 33);
+                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefIndexCountOffset, 4), format.MaxIndexesPerTable + 1);
                 break;
             case "logical-indexes":
                 BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefLogicalIndexCountOffset, 4), -1);
                 break;
         }
 
-        var definition = new TableDefinitionPage();
+        var definition = new TableDefinition();
         Assert.Throws<InvalidDataException>(() => definition.Read(new PageBuffer(page, 99), format));
     }
 }

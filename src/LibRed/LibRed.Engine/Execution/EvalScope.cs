@@ -16,11 +16,23 @@ internal sealed class EvalScope(
     // the schema and outer link are fixed for the scope's lifetime.
     private object?[] row = row;
 
-    /// <summary>Points this scope at a new row of the same schema (see <see cref="Rebind"/>'s callers for why
+    /// <summary>Points this scope at a new row of the same schema (see <see cref="Rebind(object?[])"/>'s callers for why
     /// reuse is worthwhile). Returns the scope for fluent use.</summary>
     public EvalScope Rebind(object?[] newRow)
     {
         row = newRow;
+        return this;
+    }
+
+    // The precomputed aggregates, rebindable with the row: a grouped query evaluates every group through one
+    // scope, each group bringing its key row and its own aggregate values.
+    private IReadOnlyDictionary<FunctionCall, object?>? aggregates = aggregates;
+
+    /// <summary>Points this scope at another group: its key row and its aggregates' values.</summary>
+    public EvalScope Rebind(object?[] newRow, IReadOnlyDictionary<FunctionCall, object?> newAggregates)
+    {
+        row = newRow;
+        aggregates = newAggregates;
         return this;
     }
 
@@ -34,19 +46,26 @@ internal sealed class EvalScope(
         return false;
     }
 
+    // Where each reference resolved, by reference. Only the row moves between rows (see Rebind), so where a
+    // reference lands does not, and neither does whether it is ambiguous.
+    private Dictionary<ColumnReference, int>? _resolved;
+
     public bool TryResolve(ColumnReference reference, out object? value)
     {
-        int found = -1;
-        for (int i = 0; i < schema.Count; i++)
+        // Resolve each reference once rather than re-scanning every column — two case-insensitive compares
+        // apiece, and no early exit, since the same pass is proving the reference unambiguous — for every row.
+        // A scope with no schema of its own resolves nothing here and goes straight out, so it memoises
+        // nothing. An ambiguous reference throws rather than caching, and would throw again either way.
+        int found;
+        if (schema.Count == 0)
         {
-            bool nameMatch = string.Equals(schema[i].Name, reference.Column, StringComparison.OrdinalIgnoreCase);
-            bool qualifierMatch = reference.Table is null
-                || string.Equals(schema[i].Qualifier, reference.Table, StringComparison.OrdinalIgnoreCase);
-            if (!nameMatch || !qualifierMatch) continue;
-
-            if (found >= 0)
-                throw new InvalidOperationException($"Column reference '{Describe(reference)}' is ambiguous.");
-            found = i;
+            found = -1;
+        }
+        else
+        {
+            _resolved ??= [];
+            if (!_resolved.TryGetValue(reference, out found))
+                _resolved[reference] = found = Locate(schema, reference);
         }
 
         if (found >= 0)
@@ -60,6 +79,29 @@ internal sealed class EvalScope(
 
         value = null;
         return false;
+    }
+
+    /// <summary>The index of the one column of <paramref name="schema"/> that <paramref name="reference"/> names,
+    /// or -1 for none. Scans to the end whether or not it has matched, because finding a second match is what
+    /// makes the reference ambiguous — which throws, or with <paramref name="throwIfAmbiguous"/> false is -1 too,
+    /// for a caller planning ahead that must leave the error to the row that would raise it.</summary>
+    internal static int Locate(IReadOnlyList<OutputColumn> schema, ColumnReference reference, bool throwIfAmbiguous = true)
+    {
+        int found = -1;
+        for (int i = 0; i < schema.Count; i++)
+        {
+            bool nameMatch = string.Equals(schema[i].Name, reference.Column, StringComparison.OrdinalIgnoreCase);
+            bool qualifierMatch = reference.Table is null
+                || string.Equals(schema[i].Qualifier, reference.Table, StringComparison.OrdinalIgnoreCase);
+            if (!nameMatch || !qualifierMatch) continue;
+
+            if (found >= 0)
+                return throwIfAmbiguous
+                    ? throw new InvalidOperationException($"Column reference '{Describe(reference)}' is ambiguous.")
+                    : -1;
+            found = i;
+        }
+        return found;
     }
 
     internal static string Describe(ColumnReference r) => r.Table is null ? r.Column : $"{r.Table}.{r.Column}";
@@ -98,6 +140,10 @@ internal sealed class EvalScope(
 /// <summary>Executes a subquery, correlating it to an enclosing query's scope.</summary>
 internal interface IScalarSubqueryRunner
 {
+    /// <summary>How text compares in this database: its page-0 collation, which every query-time text
+    /// comparison uses whatever its operands (see <see cref="LibRed.Storage.JetTextComparer"/>).</summary>
+    LibRed.Storage.JetTextComparer TextComparer { get; }
+
     /// <summary>The subquery's single value, correlated to <paramref name="outerScope"/>.</summary>
     object? ExecuteScalar(SqlStatement query, EvalScope outerScope);
 

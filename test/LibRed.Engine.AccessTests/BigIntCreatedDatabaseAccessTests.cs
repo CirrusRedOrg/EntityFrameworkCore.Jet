@@ -41,10 +41,10 @@ public class BigIntCreatedDatabaseAccessTests : TempDatabaseTest
         try
         {
             LibRedConnection.CreateDatabase($"Data Source={path}");   // the ACE 12 default, which cannot hold it
-            Assert.Equal(0x02, VersionByte(path));
 
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
+                Assert.Equal(JetVersion.Version12_2007, db.Format.Version);
                 var engine = new QueryEngine(db);
                 engine.ExecuteNonQuery("CREATE TABLE `B` (`Id` INTEGER PRIMARY KEY, `V` BIGINT NULL)");
                 Assert.Equal(JetVersion.Version16_2016, db.Format.Version);
@@ -54,7 +54,8 @@ public class BigIntCreatedDatabaseAccessTests : TempDatabaseTest
                         new Dictionary<string, object?> { ["id"] = i, ["v"] = values[i] });
             }
 
-            Assert.Equal(0x05, VersionByte(path));
+            using (var reopened = JetDatabase.Open(path))
+                Assert.Equal(JetVersion.Version16_2016, reopened.Format.Version);
 
             using var connection = AceTestDatabase.Open(path);
             using var command = connection.CreateCommand();
@@ -66,12 +67,5 @@ public class BigIntCreatedDatabaseAccessTests : TempDatabaseTest
             Assert.Equal(values, read);
         }
         finally { TemporaryDatabase.Delete(path); }
-    }
-
-    private static byte VersionByte(string path)
-    {
-        using var stream = File.OpenRead(path);
-        stream.Seek(0x14, SeekOrigin.Begin);
-        return (byte)stream.ReadByte();
     }
 }

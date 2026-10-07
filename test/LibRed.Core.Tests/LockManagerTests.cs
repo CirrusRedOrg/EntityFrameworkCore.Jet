@@ -66,7 +66,7 @@ public class LockManagerTests
     public void Acquire_returns_one_shared_manager_per_path_and_frees_it_on_last_release()
     {
         MonitorLockManager a = MonitorLockManager.Acquire(@"C:\dir\db.accdb");
-        MonitorLockManager b = MonitorLockManager.Acquire(@"C:\dir\DB.accdb"); // same file (case-insensitive)
+        MonitorLockManager b = MonitorLockManager.Acquire(@"C:\dir\db.accdb");
         Assert.Same(a, b);
 
         // Two acquisitions → two releases; a fresh acquire after that is a new manager (the old was disposed).
@@ -74,6 +74,27 @@ public class LockManagerTests
         MonitorLockManager.Release(@"C:\dir\db.accdb");
         Assert.NotSame(a, MonitorLockManager.Acquire(@"C:\dir\db.accdb"));
         MonitorLockManager.Release(@"C:\dir\db.accdb");
+    }
+
+    // Paths differing only in case name one file where file names are case-insensitive (Windows, macOS) and two on
+    // Linux, and the manager follows the file (FileIdentity): sharing one there would pool two files' pages.
+    [Fact]
+    public void Paths_differing_in_case_share_a_manager_only_where_file_names_ignore_case()
+    {
+        MonitorLockManager a = MonitorLockManager.Acquire(@"C:\dir\case.accdb");
+        MonitorLockManager b = MonitorLockManager.Acquire(@"C:\dir\CASE.accdb");
+        try
+        {
+            if (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
+                Assert.Same(a, b);
+            else
+                Assert.NotSame(a, b);
+        }
+        finally
+        {
+            MonitorLockManager.Release(@"C:\dir\case.accdb");
+            MonitorLockManager.Release(@"C:\dir\CASE.accdb");
+        }
     }
 
     [Fact]

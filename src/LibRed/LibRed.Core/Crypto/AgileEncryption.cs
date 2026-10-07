@@ -1,3 +1,5 @@
+using LibRed.Formats;
+using LibRed.Pages;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
@@ -14,18 +16,23 @@ namespace LibRed.Crypto;
 /// <remarks>
 /// The <c>EncryptionInfo</c> XML descriptor lives in page 0 (after the masked header). The data key is
 /// recovered from the password + descriptor; each page N is then decrypted with
-/// <c>IV = Hash(keyDataSalt ‖ (LE32(N) ⊕ dbEncodingKey))</c>. The <c>⊕ dbEncodingKey</c> (the 4-byte key at
+/// <c>IV = Hash(keyDataSalt ‖ LE32(N ⊕ databaseKey))</c>. The <c>⊕ databaseKey</c> (the 4-byte key at
 /// page-0 <c>0x3E</c>) is Access's deviation from stock Agile. Verified byte-for-byte against a real
 /// password-protected file (decrypted pages match the unencrypted twin).
 /// </remarks>
 public sealed class AgileEncryption : IPageCodec
 {
-    private const int EncryptionInfoLengthOffset = 0x299;
-    private const int EncryptionInfoOffset = 0x29B;
+    /// <summary>An Agile EncryptionInfo opens with version 4.4 and <see cref="EncryptionInfoFlags.Agile"/>, then the XML
+    /// (verified against a real file).</summary>
+    internal static ReadOnlySpan<byte> AgilePrefix => [0x04, 0x00, 0x04, 0x00, (byte)EncryptionInfoFlags.Agile, 0x00, 0x00, 0x00];
+
+
+    // The one profile Access writes and this reads: AES-256-CBC (16-byte blocks), SHA-512, 16-byte salts and
+    // 100000 spins. Create emits exactly these, and ValidateSupportedProfile refuses anything else.
     private const int SupportedBlockSize = 16;
     private const int SupportedKeyBits = 256;
     private const int SupportedSpinCount = 100000;
-    private static ReadOnlySpan<byte> AgilePrefix => [0x04, 0x00, 0x04, 0x00, 0x40, 0x00, 0x00, 0x00];
+    private const int SupportedSaltSize = 16;
 
     // Block keys that salt the key-derivation for each purpose (MS-OFFCRYPTO §2.3.4.13/§2.3.4.14).
     private static readonly byte[] BlockVerifierHashInput = [0xFE, 0xA7, 0xD2, 0x76, 0x3B, 0x4B, 0x9E, 0x79];
@@ -35,15 +42,15 @@ public sealed class AgileEncryption : IPageCodec
     private readonly byte[] _secretKey;    // the data-encryption key
     private readonly byte[] _keyDataSalt;
     private readonly int _blockSize;
-    private readonly byte[] _encodingKey;  // 4-byte database key (page-0 0x3E)
-    private readonly HashKind _hash;       // the descriptor's hashAlgorithm (also used per-page for the IV)
+    private readonly int _databaseKey;     // page-0 0x3E
+    private readonly HashAlgorithmName _hash; // the descriptor's hashAlgorithm (also used per-page for the IV)
 
-    private AgileEncryption(byte[] secretKey, byte[] keyDataSalt, int blockSize, byte[] encodingKey, HashKind hash)
+    private AgileEncryption(byte[] secretKey, byte[] keyDataSalt, int blockSize, int databaseKey, HashAlgorithmName hash)
     {
         _secretKey = secretKey;
         _keyDataSalt = keyDataSalt;
         _blockSize = blockSize;
-        _encodingKey = encodingKey;
+        _databaseKey = databaseKey;
         _hash = hash;
     }
 
@@ -52,15 +59,17 @@ public sealed class AgileEncryption : IPageCodec
     /// (the file is not encrypted). Throws if the file is encrypted but no/incorrect password is supplied, or if
     /// the scheme is not the verified Agile (AES + SHA-512) configuration.
     /// </summary>
-    public static AgileEncryption? TryCreate(ReadOnlySpan<byte> page0, int databaseKey, string? password)
+    public static AgileEncryption? TryCreate(ReadOnlySpan<byte> page0, int databaseKey, string? password,
+        JetFormatBase format)
     {
+        ArgumentNullException.ThrowIfNull(format);
         if (databaseKey == 0)
             return null; // unencrypted
 
         // Detection keys off the actual Agile EncryptionInfo descriptor, not merely the nonzero key byte:
         // a legacy RC4 scheme (or a synthetic file with an incidental nonzero 0x3E) has no such descriptor
         // and is treated as unencrypted here rather than mis-flagged.
-        XElement? enc = LocateEncryptionInfo(page0);
+        XElement? enc = LocateEncryptionInfo(page0, format);
         if (enc is null)
             return null;
         if (password is null)
@@ -72,7 +81,7 @@ public sealed class AgileEncryption : IPageCodec
             XElement encKey = enc.Descendants().First(e => e.Name.LocalName == "encryptedKey");
 
             RequireAes(keyData, encKey);
-            HashKind hash = ParseHash((string)encKey.Attribute("hashAlgorithm")!);
+            HashAlgorithmName hash = ParseHash((string)encKey.Attribute("hashAlgorithm")!);
 
             byte[] keyDataSalt = B64(keyData, "saltValue");
             int blockSize = IntAttribute(keyData, "blockSize");
@@ -83,8 +92,8 @@ public sealed class AgileEncryption : IPageCodec
             int keyBytes = keyBits / 8;
 
             ValidateSupportedProfile(keyData, encKey, hash, blockSize, keyBits, spinCount);
-            RequireLength(keyDataSalt, 16, "keyData saltValue");
-            RequireLength(pwdSalt, 16, "encryptedKey saltValue");
+            RequireLength(keyDataSalt, SupportedSaltSize, "keyData saltValue");
+            RequireLength(pwdSalt, SupportedSaltSize, "encryptedKey saltValue");
 
             // Cross-check the descriptor's declared sizes against reality: the salt bytes must be saltSize long, the
             // hash must match hashSize, and both elements must name the same hash. A disagreement means a malformed or
@@ -92,16 +101,8 @@ public sealed class AgileEncryption : IPageCodec
             VerifyDeclaredSizes(keyData, hash, keyDataSalt.Length);
             VerifyDeclaredSizes(encKey, hash, pwdSalt.Length);
 
-            // H_spin = Hash(salt ‖ UTF16LE(password)), then spinCount iterations of Hash(LE32(i) ‖ H).
-            byte[] hspin = Hash(hash, pwdSalt, Encoding.Unicode.GetBytes(password));
-            Span<byte> iter = stackalloc byte[4];
-            for (int i = 0; i < spinCount; i++)
-            {
-                BinaryPrimitives.WriteInt32LittleEndian(iter, i);
-                hspin = Hash(hash, iter.ToArray(), hspin);
-            }
-
-            byte[] DeriveKey(byte[] blockKey) => Fit(Hash(hash, hspin, blockKey), keyBytes);
+            byte[] hspin = SpinHash(hash, pwdSalt, password, spinCount);
+            byte[] DeriveKey(byte[] blockKey) => Fit(CryptographicOperations.HashData(hash, [.. hspin, .. blockKey]), keyBytes);
 
             // Verify the password before trusting anything: SHA(verifierInput) must equal verifierValue.
             byte[] encryptedVerifierInput = B64(encKey, "encryptedVerifierHashInput");
@@ -111,18 +112,16 @@ public sealed class AgileEncryption : IPageCodec
             RequireLength(encryptedVerifierValue, HashSize(hash), "encryptedVerifierHashValue");
             RequireLength(encryptedKeyValue, keyBytes, "encryptedKeyValue");
 
-            byte[] verifierInput = AesCbcDecrypt(DeriveKey(BlockVerifierHashInput), pwdSalt, encryptedVerifierInput);
-            byte[] verifierValue = AesCbcDecrypt(DeriveKey(BlockVerifierHashValue), pwdSalt, encryptedVerifierValue);
-            byte[] check = Hash(hash, verifierInput);
+            byte[] verifierInput = AesCbc(DeriveKey(BlockVerifierHashInput), pwdSalt, encryptedVerifierInput, encrypt: false);
+            byte[] verifierValue = AesCbc(DeriveKey(BlockVerifierHashValue), pwdSalt, encryptedVerifierValue, encrypt: false);
+            byte[] check = CryptographicOperations.HashData(hash, verifierInput);
             if (!CryptographicOperations.FixedTimeEquals(verifierValue, check))
                 throw new UnauthorizedAccessException("Incorrect database password.");
 
             // Recover the data-encryption key.
-            byte[] secretKey = AesCbcDecrypt(DeriveKey(BlockKeyValue), pwdSalt, encryptedKeyValue);
+            byte[] secretKey = AesCbc(DeriveKey(BlockKeyValue), pwdSalt, encryptedKeyValue, encrypt: false);
 
-            byte[] encodingKey = new byte[4];
-            BinaryPrimitives.WriteInt32LittleEndian(encodingKey, databaseKey);
-            return new AgileEncryption(secretKey, keyDataSalt, blockSize, encodingKey, hash);
+            return new AgileEncryption(secretKey, keyDataSalt, blockSize, databaseKey, hash);
         }
         catch (NotSupportedException) { throw; }
         catch (UnauthorizedAccessException) { throw; }
@@ -139,51 +138,39 @@ public sealed class AgileEncryption : IPageCodec
     /// run forward — generate salts + a random data key, wrap it, and emit the descriptor Access writes.</summary>
     internal static (byte[] Descriptor, AgileEncryption Codec) Create(string password, int databaseKey)
     {
-        const HashKind hash = HashKind.Sha512;
-        const int keyBytes = 32, blockSize = 16, spinCount = 100000;
-        byte[] keyDataSalt = RandomBytes(16), pwdSalt = RandomBytes(16), secretKey = RandomBytes(keyBytes);
+        HashAlgorithmName hash = HashAlgorithmName.SHA512;
+        const int keyBytes = SupportedKeyBits / 8;
+        byte[] keyDataSalt = RandomNumberGenerator.GetBytes(SupportedSaltSize);
+        byte[] pwdSalt = RandomNumberGenerator.GetBytes(SupportedSaltSize);
+        byte[] secretKey = RandomNumberGenerator.GetBytes(keyBytes);
 
-        // H_spin = Hash(pwdSalt ‖ UTF16LE(password)), then spinCount folds of Hash(LE32(i) ‖ H).
-        byte[] hspin = Hash(hash, pwdSalt, Encoding.Unicode.GetBytes(password));
-        byte[] iter = new byte[4];
-        for (int i = 0; i < spinCount; i++) { BinaryPrimitives.WriteInt32LittleEndian(iter, i); hspin = Hash(hash, iter, hspin); }
-        byte[] DeriveKey(byte[] blockKey) => Fit(Hash(hash, hspin, blockKey), keyBytes);
+        byte[] hspin = SpinHash(hash, pwdSalt, password, SupportedSpinCount);
+        byte[] DeriveKey(byte[] blockKey) => Fit(CryptographicOperations.HashData(hash, [.. hspin, .. blockKey]), keyBytes);
 
-        byte[] verifierInput = RandomBytes(16);
-        byte[] encVerifierInput = AesCbcEncrypt(DeriveKey(BlockVerifierHashInput), pwdSalt, verifierInput);
-        byte[] encVerifierValue = AesCbcEncrypt(DeriveKey(BlockVerifierHashValue), pwdSalt, Hash(hash, verifierInput));
-        byte[] encKeyValue = AesCbcEncrypt(DeriveKey(BlockKeyValue), pwdSalt, secretKey);
+        byte[] verifierInput = RandomNumberGenerator.GetBytes(SupportedBlockSize);
+        byte[] encVerifierInput = AesCbc(DeriveKey(BlockVerifierHashInput), pwdSalt, verifierInput, encrypt: true);
+        byte[] encVerifierValue = AesCbc(DeriveKey(BlockVerifierHashValue), pwdSalt,
+            CryptographicOperations.HashData(hash, verifierInput), encrypt: true);
+        byte[] encKeyValue = AesCbc(DeriveKey(BlockKeyValue), pwdSalt, secretKey, encrypt: true);
 
         string b64K = Convert.ToBase64String(keyDataSalt), b64P = Convert.ToBase64String(pwdSalt);
+        string profile = $"saltSize=\"{SupportedSaltSize}\" blockSize=\"{SupportedBlockSize}\" keyBits=\"{SupportedKeyBits}\" " +
+            $"hashSize=\"{HashSize(hash)}\" cipherAlgorithm=\"AES\" cipherChaining=\"ChainingModeCBC\" hashAlgorithm=\"SHA512\"";
         string xml =
             "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
             "<encryption xmlns=\"http://schemas.microsoft.com/office/2006/encryption\" " +
             "xmlns:p=\"http://schemas.microsoft.com/office/2006/keyEncryptor/password\" " +
             "xmlns:c=\"http://schemas.microsoft.com/office/2006/keyEncryptor/certificate\">" +
-            $"<keyData saltSize=\"16\" blockSize=\"16\" keyBits=\"256\" hashSize=\"64\" cipherAlgorithm=\"AES\" cipherChaining=\"ChainingModeCBC\" hashAlgorithm=\"SHA512\" saltValue=\"{b64K}\"/>" +
+            $"<keyData {profile} saltValue=\"{b64K}\"/>" +
             "<keyEncryptors><keyEncryptor uri=\"http://schemas.microsoft.com/office/2006/keyEncryptor/password\">" +
-            "<p:encryptedKey spinCount=\"100000\" saltSize=\"16\" blockSize=\"16\" keyBits=\"256\" hashSize=\"64\" cipherAlgorithm=\"AES\" cipherChaining=\"ChainingModeCBC\" hashAlgorithm=\"SHA512\" " +
+            $"<p:encryptedKey spinCount=\"{SupportedSpinCount}\" {profile} " +
             $"saltValue=\"{b64P}\" encryptedVerifierHashInput=\"{Convert.ToBase64String(encVerifierInput)}\" " +
             $"encryptedVerifierHashValue=\"{Convert.ToBase64String(encVerifierValue)}\" encryptedKeyValue=\"{Convert.ToBase64String(encKeyValue)}\"/>" +
             "</keyEncryptor></keyEncryptors></encryption>";
 
-        // EncryptionInfo = version 4.4 + flags 0x40 + the UTF-8 XML (verified against a real file).
-        byte[] descriptor = Concat([0x04, 0x00, 0x04, 0x00, 0x40, 0x00, 0x00, 0x00], Encoding.UTF8.GetBytes(xml));
-        byte[] encodingKey = BitConverter.GetBytes(databaseKey);
-        return (descriptor, new AgileEncryption(secretKey, keyDataSalt, blockSize, encodingKey, hash));
+        byte[] descriptor = [.. AgilePrefix, .. Encoding.UTF8.GetBytes(xml)];
+        return (descriptor, new AgileEncryption(secretKey, keyDataSalt, SupportedBlockSize, databaseKey, hash));
     }
-
-    private static byte[] AesCbcEncrypt(byte[] key, byte[] iv, byte[] data)
-    {
-        using var aes = Aes.Create();
-        aes.Mode = CipherMode.CBC;
-        aes.Padding = PaddingMode.None;
-        aes.Key = key;
-        aes.IV = iv.Length == 16 ? iv : Fit(iv, 16);
-        return aes.EncryptCbc(data, aes.IV, PaddingMode.None);
-    }
-
-    private static byte[] RandomBytes(int n) { byte[] b = new byte[n]; RandomNumberGenerator.Fill(b); return b; }
 
     public void DecryptPage(int pageNumber, Span<byte> page) => Transform(pageNumber, page, decrypt: true);
 
@@ -196,39 +183,31 @@ public sealed class AgileEncryption : IPageCodec
         if (pageNumber == 0)
             return; // header page is not encrypted
 
-        // blockKey = LE32(pageNumber) XOR dbEncodingKey; IV = Hash(keyDataSalt ‖ blockKey), truncated to blockSize.
-        Span<byte> blockKey = stackalloc byte[4];
-        BinaryPrimitives.WriteInt32LittleEndian(blockKey, pageNumber);
-        for (int i = 0; i < 4; i++) blockKey[i] ^= _encodingKey[i];
+        // blockKey = LE32(pageNumber XOR databaseKey); IV = Hash(keyDataSalt ‖ blockKey), truncated to blockSize.
+        byte[] blockKey = new byte[sizeof(int)];
+        BinaryPrimitives.WriteInt32LittleEndian(blockKey, pageNumber ^ _databaseKey);
+        byte[] iv = Fit(CryptographicOperations.HashData(_hash, [.. _keyDataSalt, .. blockKey]), _blockSize);
 
-        byte[] iv = Fit(Hash(_hash, _keyDataSalt, blockKey.ToArray()), _blockSize);
-
-        using var aes = Aes.Create();
-        aes.Mode = CipherMode.CBC;
-        aes.Padding = PaddingMode.None;
-        aes.Key = _secretKey;
-        aes.IV = iv;
         // Transform in place (length is a whole number of AES blocks — a page).
-        byte[] result = decrypt ? aes.DecryptCbc(page, iv, PaddingMode.None) : aes.EncryptCbc(page, iv, PaddingMode.None);
-        result.CopyTo(page);
+        AesCbc(_secretKey, iv, page, encrypt: !decrypt).CopyTo(page);
     }
 
     // --- helpers ---
 
-    private enum HashKind { Sha1, Sha256, Sha384, Sha512 }
-
-    private static XElement? LocateEncryptionInfo(ReadOnlySpan<byte> page0)
+    private static XElement? LocateEncryptionInfo(ReadOnlySpan<byte> page0, JetFormatBase format)
     {
-        if (page0.Length < EncryptionInfoOffset)
+        int descriptorOffset = format.EncryptionInfoOffset;
+        if (page0.Length < descriptorOffset)
             return null;
-        int length = BinaryPrimitives.ReadUInt16LittleEndian(page0.Slice(EncryptionInfoLengthOffset, 2));
+        int length = DatabaseDefinitionPage.ReadEncryptionInfoLength(page0, format);
         if (length == 0)
             return null;
-        if (length > page0.Length - EncryptionInfoOffset)
+        if (length > page0.Length - descriptorOffset)
             throw new NotSupportedException("The Agile EncryptionInfo descriptor extends past page 0.");
 
-        ReadOnlySpan<byte> descriptor = page0.Slice(EncryptionInfoOffset, length);
-        if (descriptor.Length < AgilePrefix.Length || !descriptor[..AgilePrefix.Length].SequenceEqual(AgilePrefix))
+        ReadOnlySpan<byte> descriptor = page0.Slice(descriptorOffset, length);
+        ReadOnlySpan<byte> prefix = AgilePrefix;
+        if (descriptor.Length < prefix.Length || !descriptor[..prefix.Length].SequenceEqual(prefix))
             return null; // a binary Office-Standard descriptor may occupy the same framed field
 
         try
@@ -254,17 +233,17 @@ public sealed class AgileEncryption : IPageCodec
     }
 
     private static void ValidateSupportedProfile(
-        XElement keyData, XElement encKey, HashKind hash, int blockSize, int keyBits, int spinCount)
+        XElement keyData, XElement encKey, HashAlgorithmName hash, int blockSize, int keyBits, int spinCount)
     {
-        if (hash != HashKind.Sha512
-            || ParseHash((string)keyData.Attribute("hashAlgorithm")!) != HashKind.Sha512)
+        if (hash != HashAlgorithmName.SHA512
+            || ParseHash((string)keyData.Attribute("hashAlgorithm")!) != HashAlgorithmName.SHA512)
             throw new NotSupportedException("Only the Access Agile SHA-512 profile is supported.");
         if (blockSize != SupportedBlockSize || IntAttribute(encKey, "blockSize") != SupportedBlockSize)
-            throw new NotSupportedException("Only the Access Agile 16-byte AES block size is supported.");
+            throw new NotSupportedException($"Only the Access Agile {SupportedBlockSize}-byte AES block size is supported.");
         if (keyBits != SupportedKeyBits || IntAttribute(keyData, "keyBits") != SupportedKeyBits)
-            throw new NotSupportedException("Only the Access Agile AES-256 profile is supported.");
+            throw new NotSupportedException($"Only the Access Agile AES-{SupportedKeyBits} profile is supported.");
         if (spinCount != SupportedSpinCount)
-            throw new NotSupportedException("Only the Access Agile 100000-spin profile is supported.");
+            throw new NotSupportedException($"Only the Access Agile {SupportedSpinCount}-spin profile is supported.");
     }
 
     private static void RequireLength(byte[] value, int expected, string name)
@@ -284,18 +263,18 @@ public sealed class AgileEncryption : IPageCodec
         }
     }
 
-    private static int HashSize(HashKind kind) => kind switch
+    private static int HashSize(HashAlgorithmName hash) => hash.Name switch
     {
-        HashKind.Sha1 => 20,
-        HashKind.Sha256 => 32,
-        HashKind.Sha384 => 48,
-        HashKind.Sha512 => 64,
+        "SHA1" => SHA1.HashSizeInBytes,
+        "SHA256" => SHA256.HashSizeInBytes,
+        "SHA384" => SHA384.HashSizeInBytes,
+        "SHA512" => SHA512.HashSizeInBytes,
         _ => throw new NotSupportedException(),
     };
 
     // Asserts the element's declared saltSize/hashSize/hashAlgorithm agree with the actual salt length and the
     // hash we're using. These attributes are redundant with the data, so a mismatch signals corruption/misparse.
-    private static void VerifyDeclaredSizes(XElement el, HashKind hash, int actualSaltLength)
+    private static void VerifyDeclaredSizes(XElement el, HashAlgorithmName hash, int actualSaltLength)
     {
         int saltSize = (int)el.Attribute("saltSize")!;
         if (saltSize != actualSaltLength)
@@ -309,38 +288,29 @@ public sealed class AgileEncryption : IPageCodec
             throw new NotSupportedException("Agile descriptor hashAlgorithm differs between keyData and encryptedKey.");
     }
 
-    private static HashKind ParseHash(string name) => name.Replace("-", "").ToUpperInvariant() switch
+    // The descriptor names its own hash, and SHA-1 is what Access writes for many files; reading them back means
+    // honouring it.
+    private static HashAlgorithmName ParseHash(string name) => name.Replace("-", "").ToUpperInvariant() switch
     {
-        "SHA1" => HashKind.Sha1,
-        "SHA256" => HashKind.Sha256,
-        "SHA384" => HashKind.Sha384,
-        "SHA512" => HashKind.Sha512,
+        "SHA1" => HashAlgorithmName.SHA1,
+        "SHA256" => HashAlgorithmName.SHA256,
+        "SHA384" => HashAlgorithmName.SHA384,
+        "SHA512" => HashAlgorithmName.SHA512,
         _ => throw new NotSupportedException($"Unsupported Agile hash algorithm '{name}' (SHA1/256/384/512 supported).")
     };
 
-    private static byte[] Hash(HashKind kind, params byte[][] parts)
+    /// <summary><c>H_spin</c>: <c>Hash(salt ‖ UTF16LE(password))</c>, then <paramref name="spinCount"/>
+    /// iterations of <c>Hash(LE32(i) ‖ H)</c>. Opening a file and creating one both start here.</summary>
+    private static byte[] SpinHash(HashAlgorithmName hash, byte[] salt, string password, int spinCount)
     {
-        byte[] all = parts.Length == 1 ? parts[0] : Concat(parts);
-        // CA5350: the agile descriptor names its own hash, and SHA-1 is what Access writes for many files;
-        // reading them back means using it. Scoped to the dispatch that honours the descriptor.
-#pragma warning disable CA5350
-        return kind switch
+        byte[] hspin = CryptographicOperations.HashData(hash, [.. salt, .. Encoding.Unicode.GetBytes(password)]);
+        byte[] iter = new byte[sizeof(int)];
+        for (int i = 0; i < spinCount; i++)
         {
-            HashKind.Sha1 => SHA1.HashData(all),
-            HashKind.Sha256 => SHA256.HashData(all),
-            HashKind.Sha384 => SHA384.HashData(all),
-            HashKind.Sha512 => SHA512.HashData(all),
-            _ => throw new NotSupportedException()
-        };
-#pragma warning restore CA5350
-    }
-
-    private static byte[] Concat(params byte[][] parts)
-    {
-        var result = new byte[parts.Sum(p => p.Length)];
-        int o = 0;
-        foreach (var p in parts) { p.CopyTo(result, o); o += p.Length; }
-        return result;
+            BinaryPrimitives.WriteInt32LittleEndian(iter, i);
+            hspin = CryptographicOperations.HashData(hash, [.. iter, .. hspin]);
+        }
+        return hspin;
     }
 
     /// <summary>Truncates a hash to <paramref name="length"/>, or pads with <c>0x36</c> if it is shorter.</summary>
@@ -353,13 +323,15 @@ public sealed class AgileEncryption : IPageCodec
         return key;
     }
 
-    private static byte[] AesCbcDecrypt(byte[] key, byte[] iv, byte[] data)
+    /// <summary>AES-CBC with no padding — over the key-encryptor fields and every data page; the IV (a salt, or
+    /// the page's hash) is fitted to the block.</summary>
+    private static byte[] AesCbc(byte[] key, byte[] iv, ReadOnlySpan<byte> data, bool encrypt)
     {
         using var aes = Aes.Create();
-        aes.Mode = CipherMode.CBC;
-        aes.Padding = PaddingMode.None;
         aes.Key = key;
-        aes.IV = iv.Length == 16 ? iv : Fit(iv, 16);
-        return aes.DecryptCbc(data, aes.IV, PaddingMode.None);
+        byte[] fitted = iv.Length == SupportedBlockSize ? iv : Fit(iv, SupportedBlockSize);
+        return encrypt
+            ? aes.EncryptCbc(data, fitted, PaddingMode.None)
+            : aes.DecryptCbc(data, fitted, PaddingMode.None);
     }
 }

@@ -66,7 +66,7 @@ internal static class AceTestDatabase
     /// <para>ACE faults when two threads are inside it at once (see AceCollection), and serialising the tests
     /// does not stop that on its own. DAO is apartment-threaded, so an engine created from a test's thread lives
     /// on a COM-created thread of its own, and the probes release none of what they create. Each Workspace,
-    /// Database, TableDef and Field is torn down when the finalizer gets to it — inside ACE, on that COM thread,
+    /// Database, TableDefinition and Field is torn down when the finalizer gets to it — inside ACE, on that COM thread,
     /// at whatever moment a GC happens to run, which is usually in the middle of a later test that is itself
     /// inside ACE. An OLE DB object left undisposed does the same the other way round, from the finalizer thread
     /// into a later DAO call.</para>

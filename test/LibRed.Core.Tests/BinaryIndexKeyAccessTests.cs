@@ -17,7 +17,7 @@ public class BinaryIndexKeyAccessTests
         using var db = JetDatabase.Open(TestDatabases.EverythingIsBytesAccdb);
 
         int checkedEntries = 0;
-        foreach (TableDef tdef in db.Catalog.Tables)
+        foreach (TableDefinition tdef in db.Catalog.Tables)
         {
             var table = db.OpenTable(tdef.Name);
             if (!table.Definition.Indexes.Any(i => i.Columns.Any(c => c.Column.Type == JetDataType.Binary)))
@@ -38,7 +38,7 @@ public class BinaryIndexKeyAccessTests
                     if (!rows.TryGetValue(row, out object?[]? values))
                         continue; // entry points at a row we didn't scan (shouldn't happen); skip defensively
 
-                    byte[] reEncoded = IndexKeyEncoder.Encode(idx.Columns, values);
+                    byte[] reEncoded = IndexKeyCodec.Encode(idx.Columns, values);
                     Assert.Equal(stored, reEncoded);
                     checkedEntries++;
                 }
@@ -56,7 +56,7 @@ public class BinaryIndexKeyAccessTests
     public void Ascending_binary_key_matches_the_chunked_layout(byte[] data, string expectedHex)
     {
         var column = new ColumnDef { Name = "b", Type = JetDataType.Binary, Index = 0 };
-        byte[] key = IndexKeyEncoder.Encode([(column, true)], [data]);
+        byte[] key = IndexKeyCodec.Encode([(column, true)], [data]);
         Assert.Equal(expectedHex, string.Join(" ", key.Select(x => x.ToString("X2"))));
     }
 
@@ -73,8 +73,8 @@ public class BinaryIndexKeyAccessTests
             [0x02], [.. Enumerable.Repeat((byte)0xAB, 9)], [0xFF], [0xFF, 0x00],
         ];
 
-        var asc = values.Select(v => IndexKeyEncoder.Encode([(col, true)], [v])).ToList();
-        var desc = values.Select(v => IndexKeyEncoder.Encode([(col, false)], [v])).ToList();
+        var asc = values.Select(v => IndexKeyCodec.Encode([(col, true)], [v])).ToList();
+        var desc = values.Select(v => IndexKeyCodec.Encode([(col, false)], [v])).ToList();
 
         for (int i = 0; i + 1 < values.Length; i++)
         {

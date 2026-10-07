@@ -20,14 +20,49 @@ Status: **draft / accepted direction** · Date: 2026-07-18
 > fails with a write conflict and remains open for rollback. This prevents silent lost updates without strict
 > two-phase locking. If publication itself fails after writing some pages, that prefix is restored from the
 > validated baselines (and appended tail pages are truncated), leaving the transaction open and rollbackable.
+> **A page check cannot see what a transaction only read**, which is where write skew gets in: an
+> `INSERT` checks its foreign key's parent row and writes no page for it, so a concurrent connection may delete
+> that parent, and each transaction's precondition holds at the moment it is checked while the pair of them
+> leaves a child referencing nothing. So a transaction also carries a **read set** of the conditions its writes
+> depend on (`PageChannel.DependOn`), each re-evaluated under the publication gate before anything is
+> published; a commit whose condition has stopped holding is refused like a write conflict. The conditions are
+> semantic rather than physical — the FK's parent is sought again, not its page compared — so an unrelated row
+> on the same page cannot produce a false conflict. A missing parent only refuses the commit while it is still
+> needed: while the relationship survives and a child row still holds the key, so a transaction that later
+> deleted or moved its child, or dropped the relationship, commits. The relationship is identified by the
+> definition pages of its tables and the ids of its columns, so renames inside the transaction do not lose it,
+> and one dropped and added again under the same name over other columns is a different relationship. The same
+> hole exists from the parent's end: a `DELETE` of a parent row, or a change to its key, that found no child
+> (or cascaded or nulled the ones it found) writes nothing another connection's child insert would conflict
+> with, and that insert finds the parent it has not seen deleted. So the parent side registers the same
+> condition for the key it removed — no child row may hold it without a parent row holding it too. It is one
+> condition from either end, so a condition registered under a key the transaction already holds (the same
+> relationship and key) is held once. `ALTER TABLE … ADD FOREIGN KEY` reads the same way, checking every existing child row against its
+> parent, so it registers one condition for the relationship: while it survives, every child row still has its
+> parent. ACE gets the same guarantee by holding both tables exclusively until the transaction ends. A savepoint rollback drops the conditions recorded after it, and their keys, along with the writes that
+> needed them.
 > Schema-changing commits also advance a shared per-file catalog generation; other open
 > connections invalidate their parsed table/relationship/view caches on the next catalog access, while ordinary
-> DML does not force a catalog reload. The undo log described below is gone. Everything else here — the lock-manager layering
-> (L0), the ACE co-residency constraint (§2), commit-byte / cross-process protocol, cascade worklist — still
-> stands as the roadmap. See `TransactionIsolationTests` and [[libred-parallel-dirty-read-flakiness]].
+> DML does not force a catalog reload. The undo log described below is gone, and with it the before-image
+> `SavepointStack`: savepoint frames live in `Transaction` and snapshot overlay state. Everything else here — the
+> lock-manager layering (L0), the ACE co-residency constraint (§2), commit-byte / cross-process protocol — still
+> stands as the roadmap. Of the cascade design in §3 L3, the **delete** cascade is the bounded worklist; an
+> **ON UPDATE** cascade recurses one call per level instead (a rewritten child applies its own relationships), and
+> terminates because a row already holding the new key is not rewritten again. See `TransactionIsolationTests`.
+
+> **Deferred (2026-09-24) — the commit-byte protocol and the Jet lock manager (§3 L0, phases 7–8).** The two
+> are one job, not two: a writer's commit slot is `0xE00 + 2n` for *its own* user number *n*, and that number
+> comes from the position it takes in the `.laccdb` — so there is no writing the commit table without first
+> doing the lock-file registration. What is missing is measured behaviour: the values ACE writes into its slot
+> as it begins and ends a batch (the order and 2-byte extent are known, the values are not — page-00 §2.2),
+> and whether page 0 is itself under a byte-range lock meanwhile. Guessing writes a signal Access reads as
+> corruption, so this waits on a ProcMon/Frida characterisation of a live `MSACCESS.EXE`. Until then LibRed is
+> **single-writer**, as `src/LibRed/README.md` states, and every mention of commit bytes, `.laccdb` records and
+> cross-process recovery below is **roadmap, not code**. What ships today is the deferred-write overlay, the
+> write-conflict check on commit, and process-local page locks.
 
 This is the ground-up design for LibRed's transaction support and the concurrency
-infrastructure it sits on. It replaces the ad-hoc page-level undo log currently in
+infrastructure it sits on. It replaced the ad-hoc page-level undo log that used to be in
 `PageChannel`, and is written so the localized atomicity gaps the production audit
 found (`LIBRED_AUDIT_REPORT.md`, the P0s) are closed by *one* model rather than
 patched site by site.
@@ -40,8 +75,9 @@ patched site by site.
   index, usage map, LVAL chain, TDEF, or catalog entry.
 - **Explicit transactions.** `BEGIN`/`COMMIT`/`ROLLBACK` (and the ADO
   `LibRedTransaction`) group many statements atomically, with **savepoints** (nesting).
-- **Cascade correctness.** Cascade delete/update runs as a bounded worklist inside the
-  transaction — no unbounded recursion, no double-mutate on diamond graphs.
+- **Cascade correctness.** Cascade delete runs as a bounded worklist inside the
+  transaction — no unbounded recursion, no double-mutate on diamond graphs. (Cascade
+  update recurses per level; see the implementation note above.)
 - **Concurrency infrastructure, built in from day one.** Every read/write flows through
   explicit lock-acquisition seams and per-connection transaction context, so the
   real lock manager is a *fill-in*, not a later rewrite.
@@ -51,13 +87,13 @@ patched site by site.
   (LibRed↔LibRed): a correct page-locking protocol using our own offsets. Reproducing
   Jet's exact `LockFileEx` offset bands, the `.laccdb` per-user records, and the
   page-0 commit-byte polling — so a live `MSACCESS.EXE` can share the file — is a later
-  swap of *values and detection*, not of *structure*. See [[jet-locking-user-registry]].
+  swap of *values and detection*, not of *structure*.
 - **Crash durability beyond Jet's.** We match Jet's model: detect-and-repair, not a
   write-ahead log. A WAL is actively incompatible with ACE co-residency (§5).
 - **Record-level locking.** Page-level only. ACCDB per-page encryption already forces
   whole-page granularity — you cannot sub-page lock what you decrypt as a unit.
 - **Multi-writer performance.** Writers serialize for now (priority order:
-  correctness → speed → concurrency, [[libred-priority-order]]).
+  correctness → speed → concurrency).
 
 ## 2. Why not a WAL / journal (the ACE-co-residency constraint)
 
@@ -72,7 +108,7 @@ same time**. That rules out any LibRed-private durability side-channel:
   DB suspect and repairs.
 
 So LibRed **matches Jet's on-file commit protocol** and provides atomicity/rollback
-**in-process** (while the process lives) via an undo log. Cross-process consistency
+**in-process** (while the process lives) via the deferred-write overlay (originally an undo log). Cross-process consistency
 comes from the lock protocol; crash consistency is Jet's (weak-by-design) detect-and-repair.
 We may be *more disciplined* about flush ordering within that protocol, but we add no
 structure to the file that Access doesn't understand.
@@ -83,31 +119,32 @@ structure to the file that Access doesn't understand.
  L4  ADO surface          LibRedTransaction / LibRedCommand enforce against L2
  L3  Statement layer      QueryEngine: implicit per-statement txn; cascade worklist
  L2  Transaction manager  per-connection Transaction: begin/commit/rollback + savepoints
- L1  PageChannel          write choke point: lock seams + in-process undo log
+ L1  PageChannel          write choke point: lock seams + per-transaction write overlay
  L0  Lock manager         page locks, commit-byte map, .ldb — self-consistent now, Jet later
 ```
 
 The invariant that makes L0 a later fill-in: **L1 already calls
-`AcquireShared(page)` / `AcquireExclusive(page)` around every read/write and threads a
-per-connection transaction context.** Today those calls resolve to a no-op (or a
-process-local monitor) coordinator; the Jet coordinator is dropped in behind the same
-interface.
+`EnterShared(page)` / `EnterExclusive(page)` (and the matching `Exit…`) around every read/write and threads a
+per-connection transaction context.** Today those calls resolve to the process-local `MonitorLockManager`; the
+Jet coordinator is dropped in behind the same interface.
 
 ### L0 — Lock manager (`ILockManager`)
 
-Owns cross-connection/cross-process coordination. Interface (stable; implementations vary):
+Owns cross-connection/cross-process coordination. The interface as it ships:
 
 ```
-interface ILockManager : IDisposable
+public interface ILockManager
 {
-    IDisposable AcquireShared(int page);      // read lock; multiple readers
-    IDisposable AcquireExclusive(int page);   // write lock; single writer, excludes readers
-    void MarkCommitPending();                 // set our commit-byte slot -> mid-write
-    void MarkCommitDone();                    // clear -> idle
-    int RegisterUser();                       // claim a slot; returns user index
-    void ReleaseUser(int index);
+    void EnterShared(int page);      // read lock; multiple readers
+    void ExitShared(int page);
+    void EnterExclusive(int page);   // write lock; single writer, excludes readers
+    void ExitExclusive(int page);
 }
 ```
+
+The commit-byte and user-registry members the Jet coordinator will need — mark our slot mid-write and idle, claim
+and release a user index — are **roadmap**: they arrive with the lock-file registration (see the deferral note
+above), not before.
 
 - **`SelfConsistentLockManager` (initial):** page locks via `FileStream.Lock` on the
   main handle at *our own* deterministic offset band (`page → base + page*stride`);
@@ -117,9 +154,13 @@ interface ILockManager : IDisposable
 - **`JetLockManager` (later):** the exact Jet 4/ACE offsets (~10M/20M bands on the
   `.laccdb` handle), the page-0 commit-byte table registration/polling, the `.laccdb`
   32+32-byte identity records. Windows-only. This is a values+detection swap; the L1
-  call sites and L2 semantics do not change. Source facts: [[jet-locking-user-registry]].
+  call sites and L2 semantics do not change.
 
 ### L1 — PageChannel (write choke point)
+
+> **Superseded — kept as the original sketch.** The before-image undo and held-to-commit exclusive locks below
+> were replaced by the deferred-write overlay (see the implementation note at the top): writes buffer per
+> transaction, and the exclusive page lock is held only while a committed page is written.
 
 - `ReadPage(p)`: `using (locks.AcquireShared(p))` → decode/return (existing parsed-page
   cache unchanged).
@@ -136,8 +177,12 @@ interface ILockManager : IDisposable
 
 ### L2 — Transaction manager
 
+> **Superseded in part.** `Transaction` is per connection as designed, but it holds overlay state rather than
+> before-images: a savepoint frame snapshots the overlay, rollback discards it, and there is no truncation or
+> lock release to do. The frame stack below is the original sketch.
+
 `Transaction` is **per connection** (EF holds several connections on one shared
-`PageChannel`; a single global undo log is the current bug). Contents:
+`PageChannel`; a single global undo log was the original bug). Contents:
 
 - `SavepointStack` — each frame holds its own `Dictionary<int, byte[]>` of before-images
   and the set of exclusive locks first taken in that frame. `Begin` pushes; `Release`
@@ -158,9 +203,11 @@ interface ILockManager : IDisposable
   throw it rolls back. If an explicit user transaction is open, statements are savepoints
   within it instead. This single change closes the statement-atomicity P0 for *all*
   writers (row insert, DDL, view create, LVAL) without per-site edits.
-- **Cascade as a worklist:** delete/update collects affected child rows into a queue with
-  a `visited` (in-progress) set; cycles terminate, diamonds mutate once. All mutations
-  are in the one transaction, so a mid-cascade failure rolls the whole thing back.
+- **Cascade as a worklist:** delete collects affected child rows into a stack with
+  a `visited` (in-progress) set; cycles terminate, diamonds mutate once. An update cascade
+  rewrites each child through the same code as a directly updated row, which applies that
+  child's own relationships in turn. All mutations are in the one transaction, so a
+  mid-cascade failure rolls the whole thing back.
 
 ### L4 — ADO surface
 
@@ -173,10 +220,10 @@ interface ILockManager : IDisposable
 ## 4. Transaction semantics
 
 - **Atomicity unit:** the statement (implicit) or the explicit `BEGIN…COMMIT` span.
-- **Isolation (initial):** single-writer / many-readers via strict two-phase page
-  locking — exclusive locks held to commit. This yields serializable behavior for the
-  single-writer case. MVCC/snapshot is a later concurrency-phase option and is not
-  designed in here beyond "don't preclude" (before-images already exist).
+- **Isolation:** read-committed, from the deferred-write overlay — see the implementation
+  note at the top. (The original plan was strict two-phase page locking with exclusive
+  locks held to commit; the overlay made that unnecessary.) MVCC/snapshot is a later
+  concurrency-phase option and is not designed in here beyond "don't preclude".
 - **Savepoints:** nesting via the frame stack; an inner statement inside an explicit txn
   is a frame, so its failure rolls back just that statement, not the user's transaction.
 - **Nested transactions** (SQL `BEGIN`/`COMMIT`/`ROLLBACK`, and any caller that nests) map
@@ -238,15 +285,17 @@ concurrency-visible state, exactly as Jet uses them.
 
 Build correctness first with lock seams stubbed; drop the Jet lock manager in last.
 
-1. **L2 core.** ✅ done. `Transaction` + `SavepointStack` with before-image undo, moved out of
-   `PageChannel`. `PageChannel.WritePage` records into the active transaction. Unit tests
-   for commit/rollback/nested rollback, allocate-then-rollback truncation.
+1. **L2 core.** ✅ done, then superseded by the overlay (see the implementation note): the
+   before-image undo and `SavepointStack` shipped first and were replaced — a transaction's
+   writes now buffer in the overlay, savepoint frames live in `Transaction`, and rollback
+   discards pages rather than restoring and truncating them.
 2. **L3 statement atomicity.** ✅ done. Wrap every `QueryEngine` statement in an implicit txn;
-   convert the audit's non-atomic writers (`RowInserter`, `TableCreator`, `ViewCreator`,
+   convert the audit's non-atomic writers (`RowInserter`, `SchemaEditor`, `JetCatalog`,
    usage-map/LVAL) to rely on it. Regression: inject a late failure mid-statement, assert
    no partial state.
-3. **Cascade worklist.** ✅ done. Replace recursive cascade with the queue+visited worklist
-   inside the txn. Tests: cyclic FK, diamond FK, deep chain (former stack-overflow).
+3. **Cascade worklist.** ✅ done for DELETE. Replace recursive cascade delete with the
+   stack+visited worklist inside the txn. Tests: cyclic FK, diamond FK, deep chain (former
+   stack-overflow). An update cascade recurses per level.
 4. **L1 lock seams + `MonitorLockManager`.** ✅ done. Introduce `ILockManager`, route
    read/write through it (cache-hit reads stay lock-free via copy-on-write `Store`), ship
    the process-local monitor implementation.
@@ -268,8 +317,7 @@ Build correctness first with lock seams stubbed; drop the Jet lock manager in la
    map; multi-*process* single-writer LibRed↔LibRed.
 8. **(Concurrency phase) `JetLockManager`.** Jet-exact offsets, commit-byte polling,
    `.laccdb` records → live co-residency with `MSACCESS.EXE`. Characterize the remaining
-   unknowns from [[jet-locking-user-registry]] (own-slot writes, poll interval, Jet-4
-   `.laccdb` record shape) first.
+   unknowns (own-slot writes, poll interval, Jet-4 `.laccdb` record shape) first.
 
 Steps 1–3 close every transaction-related P0 in the audit (✅). Step 5 completes the
 in-process transaction contract (✅), and step 6 adds the SQL front door onto it. Steps 7–8
@@ -293,4 +341,4 @@ don't move.
   a global writer lock (one writer at a time), so no page-order deadlock exists yet;
   revisit when finer locking arrives.
 - **`.ldb`/`.laccdb` lifecycle** (create on first open, delete on last close) — belongs to
-  step 6/7; not needed for in-process correctness.
+  steps 7–8; not needed for in-process correctness.

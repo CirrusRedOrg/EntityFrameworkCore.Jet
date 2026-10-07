@@ -77,14 +77,22 @@ internal sealed partial class ExpressionEvaluator
             case "short time": return FormatDate(value, DateTimeFormats[4], first, rule);
         }
 
-        List<string> sections = FormatSections(format);
-        return FormatKindOf(format) switch
+        (FormatKind kind, IReadOnlyList<string> sections) = Shapes.GetOrAdd(
+            format, static f => (FormatKindOf(f), FormatSections(f)));
+        return kind switch
         {
             FormatKind.Text => FormatTextSections(value, sections),
             FormatKind.Date => FormatDate(value, sections[0], first, rule),
             _ => FormatNumberSections(value, sections),
         };
     }
+
+    /// <summary>A format string's split sections and its kind, both of which depend on the string alone. The
+    /// format is a literal in nearly every query, so without this each row re-scans it twice — once to split on
+    /// the semicolons outside quotes and escapes, once to classify it. The same memo-by-text
+    /// <c>CalculatedExpression.ParseCached</c> uses for calculated columns, and for the same reason.</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<
+        string, (FormatKind Kind, IReadOnlyList<string> Sections)> Shapes = new(StringComparer.Ordinal);
 
     /// <summary>A value as Format writes it without a format: as CStr does, but a date with its year padded and
     /// rounded to the second.</summary>
@@ -179,7 +187,7 @@ internal sealed partial class ExpressionEvaluator
     /// change nothing). Characters the placeholders do not take follow the format's output (left to right, the
     /// leftmost are dropped instead). Empty text and Null use the second section, or are empty.
     /// </summary>
-    private static string FormatTextSections(object? value, List<string> sections)
+    private static string FormatTextSections(object? value, IReadOnlyList<string> sections)
     {
         string text = value is null ? "" : GeneralText(value);
         if (text.Length == 0)
@@ -394,7 +402,7 @@ internal sealed partial class ExpressionEvaluator
     /// section uses the first with a minus sign. A value that the section rounds to zero is a zero, and a zero uses the
     /// third section, or the first when there is none or it is empty. An empty first section writes nothing.
     /// </summary>
-    private static string FormatNumberSections(object? value, List<string> sections)
+    private static string FormatNumberSections(object? value, IReadOnlyList<string> sections)
     {
         string Section(int i) => i < sections.Count ? sections[i] : "";
         if (value is null)

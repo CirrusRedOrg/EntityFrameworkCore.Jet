@@ -41,7 +41,7 @@ public class ComplexAttachmentWriteAccessTests(ITestOutputHelper output)
                 ComplexColumn column = db.Catalog.ComplexColumns
                     .First(c => c.OwnerTable.Name == "Table1" && c.IsAttachment);
                 columnName = column.ColumnName;
-                TableDef owner = column.OwnerTable;
+                TableDefinition owner = column.OwnerTable;
                 ColumnDef inRow = owner.FindColumn(column.ColumnName)!;
 
                 object?[] record = db.OpenTable("Table1").Rows().First();

@@ -49,7 +49,7 @@ public class PageChannelTests
                 channel.WritePage(1, page);
 
                 // ...and allocate a couple of new ones.
-                channel.AllocatePage();
+                channel.Allocator.Append();
                 channel.WritePage(channel.PageCount, new byte[channel.PageSize]);
                 Assert.True(channel.PageCount > pagesBefore);
                 Assert.True(channel.InTransaction);
@@ -175,6 +175,38 @@ public class PageChannelTests
             channel.RollbackToSavepoint(outer);          // undoes both the outer and the released-inner writes
 
             Assert.Equal(original, channel.ReadPage(1).Span[10]);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // A dependency registered again under a key the transaction already holds is the same condition, so the
+    // commit checks it once. A savepoint rollback discards the dependencies made after it, and their keys with
+    // them: a write repeated after the rollback needs its condition held again.
+    [Fact]
+    public void A_dependency_is_held_once_per_key_and_a_savepoint_rollback_frees_its_key()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-dep-");
+        try
+        {
+            using var channel = PageChannel.Open(path, readOnly: false);
+            int checkedA = 0, checkedB = 0, checkedUnkeyed = 0;
+
+            channel.BeginTransaction();
+            channel.DependOn(() => ++checkedA > 0, "a", key: "A");
+            channel.DependOn(() => ++checkedA > 0, "a", key: "A");
+            channel.DependOn(() => ++checkedUnkeyed > 0, "u");
+            channel.DependOn(() => ++checkedUnkeyed > 0, "u");
+
+            Savepoint sp = channel.CreateSavepoint();
+            channel.DependOn(() => ++checkedB > 0, "b", key: "B");
+            channel.RollbackToSavepoint(sp);
+            channel.DependOn(() => ++checkedB > 0, "b", key: "B");
+            channel.DependOn(() => ++checkedB > 0, "b", key: "B");
+
+            channel.CommitTransaction();
+            Assert.Equal(1, checkedA);
+            Assert.Equal(1, checkedB);
+            Assert.Equal(2, checkedUnkeyed);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

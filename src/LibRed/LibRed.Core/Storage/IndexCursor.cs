@@ -4,16 +4,13 @@ using LibRed.Pages;
 
 namespace LibRed.Storage;
 
-/// <summary>An index entry: the decoded key values (in index column order) and the row they point at.</summary>
-public readonly record struct IndexEntry(object?[] Key, RowId Row);
-
 /// <summary>
 /// Walks an index B-tree and yields the row pointers in index (key) order.
 /// </summary>
 /// <remarks>
-/// Each index page has an entry-position bitmask at <see cref="IndexPageReader.EntryMaskOffset"/> whose set
+/// Each index page has an entry-position bitmask at <see cref="Formats.JetFormatBase.IndexEntryMaskOffset"/> whose set
 /// bits give the end offsets of successive entries within the entry-data region that begins
-/// at <see cref="IndexPageReader.EntryDataOffset"/>. A leaf entry ends with a 4-byte big-endian row pointer
+/// at <see cref="Formats.JetFormatBase.IndexEntryDataOffset"/>. A leaf entry ends with a 4-byte big-endian row pointer
 /// (page in the high 24 bits, row in the low 8); a node entry instead ends with the 4-byte
 /// child page number. Key bytes are not decoded here — only the trailing pointers are read —
 /// so the order-preserving key encoding is not needed to enumerate rows in order.
@@ -29,8 +26,8 @@ public sealed class IndexCursor(PageChannel channel, int rootPage)
     /// Yields each entry with its decoded key (per <paramref name="columns"/>) in index order.
     /// Key columns that use Jet's lossy text/binary collation decode as null.
     /// </summary>
-    public IEnumerable<IndexEntry> Entries(IReadOnlyList<(ColumnDef Column, bool Ascending)> columns) =>
-        WalkRaw().Select(e => new IndexEntry(IndexKeyDecoder.Decode(columns, e.Key), e.Row));
+    public IEnumerable<(object?[] Key, RowId Row)> Entries(IReadOnlyList<(ColumnDef Column, bool Ascending)> columns) =>
+        WalkRaw().Select(e => (Key: IndexKeyCodec.Decode(columns, e.Key), Row: e.Row));
 
     /// <summary>
     /// Yields each entry's full (decompressed) key bytes and row pointer, without decoding — used
@@ -43,19 +40,25 @@ public sealed class IndexCursor(PageChannel channel, int rootPage)
         var pending = new Stack<int>();
         var visited = new HashSet<int>();
         int? owner = null;
+        byte[]? previous = null;
         pending.Push(_rootPage);
         while (pending.Count > 0)
         {
             int pageNumber = pending.Pop();
             if (!visited.Add(pageNumber))
                 throw new InvalidDataException($"Index traversal contains a repeated/cyclic page {pageNumber}.");
-            CheckedIndexPage page = IndexPageReader.Read(_channel, pageNumber, owner);
+            IndexTree.CheckedPage page = IndexTree.Read(_channel, pageNumber, owner);
             owner ??= page.Owner;
 
             if (page.Type == PageType.LeafIndexPage)
             {
-                foreach ((byte[] key, int pointer) in IndexPageReader.DecodeEntries(page))
-                    yield return (key, new RowId(pointer >> 8, pointer & 0xFF));
+                // Walked in order, stored keys never go backwards: DecodeEntries holds that within the page, and
+                // is handed the last key of the leaf before so it holds across the boundary as well.
+                foreach ((byte[] key, int pointer) in IndexTree.DecodeEntries(page, previous))
+                {
+                    previous = key;
+                    yield return (key, RowId.FromPacked(pointer));
+                }
                 continue;
             }
             pending.Push(page.Tail);
@@ -64,8 +67,8 @@ public sealed class IndexCursor(PageChannel channel, int rootPage)
             // prefix can cover the first bytes of the trailer, and on a node whose 0x18 is nonzero — which ACE
             // tolerates — that offset lands on the wrong bytes, or inside the entry bitmask for a stored entry
             // under 4 bytes, still in bounds. Either way it yields a wrong child page with no exception, and
-            // bypasses the child-page validation IndexPageReader.Read performs on the reconstructed entries.
-            var children = IndexPageReader.DecodeEntries(page).Select(e => e.Trailer).ToList();
+            // bypasses the child-page validation IndexTree.Read performs on the reconstructed entries.
+            List<int> children = IndexTree.Trailers(page);
             for (int i = children.Count - 1; i >= 0; i--)
                 pending.Push(children[i]);
         }

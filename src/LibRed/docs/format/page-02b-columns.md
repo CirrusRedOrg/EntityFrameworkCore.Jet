@@ -10,20 +10,36 @@
 | `0x01` | 2 | Record marker `0x0659` (see §3.1 note); ignored |
 | `0x03` | 2 | Unknown (zero observed) |
 | `0x05` | 2 | Column id |
-| `0x07` | 2 | Variable-table index. For a **fixed** column it is the running count of variable columns with a smaller id (**not** `0`) — ACE's own `ADD COLUMN` writes `2` for a LONG added to `(K LONG, A TEXT, B TEXT)`. For a **variable** column it is that column's own slot index, which is the `0x2B` **high-water** and *not* the count of live variable columns: after a variable column is dropped the next one goes above the abandoned slot, so the two part company. Verified byte-for-byte against DAO-written system tables and against ACE performing the same DDL. |
-| `0x09` | 2 | Column number — a second copy of the column id `0x05` on a **user** table, but **zero** on the tables the engine writes for itself (see the note below). It **diverges after an `ALTER COLUMN` type change**, which burns a new id into `0x05` yet leaves `0x09` at the *old* id; see §3.8 |
+| `0x07` | 2 | Variable-table index. For a **fixed** column it is the running count of variable columns with a smaller id (**not** `0`), dropped ones included — ACE's own `ADD COLUMN` writes `2` for a LONG added to `(K LONG, A TEXT, B TEXT)`, and still `2` when `B` was dropped first: an added column's count is the `0x2B` high-water. For a **variable** column it is that column's own slot index, which is the `0x2B` **high-water** and *not* the count of live variable columns: after a variable column is dropped the next one goes above the abandoned slot, so the two part company. Verified byte-for-byte against DAO-written system tables and against ACE performing the same DDL. |
+| `0x09` | 2 | Ordinal position — DAO's `Field.OrdinalPosition`. The engine presents columns in descriptor order, not by this; DAO keeps the two in step by moving the descriptor when it sets it. At creation a second copy of the column id `0x05` on a **user** table, but **zero** on the tables the engine writes for itself (see the note below). It **diverges** after an `ALTER COLUMN` type change, which burns a new id into `0x05` yet leaves `0x09` alone (§3.8), after a `DROP COLUMN`, whose gap the next `ADD COLUMN` closes by ranking the values, and whenever DAO sets it |
 | `0x0B` | 1 | Numeric **precision** (Decimal/Numeric columns); on a **Complex** column the `MSysComplexColumns.ComplexID` (see below); otherwise the low byte of the collation's LANGID (the database default, e.g. `0x09` for en-US) |
 | `0x0C` | 1 | Numeric **scale** (Decimal/Numeric columns); `0` on a **Complex** column; otherwise the high byte of the LANGID (`0x04` for en-US) |
 | `0x0D` | 1 | Collation **sort id** — the LCID's high word; `0` except for an alternate sort order (see the note below) |
 | `0x0E` | 1 | Collation **sort-order version**: `0` = General Legacy (Access 2000–2007), `1` = the "General" order Access 2010+ made default (a different key encoding, §10.4) |
 | `0x0F` | 1 | Flags (see below) |
-| `0x10` | 1 | Extended flags: `0x01` compressed-Unicode capable, `0xC0` calculated column |
+| `0x10` | 1 | Extended flags: `0x01` compressed-Unicode capable, `0x10` attachment value column, `0xC0` calculated column; a complex column's flat table also sets `0x04` and `0x08` (see below) |
 | `0x11` | 4 | Unknown (zero observed) |
 | `0x15` | 2 | Fixed-data offset within the row's fixed region |
 | `0x17` | 2 | Length (bytes) |
 
 **Flags (`0x0F`):** `0x01` fixed-length, `0x02` updatable, `0x04` auto-number,
-`0x40` auto-number GUID, `0x80` hyperlink (on a Memo column).
+`0x10` system-catalog column, `0x20` security-identifier column, `0x40` auto-number GUID, `0x80` hyperlink
+(on a Memo column). `0x08` is set on no column seen.
+
+> **`0x10` and `0x20` mark the engine's own catalog (verified).** `0x10` is set on every column of
+> `MSysObjects`, `MSysACEs`, `MSysQueries`, `MSysRelationships` and `MSysComplexColumns`, and on no other —
+> not on the other `MSys*` tables Access creates (`MSysAccessStorage`, `MSysResources`, `MSysNavPane*`,
+> `MSysNameMap`, the `MSysComplexType_*` templates) and not on any user column. `0x20` is set on exactly the
+> two columns that hold a Windows SID, `MSysObjects.Owner` and `MSysACEs.SID`, always together with `0x10`.
+> mdbtools also gives `0x10` to replication columns (`s_…`, `Gen_…`), which no file seen has (unverified).
+
+> **Extended flags beyond `0x01`/`0xC0` belong to the complex columns (verified where set).** `0x10` is set on
+> exactly the six attachment value columns — `FileData`, `FileFlags`, `FileName`, `FileTimeStamp`, `FileType`,
+> `FileURL` — in the `MSysComplexType_Attachment` template and in every attachment flat table, and on no other
+> column. A flat table (`f_<GUID>_…`) also sets `0x08` on its `_<column>` column and `0x04` on its
+> `<table>_<column>` column. mdbtools reads `0x08` as the flat table's foreign key to the complex id, which
+> Access refuses to open a flat table without; what `0x04` means is unknown (both unverified). mdbtools also
+> gives `0x20` to a version-history column, which no file seen has.
 
 > **A `Complex` column (type `0x12`) is an AutoNumber, and its `0x0B` names its `MSysComplexColumns` row.**
 > Verified on all six complex columns across two files: `0x0F` = `0x07` on every one — fixed `0x01`,
@@ -66,9 +82,35 @@
 >
 > ACE's SQL DDL, DAO's object model (`CreateTableDef`/`CreateField`/`Append`, the path Access's UI uses)
 > and DAO-executed SQL all write the id. **Compacting a database preserves the field exactly** — before and
-> after are byte-identical — so it is fixed at creation and no later rewrite normalises it. A writer that
-> generalises from the system tables and writes zero everywhere is wrong; LibRed writes the id except on a
-> system column.
+> after are byte-identical. A writer that generalises from the system tables and writes zero everywhere is
+> wrong; LibRed writes the id except on a system column.
+>
+> **More exactly, `0x09` is DAO's `Field.OrdinalPosition`** — a presentation value that DAO reports, not the
+> order the engine presents in. At creation it counts 0, 1, 2 … and so equals the id. Verified against ACE
+> and DAO:
+>
+> - **The engine presents columns in descriptor order and ignores `0x09`.** With the two made to disagree by
+>   patching `0x09` alone, ACE's `SELECT *`, the OLE DB schema's `ORDINAL_POSITION` (1-based) and the order
+>   of DAO's `Fields` collection all follow the descriptors; only `Field.OrdinalPosition` reports `0x09`,
+>   verbatim.
+> - **Setting `OrdinalPosition` through DAO writes the value and moves the descriptor**, which is what keeps
+>   the two in step in any file DAO or Access wrote. Ties and gaps are allowed: on `(A, B, C, D, E)`, setting
+>   `E` to 0 and then `B` to 7 leaves descriptors in the order `A E C D B` with `0x09` = `0 0 2 3 7`. The moved
+>   descriptor lands before the first one with a larger `0x09` (after the last when there is none) — all
+>   three measured moves fit that; with a tie it went after the column already there. Only the definition page
+>   changes — the value is not a property in the LvProp blob.
+> - **`DROP COLUMN` leaves the others alone**, so a gap opens; so do `ALTER COLUMN` (a retype keeps `0x09`
+>   while `0x05` takes a new id, §3.8) and `CREATE INDEX`.
+> - **`ADD COLUMN` compacts it**: every distinct value is replaced by its rank, so tied columns stay tied,
+>   and the new column takes the next rank — `0 0 3 7` after dropping `C` becomes `0 0 1 2`, the added
+>   column `3`. After SQL DDL alone there are no ties, and this is simply each column's position:
+>   `(A, B, C, D, E)`, drop `B`, add `F` → `0x05` ids `0 2 3 4 5`, `0x09` `0 1 2 3 4`.
+>
+> So **descriptor order is display order**, and a reader needs nothing else — LibRed reads column order from
+> descriptor order and never reads `0x09`, and matches ACE even in a file where the two were made to disagree.
+> A reader that assumed descriptor order is id order would be wrong after a reorder: `E` (id 4) precedes `B`
+> (id 1). Row decoding is unaffected, since it goes by id (`0x05`), variable slot (`0x07`) and fixed offset,
+> never by descriptor position.
 
 > **Date/Time Extended carries only the primary language id.** For a `DATETIME2` column ACE writes the
 > **low byte** of the database's LANGID at `0x0B`/`0x0C` — the primary language with the sublanguage half
@@ -90,12 +132,13 @@
 > Every sort order Access offers has a primary id below `0xFF`, so "low byte" and Windows' `PRIMARYLANGID`
 > (mask `0x3FF`) cannot be told apart here.
 
-> **Every documented flag is modelled — nothing rides through raw except the reserved/unknown.** LibRed reads
-> each `0x0F` bit and the whole `0x10` byte into `ColumnDef` (`IsUpdatable`/`IsGuidAutoNumber`/`IsHyperlink`,
+> **Every flag a user column carries is modelled; the rest ride through raw.** LibRed reads the user-column
+> bits of `0x0F` and `0x10` into `ColumnDef` (`IsUpdatable`/`IsGuidAutoNumber`/`IsHyperlink`,
 > `SupportsCompressedUnicode`/`IsCalculated`) and composes them back on write, so they round-trip explicitly.
-> The only bytes preserved verbatim through `ColumnDef.RawDescriptor` are the genuinely reserved/unknown ones:
-> the reserved words at `0x03` and `0x11`, and any *undocumented* bits of `0x0F`/`0x10` (zero in every file
-> observed).
+> It writes the catalog bits `0x10`/`0x20` on the system tables it creates. Everything else — the reserved
+> words at `0x03` and `0x11`, the catalog bits of an existing column, and the `0x10` bits it does not model,
+> which the complex columns' flat tables set — survives because every ALTER edits the existing descriptor in
+> place, as ACE does, rather than re-emitting it.
 
 > **Nullability, defaults and checks are *not* in the descriptor.** The column's *Required* (NOT NULL)
 > property is **not** encoded anywhere in the 25-byte descriptor — verified: a nullable column and a
@@ -245,6 +288,14 @@ as 20 bytes of raw UTF-16LE.
 > their own language's v0 order (measured across all known LCIDs). LibRed does **not** implement that
 > fallback: it is real behaviour, but on input that no supported tool can produce.
 >
+> **A query compares text in the DATABASE's collation, never the column's.** The column's collation goes
+> into its index keys and nowhere else. Verified against ACE with Croatian v1 against General v1, stamped on
+> one side at a time: a column stamped Croatian in a General database sorts, groups, compares against a
+> literal either way round, and yields `MIN`/`MAX` in **General** order, and a General column in a database
+> stamped Croatian does all of those in **Croatian** order — as do a comparison of two literals and an
+> expression over the column (`S & ''`, `UCASE(S)`). So the order every query-time text comparison uses is the
+> page-0 one (`0x6E`/`0x70`/`0x71`), whatever the operands are.
+>
 > **Format-version coupling.** Access sets the file format to the lowest version that supports the features
 > used, so choosing General Legacy in the UI *downgrades the file to the 2007 format*, while General (v1)
 > forces 2010+. But the format byte is a **ceiling**, not a fingerprint — a 2016/2019 file (bumped by BigInt
@@ -274,7 +325,7 @@ column's rank among the variable columns ordered by ascending id.
 
 Two limits bind a declaration, both enforced by ACE when it **opens the file**, so writing past either
 damages the database rather than just the table. Verified against ACE 16 (OLE DB); LibRed applies both in
-`Catalog/RecordLayout.cs`, on create and on every incremental path.
+`Catalog/RowCodec.cs`, on create and on every incremental path.
 
 **Per field: 510 bytes** — 255 Text characters, or 510 bytes of Binary, fixed or variable alike. ACE
 refuses a wider column through its own DDL identically on `CREATE TABLE`, `ALTER COLUMN` and `ADD COLUMN`
@@ -321,13 +372,12 @@ fixed↔variable, PK, indexed, multi-page and decimal shapes, including repeated
 This is **the same mechanism for every type/length change** — including a *widening* `TEXT(n)→TEXT(m)`;
 there is no cheap "just bump the length" path, ACE burns the id there too.
 
-LibRed's Memo/OLE logical rebuild has a different layout but enforces the same id high-water limit;
-see [§3.1](page-02a-tdef.md#31-header).
+The same holds for a Memo/OLE source or target (below); the id high-water limit is [§3.1](page-02a-tdef.md#31-header).
 
 > **Relationship columns cannot be altered.** ACE rejects a type or length change when the target is either
 > a referencing FK column or its referenced parent column: *"Cannot change field 'X'. It is part of one or
-> more relationships."* This is verified for both sides. LibRed performs this check before choosing an
-> in-place edit or logical rebuild, so no descriptor, row, or index page is changed on rejection.
+> more relationships."* This is verified for both sides. LibRed performs this check before the edit, so no
+> descriptor, row, or index page is changed on rejection.
 
 **TDEF header:** the max-column-id high-water (`0x29`, §3.1) bumps **+1** (this is the burned id). For a
 change **to a variable type**, the variable-column count (`0x2B`) also bumps **+1**. Every field burn is
@@ -344,14 +394,12 @@ null bitmap is keyed by **id** and not by position (§5).
 > one and is rejected at 255. ACE accepts the identity ALTER at 255 for a `NOT NULL` column as readily as a
 > nullable one, so
 > LibRed must not compare nullability when deciding an ALTER is a no-op — and no ALTER path carries it
-> anyway, since `Required` is applied separately and `RewriteColumn` discards the spec's value.
-
-> **Where LibRed's Memo/OLE rebuild diverges.** `RewriteColumn` preserves each untouched column's original
-> descriptor bytes except the fields LibRed models (the `RawDescriptor` passthrough) and keeps column order,
-> but it does **not** give the target the burned id: it rebuilds with **contiguous** ids and re-encodes rows
-> with null bits keyed by those, rather than retaining ACE's old ids and dead storage. The `0x29` high-water
-> is still preserved and incremented and an ALTER at 255 still rejected, so the lifetime cap matches ACE
-> even though the layout does not. The in-place path above retains the ids and dead storage as ACE does.
+> anyway, since `Required` is applied separately and the in-place edit keeps the column's own.
+>
+> Because the edit is in place, everything the ALTER does not touch stays where it was — every other column's
+> descriptor and id, and every index not over the column, the primary key included, in its place among the
+> logical and index-data blocks (verified). The indexes over the column keep the slots they held between them,
+> but not necessarily their own (below).
 
 **Target column descriptor (§3.4)** — the *only* descriptor that changes; all others stay byte-identical:
 
@@ -360,7 +408,7 @@ null bitmap is keyed by **id** and not by position (§5).
 | `0x00` | new data type |
 | `0x05` | **burned id** = the old `0x29` high-water (so the id ≥ every existing id; position is unchanged) |
 | `0x07` | variable-table index = the **old** variable-column count (the next free var slot) — set for **both** a fixed and a variable retype |
-| `0x09` | **left unchanged** — ACE does *not* update the duplicate id here (it keeps the *old* id), a deliberate quirk |
+| `0x09` | **left unchanged** — it is the column's ordinal position (§3.4), which a retype does not move; it only looked like the *old* id because the two coincide until a column is dropped or moved |
 | `0x0F` | fixed-length bit (`0x01`) set/cleared for the new type; auto-number bit likewise |
 | `0x0B`/`0x0C` | precision/scale for a `DECIMAL`/`NUMERIC` (`FixedPoint`) target |
 | `0x15` | fixed-data offset = **end of the current fixed region** (appended) for a fixed target, or `0` for a variable target. The old slot is left where it was as dead bytes. |
@@ -375,7 +423,19 @@ from the schema (§5).
 the **old fixed region and old variable chunks are kept verbatim** (the dead old-target slot / chunk keeps
 its stale bytes), and the converted target is **appended** — a new fixed slot at the offset above, or a new
 variable chunk at variable-index = the old var count. The leading count, variable-offset table + `numVar`,
-and null bitmap are then rebuilt per §5 (count and bitmap width = max id + 1, dead ids' bits set present).
+and null bitmap are then rebuilt per §5 (count and bitmap width = max id + 1; each dead id's bit as the old
+row had it — so the retyped column's old id is present where it held a value and clear where it was NULL).
+A fixed target whose converted value is NULL gets no bytes written: its new slot holds whatever the old record
+had at those offsets (the start of its variable data, on a row with some), not zeros.
+
+**A Memo/OLE source or target** takes the same edit and re-lay, plus the long-value side of ADD and DROP
+COLUMN (verified, both directions and a Memo re-declared as Memo). A column becoming Memo/OLE gets its §3.3.2
+entry, and its owned and free map records appended to the table's usage-map page; each converted value is then
+stored as an insert stores it — inline (a memo compressed) up to 64 bytes, else on an LVAL page — and the row
+carries its descriptor as the appended chunk. Those two map records go onto the usage-map page ahead of the
+records an index rebuild appends there, when the column is indexed. A column ceasing to be one has its entry removed and its map
+records retired as a dropped column's are; its LVAL pages go back to the global free map with their bytes
+untouched, and each row keeps the old descriptor as its dead chunk.
 
 **Indexed target — full index rebuild.** When the modified column is in an index, ACE reconstructs that
 index (its keys change type). Verified:
@@ -389,6 +449,17 @@ index (its keys change type). Verified:
 - **Recycle the owned-pages usage-map row** the way ACE does — the append/move/tombstone dance, and the
   stale bytes it deliberately leaves behind, are [page-05 §9](page-05-usage-maps.md).
 - **Back-fill** the new B-tree with new-type keys (one `AddEntry` per row).
+- **Several indexes over the column are rebuilt in logical-block (name) order** — the primary key like any
+  other — each taking its fresh root in that order, and they are handed back the real-index slots they held
+  between them in that order: the lowest slot to the first rebuilt, and so on, stats and data block together,
+  every logical block's data ordinal (`+0x08`) following its index. The logical blocks over those indexes hand
+  their numbers (`+0x04`, a numbering of the logical blocks, distinct from the data ordinal once two share a real
+  index) round the same way: pooled, sorted, and given back in logical-block order. An index not over the column
+  keeps its slot and its number even when it sits between them. With `PK_I`, `IX_Z(B)`, `IX_E(E)`, `IX_A(B, ID)`
+  in slots 0–3, a retype of `B` leaves `PK_I`, `IX_A`, `IX_E`, `IX_Z`, and a retype of `ID` leaves `IX_A`,
+  `IX_Z`, `IX_E`, `PK_I`. With `IX_Y(B)` sharing `IX_Z`'s real index as well, numbered `IX_Z` 1, `IX_Y` 2,
+  `IX_E` 3, `IX_A` 4, the retype of `B` numbers them `IX_A` 1, `IX_Y` 2, `IX_E` 3, `IX_Z` 4. With one index over
+  the column nothing moves.
 
 The descriptor edit and the index-block re-point are applied to **one** parsed TDEF and written **once**.
 

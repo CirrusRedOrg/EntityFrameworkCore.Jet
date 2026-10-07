@@ -29,13 +29,20 @@ internal static class JetTextCollationTableV0
     public static bool TryGet(char c, out TailoredWeight? weight)
     {
         Table table = Loaded.Value;
-        int index = Array.BinarySearch(table.CodePoints, c);
+        int index = table.Slots[c] - 1;
         if (index < 0) { weight = null; return false; }
         if (table.Lengths[index] == IgnorableLength) { weight = null; return true; }
 
-        int start = table.PrimaryOffsets[index];
-        int length = table.Lengths[index];
-        weight = new TailoredWeight(table.Primaries[start..(start + length)], table.Secondaries[index]);
+        // Each character's primary bytes are sliced out once and kept: a text comparison weighs every character
+        // of both sides, and a fresh slice each time was an allocation per character. A race only builds the
+        // same slice twice.
+        byte[]? primaries = table.PrimarySlices[index];
+        if (primaries is null)
+        {
+            int start = table.PrimaryOffsets[index];
+            table.PrimarySlices[index] = primaries = table.Primaries[start..(start + table.Lengths[index])];
+        }
+        weight = new TailoredWeight(primaries, table.Secondaries[index]);
         return true;
     }
 
@@ -46,7 +53,7 @@ internal static class JetTextCollationTableV0
     public static bool TryGetInlineCode(char c, out byte code)
     {
         Table table = Loaded.Value;
-        int index = Array.BinarySearch(table.InlineCodePoints, c);
+        int index = table.InlineSlots[c] - 1;
         code = index < 0 ? (byte)0 : table.InlineCodes[index];
         return index >= 0;
     }
@@ -66,7 +73,7 @@ internal static class JetTextCollationTableV0
     public static bool TryGetKana(char c, out byte sound, out byte secondary, out bool small, out byte vowel)
     {
         Table table = Loaded.Value;
-        int index = Array.BinarySearch(table.KanaCodePoints, c);
+        int index = table.KanaSlots[c] - 1;
         if (index < 0) { sound = 0; secondary = 0; small = false; vowel = 0; return false; }
         sound = table.KanaSounds[index];
         secondary = table.KanaSecondaries[index];
@@ -75,11 +82,25 @@ internal static class JetTextCollationTableV0
         return true;
     }
 
+    /// <remarks>Each of the three sets is reached through a slot per BMP code point — its entry's index plus one,
+    /// zero for none — rather than a binary search: every character of every text compared is looked up in all
+    /// three. 128 KB apiece, where the searches were most of a comparison's time.</remarks>
     private sealed record Table(
-        char[] CodePoints, byte[] Lengths, int[] PrimaryOffsets, byte[] Primaries, byte[] Secondaries,
-        char[] InlineCodePoints, byte[] InlineCodes,
-        char[] KanaCodePoints, byte[] KanaSounds, byte[] KanaSecondaries, byte[] KanaSmall,
-        byte[] KanaVowels);
+        ushort[] Slots, byte[] Lengths, int[] PrimaryOffsets, byte[] Primaries, byte[] Secondaries,
+        ushort[] InlineSlots, byte[] InlineCodes,
+        ushort[] KanaSlots, byte[] KanaSounds, byte[] KanaSecondaries, byte[] KanaSmall,
+        byte[] KanaVowels)
+    {
+        public byte[]?[] PrimarySlices { get; } = new byte[Lengths.Length][];
+    }
+
+    private static ushort[] SlotsOf(char[] codePoints)
+    {
+        var slots = new ushort[char.MaxValue + 1];
+        for (int i = 0; i < codePoints.Length; i++)
+            slots[codePoints[i]] = checked((ushort)(i + 1));
+        return slots;
+    }
 
     // Lazy so the cost is paid only by a database that actually reaches beyond the hand-written tables.
     private static readonly Lazy<Table> Loaded = new(Load);
@@ -135,8 +156,8 @@ internal static class JetTextCollationTableV0
             kanaCodePoints[i] = (char)codePoint;
         }
 
-        return new Table(codePoints, lengths, offsets, primaries, secondaries, inlineCodePoints, inlineCodes,
-                         kanaCodePoints, kanaSounds, kanaSecondaries, kanaSmall, kanaVowels);
+        return new Table(SlotsOf(codePoints), lengths, offsets, primaries, secondaries, SlotsOf(inlineCodePoints), inlineCodes,
+                         SlotsOf(kanaCodePoints), kanaSounds, kanaSecondaries, kanaSmall, kanaVowels);
     }
 
     private static byte[] ReadStream(BinaryReader reader)

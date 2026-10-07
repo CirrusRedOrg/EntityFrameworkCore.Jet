@@ -466,6 +466,12 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitQueryExpression([NotNull] AccessSqlParser.QueryExpressionContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.ownerAccessOption"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitOwnerAccessOption([NotNull] AccessSqlParser.OwnerAccessOptionContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>SelectTerm</c>
 	/// labeled alternative in <see cref="AccessSqlParser.queryTerm"/>.
 	/// </summary>
@@ -689,6 +695,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitLikeExpr([NotNull] AccessSqlParser.LikeExprContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>IsTruthExpr</c>
+	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitIsTruthExpr([NotNull] AccessSqlParser.IsTruthExprContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>IsNullExpr</c>
 	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
 	/// </summary>
@@ -751,6 +764,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitConcatExpr([NotNull] AccessSqlParser.ConcatExprContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>IsDistinctFromExpr</c>
+	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitIsDistinctFromExpr([NotNull] AccessSqlParser.IsDistinctFromExprContext context);
 	/// <summary>
 	/// Visit a parse tree produced by the <c>MulDivExpr</c>
 	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
@@ -901,6 +921,12 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitColumnRef([NotNull] AccessSqlParser.ColumnRefContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.memberName"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitMemberName([NotNull] AccessSqlParser.MemberNameContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.identifier"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
@@ -1033,6 +1059,12 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitNonReservedKeyword([NotNull] AccessSqlParser.NonReservedKeywordContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.reservedKeyword"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitReservedKeyword([NotNull] AccessSqlParser.ReservedKeywordContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.filterClause"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
@@ -1056,5 +1088,11 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitNullTreatment([NotNull] AccessSqlParser.NullTreatmentContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.derivedColumns"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitDerivedColumns([NotNull] AccessSqlParser.DerivedColumnsContext context);
 }
 } // namespace LibRed.Sql.Grammar

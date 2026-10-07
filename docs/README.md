@@ -1,8 +1,6 @@
 # EntityFrameworkCore.Jet
 [![Build status](https://github.com/CirrusRedOrg/EntityFrameworkCore.Jet/actions/workflows/push.yml/badge.svg?branch=master)](https://github.com/CirrusRedOrg/EntityFrameworkCore.Jet/actions/workflows/push.yml)
 [![Stable release feed for official builds](https://img.shields.io/nuget/vpre/EntityFrameworkCore.Jet.svg?style=flat-square&label=NuGet)](https://www.nuget.org/packages/EntityFrameworkCore.Jet/)
-[![CI build feed for release builds](https://img.shields.io/myget/cirrusred/vpre/EntityFrameworkCore.Jet.svg?label=CI%20Release)](https://www.myget.org/feed/cirrusred/package/nuget/EntityFrameworkCore.Jet)
-[![CI build feed for debugging enabled builds](https://img.shields.io/myget/cirrusred-debug/vpre/EntityFrameworkCore.Jet.svg?label=CI%20Debug)](https://www.myget.org/feed/cirrusred-debug/package/nuget/EntityFrameworkCore.Jet)
 
 `EntityFrameworkCore.Jet` is an Entity Framework Core provider for Microsoft Jet/ACE databases (supporting the Microsoft Access database file formats `MDB` and `ACCDB`).
 
@@ -19,6 +17,8 @@
 
 The major version corresponds to the major version of EF Core (i.e. EFCore.Jet `3.x` is compatible with EF Core `3.y`).
 It runs on Windows operating systems only and can be used with either ODBC or OLE DB together with their respective Access Database driver/provider.
+(`EntityFrameworkCore.Jet.Common`, which carries this readme too, is the exception: it holds the Jet SQL dialect
+shared with the LibRed provider, and is cross-platform.)
 
 ## Requirements
 
@@ -36,8 +36,8 @@ The provider works with Microsoft Access `MDB` and `ACCDB` database files.
 from-scratch, fully managed implementation of the Jet/ACE engine that also lives in this repository. It reads
 and writes `MDB`/`ACCDB` files **directly** - no ODBC, OLE DB, DAO or ADOX - so **none of the requirements
 above apply to it**: no Windows, no installed Access driver, and no need to match your process architecture to
-one. It runs on Linux, macOS and ARM64, which CI proves by running its suites on all five platforms with no
-Access engine installed anywhere.
+one. It runs on Linux, macOS and ARM64, which CI proves by running its engine, file-format and EF Core
+specification suites on all five platforms with no Access engine installed anywhere.
 
 It reads and writes real database files, creates them from nothing (no DAO, no template file), runs SQL end to
 end, and an EF Core `DbContext` round-trips through it. The on-disk format it depends on is documented and
@@ -132,20 +132,10 @@ All official releases are available on [nuget.org](https://www.nuget.org/package
 
 ### CI Builds
 
-CI publishes each build to MyGet. To use the latest CI builds, add a `NuGet.config` file to your solution root, add the feeds you are interested in and enable _prereleases_:
-
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <packageSources>
-    <add key="efcorejet-daily" value="https://www.myget.org/F/cirrusred/api/v3/index.json" />
-    <add key="efcorejet-daily-debug" value="https://www.myget.org/F/cirrusred-debug/api/v3/index.json" />
-    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
-  </packageSources>
-</configuration>
-```
-
-There are two CI build feeds available, one with (optimized) `Release` configuration builds and one with (unoptimized) `Debug` configuration builds.
+There is no CI package feed. Every build of `master`, of a `*-servicing` or `*-wip` branch, and of a release
+tag packs the projects and attaches them to its workflow
+run as the `nupkgs` artifact, which can be downloaded from the run's page on GitHub and restored from a local
+folder. The artifact holds optimized `Release` packages and unoptimized `Debug` ones, both with PDBs.
 All packages use SourceLink.
   
 ## Fluent API

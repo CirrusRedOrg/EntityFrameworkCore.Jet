@@ -5,8 +5,9 @@ Access `.mdb` and `.accdb` files.
 
 LibRed reads, writes and creates those files **directly**. There is no ODBC, no OLE DB, no DAO and no ADOX,
 so there is no Access Database Engine to install, no Windows requirement, and no need to match your process
-architecture to a driver. It runs on Linux, macOS and ARM64, and its test suites run on all of them with no
-Access engine present anywhere.
+architecture to a driver. It runs on Linux, macOS and ARM64, and its core, engine and EF Core specification
+suites run on all of them with no Access engine present anywhere. (A further set of suites exists only to cross-check
+LibRed's output against the real Access engine, and runs where that engine is installed.)
 
 It ships with an Entity Framework Core provider.
 
@@ -48,7 +49,8 @@ generates, not what the engine accepts.
 ## What works
 
 Reading and writing every page type, full B-tree index maintenance, `CREATE`/`ALTER`/`DROP TABLE`, primary
-and foreign keys with referential integrity and cascade actions, `DEFAULT` and `CHECK` constraints, calculated
+and foreign keys with referential integrity and cascade actions, `DEFAULT` and table-level `CHECK`
+constraints, calculated
 columns (they map to EF Core's `ComputedColumnSql`, and scaffold back out of an existing database), views and
 stored procedures written the way Access writes them, transactions with real commit and rollback, and text
 index keys for both sort-order versions across the whole Basic Multilingual Plane plus the locale sort
@@ -73,10 +75,11 @@ been through production use.
   no lock file, and none of the page/record locking Access coordinates through its side-car `.laccdb`/`.ldb`.
   Safe for any number of readers with no writer, or one writer with serialized access. Two concurrent writers
   will corrupt the file, so this is not the library for a shared network database.
-- Jet 3 (Access 97) files are not supported; the Jet 4 / ACE family is.
-- **Validation rules authored in the Access UI are read but not enforced.** They survive a round trip and are
-  reported through `INFORMATION_SCHEMA`, but LibRed will accept a row that Access would have rejected. SQL
-  `CHECK` constraints *are* enforced.
+- Jet 3 (Access 97) files are not supported.
+- **Validation rules authored in the Access UI are not enforced**: LibRed will accept a row that Access would
+  have rejected.
+- **A column-level `CHECK`** (`Col LONG CHECK (Col > 0)`) is dropped — neither stored nor enforced. Declare it
+  at table level instead.
 
 ## Packages
 

@@ -161,4 +161,75 @@ public class AceVbaConversionRegressionTests(ITestOutputHelper output)
         }
         finally { TemporaryDatabase.Delete(path); }
     }
+
+    // A Currency is an int64 scaled by 10,000, so every conversion into one has to resolve a 5th decimal place.
+    // LibRed resolves it half-to-even (JetTypeCodec and IndexKeyCodec both call decimal.Round without a mode,
+    // which is ToEven). VB's own CCur is documented as banker's rounding, but the Jet Expression Service is not
+    // the VBA runtime - CStr(True) already differs - so the rule is measured rather than assumed, on both routes
+    // into a Currency: the CCur function, and storing into a CURRENCY column.
+    //
+    // The probe values are the only doubles that can settle this: a 4-decimal midpoint is m/(2^5 * 5^5), so it is
+    // exactly representable in binary only when 5^5 divides the numerator - leaving exactly the odd multiples of
+    // 1/32. Anything else (0.00005 and friends) is already off the midpoint as a double and rounds the same way
+    // under every rule. Within those, the 4th decimal digit picks the discriminator:
+    //   0.03125, 0.15625  4th digit even -> ToEven keeps it, AwayFromZero lifts it
+    //  -0.09375            negative, 4th digit odd -> ToEven/AwayFromZero go to -0.0938, ToPositiveInfinity to -0.0937
+    //   0.09375            4th digit odd -> every rule lifts it; the control that proves rounding happens at all
+    [Fact]
+    public void Ace_currency_midpoint_rounding_is_pinned()
+    {
+        double[] midpoints = [0.03125, 0.09375, 0.15625, 0.28125, -0.03125, -0.09375];
+
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "acecur-");
+        try
+        {
+            using var conn = OpenOleDb(path);
+            // Report evaluates against `P`, so it needs a row to project over; the midpoints go in beside it.
+            Exec(conn, "CREATE TABLE `P` (`Id` INT, `C` CURRENCY)");
+            Exec(conn, "INSERT INTO `P` (`Id`) VALUES (-1)");
+
+            output.WriteLine("--- CCur(<exact 4dp midpoint>) ---");
+            foreach (double m in midpoints)
+            {
+                string literal = m.ToString("R", CultureInfo.InvariantCulture);
+                Report(conn, $"CCur({literal})", $"CCur(CDbl({literal}))");
+            }
+
+            output.WriteLine("--- stored in a CURRENCY column ---");
+            for (int i = 0; i < midpoints.Length; i++)
+            {
+                string literal = midpoints[i].ToString("R", CultureInfo.InvariantCulture);
+                Exec(conn, $"INSERT INTO `P` (`Id`, `C`) VALUES ({i}, CDbl({literal}))");
+                output.WriteLine($"stored {literal,-10} = {Describe(Scalar(conn, $"SELECT `C` FROM `P` WHERE `Id` = {i}"))}");
+            }
+
+            output.WriteLine("--- controls: not a midpoint, so every rule agrees ---");
+            Report(conn, "CCur(0.00004)", "CCur(CDbl(0.00004))");
+            Report(conn, "CCur(0.00006)", "CCur(CDbl(0.00006))");
+
+            // ---------------------------------------------------------------------------------------------
+            // Verdict (observed 2026-09-25, ACE OLE DB): half-to-even, on both routes into a Currency.
+            // A midpoint over an even 4th digit stays put and one over an odd digit lifts, which rules out
+            // AwayFromZero; the negatives move the same distance as their positives, which rules out
+            // ToPositiveInfinity. This is what LibRed already does - decimal.Round without a mode is ToEven
+            // in JetTypeCodec.Encode and IndexKeyCodec.EncodeFixed - so the two agree.
+            // ---------------------------------------------------------------------------------------------
+            Assert.Equal(0.0312m, Scalar(conn, "SELECT CCur(CDbl(0.03125)) FROM `P`"));
+            Assert.Equal(0.1562m, Scalar(conn, "SELECT CCur(CDbl(0.15625)) FROM `P`"));
+            Assert.Equal(0.2812m, Scalar(conn, "SELECT CCur(CDbl(0.28125)) FROM `P`"));
+            Assert.Equal(0.0938m, Scalar(conn, "SELECT CCur(CDbl(0.09375)) FROM `P`"));
+            Assert.Equal(-0.0312m, Scalar(conn, "SELECT CCur(CDbl(-0.03125)) FROM `P`"));
+            Assert.Equal(-0.0938m, Scalar(conn, "SELECT CCur(CDbl(-0.09375)) FROM `P`"));
+
+            // The column takes the same rule as the function: the coercion is the Currency type's, not CCur's.
+            Assert.Equal(0.0312m, Scalar(conn, "SELECT `C` FROM `P` WHERE `Id` = 0"));
+            Assert.Equal(0.1562m, Scalar(conn, "SELECT `C` FROM `P` WHERE `Id` = 2"));
+            Assert.Equal(-0.0938m, Scalar(conn, "SELECT `C` FROM `P` WHERE `Id` = 5"));
+
+            // And it is rounding, not truncation, away from the midpoints.
+            Assert.Equal(0m, Scalar(conn, "SELECT CCur(CDbl(0.00004)) FROM `P`"));
+            Assert.Equal(0.0001m, Scalar(conn, "SELECT CCur(CDbl(0.00006)) FROM `P`"));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
 }

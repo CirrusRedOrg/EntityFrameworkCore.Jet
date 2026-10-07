@@ -121,8 +121,8 @@ internal static class CalculatedEvaluator
         // itself, so refusing is matching it, not falling short of it.
         if (name.EndsWith('$'))
             throw new CalculatedExpressionException(
-                $"'{name}' cannot be evaluated in a calculated column. Access offers the '$' name variants and "
-                + $"accepts them at design time, but ACE fails every insert into such a table; use '{name[..^1]}'.");
+                $"'{name}' cannot be evaluated in a calculated column: the '$' variants are not supported there; "
+                + $"use '{name[..^1]}'.");
 
         // IIf and Choose SHORT-CIRCUIT: only the selected branch is evaluated, matching both the Access
         // expression service and LibRed.Engine's own evaluator. (Access's VBA-side IIf famously does NOT
@@ -175,9 +175,8 @@ internal static class CalculatedEvaluator
         // needed to get rid of it (page-02e-calculated-columns).
         if (args.Length > 0 && args[0] is null && name.Equals("CDbl", StringComparison.OrdinalIgnoreCase))
             throw new CalculatedExpressionException(
-                "CDbl cannot convert Null — the VBA conversions raise on Null rather than propagating it, so "
-                + "this row's cached value would be an error ACE could not read back. Give the column a "
-                + "value, or guard the expression, e.g. IIf(IsNull([x]), 0, CDbl([x])).");
+                "CDbl cannot convert Null in a calculated column. Give the column a value, or guard the "
+                + "expression, e.g. IIf(IsNull([x]), 0, CDbl([x])).");
 
         // Everything else propagates Null through any argument.
         if (args.Any(a => a is null)) return null;

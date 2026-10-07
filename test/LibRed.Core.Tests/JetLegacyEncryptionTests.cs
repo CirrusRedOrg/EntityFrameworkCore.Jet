@@ -1,4 +1,5 @@
 using LibRed.Crypto;
+using LibRed.Formats;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -81,7 +82,7 @@ public class JetLegacyEncryptionTests
 
     private static byte[] RandomPage(uint seed)
     {
-        var page = new byte[4096];
+        var page = new byte[JetFormatBase.FromVersionByte(0x01).PageSize];
         for (int i = 0; i < page.Length; i++) { seed = seed * 1664525 + 1013904223; page[i] = (byte)(seed >> 24); }
         return page;
     }

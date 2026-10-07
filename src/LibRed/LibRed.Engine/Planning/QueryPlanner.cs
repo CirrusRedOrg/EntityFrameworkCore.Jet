@@ -25,7 +25,7 @@ public static class QueryPlanner
         // rows in the wrong order (measured against ACE).
         SetOperationStatement set => PageAndSort(
             new SetOperationNode(PlanStatement(set.Left), PlanStatement(set.Right), set.Operator),
-            OrderByPositions(set.OrderBy ?? [], _ => null), set.Top, set.Offset),
+            OrderByPositions(set.OrderBy ?? [], _ => null), set.Top, set.Offset, set.WithTies),
         ValuesStatement values => new ValuesNode(values.Rows),
         _ => throw new NotImplementedException(
             $"Planning for {statement.GetType().Name} is not yet implemented."),
@@ -35,8 +35,11 @@ public static class QueryPlanner
     /// paging for the same reason <see cref="BoundSort"/> does — only that many rows can survive it — except
     /// under OFFSET, where the skipped rows must be produced before they can be discarded.</summary>
     private static PlanNode PageAndSort(
-        PlanNode node, List<OrderByItem> orderBy, Expression? top, Expression? offset)
+        PlanNode node, List<OrderByItem> orderBy, Expression? top, Expression? offset, bool withTies)
     {
+        if (withTies)
+            return new SortNode(node, RequireTieOrder(orderBy), Ties: new TieCut(top!, Percent: false, offset));
+
         if (orderBy.Count > 0)
         {
             Expression? bound = top is not null && offset is null ? top : null;
@@ -45,6 +48,11 @@ public static class QueryPlanner
 
         return top is null && offset is null ? node : new LimitNode(node, top, Offset: offset);
     }
+
+    /// <summary>A WITH TIES cut ties rows by their ORDER BY keys, so it needs some — SQL Server's rule too.</summary>
+    private static IReadOnlyList<OrderByItem> RequireTieOrder(IReadOnlyList<OrderByItem> orderBy) => orderBy.Count > 0
+        ? orderBy
+        : throw new InvalidOperationException("TOP … WITH TIES needs an ORDER BY: the ties are rows with equal ORDER BY keys.");
 
     /// <summary>Plans a SELECT statement directly (used for subqueries).</summary>
     public static PlanNode PlanSelect(SelectStatement select)
@@ -86,10 +94,24 @@ public static class QueryPlanner
         if (windows.Count > 0 && !aggregate)
             node = new WindowNode(node, windows);
 
+        // WITH TIES is cut by whatever orders the rows — the only node that holds their keys — so it replaces the
+        // LimitNode. DISTINCT collapses rows above the sort, where the cut would already have counted duplicates.
+        TieCut? ties = null;
+        if (select.WithTies)
+        {
+            if (select.Distinct || select.DistinctRow)
+                throw new NotSupportedException("TOP … WITH TIES cannot be combined with DISTINCT or DISTINCTROW.");
+            RequireTieOrder(select.OrderBy);
+            ties = new TieCut(select.Top!, select.TopPercent, select.Offset);
+        }
+
         if (aggregate)
             // The aggregate node owns ORDER BY: its keys are evaluated in the group scope (so they can
             // reference grouping expressions / aggregates), not over the already-projected output.
-            node = new AggregateNode(node, select.GroupBy, select.Projection, select.Having, select.OrderBy, windows);
+            node = new AggregateNode(node, select.GroupBy, select.Projection, select.Having, select.OrderBy, windows, ties);
+        else if (ties is not null)
+            // Kept above the joins rather than sunk into one side (PushSort): the cut needs each row's keys.
+            node = new SortNode(node, select.OrderBy, Ties: ties);
         else if (select.OrderBy.Count > 0)
             node = PushSort(node, select.OrderBy);
 
@@ -105,7 +127,7 @@ public static class QueryPlanner
         if (select.Distinct)
             node = new DistinctNode(node);
 
-        if (select.Top is { } top || select.Offset is not null)
+        if (ties is null && (select.Top is not null || select.Offset is not null))
         {
             // `TOP n ... ORDER BY k` only needs the n smallest rows by k, so tell the sort the bound and let it
             // discard rows that can't survive rather than ordering everything. Only sound when nothing between the
@@ -285,7 +307,7 @@ public static class QueryPlanner
         null => new SingleRowNode(), // FROM-less SELECT (e.g. `SELECT 2`) — one row, no columns
         NamedTable t => new ScanNode(t.Name, t.Alias),
         JoinTable j => new JoinNode(PlanFrom(j.Left), PlanFrom(j.Right), j.Kind, j.On),
-        SubqueryTable s => new DerivedTableNode(PlanStatement(s.Query), s.Alias), // alias optional (Access allows aliasless)
+        SubqueryTable s => new DerivedTableNode(PlanStatement(s.Query), s.Alias, s.Columns), // alias optional (Access allows aliasless)
         _ => throw new NotSupportedException($"Unsupported FROM source {from.GetType().Name}."),
     };
 
@@ -336,12 +358,12 @@ public static class QueryPlanner
             return (new JoinNode(left, right, j.Kind, on), outside);
         }
 
-        // Both APPLY kinds preserve their left side, so a conjunct confined to it can be pushed there: dropping
-        // a left row before the lateral runs removes exactly the output rows the WHERE would have removed
-        // after, and saves re-running the whole right side for it. Nothing is pushed into the RIGHT side —
-        // under OUTER APPLY a filter there can empty an otherwise non-empty result and so manufacture the very
+        // Both APPLY kinds and a LEFT JOIN preserve their left side, so a conjunct confined to it can be pushed
+        // there: dropping a left row before the join removes exactly the output rows the WHERE would have
+        // removed after, and saves joining it at all. Nothing is pushed into the RIGHT side — under OUTER APPLY
+        // or a LEFT JOIN a filter there can empty an otherwise matching row and so manufacture the very
         // null-padded row the WHERE was there to drop.
-        if (node is JoinNode { Kind: JoinKind.CrossApply or JoinKind.OuterApply } a)
+        if (node is JoinNode { Kind: JoinKind.CrossApply or JoinKind.OuterApply or JoinKind.Left } a)
         {
             (PlanNode left, List<Expression> rest) = Place(a.Left, candidates, introduced);
             PlanNode lateral = a with { Left = left };

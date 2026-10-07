@@ -1,9 +1,7 @@
-using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed;
 using LibRed.Catalog;
 using LibRed.Formats;
-using LibRed.Pages;
 using LibRed.Storage;
 using Xunit;
 
@@ -38,15 +36,15 @@ public class WideTableUsageMapTests
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     /// <summary>The type, record length and (inline only) start page of a table's usage map.</summary>
-    private static (byte Type, int Length, int StartPage) ReadMap(Table table, JetFormatBase format, int tdefPointerOffset)
+    private static (UsageMapType Type, int Length, int StartPage) ReadMap(Table table, JetFormatBase format, int tdefPointerOffset)
     {
         var tdef = table.Channel.ReadPage(table.Definition.DefinitionPage);
-        var holder = new DataPage();
-        holder.Read(table.Channel.ReadPage(tdef.ReadInt24(tdefPointerOffset + 1)), format);
-        byte[] record = holder.GetRow(tdef.ReadByte(tdefPointerOffset)).ToArray();
+        (int mapRow, int mapPage) = tdef.ReadRecordPointer(tdefPointerOffset);
+        ReadOnlySpan<byte> record = new UsageMap(table.Channel, table.Definition).ReadRecordAt(mapRow, mapPage);
 
-        int startPage = record[0] == 0x00 ? BinaryPrimitives.ReadInt32LittleEndian(record.AsSpan(1, 4)) : -1;
-        return (record[0], record.Length, startPage);
+        UsageMapType type = UsageMap.RecordType(record);
+        int startPage = type == UsageMapType.Inline ? UsageMap.StartPage(record, format) : -1;
+        return (type, record.Length, startPage);
     }
 
     private static List<ColumnSpec> FullPageRowColumns()
@@ -86,16 +84,17 @@ public class WideTableUsageMapTests
 
             Fill(table, 2_000); // one row per page, so the tail is ~2,300 pages in
 
-            (byte type, int length, int startPage) = ReadMap(table, db.Format, db.Format.TdefFreePagesOffset);
-            Assert.Equal(0x00, type);
-            Assert.Equal(69, length);              // 5-byte header + a fixed 64-byte bitmap, never grown
-            Assert.Equal(0, startPage % 512);      // window aligned to a 512-page boundary
+            (UsageMapType type, int length, int startPage) = ReadMap(table, db.Format, db.Format.TdefFreePagesOffset);
+            int window = db.Format.UsageMapInlineBitmapSize * 8;
+            Assert.Equal(UsageMapType.Inline, type);
+            Assert.Equal(db.Format.UsageMapInlineRecordSize, length); // 5-byte header + a fixed 64-byte bitmap, never grown
+            Assert.Equal(0, startPage % window);   // window aligned to a 512-page boundary
 
             // The window covers the tail: exactly one page has room, and it is the highest owned page.
             var usage = new UsageMap(table.Channel, table.Definition);
             int tail = Assert.Single(usage.FreeDataPages());
             Assert.Equal(usage.MaxDataPage(), tail);
-            Assert.InRange(tail, startPage, startPage + 511);
+            Assert.InRange(tail, startPage, startPage + window - 1);
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -119,13 +118,14 @@ public class WideTableUsageMapTests
 
             Fill(table, 2_000);
 
-            (byte type, int length, int startPage) = ReadMap(table, db.Format, db.Format.TdefOwnedPagesOffset);
-            Assert.Equal(0x00, type);
+            (UsageMapType type, int length, int startPage) = ReadMap(table, db.Format, db.Format.TdefOwnedPagesOffset);
+            Assert.Equal(UsageMapType.Inline, type);
             Assert.Equal(0, startPage); // an owned map never moves: it must retain every page ever taken
 
             int maxPage = new UsageMap(table.Channel, table.Definition).MaxDataPage();
-            int bitmapBytes = (maxPage + 1 + 7) / 8;
-            int expected = 5 + (bitmapBytes + 3) / 4 * 4;
+            int bitmapBytes = BitmapBits.ByteCount(maxPage + 1);
+            int growth = db.Format.UsageMapInlineGrowthSize;
+            int expected = db.Format.UsageMapInlineHeaderSize + (bitmapBytes + growth - 1) / growth * growth;
             Assert.Equal(expected, length);
         }
         finally { TemporaryDatabase.Delete(path); }
@@ -142,7 +142,7 @@ public class WideTableUsageMapTests
                 db.CreateTable("Wide255", FullPageRowColumns(), primaryKey: ["Id"]);
                 var table = db.OpenTable("Wide255");
 
-                Assert.Equal(0x00, ReadMap(table, db.Format, db.Format.TdefOwnedPagesOffset).Type); // starts inline
+                Assert.Equal(UsageMapType.Inline, ReadMap(table, db.Format, db.Format.TdefOwnedPagesOffset).Type); // starts inline
                 Fill(table, Rows);
             }
 
@@ -150,13 +150,13 @@ public class WideTableUsageMapTests
             {
                 var table = db.OpenTable("Wide255");
 
-                Assert.Equal(0x01, ReadMap(table, db.Format, db.Format.TdefOwnedPagesOffset).Type); // grew past inline
+                Assert.Equal(UsageMapType.Reference, ReadMap(table, db.Format, db.Format.TdefOwnedPagesOffset).Type); // grew past inline
 
                 // The free map never grows, which is precisely what leaves the owned map room to reach
                 // ~3,800 bytes before converting.
-                (byte freeType, int freeLength, _) = ReadMap(table, db.Format, db.Format.TdefFreePagesOffset);
-                Assert.Equal(0x00, freeType);
-                Assert.Equal(69, freeLength);
+                (UsageMapType freeType, int freeLength, _) = ReadMap(table, db.Format, db.Format.TdefFreePagesOffset);
+                Assert.Equal(UsageMapType.Inline, freeType);
+                Assert.Equal(db.Format.UsageMapInlineRecordSize, freeLength);
 
                 Assert.Equal(Rows, table.Rows().Count());
             }

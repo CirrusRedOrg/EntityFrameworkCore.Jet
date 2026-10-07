@@ -16,46 +16,109 @@ internal static class JetKanaSection
     /// <summary>The page byte every kana primary starts with: a kana weighs <c>7F &lt;sound&gt;</c>.</summary>
     public const byte KanaPage = 0x7F;
 
-    /// <summary>Closes the kana section, after the <c>FF</c> that introduces the prolonged-mark flags.
+    /// <summary>Closes the kana section, after the mark codes.
     /// Constant across hiragana, katakana, halfwidth, small and voiced forms in every string measured, so it
     /// is emitted literally; what it denotes is not established.</summary>
-    private static ReadOnlySpan<byte> Tail => [0x02, 0x80, 0xFF, 0x80];
+    private static ReadOnlySpan<byte> Tail => [0x02, 0x80, IndexKeyCodec.KanaRunSeparator, 0x80];
+
+    /// <summary>The mark code of a kana that is a letter in its own right.</summary>
+    public const byte Letter = 0b01;
+
+    /// <summary>The mark code of a prolonged sound mark <c>ー</c> lengthening the kana before it.</summary>
+    public const byte Prolonged = 0b11;
+
+    /// <summary>The mark code of an iteration mark (<c>ゝ</c>, <c>ヽ</c>, <c>々</c> …) repeating the kana before
+    /// it — <c>かゝ</c> closes <c>FF 98</c>, where <c>かー</c> closes <c>FF 9C</c> and <c>かあ</c> a bare <c>FF</c>.</summary>
+    public const byte Repeat = 0b10;
 
     /// <summary>
-    /// Appends <c>01 01</c>, the packed small/normal flags, the prolonged-mark flags and the closing constant.
+    /// Whether <paramref name="character"/> is an iteration mark — [MS-UCODEREF]'s <c>PW_REPEAT</c> — and the
+    /// secondary it adds to the weight it repeats.
+    /// </summary>
+    /// <remarks>
+    /// An iteration mark weighs as a copy of the weight the character before it contributed, with its OWN
+    /// secondary: <c>人々</c> is <c>9FD4 9FD4</c> with secondaries <c>02 05</c>, and <c>がゝ</c> is <c>が</c> twice
+    /// with secondaries <c>03 02</c> — the mark does not inherit the voicing, <c>ゞ</c> adds its own. The long
+    /// vowel mark is one too wherever it has no kana to lengthen: <c>人ー</c> and <c>aー</c> double what came
+    /// before. Measured against ACE under both versions, which agree except that <c>〻</c> and <c>ꀕ</c> are
+    /// repeat marks only in version 1 — version 0 ignores both.
+    /// </remarks>
+    /// <param name="character">The character.</param>
+    /// <param name="version1">Whether the order is version 1.</param>
+    /// <param name="secondary">The secondary the mark adds.</param>
+    public static bool TryGetIterationMark(char character, bool version1, out byte secondary)
+    {
+        secondary = character switch
+        {
+            (char)0x3005 => 0x05,                                                             // 々
+            (char)0x309D or (char)0x30FD or (char)0x3031 => 0x02,                             // ゝ ヽ 〱
+            _ when IsProlongedSoundMark(character) => 0x02,                                   // ー ｰ, with no kana to lengthen
+            (char)0x309E or (char)0x30FE or (char)0x3032 => 0x03,                             // ゞ ヾ 〲 — voiced
+            (char)0x303B when version1 => 0x05,                                               // 〻
+            (char)0xA015 when version1 => 0x07,                                               // ꀕ
+            _ => 0,
+        };
+        return secondary != 0;
+    }
+
+    /// <summary>Whether <paramref name="character"/> is a prolonged sound mark — <c>ー</c> or halfwidth <c>ｰ</c>. Right
+    /// after a kana it lengthens that kana's vowel, taking the vowel's primary and the kana's small flag and marking
+    /// itself <see cref="Prolonged"/>; with no kana before it, it is an iteration mark.</summary>
+    public static bool IsProlongedSoundMark(char character) => character is (char)0x30FC or (char)0xFF70;
+
+    /// <summary>Whether <paramref name="character"/> is a halfwidth voicing mark, and the secondary it gives the kana
+    /// right before it: <c>ﾞ</c> voices it (<c>03</c>), <c>ﾟ</c> semi-voices it (<c>04</c>). The marks are combining —
+    /// ACE folds them into that kana rather than weighing them — and with no kana before them they are weighed alone.</summary>
+    public static bool TryGetHalfwidthVoicing(char character, out byte secondary)
+    {
+        secondary = character switch
+        {
+            (char)0xFF9E => 0x03,
+            (char)0xFF9F => 0x04,
+            _ => 0,
+        };
+        return secondary != 0;
+    }
+
+    /// <summary>
+    /// Appends <c>01 01</c>, the packed small/normal flags, the mark codes and the closing constant.
     /// Emitted whenever the string holds any kana at all, even if every one of them is a normal form.
     /// </summary>
-    public static void Append(List<byte> output, List<bool> small, List<bool> prolonged)
+    /// <param name="output">The key being built.</param>
+    /// <param name="small">Per kana, whether it is a small form.</param>
+    /// <param name="marks">Per kana, <see cref="Letter"/>, <see cref="Prolonged"/> or <see cref="Repeat"/>.</param>
+    public static void Append(List<byte> output, List<bool> small, List<byte> marks)
     {
-        output.Add(0x01);
-        output.Add(0x01);
-        AddFlags(output, small, marked: 0b10, unmarked: 0b11);
-        output.Add(0xFF);
-        AddFlags(output, prolonged, marked: 0b11, unmarked: 0b01);
+        output.Add(IndexKeyCodec.SectionSeparator); // ends the diacritics
+        output.Add(IndexKeyCodec.SectionSeparator); // ends the empty case section
+        AddCodes(output, small.Count, i => small[i] ? (byte)0b10 : (byte)0b11, unmarked: 0b11);
+        output.Add(IndexKeyCodec.KanaRunSeparator);
+        AddCodes(output, marks.Count, i => marks[i], unmarked: Letter);
         output.AddRange(Tail);
     }
 
     /// <summary>
-    /// Packs one flag per kana, three to a byte, <b>most significant first</b>, under a <c>10</c> marker in
-    /// the top two bits: <c>11</c> normal, <c>10</c> small, <c>00</c> padding. So one small kana is
-    /// <c>A0</c>, "normal small" is <c>B8</c>, and four kana take two bytes, the second repeating the marker.
-    /// Verified against ACE over all 30 combinations up to four kana.
+    /// Packs one two-bit code per kana, three to a byte, <b>most significant first</b>, under a <c>10</c> marker
+    /// in the top two bits, <c>00</c> padding the last byte. The small flags are <c>11</c> normal and <c>10</c>
+    /// small, so one small kana is <c>A0</c>, "normal small" is <c>B8</c>, and four kana take two bytes, the
+    /// second repeating the marker — verified against ACE over all 30 combinations up to four kana. The mark
+    /// codes pack the same way.
     /// <para>
-    /// Nothing is emitted at all when no flag is set, which is why a lone normal kana closes straight into
-    /// the tail.
+    /// Codes are written only up to the last one that is not <paramref name="unmarked"/>, so nothing at all is
+    /// emitted when every kana is unmarked, which is why a lone normal kana closes straight into the tail.
     /// </para>
     /// </summary>
-    private static void AddFlags(List<byte> output, List<bool> flags, int marked, int unmarked)
+    private static void AddCodes(List<byte> output, int count, Func<int, byte> code, byte unmarked)
     {
-        int last = flags.LastIndexOf(true);
+        int last = count - 1;
+        while (last >= 0 && code(last) == unmarked) last--;
         for (int start = 0; start <= last; start += 3)
         {
             int packed = 0x80;
             for (int slot = 0; slot < 3; slot++)
             {
                 int index = start + slot;
-                int code = index > last ? 0b00 : flags[index] ? marked : unmarked;
-                packed |= code << (4 - 2 * slot);
+                packed |= (index > last ? 0b00 : code(index)) << (4 - 2 * slot);
             }
             output.Add((byte)packed);
         }

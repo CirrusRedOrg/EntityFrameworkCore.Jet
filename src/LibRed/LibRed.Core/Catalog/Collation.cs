@@ -6,7 +6,8 @@ namespace LibRed.Catalog;
 /// These mirror DAO's <c>CollatingOrderEnum</c>; each name is the LCID Access records. That is a Jet-3.5-era
 /// list and no longer matches what ACE offers, in both directions: Access's "New Database Sort Order" adds
 /// Bosnian, Croatian, Serbian, Macedonian, Ukrainian, Estonian, Latvian, Lithuanian, Slovak, Romanian,
-/// Georgian Modern, Vietnamese, Indic, French, German Phone Book, Hungarian Technical and the CJK variants,
+/// Georgian Modern, Vietnamese, Indic, French, German Phone Book, Hungarian Technical and the CJK variants
+/// (told apart by a sort id — see <see cref="Collation"/>),
 /// and offers none of the five marked <i>inert</i> below. Those five are still creatable through DAO and are
 /// recorded faithfully on page 0 and in column descriptors, but ACE encodes **General** keys for them
 /// regardless — verified over 82 samples in <c>DaoLocaleCollationProbeTest</c>. Treat them as metadata.

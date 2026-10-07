@@ -41,8 +41,7 @@
     <Compile Include="..\LibRed.Shared\AceTestDatabase.cs" Link="AceTestDatabase.cs" />
     <Compile Include="..\LibRed.Shared\TemporaryDatabase.cs" Link="TemporaryDatabase.cs" />
     <Compile Include="..\LibRed.Shared\TempDatabaseTest.cs" Link="TempDatabaseTest.cs" />
-    <Compile Include="..\LibRed.Shared\TestDatabases.cs" Link="TestDatabases.cs" />
-    <Using Include="LibRed.Tests.Shared" />
+    <Compile Include="..\LibRed.Shared\TestDatabases.cs" Link="TestDatabases.cs" />    <Using Include="LibRed.Tests.Shared" />
   </ItemGroup>
 
   <!-- The fixtures live in LibRed.Core.Tests\Data and are copied into both outputs rather than duplicated on

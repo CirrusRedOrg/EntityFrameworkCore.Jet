@@ -49,7 +49,7 @@ public class DecimalKeyEncodingTests
             var def = table.Definition;
             IndexDef index = def.Indexes.Single(i => i.Columns.Any(c => c.Column.Name == "K"));
             int kIdx = def.FindColumn("K")!.Index;
-            var decoder = new RowDecoder(def.Columns, db.Format);
+            var decoder = new RowCodec(def.Columns, db.Format);
 
             int checkedKeys = 0;
             foreach (var (accessKey, rowId) in new IndexCursor(table.Channel, index.RootPage).RawEntries())
@@ -58,7 +58,7 @@ public class DecimalKeyEncodingTests
 
                 var values = new object?[def.Columns.Count];
                 values[kIdx] = d;
-                byte[] ours = IndexKeyEncoder.Encode(index.Columns, values);
+                byte[] ours = IndexKeyCodec.Encode(index.Columns, values);
 
                 Assert.True(accessKey.AsSpan().SequenceEqual(ours),
                     $"{d}: access={Convert.ToHexString(accessKey)} ours={Convert.ToHexString(ours)}");
@@ -79,4 +79,51 @@ public class DecimalKeyEncodingTests
         => AssertKeysMatchAccess(
             "CREATE TABLE DKey (K DECIMAL(18,4), V int)",
             "CREATE UNIQUE INDEX IX_DKey_K ON DKey (K DESC)");
+
+    // -0.00001 in a DECIMAL(18,4) is truncated to a magnitude of zero, and ACE keeps its sign: the row holds a
+    // negative zero and the key is the complemented zero, 7F 00 FF…FF. A decimal can carry that sign too, but
+    // "< 0" is false for it — so a sign taken from a comparison rewrites the row as +0 on an unrelated UPDATE
+    // and rebuilds a +0 key that matches no entry, and the row can no longer be deleted.
+    [Fact]
+    public void A_negative_zero_keeps_its_sign_and_its_key_through_a_libred_rewrite()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-negzero-");
+        try
+        {
+            using (var conn = OpenOleDb(path))
+                foreach (string sql in new[]
+                {
+                    "CREATE TABLE DKey (K DECIMAL(18,4), V int)",
+                    "CREATE INDEX IX_DKey_K ON DKey (K)",
+                    "INSERT INTO DKey (K, V) VALUES (-0.00001, 1)",
+                })
+                    using (var c = conn.CreateCommand()) { c.CommandText = sql; c.ExecuteNonQuery(); }
+
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                var table = db.OpenTable("DKey");
+                var def = table.Definition;
+                IndexDef index = def.Indexes.Single(i => i.Name == "IX_DKey_K");
+                int kIdx = def.FindColumn("K")!.Index, vIdx = def.FindColumn("V")!.Index;
+                (RowId rowId, object?[] values) = table.Rows().WithIds().Single();
+                (byte[] accessKey, _) = new IndexCursor(table.Channel, index.RootPage).RawEntries().Single();
+
+                Assert.True(decimal.IsNegative((decimal)values[kIdx]!), "ACE stored the sign");
+                Assert.Equal(Convert.ToHexString(accessKey), Convert.ToHexString(IndexKeyCodec.Encode(index.Columns, values)));
+
+                var updated = (object?[])values.Clone();
+                updated[vIdx] = 2;
+                table.Update(rowId, updated);
+                Assert.True(decimal.IsNegative((decimal)table.GetRow(rowId)![kIdx]!), "the rewrite kept the sign");
+
+                table.Delete(rowId);
+            }
+
+            using var conn2 = OpenOleDb(path);
+            using var count = conn2.CreateCommand();
+            count.CommandText = "SELECT COUNT(*) FROM DKey";
+            Assert.Equal(0, Convert.ToInt32(count.ExecuteScalar()));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
 }

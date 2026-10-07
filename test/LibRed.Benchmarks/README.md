@@ -12,6 +12,7 @@ dotnet run --project test\LibRed.Benchmarks -c Release -- --filter "*Pipeline*" 
 dotnet run --project test\LibRed.Benchmarks -c Release -- --scale 10000,200000  # growth, not a constant
 dotnet run --project test\LibRed.Benchmarks -c Release -- --long                # publishable iteration counts
 dotnet run --project test\LibRed.Benchmarks -c Release -- --filter "*Ace*"      # head-to-head vs ACE OLE DB
+dotnet run --project test\LibRed.Benchmarks -c Release -- --record              # also append to History.tsv
 ```
 
 `-c Release` is not optional — BenchmarkDotNet refuses to run an unoptimised build.
@@ -25,14 +26,15 @@ dotnet run --project test\LibRed.Benchmarks -c Release -- --filter "*Ace*"      
 | `PipelineBenchmarks` | Parse vs bind+plan vs execute vs end-to-end, on a representative spread. Attribution. |
 | `StorageBenchmarks` | Cursors and index seeks with no SQL above them — the floor everything else sits on. |
 | `WriteBenchmarks` | INSERT/UPDATE/DELETE throughput: SQL autocommit, SQL in a transaction, and raw storage. |
-| `DdlBenchmarks` | Creating a database from nothing, creating tables, back-filling an index. |
+| `DdlBenchmarks` | Creating a database from nothing, creating tables, back-filling an index, adding a column to a populated table. |
 | `CatalogBenchmarks` | Open + catalog decode: the fixed price every connection pays. |
 | `AceComparisonBenchmarks` | Identical SQL and file against ACE OLE DB. ACE is the baseline; ratio < 1 is a win. |
 
 ## The corpus
 
-`SqlCorpus` is the single list of benchmarked statements; every suite draws from it, so adding a benchmark is
-adding a line. Cases are named `category.what_it_does`, which is also what `--filter` matches.
+`SqlCorpus` is the single list of benchmarked statements; every query suite (Synthetic, Northwind, Pipeline,
+AceComparison) draws from it, so adding a query benchmark is adding a line. The storage, write, DDL and catalog
+suites drive their operations directly. Cases are named `category.what_it_does`, which is also what `--filter` matches.
 
 `Corpus` generates the synthetic database — three tables at a caller-chosen scale factor, with known
 cardinalities:
@@ -44,7 +46,7 @@ cardinalities:
 | `Bench.Bucket` | 8 values, varying *within* a `K` group — the second column of the composite index. |
 | `Bench.G` | scale/4 distinct values, **unindexed**. High-cardinality grouping, hash-join key. |
 | `Bench.Label` | 5,000 distinct values, indexed text. |
-| `Bench.Note` | Unindexed text, null in one row of eight, needle `qx` in one of twenty. |
+| `Bench.Note` | Unindexed text, null in one row of eight, needle `qx` in one of forty (every twentieth row, less the half of those that are null). |
 | `BenchChild` | 2× `Bench` rows, two children per parent: joins with real fan-out. |
 | `BenchSmall` | 100 rows: the small side of a hash join. |
 
@@ -78,7 +80,8 @@ Two numbers together usually say more than either alone:
 
 ## Keeping a history
 
-Every run appends one row per benchmark to **`History.tsv`**, which *is* tracked:
+A run passed **`--record`** appends one row per benchmark to **`History.tsv`**, which *is* tracked. Without it
+nothing is written there, so a quick check of one case while working never becomes part of the baseline:
 
 ```
 utc  commit  dirty  host  suite  benchmark  params  mean_us  stddev_us  alloc_kb

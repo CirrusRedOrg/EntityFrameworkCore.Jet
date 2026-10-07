@@ -4,11 +4,11 @@ namespace LibRed.Engine.Tests;
 
 // Deleting several rows from one page has to leave every surviving row readable.
 //
-// Reclaiming a deleted row's space (RowInserter.ReclaimRow) closes the gap by sliding the rows below it up
+// Reclaiming a deleted row's space (DataPage.ReclaimRow) closes the gap by sliding the rows below it up
 // and turning the emptied slot into a zero-length tombstone. The first version decided which slots to move
 // by comparing offsets, which leaves behind a tombstone sitting at exactly the deleted row's offset — it
-// then absorbs that row's length and starves the next live row to zero, so a later scan fails with "Row is
-// too short to be an inline record". Slot offsets are non-increasing with slot index, so the rows below are
+// then absorbs that row's length and starves the next live row to zero, so a later scan fails reading it as
+// a row too short for its own column count. Slot offsets are non-increasing with slot index, so the rows below are
 // simply the LATER slots; moving by index is what makes tombstones travel with them.
 //
 // Single deletes could not catch it: the two rules agree until a tombstone is already on the page.

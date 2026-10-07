@@ -7,7 +7,7 @@ namespace LibRed.Core.Tests;
 
 // What precision and scale does ACE actually stamp on a NUMERIC/DECIMAL column's descriptor?
 //
-// TdefBuilder.EffectivePrecision resolves a ColumnSpec's default Precision of 0 to 18 before writing, on the
+// TableDefinition.EffectivePrecision resolves a ColumnSpec's default Precision of 0 to 18 before writing, on the
 // grounds that 18 is ACE's own default for a bare DECIMAL. That figure was inherited from AccessTypeMapper
 // (`column.Size ?? 18`) rather than measured, so this measures it: ACE creates the columns, LibRed reads the
 // descriptor bytes back.
@@ -39,7 +39,7 @@ public class AceDecimalDeclarationProbeTest(ITestOutputHelper output)
             }
 
             using var db = JetDatabase.Open(path, readOnly: true);
-            TableDef table = db.Catalog.Tables.Single(t => t.Name == "DecDecl");
+            TableDefinition table = db.Catalog.Tables.Single(t => t.Name == "DecDecl");
             foreach ((string column, string declared) in cases)
             {
                 ColumnDef def = table.Columns.Single(c => c.Name == column);
@@ -134,7 +134,7 @@ public class AceDecimalDeclarationProbeTest(ITestOutputHelper output)
         File.Delete(path);
         try
         {
-            Storage.DatabaseCreator.CreateEmpty(path);
+            JetDatabase.Create(path);
             using var db = JetDatabase.Open(path, readOnly: false);
             db.CreateTable("D",
             [

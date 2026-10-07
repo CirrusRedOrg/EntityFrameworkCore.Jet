@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using LibRed;
 using LibRed.Crypto;
+using LibRed.Formats;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -8,9 +9,9 @@ namespace LibRed.Core.Tests;
 /// <summary>Fixture-free rejection coverage for unsupported Office-Standard descriptor variants.</summary>
 public class OfficeStandardVariantReadTests
 {
-    private const int DescriptorOffset = 0x29B;
-    private const int AlgorithmOffset = DescriptorOffset + 12 + 8;
-    private const int HashOffset = DescriptorOffset + 12 + 12;
+    private static readonly JetFormatBase Format = TestDatabases.FormatOf(TestDatabases.WideTableAccdb);
+    private static readonly int AlgorithmOffset = Format.EncryptionInfoOffset + 12 + 8;
+    private static readonly int HashOffset = Format.EncryptionInfoOffset + 12 + 12;
 
     [Theory]
     [InlineData(0x6603u)] // 3DES-168
@@ -56,7 +57,7 @@ public class OfficeStandardVariantReadTests
         string path = CreateEncryptedCopy();
         try
         {
-            MutateUInt16(path, 0x299, 0);
+            MutateUInt16(path, Format.EncryptionInfoLengthOffset, 0);
             var error = Assert.Throws<NotSupportedException>(
                 () => JetDatabase.Open(path, readOnly: true, password: "Test123"));
             Assert.Contains("unsupported scheme", error.Message, StringComparison.OrdinalIgnoreCase);
@@ -67,7 +68,8 @@ public class OfficeStandardVariantReadTests
     private static string CreateEncryptedCopy()
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.WideTableAccdb, "office-standard-variant-");
-        DatabaseEncryption.SetPasswordRc4(path, "Test123");
+        using (var db = JetDatabase.Open(path, readOnly: false, exclusive: true))
+            DatabaseEncryption.SetPasswordRc4(db, "Test123");
         return path;
     }
 

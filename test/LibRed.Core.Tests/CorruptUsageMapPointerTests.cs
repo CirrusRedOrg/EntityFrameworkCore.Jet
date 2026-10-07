@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using LibRed;
 using LibRed.Catalog;
 using LibRed.IO;
@@ -36,19 +35,18 @@ public class CorruptUsageMapPointerTests
             {
                 byte[] tdef = channel.ReadPage(definitionPage).Span.ToArray();
                 int at = channel.Format.TdefOwnedPagesOffset;
+                (int row, int page) = PageBuffer.ReadRecordPointer(tdef, at);
 
                 if (corruptPage)
                 {
-                    tdef[at + 1] = 0xFF;                // holder page, 3 bytes LE — far past the file
-                    tdef[at + 2] = 0xFF;
-                    tdef[at + 3] = 0xFF;
+                    PageBuffer.WriteRecordPointer(tdef, at, row, 0xFFFFFF);   // holder page, 3 bytes LE — far past the file
                 }
                 else
                 {
                     // Leave the holder page alone so the map page really parses, and break only the row
                     // index. Pointing at page 0 instead would fail as a bad page type long before the row
                     // index was ever used, which is not the path under test.
-                    tdef[at] = 200;
+                    PageBuffer.WriteRecordPointer(tdef, at, 200, page);
                 }
 
                 channel.WritePage(definitionPage, tdef);

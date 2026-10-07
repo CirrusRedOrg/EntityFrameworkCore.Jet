@@ -10,7 +10,7 @@ namespace LibRed.Engine.Tests;
 // column it builds has already passed AccessTypeMapper — where the width, precision and scale caps live. This
 // goes in the other door, the one JetVersion.cs warns about: a ColumnSpec straight to the writer.
 //
-// TdefBuilder already validates column count, names, ids, the 510-byte field cap and the widest record, and
+// TableDefinition already validates column count, names, ids, the 510-byte field cap and the widest record, and
 // EnsureStorable covers version-gated types. This asks what is left OVER those guards.
 //
 // The contract is NOT "every shape must be accepted" — it is that whether LibRed accepts or refuses the spec,
@@ -79,7 +79,7 @@ public class AceCoreApiShapeProbeTests(ITestOutputHelper output) : TempDatabaseT
     private static readonly Dictionary<string, Shape> Shapes = new()
     {
         // ---- Precision and scale, which nothing checked until these shapes found it: the width check covers
-        // only the fixed 17 bytes. TdefBuilder.ValidateNumericPrecision now refuses a wrong pair, and
+        // only the fixed 17 bytes. TableDefinition.ValidateNumericPrecision now refuses a wrong pair, and
         // EffectivePrecision resolves a declared 0 (which means "unspecified") to ACE's 18.
         ["decimal-precision-zero"] = new("FixedPoint declaring precision 0 — no digits at all",
             db => Numeric(db, precision: 0, scale: 0)),
@@ -157,7 +157,7 @@ public class AceCoreApiShapeProbeTests(ITestOutputHelper output) : TempDatabaseT
                 table.Insert([null, 2]);
             }),
 
-        // ---- Undocumented descriptor flags Access sets on ITS OWN catalog columns. TdefBuilder's own comment
+        // ---- Undocumented descriptor flags Access sets on ITS OWN catalog columns. TableDefinition's own comment
         // says user-table columns leave these clear; nothing stops a caller setting them.
         ["system-flags-on-user-column"] = new("SystemFlags 0x10/0x20 (system-catalog, security-id) on a user column",
             db => db.CreateTable("S",

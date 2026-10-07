@@ -70,7 +70,7 @@ public class ComplexDuplicateValueProbeTest(ITestOutputHelper output)
 
             // What actually landed, read back through LibRed.
             using var lib = JetDatabase.Open(path);
-            foreach (TableDef t in lib.Catalog.Tables.Where(t => t.Name.StartsWith("f_", StringComparison.Ordinal)))
+            foreach (TableDefinition t in lib.Catalog.Tables.Where(t => t.Name.StartsWith("f_", StringComparison.Ordinal)))
             {
                 ColumnDef? link = t.Indexes.FirstOrDefault(i => !i.IsUnique && !i.IsPrimaryKey && i.Columns.Count == 1)?.Columns[0].Column;
                 ColumnDef? value = t.FindColumn("Value");

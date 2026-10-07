@@ -60,6 +60,17 @@ public class CollationTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // A complex column's locale bytes hold its MSysComplexColumns key (page-02b §3.4), not a collation:
+    // MSysResources.Data's 0x0B is ComplexID 1, which read as an LCID is the Arabic neutral order.
+    [Fact]
+    public void A_complex_column_carries_no_collation()
+    {
+        using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
+        ColumnDef data = db.Catalog.FindTable("MSysResources")!.Columns.Single(c => c.Name == "Data");
+        Assert.Equal(JetDataType.Complex, data.Type);
+        Assert.Equal(Collation.GeneralLegacy, data.Collation);
+    }
+
     [Fact]
     public void The_written_locale_bytes_are_byte_identical_to_the_old_hardcoded_constant()
     {
@@ -71,16 +82,12 @@ public class CollationTests
             var table = db.OpenTable("T");
             var format = db.Format;
 
-            var tdef = table.Channel.ReadPage(table.Definition.DefinitionPage);
-            int dataCount = tdef.ReadInt32(format.TdefIndexCountOffset);
-            int columnBlock = format.TdefRealIndexBlockOffset + dataCount * format.RealIndexEntrySize;
-            int nameIndex = table.Definition.Columns.First(c => c.Name == "Name").Index;
-            var descriptor = tdef.Span.Slice(columnBlock + nameIndex * format.ColumnDescriptorSize, format.ColumnDescriptorSize);
+            byte[] descriptor = table.Definition.Columns.First(c => c.Name == "Name").RawDescriptor!;
 
-            // 0x0409 (little-endian) locale, version 0 — exactly what the LocaleLow/LocaleHigh constants wrote.
-            Assert.Equal(0x09, descriptor[0x0B]);
-            Assert.Equal(0x04, descriptor[0x0C]);
-            Assert.Equal(0x00, descriptor[0x0D]);
+            // 0x0409 (little-endian) locale, sort id 0 — exactly what the LocaleLow/LocaleHigh constants wrote.
+            Assert.Equal(0x09, descriptor[format.ColumnLocaleOffset]);
+            Assert.Equal(0x04, descriptor[format.ColumnLocaleOffset + 1]);
+            Assert.Equal(0x00, descriptor[format.ColumnCollationSortIdOffset]);
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -92,12 +99,13 @@ public class CollationTests
     // This used to be asserted with Cyrillic (1049), on the reasoning that a non-English locale obviously
     // could not be encoded with the English table. The collation survey measured 1049 and found its keys
     // byte-identical to General v0, so the example stopped being an example. The two below are refused for
-    // reasons that will outlive a survey: CJK is deliberately out of scope, and Irish is the one order that
-    // could not be measured at all.
+    // reasons that will outlive a survey — there is no engine to measure them against. Access 365 creates a
+    // database in "Japanese - Unicode", but ACE refuses to open one, because Windows no longer supports that
+    // alternate sort; and Jet accepts Irish, but not in a process that has loaded ACE.
     [Theory]
-    [InlineData((int)CollatingOrder.Japanese, "a CJK order, deliberately out of scope")]
-    [InlineData(1084, "Irish - accepted by Jet, but never measured against ACE")]
-    public void Index_key_encoding_refuses_an_unmeasured_collation(int order, string why)
+    [InlineData((int)CollatingOrder.Japanese, 1, "Japanese - Unicode: created by Access, refused by ACE on open")]
+    [InlineData(1084, 0, "Irish - accepted by Jet, but never measured against ACE")]
+    public void Index_key_encoding_refuses_an_unmeasured_collation(int order, byte sortId, string why)
     {
         _ = why;   // names the case in the test output
 
@@ -105,10 +113,10 @@ public class CollationTests
         {
             Name = "C",
             Type = JetDataType.Text,
-            Collation = new Collation((CollatingOrder)order, 0),
+            Collation = new Collation((CollatingOrder)order, 0, sortId),
         };
         var ex = Assert.Throws<NotSupportedException>(() =>
-            IndexKeyEncoder.Encode([(column, true)], ["abc"]));
+            IndexKeyCodec.Encode([(column, true)], ["abc"]));
         Assert.Contains("not implemented", ex.Message);
     }
 
@@ -123,9 +131,9 @@ public class CollationTests
             new() { Name = "C", Type = JetDataType.Text, Collation = collation };
 
         Assert.Equal(
-            Convert.ToHexString(IndexKeyEncoder.Encode(
+            Convert.ToHexString(IndexKeyCodec.Encode(
                 [(Column(Collation.GeneralLegacy), true)], ["abc"])),
-            Convert.ToHexString(IndexKeyEncoder.Encode(
+            Convert.ToHexString(IndexKeyCodec.Encode(
                 [(Column(new Collation(CollatingOrder.Cyrillic, 0)), true)], ["abc"])));
     }
 
@@ -137,8 +145,8 @@ public class CollationTests
         var v0 = new ColumnDef { Name = "C", Type = JetDataType.Text, Collation = Collation.GeneralLegacy };
         var v1 = new ColumnDef { Name = "C", Type = JetDataType.Text, Collation = Collation.General };
 
-        byte[] legacy = IndexKeyEncoder.Encode([(v0, true)], ["abc"]);
-        byte[] general = IndexKeyEncoder.Encode([(v1, true)], ["abc"]);
+        byte[] legacy = IndexKeyCodec.Encode([(v0, true)], ["abc"]);
+        byte[] general = IndexKeyCodec.Encode([(v1, true)], ["abc"]);
 
         Assert.NotEmpty(legacy);
         Assert.NotEmpty(general);

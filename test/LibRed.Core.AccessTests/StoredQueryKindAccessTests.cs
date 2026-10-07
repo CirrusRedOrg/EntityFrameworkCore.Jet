@@ -42,8 +42,9 @@ public class StoredQueryKindAccessTests
 
             // The row is present and says SELECT, so this is a view — reading its mere presence as "action
             // query" is what made 221 of those corpus queries unreadable.
-            Assert.False(db.Catalog.ActionQueries.ContainsKey("PlainSelect"));
-            Assert.Contains("Shippers.CompanyName", db.Catalog.Views["PlainSelect"]);
+            StoredQuery plain = db.Catalog.FindQuery("PlainSelect")!;
+            Assert.False(plain.IsAction);
+            Assert.Contains("Shippers.CompanyName", plain.Sql);
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -73,7 +74,7 @@ public class StoredQueryKindAccessTests
             if (!Author(path, ("StarQuery", "SELECT DISTINCTROW * FROM Shippers"))) return;
 
             using var db = JetDatabase.Open(path);
-            string sql = db.Catalog.Views["StarQuery"];
+            string sql = db.Catalog.FindQuery("StarQuery")!.Sql!;
 
             // No Attribute=6 rows at all is how Access encodes "*"; and DISTINCTROW is its own option bit
             // (0x08), separate from DISTINCT (0x02) — they are different keywords with different meanings.
@@ -94,7 +95,7 @@ public class StoredQueryKindAccessTests
                                        + "ORDER BY Products.ProductName"))) return;
 
             using var db = JetDatabase.Open(path);
-            string sql = db.Catalog.Views["TopPct"];
+            string sql = db.Catalog.FindQuery("TopPct")!.Sql!;
 
             // PERCENT is a bit (0x20) riding alongside the TOP bit (0x10) on the same option row. Reading TOP
             // without it turns "TOP 10 PERCENT" into "TOP 10" — a silently different row count.
@@ -119,7 +120,7 @@ public class StoredQueryKindAccessTests
 
             // Authored the way the Access UI authors them, rather than through ACE's CREATE PROCEDURE — the
             // rows have to be read the same either way.
-            StoredActionQuery q = db.Catalog.ActionQueries[name];
+            StoredQuery q = db.Catalog.FindQuery(name)!;
             Assert.Null(q.UnsupportedReason);
             Assert.Contains(expected, q.Sql!, StringComparison.OrdinalIgnoreCase);
         }
@@ -139,7 +140,7 @@ public class StoredQueryKindAccessTests
 
             // Not executed — but the reason has to say WHICH kind. "Not supported" on its own gives a caller
             // no way to tell an unimplemented feature from a file LibRed failed to read.
-            StoredActionQuery q = db.Catalog.ActionQueries["UniQ"];
+            StoredQuery q = db.Catalog.FindQuery("UniQ")!;
             Assert.Null(q.Sql);
             Assert.Contains("UNION", q.UnsupportedReason!, StringComparison.OrdinalIgnoreCase);
         }

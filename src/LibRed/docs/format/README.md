@@ -10,8 +10,14 @@ Unless noted, everything here describes **Jet 4 and ACE (12/14/16/17)**, which s
 structural layout. **Jet 3** (Access 97) differs in many of these and is *not yet
 implemented* — see [Version differences](#version-differences).
 
-Implemented by `src/LibRed/LibRed.Core/`. The canonical offsets live in
-`Formats/JetFormatBase.cs`.
+Implemented by `src/LibRed/LibRed.Core/`. The canonical offsets and sizes live under `Formats/` —
+named in `JetFormatBase.cs` and set per format in `Jet4Format.cs` (the ACE formats derive from it). The flag
+and code fields are enums in their own files there (`IndexAttributes`, `ObjectType`, `RelationshipAction`, …),
+Version-dependent fields stay in those format classes. Each structure's layout and read/write operations
+live with its owner: `DatabaseDefinitionPage`, `TableDefinition`, `DataPage`, `RowCodec`, `IndexTree`,
+`IndexKeyCodec`, `UsageMap`, and `LongValueStore`. A `PageChannel` owns one `PageAllocator`, used for page
+reuse, file growth and release. Catalog records, properties and stored queries are read and written through
+`JetCatalog`, `PropertyBlob`, `NameMap`, and `StoredQuery`.
 
 > **This reference is split across several files** — one per page type, plus cross-cutting topics; each is
 > self-contained (its structures *and* its read/write mechanics live together). Most describe the **on-disk
@@ -28,16 +34,16 @@ Implemented by `src/LibRed/LibRed.Core/`. The canonical offsets live in
 | File | Covers |
 | --- | --- |
 | [page-00-database.md](page-00-database.md) | Page 0 — the database-definition page (format id, version byte) |
-| [page-01-data-and-rows.md](page-01-data-and-rows.md) | Data page (type `0x01`) header + slot directory, and the inline **row record** format |
-| [page-02a-tdef.md](page-02a-tdef.md) | Table-definition page (type `0x02`): header, multi-page chaining, body layout, and writing a TDEF Access accepts |
+| [page-01-data-and-rows.md](page-01-data-and-rows.md) | Data page (type `0x0101`) header + slot directory, and the inline **row record** format |
+| [page-02a-tdef.md](page-02a-tdef.md) | Table-definition page (type `0x0102`): header, multi-page chaining, body layout, and writing a TDEF Access accepts |
 | [page-02b-columns.md](page-02b-columns.md) | TDEF **columns**: the 25-byte descriptor, and column maintenance incl. the in-place **`ALTER COLUMN`** type/length change |
 | [page-02c-default-values.md](page-02c-default-values.md) | Column **`DEFAULT`** value *semantics* — what an expression may contain, the DDL-parser-vs-expression-service split (engine behaviour; the on-disk `LvProp` storage is in [system-catalog.md](system-catalog.md)) |
 | [page-02d-constraints.md](page-02d-constraints.md) | TDEF **indexes / keys / constraints**: index-data, index-info and stats blocks (PK / unique / FK metadata) |
 | [page-02e-calculated-columns.md](page-02e-calculated-columns.md) | **Calculated column** *semantics* — the expression language ACE accepts, when the cached result is recomputed, and what DDL may do to one (engine behaviour; the descriptor and value envelope are in [page-02b](page-02b-columns.md)) |
-| [page-03-04-index-btree.md](page-03-04-index-btree.md) | Index B-tree pages (types `0x03` node / `0x04` leaf): header, entries, prefix compression, key encoding, splitting |
-| [page-05-usage-maps.md](page-05-usage-maps.md) | Per-table owned/free usage maps, `0x05` bitmap pages, and the global free-pages map (allocation) |
-| [page-08-released-tdef.md](page-08-released-tdef.md) | Released table-definition page (type `0x08`): what `DROP TABLE` leaves behind |
-| [page-09-released-long-value.md](page-09-released-long-value.md) | Released long-value page (type `0x09`): a packed LVAL page emptied of its values |
+| [page-03-04-index-btree.md](page-03-04-index-btree.md) | Index B-tree pages (types `0x0103` node / `0x0104` leaf): header, entries, prefix compression, key encoding, splitting |
+| [page-05-usage-maps.md](page-05-usage-maps.md) | Per-table owned/free usage maps, `0x0105` bitmap pages, and the global free-pages map (allocation) |
+| [page-08-released-tdef.md](page-08-released-tdef.md) | Released table-definition page (type `0x0108`): what `DROP TABLE` leaves behind |
+| [page-09-released-data.md](page-09-released-data.md) | Released data page (type `0x0109`): a table data page emptied by DELETE, or a packed LVAL page emptied of its values |
 | [long-values.md](long-values.md) | Memo / OLE long values, LVAL pages, and the per-column usage-map list |
 | [data-types.md](data-types.md) | Data-type codes and their decode, plus compressed Unicode |
 | [system-catalog.md](system-catalog.md) | `MSysObjects` / `MSysACEs` / `MSysQueries` / `MSysRelationships`, the `LvProp` property blob, views & procedures, relationships |
@@ -54,22 +60,36 @@ catalogued one level up in [`../functions.md`](../functions.md).
   which are big-endian (noted in the index B-tree file).
 - **Page size:** 4096 bytes (Jet 4 / ACE). Jet 3 is 2048.
 - **Pages** are numbered from 0; a page's byte offset in the file is `pageNumber * pageSize`.
-- **Page type** is the first byte of every page:
+- **Page type** is the **16-bit** little-endian word at offset `0x00` of every page. Its high byte (file
+  offset `0x01`) is `0x01` on every page Jet and ACE write, page 0 included — it is not a separate "flags"
+  byte but half of the type, and ACE compares the whole word (verified: a data page whose `0x01` byte is
+  anything else is not read as one).
 
-  | Byte | Page type | LibRed | File |
-  | --- | --- | --- | --- |
-  | `0x00` | Database definition (page 0 only) | `DatabaseDefinitionPage` | [page-00](page-00-database.md) |
-  | `0x01` | Data page (also long-value/LVAL pages) | `DataPage` | [page-01](page-01-data-and-rows.md) / [long-values](long-values.md) |
-  | `0x02` | Table definition (TDEF) | `TableDefinitionPage` | [page-02a](page-02a-tdef.md) |
-  | `0x03` | Index B-tree node (intermediate) | `IndexCursor` | [page-03-04](page-03-04-index-btree.md) |
-  | `0x04` | Index B-tree leaf | `IndexCursor` | [page-03-04](page-03-04-index-btree.md) |
-  | `0x05` | Page-usage bitmap | `UsageMap` | [page-05](page-05-usage-maps.md) |
-  | `0x08` | Released table definition (a dropped table's TDEF) | `PageType.ReleasedTableDefinition` | [page-08](page-08-released-tdef.md) |
-  | `0x09` | Released long-value page (emptied of its packed values) | `PageType.ReleasedLongValuePage` | [page-09](page-09-released-long-value.md) |
+  | Word | Bytes | Page type | LibRed | File |
+  | --- | --- | --- | --- | --- |
+  | `0x0100` | `00 01` | Database definition (page 0 only) | `DatabaseDefinitionPage` | [page-00](page-00-database.md) |
+  | `0x0101` | `01 01` | Data page (also long-value/LVAL pages) | `DataPage` | [page-01](page-01-data-and-rows.md) / [long-values](long-values.md) |
+  | `0x0102` | `02 01` | Table definition (TDEF) | `TableDefinition` | [page-02a](page-02a-tdef.md) |
+  | `0x0103` | `03 01` | Index B-tree node (intermediate) | `IndexTree` | [page-03-04](page-03-04-index-btree.md) |
+  | `0x0104` | `04 01` | Index B-tree leaf | `IndexTree` | [page-03-04](page-03-04-index-btree.md) |
+  | `0x0105` | `05 01` | Page-usage bitmap | `UsageMap` | [page-05](page-05-usage-maps.md) |
+  | `0x0106` | `06 01` | *Unknown* — never seen in a file, but ACE treats it as row-bearing (below) | — | — |
+  | `0x0107` | `07 01` | *Unknown* — likewise | — | — |
+  | `0x0108` | `08 01` | Released table definition (a dropped table's TDEF) | `TableDefinition.MarkReleased` | [page-08](page-08-released-tdef.md) |
+  | `0x0109` | `09 01` | Released data page (emptied by DELETE, or of its packed long values) | `DataPage.MarkReleased` | [page-09](page-09-released-data.md) |
 
-  `0x08` and `0x09` mark pages that have been **given back**. Neither needs handling on read — allocation
-  selects on the global free map, not on this byte — but both are written, so a file LibRed produces carries
-  the same markers Access would.
+  `0x0108` and `0x0109` mark pages that have been **given back**. Neither needs handling on read — allocation
+  selects on the global free map, not on the type — but both are written, so a file LibRed produces carries
+  the same markers Access would. They are states of their original page classes, with only the type's low
+  byte changing when marked; they have no separate parser or layout class. The unknown `0x0106` and
+  `0x0107` layouts remain unimplemented. A page never written reads as all zeros, word `0x0000`.
+
+  **Which types ACE reads as rows (verified).** Scanning a table, ACE parses a page its owned-pages map names
+  as a data page when the word is `0x0101`, `0x0103`, `0x0104`, `0x0106`, `0x0107` or `0x0109`, and skips
+  it — silently, rows and all — for every other word: `0x0100`, `0x0102`, `0x0105`, `0x0108`, `0x0000`, any
+  word whose high byte is not `0x01`, and a page past the end of the file. Nothing else about the page is
+  checked: not its owner field (`0x04`), which may name another table or `LVAL`, and not the free-space
+  count (`0x02`). A page the map names but the file no longer holds is therefore lost without an error.
 
 ---
 
@@ -99,7 +119,7 @@ table says which file each section lives in.
 | §8 | Long values (Memo / OLE) | [long-values.md](long-values.md) |
 | §9 | Usage maps | [page-05-usage-maps.md](page-05-usage-maps.md) |
 | §9.1 | Global usage maps (free and released pages) | [page-05-usage-maps.md](page-05-usage-maps.md) |
-| — | Released pages (`0x08`, `0x09`) | [page-08](page-08-released-tdef.md) / [page-09](page-09-released-long-value.md) — no §-number |
+| — | Released pages (`0x08`, `0x09`) | [page-08](page-08-released-tdef.md) / [page-09](page-09-released-data.md) — no §-number |
 | §10 | Index B-tree pages | [page-03-04-index-btree.md](page-03-04-index-btree.md) |
 | §11 | System catalog | [system-catalog.md](system-catalog.md) |
 | §12 | Version differences | this README (below) |
@@ -121,7 +141,8 @@ the Jet 4 / ACE layout documented across these files:
 Jet 4 and all later ACE versions (12/14/16/17) share the structural layout documented here;
 differences between *those* are additive at the type/feature level (new data types, encryption
 schemes), not the page offsets. In LibRed this is reflected by `JetFormatBase` virtual members
-with Jet 4/ACE defaults; a future `Jet3Format` overrides the ones that differ.
+with Jet 4/ACE defaults; `Jet3Format` (today a stub setting only the 2 KB page size, and never constructed —
+a Jet 3 file is refused on open) will override the ones that differ.
 
 ---
 

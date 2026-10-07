@@ -1,4 +1,5 @@
 using LibRed.Catalog;
+using LibRed.Formats;
 using System.Buffers.Binary;
 
 namespace LibRed.Storage;
@@ -21,22 +22,23 @@ namespace LibRed.Storage;
 /// </summary>
 internal static class CalculatedValue
 {
-    /// <summary>Header bytes before the length: a 4-byte status followed by 12 reserved bytes that are zero
-    /// in every file measured.</summary>
-    private const int HeaderSize = 16;
+    /// <summary>The status field, at the envelope's start. Zero is the success code; anything else is a <b>VBA
+    /// runtime error number</b>, and the expression produced no value at all.</summary>
+    internal const int StatusSize = 4;
 
-    /// <summary>The status field's size. Zero is the success code; anything else is a <b>VBA runtime error
-    /// number</b>, and the expression produced no value at all.</summary>
-    private const int StatusSize = 4;
+    /// <summary>Header bytes before the length: the status, then 12 reserved bytes that are zero in every file
+    /// measured.</summary>
+    internal const int HeaderSize = 16;
 
-    /// <summary>Little-endian payload length.</summary>
-    private const int LengthSize = 4;
+    /// <summary>The little-endian payload length, at <see cref="HeaderSize"/>; the payload follows it.</summary>
+    internal const int LengthSize = 4;
 
     /// <summary>Zero padding after the payload.</summary>
-    private const int PaddingSize = 3;
+    internal const int PaddingSize = 3;
 
     /// <summary>The smallest envelope: header, length and padding with an empty payload.</summary>
-    public const int MinimumSize = HeaderSize + LengthSize + PaddingSize;
+    internal const int MinimumSize = HeaderSize + LengthSize + PaddingSize;
+
 
     /// <summary>Evaluates a calculated column's expression against one row and coerces the result to the
     /// type its payload is stored in.</summary>
@@ -83,10 +85,10 @@ internal static class CalculatedValue
     /// <summary>Builds the envelope for <paramref name="value"/> — the inverse of
     /// <see cref="Decode"/>. A Null result is a zero-length payload, not an absent one: the column's
     /// null-bitmap bit stays set either way (§3.4a).</summary>
-    public static byte[] Encode(ColumnDef column, object? value)
+    public static byte[] Encode(ColumnDef column, object? value, JetFormatBase format)
     {
         JetDataType type = StoredType(column, 0);
-        byte[] payload = value is null ? [] : EncodePayload(column, type, value);
+        byte[] payload = value is null ? [] : EncodePayload(column, type, value, format);
 
         var envelope = new byte[MinimumSize + payload.Length];
         BinaryPrimitives.WriteUInt32LittleEndian(envelope.AsSpan(HeaderSize, LengthSize), (uint)payload.Length);
@@ -110,7 +112,7 @@ internal static class CalculatedValue
     /// envelope back under the 64-byte inline limit and so decides whether the value reaches a page at all.
     /// </para>
     /// </summary>
-    private static byte[] EncodePayload(ColumnDef column, JetDataType type, object value)
+    private static byte[] EncodePayload(ColumnDef column, JetDataType type, object value, JetFormatBase format)
     {
         var culture = System.Globalization.CultureInfo.InvariantCulture;
         switch (type)
@@ -125,7 +127,7 @@ internal static class CalculatedValue
                     return Types.JetTypeCodec.TryCompressText(column, text, requireCapableFlag: false) ?? utf16;
                 }
             default:
-                return Types.JetTypeCodec.Encode(column, type, value);
+                return Types.JetTypeCodec.Encode(column, type, value, format);
         }
     }
 

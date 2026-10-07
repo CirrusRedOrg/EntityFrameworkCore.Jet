@@ -17,8 +17,6 @@ namespace LibRed.Engine.Tests;
 [Collection(AceCollection.Name)]
 public class DeleteByteParityTests(ITestOutputHelper output)
 {
-    private const int PageSize = 4096;
-
     [Fact]
     public void A_delete_writes_the_same_bytes_ace_writes()
     {
@@ -52,13 +50,17 @@ public class DeleteByteParityTests(ITestOutputHelper output)
             }
             finally { Invoke(quiet, "Close"); }
 
+            int pageSize;
             using (var db = JetDatabase.Open(libredCopy, readOnly: false))
+            {
+                pageSize = db.Format.PageSize;
                 new QueryEngine(db).ExecuteNonQuery($"DELETE FROM [{Table}] WHERE {Where}");
+            }
 
             byte[] o = File.ReadAllBytes(orig), a = File.ReadAllBytes(aceCopy),
                    n = File.ReadAllBytes(noiseCopy), l = File.ReadAllBytes(libredCopy);
 
-            HashSet<int> aceWrote = Changed(o, a), housekeeping = Changed(o, n), libredWrote = Changed(o, l);
+            HashSet<int> aceWrote = Changed(o, a, pageSize), housekeeping = Changed(o, n, pageSize), libredWrote = Changed(o, l, pageSize);
             var aceDelete = aceWrote.Except(housekeeping).ToHashSet();
 
             // Nothing LibRed touched is a page ACE left alone.
@@ -70,8 +72,8 @@ public class DeleteByteParityTests(ITestOutputHelper output)
             Assert.NotEmpty(both);
             foreach (int page in both)
                 Assert.True(
-                    a.AsSpan(page * PageSize, PageSize).SequenceEqual(l.AsSpan(page * PageSize, PageSize)),
-                    $"page {page} (type 0x{o[page * PageSize]:X2}) differs from ACE's");
+                    a.AsSpan(page * pageSize, pageSize).SequenceEqual(l.AsSpan(page * pageSize, pageSize)),
+                    $"page {page} (type 0x{o[page * pageSize]:X2}) differs from ACE's");
 
             output.WriteLine($"{both.Length} pages written by both engines, all identical");
         }
@@ -81,14 +83,83 @@ public class DeleteByteParityTests(ITestOutputHelper output)
         }
     }
 
-    private static HashSet<int> Changed(byte[] left, byte[] right)
+    // A delete that gives space back to a page which had none. The page is the first of many, so it was full
+    // and its bit in the table's free-pages map had been cleared; freeing space in it is what puts the bit back,
+    // and a page whose bit stays clear is space no insert will ever use again. Both directions are asserted
+    // here: ACE writing a page LibRed leaves alone is exactly the shape of that leak.
+    [Fact]
+    public void A_delete_that_frees_space_in_a_full_page_writes_what_ace_writes()
+    {
+        object? engine = CreateDbEngine();
+        if (engine is null) { output.WriteLine("Skipped: DAO unavailable."); return; }
+
+        string northwind = Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb");
+        string orig = TemporaryDatabase.CopyPath(northwind, "delfree-orig-");
+        try
+        {
+            using (var db = JetDatabase.Open(orig, readOnly: false))
+            {
+                var e = new QueryEngine(db);
+                e.ExecuteNonQuery("CREATE TABLE Filled (Id LONG CONSTRAINT pk PRIMARY KEY, V TEXT(200))");
+                for (int i = 0; i < 200; i++)
+                    e.ExecuteNonQuery($"INSERT INTO Filled (Id, V) VALUES ({i}, '{new string((char)('a' + i % 26), 200)}')");
+            }
+
+            string aceCopy = TemporaryDatabase.CopyPath(orig, "delfree-ace-");
+            string noiseCopy = TemporaryDatabase.CopyPath(orig, "delfree-noise-");
+            string libredCopy = TemporaryDatabase.CopyPath(orig, "delfree-libred-");
+
+            object ace = Invoke(engine, "OpenDatabase", aceCopy)!;
+            try
+            {
+                object rs = Invoke(ace, "OpenRecordset", "SELECT * FROM Filled WHERE Id = 0")!;
+                try { Invoke(rs, "Delete"); }
+                finally { Invoke(rs, "Close"); }
+            }
+            finally { Invoke(ace, "Close"); }
+
+            object quiet = Invoke(engine, "OpenDatabase", noiseCopy)!;
+            try
+            {
+                object rs = Invoke(quiet, "OpenRecordset", "SELECT * FROM Filled")!;
+                Invoke(rs, "Close");
+            }
+            finally { Invoke(quiet, "Close"); }
+
+            int pageSize;
+            using (var db = JetDatabase.Open(libredCopy, readOnly: false))
+            {
+                pageSize = db.Format.PageSize;
+                new QueryEngine(db).ExecuteNonQuery("DELETE FROM Filled WHERE Id = 0");
+            }
+
+            byte[] o = File.ReadAllBytes(orig), a = File.ReadAllBytes(aceCopy),
+                   n = File.ReadAllBytes(noiseCopy), l = File.ReadAllBytes(libredCopy);
+            // Page 0 is left out: its modification counter moves for reasons that have nothing to do with the
+            // delete, which is why the whole-file comparisons skip it too.
+            var aceDelete = Changed(o, a, pageSize).Except(Changed(o, n, pageSize)).Where(p => p != 0).ToHashSet();
+            var libredWrote = Changed(o, l, pageSize).Where(p => p != 0).ToHashSet();
+
+            output.WriteLine($"ACE wrote [{string.Join(",", aceDelete.Order())}], "
+                             + $"LibRed wrote [{string.Join(",", libredWrote.Order())}]");
+            Assert.Empty(libredWrote.Except(aceDelete).Order());
+            Assert.Empty(aceDelete.Except(libredWrote).Order());
+            foreach (int page in aceDelete)
+                Assert.True(
+                    a.AsSpan(page * pageSize, pageSize).SequenceEqual(l.AsSpan(page * pageSize, pageSize)),
+                    $"page {page} (type 0x{o[page * pageSize]:X2}) differs from ACE's");
+        }
+        finally { TemporaryDatabase.Delete(orig); }
+    }
+
+    private static HashSet<int> Changed(byte[] left, byte[] right, int pageSize)
     {
         var changed = new HashSet<int>();
-        int pages = Math.Min(left.Length, right.Length) / PageSize;
+        int pages = Math.Min(left.Length, right.Length) / pageSize;
         for (int p = 0; p < pages; p++)
-            if (!left.AsSpan(p * PageSize, PageSize).SequenceEqual(right.AsSpan(p * PageSize, PageSize)))
+            if (!left.AsSpan(p * pageSize, pageSize).SequenceEqual(right.AsSpan(p * pageSize, pageSize)))
                 changed.Add(p);
-        for (int p = pages; p < Math.Max(left.Length, right.Length) / PageSize; p++) changed.Add(p);
+        for (int p = pages; p < Math.Max(left.Length, right.Length) / pageSize; p++) changed.Add(p);
         return changed;
     }
 

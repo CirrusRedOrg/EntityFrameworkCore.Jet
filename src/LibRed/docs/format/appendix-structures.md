@@ -134,10 +134,10 @@ Nullability is **not** in the descriptor — it's the `Required` property in `Lv
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 4 | VBA error number, little-endian — `0` for a value or Null; an error envelope is 38 bytes |
-| `0x04` | 12 | Reserved (zero in every row observed) |
+| `0x04` | 12 | Reserved (zero) |
 | `0x10` | 4 | Payload length, little-endian |
 | `0x14` | *n* | Payload — the value in its ordinary encoding |
-| `0x14`+*n* | 3 | Padding (zero in every row observed) |
+| `0x14`+*n* | 3 | Padding (zero) |
 
 The descriptor's type at `0x00` is a **promoted storage type**; the payload length says the real one
 (Int16+1 = Boolean, Int32+1 = Byte, Int32+2 = Int16, Double+4 = Single). Length `0` means Null, and the

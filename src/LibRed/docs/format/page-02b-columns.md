@@ -42,16 +42,17 @@
 > gives `0x20` to a version-history column, which no file seen has.
 
 > **A `Complex` column (type `0x12`) is an AutoNumber, and its `0x0B` names its `MSysComplexColumns` row.**
-> Verified on all six complex columns across two files: `0x0F` = `0x07` on every one — fixed `0x01`,
+> Verified on every complex column: `0x0F` = `0x07` on every one — fixed `0x01`,
 > updatable `0x02` and **auto-number `0x04`** — so the 4-byte in-row complex id is engine-generated per row,
 > exactly like an ordinary counter. Its high-water is **not** `0x14`, which belongs to the table's own
 > AutoNumber; it is [`0x1C`](page-02a-tdef.md), which is why mdbtools calls that field `ct_autonum`. **A
-> table can therefore carry two independent AutoNumber counters** — `LIBRARY.accdb`'s `Book` has `BK_ID` at
-> `0x14` = 8 and `BK_category` at `0x1C` = 10.
+> table can therefore carry two independent AutoNumber counters** — a table with an AutoNumber key and a
+> complex column keeps one count at `0x14` and the other at `0x1C`.
 >
 > Two counters, but **any number of flagged columns**: every complex column on the table sets `0x04` while
 > sharing the single `0x1C`, so counting flagged columns does not count counters. `MSysResources` has two
-> flagged (`Id`, `Data`) and `complex1.accdb`'s `Table1` five (`ID` plus four attachment columns). Two
+> flagged (`Id`, `Data`), and a table with an attachment column has five (its AutoNumber key plus four
+> attachment columns). Two
 > consequences for a reader/writer: the `0x14`/`0x18` seed and increment describe only the non-complex one and
 > must not be reported for the others, and a "one AutoNumber per table" rule must be applied over the
 > non-complex columns alone or it rejects a table Access created quite normally.
@@ -60,15 +61,6 @@
 > of the collation an ordinary column holds there — in a General v1 database too, where `0x0E` is the id's top
 > byte, not a sort-order version. So the descriptor points at the catalog entry directly; a reader need not
 > match on column name.
->
-> | column | `0x0B` | `MSysComplexColumns.ComplexID` |
-> | --- | --- | --- |
-> | `complex1` `MSysResources.Data` | 1 | 1 |
-> | `complex1` `Table1.Attachment` | 2 | 2 |
-> | `LIBRARY` `MSysResources.Data` | 1 | 1 |
-> | `LIBRARY` `Book.BK_category` | 2 | 2 |
-> | `LIBRARY` `Borrow.BRW_book` | 3 | 3 |
-> | `LIBRARY` `Borrow.BRW_mmberINFO` | 4 | 4 |
 >
 > *Unverified:* whether the id is one byte at `0x0B` or a 16-bit value spanning `0x0B`–`0x0C`. Every observed
 > id is 1–4, so a zero at `0x0C` fits both readings.
@@ -96,8 +88,8 @@
 > - **Setting `OrdinalPosition` through DAO writes the value and moves the descriptor**, which is what keeps
 >   the two in step in any file DAO or Access wrote. Ties and gaps are allowed: on `(A, B, C, D, E)`, setting
 >   `E` to 0 and then `B` to 7 leaves descriptors in the order `A E C D B` with `0x09` = `0 0 2 3 7`. The moved
->   descriptor lands before the first one with a larger `0x09` (after the last when there is none) — all
->   three measured moves fit that; with a tie it went after the column already there. Only the definition page
+>   descriptor lands before the first one with a larger `0x09` (after the last when there is none); with a
+>   tie it goes after the column already there. Only the definition page
 >   changes — the value is not a property in the LvProp blob.
 > - **`DROP COLUMN` leaves the others alone**, so a gap opens; so do `ALTER COLUMN` (a retype keeps `0x09`
 >   while `0x05` takes a new id, §3.8) and `CREATE INDEX`.
@@ -165,7 +157,7 @@ variable-length**, and its slot holds a fixed envelope around the result ACE las
 
 > **An error is stored, and it is not the same as Null.** The expression service raises rather than
 > propagating in some cases — notably the conversions, which is why `CDbl(Null)` is an error and not a Null
-> result — and ACE caches the failure instead of a value. Measured on a `Double`-result column:
+> result — and ACE caches the failure instead of a value. On a `Double`-result column:
 >
 > | expression, over the bad input | envelope |
 > | --- | --- |
@@ -183,7 +175,7 @@ column, with one measured exception: **text compression follows the declared typ
 calculated **Text** payload takes the usual compressed (`FF FE` prefix) form, and takes it even though the
 column's extended flags carry `0xC0` and not `0x01` — so the compressed-capable flag does not gate it here,
 the same exemption inline long values get. A calculated **Memo** payload is **never** compressed, at any
-length. Measured: `"hello-x"` in a Text column stores as 9 compressed bytes, `"hello-memo"` in a Memo column
+length: `"hello-x"` in a Text column stores as 9 compressed bytes, `"hello-memo"` in a Memo column
 as 20 bytes of raw UTF-16LE.
 
 > **The descriptor's type is a *storage* type, not the result type.** ACE widens the declared type to the

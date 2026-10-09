@@ -188,8 +188,7 @@ catalog ([page-00 §2](page-00-database.md)):
 Both are ordinary usage-map records (inline or reference form, §9) on a data page — whose owner field
 (`0x04`) reads `0x00000001` where ACE creates it, though nothing checks it (below) — each starting as a
 69-byte inline map with start page `0`. In the free map a
-**set bit means the page is free / available**, the *opposite* of a per-table owned map — verified by
-diffing before/after an ACE `CREATE TABLE`.
+**set bit means the page is free / available**, the *opposite* of a per-table owned map (verified).
 
 **ACE follows the pointers; the location is not fixed.** Allocation uses whichever record `0x18` names, row
 included: pointed at the released map's row on the same page, ACE allocates from that map and leaves the free

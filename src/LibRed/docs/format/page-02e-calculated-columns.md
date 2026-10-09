@@ -6,8 +6,7 @@ describes **engine behaviour** rather than on-disk layout; the 25-byte descripto
 long-value route live in [page-02b-columns §3.4a](page-02b-columns.md), and the `LvProp` property blob that
 carries the expression is in [system-catalog.md](system-catalog.md).
 
-Everything here is **measured** — against ACE-authored columns of every type DAO will create, and from the
-write side by having ACE read back what LibRed produced.
+Everything here is **measured** against ACE's own behaviour.
 
 > **There is no single "what ACE does" to match.** Four independent gatekeepers enforce different rules and
 > do not share a rulebook: **DAO** is the only thing that can author a calculated column and refuses to
@@ -84,8 +83,7 @@ Reading `ResultType` removes the guess entirely.
 
 ## The expression language ACE accepts
 
-Enumerated over every Access / VBA scalar function [functions.md](../functions.md) catalogues plus every operator. This is
-the whole surface, not a sample.
+Enumerated over every Access / VBA scalar function [functions.md](../functions.md) catalogues plus every operator.
 
 **Operators** — `+` `-` `*` `/` `^` `&`, `+` as concatenation, `=` `<>` `<` `>` `<=` `>=`, `And`, `Or`,
 `Not`, `Is Null`, `Like`, `In`, unary minus, parentheses, literal-only expressions.
@@ -115,10 +113,10 @@ Everything else is refused, in one of **four** distinct ways — a validator has
 | `Syntax error in expression.` | a call with the **wrong number of arguments** (below), and `CDec` at any arity — the one exception to that reading |
 | `The expression cannot be saved because it refers to another table.` / `... refers to itself.` | scope violations |
 
-### Cross-checked against Access's own Expression Builder
+### Access's Expression Builder list
 
 Access's Expression Builder, opened on a calculated column, lists the functions it will offer. Its list and
-the functions measured above agree **exactly** — every function the builder shows is accepted, and nothing
+the functions listed above agree **exactly** — every function the builder shows is accepted, and nothing
 accepted is missing from it. Two entries on it need care.
 
 **`IsEmpty` is accepted, and is a constant.** VBA's `IsEmpty` asks whether a Variant was never initialised,
@@ -228,19 +226,19 @@ an expression ACE rejects does not produce a merely odd file, it produces a colu
 all. Measured end to end: ACE accepts, evaluates and *recomputes* a column LibRed authored, for every result
 type including a spilled Memo.
 
-**`ALTER` is measured, not assumed.** `ADD COLUMN`, `DROP COLUMN`, `ALTER COLUMN` (retype) and
+**`ALTER` leaves a calculated column working.** `ADD COLUMN`, `DROP COLUMN`, `ALTER COLUMN` (retype) and
 `RenameColumn` all leave a calculated column working. Where an unrelated column's retype requires LibRed's
 full table rebuild (for example Memo → Text), the rebuild carries each calculated column's `Expression`/`ResultType` properties along with its descriptor and
 regenerates its cached value from the expression; a cached value is not caller-supplied data and cannot be
 reinserted verbatim.
-Dropping a column an expression reads is **refused**, which ACE does not do; see the probe below.
+Dropping a column an expression reads is **refused**, which ACE does not do; see below.
 
 **Text compression follows the declared type**, and the encoding rule is in
 [page-02b-columns §3.4a](page-02b-columns.md) with the rest of the layout. It is called out here because it
 is not cosmetic: compressing a 36-character Memo result shrinks it from 95 bytes to 61, under the inline
 limit, so the value never reaches a long-value page at all.
 
-## What the probes settled
+## How ACE treats a calculated column
 
 **The cache is authoritative, and recomputation is narrow.** Poking a wrong value straight into the stored
 envelope and asking ACE for it returns *the wrong value* — ACE does not re-evaluate on read. Updating a

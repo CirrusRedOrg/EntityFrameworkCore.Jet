@@ -12,10 +12,10 @@
 | `0x08` | 4 | TDEF length (total logical bytes) |
 | `0x0C` | 4 | Unknown — a constant `0x00000659` (1625) observed in every file |
 | `0x10` | 4 | Row count |
-| `0x14` | 4 | **Highest AutoNumber value assigned** = the id of the last row inserted (the *next* id is this **`+ increment`**, see `0x18`); `0` when the table has no AutoNumber column. On a freshly created custom counter it is **`Seed - Increment`** so the first insert yields the `Seed` (verified: `COUNTER(1000, 7)` → `0x14` = `993`, first id `1000`). Verified **directly against `@@IDENTITY`**. It is not the row count, and deleted ids are not reused: insert 3 rows, delete id `3`, insert again (assigned id `4`) → `0x14` = `4` while the row **count** is `3`. mdbtools labels this *"Next autonumber value"* — that's **off by one**; the stored value is the last assigned, and the next id is `+ increment`. It is a **plain signed int32 that wraps** — there is no "counter exhausted" state (see the wrap note below). **Write requirement:** a writer inserting into an AutoNumber table must advance this to the last id it writes (LibRed does so in `RowInserter`); leaving it stale makes Access reissue an existing id and reject the insert as a duplicate primary key — verified end-to-end. **This pair (`0x14`/`0x18`) describes exactly one column**, and a reader must not apply it to every column bearing the descriptor's `0x04` AutoNumber flag: complex columns carry that flag too and are allocated from `0x1C` instead, so a table can have several flagged columns while only the non-complex one has a seed and increment here (`MSysResources` has two — `Id` and the complex `Data`; `complex1.accdb`'s `Table1` has five). |
+| `0x14` | 4 | **Highest AutoNumber value assigned** = the id of the last row inserted (the *next* id is this **`+ increment`**, see `0x18`); `0` when the table has no AutoNumber column. On a freshly created custom counter it is **`Seed - Increment`** so the first insert yields the `Seed` (verified: `COUNTER(1000, 7)` → `0x14` = `993`, first id `1000`). Verified **directly against `@@IDENTITY`**. It is not the row count, and deleted ids are not reused: insert 3 rows, delete id `3`, insert again (assigned id `4`) → `0x14` = `4` while the row **count** is `3`. mdbtools labels this *"Next autonumber value"* — that's **off by one**; the stored value is the last assigned, and the next id is `+ increment`. It is a **plain signed int32 that wraps** — there is no "counter exhausted" state (see the wrap note below). **Write requirement:** a writer inserting into an AutoNumber table must advance this to the last id it writes (LibRed does so in `RowInserter`); leaving it stale makes Access reissue an existing id and reject the insert as a duplicate primary key — verified end-to-end. **This pair (`0x14`/`0x18`) describes exactly one column**, and a reader must not apply it to every column bearing the descriptor's `0x04` AutoNumber flag: complex columns carry that flag too and are allocated from `0x1C` instead, so a table can have several flagged columns while only the non-complex one has a seed and increment here (`MSysResources` has two — `Id` and the complex `Data`; a table with an attachment column has five). |
 | `0x18` | 4 | **AutoNumber increment** — a **signed 32-bit int** (same width as `0x14`); the step added to `0x14` for each new id. Default `1` (a plain `COUNTER`); a custom `COUNTER(seed, increment)` / `AUTOINCREMENT(seed, increment)` / `INTEGER IDENTITY(seed, increment)` sets it. **Confirmed a full int32, not a byte + 3 unknown** (verified vs ACE): `COUNTER(1, 300)` → `2C 01 00 00` (spans 2 bytes, ids `1, 301, 601`); `COUNTER(5, 100000)` → `A0 86 01 00` (3 bytes); and decisively `COUNTER(100, -5)` → `FB FF FF FF` = `-5` in two's-complement (all 4 bytes) with a **descending** sequence `100, 95, 90`. It reads `1` on every table (autonumber or not) because that is the default increment — mdbtools labels it a 1-byte constant / "autonumber enable" flag, which only *looks* right because the default increment is 1. The seed itself is not stored separately — it is recovered as `0x14 + increment` (correct on a freshly-created, un-inserted table). A writer/reader must treat it as a signed int32; the insert bump of `0x14` moves in the increment's direction (max for +, min for −) so a descending counter doesn't reissue an id — except at the int32 wrap, where the generated id is the correct continuation despite comparing as backwards (see the wrap note below). |
 | `0x1C` | 4 | Complex-type AutoNumber (mdbtools `ct_autonum`) — the high-water **record** id of a table with complex (multi-value / attachment) columns; `0` for a table with none. A row's inline 4-byte value in a complex column is one of these ids. A row **inserted** into the table takes the next id when it is created, whether or not any value is ever stored against it, and every complex column of the table holds that same id — the counter is one TDEF word, not one per column. A complex column **appended** to a table that already has rows gives those rows `1`…*n* in row order, rewriting each in place (relocating it, as a growing `ALTER COLUMN` does, when its page is full), whatever ids the table's other complex columns hold, and `0x1C` becomes the larger of its old value and *n*. Deleting a row does **not** roll the counter back, so it equals or exceeds the largest live id. **It counts records, not values**: adding values to a row leaves it unchanged. The *per-value* ids inside the flat table are **not** this counter — they come from an ordinary AutoNumber column with the flat table's own `0x14`; see [system-catalog.md](system-catalog.md), "Complex columns" |
-| `0x20` | 8 | **Uninitialised — not a field.** ACE leaves these 8 bytes as whatever its write buffer held: **non-zero in 754 of 1,676 tables** measured across the corpus, carrying Windows user-mode pointers (`00007FFDF1459118`), UTF-16 and ASCII text fragments (`00460020006D0061` = `a m  F`, `65706F7250206D6F` = `om Prope`), float bit patterns (`41B0000044D82000`) and `FFFFFFFFFFFFFFFF`. One value recurs across tables written in the same operation — eight consecutive `MSysComplexType_*` tables share one, three unrelated tables in another file share another — which is buffer reuse rather than meaning. Preserve verbatim: it can be neither validated nor regenerated. (Whether ACE *reads* anything here is untested; it writes pointers, so almost certainly not.) |
+| `0x20` | 8 | **Uninitialised — not a field.** ACE leaves these 8 bytes as whatever its write buffer held: often non-zero, carrying Windows user-mode pointers (`00007FFDF1459118`), UTF-16 and ASCII text fragments (`00460020006D0061` = `a m  F`, `65706F7250206D6F` = `om Prope`), float bit patterns (`41B0000044D82000`) and `FFFFFFFFFFFFFFFF`. Tables written in the same operation can share one value, which is buffer reuse rather than meaning. Preserve verbatim: it can be neither validated nor regenerated. (Whether ACE *reads* anything here is untested; it writes pointers, so almost certainly not.) |
 | `0x28` | 1 | Table type: `0x4E` 'N' user, `0x53` 'S' system. `0x53` is on `MSysObjects`, `MSysACEs`, `MSysQueries` and `MSysRelationships`; `MSysComplexColumns`, the `MSysComplexType_*` templates and the flat tables are `0x4E` despite their system flag |
 | `0x29` | 2 | Maximum column count |
 | `0x2B` | 2 | Variable-length column count |
@@ -86,7 +86,7 @@
 > LibRed reports violations as `InvalidDataException` before constructing catalog/index metadata.
 
 > **`ADD` / `DROP COLUMN` are metadata-only edits — the three column counts behave differently
-> (all probed vs ACE).** ACE never renumbers surviving columns or rewrites existing rows; a dropped
+> (all verified vs ACE).** ACE never renumbers surviving columns or rewrites existing rows; a dropped
 > column's bytes become dead space, and an added column reads NULL on old rows (via the null bitmap).
 > The one exception is an added **AutoNumber** column, which gives every existing row a value (below).
 > - **`0x2D` column count** — the **live** count. `DROP COLUMN` decrements it; `ADD COLUMN` increments it.
@@ -100,7 +100,7 @@
 >   LibRed enforces this on `0x29` (not the live count) rather than write a 256th id ACE can't represent.
 >   **`ALTER COLUMN` consumes an id from `0x29` too**, keeping the column's ordinal position — so after a
 >   modify, descriptor **position ≠ id**. That is a property of the ALTER mechanism rather than of this
->   field, and is documented with its measurements in
+>   field, and is documented in
 >   [page-02b §3.8](page-02b-columns.md#38-in-place-column-typelength-change-alter-column--verified-byte-for-byte).
 > - **`0x2B` variable-length column count** — also a **high-water**. `ADD COLUMN` of a variable column
 >   increments it (the new column's variable index = the old value); `DROP COLUMN` of a variable column
@@ -111,10 +111,9 @@
 >   [long-values](long-values.md#dropping-a-long-value-column).
 > - **Past the new end** — whenever ACE rewrites a single-page definition, shrinking or growing, it zeroes
 >   exactly **8 bytes** past the new definition length (`0x08`) — the trailing reserve — and leaves every byte
->   beyond them as it was, so an old definition's tail stays on the page. Measured on single-page definitions
->   for `DROP COLUMN` of a fixed, a text, a memo and an OLE column and for `DROP INDEX`, each with and without
->   long-value columns; on a two-page definition falling back to one; and, growing in place over such a stale
->   tail, for `ADD COLUMN` and for a relationship's incoming block (the reserve's stale bytes zeroed). A definition that stays multi-page moves its continuation data to fresh pages instead (§3.2,
+>   beyond them as it was, so an old definition's tail stays on the page. This holds for `DROP COLUMN`,
+>   `DROP INDEX`, a two-page definition falling back to one, and — growing in place over such a stale tail —
+>   `ADD COLUMN` and a relationship's incoming block (the reserve's stale bytes zeroed). A definition that stays multi-page moves its continuation data to fresh pages instead (§3.2,
 >   "Rewriting a multi-page TDEF"). Nothing reads these bytes; LibRed leaves them as ACE does. (A new table's
 >   definition, from `CREATE TABLE`, is written onto a zeroed page — ACE's handling of a reused page there is
 >   not measured.)
@@ -144,7 +143,7 @@ is exempt.
 
 | invariant | `RowCodec`<br>(INSERT/UPDATE) | `BuildRelaidRecord`<br>(in-place ALTER) | `AddColumn` | `DropColumn` | `AlterColumn` retype |
 |---|---|---|---|---|---|
-| `colCount` + null-bitmap width = `max(live column id) + 1` | ✅ | ✅ `newMaxId` | | | |
+| `colCount` + null-bitmap width = `0x29` high-water (max id ever handed out + 1) | ✅ | ✅ `newMaxId` | | | |
 | variable slots per row = `0x2B` | ✅ via `TableDefinition.VariableColumnCount` | ✅ appends onto a full-width row | | | |
 | variable index from `0x2B`, hole abandoned | | | ✅ | ✅ leaves `0x2B` | ✅ |
 | fixed offset = live `max(offset+length)`, hole **reused** | ✅ | ✅ `newFixedLen` from the old row | ✅ | ✅ no renumber | ⚠️ **NOT the live max** — measure the fixed-region end from an existing row's var-data start, because a prior retype's dead slot makes the descriptors under-count it ([§3.8](page-02b-columns.md)) |
@@ -156,11 +155,11 @@ chunks densely (one per live variable column) means a `DROP COLUMN` of a variabl
 every later column down one slot, and dropping the *last* variable column then retyping another makes ACE
 reject the file outright.
 
-Every cell is verified against ACE performing the identical DDL and reading rows written on both sides of
-the drop. Two more are worth recording because the obvious guess is wrong:
+The table is verified against ACE. Two more cases are worth recording because the obvious guess is wrong:
 
-- **A row's `colCount` is `max(live id) + 1`, not this page's `0x29` high-water** — they differ once the
-  highest-id column is dropped. The row-side consequence is [page-01 §5](page-01-data-and-rows.md).
+- **A row's `colCount` is this page's `0x29` high-water, not `max(live id) + 1`** — they differ once the
+  highest-id column is dropped, where ACE keeps writing the high-water. The row-side consequence is
+  [page-01 §5](page-01-data-and-rows.md).
 - **The fixed half follows the OPPOSITE rule to the variable half.** A dropped variable column's index is
   abandoned and the next added column goes *above* it; a dropped fixed column's offset is **reused** by the
   next fixed column added. `F(K, P, Q LONG, T TEXT)`, drop `Q`, add `R LONG` → ACE puts `R` at offset 8,

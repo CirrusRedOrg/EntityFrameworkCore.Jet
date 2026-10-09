@@ -429,8 +429,8 @@ The unusual part is step 5: it reads every **even byte of an 80-byte region**, n
 following header area. For an empty password the first 40 prepared bytes are zero, but the second half
 still contributes. This explains why trying the date's halves directly as RC4 keys did not work.
 
-For `WideTable.accdb`, date bits `0x40E68F1E8943D217` produce key **`0x8163D5CE`**, encoded
-**`CE D5 63 81`**, whose RC4 stream begins **`25 CC`**: its `MSysObjects` owner `27 CF` is Engine `02 03`.
+For date bits `0x40E68F1E8943D217` the fold produces key **`0x8163D5CE`**, encoded
+**`CE D5 63 81`**, whose RC4 stream begins **`25 CC`**: an `MSysObjects` owner of `27 CF` is Engine `02 03`.
 
 **A change of key re-masks every stored SID (verified).** Each SID — short and 102-byte alike — becomes
 `stored XOR oldStream XOR newStream` over its whole length, which needs no knowledge of its plaintext.

@@ -187,8 +187,7 @@ the long values:
 >
 > **A row's values are written chains first.** ACE writes every chained value of the row, in column order, and
 > only then its single-page values, in column order — so a single-page value in an earlier column takes a
-> page after the chains, not before them. Measured on one inserted row with each pairing: two chains, two
-> single-page values (either the larger first), and a single-page value before a chain, which alone differs
+> page after the chains, not before them. A single-page value before a chain is the one pairing that differs
 > from plain column order. LibRed writes in the same order, and the pages match ACE's.
 >
 > **A compressed single-page value is placed by its uncompressed size, and leaves its uncompressed bytes
@@ -198,10 +197,9 @@ the long values:
 > value only if it has room for the *uncompressed* bytes and a directory entry: `String(1800,'e')` then
 > `String(1200,'f')` in a `MEMO WITH COMPRESSION` column put the second value on a new page, though its 1,202
 > compressed bytes would have fit beside the first; `String(1000,'f')` shared the page. The free-space field and
-> the free-pages map count the compressed row. Measured on a fresh page (300 and 1,800 characters), on a shared
-> page, and at that boundary; the exact room test (whether the directory entry counts on top of the
-> uncompressed bytes) is not measured. A value that does not compress, or a column without compression, leaves
-> nothing behind. LibRed does the same, byte for byte.
+> the free-pages map count the compressed row. Whether the directory entry counts on top of the uncompressed
+> bytes at the exact boundary is not established. A value that does not compress, or a column without
+> compression, leaves nothing behind. LibRed does the same, byte for byte.
 >
 > **LibRed writes the §3.3.2 entry + empty usage maps for every memo/OLE column** — byte-faithful with
 > ACE, whose usage-map page lays the records out as: row 0 table-owned, row 1 table-free, then one row
@@ -266,7 +264,7 @@ and `UsageMap.PagesInMap` reads either form back.
 > **An entry can carry an owned-pages map and no free-pages map** — its free pointer is page 0. Access writes
 > exactly two columns that way, `MSysNameMap.NameMap` and `MSysAccessXML.LValue`; every other long-value
 > column examined has both. Such a column **never shares a page**: each value over 64 bytes is on an LVAL
-> page of its own, recorded in the owned map alone (measured: one page per stored value in every such file).
+> page of its own, recorded in the owned map alone.
 > LibRed writes to one the same way — a fresh page per value, owned bit only, nothing packed — and ACE reads
 > the result back and keeps it through a compact (verified, single-page and chained values). LibRed retires a
 > value from one by clearing its owned bit and releasing the page, there being no free map to update — not

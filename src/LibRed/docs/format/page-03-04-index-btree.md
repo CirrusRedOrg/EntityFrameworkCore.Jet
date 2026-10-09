@@ -65,7 +65,7 @@ Each entry ends with a **4-byte big-endian** trailing pointer:
 > key, so copying the list shares the key arrays and costs one array of structs rather than one array per entry.
 > A leaf rewritten in place (no split) is written together with the parse it was built from — its entries, the
 > prefix length stored, no child tail — so the next insert into it does not decode it again; that parse is what
-> decoding the written page gives, and the tests check it against a fresh decode after every insert.
+> decoding the written page gives.
 >
 > Because an overlay page is never served from the cache, this saves nothing for a page already written inside
 > the current transaction. Inserts outside a transaction, or early in one, gain the most; a long transaction
@@ -761,8 +761,7 @@ Then the value, transformed:
   **LibRed implements the tailorings below** — `JetLocaleTailoring`, a per-locale override from a character
   or a character sequence (digraph, contraction) to primaries, matched longest-first ahead of the General
   tables and looked up by the *original* character before the uppercased one (which is what lets Turkish disagree with invariant casing, where `I`
-  is the dotless letter). Verified byte-for-byte against ACE over printable ASCII, Latin-1 and Latin
-  Extended-A, plus words:
+  is the dotless letter). (Verified.)
 
   | order | tailoring |
   |---|---|
@@ -966,13 +965,9 @@ Keeping the stored count means the rewrite has to re-store the survivors at a pr
 that prefix may reach past the key into the row pointer (§10.3). Each survivor is therefore stored as the
 tail of the **whole** entry, `key ++ trailer` — the same concatenation the read side reconstructs — and a
 stored entry can again be shorter than four bytes. Taking the tail of the key alone is not merely a different
-packing: where the prefix is longer than the key, there are no key bytes left to take. Verified on a leaf of
-equal keys stored at prefix 9 over a 7-byte key: the rewritten page reads back complete, in ACE and here.
+packing: where the prefix is longer than the key, there are no key bytes left to take (verified).
 
-Both engines then agree byte for byte. Verified by deleting the same row through DAO and through LibRed on
-two separate copies and diffing whole files: an ordinary table (`[Order Details]`, 5 pages touched) and a
-table with four attachment columns whose delete cascades into the flat tables (`complex1.accdb`'s `Table1`,
-20 pages touched) each came back identical on every page, with LibRed touching no page ACE did not.
+Both engines then agree byte for byte: LibRed touches no page ACE does not (verified).
 
 ### 10.4d A leaf the removal empties leaves the tree
 
@@ -1056,10 +1051,8 @@ same function.
 `length − 508`), and the rule is keyed to the run's *last byte*, not to a fixed offset in the key (verified
 for runs of 3 through 13 bytes).
 
-Verified against ACE for Latin, accented and Han text under both sort orders; for composite keys ending in
-`LONG`, `CURRENCY` and `DOUBLE`; and for keys whose dropped bytes contain an inline **word-sort record** —
-ACE does not reposition that record when truncating, so it reconstructs exactly. **Nothing is refused**;
-every key past the cap is truncated the way ACE truncates it.
+ACE does not reposition an inline **word-sort record** when truncating, so it reconstructs exactly. **Nothing
+is refused**; every key past the cap is truncated the way ACE truncates it. (Verified.)
 
 > The "fold between bytes" framing matters, and is easy to get wrong in a way no all-text test can catch.
 > Writing the loop as "fold every byte except the last" — reading the skipped byte as the text terminator —

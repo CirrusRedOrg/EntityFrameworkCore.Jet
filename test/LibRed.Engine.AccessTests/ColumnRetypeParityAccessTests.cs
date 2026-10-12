@@ -31,6 +31,8 @@ public class ColumnRetypeParityAccessTests
     [InlineData("I", "ALTER TABLE I ALTER COLUMN B TEXT(20)")]        // two indexes whose names run against their slots
     [InlineData("I", "ALTER TABLE I ALTER COLUMN ID DOUBLE")]         // the primary key and IX_A: IX_A takes slot 0
     [InlineData("I", "ALTER TABLE I ALTER COLUMN B MEMO")]            // the two indexes again, to Memo
+    [InlineData("T", "ALTER TABLE T ALTER COLUMN X YESNO")]           // to Yes/No: the value goes to the null bitmap
+    [InlineData("N", "ALTER TABLE N ALTER COLUMN S YESNO")]           // numeric text to Yes/No, under an index
     public void A_retype_leaves_the_file_ACE_leaves(string table, string alter)
     {
         string basePath = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "retype-base-");
@@ -57,6 +59,12 @@ public class ColumnRetypeParityAccessTests
                 for (int i = 0; i < Values.Length; i++)
                     Exec(c, $"INSERT INTO I VALUES ({i + 1}, 'b{Values.Length - i}', 'e{i}')");
                 Exec(c, "INSERT INTO I VALUES (9, NULL, NULL)");
+                // Text that reads as a number, under an index, for a retype to Yes/No.
+                Exec(c, "CREATE TABLE N (ID LONG PRIMARY KEY, S TEXT(10))");
+                Exec(c, "CREATE INDEX IX_S ON N (S)");
+                string[] numbers = ["'5'", "'0'", "'2.5'", "'(5)'", "NULL"];
+                for (int i = 0; i < numbers.Length; i++)
+                    Exec(c, $"INSERT INTO N VALUES ({i + 1}, {numbers[i]})");
             }
             OleDbConnection.ReleaseObjectPool();
             File.Copy(acePath, libredPath, overwrite: true);

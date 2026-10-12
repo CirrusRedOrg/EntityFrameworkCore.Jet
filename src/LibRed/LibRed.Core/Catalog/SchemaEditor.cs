@@ -2297,8 +2297,9 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // variable→fixed retype leaves it where it is). Deriving either from the live columns under-counts on
         // any table that has dropped or retyped a column, passing a declaration that then overflows 4060 —
         // and per RowCodec's own remarks, Access cannot open a database containing such a table at all.
+        int newFixedLen = oldFixedLen + (newSpec.IsFixedLength && newSpec.Type != JetDataType.Boolean ? newSpec.Length : 0);
         RowCodec.ValidateRecordFits(tableName,
-            oldFixedLen + (newSpec.IsFixedLength && newSpec.Type != JetDataType.Boolean ? newSpec.Length : 0),
+            newFixedLen,
             oldDef.VariableColumnCount + (oldTarget.IsFixedLength && !newSpec.IsFixedLength ? 1 : 0),
             oldDef.ColumnIdHighWater + 1,   // the type change burns a fresh id
             _channel.Format);
@@ -2359,7 +2360,6 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             TableDefinition newDef = _catalog.FindTable(tableName)!;
             ColumnDef newTarget = newDef.FindColumn(columnName)!;
             int newMaxId = newDef.Columns.Max(c => c.ColumnId);
-            int newFixedLen = newTarget.IsFixedLength ? oldFixedLen + newTarget.Length : oldFixedLen;
 
             // Slots per row comes from the TDEF high-water, exactly as RowCodec derives it — never from a
             // row's own stored numVar. A row written before a variable ADD COLUMN carries fewer slots than the
@@ -2404,10 +2404,9 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         ColumnDef newTarget, object?[] values, IReadOnlyList<ColumnDef> newCols, int newMaxId, int newFixedLen,
         int newVarCount)
     {
+        // A Yes/No target appends no fixed slot: AssembleRow sets its null-bitmap bit from the value.
         object? tv = values[newTarget.Index];
-        byte[] targetBytes = tv is null
-            ? (newTarget.IsFixedLength ? new byte[newTarget.Length] : [])
-            : Storage.Types.JetTypeCodec.Encode(newTarget, tv, _channel.Format);
+        bool occupiesFixed = newFixedLen > oldFixedLen;
 
         // Whether THIS row has a variable trailer, not whether the schema does — see RowCodec.Layout.HasVariableSection.
         JetFormatBase format = _channel.Format;
@@ -2420,9 +2419,9 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         var newFixed = new byte[newFixedLen];
         int rowFixedLen = Math.Min(oldFixedLen, oldLayout.FixedRegionLength);
         Array.Copy(oldRow, countSize, newFixed, 0, rowFixedLen);
-        if (newTarget.IsFixedLength && tv is not null)
-            Array.Copy(targetBytes, 0, newFixed, newTarget.FixedOffset, newTarget.Length);
-        else if (newTarget.IsFixedLength && rowFixedLen == oldFixedLen)
+        if (occupiesFixed && tv is not null)
+            Storage.Types.JetTypeCodec.Encode(newTarget, tv, format).CopyTo(newFixed, newTarget.FixedOffset);
+        else if (occupiesFixed && rowFixedLen == oldFixedLen)
         {
             // ACE writes nothing into the new slot of a NULL: it holds whatever the old record had at those
             // offsets — the start of its variable data, say — rather than zeros (verified on full-width rows).
@@ -2436,7 +2435,8 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         var chunks = new List<byte[]>(Math.Max(oldLayout.NumVar, newVarCount));
         for (int j = 0; j < oldLayout.NumVar; j++) chunks.Add(oldLayout.VarChunk(j).ToArray());
         while (chunks.Count < newVarCount) chunks.Add([]);
-        if (!newTarget.IsFixedLength) chunks[newTarget.VariableIndex] = targetBytes;
+        if (!newTarget.IsFixedLength)
+            chunks[newTarget.VariableIndex] = tv is null ? [] : Storage.Types.JetTypeCodec.Encode(newTarget, tv, format);
 
         // Assemble via the shared row layout (count + var table + null bitmap identical to a fresh encode), each
         // dead id's bit carried over from the old row's bitmap.

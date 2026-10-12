@@ -1602,7 +1602,8 @@ public sealed class TableDefinition : Page
         flags = newSpec.IsFixedLength ? flags | ColumnFlags.FixedLength : flags & ~ColumnFlags.FixedLength;
         flags = newSpec.IsAutoNumber ? flags | ColumnFlags.AutoNumber : flags & ~ColumnFlags.AutoNumber;
         d[format.ColumnFlagsOffset] = (byte)flags;
-        BinaryPrimitives.WriteUInt16LittleEndian(d[format.ColumnFixedOffsetOffset..], (ushort)(newSpec.IsFixedLength ? fixedEnd : 0)); // +0x15
+        BinaryPrimitives.WriteUInt16LittleEndian(d[format.ColumnFixedOffsetOffset..],
+            (ushort)(newSpec.IsFixedLength && newSpec.Type != JetDataType.Boolean ? fixedEnd : 0)); // +0x15
         BinaryPrimitives.WriteUInt16LittleEndian(d[format.ColumnLengthOffset..], (ushort)newSpec.Length); // +0x17
         // 0x0B–0x0E is a union keyed by type, so the WHOLE union is rewritten, not just the decimal arm.
         // Writing precision/scale on the way in but nothing on the way out left a former DECIMAL(12,3) with

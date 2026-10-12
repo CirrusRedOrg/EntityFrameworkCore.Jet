@@ -113,6 +113,7 @@ public class StoredNumberConversionTests : TempDatabaseTest
     [InlineData("LONG", new[] { "5", "2", "5", "-5", "-5", "1000", "16", "100", "-1", "0" })]
     [InlineData("DOUBLE", new[] { "5", "2.5", "5", "-5", "-5", "1000", "16", "100", "-1", "0" })]
     [InlineData("CURRENCY", new[] { "5", "2.5", "5", "-5", "-5", "1000", "16", "100", "-1", "0" })]
+    [InlineData("YESNO", new[] { "True", "True", "True", "True", "True", "True", "True", "True", "True", "False" })]
     public void Altering_text_to_a_number_reads_each_value_as_VBA_reads_a_number(string type, string[] stored)
     {
         QueryEngine engine = Fresh("CREATE TABLE T (Id COUNTER PRIMARY KEY, X TEXT(30))");

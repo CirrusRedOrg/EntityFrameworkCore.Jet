@@ -403,7 +403,7 @@ null bitmap is keyed by **id** and not by position (§5).
 | `0x09` | **left unchanged** — it is the column's ordinal position (§3.4), which a retype does not move; it only looked like the *old* id because the two coincide until a column is dropped or moved |
 | `0x0F` | fixed-length bit (`0x01`) set/cleared for the new type; auto-number bit likewise |
 | `0x0B`/`0x0C` | precision/scale for a `DECIMAL`/`NUMERIC` (`FixedPoint`) target |
-| `0x15` | fixed-data offset = **end of the current fixed region** (appended) for a fixed target, or `0` for a variable target. The old slot is left where it was as dead bytes. |
+| `0x15` | fixed-data offset = **end of the current fixed region** (appended) for a fixed target, or `0` for a variable target **or a Yes/No target** (fixed, but it has no data bytes, §5). The old slot is left where it was as dead bytes. |
 | `0x17` | new length |
 
 The "end of the current fixed region" must be measured from an **existing row** (its variable-data start),
@@ -418,7 +418,9 @@ variable chunk at variable-index = the old var count. The leading count, variabl
 and null bitmap are then rebuilt per §5 (count and bitmap width = max id + 1; each dead id's bit as the old
 row had it — so the retyped column's old id is present where it held a value and clear where it was NULL).
 A fixed target whose converted value is NULL gets no bytes written: its new slot holds whatever the old record
-had at those offsets (the start of its variable data, on a row with some), not zeros.
+had at those offsets (the start of its variable data, on a row with some), not zeros. A **Yes/No** target
+appends nothing at all — the fixed region keeps its old width and the converted value is only the new id's
+null-bitmap bit (verified, from a `LONG` and from an indexed `TEXT`, NULLs included).
 
 **A Memo/OLE source or target** takes the same edit and re-lay, plus the long-value side of ADD and DROP
 COLUMN (verified, both directions and a Memo re-declared as Memo). A column becoming Memo/OLE gets its §3.3.2

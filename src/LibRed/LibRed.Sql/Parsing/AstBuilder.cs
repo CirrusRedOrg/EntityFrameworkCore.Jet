@@ -126,7 +126,7 @@ internal static class AstBuilder
         string? primaryKeyName = null;
 
         // Where each constraint sits in the statement's text — used for a self-reference below, and to count
-        // the columns declared before each one (DeclaredAfterColumns).
+        // the elements declared before each one (DeclaredAfter).
         var foreignKeyTokens = new List<int>();
         var uniqueTokens = new List<int>();
         int primaryKeyToken = int.MaxValue;
@@ -191,19 +191,23 @@ internal static class AstBuilder
                 foreignKeys[i] = fk with { ReferencedColumns = primaryKey.ToList() };
         }
 
-        // Each constraint's place in the element list, as the count of columns declared before it. The storage
-        // layer lays the table's usage-map rows out in declaration order, interleaving indexes with long-value
-        // columns, and a statement is the only thing that knows that order.
-        int[] columnStarts = [.. ctx.columnDefinition().Select(c => c.Start.TokenIndex)];
-        int ColumnsBefore(int token) => columnStarts.Count(start => start < token);
+        // Each key constraint's place in the element list, as the count of columns and key constraints declared
+        // before it. The storage layer numbers the indexes in declaration order and lays the usage-map rows out
+        // in it, interleaving indexes with long-value columns, and a statement is the only thing that knows it.
+        int[] elementStarts =
+        [
+            .. ctx.columnDefinition().Select(c => c.Start.TokenIndex), .. uniqueTokens, .. foreignKeyTokens,
+            .. primaryKeyToken == int.MaxValue ? Array.Empty<int>() : [primaryKeyToken],
+        ];
+        int DeclaredAfter(int token) => elementStarts.Count(start => start < token);
 
         for (int i = 0; i < uniques.Count; i++)
-            uniques[i] = uniques[i] with { DeclaredAfterColumns = ColumnsBefore(uniqueTokens[i]) };
+            uniques[i] = uniques[i] with { DeclaredAfter = DeclaredAfter(uniqueTokens[i]) };
         for (int i = 0; i < foreignKeys.Count; i++)
-            foreignKeys[i] = foreignKeys[i] with { DeclaredAfterColumns = ColumnsBefore(foreignKeyTokens[i]) };
+            foreignKeys[i] = foreignKeys[i] with { DeclaredAfter = DeclaredAfter(foreignKeyTokens[i]) };
 
         return new CreateTableStatement(table, columns, primaryKey, foreignKeys, uniques, checks, primaryKeyName,
-            primaryKeyToken == int.MaxValue ? 0 : ColumnsBefore(primaryKeyToken));
+            primaryKeyToken == int.MaxValue ? 0 : DeclaredAfter(primaryKeyToken));
     }
 
     /// <summary>The verbatim source text of a parse context (preserving spacing), via the input stream —

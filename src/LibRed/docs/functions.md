@@ -140,7 +140,8 @@ procedure call, and a result past a Double an overflow.
 - **Parts** — `Year` `Month` `Day` `Hour` `Minute` `Second` `Weekday` (Sunday = 1)
 - **Names** — `MonthName` `WeekdayName`
 
-`Time` and `TimeValue` sit on the Jet epoch 1899-12-30. LibRed keeps milliseconds where ACE rounds to the second.
+`Time` and `TimeValue` sit on the Jet epoch 1899-12-30. `Now` and `Time` read the clock in whole seconds, the
+fraction dropped, as ACE does; elsewhere LibRed keeps milliseconds where ACE rounds to the second.
 
 ### Formatting
 

@@ -37,6 +37,7 @@ public class DateTimeDefaultTests : TempDatabaseTest
         Assert.InRange(v, before, after);
         Assert.NotEqual(v.Date, default);
         Assert.True(v.TimeOfDay > TimeSpan.Zero, "NOW() should carry a time component");
+        Assert.Equal(0, v.Ticks % TimeSpan.TicksPerSecond);   // whole seconds, as ACE's Now() gives
     }
 
     [Fact]
@@ -52,6 +53,7 @@ public class DateTimeDefaultTests : TempDatabaseTest
     {
         DateTime v = InsertAndRead("Time()");
         Assert.Equal(new DateTime(1899, 12, 30), v.Date);   // time-only → the Jet epoch date
+        Assert.Equal(0, v.Ticks % TimeSpan.TicksPerSecond);  // whole seconds, as ACE's Time() gives
         // Within 2 minutes of now, tolerant of the midnight wrap (23:59 + 2min → 00:01).
         double minutesApart = Math.Abs((v.TimeOfDay - DateTime.Now.TimeOfDay).TotalMinutes);
         Assert.True(minutesApart < 2 || minutesApart > 24 * 60 - 2, $"Time() was {v.TimeOfDay}, now {DateTime.Now.TimeOfDay}");

@@ -168,7 +168,7 @@ public sealed class Table
     }
 
     /// <summary>Inserts a row (values aligned to column <see cref="ColumnDef.Index"/>) into the table.</summary>
-    public void Insert(object?[] values) => new RowInserter(Channel, Definition).Insert(values);
+    public void Insert(object?[] values) => Write(() => new RowInserter(Channel, Definition).Insert(values));
 
     /// <summary>Rewrites the row at <paramref name="id"/> in place with new values (row id preserved).
     /// <paramref name="changedColumns"/> are the columns that actually changed — an unchanged memo/OLE column

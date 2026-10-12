@@ -1,3 +1,4 @@
+using EntityFrameworkCore.Jet.Data;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.Storage.Types;
@@ -285,13 +286,17 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
         return row;
     }
 
-    /// <summary>Access truthiness for a Boolean (bit) value being stored: a bool is itself, any non-zero
-    /// number is true, 0 / null is false. The index key uses the same rule, so a key always agrees with its row.</summary>
+    /// <summary>Access truthiness for a Boolean (bit) value being stored: a bool is itself, and a number is rounded
+    /// half to even and is true when that is not 0 — text read as VBA reads it as a number, and anything else a type
+    /// mismatch (verified vs ACE: 0.5, -0.5 and 0.0001 store False, 0.6 and 2.5 True, '0.6' True, and 'True' and
+    /// 'Yes' are refused). Null is false. The index key uses the same rule, so a key always agrees with its row.</summary>
     internal static bool IsTruthy(object? value) => value switch
     {
         null => false,
         bool b => b,
-        _ => Convert.ToBoolean(value, System.Globalization.CultureInfo.InvariantCulture),
+        string or char => Math.Round(VbaText.TextAsNumber(value.ToString()!), MidpointRounding.ToEven) != 0,
+        _ => Math.Round(JetDecimalConverter.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture),
+            MidpointRounding.ToEven) != 0,
     };
 
     private static int ComputeFixedDataLength(IReadOnlyList<ColumnDef> columns)

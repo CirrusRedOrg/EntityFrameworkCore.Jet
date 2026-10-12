@@ -24,7 +24,26 @@
     ]
   },
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'HOUSE RULES from CLAUDE.md, re-read on this message. They take priority over defaults: check every command, edit and test run against each of them before making it.'; echo; tr -d '\\r' < \"$CLAUDE_PROJECT_DIR/CLAUDE.md\" | awk 'BEGIN{RS=\"\";ORS=\"\\n\\n\"} /^## /{w=($0 ~ /^## Working in This Repo/)} w || /^\\*\\*(The user runs the suites|Only re-run|When you do run a suite)/ || /^> \\*\\*Rule/ || /^`src\\/Directory\\.Build\\.props` also turns on/ {print}'"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "in=$(cat); printf '%s' \"$in\" | grep -qE '\"file_path\"[[:space:]]*:[[:space:]]*\"[^\"]*[\\\\/]test[\\\\/]' || exit 0; echo '{\"decision\":\"block\",\"reason\":\"You just edited a test. CLAUDE.md: never change a test because a change makes it fail. If this edit changes what an existing test expects, you must already have measured what ACE produces for that exact query, on the schema and data of that test (not a similar expression, another table, or a function ACE does not have), and the test must need to change to match ACE exactly. Tell the user what was measured. If you have not, revert this edit now and fix the code instead. A new test pinning ACE-measured behaviour is fine.\"}'"
+          }
+        ]
+      },
       {
         "matcher": "Write",
         "hooks": [

@@ -43,6 +43,11 @@ public sealed record IndexRangeSeekNode(string Table, string? Alias, IndexDef In
 {
     /// <summary>As <see cref="ScanNode.Decode"/>.</summary>
     public IReadOnlySet<string>? Decode { get; init; }
+
+    /// <summary>The bounds are a <c>BETWEEN</c>'s, which takes them in either order: the executor puts them in the
+    /// index's order once their values are known, so a parameter or an expression can be a bound as well as a
+    /// literal.</summary>
+    public bool Unordered { get; init; }
 }
 
 /// <summary>A derived table: the output of <paramref name="Input"/> re-exposed under an alias. The alias

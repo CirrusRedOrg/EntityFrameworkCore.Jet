@@ -242,9 +242,11 @@ public class PredicateOperatorTests(PredicateOperatorTests.Database database)
 
         const string sql = "SELECT COUNT(*) FROM K WHERE Id BETWEEN 8 AND 3";
         Assert.Equal(6, engine.ExecuteQuery(sql).Rows.Single()[0]);
+        // The bounds are kept as written and put in order when the seek runs, once their values are known.
         IndexRangeSeekNode seek = FindSeek(engine.PlanFor(sql))!;
-        Assert.Equal(3, Convert.ToInt32(Assert.IsType<LiteralExpression>(seek.Low).Value));
-        Assert.Equal(8, Convert.ToInt32(Assert.IsType<LiteralExpression>(seek.High).Value));
+        Assert.True(seek.Unordered);
+        Assert.Equal(8, Convert.ToInt32(Assert.IsType<LiteralExpression>(seek.Low).Value));
+        Assert.Equal(3, Convert.ToInt32(Assert.IsType<LiteralExpression>(seek.High).Value));
 
         Assert.Equal(4, engine.ExecuteQuery("SELECT COUNT(*) FROM K WHERE Id NOT BETWEEN 8 AND 3").Rows.Single()[0]);
         Assert.Equal(0, engine.ExecuteQuery("SELECT COUNT(*) FROM K WHERE Id BETWEEN NULL AND 3").Rows.Single()[0]);

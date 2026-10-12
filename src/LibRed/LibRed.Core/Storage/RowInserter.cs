@@ -34,6 +34,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     {
         JetFormatBase format = _channel.Format;
         RejectExplicitCalculatedValues(values, null);
+        WrapBytes(values);
 
         // Assign AutoNumber ids for any AutoNumber column the caller left unset (the usual case —
         // Jet SQL omits the AutoNumber column from the insert). An explicitly supplied value is kept
@@ -109,6 +110,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     {
         JetFormatBase format = _channel.Format;
         RejectExplicitCalculatedValues(values, changedColumns);
+        WrapBytes(values);
         EnforceNonNullKeys(values, changedColumns);
         EnforceUniqueIndexes(values, id.Packed, changedColumns);
 
@@ -994,6 +996,18 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
                     $"Cannot update '{column.Name}'; field not updateable. It is a calculated column, so its "
                     + "value comes from its expression and cannot be supplied.");
         }
+    }
+
+    /// <summary>A Byte written to a row takes the whole number's low byte, rounded half to even first, rather than
+    /// refusing one past its range (verified vs ACE, for numbers and text alike: 256 stores 0, -1 255, 300 44 and
+    /// 255.5 0). Done to the row's values before anything is encoded, so the row and every index key carry the
+    /// same byte — and only on a write: a seek for 300 finds nothing, not the 44 a write of 300 stores.</summary>
+    private void WrapBytes(object?[] values)
+    {
+        foreach (ColumnDef column in _table.Columns)
+            if (column.Type == JetDataType.Byte && values[column.Index] is { } value and not (byte or bool))
+                values[column.Index] = unchecked((byte)Convert.ToInt64(
+                    Types.JetTypeCodec.NumberFromText(JetDataType.Byte, value), CultureInfo.InvariantCulture));
     }
 
     /// <summary>Writes an oversized calculated result to an LVAL page and returns its in-row descriptor.

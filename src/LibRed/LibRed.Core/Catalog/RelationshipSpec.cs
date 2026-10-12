@@ -28,11 +28,12 @@ public sealed record RelationshipSpec(
     // libred-foreign-key-status memory / spec §11.
     bool UpdateSetNull = false,
     bool ReferencesPrimaryKey = false,
-    // How many of the table's columns were declared before this constraint, which is what decides the order
-    // of the usage-map rows CREATE TABLE lays out (see SchemaEditor). Only a statement knows it; 0 — the
-    // default a direct caller gets — puts the constraint's map row ahead of every long-value column's, which
-    // is what ACE writes for a constraint declared on the first column.
-    int DeclaredAfterColumns = 0)
+    // How many of the table's columns and key constraints (primary key, unique, relationship) were declared
+    // before this constraint, which is what decides the order CREATE TABLE numbers the indexes in and lays out
+    // their usage-map rows in (see SchemaEditor). Only a statement knows it; 0 — the default a direct caller
+    // gets — leaves the indexes primary key, unique, relationship, each map row ahead of every long-value
+    // column's.
+    int DeclaredAfter = 0)
 {
     /// <summary>A relationship naming only its child columns, to reference the parent's primary key.</summary>
     public static IReadOnlyList<(string Column, string ReferencedColumn)> ChildColumnsOnly(IReadOnlyList<string> columns) =>
@@ -50,5 +51,5 @@ public sealed record RelationshipSpec(
 }
 
 /// <summary>A UNIQUE constraint to create as a unique (non-primary) index over the named columns.
-/// <para><b>DeclaredAfterColumns</b> is as <see cref="RelationshipSpec"/>'s.</para></summary>
-public sealed record UniqueIndexSpec(string Name, IReadOnlyList<string> Columns, int DeclaredAfterColumns = 0);
+/// <para><b>DeclaredAfter</b> is as <see cref="RelationshipSpec"/>'s.</para></summary>
+public sealed record UniqueIndexSpec(string Name, IReadOnlyList<string> Columns, int DeclaredAfter = 0);

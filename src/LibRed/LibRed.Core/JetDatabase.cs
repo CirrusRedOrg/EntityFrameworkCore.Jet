@@ -468,14 +468,14 @@ public sealed class JetDatabase : IDisposable
         IReadOnlyList<(string Column, string DefaultSql)>? columnDefaults = null,
         IReadOnlyList<(string Name, string Expression)>? checkConstraints = null,
         string? primaryKeyName = null,
-        int primaryKeyDeclaredAfterColumns = 0,
+        int primaryKeyDeclaredAfter = 0,
         TableType tableType = TableType.User)
     {
         ValidateCalculated(columns, [.. columns.Select(c => c.Name)]);
         EnsureFormatForCalculated(columns);
         new Catalog.SchemaEditor(_channel, Catalog, Collation)
             .Create(name, columns, primaryKey, relationships, uniqueConstraints, columnDefaults, checkConstraints,
-                primaryKeyName, primaryKeyDeclaredAfterColumns, tableType);
+                primaryKeyName, primaryKeyDeclaredAfter, tableType);
         Catalog.Invalidate();
     }
 
@@ -496,6 +496,15 @@ public sealed class JetDatabase : IDisposable
     {
         new Catalog.SchemaEditor(_channel, Catalog, Collation).AddForeignKey(childTable, relationship);
         Catalog.Invalidate();
+    }
+
+    /// <summary>Whether every row of <paramref name="relationship"/>'s child table has its parent — the condition
+    /// <see cref="AddForeignKey"/> refuses a relationship over.</summary>
+    public bool ExistingRowsHaveParents(ForeignKey relationship)
+    {
+        ArgumentNullException.ThrowIfNull(relationship);
+        return new Catalog.SchemaEditor(_channel, Catalog, Collation)
+            .ExistingRowsHaveParents(relationship.Table, relationship.ReferencedTable, relationship.Columns);
     }
 
     /// <summary>Adds a table-level CHECK constraint to an existing table — ALTER TABLE ADD CONSTRAINT … CHECK.
@@ -590,18 +599,42 @@ public sealed class JetDatabase : IDisposable
         new Catalog.SchemaEditor(_channel, Catalog, Collation).DropColumn(table, column);
 
     /// <summary>Adds a column — ALTER TABLE … ADD COLUMN. Appends the descriptor/name and bumps the counts;
-    /// existing rows read it as NULL. A memo/OLE column gets its long-value usage maps at the same time.
-    /// Returns false if the column already exists.</summary>
+    /// existing rows read it as NULL, except that a calculated column is computed for them. A memo/OLE column gets
+    /// its long-value usage maps at the same time. Returns false if the column already exists.</summary>
     public bool AddColumn(string table, Catalog.ColumnSpec column, string? defaultValue = null)
     {
-        if (column.CalculatedExpression is not null)
+        if (column.CalculatedExpression is null)
+            return new Catalog.SchemaEditor(_channel, Catalog, Collation).AddColumn(table, column, defaultValue);
+
+        // An added column can read the ones already there, and itself is now among them.
+        List<string> visible = [.. OpenTable(table).Definition.Columns.Select(c => c.Name), column.Name];
+        ValidateCalculated([column], visible);
+
+        // One unit, so a row the expression fails on takes the column back out with it.
+        bool ownTransaction = !_channel.InTransaction;
+        if (ownTransaction) BeginTransaction();
+        try
         {
-            // An added column can read the ones already there, and itself is now among them.
-            List<string> visible = [.. OpenTable(table).Definition.Columns.Select(c => c.Name), column.Name];
-            ValidateCalculated([column], visible);
             EnsureFormatForCalculated([column]);
+            bool added = new Catalog.SchemaEditor(_channel, Catalog, Collation).AddColumn(table, column, defaultValue);
+            if (added)
+            {
+                // ACE computes the column for the rows already there. An UPDATE that changes nothing recomputes it:
+                // a row written before the column existed has no cached result to keep.
+                Catalog.Invalidate();
+                Table rows = OpenTable(table);
+                foreach ((RowId id, object?[] values) in rows.Rows().WithIds().ToList())
+                    rows.Update(id, values, new HashSet<int>());
+            }
+            if (ownTransaction) Commit(flush: false);
+            return added;
         }
-        return new Catalog.SchemaEditor(_channel, Catalog, Collation).AddColumn(table, column, defaultValue);
+        catch when (ownTransaction)
+        {
+            Rollback();
+            Catalog.Invalidate();
+            throw;
+        }
     }
 
     /// <summary>Raises the file to ACE 14 when a calculated column is being created — the floor its own

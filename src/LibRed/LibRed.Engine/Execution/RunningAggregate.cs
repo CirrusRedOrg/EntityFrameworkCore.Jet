@@ -109,8 +109,8 @@ internal sealed class RunningAggregate
     {
         if (y is null || x is null)
             return;
-        double dy = Convert.ToDouble(ExpressionEvaluator.ConversionNumber(y), CultureInfo.InvariantCulture);
-        double dx = Convert.ToDouble(ExpressionEvaluator.ConversionNumber(x), CultureInfo.InvariantCulture);
+        double dy = JetDecimalConverter.ToDouble(ExpressionEvaluator.ConversionNumber(y), CultureInfo.InvariantCulture);
+        double dx = JetDecimalConverter.ToDouble(ExpressionEvaluator.ConversionNumber(x), CultureInfo.InvariantCulture);
         double n = ++_count;
         _sumX += dx;
         _sumY += dy;
@@ -169,7 +169,7 @@ internal sealed class RunningAggregate
             }
             else
             {
-                double d = Convert.ToDouble(number, invariant);
+                double d = JetDecimalConverter.ToDouble(number, invariant);
                 _doubleSum += d;
                 _squares += d * d;
             }
@@ -186,7 +186,7 @@ internal sealed class RunningAggregate
                 break;
             case double or float:
             case not null when _name == "AVG":
-                _doubleSum += Convert.ToDouble(number, invariant);
+                _doubleSum += JetDecimalConverter.ToDouble(number, invariant);
                 break;
             default:
                 _intSum = checked(_intSum + Convert.ToInt32(number, invariant));

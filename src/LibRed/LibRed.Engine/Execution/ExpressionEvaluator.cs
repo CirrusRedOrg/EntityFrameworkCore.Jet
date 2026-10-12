@@ -3,6 +3,7 @@ using LibRed.Catalog;
 using LibRed.Engine.Planning;
 using LibRed.Sql.Ast;
 using LibRed.Storage;
+using LibRed.Storage.Types;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -88,11 +89,22 @@ internal sealed partial class ExpressionEvaluator(
     {
         if (c.Table is null && c.Column.Equals("Now", StringComparison.OrdinalIgnoreCase))
         {
-            value = DateTime.Now;
+            value = Clock;
             return true;
         }
         value = null;
         return false;
+    }
+
+    /// <summary>The clock as <c>Now</c> and <c>Time</c> read it: in whole seconds, the fraction dropped rather than
+    /// rounded (verified vs ACE).</summary>
+    private static DateTime Clock
+    {
+        get
+        {
+            DateTime now = DateTime.Now;
+            return now.AddTicks(-(now.Ticks % TimeSpan.TicksPerSecond));
+        }
     }
 
     /// <summary>Resolves a connection-scoped system variable from the session state: <c>@@ROWCOUNT</c>
@@ -284,13 +296,13 @@ internal sealed partial class ExpressionEvaluator(
             "DATEDIFF_BIG" => DateDiffBig(f),
             "DATESERIAL" => DateParts(f, DateSerial),
             "TIMESERIAL" => DateParts(f, static (h, m, s) => OaDate((h * 3600 + m * 60 + s) / 86400.0)),
-            "NOW" => DateTime.Now,
+            "NOW" => Clock,
             // SQL Server's: GetUtcDate is a datetime (whole ms), the Sys ones datetime2 (100 ns).
             "GETUTCDATE" => OaDate(DateTime.UtcNow.ToOADate()),
             "SYSDATETIME" => DateTime.Now,
             "SYSUTCDATETIME" => DateTime.UtcNow,
             "DATE" => DateTime.Today,
-            "TIME" => DateTime.FromOADate(0).Add(DateTime.Now.TimeOfDay),
+            "TIME" => DateTime.FromOADate(0).Add(Clock.TimeOfDay),
             "YEAR" => Convert1(f, v => ToDate(v).Year),
             "MONTH" => Convert1(f, v => ToDate(v).Month),
             "DAY" => Convert1(f, v => ToDate(v).Day),
@@ -650,7 +662,7 @@ internal sealed partial class ExpressionEvaluator(
     /// <summary>A value read as CLngLng reads it: as CLng, half to even, and past an Int64 an overflow. Text that
     /// reads as a number is read exactly, not through a Double, so '9223372036854775807' loses no digit.</summary>
     private static long AsLongLong(object v) =>
-        v is string or char && TextAsDecimal(v.ToString()!) is decimal exact
+        v is string or char && VbaText.TextAsDecimal(v.ToString()!) is decimal exact
             ? Convert.ToInt64(exact, CultureInfo.InvariantCulture)
             : Lng(ConversionNumber(v));
 
@@ -806,29 +818,10 @@ internal sealed partial class ExpressionEvaluator(
     }
 
     /// <summary>
-    /// Access <c>Str(number)</c> (verified vs ACE): the number read as the conversion functions read it and written
-    /// as CStr writes it, but always with a period and no zero before it, and with a space where a positive number's
-    /// sign would go (<c>Str(0.5)</c> is " .5", <c>Str(True)</c> is "-1"). A date is written as CStr writes it.
+    /// Access <c>Str(number)</c>: the number read as the conversion functions read it and written as
+    /// <see cref="VbaText.Str"/> writes it. A date is written as CStr writes it.
     /// </summary>
-    private static string VbaStr(object v)
-    {
-        if (v is DateTime date)
-            return ConcatText(date);
-        NumberFormatInfo invariant = NumberFormatInfo.InvariantInfo;
-        string text = NumericOperand(v)! switch
-        {
-            bool b => b ? "-1" : "0",
-            double d => FloatingText(d, 15, invariant),
-            float f => FloatingText(f, 7, invariant),
-            decimal m => m.ToString("0.############################", invariant),
-            var n => Convert.ToString(n, invariant)!,
-        };
-        if (text.StartsWith("0.", StringComparison.Ordinal))
-            text = text[1..];
-        else if (text.StartsWith("-0.", StringComparison.Ordinal))
-            text = "-" + text[2..];
-        return text[0] == '-' ? text : " " + text;
-    }
+    private static string VbaStr(object v) => v is DateTime date ? ConcatText(date) : VbaText.Str(NumericOperand(v)!);
 
     /// <summary>
     /// Access <c>Val(string)</c> (verified vs ACE): the number at the start of the text, as a Double, or 0. Spaces,
@@ -891,7 +884,7 @@ internal sealed partial class ExpressionEvaluator(
     private static bool IsNumericValue(object? v) => v switch
     {
         null or DateTime or Guid or byte[] => false,
-        string or char => TryTextAsNumber(v.ToString()!) is not null,
+        string or char => VbaText.TryTextAsNumber(v.ToString()!) is not null,
         _ => true,
     };
 
@@ -1144,16 +1137,9 @@ internal sealed partial class ExpressionEvaluator(
     }
 
     /// <summary>The UTF-16LE **byte** representation a byte function operates on: a string's encoded bytes, or a
-    /// binary value's raw bytes with an odd trailing byte zero-padded (matching ACE, which reinterprets a binary
-    /// column as a UTF-16 string — LenB of a 3-byte value is 4).</summary>
-    private static byte[] ToBytes(object v)
-    {
-        if (v is not byte[] bytes) return Encoding.Unicode.GetBytes(ConcatText(v));
-        if (bytes.Length % 2 == 0) return bytes;
-        var padded = new byte[bytes.Length + 1];
-        Array.Copy(bytes, padded, bytes.Length);
-        return padded;
-    }
+    /// binary value's bytes laid out as UTF-16 (<see cref="VbaText.Utf16Layout"/>).</summary>
+    private static byte[] ToBytes(object v) =>
+        v is byte[] bytes ? VbaText.Utf16Layout(bytes) : Encoding.Unicode.GetBytes(ConcatText(v));
 
     /// <summary>
     /// SQL Server's <c>DATALENGTH</c>, a LibRed extension (Access has none): the bytes a value takes as Access stores
@@ -1446,16 +1432,16 @@ internal sealed partial class ExpressionEvaluator(
         {
             decimal m => decimal.Round(m, places, MidpointRounding.ToEven),
             double d when WrittenValue(f.Arguments[0]) is decimal written =>
-                RoundWritten(d, places, () => written, r => (double)r),
+                RoundWritten(d, places, () => written, JetDecimalConverter.FromDecimal),
             double d => RoundDouble(d, places),
-            float s => RoundWritten(s, places, () => JetDecimalConverter.FromSingle(s), r => (float)r),
+            float s => RoundWritten(s, places, () => JetDecimalConverter.FromSingle(s), r => (float)JetDecimalConverter.FromDecimal(r)),
             long or ulong => Lng(value),
             int or short or byte or bool => Int(value),
             _ => RoundDouble(Dbl(Serial(NumericOperand(value)!)), places),
         };
 
         static object RoundDouble(double d, int places) =>
-            RoundWritten(d, places, () => JetDecimalConverter.FromDouble(d), r => (double)r);
+            RoundWritten(d, places, () => JetDecimalConverter.FromDouble(d), JetDecimalConverter.FromDecimal);
 
         // A number past a Decimal has no places left to cut.
         static object RoundWritten<T>(T original, int places, Func<decimal> written, Func<decimal, T> back) where T : notnull
@@ -1536,7 +1522,7 @@ internal sealed partial class ExpressionEvaluator(
         _ => OaDate(Dbl(ConversionNumber(v))),
     };
 
-    /// <summary>A conversion function's argument as a number: text read as one (<see cref="TextAsNumber"/>), a date
+    /// <summary>A conversion function's argument as a number: text read as one (<see cref="VbaText.TextAsNumber"/>), a date
     /// as its serial and a Boolean as -1 or 0; a GUID or binary value is a type mismatch.</summary>
     internal static object ConversionNumber(object v) => Numeric(Serial(NumericOperand(v)!));
 
@@ -1553,7 +1539,7 @@ internal sealed partial class ExpressionEvaluator(
         return Evaluate(f.Arguments[0]) switch
         {
             null => null,
-            (string or char) and var text when TextAsDecimal(text.ToString()!) is decimal exact => convert(exact),
+            (string or char) and var text when VbaText.TextAsDecimal(text.ToString()!) is decimal exact => convert(exact),
             var value => convert(ArithmeticDecimal(ConversionNumber(value))),
         };
     }
@@ -1679,7 +1665,7 @@ internal sealed partial class ExpressionEvaluator(
             long l => checked((long)mOp(l)),
             DateTime d => keepsDate ? OaDate(dOp(d.ToOADate())) : dOp(d.ToOADate()),
             var v when v is string or char or Guid or byte[] => dOp(Dbl(NumericOperand(v)!)),
-            var v => mOp(Dec(v)) is var r && r >= int.MinValue && r <= int.MaxValue ? (object)(int)r : (double)r,
+            var v => mOp(Dec(v)) is var r && r >= int.MinValue && r <= int.MaxValue ? (object)(int)r : JetDecimalConverter.FromDecimal(r),
         };
 
     /// <summary>
@@ -2305,24 +2291,11 @@ internal sealed partial class ExpressionEvaluator(
     private static bool IifCondition(object value) => value switch
     {
         bool b => b,
-        string or char => !(TryTextAsNumber(value.ToString()!) is { } number && Math.Round(number, MidpointRounding.ToEven) == 0),
+        string or char => !(VbaText.TryTextAsNumber(value.ToString()!) is { } number && Math.Round(number, MidpointRounding.ToEven) == 0),
         DateTime d => Math.Round(d.ToOADate(), MidpointRounding.ToEven) != 0,
         Guid or byte[] => true,
         _ => !IsNumeric(value) || Math.Round(Dbl(value), MidpointRounding.ToEven) != 0,
     };
-
-    /// <summary>Text read as <see cref="TextAsNumber"/> reads it, or null when it is not a number or is past a Double.</summary>
-    private static double? TryTextAsNumber(string text)
-    {
-        try
-        {
-            return TextAsNumber(text);
-        }
-        catch (Exception e) when (e is InvalidCastException or OverflowException)
-        {
-            return null;
-        }
-    }
 
     private static bool IsTruthy(object value) => value switch
     {
@@ -2338,7 +2311,7 @@ internal sealed partial class ExpressionEvaluator(
     {
         try
         {
-            return TextAsDecimal(text) == 0m;
+            return VbaText.TextAsDecimal(text) == 0m;
         }
         catch (InvalidCastException)
         {
@@ -2349,7 +2322,7 @@ internal sealed partial class ExpressionEvaluator(
     /// <summary>
     /// The two sides of a comparison, brought to a kind they compare as (verified vs ACE, except as noted).
     /// <list type="bullet">
-    /// <item>Text against a number, Boolean or date: the text reads as a number (<see cref="TextAsNumber"/>), a type
+    /// <item>Text against a number, Boolean or date: the text reads as a number (<see cref="VbaText.TextAsNumber"/>), a type
     /// mismatch when it is not one. ACE does this for text a function returns; for a text literal or column it
     /// raises a type mismatch instead, which LibRed does not, as SQL Server compares them numerically too.</item>
     /// <item>A date against a number: its serial.</item>
@@ -2371,7 +2344,7 @@ internal sealed partial class ExpressionEvaluator(
                 : throw new InvalidCastException("Type mismatch: a GUID or binary value cannot be compared with a number or date.");
         if (leftText == rightText)
             return left is DateTime ^ right is DateTime ? (Serial(left), Serial(right)) : (left, right);
-        return (leftText ? TextAsNumber((string)left) : Serial(left), rightText ? TextAsNumber((string)right) : Serial(right));
+        return (leftText ? VbaText.TextAsNumber((string)left) : Serial(left), rightText ? VbaText.TextAsNumber((string)right) : Serial(right));
     }
 
     /// <summary>The order of a comparison operator's two operands. Two texts compare by collation key, as
@@ -2420,8 +2393,21 @@ internal sealed partial class ExpressionEvaluator(
         return Compare(l, r, text);
     }
 
-    /// <summary>The key an index seek must use for <c>column = value</c> to select exactly the rows the
-    /// comparison selects, or false when there is no such key and the caller has to scan instead.</summary>
+    /// <summary>What a value compared with an indexed column is to that column's index — every seek, whether by
+    /// <c>=</c>, by a join, or by a range bound, asks here before it builds a key.</summary>
+    internal enum SeekKey
+    {
+        /// <summary>A key: the seek selects exactly the rows the comparison does.</summary>
+        Key,
+        /// <summary>A value of another kind: no key range holds the rows, so the caller scans.</summary>
+        OtherKind,
+        /// <summary>A number the whole-number column cannot hold, past its range.</summary>
+        PastRange,
+        /// <summary>A number the whole-number column cannot hold, with a fraction.</summary>
+        Fraction,
+    }
+
+    /// <summary>The key an index seek must use for <paramref name="value"/>, and whether it is one.</summary>
     /// <remarks>
     /// An index answers only in its column's own kind — its keys are encoded and ordered as that type — so a
     /// comparison that happens in a different kind has no key range to seek. <c>S = 1</c> on text compares as
@@ -2429,17 +2415,44 @@ internal sealed partial class ExpressionEvaluator(
     /// <c>'1'</c>, which are scattered through the index rather than adjacent in it. The one cross-kind case
     /// that IS seekable is a parameter against text, which <see cref="CompareAsKinds"/> converts to text before
     /// comparing; the seek converts it the same way and so asks the index the same question.
+    /// <para>A number becomes a whole-number column's key only when the column's type holds it without losing any
+    /// of it (verified vs ACE, through its index: no row holds such a value, so <c>=</c> selects nothing, while a
+    /// range bound is an error — "Overflow" past the range, "Data type mismatch" for a fraction).</para>
     /// </remarks>
-    internal static bool TryGetSeekKey(ColumnDef column, Expression operand, object? value, out object? key)
+    internal static SeekKey TryGetSeekKey(ColumnDef column, Expression operand, object? value, out object? key)
     {
         key = value;
-        if (value is null) return true;
+        if (value is null) return SeekKey.Key;
 
         IndexSelection.TypeKind? columnKind = IndexSelection.Classify(column.Type);
         if (columnKind == IndexSelection.TypeKind.Text && value is not string
             && (operand is ParameterExpression || value is char))
             key = ConcatText(value);
-        return IndexSelection.KindOf(key) == columnKind;
+        if (IndexSelection.KindOf(key) != columnKind)
+            return SeekKey.OtherKind;
+
+        (decimal Min, decimal Max)? range = column.Type switch
+        {
+            JetDataType.Byte => (byte.MinValue, byte.MaxValue),
+            JetDataType.Int16 => (short.MinValue, short.MaxValue),
+            JetDataType.Int32 => (int.MinValue, int.MaxValue),
+            JetDataType.Int64 => (long.MinValue, long.MaxValue),
+            _ => null,
+        };
+        if (range is not { } r || key is bool)
+            return SeekKey.Key;
+        decimal exact;
+        try
+        {
+            exact = Dec(key!);
+        }
+        catch (OverflowException)
+        {
+            return SeekKey.PastRange;
+        }
+        return exact < r.Min || exact > r.Max ? SeekKey.PastRange
+            : exact != decimal.Truncate(exact) ? SeekKey.Fraction
+            : SeekKey.Key;
     }
 
     private static object Serial(object value) => value is DateTime d ? d.ToOADate() : value;
@@ -2642,6 +2655,7 @@ internal sealed partial class ExpressionEvaluator(
         if (type == typeof(byte[])) return ColumnBytes(value, currency);
         if (type == typeof(decimal)) return ArithmeticDecimal(value);
         if (type == typeof(double)) return Oa(value);
+        if (type == typeof(float)) return (float)Oa(value);   // a Decimal through its OLE Automation double
         if (type == typeof(DateTime)) return ToDate(value);
         return Convert.ChangeType(Numeric(value), type, CultureInfo.InvariantCulture);
     }
@@ -2675,7 +2689,7 @@ internal sealed partial class ExpressionEvaluator(
         {
             decimal exact = value is float f ? JetDecimalConverter.FromSingle(f) : JetDecimalConverter.FromDouble((double)value);
             decimal cut = decimal.Round(exact, places, MidpointRounding.ToZero);
-            return value is float ? (float)cut : (double)cut;
+            return value is float ? (float)JetDecimalConverter.FromDecimal(cut) : JetDecimalConverter.FromDecimal(cut);
         }
         catch (OverflowException)
         {
@@ -2734,7 +2748,7 @@ internal sealed partial class ExpressionEvaluator(
 
     /// <summary>
     /// Access <c>+</c> (verified vs ACE). Two text operands concatenate — a GUID or binary value counts as text.
-    /// Otherwise the operands add, text read as a number (<see cref="TextAsNumber"/>); so <c>'1' + 1</c> is 2 and
+    /// Otherwise the operands add, text read as a number (<see cref="VbaText.TextAsNumber"/>); so <c>'1' + 1</c> is 2 and
     /// <c>'1' + #2020-01-02#</c> is the next day. A GUID or binary value with anything but text is a type
     /// mismatch. Null has already propagated.
     /// </summary>
@@ -2745,188 +2759,23 @@ internal sealed partial class ExpressionEvaluator(
 
     private static bool IsConcatText(object v) => v is string or char or Guid or byte[];
 
-    /// <summary>An arithmetic operand: text read as a number (<see cref="TextAsNumber"/>); a GUID or binary value
+    /// <summary>An arithmetic operand: text read as a number (<see cref="VbaText.TextAsNumber"/>); a GUID or binary value
     /// is a type mismatch; anything else, Null included, as it is. A <see cref="char"/> (a parameter can carry one)
     /// is one character of text.</summary>
     private static object? NumericOperand(object? v) => v switch
     {
         VbaEmpty => (short)0,
-        string s => TextAsNumber(s),
-        char c => TextAsNumber(c.ToString()),
+        string s => VbaText.TextAsNumber(s),
+        char c => VbaText.TextAsNumber(c.ToString()),
         Guid or byte[] => throw new InvalidCastException("Type mismatch: a GUID or binary value is not a number."),
         _ => v,
     };
 
-    /// <summary>
-    /// A value as <c>&amp;</c> (and <c>+</c> between two texts) writes it (verified vs ACE). A Boolean is its
-    /// VARIANT_BOOL number; a Double has 15 significant digits and a Single 7; a Decimal drops trailing zeros; a
-    /// date is written in the regional short date and long time, without the time at midnight and without the
-    /// date on 1899-12-30; a GUID is braced upper case; a binary value is read as UTF-16 text.
-    /// </summary>
-    internal static string ConcatText(object v) => v switch
-    {
-        string s => s,
-        VbaEmpty => "",
-        bool b => b ? "-1" : "0",
-        double d => FloatingText(d, 15),
-        float f => FloatingText(f, 7),
-        decimal m => m.ToString("0.############################", CultureInfo.CurrentCulture),
-        DateTime d => DateText(d),
-        Guid g => g.ToString("B").ToUpperInvariant(),
-        byte[] => Encoding.Unicode.GetString(ToBytes(v)),
-        _ => Convert.ToString(v, CultureInfo.CurrentCulture)!,
-    };
-
-    /// <summary>
-    /// A floating value rounded to <paramref name="digits"/> significant digits, trailing zeros dropped. Written
-    /// in E notation when its exponent is at least <paramref name="digits"/>, or when fixed notation would need
-    /// more than <paramref name="digits"/> decimals (verified vs ACE: <c>1/3</c> is 0.333333333333333, a Single
-    /// 1E7 is 1E+07, a Single 1E-5 is 0.00001, 1E300 is 1E+300).
-    /// </summary>
-    private static string FloatingText(double value, int digits, NumberFormatInfo? format = null)
-    {
-        if (value == 0) return "0";
-        if (!double.IsFinite(value)) return value.ToString(CultureInfo.InvariantCulture);
-
-        format ??= CultureInfo.CurrentCulture.NumberFormat;
-        string scientific = value.ToString("E" + (digits - 1), CultureInfo.InvariantCulture);  // -d.dddE+ddd
-        int mark = scientific.IndexOf('E');
-        int exponent = int.Parse(scientific[(mark + 1)..], CultureInfo.InvariantCulture);
-        bool negative = scientific[0] == '-';
-        string significant = scientific[(negative ? 1 : 0)..mark].Replace(".", "").TrimEnd('0');
-        string sign = negative ? format.NegativeSign : "";
-        string point = format.NumberDecimalSeparator;
-
-        int decimals = significant.Length - 1 - exponent;
-        if (exponent >= digits || decimals > digits)
-        {
-            string mantissa = significant.Length == 1 ? significant : significant[0] + point + significant[1..];
-            return $"{sign}{mantissa}E{(exponent < 0 ? "-" : "+")}{Math.Abs(exponent):00}";
-        }
-        if (exponent < 0)
-            return sign + "0" + point + new string('0', -exponent - 1) + significant;
-        if (significant.Length <= exponent + 1)
-            return sign + significant + new string('0', exponent + 1 - significant.Length);
-        return sign + significant[..(exponent + 1)] + point + significant[(exponent + 1)..];
-    }
+    /// <summary>A value as <c>&amp;</c> (and <c>+</c> between two texts) writes it: as CStr writes it
+    /// (<see cref="VbaText.Of"/>), and VBA's Empty as "".</summary>
+    internal static string ConcatText(object v) => v is VbaEmpty ? "" : VbaText.Of(v);
 
     private static readonly DateTime OaEpoch = new(1899, 12, 30);
-
-    /// <summary>The culture's long time pattern, with the narrow no-break space newer ICU data puts before AM/PM
-    /// (U+202F, on Linux and macOS) written as the plain space of Windows' regional settings, and so of ACE. A date
-    /// then writes the same text on every platform.</summary>
-    private static string LongTimePattern(DateTimeFormatInfo format) => format.LongTimePattern.Replace(' ', ' ');
-
-    /// <summary>A date as <see cref="ConcatText"/> writes it; the year is not zero-padded (year 100 is "100") unless
-    /// <paramref name="padYear"/> asks for it, as Format does.</summary>
-    private static string DateText(DateTime d, bool padYear = false)
-    {
-        DateTimeFormatInfo format = CultureInfo.CurrentCulture.DateTimeFormat;
-        string time = d.ToString(LongTimePattern(format), CultureInfo.CurrentCulture);
-        if (d.Date == OaEpoch) return time;
-        string datePattern = padYear
-            ? format.ShortDatePattern
-            : format.ShortDatePattern.Replace("yyyy", "'" + d.Year.ToString(CultureInfo.InvariantCulture) + "'");
-        string date = d.ToString(datePattern, CultureInfo.CurrentCulture);
-        return d.TimeOfDay == TimeSpan.Zero ? date : date + " " + time;
-    }
-
-    /// <summary>
-    /// Text as <c>+</c> reads it as a number, in the regional separators and currency symbol (verified vs ACE).
-    /// Surrounding whitespace is skipped. One sign may come before or after the number, spaced from it; brackets
-    /// make it negative but cannot be combined with a sign; one currency symbol may come on either side. Group
-    /// separators are ignored once a digit has been read, even after the decimal point. An <c>e</c> or <c>d</c>
-    /// exponent needs at least one digit. <c>&amp;H</c>/<c>&amp;O</c> text is a whole number, read as a Long when
-    /// it fits 32 bits (<c>&amp;HFFFFFFFF</c> is -1). Anything else is a type mismatch, and a value past a Double
-    /// is an overflow.
-    /// </summary>
-    private static double TextAsNumber(string text)
-    {
-        double value = double.Parse(NumberText(text), NumberStyles.Float, CultureInfo.InvariantCulture);
-        if (double.IsInfinity(value))
-            throw new OverflowException($"Overflow: '{text}' is too large for a number.");
-        return value;
-    }
-
-    /// <summary>Text read as <see cref="TextAsNumber"/> reads it, but exactly; null when it is past a Decimal.</summary>
-    private static decimal? TextAsDecimal(string text) =>
-        decimal.TryParse(NumberText(text), NumberStyles.Float, CultureInfo.InvariantCulture, out decimal value) ? value : null;
-
-    /// <summary>The number <see cref="TextAsNumber"/> reads, written out in invariant form.</summary>
-    private static string NumberText(string text)
-    {
-        NumberFormatInfo format = CultureInfo.CurrentCulture.NumberFormat;
-        string s = text.Trim();
-        if (s.Length > 1 && s[0] == '&' && s[1] is 'H' or 'h' or 'O' or 'o')
-            return RadixNumber(text, s[2..], s[1] is 'H' or 'h' ? 16 : 8).ToString(CultureInfo.InvariantCulture);
-
-        int i = 0;
-        bool negative = false, signed = false, currency = false, open = false, closed = false;
-        while (i < s.Length)
-        {
-            if (char.IsWhiteSpace(s[i])) i++;
-            else if (s[i] is '+' or '-' && !signed) { signed = true; negative = s[i] == '-'; i++; }
-            else if (s[i] == '(' && !open) { open = true; i++; }
-            else if (!currency && At(s, i, format.CurrencySymbol)) { currency = true; i += format.CurrencySymbol.Length; }
-            else break;
-        }
-
-        var number = new StringBuilder();
-        bool digits = false, point = false;
-        while (i < s.Length)
-        {
-            if (s[i] is >= '0' and <= '9') { number.Append(s[i]); digits = true; i++; }
-            else if (!point && At(s, i, format.NumberDecimalSeparator)) { number.Append('.'); point = true; i += format.NumberDecimalSeparator.Length; }
-            else if (digits && At(s, i, format.NumberGroupSeparator)) i += format.NumberGroupSeparator.Length;
-            else break;
-        }
-        if (!digits) throw NotANumber(text);
-        if (point && number[^1] == '.') number.Append('0');
-
-        if (i < s.Length && s[i] is 'e' or 'E' or 'd' or 'D')
-        {
-            number.Append('E');
-            i++;
-            if (i < s.Length && s[i] is '+' or '-') number.Append(s[i++]);
-            int start = i;
-            while (i < s.Length && s[i] is >= '0' and <= '9') number.Append(s[i++]);
-            if (i == start) throw NotANumber(text);
-        }
-
-        while (i < s.Length)
-        {
-            if (char.IsWhiteSpace(s[i])) i++;
-            else if (s[i] is '+' or '-' && !signed) { signed = true; negative = s[i] == '-'; i++; }
-            else if (s[i] == ')' && open && !closed) { closed = true; i++; }
-            else if (!currency && At(s, i, format.CurrencySymbol)) { currency = true; i += format.CurrencySymbol.Length; }
-            else throw NotANumber(text);
-        }
-        if (open != closed || (open && signed)) throw NotANumber(text);
-
-        return negative || open ? "-" + number : number.ToString();
-    }
-
-    private static long RadixNumber(string text, string digits, int radix)
-    {
-        if (digits.Length == 0) throw NotANumber(text);
-        ulong value = 0;
-        foreach (char c in digits)
-        {
-            int digit = c is >= '0' and <= '9' ? c - '0'
-                : c is >= 'A' and <= 'F' ? c - 'A' + 10
-                : c is >= 'a' and <= 'f' ? c - 'a' + 10
-                : int.MaxValue;
-            if (digit >= radix) throw NotANumber(text);
-            value = checked(value * (ulong)radix + (ulong)digit);
-        }
-        return value <= uint.MaxValue ? (int)(uint)value : checked((long)value);
-    }
-
-    private static bool At(string s, int index, string symbol) =>
-        symbol.Length > 0 && string.CompareOrdinal(s, index, symbol, 0, symbol.Length) == 0;
-
-    private static InvalidCastException NotANumber(string text) =>
-        new($"Type mismatch: '{text}' cannot be read as a number.");
 
     /// <summary>Access <c>/</c> is floating division — Decimal when either operand is Decimal/Currency,
     /// otherwise Double (never integer division; that is <c>\</c>). A date divides as its serial; dividing by
@@ -2990,7 +2839,7 @@ internal sealed partial class ExpressionEvaluator(
         _ => v,
     };
     private static decimal Dec(object v) => JetDecimalConverter.ToDecimal(Numeric(v), CultureInfo.InvariantCulture);
-    private static double Dbl(object v) => Convert.ToDouble(Numeric(v), CultureInfo.InvariantCulture);
+    private static double Dbl(object v) => JetDecimalConverter.ToDouble(Numeric(v), CultureInfo.InvariantCulture);
     // Narrow to single precision (the cast yields ±Infinity for an out-of-range double rather than throwing).
     private static float Sng(object v) => (float)Dbl(v);
     private static long Lng(object v) => Convert.ToInt64(Numeric(v), CultureInfo.InvariantCulture);

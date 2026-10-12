@@ -67,8 +67,9 @@ CREATE TABLE T (Id LONG, M MEMO, CONSTRAINT pk PRIMARY KEY (Id))    M rows 2/3, 
 CREATE TABLE T (M MEMO, A LONG CONSTRAINT u UNIQUE, N MEMO)    M rows 2/3, u row 4, N rows 5/6
 ```
 
-Index **data blocks** are unaffected: they stay in primary-key, then unique, then foreign-key order whatever
-the statement's order, so an index's data-block ordinal and its map row are independent.
+Index **data blocks** are numbered in the same declaration order (verified): primary key, unique and foreign
+key alike take the next ordinal where their constraint is written, not in a fixed order by kind. So among the
+indexes, a data-block ordinal and a map row run in the same order.
 
 Once the primary page is full the remaining long-value columns spill to a page of their own (owned = row 0,
 free = row 1); an index's map spills the same way rather than being squeezed in.

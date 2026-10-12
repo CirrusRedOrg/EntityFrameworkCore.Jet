@@ -168,7 +168,10 @@ Every column — Yes/No included — is prefixed by a **flag byte**:
 | value present | `0x7F` | `0x80` |
 | null | `0x00` | `0xFF` |
 
-Then the value, transformed:
+Then the value, transformed. **The value keyed is the value the row stores** (verified vs ACE): a Boolean in a
+numeric column keys as the `-1`/`0` the row holds, and a short value in a fixed `BINARY(n)` column keys zero-padded
+to `n` bytes, as page-01 stores it. LibRed builds the row and every key from one conversion,
+`JetTypeCodec.ToStoredValue`.
 
 - **Integers** (Int16/Int32) and **Currency** (int64): big-endian, with the **sign bit of
   the first byte flipped**. Descending additionally inverts all bytes. (Decode reverses this.)

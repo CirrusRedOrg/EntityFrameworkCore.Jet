@@ -660,20 +660,25 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     // row); a single-table seek's key is a constant/parameter.
                     var evaluator = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session);
                     var keyValues = new object?[table.Definition.Columns.Count];
-                    bool seekable = true;
-                    for (int i = 0; i < seek.Keys.Count && seekable; i++)
+                    var found = ExpressionEvaluator.SeekKey.Key;
+                    for (int i = 0; i < seek.Keys.Count && found == ExpressionEvaluator.SeekKey.Key; i++)
                     {
                         var keyColumn = seek.Index.Columns[i].Column;
-                        seekable = ExpressionEvaluator.TryGetSeekKey(
+                        found = ExpressionEvaluator.TryGetSeekKey(
                             keyColumn, seek.Keys[i], evaluator.Evaluate(seek.Keys[i]), out keyValues[keyColumn.Index]);
                     }
 
                     // A value of another kind is not a key this index can be searched by, so the rows are found
                     // by scanning instead. The FilterNode this seek was planned under is kept whatever happens
                     // (see IndexSelection), so it re-checks every row either way and the answer is the same one
-                    // the table would give with no index on it at all.
+                    // the table would give with no index on it at all. A value its column cannot hold equals no row.
                     bool[]? decode = ColumnPruning.Mask(table.Definition, seek.Decode);
-                    return (columns, seekable ? table.SeekRows(seek.Index, keyValues, decode) : table.Rows(decode));
+                    return (columns, found switch
+                    {
+                        ExpressionEvaluator.SeekKey.Key => table.SeekRows(seek.Index, keyValues, decode),
+                        ExpressionEvaluator.SeekKey.OtherKind => table.Rows(decode),
+                        _ => [],
+                    });
                 }
 
             case IndexRangeSeekNode range:
@@ -684,16 +689,41 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     if (_describing) return (columns, []);
 
                     var evaluator = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session);
-                    int col = range.Index.Columns[0].Column.Index;
+                    var rangeColumn = range.Index.Columns[0].Column;
+                    bool seekable = true;
+                    // Each bound is a key as an equality seek's value is (ExpressionEvaluator.TryGetSeekKey): one of
+                    // another kind has no key range, so the rows are scanned and the FilterNode above re-checks them;
+                    // one its whole-number column cannot hold is the error ACE raises for it.
                     object?[]? Bound(Expression? e)
                     {
-                        if (e is null) return null;
+                        if (e is null || !seekable) return null;
                         var v = new object?[table.Definition.Columns.Count];
-                        v[col] = evaluator.Evaluate(e);
-                        return v;
+                        switch (ExpressionEvaluator.TryGetSeekKey(rangeColumn, e, evaluator.Evaluate(e), out v[rangeColumn.Index]))
+                        {
+                            case ExpressionEvaluator.SeekKey.OtherKind:
+                                seekable = false;
+                                return null;
+                            case ExpressionEvaluator.SeekKey.PastRange:
+                                throw new OverflowException(
+                                    $"Overflow: {v[rangeColumn.Index]} is past the range of column '{rangeColumn.Name}'.");
+                            case ExpressionEvaluator.SeekKey.Fraction:
+                                throw new InvalidCastException(
+                                    $"Data type mismatch: {v[rangeColumn.Index]} cannot be a bound of the whole-number column '{rangeColumn.Name}'.");
+                            default:
+                                return v;
+                        }
                     }
-                    return (columns, table.SeekRangeRows(range.Index, Bound(range.Low), Bound(range.High),
-                        ColumnPruning.Mask(table.Definition, range.Decode)));
+                    object?[]? low = Bound(range.Low), high = Bound(range.High);
+                    // A BETWEEN's bounds come in either order: put the lower first, in the order the index walks.
+                    if (range.Unordered && seekable
+                        && low?[rangeColumn.Index] is { } lowValue && high?[rangeColumn.Index] is { } highValue
+                        && ExpressionEvaluator.CompareForSort(
+                            lowValue, highValue, LibRed.Storage.JetTextComparer.For(rangeColumn.Collation)) > 0)
+                        (low, high) = (high, low);
+                    bool[]? rangeDecode = ColumnPruning.Mask(table.Definition, range.Decode);
+                    return (columns, seekable
+                        ? table.SeekRangeRows(range.Index, low, high, rangeDecode)
+                        : table.Rows(rangeDecode));
                 }
 
             case DerivedTableNode derived:
@@ -1653,16 +1683,20 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     // As the single-table seek above: a key of another kind cannot be looked up in this index,
                     // and the join's ON is kept whole as the residual, so scanning the inner table for that
                     // outer row gives the same rows the seek would have had to find.
-                    bool seekable = true;
-                    for (int i = 0; i < seek.Keys.Count && seekable; i++)
-                        seekable = ExpressionEvaluator.TryGetSeekKey(
+                    // A key its column cannot hold equals no inner row.
+                    var found = ExpressionEvaluator.SeekKey.Key;
+                    for (int i = 0; i < seek.Keys.Count && found == ExpressionEvaluator.SeekKey.Key; i++)
+                        found = ExpressionEvaluator.TryGetSeekKey(
                             seek.Index.Columns[i].Column, seek.Keys[i], keyEval.Evaluate(seek.Keys[i]),
                             out keyValues[keyCols[i]]);
 
                     bool matched = false;
-                    foreach (object?[] right in seekable
-                        ? innerTable.SeekRows(seek.Index, keyValues, decode)
-                        : innerTable.Rows(decode))
+                    foreach (object?[] right in found switch
+                    {
+                        ExpressionEvaluator.SeekKey.Key => innerTable.SeekRows(seek.Index, keyValues, decode),
+                        ExpressionEvaluator.SeekKey.OtherKind => innerTable.Rows(decode),
+                        _ => [],
+                    })
                     {
                         object?[] combined = seekShape.Combine(left, right);
                         if (on is null || onEval.Rebind(combined).IsTrue(on))

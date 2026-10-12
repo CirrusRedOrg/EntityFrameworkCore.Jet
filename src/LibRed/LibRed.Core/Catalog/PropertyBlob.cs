@@ -1,3 +1,4 @@
+using EntityFrameworkCore.Jet.Data;
 using LibRed.Storage.Types;
 using System.Buffers.Binary;
 using System.Text;
@@ -674,9 +675,9 @@ public static class PropertyBlob
             case JetDataType.Currency:
                 b = new byte[8]; BinaryPrimitives.WriteInt64LittleEndian(b, JetTypeCodec.CurrencyToScaled(value, invariant)); return b;
             case JetDataType.Single:
-                b = new byte[4]; BinaryPrimitives.WriteSingleLittleEndian(b, Convert.ToSingle(value, invariant)); return b;
+                b = new byte[4]; BinaryPrimitives.WriteSingleLittleEndian(b, JetDecimalConverter.ToSingle(value, invariant)); return b;
             case JetDataType.Double:
-                b = new byte[8]; BinaryPrimitives.WriteDoubleLittleEndian(b, Convert.ToDouble(value, invariant)); return b;
+                b = new byte[8]; BinaryPrimitives.WriteDoubleLittleEndian(b, JetDecimalConverter.ToDouble(value, invariant)); return b;
             case JetDataType.DateTime:
                 b = new byte[8]; BinaryPrimitives.WriteDoubleLittleEndian(b, ((DateTime)value).ToOADate()); return b;
         }

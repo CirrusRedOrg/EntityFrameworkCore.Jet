@@ -41,9 +41,10 @@ public class CalculatedColumnSqlAccessTests(ITestOutputHelper output) : TempData
                     .Select(i => reader.IsDBNull(i) ? "(null)" : Convert.ToString(reader.GetValue(i)))));
             foreach (string row in rows) output.WriteLine($"  {row}");
 
-            // Row 1 predates the ADD COLUMN, so its Tripled is NULL — an added column reads as null on
-            // existing rows whether it is calculated or not, because no row was rewritten.
-            Assert.Equal(["1 | 14 | n=7 | (null)", "2 | 10 | n=5 | 15"], rows);
+            // Row 1 predates the ADD COLUMN and still gets its Tripled: a calculated column added to a table
+            // with rows is computed for them, as ACE computes one DAO adds (measured: a DAO-added [A]*2 reads
+            // back 42 on an existing row with A = 21). It used to read NULL here, with no row rewritten.
+            Assert.Equal(["1 | 14 | n=7 | 21", "2 | 10 | n=5 | 15"], rows);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

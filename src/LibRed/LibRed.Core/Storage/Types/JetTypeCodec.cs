@@ -302,62 +302,44 @@ public static class JetTypeCodec
     /// <c>ResultType</c>, not in the promoted type its descriptor carries.</summary>
     internal static byte[] Encode(ColumnDef column, JetDataType type, object value, JetFormatBase format)
     {
-        var c = System.Globalization.CultureInfo.InvariantCulture;
-
         // A long value already written to an LVAL page arrives as its pre-built 12-byte reference
         // descriptor, which is written verbatim (memo/OLE columns only).
         if (value is LibRed.Storage.LongValueStore.DescriptorValue descriptor)
             return descriptor.Bytes;
 
-        // Jet represents a boolean as -1 (true) / 0 (false). EF maps a CLR bool onto a numeric
-        // (smallint) column, so a bool value here targets a numeric column — normalise it to the Jet
-        // form so what we write matches Access (which also stores -1). (A real Boolean/YESNO column is
-        // carried in the null bitmap and never reaches this method.)
-        if (value is bool boolean)
-            value = (short)(boolean ? -1 : 0);
-
+        object stored = ToStoredValue(column, type, value);
         switch (type)
         {
             case JetDataType.Byte:
-                return [Convert.ToByte(value, c)];
+                return [(byte)stored];
             case JetDataType.Int16:
-                return Bytes(2, b => BinaryPrimitives.WriteInt16LittleEndian(b, Convert.ToInt16(value, c)));
+                return Bytes(2, b => BinaryPrimitives.WriteInt16LittleEndian(b, (short)stored));
             case JetDataType.Int32:
             // The complex id, written as the Int32 it is — the values it names live in the column's flat
             // table and are not part of the row (see ComplexColumn).
             case JetDataType.Complex:
-                return Bytes(4, b => BinaryPrimitives.WriteInt32LittleEndian(b, Convert.ToInt32(value, c)));
+                return Bytes(4, b => BinaryPrimitives.WriteInt32LittleEndian(b, (int)stored));
             case JetDataType.Int64:
-                return Bytes(8, b => BinaryPrimitives.WriteInt64LittleEndian(b, Convert.ToInt64(value, c)));
+                return Bytes(8, b => BinaryPrimitives.WriteInt64LittleEndian(b, (long)stored));
             case JetDataType.Single:
-                return Bytes(4, b => BinaryPrimitives.WriteSingleLittleEndian(b, Convert.ToSingle(value, c)));
+                return Bytes(4, b => BinaryPrimitives.WriteSingleLittleEndian(b, (float)stored));
             case JetDataType.Double:
-                return Bytes(8, b => BinaryPrimitives.WriteDoubleLittleEndian(b, Convert.ToDouble(value, c)));
+                return Bytes(8, b => BinaryPrimitives.WriteDoubleLittleEndian(b, (double)stored));
             case JetDataType.DateTime:
-                return Bytes(8, b => BinaryPrimitives.WriteDoubleLittleEndian(b, ToOaDate(column, value, c)));
+                return Bytes(8, b => BinaryPrimitives.WriteDoubleLittleEndian(b, (double)stored));
             case JetDataType.DateTimeExtended: // ACE 17 DATETIME2
-                return EncodeExtendedDateTime(Convert.ToDateTime(value, c));
+                return EncodeExtendedDateTime((DateTime)stored);
             case JetDataType.Currency:
-                return Bytes(8, b => BinaryPrimitives.WriteInt64LittleEndian(b, CurrencyToScaled(value, c)));
+                return Bytes(8, b => BinaryPrimitives.WriteInt64LittleEndian(b, (long)stored));
             case JetDataType.Guid:
-                // Coerced, not cast: every other type here accepts what the caller has (AsText, AsBinary, ToOaDate,
-                // Convert.To*), and SchemaEditor.ConvertValue already parses a string GUID on the ALTER path. A hard
-                // cast turned a string reaching a GUID column into an InvalidCastException with no column named.
-                return (value switch
-                {
-                    Guid g => g,
-                    byte[] b when b.Length == 16 => new Guid(b),
-                    string s when TryParseGuid(s, out Guid parsed) => parsed,
-                    _ => throw new NotSupportedException(
-                        $"Cannot store {value.GetType().Name} in GUID column '{column.Name}'."),
-                }).ToByteArray();
+                return ((Guid)stored).ToByteArray();
             case JetDataType.Text:
-                return EncodeText(column, AsText(value, c));
+                return EncodeText(column, (string)stored);
             case JetDataType.Binary:
             case JetDataType.BigBinary:
-                return EncodeBinary(column, AsBinary(column, value));
-            case JetDataType.FixedPoint:
-                return EncodeNumeric(column, JetDecimalConverter.ToDecimal(value, c));
+                return EncodeBinary(column, (byte[])stored);
+            case JetDataType.FixedPoint when stored is decimal number:
+                return EncodeNumeric(column, number);
 
             // Long values (memo/OLE): store the payload inline after the 12-byte descriptor (memo
             // text as UTF-16LE, OLE as raw bytes). LongValueStore reads this back via the inline flag. Only a
@@ -368,24 +350,89 @@ public static class JetTypeCodec
                     // An inline memo compresses whether or not the column was declared WITH COMPRESSION — the
                     // capable flag gates single-page values, not inline ones (see TryCompressText). Only values
                     // the caller has already decided to inline reach here, so no storage-form test is needed.
-                    string memo = AsText(value, c);
+                    string memo = (string)stored;
                     return EncodeInlineLongValue(
                         TryCompressText(column, memo, requireCapableFlag: false) ?? Encoding.Unicode.GetBytes(memo), format);
                 }
             case JetDataType.Ole:
-                return EncodeInlineLongValue(AsBinary(column, value), format);
+                return EncodeInlineLongValue((byte[])stored, format);
 
             default:
                 throw new NotSupportedException($"Encoding {column.Type} is not supported yet.");
         }
     }
 
-    /// <summary>The string form of a value being written to a Text/Memo column. A CLR string is used as-is;
-    /// anything else (a DateTime, number, GUID …) is coerced to its invariant string form — Jet/ACE likewise
-    /// stores a non-text value inserted into a text column as text (e.g. EF writes a DateTimeOffset lock
-    /// timestamp into a TEXT column). Prevents an InvalidCastException on the hard <c>(string)</c> cast.</summary>
-    private static string AsText(object value, IFormatProvider culture) =>
-        value as string ?? Convert.ToString(value, culture) ?? "";
+    /// <summary>
+    /// <paramref name="value"/> converted to what a <paramref name="type"/> column stores: the row is written from
+    /// it and every index key is built from it (<c>IndexKeyCodec</c>), so the two cannot disagree. A DateTime is its
+    /// OLE-automation double and a Currency its scaled int64.
+    /// </summary>
+    /// <remarks>A value too wide for a fixed column passes through for the row encoder to refuse: an index seek
+    /// builds its key here too, and should find nothing rather than throw.</remarks>
+    internal static object ToStoredValue(ColumnDef column, JetDataType type, object value)
+    {
+        var c = System.Globalization.CultureInfo.InvariantCulture;
+
+        // Jet represents a boolean as -1 (true) / 0 (false). EF maps a CLR bool onto a numeric
+        // (smallint) column, so a bool value here targets a numeric column — normalise it to the Jet
+        // form so what we write matches Access (which also stores -1). (A real Boolean/YESNO column is
+        // carried in the null bitmap and never reaches this method.)
+        if (value is bool boolean)
+            value = (short)(boolean ? -1 : 0);
+        value = NumberFromText(type, value);
+
+        return type switch
+        {
+            JetDataType.Byte => Convert.ToByte(value, c),
+            JetDataType.Int16 => Convert.ToInt16(value, c),
+            JetDataType.Int32 or JetDataType.Complex => Convert.ToInt32(value, c),
+            JetDataType.Int64 => Convert.ToInt64(value, c),
+            JetDataType.Single => JetDecimalConverter.ToSingle(value, c),
+            JetDataType.Double => JetDecimalConverter.ToDouble(value, c),
+            JetDataType.DateTime => ToOaDate(column, value, c),
+            JetDataType.DateTimeExtended => Convert.ToDateTime(value, c),
+            JetDataType.Currency => CurrencyToScaled(value, c),
+            // Coerced, not cast: every other type here accepts what the caller has, and SchemaEditor.ConvertValue
+            // parses a string GUID on the ALTER path. A hard cast turned a string reaching a GUID column into an
+            // InvalidCastException with no column named.
+            JetDataType.Guid => value switch
+            {
+                Guid g => g,
+                byte[] b when b.Length == 16 => new Guid(b),
+                string s when TryParseGuid(s, out Guid parsed) => parsed,
+                _ => throw new NotSupportedException(
+                    $"Cannot store {value.GetType().Name} in GUID column '{column.Name}'."),
+            },
+            JetDataType.Text or JetDataType.Memo => VbaText.Of(value),
+            // A fixed-length (BINARY) column is zero-padded to its width, as ACE stores it and keys it (verified:
+            // ACE refuses 0x01020000 into a UNIQUE BINARY(4) holding 0x0102).
+            JetDataType.Binary or JetDataType.BigBinary => AsBinary(column, value) is var bytes
+                && column.IsFixedLength && bytes.Length < column.Length
+                    ? [.. bytes, .. new byte[column.Length - bytes.Length]]
+                    : bytes,
+            JetDataType.Ole => AsBinary(column, value),
+            JetDataType.FixedPoint => JetDecimalConverter.ToDecimal(value, c),
+            _ => value,
+        };
+    }
+
+    /// <summary>
+    /// A value bound for a number column, with text read as VBA reads it as a number (<see cref="VbaText.TextAsNumber"/>;
+    /// verified vs ACE, on INSERT and ALTER COLUMN alike: '$5', '(5)', '5-', '1,000', '&amp;H10' and '1d2' store as
+    /// numbers, in the regional separators and currency symbol) — exactly, for a Currency or Decimal column, where a
+    /// Decimal holds it. Anything else is returned as it is.
+    /// </summary>
+    internal static object NumberFromText(JetDataType type, object value)
+    {
+        if (value is not (string or char)
+            || type is not (JetDataType.Byte or JetDataType.Int16 or JetDataType.Int32 or JetDataType.Int64
+                or JetDataType.Single or JetDataType.Double or JetDataType.Currency or JetDataType.FixedPoint))
+            return value;
+        string text = value.ToString()!;
+        return type is JetDataType.Currency or JetDataType.FixedPoint && VbaText.TextAsDecimal(text) is decimal exact
+            ? exact
+            : VbaText.TextAsNumber(text);
+    }
 
     /// <summary>
     /// The compressed form of <paramref name="value"/> — or null when ACE would not compress it. Characters
@@ -480,15 +527,11 @@ public static class JetTypeCodec
             + $"{(text ? column.Length / 2 : column.Length)}.");
     }
 
-    /// <summary>Encodes binary. A fixed-length (BINARY) column is **zero-padded** (or truncated) to its byte
-    /// length; a variable column (VARBINARY) is its exact bytes.</summary>
+    /// <summary>Encodes binary, already zero-padded to a fixed column's width by <see cref="ToStoredValue"/>.</summary>
     private static byte[] EncodeBinary(ColumnDef column, byte[] value)
     {
-        if (!column.IsFixedLength || value.Length == column.Length) return value;
-        EnsureFitsFixedWidth(column, value.Length, value.Length);
-        var padded = new byte[column.Length];
-        Array.Copy(value, padded, Math.Min(value.Length, column.Length));
-        return padded;
+        if (column.IsFixedLength) EnsureFitsFixedWidth(column, value.Length, value.Length);
+        return value;
     }
 
     /// <summary>10^<paramref name="exponent"/>, for exponents up to <see cref="MaxNumericPrecision"/>
@@ -549,20 +592,25 @@ public static class JetTypeCodec
     /// </summary>
     internal static double ToOaDate(ColumnDef column, object value, IFormatProvider c)
     {
-        DateTime date = value switch
-        {
-            DateTime dt => dt,
-            TimeSpan ts => OleEpoch + ts,
-            DateOnly d => d.ToDateTime(TimeOnly.MinValue),
-            TimeOnly t => OleEpoch + t.ToTimeSpan(),
-            _ => Convert.ToDateTime(value, c),
-        };
+        DateTime date = ToDate(value, c);
         if (date < MinOaDate)
             throw new InvalidOperationException(
                 $"Date {date:yyyy-MM-dd} is out of range for column '{column.Name}': "
                 + "the earliest date is 0100-01-01.");
         return date.ToOADate();
     }
+
+    /// <summary>A value as the date it is stored as, on INSERT and ALTER COLUMN alike. Text is read as CDate reads
+    /// it, in the current culture, falling back to the invariant forms CDate does not read.</summary>
+    internal static DateTime ToDate(object value, IFormatProvider c) => value switch
+    {
+        DateTime dt => dt,
+        TimeSpan ts => OleEpoch + ts,
+        DateOnly d => d.ToDateTime(TimeOnly.MinValue),
+        TimeOnly t => OleEpoch + t.ToTimeSpan(),
+        string s when VbaDateText.TryParse(s, System.Globalization.CultureInfo.CurrentCulture, out DateTime parsed) => parsed,
+        _ => Convert.ToDateTime(value, c),
+    };
 
     /// <summary>The earliest date ACE stores: 0100-01-01, serial -657434.</summary>
     private static readonly DateTime MinOaDate = new(100, 1, 1);

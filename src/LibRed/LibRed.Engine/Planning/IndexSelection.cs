@@ -93,14 +93,19 @@ internal static class IndexSelection
         {
             string colName = index.Columns[0].Column.Name;
             Expression? low = null, high = null;
+            bool unordered = false;
             foreach (Expression conjunct in conjuncts)
             {
+                // A BETWEEN's two bounds are ordered only when the seek runs, so they are taken as a pair or not at
+                // all — never mixed with a bound another conjunct set. The FilterNode above re-checks every conjunct.
                 if (Between(conjunct, colName, alias, def) is { } range)
                 {
-                    low ??= range.Low;
-                    high ??= range.High;
+                    if (low is null && high is null)
+                        (low, high, unordered) = (range.Low, range.High, true);
                     continue;
                 }
+                if (unordered)
+                    continue;
                 if (Bound(conjunct, colName, alias, def) is not { } b)
                     continue;
                 if (b.Op is BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual)
@@ -109,7 +114,10 @@ internal static class IndexSelection
                     high ??= b.Value; // LessThan / LessThanOrEqual
             }
             if (low is not null || high is not null)
-                return filter with { Input = new IndexRangeSeekNode(scan.Table, scan.Alias, index, low, high) };
+                return filter with
+                {
+                    Input = new IndexRangeSeekNode(scan.Table, scan.Alias, index, low, high) { Unordered = unordered },
+                };
         }
 
         return filter;
@@ -194,35 +202,23 @@ internal static class IndexSelection
         return null;
     }
 
-    /// <summary>If <paramref name="conjunct"/> is <c>col BETWEEN a AND b</c> on column <paramref name="colName"/>, the
-    /// two bounds lowest first; else null.</summary>
-    /// <remarks>BETWEEN takes its bounds in either order, so which is the lower has to be known when planning. That
-    /// limits this to two literals of the same kind: numbers, texts or dates. A Null bound makes the whole test Null,
-    /// which a seek has no way to say, so it is left to the filter.</remarks>
+    /// <summary>If <paramref name="conjunct"/> is <c>col BETWEEN a AND b</c> on column <paramref name="colName"/>, its
+    /// two bounds as written; else null.</summary>
+    /// <remarks>BETWEEN takes its bounds in either order, and the executor puts them in the index's order once their
+    /// values are known (<see cref="IndexRangeSeekNode.Unordered"/>), so a bound is anything without a column in it, as
+    /// for <see cref="Bound"/>. A Null bound makes the whole test Null, which a seek has no way to say, so it is left
+    /// to the filter; so is text on a column whose collation has no index keys to order it by.</remarks>
     private static (Expression Low, Expression High)? Between(Expression conjunct, string colName, string alias, TableDefinition def)
     {
         if (conjunct is not BetweenExpression { Negated: false } between
             || Column(between.Value, alias, def) is not { } column
             || !string.Equals(column.Column, colName, StringComparison.OrdinalIgnoreCase)
-            || between.Low is not LiteralExpression { Value: { } low }
-            || between.High is not LiteralExpression { Value: { } high })
+            || HasColumnRef(between.Low) || HasColumnRef(between.High)
+            || between.Low is LiteralExpression { Value: null } || between.High is LiteralExpression { Value: null }
+            || def.FindColumn(colName) is not { } indexed
+            || Classify(indexed.Type) == TypeKind.Text && !indexed.Collation.IsIndexKeyEncodable)
             return null;
-
-        bool sameKind = (low, high) switch
-        {
-            (bool, _) or (_, bool) => false,
-            (string, string) or (DateTime, DateTime) => true,
-            _ => ExpressionEvaluator.IsNumeric(low) && ExpressionEvaluator.IsNumeric(high),
-        };
-        if (!sameKind)
-            return null;
-
-        // Text bounds are put in the index's order, which is its column's collation — the order the seek walks.
-        if (def.FindColumn(colName) is not { } indexed || low is string && !indexed.Collation.IsIndexKeyEncodable)
-            return null;
-        return ExpressionEvaluator.CompareForSort(low, high, LibRed.Storage.JetTextComparer.For(indexed.Collation)) <= 0
-            ? (between.Low, between.High)
-            : (between.High, between.Low);
+        return (between.Low, between.High);
     }
 
     private static BinaryOperator Flip(BinaryOperator op) => op switch

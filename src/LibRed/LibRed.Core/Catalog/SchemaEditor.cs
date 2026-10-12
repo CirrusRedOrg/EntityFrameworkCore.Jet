@@ -58,7 +58,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         IReadOnlyList<(string Column, string DefaultSql)>? columnDefaults = null,
         IReadOnlyList<(string Name, string Expression)>? checkConstraints = null,
         string? primaryKeyName = null,
-        int primaryKeyDeclaredAfterColumns = 0,
+        int primaryKeyDeclaredAfter = 0,
         TableType tableType = TableType.User,
         bool flatTable = false)
     {
@@ -133,21 +133,24 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
                         || x.Column.CalculatedResultType is JetDataType.Memo)
             .ToList();
 
-        // The table's data-block indexes: the primary key (unique), then a unique index per UNIQUE
-        // constraint, then one non-unique index per foreign key over its child columns — Access enforces
-        // a relationship through an index on the FK columns. Each carries the relationship (if any) it backs.
+        // The table's data-block indexes: the primary key (unique), a unique index per UNIQUE constraint, and
+        // one non-unique index per foreign key over its child columns — Access enforces a relationship through
+        // an index on the FK columns. Each carries the relationship (if any) it backs. They are numbered in the
+        // order the statement declares them, whatever their kind (verified vs ACE); with no order given (every
+        // DeclaredAfter 0) the stable sort leaves them primary key, unique, foreign key.
         var indexPlans = new List<(string Name, IReadOnlyList<string> Columns, bool IsPk, bool IsUnique,
-            RelationshipSpec? Fk, int DeclaredAfterColumns)>();
+            RelationshipSpec? Fk, int DeclaredAfter)>();
         if (primaryKey is { Count: > 0 })
             // Name the PK index after the CONSTRAINT if one was given (ACE does the same, and the scaffolder
             // round-trips it). If unnamed, LibRed picks the stable "PrimaryKey" (the DAO/Access-UI convention)
             // — an engine choice, since ACE-via-SQL instead generates a random "Index_<hex>" with no fixed
             // value to reproduce, and nothing downstream depends on the exact name.
-            indexPlans.Add((primaryKeyName ?? "PrimaryKey", primaryKey, true, true, null, primaryKeyDeclaredAfterColumns));
+            indexPlans.Add((primaryKeyName ?? "PrimaryKey", primaryKey, true, true, null, primaryKeyDeclaredAfter));
         foreach (UniqueIndexSpec unique in uniqueConstraints)
-            indexPlans.Add((unique.Name, unique.Columns, false, true, null, unique.DeclaredAfterColumns));
+            indexPlans.Add((unique.Name, unique.Columns, false, true, null, unique.DeclaredAfter));
         foreach (RelationshipSpec fk in relationships)
-            indexPlans.Add((fk.Name, fk.Columns.Select(c => c.Column).ToList(), false, false, fk, fk.DeclaredAfterColumns));
+            indexPlans.Add((fk.Name, fk.Columns.Select(c => c.Column).ToList(), false, false, fk, fk.DeclaredAfter));
+        indexPlans = [.. indexPlans.OrderBy(p => p.DeclaredAfter)];
 
         // Every index this CREATE would build, including the ones arriving as a PRIMARY KEY or UNIQUE
         // constraint rather than as an index — the inline `col type PRIMARY KEY` form is refused earlier, at
@@ -179,10 +182,11 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // written immediately after the column) put the CONSTRAINT first: measured on
         // `(Id LONG, CONSTRAINT pk PRIMARY KEY (Id), M MEMO)`, which gives pk row 2.
         //
-        // This orders the map ROWS only. indexPlans keeps its own order, because that is what numbers the
-        // index data blocks (RealIndexOrdinal), and ACE numbers those PK-then-unique-then-FK regardless.
+        // An index's DeclaredAfter counts the constraints declared before it as well as the columns; less those
+        // constraints, it is the columns before it, which is what places it among the long-value columns.
         var claims = indexPlans
-            .Select((p, i) => (Sort: (p.DeclaredAfterColumns, Constraint: 0, i), Index: i, LongValue: -1))
+            .Select((p, i) => (Sort: (p.DeclaredAfter - indexPlans.Count(q => q.DeclaredAfter < p.DeclaredAfter),
+                Constraint: 0, i), Index: i, LongValue: -1))
             .Concat(longValueCols.Take(colsOnPrimary)
                 .Select((c, j) => (Sort: (c.Position, Constraint: 1, j), Index: -1, LongValue: j)))
             .OrderBy(c => c.Sort);
@@ -429,20 +433,16 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
 
     private static Func<string, JetDataType?> ColumnOf(TableDefinition? table) => name => table?.FindColumn(name)?.Type;
 
-    /// <summary>The data-block ordinal of the index over a self-reference's referenced columns, found
-    /// among the indexes being created for this table (the table is not in the catalog yet).</summary>
+    /// <summary>The data-block ordinal of a self-reference's parent-side key, found among the indexes being
+    /// created for this table (the table is not in the catalog yet) on <see cref="FindParentKeyIndex"/>'s terms:
+    /// ACE refuses one over another relationship's non-unique index (verified).</summary>
     private static int SelfReferencedOrdinal(
         List<(string Name, IReadOnlyList<string> Columns, bool IsPk, bool IsUnique, RelationshipSpec? Fk,
-            int DeclaredAfterColumns)> indexPlans,
-        RelationshipSpec fk)
-    {
-        var refColumns = fk.Columns.Select(c => c.ReferencedColumn).ToList();
-        for (int j = 0; j < indexPlans.Count; j++)
-            if (indexPlans[j].Columns.SequenceEqual(refColumns, StringComparer.OrdinalIgnoreCase))
-                return j;
-        throw new InvalidOperationException(
-            $"Self-referencing foreign key '{fk.Name}' references ({string.Join(", ", refColumns)}), which is not a key or index of '{fk.ReferencedTable}'.");
-    }
+            int DeclaredAfter)> indexPlans,
+        RelationshipSpec fk) =>
+        ParentKeyPosition(
+            [.. indexPlans.Select(p => ((IEnumerable<string>)p.Columns, p.IsPk || p.IsUnique))],
+            [.. fk.Columns.Select(c => c.ReferencedColumn)], fk.ReferencedTable);
 
     /// <summary>
     /// Resolves a cross-table relationship's parent: its TDEF page, the data-block ordinal of the parent
@@ -464,6 +464,31 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         int next = above + 1;
         while (used.Contains(next)) next++;
         return next;
+    }
+
+    /// <summary>Whether every row of <paramref name="childTable"/> has its parent, on ACE's <b>MATCH FULL</b> terms
+    /// (verified vs ACE): a key that is entirely null needs no parent, and a partly null one can never match.</summary>
+    internal bool ExistingRowsHaveParents(
+        string childTable, string parentTable, IReadOnlyList<(string Column, string ReferencedColumn)> columns)
+    {
+        TableDefinition child = _catalog.RequireTable(childTable);
+        TableDefinition parent = _catalog.RequireTable(parentTable);
+        IndexDef key = FindParentKeyIndex(parent.Indexes, [.. columns.Select(c => c.ReferencedColumn)], parent.Name);
+        int[] childColumns = [.. columns.Select(c => child.RequireColumn(c.Column).Index)];
+        int[] parentColumns = [.. columns.Select(c => parent.RequireColumn(c.ReferencedColumn).Index)];
+
+        var rows = new Table(_channel, child, _catalog);
+        var parentKeys = new IndexTree(_channel, parent);
+        var probe = new object?[parent.Columns.Count];
+        foreach (object?[] row in rows.Rows(rows.DecodeOnly(childColumns)))
+        {
+            int nulls = childColumns.Count(c => row[c] is null);
+            if (nulls == childColumns.Length) continue;
+            if (nulls > 0) return false;
+            for (int i = 0; i < childColumns.Length; i++) probe[parentColumns[i]] = row[childColumns[i]];
+            if (!parentKeys.KeyExists(key, probe)) return false;
+        }
+        return true;
     }
 
     /// <summary>A relationship's parent table, or ACE's error when it does not exist.</summary>
@@ -856,6 +881,14 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         RejectOleIndexColumns(fk.Columns.Select(c => c.Column), n => child.FindColumn(n)?.Type);
         fk = ResolvePrimaryKeyReference(fk, creatingTable: null);
         EnsureSameDataTypes(fk, ColumnOf(child), ColumnOf(_catalog.FindTable(fk.ReferencedTable)));
+
+        // ACE refuses a relationship the existing rows already break — an orphan, or a partly null composite key
+        // (verified; the ON DELETE action makes no difference).
+        if (fk.IsEnforced && ReferencedTableOf(fk) is var parent
+            && !ExistingRowsHaveParents(child.Name, parent.Name, fk.Columns))
+            throw new InvalidOperationException(
+                "Cannot create relationships to enforce referential integrity. Existing data in table "
+                + $"'{child.Name}' violates referential integrity rules in table '{parent.Name}'.");
 
         // An UNENFORCED relationship is catalog rows and nothing else — no backing index on the child, no
         // incoming block on the parent. Measured across three files: every enforced relationship has an index
@@ -2573,18 +2606,19 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     private static object? ConvertCore(object value, JetDataType type)
     {
         var inv = System.Globalization.CultureInfo.InvariantCulture;
+        value = Storage.Types.JetTypeCodec.NumberFromText(type, value);
         return type switch
         {
-            JetDataType.Boolean => value is bool b ? b : Convert.ToBoolean(value, inv),
+            JetDataType.Boolean => Storage.RowCodec.IsTruthy(value),
             JetDataType.Byte => Convert.ToByte(value, inv),
             JetDataType.Int16 => Convert.ToInt16(value, inv),
             JetDataType.Int32 => Convert.ToInt32(value, inv),
             JetDataType.Int64 => Convert.ToInt64(value, inv),
-            JetDataType.Single => Convert.ToSingle(value, inv),
-            JetDataType.Double => Convert.ToDouble(value, inv),
+            JetDataType.Single => JetDecimalConverter.ToSingle(value, inv),
+            JetDataType.Double => JetDecimalConverter.ToDouble(value, inv),
             JetDataType.Currency or JetDataType.FixedPoint => JetDecimalConverter.ToDecimal(value, inv),
-            JetDataType.DateTime => value is DateTime d ? d : Convert.ToDateTime(value, inv),
-            JetDataType.Text or JetDataType.Memo => Convert.ToString(value, inv),
+            JetDataType.DateTime => Storage.Types.JetTypeCodec.ToDate(value, inv),
+            JetDataType.Text or JetDataType.Memo => Storage.Types.VbaText.Of(value),
             JetDataType.Guid => value is Guid g ? g : Guid.Parse(value.ToString()!),
             JetDataType.Binary or JetDataType.BigBinary or JetDataType.Ole => value as byte[] ?? System.Text.Encoding.Unicode.GetBytes(value.ToString()!),
             _ => value,
@@ -2834,13 +2868,22 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// the DROP INDEX guard was looking for a unique one.
     /// </remarks>
     private static IndexDef FindParentKeyIndex(
-        IReadOnlyList<IndexDef> candidates, IReadOnlyList<string> refColumns, string parentTable)
-    {
-        bool MatchesColumns(IndexDef ix) =>
-            ix.Columns.Select(c => c.Column.Name).SequenceEqual(refColumns, StringComparer.OrdinalIgnoreCase);
+        IReadOnlyList<IndexDef> candidates, IReadOnlyList<string> refColumns, string parentTable) =>
+        candidates[ParentKeyPosition(
+            [.. candidates.Select(ix => (ix.Columns.Select(c => c.Column.Name), ix.IsUnique || ix.IsPrimaryKey))],
+            refColumns, parentTable)];
 
-        IndexDef? match = candidates.FirstOrDefault(ix => MatchesColumns(ix) && (ix.IsUnique || ix.IsPrimaryKey));
-        if (match is not null) return match;
+    /// <summary>Where among <paramref name="candidates"/> — each an index's columns and whether it is unique or
+    /// primary — the parent-side key of <see cref="FindParentKeyIndex"/> is.</summary>
+    private static int ParentKeyPosition(
+        IReadOnlyList<(IEnumerable<string> Columns, bool IsKey)> candidates, IReadOnlyList<string> refColumns,
+        string parentTable)
+    {
+        bool MatchesColumns((IEnumerable<string> Columns, bool IsKey) ix) =>
+            ix.Columns.SequenceEqual(refColumns, StringComparer.OrdinalIgnoreCase);
+
+        for (int i = 0; i < candidates.Count; i++)
+            if (MatchesColumns(candidates[i]) && candidates[i].IsKey) return i;
 
         // Distinguish "no index at all" from "an index, but not a unique one" — ACE's own message names the
         // second case, and it is the one a caller can fix by declaring the key unique.

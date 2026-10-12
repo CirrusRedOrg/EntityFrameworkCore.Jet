@@ -89,7 +89,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         var uniques = statement.UniqueConstraints.Select((u, i) => new UniqueIndexSpec(
             Name: u.Name ?? Generated("UQ", i),
             Columns: u.Columns,
-            DeclaredAfterColumns: u.DeclaredAfterColumns)).ToList();
+            DeclaredAfter: u.DeclaredAfter)).ToList();
 
         var defaults = statement.Columns
             .Where(c => c.Default is not null)
@@ -101,7 +101,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             .ToList();
 
         _database.CreateTable(statement.Table, columns, primaryKey, relationships, uniques, defaults, checks,
-            statement.PrimaryKeyName, statement.PrimaryKeyDeclaredAfterColumns);
+            statement.PrimaryKeyName, statement.PrimaryKeyDeclaredAfter);
         return 0;
     }
 
@@ -167,7 +167,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         DeleteSetNull: fk.OnDelete == ReferentialAction.SetNull,
         UpdateSetNull: fk.OnUpdate == ReferentialAction.SetNull,
         ReferencesPrimaryKey: fk.ReferencedColumns.Count == 0,
-        DeclaredAfterColumns: fk.DeclaredAfterColumns);
+        DeclaredAfter: fk.DeclaredAfter);
 
     /// <summary>Access-style fallback name when the constraint is unnamed: "childparent".</summary>
     private static string DefaultRelationshipName(string childTable, ForeignKeyConstraint fk) =>
@@ -250,19 +250,6 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         _database.Catalog.Relationships.FirstOrDefault(r => r.IsEnforced
             && string.Equals(r.Name, identity.Name, StringComparison.OrdinalIgnoreCase)
             && identity.Equals(Identify(r)));
-
-    /// <summary>Whether every row of the relationship's child table has its parent, on the MATCH FULL terms
-    /// <see cref="EnforceReferentialIntegrity"/> applies to one row: a key that is entirely null references
-    /// nothing and needs nothing, and a partly null one can never match.</summary>
-    private bool ExistingRowsHaveParents(ForeignKey fk)
-    {
-        RelationshipEnds ends = Ends(fk);
-        foreach (object?[] row in ends.Child.Rows(ends.Child.DecodeOnly(ends.ChildColumns)))
-            if (ForeignKeyValue(row, ends.ChildColumns, out bool partialNull) is { } key
-                && (partialNull || !ParentRowExists(ends, key)))
-                return false;
-        return true;
-    }
 
     /// <summary>The foreign key a row holds, on ACE's **MATCH FULL** terms (verified vs ACE, and unlike SQL
     /// Server's MATCH SIMPLE): null when every column is null — the row references nothing and the relationship is
@@ -363,8 +350,13 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         for (int i = 0; i < key.Length; i++)
         {
             ColumnDef column = table.Definition.Columns.First(c => c.Index == columns[i]);
-            if (!ExpressionEvaluator.TryGetSeekKey(column, new LiteralExpression(key[i]), key[i], out seekKey[i]))
-                return table.RowsWhere(columns, Holds);
+            switch (ExpressionEvaluator.TryGetSeekKey(column, new LiteralExpression(key[i]), key[i], out seekKey[i]))
+            {
+                case ExpressionEvaluator.SeekKey.OtherKind:
+                    return table.RowsWhere(columns, Holds);
+                case ExpressionEvaluator.SeekKey.PastRange or ExpressionEvaluator.SeekKey.Fraction:
+                    return [];   // a value its column cannot hold is in no row
+            }
         }
 
         return table.RowsWithKey(columns, seekKey, Holds);
@@ -889,18 +881,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         RelationshipSpec relationship = ToRelationshipSpec(table, fk);
         _database.AddForeignKey(table, relationship);
 
-        // ACE refuses a relationship the existing rows already break — an orphan, or a partly null composite key
-        // (verified; the ON DELETE action makes no difference). Checked against the relationship as the catalog
-        // now holds it, a REFERENCES with no column list resolved to the parent's primary key; the statement's own
-        // rollback takes the relationship back out when the check fails.
         ForeignKey added = _database.Catalog.Relationships.Single(
             r => string.Equals(r.Name, relationship.Name, StringComparison.OrdinalIgnoreCase));
         RelationshipIdentity identity = Identify(added)!;
-        bool Holds() => CurrentRelationship(identity) is not { } current || ExistingRowsHaveParents(current);
-        if (!Holds())
-            throw new InvalidOperationException(
-                "Cannot create relationships to enforce referential integrity. Existing data in table "
-                + $"'{added.Table}' violates referential integrity rules in table '{added.ReferencedTable}'.");
+        bool Holds() => CurrentRelationship(identity) is not { } current || _database.ExistingRowsHaveParents(current);
 
         // ACE then holds both tables exclusively until the transaction ends, so nothing can delete a parent the
         // check found (verified: another connection's DELETE is refused). LibRed takes no table locks, so the

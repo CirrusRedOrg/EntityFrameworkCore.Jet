@@ -284,6 +284,22 @@ Points verified against ACE that aren't obvious from that page:
   text space-padded to the full width, a writer that pads is one line away from silently *truncating* the
   over-long case instead of refusing it. The width check therefore belongs on the encode path for fixed
   columns (`JetTypeCodec.EnsureFitsFixedWidth`, before padding) and on the shared row-assembly path for variable ones (`RowCodec.AssembleRow`, so the ALTER re-lay passes it too).
+- **A value stored into a text or date column of another type is converted in the regional settings**
+  (verified; `INSERT`, `ALTER COLUMN` and a calculated column's cached result alike), so the bytes stored depend on
+  the machine's regional settings. Into text it is written as VBA's `CStr` writes it (`VbaText`): a Double to 15
+  significant digits, a Boolean as `-1`/`0`, a date in the regional short date and long time, without the time at
+  midnight and without the date on 1899-12-30. Text into a date is read as `CDate` reads it (`VbaDateText`), in the
+  regional day/month order.
+- **Text stored into a number or Yes/No column is read as VBA reads text as a number** (verified; `INSERT` and
+  `ALTER COLUMN` alike): in the regional decimal and group separators and currency symbol, with a sign before or
+  after, brackets for negative, and `&H`/`&O` and `e`/`d` exponents — `'$5'`, `'(5)'`, `'5-'`, `'1,000'`, `'&H10'`
+  and `'1d2'` all store as numbers (`VbaText.TextAsNumber`). Text that is not a number is refused, `'True'` and
+  `'Yes'` into a Yes/No column included.
+- **A whole-number column rounds half to even**, from a number or text alike (verified: `'2.5'` stores 2, `'3.5'` 4).
+  A **Byte keeps the low byte** of that whole number rather than refusing one past its range (verified, on
+  `INSERT`: 256 stores 0, -1 255, 300 44, 255.5 0); `SHORT` and `LONG` refuse one past theirs.
+- **A Yes/No column stores whether the number rounded half to even is not 0** (verified: 0.5, -0.5 and 0.0001
+  store False; 0.6, 1.5 and 2.5 True).
 - **Narrowing an existing column is checked against its rows.** `ALTER TABLE … ALTER COLUMN c TEXT(5)` on a
   column holding wider values is refused rather than leaving rows that violate the declaration — and so is a
   retype whose converted values are too wide: a Memo or a `LONG` to `TEXT(1)`, a `LONG` to `BINARY(1)`. ACE
@@ -434,3 +450,23 @@ correctly, and it is the only surface that knows a column is calculated — `Fie
 hands back the expression, which OLE DB, ODBC and ADOX all withhold while reporting the expression's result
 type as if it were a stored one. The engine and DAO moved together; the interop layers did not, which is
 consistent with Access never reading its own files through them.
+
+## Footnote — fractions of a second through ACE's drivers
+
+*Driver behaviour, not file format.* A `DATETIME` stores a fraction of a second and a `DATETIME2` stores 100-ns
+ticks; whether a fraction arrives depends on how the driver binds the value, and the two drivers disagree
+(verified):
+
+| what is written | into `DATETIME` | into `DATETIME2` |
+| --- | --- | --- |
+| OLE DB date parameter (`DBTYPE_DATE`) | kept | **rounded** to the second |
+| ODBC timestamp parameter (`SQL_TYPE_TIMESTAMP`) | **truncated** to the second | **truncated** to the second |
+| ODBC double parameter (the OLE-automation date) | kept | — |
+| text carrying a fraction, either driver | refused: *"Data type mismatch"* | kept, full precision |
+| a `DATETIME` value copied in by the engine (`INSERT … SELECT`) | — | **rounded** to the second |
+
+So the engine itself rounds a date to the second on its way into `DATETIME2`, and only text reaches that type
+with its fraction. `Now()` and `Time()` give whole seconds, the fraction dropped, through either driver.
+
+LibRed takes a .NET `DateTime` as given and keeps its fraction in either type, and accepts text carrying a
+fraction into a `DATETIME`.

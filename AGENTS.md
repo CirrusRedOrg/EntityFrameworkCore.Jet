@@ -375,6 +375,13 @@ a pointer, test helpers re-implementing Core and drifting from it. A genuinely n
 existing does the job; say what you checked. (Claude Code backs this with a `Stop` hook in
 `.claude/settings.json` that asks for the review while `src/` has uncommitted changes.)
 
+**Never change a test because a change makes it fail.** A failing test is evidence against the change, not a test
+to update. For every failing test, measure what ACE itself produces for that exact query, on that test's own schema
+and data — not a similar expression, another table, or a function ACE does not have. If ACE agrees with the test,
+the change is wrong: fix the code. Change the test only where it must change to match ACE's measured behaviour
+exactly, and say what was measured. (Claude Code backs this with a `PostToolUse` hook that stops the turn after
+every edit under `test/`.)
+
 **Do not edit source files through the shell.** No `sed -i`, no redirects or `tee` into `.cs`/`.md`/`.csproj`/
 `.props`/`.json`/`.ps1`/`.g4`, and no Python scripts that rewrite files. Shell edits bypass the agent's file
 checkpointing, so the change cannot be rolled back. Use your editor/patch tooling instead. (Claude Code enforces

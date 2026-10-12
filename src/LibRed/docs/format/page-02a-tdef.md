@@ -88,7 +88,9 @@
 > **`ADD` / `DROP COLUMN` are metadata-only edits — the three column counts behave differently
 > (all verified vs ACE).** ACE never renumbers surviving columns or rewrites existing rows; a dropped
 > column's bytes become dead space, and an added column reads NULL on old rows (via the null bitmap).
-> The one exception is an added **AutoNumber** column, which gives every existing row a value (below).
+> There are two exceptions: an added **AutoNumber** column gives every existing row a value (below), and an added
+> **calculated** column is computed for the rows already there, each rewritten with its cached result (verified;
+> [page-02e](page-02e-calculated-columns.md)).
 > - **`0x2D` column count** — the **live** count. `DROP COLUMN` decrements it; `ADD COLUMN` increments it.
 > - **`0x29` maximum column count** — a **high-water** = the *next* column id to assign. `ADD COLUMN`
 >   takes the current value as the new column's id, then increments `0x29`; `DROP COLUMN` **leaves it**

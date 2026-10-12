@@ -209,10 +209,8 @@ the long values:
 > **That order is the DDL's, not a fixed rule — ACE assigns the rows in declaration order.** An *inline*
 > `PRIMARY KEY` is declared before the long-value columns and takes row 2, giving the layout above; a
 > trailing `CONSTRAINT pk PRIMARY KEY (…)` clause is created *after* them, so on a two-memo table ACE gives
-> the columns rows 2–5 and the index row 6. Measured both ways. LibRed always writes the inline order — the
-> declaration position is lost between the parser and `CreateTable` — so it matches ACE byte-for-byte for
-> inline keys and differs by the row numbering alone for a named constraint. Both files are self-consistent
-> and ACE reads either.
+> the columns rows 2–5 and the index row 6. Measured both ways. LibRed lays the rows out in declaration
+> order too ([page-05](page-05-usage-maps.md)).
 >
 > The spill rule applies here too, and to whichever comes last: at 27 memo columns the index still fits the
 > primary page (row 56, the 57th record), and at 28 it goes to **row 0 of a page of its own** — the same

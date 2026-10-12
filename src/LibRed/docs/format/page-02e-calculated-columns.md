@@ -402,6 +402,12 @@ is more permissive than ACE**, which refuses such a column outright; whether Lib
    very column that was Null. So writing it produces a row that neither engine can read and that the obvious
    repair does not fix. Refusing costs the caller a guard and keeps the file readable, the
    same trade as refusing to drop a column an expression reads.
+
+   **Overflow is one of these errors.** A result past its result type caches VBA error 6 (measured). LibRed
+   refuses the row, as above.
+
+   **`ADD COLUMN` computes the rows already there** (measured). LibRed rewrites each existing row with its result
+   in the same transaction as the add, so a row the expression fails on refuses the whole add.
 5. **Changing an existing column's expression or result type — out of scope by decision, not unfinished.**
    ACE offers no route to it at all, so LibRed would be *defining* the behaviour rather than matching any,
    including having to recompute every existing row at once (nothing re-derives a cached value on read).

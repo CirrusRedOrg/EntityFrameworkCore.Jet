@@ -43,7 +43,8 @@ public abstract class SharedDatabase : IDisposable
             return (result.ColumnTypes, result.Rows.ToList());
         });
 
-    private static T Under<T>(CultureInfo culture, Func<T> run)
+    /// <summary>Runs <paramref name="run"/> under <paramref name="culture"/>, restoring the previous one after.</summary>
+    public static T Under<T>(CultureInfo culture, Func<T> run)
     {
         CultureInfo previous = CultureInfo.CurrentCulture;
         CultureInfo.CurrentCulture = culture;

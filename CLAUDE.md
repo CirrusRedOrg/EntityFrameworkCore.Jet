@@ -378,6 +378,12 @@ of one field that disagreed, a merged path that lost a check only one copy had, 
 a pointer, test helpers re-implementing Core and drifting from it. A genuinely new member is fine when nothing
 existing does the job; say what you checked.
 
+**Never change a test because a change makes it fail.** A failing test is evidence against the change, not a test
+to update. For every failing test, measure what ACE itself produces for that exact query, on that test's own schema
+and data — not a similar expression, another table, or a function ACE does not have. If ACE agrees with the test,
+the change is wrong: fix the code. Change the test only where it must change to match ACE's measured behaviour
+exactly, and say what was measured. A `PostToolUse` hook stops the turn after every edit under `test/` to enforce it.
+
 `.claude/settings.json` installs `PreToolUse` hooks that **deny** three things in `Bash`/`PowerShell`:
 
 - **Reading files through the shell** (`cat`, `head`, `grep`, `ls`, `find`, `Get-Content`, `Select-String`, …) —

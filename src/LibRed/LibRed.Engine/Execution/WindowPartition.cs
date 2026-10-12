@@ -1,3 +1,4 @@
+using EntityFrameworkCore.Jet.Data;
 using LibRed.Sql.Ast;
 using System.Globalization;
 
@@ -296,9 +297,9 @@ internal sealed class WindowPartition(
                 // Past a Decimal: the Double comparison below.
             }
         }
-        double d = direction * (Convert.ToDouble(other, CultureInfo.InvariantCulture)
-            - Convert.ToDouble(here, CultureInfo.InvariantCulture));
-        double l = Convert.ToDouble(offset, CultureInfo.InvariantCulture);
+        double d = direction * (JetDecimalConverter.ToDouble(other, CultureInfo.InvariantCulture)
+            - JetDecimalConverter.ToDouble(here, CultureInfo.InvariantCulture));
+        double l = JetDecimalConverter.ToDouble(offset, CultureInfo.InvariantCulture);
         return d.CompareTo(preceding ? -l : l);
     }
 

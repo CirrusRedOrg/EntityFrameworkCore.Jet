@@ -236,7 +236,8 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 >
 > The parent key must be a **unique or primary** index over the referenced columns. Over a plain
 > non-unique index ACE refuses the relationship — *"No unique index found for the referenced field of the
-> primary table"* — while the same shape over a `PRIMARY KEY` succeeds.
+> primary table"* — while the same shape over a `PRIMARY KEY` succeeds. A self-reference is held to the same
+> rule (verified): another relationship's index over the referenced columns, being non-unique, does not serve.
 >
 > **Each child column must have its parent column's storage type** (verified vs ACE over every pairing of the
 > column types). Lengths do not matter: `TEXT(5)`, `TEXT(20)` and `CHAR(10)` pair with one another, `DECIMAL`s

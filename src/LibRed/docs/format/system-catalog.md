@@ -40,6 +40,7 @@
   | `5` | query | `Tables` | `Lv`, `LvExtra`, `LvProp` |
   | `6` | linked table; `Flags` `0x00200000` or `0x00B00000` | `Tables` | `Connect`, `Database`, `ForeignName`, `Lv`, `LvProp` |
   | `8` | relationship | `Relationships` (`0x0F000003`) | `LvProp` |
+  | `9` | CHECK constraint, and DAO's `SingleRecord` every database is created with; `Flags` `0x10000000`, `Owner` null | `Relationships` | `Connect`, `Database`, `ForeignName` |
   | `-32757` (`0x800B`) | database document: `SummaryInfo`, `UserDefined`, `AccessLayout` | `Databases` | `LvExtra`, `LvProp` |
   | `-32758` (`0x800A`) | a row per user (`Admin`) | `SysRel` | `LvExtra` |
   | `-32761` (`0x8007`) | module | `Modules` | — |
@@ -339,9 +340,34 @@
   - **`MSysACEs` rows** from the `Relationships` container's inheritable grants (§11): the Users SID with ACM
     `0xF00FE` and admin's with `0xFFFFF` in the databases examined (verified against ACE's `ADD CONSTRAINT`).
   - **Dropping it** — `DROP CONSTRAINT`, or `DROP TABLE` of the referencing table — removes the object and its
-    two `MSysACEs` rows.
-  - **Its name** must differ from every other relationship's (*"There is already a relationship named '…' in
-    the current database."*), but may equal a table's or a query's.
+    two `MSysACEs` rows. A `DROP TABLE` removes them after the table's own rows
+    ([page-08](page-08-released-tdef.md)).
+  - **Its name** must differ from every other relationship's and every CHECK constraint's (*"There is already a
+    relationship named '…' in the current database."*, measured), but may equal a table's or a query's.
+
+- **CHECK constraints** are `MSysObjects` rows of **Type 9**, beside the table's `CheckConstraints` property
+  (§11), written by both `ALTER TABLE … ADD CONSTRAINT … CHECK` and a `CREATE TABLE` constraint (verified). The
+  same shape as the `SingleRecord` row every new database holds:
+  - `Name` the check's name, `ParentId 0x0F000003` (the Relationships container), `Flags 0x10000000`,
+    **`Owner` null**, **no `MSysACEs` rows**, `Id` the next negative synthetic id from the sequence queries and
+    relationships draw on. Its name must differ from every relationship's and every other check's, on whichever
+    table (measured) — the unique `(ParentId, Name)` index — but may equal a table's (measured).
+  - **`Connect`** — the expression as written. **`ForeignName`** — the table's name followed by a NUL
+    character (`Setting\0`).
+  - **`Database`** — what the expression reads, as text built of length-prefix characters: one character counting
+    the tables, then for each table a character giving its name's length, the name, a character counting its
+    columns, and each column as its length and name. The check's **own table comes first**, then each table a
+    subquery names in the order the expression names it; a table's **columns in the table's own order**, each
+    once (`Len([Note]) < [Level] + 20 OR [Level] > 0` reads `Level, Note`); a table read for no column
+    (`COUNT(*)`) counts `0`. `[Level] < (SELECT MAX(Credit) FROM Customer WHERE City = 'Rome') + 10` on `Setting`
+    is `\x02 \x07Setting \x01 \x05Level \x08Customer \x02 \x04City \x06Credit`.
+  - Both Memo columns are stored as any Memo value is (data-types §7): an inline value compressed, a page one not,
+    and one holding a NUL — a `0`-column count — never.
+  - **`CREATE TABLE`** writes the table's own row first and each check's after it. **Dropping** a check removes
+    its row; **`DROP TABLE`** removes its checks' rows before its own.
+  - Every check has one: a check whose expression does not parse is refused when it is created, in `CREATE TABLE`
+    and `ALTER TABLE` alike (measured), so what it reads is always known. The engine parses the expression; the
+    Core API takes what it reads from the caller.
 
   > **MSysQueries columns (8, verified).** The table has exactly: `ObjectId` (Int32, the
   > query object's `Id`), `Attribute` (Byte, the row kind — see below), `Flag` (Int16, attribute-specific),
@@ -445,11 +471,39 @@
   `(ObjectId Int32, Attribute Byte, Order Binary)`; its Binary key encodes as `0x7F` + the raw bytes +
   `00 00 00 00` + a length byte.
 
-  > **Row order matters.** Access writes the rows in the order **type, end, parameters (`0x02`), distinct/top,
-  > tables (`0x05`), columns (`0x06`), joins (`0x07`), where (`0x08`), group-by (`0x09`), order-by (`0x0B`)** —
-  > *tables before columns* (verified). Access tolerates the wrong order for a **named** table, but a
-  > **derived** table defines an alias the column expressions reference, so its `0x05` row must precede the `0x06` rows or
-  > Access opens the database yet **fails to run the view**.
+  > **The rows' physical order carries no meaning.** A query is its rows grouped by `Attribute`, each group in
+  > `Order` sequence — the primary key's order — so the order the rows sit in on the page is not part of it. ACE
+  > reads a query whichever order its rows were written in, a derived table's `0x05` row after the column rows
+  > that use its alias included (verified), and LibRed reads it by `Attribute` and `Order` alone. What a
+  > derived-table view does need is a subquery `Expression` past 64 bytes on an LVAL page rather than inline
+  > (below).
+  >
+  > **Write order.** ACE writes the type, end and parameter (`0x02`) rows, then the rest in the **statement's
+  > clause order**, a FROM's joins before its tables (verified), and LibRed writes the same:
+  >
+  > | Statement | Order after type, end and parameters |
+  > |---|---|
+  > | `SELECT` (view or procedure) | columns, joins, tables, where, group-by, having, order-by, then the option row (`0x03`, DISTINCT/TOP) |
+  > | `INSERT INTO t (…) VALUES (…)` | operation (`0x01`), values |
+  > | `INSERT INTO t (…) SELECT … FROM` | operation, columns, joins, tables, where |
+  > | `SELECT … INTO t FROM` | columns, then the operation naming `t`, joins, tables, where |
+  > | `UPDATE t SET …`, `DELETE FROM t` | operation, table, assignments, where |
+  >
+  > **`LvExtra` after a sized parameter.** Once a parameter row carrying facets in `LvExtra` (a `TEXT(20)`'s
+  > length) is written, **every later row of the query carries `LvExtra` too**, `0` where it has nothing of its
+  > own — a later parameter without facets, the columns, tables and predicates, an action query's rows alike.
+  > `(who TEXT(20), lim LONG)` marks `lim`'s row; `(lim LONG, who TEXT(20))` leaves it null. **Not explained:**
+  > in `CREATE PROCEDURE p (who TEXT(20)) AS UPDATE Customer SET Name = who WHERE Id = 999` ACE writes `0xDD`,
+  > not `0`, in the WHERE row's `LvExtra`; LibRed writes `0`.
+  >
+  > **Dropping a query** deletes its rows in key order — `(Attribute, Order)` — whatever order they were written
+  > in (verified).
+  >
+  > **ACE also writes a binary long value for some queries — not reproduced.** A procedure stored as `INSERT INTO
+  > … VALUES (…)` gives its `MSysObjects` row a long-value descriptor for a value of over a kilobyte on an LVAL
+  > page, and executing it rewrites the value larger (verified). Which column holds it is not decoded. The column
+  > names, table name and literal text are readable in it; what the rest is, is **not known**. Executing other
+  > stored queries also writes to `MSysObjects` and an LVAL page, **not examined**. LibRed writes none of it.
   >
   > **Long `Expression` lives on an LVAL page.** `Expression` is a Memo, so a subquery longer than the
   > 64-byte inline limit is written to an LVAL page (§8) — required for Access to *run* the view (an

@@ -97,6 +97,16 @@
 >   and the new column takes the next rank — `0 0 3 7` after dropping `C` becomes `0 0 1 2`, the added
 >   column `3`. After SQL DDL alone there are no ties, and this is simply each column's position:
 >   `(A, B, C, D, E)`, drop `B`, add `F` → `0x05` ids `0 2 3 4 5`, `0x09` `0 1 2 3 4`.
+> - **A make-table counts from 1.** The table `SELECT … INTO` creates has `0x05` ids `0, 1, 2 …` as any new
+>   table does, but `0x09` `1, 2, 3 …` (verified). A column copied straight from a source AutoNumber keeps the `0x04` flag, with
+>   the default increment whatever the source's (`AUTOINCREMENT(10, 5)` copies as step 1) and `0x14` on the last
+>   id copied. A **computed** column takes its type from its result: a Boolean, Byte or Integer result is a fixed
+>   Integer, and every other number and a date keep their type but are **variable-length** (fixed flag clear,
+>   counted in `0x2B`), a Single widening to Double (verified). **Not modelled yet:** a computed Decimal keeps
+>   its places as a variable `DECIMAL` (`DECIMAL(18,4) * 2` is `DECIMAL(18,4)`, `DECIMAL(10,2) * 2` is
+>   `DECIMAL(12,2)`, length 9 and 6), and a Double or Currency computed after one carries its precision and scale
+>   in `0x0B`–`0x0E` where the others hold the collation; LibRed writes those as Currency and Double with the
+>   collation.
 >
 > So **descriptor order is display order**, and a reader needs nothing else — LibRed reads column order from
 > descriptor order and never reads `0x09`, and matches ACE even in a file where the two were made to disagree.
@@ -427,8 +437,8 @@ its old record, as an UPDATE writes one (page-01 §5):
   dead id's bit as the old row had it — so the retyped column's old id is present where it held a value and
   clear where it was NULL).
 
-A **Yes/No** target writes no fixed bytes — its value is only the new id's null-bitmap bit (verified, from a
-`LONG` and from an indexed `TEXT`, NULLs included).
+A **Yes/No** target writes no fixed bytes — its value is only the new id's null-bitmap bit (verified, NULLs
+included).
 
 **A Memo/OLE source or target** takes the same edit and re-lay, plus the long-value side of ADD and DROP
 COLUMN (verified, both directions and a Memo re-declared as Memo). A column becoming Memo/OLE gets its §3.3.2

@@ -73,8 +73,10 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     /// what an expression reads, not the descriptor that points at it. Null when the two are the same.</param>
     /// <param name="prior">The row being rewritten, for an UPDATE; default for an INSERT. Its fixed bytes, its
     /// variable chunks and its dead ids' bits are kept wherever this row does not write its own.</param>
+    /// <param name="slackOf">The zero bytes to leave between the variable data and its offset table (spec §5), from
+    /// the variable chunks this row is written with, by variable index; null for none.</param>
     internal byte[] Encode(object?[] values, IReadOnlyDictionary<int, byte[]>? preservedCalculated,
-        object?[]? logicalValues = null, Layout prior = default)
+        object?[]? logicalValues = null, Layout prior = default, Func<IReadOnlyList<byte[]>, int>? slackOf = null)
     {
         if (values.Length != _columns.Count)
             throw new ArgumentException($"Expected {_columns.Count} values, got {values.Length}.", nameof(values));
@@ -104,7 +106,8 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
             varChunks[column.VariableIndex] = v is null ? [] : JetTypeCodec.Encode(column, v, _format);
         }
 
-        return AssembleRow(_format, _maxColumnId, fixedRegion, varChunks, _columns, values, prior.NullBitmap);
+        return AssembleRow(_format, _maxColumnId, fixedRegion, varChunks, _columns, values, prior.NullBitmap,
+            slackOf?.Invoke(varChunks) ?? 0);
     }
 
     /// <summary>The fixed region of a row being written over <paramref name="prior"/>: <paramref name="liveLength"/>
@@ -227,7 +230,7 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     /// </remarks>
     internal static byte[] AssembleRow(JetFormatBase format, int maxColumnId, ReadOnlySpan<byte> fixedRegion,
         IReadOnlyList<byte[]> varChunks, IReadOnlyList<ColumnDef> columns, object?[] values,
-        ReadOnlySpan<byte> priorBitmap = default)
+        ReadOnlySpan<byte> priorBitmap = default, int slack = 0)
     {
         // A calculated column is exempt from the declared-width check: its length field is a constant ACE
         // writes (39 for a value type, 509 for any Text, whatever size was asked for), not a limit — a
@@ -244,7 +247,7 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
         int numVar = varChunks.Count;
         int varDataLength = 0;
         for (int j = 0; j < numVar; j++) varDataLength += varChunks[j].Length;
-        int varSectionLen = numVar > 0 ? varDataLength + (numVar + 1) * offsetSize + numVarSize : 0;
+        int varSectionLen = numVar > 0 ? varDataLength + slack + (numVar + 1) * offsetSize + numVarSize : 0;
 
         // ACE pads an all-fixed row's fixed region out to MinFixedRegion; a row with a variable trailer is
         // left alone. The pad is zero bytes between the fixed values and the null bitmap.
@@ -260,8 +263,9 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
             int pos = varDataStart;
             for (int j = 0; j < numVar; j++) { varChunks[j].CopyTo(row.AsSpan(pos)); pos += varChunks[j].Length; }
 
-            // End-first offset table: entry[numVar] = var-data start, entry[numVar-j-1] = end of var col j.
-            int tableStart = pos;
+            // End-first offset table: entry[numVar] = var-data start, entry[numVar-j-1] = end of var col j. The
+            // slack, zeros, lies between the last chunk and the table, outside every offset.
+            int tableStart = pos + slack;
             BinaryPrimitives.WriteUInt16LittleEndian(row.AsSpan(tableStart + numVar * offsetSize, offsetSize), (ushort)varDataStart);
             int running = varDataStart;
             for (int j = 0; j < numVar; j++)
@@ -288,11 +292,14 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
                 || (column.Type == JetDataType.Boolean ? IsTruthy(values[column.Index]) : values[column.Index] is not null);
             if (present) BitmapBits.Set(nullBitmap, column.ColumnId, true);
         }
-        // A dead id's bit depends on which route wrote the row, and both are measured against ACE: the ALTER
-        // COLUMN re-lay and an UPDATE carry the old row's bit forward — set where the column held a value, clear
-        // where it was NULL — while a row INSERTED afterwards leaves it clear: the same statement pair gives
-        // ACE 0x0F for a re-laid row with a value and 0x0D for the next insert.
-        for (int id = 0; id <= maxColumnId && id < priorBitmap.Length * 8; id++)
+        // A bit no live column owns depends on which route wrote the row, and both are measured against ACE: the
+        // ALTER COLUMN re-lay and an UPDATE carry the old row's bit forward, while a row INSERTED afterwards leaves
+        // it clear. That holds for a dead id's bit — set where the column held a value, clear where it was NULL:
+        // the same statement pair gives ACE 0x0F for a re-laid row with a value and 0x0D for the next insert — and
+        // for the padding past the last column in the final byte alike: an UPDATE of a row whose last byte read
+        // 0x65 over one live column leaves it 0x65 (WholeFileParityProbeTest). What sets padding in a byte the row
+        // did not have before is not known; LibRed leaves it clear.
+        for (int id = 0; id < nullBitmapSize * 8 && id < priorBitmap.Length * 8; id++)
             if (!liveIds.Contains(id) && BitmapBits.Get(priorBitmap, id))
                 BitmapBits.Set(nullBitmap, id, true);
         return row;
@@ -717,6 +724,10 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
             int end = VarOffset(NumVar - variableIndex - 1);
             return _row[start..end];
         }
+
+        /// <summary>The zero bytes between the end of the variable data and the offset table — the slack ACE leaves in
+        /// a record written over a longer default (spec §5, "Record slack"); 0 for a row with no variable section.</summary>
+        public int Slack => VarTableStart < 0 ? 0 : VarTableStart - VarOffset(0);
 
         private int VarOffset(int entry) =>
             BinaryPrimitives.ReadUInt16LittleEndian(_row.Slice(VarTableStart + entry * _offsetSize, _offsetSize));

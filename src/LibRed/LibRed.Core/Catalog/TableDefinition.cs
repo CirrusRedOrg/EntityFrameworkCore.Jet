@@ -1066,7 +1066,7 @@ public sealed class TableDefinition : Page
                 CalculatedExpression = s.CalculatedExpression,
                 CalculatedResultType = s.CalculatedResultType,
                 SystemFlags = s.SystemFlags,
-                IsEngineColumn = s.IsEngineColumn || s.SystemFlags != 0,
+                Ordinal = s.SystemFlags != 0 ? 0 : s.Ordinal,
                 ExtendedFlags = s.ExtendedFlags,
                 Precision = EffectivePrecision(s),
                 Scale = s.Scale,
@@ -1128,9 +1128,9 @@ public sealed class TableDefinition : Page
         // model and DAO-executed SQL — and every user table in every fixture carries it, while only the
         // engine's own bootstrap tables (MSysObjects and friends) leave it zero, which is what a system
         // column keeps here. An earlier comment claimed real files store zero; that had been read off the
-        // system tables alone.
+        // system tables alone. A make-table is the exception: it numbers from 1 (see ColumnSpec).
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnSecondaryNumberOffset, 2),
-            (ushort)(c.IsEngineColumn ? 0 : c.ColumnId));
+            (ushort)(c.Ordinal ?? c.ColumnId));
         // Offset 7 = variable-table index (count of variable columns with a smaller id), stored on fixed columns
         // too.
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnVariableIndexOffset, 2), (ushort)c.VariableTableIndex);

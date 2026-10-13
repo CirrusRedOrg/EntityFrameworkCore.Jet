@@ -458,7 +458,7 @@ public sealed class JetDatabase : IDisposable
         IReadOnlyList<RelationshipSpec>? relationships = null,
         IReadOnlyList<UniqueIndexSpec>? uniqueConstraints = null,
         IReadOnlyList<(string Column, string DefaultSql)>? columnDefaults = null,
-        IReadOnlyList<(string Name, string Expression)>? checkConstraints = null,
+        IReadOnlyList<(string Name, string Expression, IReadOnlyList<(string Table, IReadOnlyList<string> Columns)> Reads)>? checkConstraints = null,
         string? primaryKeyName = null,
         int primaryKeyDeclaredAfter = 0,
         TableType tableType = TableType.User)
@@ -502,10 +502,13 @@ public sealed class JetDatabase : IDisposable
     }
 
     /// <summary>Adds a table-level CHECK constraint to an existing table — ALTER TABLE ADD CONSTRAINT … CHECK.
-    /// Merges into the table's LvProp CheckConstraints property; the engine enforces it on insert/update.</summary>
-    public void AddCheckConstraint(string table, string name, string expression)
+    /// Merges into the table's LvProp CheckConstraints property; the engine enforces it on insert/update.
+    /// <paramref name="reads"/> — the tables and columns the expression reads — go into the MSysObjects object ACE
+    /// records a check with.</summary>
+    public void AddCheckConstraint(string table, string name, string expression,
+        IReadOnlyList<(string Table, IReadOnlyList<string> Columns)> reads)
     {
-        new Catalog.SchemaEditor(_channel, Catalog, Collation).AddCheckConstraint(table, name, expression);
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).AddCheckConstraint(table, name, expression, reads);
         Catalog.Invalidate();
     }
 

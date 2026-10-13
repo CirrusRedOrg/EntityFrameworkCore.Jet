@@ -168,7 +168,13 @@ public sealed class Table
     }
 
     /// <summary>Inserts a row (values aligned to column <see cref="ColumnDef.Index"/>) into the table.</summary>
-    public void Insert(object?[] values) => Write(() => new RowInserter(Channel, Definition).Insert(values));
+    /// <param name="values">The row's values.</param>
+    /// <param name="defaults">The table's all-defaults record, which a statement's row is written over, and
+    /// <paramref name="order"/>, the columns the statement names in its own order — together what decides the
+    /// record's slack (spec §5). Both null for a row written with no defaults.</param>
+    /// <param name="order">See <paramref name="defaults"/>.</param>
+    public void Insert(object?[] values, object?[]? defaults = null, IReadOnlyList<int>? order = null) =>
+        Write(() => new RowInserter(Channel, Definition).Insert(values, updateIndexes: true, defaults, order));
 
     /// <summary>Rewrites the row at <paramref name="id"/> in place with new values (row id preserved).
     /// <paramref name="changedColumns"/> are the columns that actually changed — an unchanged memo/OLE column
@@ -235,6 +241,11 @@ public sealed class Table
             new RowInserter(Channel, Definition).Delete(id);
         });
     }
+
+    /// <summary>Deletes every row at once, as ACE runs a <c>DELETE</c> with no <c>WHERE</c> — see
+    /// <see cref="RowInserter.Truncate"/>. Rows are not visited, so nothing a row reaches is followed: the caller
+    /// keeps to tables that no relationship names as its parent and that hold no complex column.</summary>
+    public void Truncate() => Write(() => new RowInserter(Channel, Definition).Truncate());
 
     private void Write(Action action)
     {

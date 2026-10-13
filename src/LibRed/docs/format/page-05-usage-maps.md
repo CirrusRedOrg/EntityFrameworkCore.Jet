@@ -81,9 +81,11 @@ free = row 1); an index's map spills the same way rather than being squeezed in.
 > - **Free-pages map = the current append tail only.** Access clears a page from the free-pages map
 >   when an insert finds it too full and moves on, so after a sequential fill only the *last* page
 >   stays marked free — verified: of equally-full ACE pages only the last is in the free map, because
->   each earlier one had a next-row attempt that didn't fit. LibRed matches this: on allocating a new page
->   it **clears the previous tail's free bit and sets the new page's**, leaving exactly the tail marked
->   free.
+>   each earlier one had a next-row attempt that didn't fit. LibRed matches this: an insert **clears the free bit
+>   of every page in the free map it finds too full** on its way to one with room, and a page it allocates is
+>   set, leaving exactly the tail marked free. That holds when the page with room is not the last one tried
+>   too: a catalog insert that passes over a full `MSysObjects` page to a later one clears the full page's bit
+>   (verified).
 > - **A delete puts the bit back.** Space freed in a page that had none makes that page a candidate again, so
 >   its free bit is set when the row's space is reclaimed — otherwise the space is there and nothing looks at
 >   it. Verified vs ACE: deleting a row from the **first** of many data pages (full, so its bit had been

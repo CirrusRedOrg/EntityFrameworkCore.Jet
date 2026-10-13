@@ -14,9 +14,9 @@ namespace LibRed.Catalog;
 // A calculated column (§3.4a): the expression, and the type the caller DECLARED for it. Both null for an
 // ordinary column. They are separate from Type because Type carries the descriptor's *promoted* storage
 // type, which need not be the result type at all — build one with Calculated() rather than by hand.
-// A column of a table the engine creates for itself, which leaves 0x09 — the second copy of the column id —
-// zero. A catalog column (SystemFlags) is one already; this marks the rest, such as the MSysComplexType_*
-// templates, which carry no catalog flag.
+// The ordinal position to write at 0x09, where it is not the column id. A column of a table the engine creates
+// for itself leaves it zero — a catalog column (SystemFlags) does already, and the rest, such as the
+// MSysComplexType_* templates, which carry no catalog flag, say so here. A make-table numbers its columns from 1.
 // Extended flag bits (0x10) LibRed does not model, to set on a created column: 0x10 on an attachment value
 // column (FileData, FileFlags, FileName, FileTimeStamp, FileType, FileURL).
 public sealed record ColumnSpec(
@@ -35,7 +35,7 @@ public sealed record ColumnSpec(
     bool SupportsCompressedUnicode = false,
     string? CalculatedExpression = null,
     JetDataType? CalculatedResultType = null,
-    bool IsEngineColumn = false,
+    int? Ordinal = null,
     byte ExtendedFlags = 0)
 {
     /// <summary>A calculated column of <paramref name="resultType"/> computing <paramref name="expression"/>.

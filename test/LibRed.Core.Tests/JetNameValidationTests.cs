@@ -76,7 +76,7 @@ public class JetNameValidationTests
             string L100 = new('x', 100);
             Assert.Throws<ArgumentException>(() => db.CreateTable("T1", [K], primaryKey: ["K"], primaryKeyName: L100));
             Assert.Throws<ArgumentException>(() => db.CreateTable("T2", [K], primaryKey: ["K"],
-                checkConstraints: [(L100, "K > 0")]));
+                checkConstraints: [(L100, "K > 0", [("T2", ["K"])])]));
             Assert.Throws<ArgumentException>(() => db.CreateTable("T3", [K, new("U", JetDataType.Int32, 4, IsFixedLength: true)],
                 primaryKey: ["K"], uniqueConstraints: [new UniqueIndexSpec(L100, ["U"])]));
         }

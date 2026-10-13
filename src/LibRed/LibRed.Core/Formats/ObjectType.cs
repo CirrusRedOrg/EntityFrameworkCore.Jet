@@ -44,6 +44,9 @@ public enum ObjectType : short
     /// <summary>A relationship, in the <c>Relationships</c> container.</summary>
     Relationship = 8,
 
-    /// <summary>DAO's <c>SingleRecord</c> pseudo-object, in the <c>Relationships</c> container.</summary>
-    SingleRecord = 9,
+    /// <summary>A CHECK constraint, in the <c>Relationships</c> container — owner null, <c>Flags</c>
+    /// <c>0x10000000</c>, its expression in <c>Connect</c>, what it reads in <c>Database</c> and its table in
+    /// <c>ForeignName</c> (measured: ACE's <c>ADD CONSTRAINT … CHECK</c>). Every database is created with one,
+    /// DAO's <c>SingleRecord</c>.</summary>
+    CheckConstraint = 9,
 }

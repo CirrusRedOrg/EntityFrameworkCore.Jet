@@ -993,6 +993,10 @@ rather than rewritten empty. Three things change together:
 Two shapes keep an empty leaf, having nowhere to go: a leaf that **is** the root — an index with no rows is
 one empty leaf — and a leaf that is its parent's only remaining child.
 
+A `DELETE` with no `WHERE` removes no entry at all: it resets the root to an empty-leaf header over its old
+entry bytes and releases every other page of the tree untouched — see
+[page-09](page-09-released-data.md#a-delete-with-no-where).
+
 ### 10.4c Dead bytes past the free-space boundary
 
 **A page is zero-filled when it is allocated and never cleared again.** Every later rewrite moves the

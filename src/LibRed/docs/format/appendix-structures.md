@@ -114,7 +114,7 @@ Variable section (`varOffsetTable`+`numVar`) omitted only when the table has nev
 | `0x03` | 2 | Unknown (zero) |
 | `0x05` | 2 | Column id |
 | `0x07` | 2 | Variable-table index — on a **fixed** column the running count of preceding variable columns, dropped ones included (so the `0x2B` high-water for an added column), **NOT `0`**; on a variable column its own slot index, which follows the `0x2B` high-water ([page-02b §3.4](page-02b-columns.md)) |
-| `0x09` | 2 | Ordinal position (DAO `Field.OrdinalPosition`), ties allowed; the engine presents columns in descriptor order, which DAO keeps in step by moving the descriptor when it sets this. A second copy of the id `0x05` at creation on a **user** table, but **`0`** on the tables the engine writes for itself; unchanged by `DROP COLUMN` and by an `ALTER COLUMN` that burns a new id at `0x05`, ranked by `ADD COLUMN` ([page-02b §3.4](page-02b-columns.md)) |
+| `0x09` | 2 | Ordinal position (DAO `Field.OrdinalPosition`), ties allowed; the engine presents columns in descriptor order, which DAO keeps in step by moving the descriptor when it sets this. A second copy of the id `0x05` at creation on a **user** table, but **`0`** on the tables the engine writes for itself and the position from **`1`** on a `SELECT … INTO` make-table; unchanged by `DROP COLUMN` and by an `ALTER COLUMN` that burns a new id at `0x05`, ranked by `ADD COLUMN` ([page-02b §3.4](page-02b-columns.md)) |
 | `0x0B` | 1 | Precision (Decimal) — else collation LANGID low byte (`0x09` en-US). On a Complex column `0x0B`–`0x0E` are the Int32 ComplexID |
 | `0x0C` | 1 | Scale (Decimal) — else collation LANGID high byte (`0x04` en-US) |
 | `0x0D` | 1 | Collation sort id — the LCID's high word (`0x01` = an alternate sort order, e.g. Hungarian Technical) |
@@ -151,8 +151,8 @@ descriptor.
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 4 | Total entry count — set when the index is built or the file compacted; lowered by a delete and by an update that moves the entry, never raised by an insert |
-| `0x04` | 4 | Unique entry count — raised by an insert bringing a new key; lowered by a delete of a key's last holder, and held to the total by an update |
+| `0x00` | 4 | Total entry count — set when the index is built or the file compacted; lowered by a delete and by an update that moves the entry, never raised by an insert; `0` after a `DELETE` with no `WHERE` |
+| `0x04` | 4 | Unique entry count — raised by an insert bringing a new key; lowered by a delete of a key's last holder, and held to the total by a delete and an update; `0` after a `DELETE` with no `WHERE` |
 | `0x08` | 4 | Reserved (zero) |
 
 ## Index-data block — 52 bytes, one per real index → [page-02d](page-02d-constraints.md)

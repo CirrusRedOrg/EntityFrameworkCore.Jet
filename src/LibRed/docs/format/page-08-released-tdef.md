@@ -7,6 +7,11 @@ exactly as it was until a Compact reclaims it.
 > Measured across an ACE `DROP TABLE`: **exactly one byte of the TDEF page's 4,096 changes**, offset `0x000`,
 > `0x02` → `0x08` — the type word `0x0102` becomes `0x0108`.
 
+That holds for a table that is the **child** of a relationship too: its foreign key's index and outgoing block
+stay in the released definition. What the drop takes is outside it — the parent's incoming block, the
+`MSysRelationships` rows and the relationship's `MSysObjects`/`MSysACEs` rows — and it takes them **after** the
+table's own `MSysObjects` and `MSysACEs` rows (verified).
+
 That is what the `0x0108` pages in real-world files are, and it is why they read as *structured* rather than
 blank — a reader walking raw pages finds a whole table definition sitting behind a type that says the page is
 no longer in use. It is also the reason a released TDEF cannot be mistaken for a live one by type alone.

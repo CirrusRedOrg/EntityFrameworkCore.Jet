@@ -265,6 +265,253 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             "INSERT INTO Doc (Id, Body) VALUES (4, String(4000, 'f'))",
         ]);
 
+        // Stored queries: views and procedures of each shape, run and dropped.
+        s.AddRange(
+        [
+            "CREATE VIEW vActiveCustomer AS SELECT Name, City FROM Customer WHERE Active = TRUE",
+            "CREATE VIEW vOrderTotal AS SELECT c.Name, o.Total FROM Customer AS c INNER JOIN Orders AS o ON c.Id = o.CustomerId",
+            "CREATE VIEW vProductLine AS SELECT p.Code, l.Qty FROM Product AS p LEFT JOIN OrderLine AS l ON p.Code = l.ProductCode",
+            "CREATE VIEW vCityCount AS SELECT City, COUNT(*) AS Customers FROM Customer GROUP BY City HAVING COUNT(*) > 0",
+            "CREATE VIEW vCity AS SELECT DISTINCT City FROM Customer",
+            "CREATE VIEW vCheapest AS SELECT TOP 3 Code, Price FROM Product",
+            "CREATE VIEW vPriced AS SELECT Code, Price * 2 AS Doubled, Title & '!' AS Shout FROM Product WHERE Price BETWEEN 10 AND 90",
+            "CREATE PROCEDURE pByCity (cityName TEXT(30)) AS SELECT Id, Name FROM Customer WHERE City = cityName",
+            "CREATE PROCEDURE pSorted AS SELECT Name FROM Customer ORDER BY Name DESC",
+            "CREATE PROCEDURE pBump (amount CURRENCY) AS UPDATE Customer SET Credit = Credit + amount WHERE Active = TRUE",
+            "CREATE PROCEDURE pPurge AS DELETE FROM Audit WHERE Severity = 0",
+            "CREATE PROCEDURE pLog AS INSERT INTO Audit (Detail, LoggedOn, Charge) VALUES ('from a procedure', #2022-05-01#, 1)",
+            "CREATE PROCEDURE pCopy AS INSERT INTO Audit (Detail, LoggedOn, Charge) SELECT Name, Joined, Credit FROM Customer WHERE Id < 3",
+            "EXECUTE pLog",
+            "EXECUTE pPurge",
+            "EXECUTE pCopy",
+            "DROP VIEW vCheapest",
+            "DROP PROCEDURE pPurge",
+            "CREATE VIEW vDerived AS SELECT d.City, d.N FROM (SELECT City, COUNT(*) AS N FROM Customer GROUP BY City) AS d WHERE d.N > 0",
+            "CREATE PROCEDURE pTyped (since DATETIME, lim LONG) AS SELECT Id FROM Customer WHERE Joined > since AND Id < lim",
+            "CREATE PROCEDURE pSized (lim LONG, who TEXT(20)) AS SELECT Id FROM Customer WHERE Id < lim AND Name <> who ORDER BY Id",
+            "CREATE PROCEDURE pSizedFirst (who TEXT(20), lim LONG) AS SELECT Id FROM Customer WHERE Id < lim AND Name <> who",
+            "CREATE PROCEDURE pRename (who TEXT(20)) AS UPDATE Customer SET Name = who WHERE Id = 999",
+            "CREATE PROCEDURE pCopyJoin AS INSERT INTO Audit (Detail, Charge) SELECT c.Name, o.Total FROM Customer AS c " +
+                "INNER JOIN Orders AS o ON c.Id = o.CustomerId WHERE o.Total > 0",
+            "CREATE PROCEDURE pMake AS SELECT Name, City INTO CustomerNames FROM Customer WHERE Id < 5",
+            "CREATE VIEW vDistinctWhere AS SELECT DISTINCT City FROM Customer WHERE Id > 0",
+            "CREATE PROCEDURE pMixed AS SELECT DISTINCT TOP 2 c.City FROM Customer AS c INNER JOIN Orders AS o ON c.Id = o.CustomerId " +
+                "WHERE o.Total > 0 GROUP BY c.City HAVING COUNT(*) > 0 ORDER BY c.City",
+        ]);
+
+        // Reserved words as names, bracketed; defaults; CHECK constraints; a column-level REFERENCES dropped for a
+        // cascading one, and the cascades it then makes.
+        s.AddRange(
+        [
+            "CREATE TABLE Setting (Id LONG CONSTRAINT pkSetting PRIMARY KEY, Name TEXT(40) DEFAULT 'unnamed', " +
+                "Enabled BIT DEFAULT TRUE, [Level] LONG DEFAULT 3, Created DATETIME DEFAULT Now(), [Note] TEXT(20), " +
+                "CONSTRAINT uqSettingName UNIQUE (Name))",
+            "INSERT INTO Setting (Id, Created) VALUES (1, #2024-01-01#)",
+            "INSERT INTO Setting (Id, Name, Created) VALUES (2, 'second', #2024-01-02#)",
+            "INSERT INTO Setting (Id, Name, [Level], Created, [Note]) VALUES (3, 'third', 9, #2024-01-03#, 'a note')",
+            "INSERT INTO Setting (Id, Name, Enabled, Created) VALUES (4, 'a name longer than the default', FALSE, #2024-01-04#)",
+            "ALTER TABLE Setting ADD CONSTRAINT ckSettingLevel CHECK ([Level] BETWEEN 0 AND 10)",
+            "UPDATE Setting SET [Level] = 7 WHERE Id = 2",
+            "UPDATE Setting SET Name = 'x' WHERE Id = 3",
+            "UPDATE Setting SET [Note] = 'a longer note!' WHERE Id = 3",
+            "ALTER TABLE Setting DROP CONSTRAINT ckSettingLevel",
+            "ALTER TABLE Setting ADD CONSTRAINT ckSettingPair CHECK ([Level] < Len([Note]) + 20)",
+            "ALTER TABLE Setting ADD CONSTRAINT ckSettingOther CHECK ([Level] <= (SELECT COUNT(*) FROM Customer) + 10)",
+            "ALTER TABLE Setting ADD CONSTRAINT ckSettingNone CHECK (1 = 1)",
+            "ALTER TABLE Setting DROP CONSTRAINT ckSettingPair",
+            "ALTER TABLE Setting DROP CONSTRAINT ckSettingNone",
+            "ALTER TABLE Setting DROP CONSTRAINT ckSettingOther",
+            "ALTER TABLE Setting ADD CONSTRAINT ckSettingOrder CHECK (Len([Note]) < [Level] + 20 OR [Level] > 0)",
+            "ALTER TABLE Setting ADD CONSTRAINT ckSettingCredit CHECK ([Level] < (SELECT MAX(Credit) FROM Customer WHERE City = 'Rome') + 10)",
+            "ALTER TABLE Setting DROP CONSTRAINT ckSettingOrder",
+            "ALTER TABLE Setting DROP CONSTRAINT ckSettingCredit",
+            "ALTER TABLE Setting ADD CONSTRAINT ckSettingFirst CHECK ((SELECT COUNT(*) FROM Audit) >= [Level] - 100)",
+            "ALTER TABLE Setting DROP CONSTRAINT ckSettingFirst",
+            "ALTER TABLE Setting ADD CONSTRAINT ckShared CHECK ([Level] >= 0)",
+            "ALTER TABLE Setting DROP CONSTRAINT ckShared",
+            "ALTER TABLE Setting ADD CONSTRAINT Customer CHECK ([Level] >= 0)",
+            "ALTER TABLE Setting DROP CONSTRAINT Customer",
+            "CREATE TABLE Ranged (Id LONG, Lo LONG, Hi LONG, CONSTRAINT ckRange CHECK (Lo <= Hi))",
+            "INSERT INTO Ranged VALUES (1, 2, 3)",
+            "DROP TABLE Ranged",
+            "CREATE TABLE Child (Id LONG CONSTRAINT pkChild PRIMARY KEY, SettingId LONG CONSTRAINT fkChildSetting REFERENCES Setting (Id), " +
+                "Label TEXT(20))",
+            "INSERT INTO Child VALUES (1, 1, 'one')",
+            "INSERT INTO Child VALUES (2, 2, 'two')",
+            "INSERT INTO Child VALUES (3, 3, 'three')",
+            "ALTER TABLE Child DROP CONSTRAINT fkChildSetting",
+            "ALTER TABLE Child ADD CONSTRAINT fkChildCascade FOREIGN KEY (SettingId) REFERENCES Setting (Id) ON DELETE CASCADE ON UPDATE CASCADE",
+            "DELETE FROM Setting WHERE Id = 2",
+            "UPDATE Setting SET Id = 10 WHERE Id = 1",
+            "ALTER TABLE Child ADD COLUMN Weight DOUBLE",
+            "UPDATE Child SET Weight = Id * 1.5",
+            "ALTER TABLE Child ALTER COLUMN Label TEXT(50)",
+            "ALTER TABLE Child ALTER COLUMN Weight LONG",
+            "CREATE INDEX ixChildLabel ON Child (Label) WITH IGNORE NULL",
+            "CREATE UNIQUE INDEX ixChildPair ON Child (SettingId, Label) WITH DISALLOW NULL",
+            "DROP INDEX ixChildLabel ON Child",
+            "CREATE TABLE Slack (K LONG, A TEXT(20) DEFAULT 'aaaa', B TEXT(20) DEFAULT 'bbbbbbbb', C TEXT(20))",
+            "INSERT INTO Slack (K, A, B, C) VALUES (1, 'x', 'y', 'z')",
+            "INSERT INTO Slack (K, C, B, A) VALUES (2, 'z', 'y', 'x')",
+            "INSERT INTO Slack (K, C) VALUES (3, 'zzzzzzzzzzzzzzzz')",
+            "INSERT INTO Slack (K, B) VALUES (4, 'z')",
+            "INSERT INTO Slack (K, A, B) VALUES (5, NULL, '')",
+            "UPDATE Slack SET A = 'xx', C = 'zzzzzz' WHERE K = 1",
+            "UPDATE Slack SET C = 'zzzzzz', A = '' WHERE K = 2",
+            "UPDATE Slack SET A = 'xxxxxxxxxxxxxxxxxxxx' WHERE K = 4",
+            "UPDATE Slack SET K = 50 WHERE K = 5",
+            "CREATE TABLE Prop1 (Id LONG, Name TEXT(40) DEFAULT 'unnamed', Enabled BIT DEFAULT TRUE, Tier LONG DEFAULT 3, " +
+                "CONSTRAINT uqProp1 UNIQUE (Name))",
+            "CREATE TABLE Prop2 (Id LONG, Name TEXT(40) DEFAULT 'unnamed', Enabled BIT DEFAULT TRUE, Tier LONG DEFAULT 3, " +
+                "CONSTRAINT pkProp2 PRIMARY KEY (Id))",
+            "CREATE TABLE Prop3 (Id LONG, Name TEXT(40) DEFAULT 'unnamed' CONSTRAINT uqProp3 UNIQUE, Enabled BIT DEFAULT TRUE, " +
+                "Tier LONG DEFAULT 3)",
+            "CREATE TABLE Prop4 (Id LONG, A TEXT(40) DEFAULT 'unnamed' NOT NULL, B LONG DEFAULT 3 NOT NULL, C TEXT(10) NOT NULL, " +
+                "D LONG DEFAULT 4)",
+            "CREATE TABLE Prop5 (Id LONG NOT NULL, A TEXT(40) NOT NULL, B LONG NOT NULL, C TEXT(10) NOT NULL, D LONG NOT NULL, " +
+                "E LONG NOT NULL)",
+            "CREATE TABLE Prop6 (Id LONG CONSTRAINT pkProp6 PRIMARY KEY, A TEXT(10) NOT NULL CONSTRAINT uqProp6 UNIQUE, " +
+                "B LONG DEFAULT 1, C TEXT(20) DEFAULT 'a longer default value')",
+            "CREATE TABLE [Order] ([Select] LONG CONSTRAINT pkOrder PRIMARY KEY, [From] TEXT(10), [Where] DATETIME, [Money] CURRENCY)",
+            "INSERT INTO [Order] VALUES (1, 'here', #2025-02-03#, 12.5)",
+            "UPDATE [Order] SET [From] = 'there', [Money] = [Money] * 3 WHERE [Select] = 1",
+        ]);
+
+        // Make-table queries, a table emptied and refilled, a primary key replaced, and more retypes.
+        s.AddRange(
+        [
+            "SELECT * INTO CustomerCopy FROM Customer",
+            "SELECT Code, Price INTO Cheap FROM Product WHERE Price < 50",
+            "SELECT City, COUNT(*) AS N, SUM(Credit) AS Total INTO CityTotals FROM Customer GROUP BY City",
+            "DROP TABLE Cheap",
+            "DELETE FROM CustomerCopy WHERE Id > 0",
+            "INSERT INTO CustomerCopy (Name, City, Joined, Credit, Active) SELECT Name, City, Joined, Credit, Active FROM Customer WHERE Id < 4",
+            "ALTER TABLE OrderLine DROP CONSTRAINT pkOrderLine",
+            "ALTER TABLE OrderLine ADD CONSTRAINT pkOrderLineAgain PRIMARY KEY (OrderId, LineNo)",
+            "CREATE INDEX ixAuditSeverity ON Audit (Severity, LoggedOn DESC)",
+            "CREATE UNIQUE INDEX ixOrdersRef ON Orders (Ref)",
+            "ALTER TABLE Audit ALTER COLUMN Charge DOUBLE",
+            "ALTER TABLE Audit ALTER COLUMN Severity TEXT(5)",
+            "ALTER TABLE Audit ALTER COLUMN Detail MEMO",
+            "ALTER TABLE Audit ALTER COLUMN LoggedOn DOUBLE",
+            "UPDATE Customer SET Joined = DateAdd('m', 1, Joined) WHERE Joined IS NOT NULL",
+            "UPDATE Product SET Title = Title & ' (' & Code & ')'",
+            "UPDATE Customer SET City = UCase(City), Email = NULL WHERE Id IN (SELECT CustomerId FROM Orders WHERE Total > 500)",
+            "DELETE FROM OrderLine WHERE ProductCode NOT IN (SELECT Code FROM Product)",
+        ]);
+
+        // Every ordinary type in one table, an AutoNumber with its own seed and step, and compressed text.
+        s.AddRange(
+        [
+            "CREATE TABLE Kinds (Id LONG, Small SHORT, Tiny BYTE, Real4 REAL, Cash CURRENCY, [Exact] DECIMAL(28,10), Flag BIT, " +
+                "Moment DATETIME, Ident GUID, Raw BINARY(16), Var VARBINARY(50), Fixed CHAR(5), Packed TEXT(40) WITH COMPRESSION)",
+            "INSERT INTO Kinds VALUES (1, -32768, 255, 1.5, 123.4567, -123456789.0123456789, TRUE, #1899-12-30#, " +
+                "{guid {00000001-0002-0003-0405-060708090A0B}}, 0x00FF00FF00FF00FF00FF00FF00FF00FF, 0x0102, 'ab', 'plain latin text')",
+            "INSERT INTO Kinds (Id) VALUES (2)",
+            "INSERT INTO Kinds (Id, Small, Real4, Cash, [Exact], Moment, Packed) VALUES (3, 32767, -3.4E38, -0.0001, 0.0000000001, " +
+                "#9999-12-31 23:59:59#, 'ünïcödé — not latin')",
+            "UPDATE Kinds SET [Exact] = [Exact] * -1, Cash = Cash * 2 WHERE Id <> 1",
+            "UPDATE Kinds SET Fixed = 'abcde', Var = 0x0A0B0C0D, Packed = 'now packed' WHERE Id = 2",
+            "CREATE TABLE Seq (Id AUTOINCREMENT(10, 5) CONSTRAINT pkSeq PRIMARY KEY, Label TEXT(10))",
+            "INSERT INTO Seq (Label) VALUES ('a')",
+            "INSERT INTO Seq (Label) VALUES ('b')",
+            "INSERT INTO Seq (Label) VALUES ('c')",
+            "DELETE FROM Seq WHERE Id = 15",
+            "INSERT INTO Seq (Label) VALUES ('d')",
+            "SELECT * INTO SeqCopy FROM Seq",
+            "SELECT OrderId, CustomerId * 2 AS Doubled, Total * 1.5 AS Scaled, Placed + 1 AS NextDay, Total > 100 AS Big, " +
+                "CustomerId & '' AS AsText, Ref AS SameRef INTO OrderCalc FROM Orders",
+            "SELECT CByte(Rating) AS B1, CInt(Stock) AS I2, CLng(Stock) AS L4, CSng(Price) AS S4, CDbl(Price) AS D8, " +
+                "CCur(Price) AS C8, CDate(Price) AS T8, CBool(Stock) AS Y1, Price > 10 AS Cmp, Price AS Raw, Code & '' AS Txt " +
+                "INTO Casts FROM Product",
+            "SELECT Total * 2 AS Dec4, Total / 3 AS DecDiv, CCur(Total) * 2 AS Cur2 INTO MoneyCalc FROM Orders",
+            "CREATE TABLE Dz (A DECIMAL(10,2), M CURRENCY)",
+            "INSERT INTO Dz VALUES (12.34, 5.5)",
+            "SELECT A * 2 AS A2, A / 3 AS A3, A * 1.5 AS A4, M * 2 AS M2, SUM(M) AS M3 INTO DzCalc FROM Dz GROUP BY A, M",
+        ]);
+
+        // Every row of a table deleted: with no WHERE, through a WHERE that every row meets, over many pages and
+        // two indexes, and over a keyed AutoNumber table; then a table dropped that other objects named.
+        s.AddRange(
+        [
+            "DELETE FROM Digits WHERE D >= 0",
+            "DELETE FROM Bulk",
+            "DELETE FROM Seq",
+            "INSERT INTO Seq (Label) VALUES ('after')",
+            "DROP TABLE Child",
+            "DROP TABLE Setting",
+        ]);
+
+        // A whole table deleted with no WHERE, over each shape: long values chained and packed, no index at all,
+        // the DELETE * form, a definition on continuation pages, a table already empty, a composite key, the child
+        // and then the parent of a relationship, a cascading parent, and a WHERE that is always true.
+        s.AddRange(
+        [
+            "DELETE FROM Doc",
+            "INSERT INTO Doc (Id, Body) VALUES (5, String(3000, 'g'))",
+            "DELETE FROM Slack",
+            "DELETE * FROM Kinds",
+            "DELETE FROM Wide",
+            "DELETE FROM Digits",
+            "DELETE FROM OrderLine",
+            "DELETE FROM Orders",
+            "DELETE FROM Customer",
+            "INSERT INTO Customer (Name, City) VALUES ('Fresh', 'Rome')",
+            "CREATE TABLE Parent (Id LONG CONSTRAINT pkParent PRIMARY KEY, Name TEXT(20))",
+            "CREATE TABLE Kid (Id LONG CONSTRAINT pkKid PRIMARY KEY, ParentId LONG, " +
+                "CONSTRAINT fkKidParent FOREIGN KEY (ParentId) REFERENCES Parent (Id) ON DELETE CASCADE)",
+            "INSERT INTO Parent VALUES (1, 'one')",
+            "INSERT INTO Parent VALUES (2, 'two')",
+            "INSERT INTO Kid VALUES (10, 1)",
+            "INSERT INTO Kid VALUES (20, 2)",
+            "INSERT INTO Kid VALUES (21, 2)",
+            "DELETE FROM Parent",
+            "DELETE FROM SeqCopy WHERE 1 = 1",
+            "DELETE FROM CityTotals",
+            "DELETE FROM Audit",
+        ]);
+
+        // Tables refilled through INSERT … SELECT, then multi-table UPDATE and DELETE through joins; constraints and
+        // indexes added and dropped over rows; long values grown and nulled; columns retyped, dropped and added
+        // with a default; make-tables with DISTINCT and TOP; reserved names; and a fresh AutoNumber memo table.
+        s.AddRange(
+        [
+            "INSERT INTO Orders (OrderId, CustomerId, Placed, Total) SELECT 2000 + Id, Id, Joined, Credit FROM Customer",
+            "INSERT INTO Customer (Name, City, Credit) VALUES ('Second', 'Oslo', 20)",
+            "INSERT INTO Orders (OrderId, CustomerId, Total) SELECT 3000 + Id, Id, 5 FROM Customer",
+            "INSERT INTO OrderLine (OrderId, LineNo, ProductCode, Qty) SELECT o.OrderId, p.Stock, p.Code, 3 FROM Orders AS o, Product AS p WHERE p.Price < 40",
+            "UPDATE Orders AS o INNER JOIN Customer AS c ON o.CustomerId = c.Id SET o.Total = o.Total + 1, c.City = 'Turin'",
+            "DELETE o.* FROM OrderLine AS o INNER JOIN Product AS p ON o.ProductCode = p.Code WHERE p.Price < 20",
+            "ALTER TABLE Product ADD COLUMN Discontinued BIT",
+            "UPDATE Product SET Discontinued = TRUE WHERE Stock < 30",
+            "CREATE UNIQUE INDEX ixProductCodeTitle ON Product (Code, Title DESC)",
+            "ALTER TABLE Product ADD CONSTRAINT uqProductWeight UNIQUE (Weight)",
+            "ALTER TABLE Product DROP CONSTRAINT uqProductWeight",
+            "UPDATE Product SET Notes = String(3000, 'n') WHERE Code = 'P003'",
+            "UPDATE Product SET Notes = NULL WHERE Code = 'P004'",
+            "INSERT INTO Kinds (Id, Packed) VALUES (10, 'ünïcödé — 中文')",
+            "UPDATE Kinds SET Packed = Packed & ' more' WHERE Id = 10",
+            "ALTER TABLE Kinds ALTER COLUMN Small LONG",
+            "ALTER TABLE Kinds DROP COLUMN Raw",
+            "CREATE INDEX ixKindsMoment ON Kinds (Moment DESC, Id)",
+            "INSERT INTO Kinds (Id, Moment) VALUES (11, #2001-02-03 04:05:06#)",
+            "DROP INDEX ixKindsMoment ON Kinds",
+            "ALTER TABLE Seq ADD COLUMN Extra LONG DEFAULT 7",
+            "INSERT INTO Seq (Label) VALUES ('def')",
+            "SELECT DISTINCT City INTO CityList FROM Customer",
+            "SELECT TOP 2 * INTO TopProducts FROM Product ORDER BY Price DESC",
+            "INSERT INTO [Order] ([Select], [From]) VALUES (2, 'there')",
+            "UPDATE [Order] SET [Where] = #2030-01-01# WHERE [Select] = 2",
+            "DELETE FROM [Order] WHERE [Select] = 1",
+            "DROP TABLE [Order]",
+            "CREATE TABLE Notes2 (Id COUNTER CONSTRAINT pkNotes2 PRIMARY KEY, Body LONGTEXT, Tag TEXT(10) DEFAULT 'none' NOT NULL)",
+            "INSERT INTO Notes2 (Body) VALUES ('first')",
+            "INSERT INTO Notes2 (Body, Tag) VALUES (String(200, 'x'), 'long')",
+            "UPDATE Notes2 SET Body = Body & Body WHERE Id = 2",
+            "DELETE FROM Notes2 WHERE Id = 1",
+            "INSERT INTO Notes2 (Body) SELECT Name FROM Customer",
+        ]);
+
         return [.. s];
     }
 
@@ -351,7 +598,12 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             string detail = string.Join(" ", differing.Take(8).Select(i => $"+0x{i:X3}:{ace[at + i]:X2}/{libred[at + i]:X2}"));
             string kind = page == 0 ? "page 0"
                 : $"type 0x{ace[at]:X2}{(ace[at] != libred[at] ? $"/0x{libred[at]:X2}" : "")} {Owner(owners, format, ace, at)}";
-            Add(groups, kind, $"page {page}: {differing.Count} bytes  {detail}");
+            string slots = ace[at] == 0x01
+                ? "\n      slots " + string.Join(" ", Enumerable.Range(0, DataPage.ReadRowCount(ace.AsSpan(at, pageSize), format))
+                    .Select(r => DataPage.ReadSlot(ace.AsSpan(at, pageSize), format, r))
+                    .Select(s => $"{s.Offset:X3}/{(int)s.Flags:X4}"))
+                : "";
+            Add(groups, kind, $"page {page}: {differing.Count} bytes  {detail}{slots}{Runs(origin, ace, libred, at, differing)}");
         }
 
         var report = new StringBuilder();
@@ -364,6 +616,27 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             foreach (string line in lines) report.AppendLine(CultureInfo.InvariantCulture, $"   {line}");
         }
         return (report.ToString(), differingPages);
+    }
+
+    /// <summary>The page's differing bytes as runs — those within four bytes of each other joined, with sixteen bytes
+    /// of context either side — the file before the statement, then ACE's line over LibRed's, for the first forty
+    /// runs.</summary>
+    private static string Runs(byte[] origin, byte[] ace, byte[] libred, int at, List<int> differing)
+    {
+        var text = new StringBuilder();
+        int k = 0, runs = 0;
+        while (k < differing.Count && runs++ < 40)
+        {
+            int start = differing[k], end = start;
+            while (k + 1 < differing.Count && differing[k + 1] <= end + 4) end = differing[++k];
+            k++;
+            int from = Math.Max(0, start - 16), length = Math.Min(Math.Min(end + 17, 4096), ace.Length - at) - from;
+            if (at + from + length <= origin.Length)
+                text.Append(CultureInfo.InvariantCulture, $"\n      +0x{from:X3} WAS {Convert.ToHexString(origin, at + from, length)}");
+            text.Append(CultureInfo.InvariantCulture, $"\n      +0x{from:X3} ACE {Convert.ToHexString(ace, at + from, length)}")
+                .Append(CultureInfo.InvariantCulture, $"\n      +0x{from:X3} LIB {Convert.ToHexString(libred, at + from, length)}");
+        }
+        return text.ToString();
     }
 
     private static void Add(SortedDictionary<string, List<string>> groups, string kind, string line)
@@ -423,14 +696,32 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             ReadOnlySpan<byte> bytes = file.AsSpan(at, pageSize);
             if ((int)DataPage.ReadOwner(bytes, format) != objects.DefinitionPage) continue;
 
+            // Every record on the page, a relocated row's hidden target included (flagged deleted but not empty) —
+            // only a forwarding pointer and a zero-length tombstone hold no row.
             int rows = DataPage.ReadRowCount(bytes, format);
+            int end = pageSize;
+            var stamps = new List<byte[]>();
             for (int row = 0; row < rows; row++)
             {
                 (int start, RowSlotFlags flags) = DataPage.ReadSlot(bytes, format, row);
-                if ((flags & (RowSlotFlags.Deleted | RowSlotFlags.Overflow)) != 0) continue;
+                int length = end - start;
+                if (start < end) end = start;
+                if ((flags & RowSlotFlags.Overflow) != 0 || length <= 0) continue;
                 foreach (int offset in dates)
-                    for (int i = 0; i < 8; i++) masks[page].Add(start + format.RowColumnCountSize + offset + i);
+                {
+                    int date = start + format.RowColumnCountSize + offset;
+                    stamps.Add(bytes.Slice(date, 8).ToArray());
+                    for (int i = 0; i < 8; i++) masks[page].Add(date + i);
+                }
             }
+
+            // And the stale copy of a record a rewrite left in the free space below the rows: both engines leave the
+            // same image there, the clock in it as in the live row it came from.
+            int freeStart = DataPage.DirectoryEnd(format, rows);
+            for (int p = freeStart; p + 8 <= end; p++)
+                foreach (byte[] stamp in stamps)
+                    if (bytes.Slice(p, 8).SequenceEqual(stamp))
+                        for (int i = 0; i < 8; i++) masks[page].Add(p + i);
         }
 
         // A chained long value's descriptor carries the same write stamp as the chain's first page, bytes 8–11 of

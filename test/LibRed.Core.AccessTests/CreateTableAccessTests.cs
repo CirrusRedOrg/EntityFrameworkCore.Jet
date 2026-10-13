@@ -483,7 +483,7 @@ public class CreateTableAccessTests
                     [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),
                      new ColumnSpec("Age", JetDataType.Int32, 4, IsFixedLength: true)],
                     primaryKey: ["Id"],
-                    checkConstraints: [("CK_Age", "[Age] > 0")]);
+                    checkConstraints: [("CK_Age", "[Age] > 0", [("T", ["Age"])])]);
 
             using var conn = OpenOleDb(path);
             using (var ok = conn.CreateCommand())

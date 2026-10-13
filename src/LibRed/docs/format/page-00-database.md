@@ -152,6 +152,16 @@ table has been found. Verified: the four pointer values equal the objects'
 > the key's index root the page after). **Data pages are allocated lazily on first insert**, so they appear out of
 > sequence and an empty table has none at all.
 >
+> **A table with extended properties** (`DEFAULT`, `NOT NULL`, a calculated column) writes them **one property at
+> a time** after its `MSysObjects` row, in column order with `DefaultValue` before `Required`: each write stores
+> the whole blob so far — inline in the row while it fits in 64 bytes, on a packed LvProp page after — and frees
+> the version it replaces, so four `DEFAULT`s leave three zero-length tombstones ahead of the live blob. A key's
+> index root comes after the properties of every column declared before it (its own column included, for an
+> inline constraint): a `PRIMARY KEY` on a first column with no properties takes its root first, while a
+> `UNIQUE` declared inline after a `DEFAULT`, or at the end of the statement, takes it after the property page
+> (verified). A `CHECK`, a table property, is written after the
+> columns' (its place among other table-level elements is not measured).
+>
 > | pages | contents |
 > | --- | --- |
 > | `0`, `1` | database definition; the global free-pages (row 0) and released-pages (row 1) maps |

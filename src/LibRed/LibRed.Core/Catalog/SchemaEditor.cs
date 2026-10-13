@@ -5,6 +5,7 @@ using LibRed.Pages;
 using LibRed.Storage;
 using System.Buffers.Binary;
 using System.Globalization;
+using System.Text;
 using MapRetirement = ((int Row, int Page) Map, System.Collections.Generic.IReadOnlyList<(int Row, int Page)> Clear, System.Collections.Generic.IReadOnlyList<int> Pages);
 
 namespace LibRed.Catalog;
@@ -73,7 +74,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         IReadOnlyList<RelationshipSpec>? relationships = null,
         IReadOnlyList<UniqueIndexSpec>? uniqueConstraints = null,
         IReadOnlyList<(string Column, string DefaultSql)>? columnDefaults = null,
-        IReadOnlyList<(string Name, string Expression)>? checkConstraints = null,
+        IReadOnlyList<(string Name, string Expression, IReadOnlyList<(string Table, IReadOnlyList<string> Columns)> Reads)>? checkConstraints = null,
         string? primaryKeyName = null,
         int primaryKeyDeclaredAfter = 0,
         TableType tableType = TableType.User,
@@ -96,7 +97,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         if (primaryKeyName is not null) JetName.Validate(primaryKeyName, "primary key name");
         foreach (RelationshipSpec r in relationships) JetName.Validate(r.Name, "foreign key name");
         foreach (UniqueIndexSpec u in uniqueConstraints) JetName.Validate(u.Name, "unique constraint name");
-        foreach ((string checkName, _) in checkConstraints) JetName.Validate(checkName, "check constraint name");
+        foreach ((string checkName, _, _) in checkConstraints) JetName.Validate(checkName, "check constraint name");
 
         // A legal name is all a read-only database looks at: a taken name, a relationship's target and everything
         // below are refused as read-only (verified vs ACE).
@@ -212,10 +213,11 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // `(Id LONG, CONSTRAINT pk PRIMARY KEY (Id), M MEMO)`, which gives pk row 2.
         //
         // An index's DeclaredAfter counts the constraints declared before it as well as the columns; less those
-        // constraints, it is the columns before it, which is what places it among the long-value columns.
+        // constraints, it is the columns before it, which is what places it among the long-value columns — and
+        // its root among the columns' extended properties, below.
+        int[] columnsBefore = [.. indexPlans.Select(p => p.DeclaredAfter - indexPlans.Count(q => q.DeclaredAfter < p.DeclaredAfter))];
         var claims = indexPlans
-            .Select((p, i) => (Sort: (p.DeclaredAfter - indexPlans.Count(q => q.DeclaredAfter < p.DeclaredAfter),
-                Constraint: 0, i), Index: i, LongValue: -1))
+            .Select((p, i) => (Sort: (columnsBefore[i], Constraint: 0, i), Index: i, LongValue: -1))
             .Concat(longValueCols.Take(colsOnPrimary)
                 .Select((c, j) => (Sort: (c.Position, Constraint: 1, j), Index: -1, LongValue: j)))
             .OrderBy(c => c.Sort);
@@ -246,14 +248,17 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         }
 
         // Each index is an empty leaf root, populated as rows are inserted. Its usage map is on the primary
-        // page, at the row the declaration order above gave it. A foreign key's root is allocated later, after
-        // its relationship's rows (below); until then the definition names page 0.
+        // page, at the row the declaration order above gave it. A key declared after a column with extended
+        // properties gets its root after those properties are written, and a foreign key's after its
+        // relationship's rows (both below); until then the definition names page 0.
+        bool HasProperties(ColumnSpec c) => defaults.ContainsKey(c.Name) || !c.IsNullable || c.CalculatedExpression is not null;
+        bool[] afterProperties = [.. columnsBefore.Select(n => columns.Take(n).Any(HasProperties))];
         var indexes = new List<IndexSpec>(indexPlans.Count);
         for (int i = 0; i < indexPlans.Count; i++)
         {
             var plan = indexPlans[i];
             int rootPage = 0;
-            if (plan.Fk is null)
+            if (plan.Fk is null && !afterProperties[i])
             {
                 rootPage = AllocateIndexRoot(format, tdefPage);
                 new UsageMap(_channel).SetBit(indexRows[i], usageMapPage, rootPage, set: true);
@@ -330,27 +335,57 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         int defEnd = TableDefinition.ReadLength(tdef, format);
         TableDefinition.WriteChain(_channel, _allocator, tdefPage, tdef[..defEnd], [], rewrite: false);
 
-        // Per-column extended properties, in column order with DefaultValue before Required (matching ACE):
-        // a DEFAULT is a memo property; a NOT NULL column carries a boolean Required property, and a nullable
-        // one none. An AutoNumber follows the same rule — ACE writes Required for COUNTER NOT NULL and not for
-        // a bare COUNTER (verified by reading its property blob back).
-        var columnProps = new List<PropertyBlob.Property>();
-        foreach (ColumnSpec col in columns)
-        {
-            if (defaults.TryGetValue(col.Name, out PropertyBlob.Property def))
-                columnProps.Add(def);
-            if (!col.IsNullable)
-                columnProps.Add(PropertyBlob.Bool(col.Name, PropertyBlob.RequiredProperty, true));
-            columnProps.AddRange(CalculatedProperties(col));
-        }
-
-        // A table owning a complex column is flagged so — Access marks every one it writes.
-        AddCatalogRow(name, tdefPage, columnProps, checkConstraints,
-            flatTable ? ObjectAttributes.System | ObjectAttributes.ComplexFlatTable
+        // The table's MSysObjects row, with no extended properties yet (they are written below, one at a time). A
+        // table owning a complex column is flagged so — Access marks every one it writes.
+        ObjectAttributes objectFlags = flatTable ? ObjectAttributes.System | ObjectAttributes.ComplexFlatTable
             : columns.Any(c => c.Type == JetDataType.Complex) ? ObjectAttributes.OwnsComplexColumns
-            : ObjectAttributes.None);
+            : ObjectAttributes.None;
+        _catalog.AddObjectRow(name, tdefPage, ObjectType.Table, JetCatalog.ObjectContainerParentId, flags: unchecked((int)objectFlags));
         // A new table's permission rows: what the Tables container grants what it creates (system-catalog §11).
         _catalog.AddPermissionRows(tdefPage, JetCatalog.ObjectContainerParentId, inheritable: flatTable);
+
+        // A root allocated after the definition is written: recorded in its usage map, then named in the definition.
+        void AllocateRoot(int i)
+        {
+            int rootPage = AllocateIndexRoot(format, tdefPage);
+            new UsageMap(_channel).SetBit(indexRows[i], usageMapPage, rootPage, set: true);
+            _catalog.Invalidate();
+            TableDefinition created = _catalog.RequireTable(name);
+            new IndexTree(_channel, created).UpdateIndexRoot(created.Indexes.First(ix => ix.RealIndexOrdinal == i), rootPage);
+        }
+
+        // The extended properties are written ONE AT A TIME, in column order with DefaultValue before Required:
+        // each write stores the whole blob so far — inline while it fits, on a packed LvProp page after — and frees
+        // the version it replaces (verified vs ACE: four DEFAULTs leave three zero-length tombstones ahead of the
+        // live blob on that page, and a column with both DEFAULT and NOT NULL is two writes). A DEFAULT is a memo
+        // property; a NOT NULL column carries a boolean Required property, and a nullable one none — an
+        // AutoNumber too: ACE writes Required for COUNTER NOT NULL and not for a bare COUNTER. A key declared after
+        // the column takes its root here, before the next column's (verified: a UNIQUE declared inline after a
+        // DEFAULT, or at the end of the statement, comes after the property page; a PRIMARY KEY on a first column
+        // with no properties before it). A CHECK, a table property, is written after the columns'.
+        var written = new List<PropertyBlob.Property>();
+        void Write(PropertyBlob.Property property)
+        {
+            written.Add(property);
+            WriteObjectProperties(tdefPage, PropertyBlob.Write(written));
+        }
+        for (int position = 0; position < columns.Count; position++)
+        {
+            ColumnSpec col = columns[position];
+            if (defaults.TryGetValue(col.Name, out PropertyBlob.Property def)) Write(def);
+            if (!col.IsNullable) Write(PropertyBlob.Bool(col.Name, PropertyBlob.RequiredProperty, true));
+            foreach (PropertyBlob.Property calculated in CalculatedProperties(col)) Write(calculated);
+            for (int i = 0; i < indexPlans.Count; i++)
+                if (afterProperties[i] && indexPlans[i].Fk is null && columnsBefore[i] == position + 1) AllocateRoot(i);
+        }
+        for (int i = 0; i < indexPlans.Count; i++)
+            if (afterProperties[i] && indexPlans[i].Fk is null && columnsBefore[i] > columns.Count) AllocateRoot(i);
+        if (checkConstraints.Count > 0)
+            Write(new PropertyBlob.Property("", PropertyBlob.CheckConstraintsProperty,
+                PropertyBlob.WriteCheckList([.. checkConstraints.Select(c => (c.Name, c.Expression))])));
+        // Each check's object, after the table's own row, as ACE writes them (measured, whole-file diff).
+        foreach ((string checkName, string expression, var reads) in checkConstraints)
+            _catalog.CreateCheckObject(checkName, name, expression, CheckReadsText(reads));
 
         // Each foreign key's index is built after its relationship's rows, as ACE builds it (verified: a database's
         // first relationship takes MSysRelationships' first data page, and the key's index root the page after).
@@ -358,11 +393,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         {
             if (indexPlans[i].Fk is not { } fk) continue;
             AddRelationshipRows(name, fk);
-            int rootPage = AllocateIndexRoot(format, tdefPage);
-            new UsageMap(_channel).SetBit(indexRows[i], usageMapPage, rootPage, set: true);
-            _catalog.Invalidate();
-            TableDefinition created = _catalog.RequireTable(name);
-            new IndexTree(_channel, created).UpdateIndexRoot(created.Indexes.First(ix => ix.RealIndexOrdinal == i), rootPage);
+            AllocateRoot(i);
         }
         foreach (IncomingRelationship inc in incoming)
             AddIncomingRelationshipBlock(inc);
@@ -973,53 +1004,69 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         IndexDef? fkIndex = child.Indexes.FirstOrDefault(i => string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase));
         bool selfRef = string.Equals(rel.ReferencedTable, childTable, StringComparison.OrdinalIgnoreCase);
 
+        int? childBlockNum = null;
+        var owned = new HashSet<int>();
+        var retire = new List<MapRetirement>();
+        var maps = new UsageMap(_channel, child);
         if (fkIndex is not null)
         {
             TableDefinition.Parts childParts = TableDefinition.ReadParts(_channel, child.DefinitionPage);
             // The FK's backing index is an index like any other: its B-tree is released whole and its usage-map
             // record retired.
-            var owned = new HashSet<int>();
-            var retire = new List<MapRetirement>();
-            var maps = new UsageMap(_channel, child);
             QueueIndexMap(fkIndex, maps, owned, retire);
-
-            (byte[] Info, byte[] Name) outgoing =
-                childParts.Logical.First(b => NameOf(b.Name).Equals(name, StringComparison.OrdinalIgnoreCase));
-            int childBlockNum = TableDefinition.ReadInfoBlock(outgoing.Info, _channel.Format, name).Number;
+            int outgoing = OutgoingBlockNumber(childParts, name);
+            childBlockNum = outgoing;
 
             // Remove the FK index (data ordinal) + its outgoing info block from the child, plus — for a
             // self-reference — the incoming block, which also lives here.
             TableDefinition.RemoveIndexBlocks(_channel.Format, childParts, removeDataOrdinal: fkIndex.RealIndexOrdinal, removeLogical: b =>
                 NameOf(b.Name).Equals(name, StringComparison.OrdinalIgnoreCase) ||
-                (selfRef && IsIncomingBlockFor(b, childBlockNum, child.DefinitionPage)));
+                (selfRef && IsIncomingBlockFor(b, outgoing, child.DefinitionPage)));
             WriteTdef(child.DefinitionPage, childParts);
-
-            if (!selfRef)
-            {
-                TableDefinition parent = _catalog.FindTable(rel.ReferencedTable)
-                    ?? throw new InvalidOperationException($"Table '{rel.ReferencedTable}' was not found.");
-                TableDefinition.Parts parentParts = TableDefinition.ReadParts(_channel, parent.DefinitionPage);
-                TableDefinition.RemoveIndexBlocks(_channel.Format, parentParts, removeDataOrdinal: null, removeLogical: b =>
-                    IsIncomingBlockFor(b, childBlockNum, child.DefinitionPage));
-                WriteTdef(parent.DefinitionPage, parentParts);
-            }
-
-            RetireMapRecords(retire, maps, owned);
-            var allocator = _channel.Allocator;
-            foreach (int page in owned)
-                allocator.Release(page);
         }
 
-        DeleteRelationshipRows(name);
-        // Its MSysObjects object and permission rows go with it, as ACE removes them (verified). A relationship
-        // written before LibRed recorded the object has none.
-        if (_catalog.FindObjectId(name, ObjectType.Relationship) is { } objectId)
-        {
-            DeleteCatalogRows("MSysObjects", "Id", objectId);
-            DeleteCatalogRows("MSysACEs", "ObjectId", objectId);
-        }
+        DetachRelationship(rel, child, childBlockNum);
+
+        RetireMapRecords(retire, maps, owned);
+        var allocator = _channel.Allocator;
+        foreach (int page in owned)
+            allocator.Release(page);
         _catalog.Invalidate();
         return true;
+    }
+
+    /// <summary>The number of the outgoing relationship block named <paramref name="name"/> in a child's
+    /// definition — what the parent's incoming block cross-links to.</summary>
+    private int OutgoingBlockNumber(TableDefinition.Parts childParts, string name)
+    {
+        (byte[] Info, byte[] Name) outgoing =
+            childParts.Logical.First(b => NameOf(b.Name).Equals(name, StringComparison.OrdinalIgnoreCase));
+        return TableDefinition.ReadInfoBlock(outgoing.Info, _channel.Format, name).Number;
+    }
+
+    /// <summary>
+    /// What removing relationship <paramref name="rel"/> takes from outside the child's own definition, for both a
+    /// <c>DROP CONSTRAINT</c> and a <c>DROP TABLE</c> of the child: the parent's incoming block (where the
+    /// relationship is enforced, <paramref name="childBlockNum"/> naming the child's outgoing block, and the
+    /// parent is another table), its <c>MSysRelationships</c> rows, and its <c>MSysObjects</c> object and
+    /// permission rows (verified: ACE removes them; a relationship written before LibRed recorded the object has
+    /// none).
+    /// </summary>
+    private void DetachRelationship(ForeignKey rel, TableDefinition child, int? childBlockNum)
+    {
+        if (childBlockNum is { } number
+            && !string.Equals(rel.ReferencedTable, child.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            TableDefinition parent = _catalog.FindTable(rel.ReferencedTable)
+                ?? throw new InvalidOperationException($"Table '{rel.ReferencedTable}' was not found.");
+            TableDefinition.Parts parentParts = TableDefinition.ReadParts(_channel, parent.DefinitionPage);
+            TableDefinition.RemoveIndexBlocks(_channel.Format, parentParts, removeDataOrdinal: null, removeLogical: b =>
+                IsIncomingBlockFor(b, number, child.DefinitionPage));
+            WriteTdef(parent.DefinitionPage, parentParts);
+        }
+
+        DeleteRelationshipRows(rel.Name);
+        DeleteObject(rel.Name, ObjectType.Relationship);
     }
 
     /// <summary>
@@ -1031,7 +1078,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     ///
     /// A table that is the <em>child</em> (referencing) side of relationships can be dropped directly: ACE
     /// lets you drop the referencing table while the parent stays, so each such relationship is removed first
-    /// (via <see cref="DropConstraint"/>). But a table still <em>referenced as a parent</em> by a surviving
+    /// (via <see cref="DetachRelationship"/>). But a table still <em>referenced as a parent</em> by a surviving
     /// child cannot be dropped — drop the referencing table (or the relationship) first. EF drops FKs before
     /// tables, but database-first scaffolding cleanup drops child tables directly, which must work.
     /// </summary>
@@ -1048,16 +1095,21 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         if (table is null) return false;
         _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, table.Name);
 
-        // Remove the relationships this table owns as the child (referencing) side. Materialize first —
-        // DropConstraint rewrites TDEFs and invalidates the catalog on each call.
-        foreach (ForeignKey rel in _catalog.Relationships
-                     .Where(r => string.Equals(r.Table, tableName, StringComparison.OrdinalIgnoreCase))
-                     .ToList())
-            DropConstraint(tableName, rel.Name);
+        // The relationships this table owns as the child (referencing) side, each with its outgoing block's number
+        // where it is enforced. They are detached once the table itself is gone, below.
+        TableDefinition.Parts ownParts = TableDefinition.ReadParts(_channel, table.DefinitionPage);
+        var ownRelationships = _catalog.Relationships
+            .Where(r => string.Equals(r.Table, tableName, StringComparison.OrdinalIgnoreCase))
+            .Select(r => (Relationship: r, Block: table.Indexes.Any(i => string.Equals(i.Name, r.Name, StringComparison.OrdinalIgnoreCase))
+                ? OutgoingBlockNumber(ownParts, r.Name)
+                : (int?)null))
+            .ToList();
 
-        // A table still referenced by a surviving child (as the parent) cannot be dropped.
+        // A table still referenced by a surviving child (as the parent) cannot be dropped. One it references
+        // itself is its own, and goes with it.
         if (_catalog.Relationships.Any(r =>
-                string.Equals(r.ReferencedTable, tableName, StringComparison.OrdinalIgnoreCase)))
+                string.Equals(r.ReferencedTable, tableName, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(r.Table, tableName, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException(
                 $"Cannot drop table '{tableName}': it is referenced by a relationship — drop the referencing table first.");
 
@@ -1076,7 +1128,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             DeleteCatalogRows("MSysComplexColumns", "ComplexID", complexId);
         }
 
-        // Re-fetch: DropConstraint above rewrote this table's TDEF (removed FK indexes) and invalidated the catalog.
+        // Re-fetch: dropping a complex column's flat table invalidates the catalog.
         table = _catalog.FindTable(tableName)
             ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
 
@@ -1132,8 +1184,21 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         foreach (int page in owned)
             allocator.Release(page);   // reusable only after this handle closes, as ACE holds them
 
+        // Its CHECKs' objects go before its own row (measured, whole-file diff: dropping a table with one, ACE left
+        // MSysObjects' page as deleting the check's row first leaves it, nothing slid).
+        foreach ((string checkName, _) in table.CheckConstraints)
+            DeleteObject(checkName, ObjectType.CheckConstraint);
         DeleteCatalogRows("MSysObjects", "Id", tdefPage);
         if (!keepPermissions) DeleteCatalogRows("MSysACEs", "ObjectId", tdefPage);
+
+        // Then the relationships it owned as the child go — from the parent and the catalog, but not from this
+        // table's own definition, which ACE leaves as it was apart from the released type; the foreign key's index
+        // went with the other indexes above. Measured by whole-file diff (WholeFileParityProbeTest, DROP TABLE
+        // Child): removing the foreign key's blocks first rewrote the TDEF where ACE changed one byte of it, and
+        // detaching it before the table's own catalog rows left MSysObjects' data and index pages holding the
+        // stale bytes of the other order.
+        foreach ((ForeignKey relationship, int? block) in ownRelationships)
+            DetachRelationship(relationship, table, block);
         _catalog.Invalidate();
         return true;
     }
@@ -1599,13 +1664,24 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// rows. A full delete: its <b>index entries are removed</b> (not just the slot soft-deleted) so, e.g., the
     /// MSysObjects <c>ParentIdName</c> unique index doesn't retain a stale entry that would then reject
     /// re-creating a same-named table.</summary>
+    /// <remarks>The rows go in the order of the table's index led by the key column — key, then row pointer, as
+    /// the index holds them — which is the order ACE reaches and deletes them in (measured by whole-file diff,
+    /// <c>WholeFileParityProbeTest</c>: dropping a stored query, ACE deletes its MSysQueries rows in
+    /// <c>(Attribute, Order)</c> order, whatever order they were written in, and each delete's slide shows it).
+    /// Where the key's ties fall back on the pointer, as MSysACEs' <c>ObjectId</c> index does, that is the scan's
+    /// own order.</remarks>
     private void DeleteCatalogRows(string catalogTable, string keyColumn, int keyValue)
     {
         TableDefinition t = _catalog.RequireTable(catalogTable);
         int idx = t.RequireColumn(keyColumn).Index;
         var table = new Table(_channel, t, _catalog);
 
-        foreach ((RowId id, object?[] values) in RowsKeyed(table, idx, keyValue))
+        List<(RowId Id, object?[] Values)> rows = RowsKeyed(table, idx, keyValue);
+        if (t.RealIndexes.FirstOrDefault(i => i.Columns.Count > 0 && i.Columns[0].Column.Index == idx) is { } byKey)
+            rows = [.. rows.OrderBy(
+                r => IndexTree.WithTrailer(IndexKeyCodec.Encode(byKey.Columns, r.Values), r.Id.Packed),
+                Comparer<byte[]>.Create((a, b) => IndexTree.CompareBytes(a, b)))];
+        foreach ((RowId id, object?[] values) in rows)
         {
             foreach (IndexDef index in t.RealIndexes)
                 table.RemoveIndexEntry(index, values, id);
@@ -1954,10 +2030,10 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         [
             .. valueColumns,
             new(valueId, JetDataType.Int32, sizeof(int), IsFixedLength: false, IsAutoNumber: true,
-                ColumnId: valueColumns.Length, IsEngineColumn: true,
+                ColumnId: valueColumns.Length, Ordinal: 0,
                 ExtendedFlags: (byte)ColumnExtendedFlags.ComplexValueId) { Collation = default(Collation) },
             new(link, JetDataType.Int32, sizeof(int), IsFixedLength: false,
-                ColumnId: valueColumns.Length + 1, IsEngineColumn: true,
+                ColumnId: valueColumns.Length + 1, Ordinal: 0,
                 ExtendedFlags: (byte)ColumnExtendedFlags.ComplexOwnerLink) { Collation = default(Collation) },
         ];
         string flatName = Cut($"f_{NewGuidName()}_{column.Name}");
@@ -2044,7 +2120,14 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// appends the new (name, expression), and rewrites the single empty-owner table block (RemoveOwner + re-add),
     /// keeping the name pool and every column block intact. The check is enforced by the engine from the
     /// re-loaded <c>TableDefinition.CheckConstraints</c>.</summary>
-    public void AddCheckConstraint(string tableName, string checkName, string expression)
+    /// <param name="tableName">The table the check is on.</param>
+    /// <param name="checkName">The check's name, unique in the Relationships container.</param>
+    /// <param name="expression">The check's expression, as written.</param>
+    /// <param name="reads">What the expression reads (<see cref="CheckReadsText"/>), for the <c>MSysObjects</c>
+    /// object ACE records the check with (<see cref="JetCatalog.CreateCheckObject"/>). This layer cannot parse the
+    /// expression, so the caller finds them.</param>
+    public void AddCheckConstraint(string tableName, string checkName, string expression,
+        IReadOnlyList<(string Table, IReadOnlyList<string> Columns)> reads)
     {
         JetName.Validate(checkName, "check constraint name");
         TableDefinition target = DesignTable(tableName);
@@ -2061,6 +2144,28 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // rule vanished on the first CHECK anyone added. The column-property paths already do it this way.
         WriteObjectProperties(tdefPage, ReplaceTableProperty(blob, PropertyBlob.CheckConstraintsProperty,
             checks.Count > 0 ? PropertyBlob.WriteCheckList(checks) : null));
+        _catalog.CreateCheckObject(checkName, target.Name, expression, CheckReadsText(reads));
+    }
+
+    /// <summary>
+    /// A CHECK's <c>MSysObjects.Database</c>: what its expression reads, as ACE records it (measured, whole-file
+    /// diff: <c>WholeFileParityProbeTest</c>). One character counts the tables; each table follows as a character
+    /// giving its name's length, the name, a character counting its columns, and each column as its length and
+    /// name. Its own table comes first, then each table a subquery names, in the order the expression names them;
+    /// a table's columns in the table's own order, each once, and a table read for none (<c>COUNT(*)</c>) counts 0.
+    /// <c>[Level] &lt; (SELECT MAX(Credit) FROM Customer WHERE City = 'Rome') + 10</c> on <c>Setting</c> is
+    /// <c>\u0002 \u0007Setting \u0001 \u0005Level \u0008Customer \u0002 \u0004City \u0006Credit</c>. Stored as
+    /// any Memo value is, so a short one is compressed and one holding a NUL is not.
+    /// </summary>
+    internal static string CheckReadsText(IReadOnlyList<(string Table, IReadOnlyList<string> Columns)> reads)
+    {
+        var text = new StringBuilder().Append((char)reads.Count);
+        foreach ((string table, IReadOnlyList<string> columns) in reads)
+        {
+            text.Append((char)table.Length).Append(table).Append((char)columns.Count);
+            foreach (string column in columns) text.Append((char)column.Length).Append(column);
+        }
+        return text.ToString();
     }
 
     /// <summary>Drops a named table-level CHECK — ALTER TABLE … DROP CONSTRAINT. Removes the matching entry from
@@ -2083,7 +2188,18 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // table-level property (ValidationRule, ValidationText, …) untouched. See AddCheckConstraint.
         WriteObjectProperties(tdefPage, ReplaceTableProperty(blob, PropertyBlob.CheckConstraintsProperty,
             checks.Count > 0 ? PropertyBlob.WriteCheckList(checks) : null));
+        DeleteObject(checkName, ObjectType.CheckConstraint);
         return true;
+    }
+
+    /// <summary>Deletes a relationship's or a CHECK's <c>MSysObjects</c> object and its <c>MSysACEs</c> rows (a
+    /// check has none), as ACE does when it goes (verified). One written before LibRed recorded the object has
+    /// none to delete.</summary>
+    private void DeleteObject(string name, ObjectType type)
+    {
+        if (_catalog.FindObjectId(name, type) is not { } objectId) return;
+        DeleteCatalogRows("MSysObjects", "Id", objectId);
+        DeleteCatalogRows("MSysACEs", "ObjectId", objectId);
     }
 
     /// <summary>The table and column an ALTER COLUMN changes, and then the read-only refusal (verified vs ACE — a
@@ -2932,27 +3048,4 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     // the file being written, since an on-disk SID is masked per file (page-00 §2.3). Baking in the pair this
     // engine creates files with meant a table added to an ACE-authored file carried an owner that decodes to
     // no account in it (ACE writes 690C in Northwind where LibRed wrote its own 26CD).
-
-    /// <summary>
-    /// Adds the MSysObjects row describing the new table so Access (and the catalog) see it: Id =
-    /// TDEF page, ParentId = Tables container, Type = table, Name, Flags, Owner, and create/update
-    /// dates. Any column DEFAULT values are written into the extended-properties blob (LvProp, an OLE
-    /// long value) as DefaultValue properties. MSysObjects' own indexes (Id, and the composite
-    /// ParentId+Name used for name resolution) are maintained so Access can open the table by name.
-    /// </summary>
-    private void AddCatalogRow(string name, int tdefPage,
-        IReadOnlyList<PropertyBlob.Property> columnProps,
-        IReadOnlyList<(string Name, string Expression)> checkConstraints,
-        ObjectAttributes flags)
-    {
-        // Per-column properties (DefaultValue / Required) and CHECK constraints (a table property) both
-        // live in the object's extended-properties (LvProp) blob.
-        var props = columnProps.ToList();
-        if (checkConstraints.Count > 0)
-            props.Add(new PropertyBlob.Property("", PropertyBlob.CheckConstraintsProperty,
-                PropertyBlob.WriteCheckList(checkConstraints)));
-
-        _catalog.AddObjectRow(
-            name, tdefPage, ObjectType.Table, JetCatalog.ObjectContainerParentId, flags: unchecked((int)flags), props);
-    }
 }

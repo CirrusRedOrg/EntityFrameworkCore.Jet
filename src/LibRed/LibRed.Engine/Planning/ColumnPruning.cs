@@ -119,21 +119,27 @@ internal static class ColumnPruning
     internal static HashSet<string>? ReferencedNames(object root)
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        return Collect(root, names) ? names : null;
+        return Walk(root, node =>
+        {
+            if (node is not ColumnReference reference) return true;
+            names.Add(reference.Column);
+            return false;
+        }) ? names : null;
     }
 
-    private static bool Collect(object? value, HashSet<string> names)
+    /// <summary>Hands every AST and plan node under <paramref name="value"/> to <paramref name="visit"/>, parents before
+    /// their children, through every public property — so a clause added to a node later is never missed. A node
+    /// <paramref name="visit"/> answers false for is not descended into. Returns false when the walk met a value of a
+    /// type it does not know, and so could not see everything.</summary>
+    internal static bool Walk(object? value, Func<object, bool> visit)
     {
         switch (value)
         {
             case null or string or byte[] or decimal or DateTime or DateTimeOffset or TimeSpan or Guid or Type:
                 return true;
-            case ColumnReference reference:
-                names.Add(reference.Column);
-                return true;
             case IEnumerable items:
                 foreach (object? item in items)
-                    if (!Collect(item, names)) return false;
+                    if (!Walk(item, visit)) return false;
                 return true;
         }
 
@@ -142,6 +148,8 @@ internal static class ColumnPruning
             return true;
         if (type.Namespace is not ("LibRed.Sql.Ast" or "LibRed.Engine.Plan"))
             return false;
+        if (!visit(value))
+            return true;
 
         foreach (Func<object, object?> property in Getters.GetOrAdd(type, ReadableProperties))
         {
@@ -157,7 +165,7 @@ internal static class ColumnPruning
             }
 #pragma warning restore CA1031
 
-            if (!Collect(child, names)) return false;
+            if (!Walk(child, visit)) return false;
         }
 
         return true;

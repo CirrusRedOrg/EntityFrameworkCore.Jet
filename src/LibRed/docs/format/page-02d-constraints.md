@@ -28,8 +28,10 @@ statistics:
   brings a key the index **does not hold at that moment**, and lowers it only on a delete that clears the
   last row holding a key, and then only for an index whose total is non-zero (see "On delete"). It equals the
   current distinct-key count only where no delete has left a gap the index never refilled.
-  - A **unique** index gains a new key with every row, so it advances on every insert.
-  - A **non-unique** index advances only for a key not already in it. Keys are compared as index keys, so
+  - **Unique or not, an index advances only for a key not already in it.** A unique index gains a new key with
+    every row whose key has no Null in it, since that key cannot be there already; but it may hold a key with a
+    Null more than once, and a repeat adds nothing (verified).
+  - Keys are compared as index keys, so
     collation-equal text (`'a'`, `'A'`) is one key; a **Null is a key** like any other (a second Null adds
     nothing), except in an **IGNORE NULL** index, which does not hold it and so never counts it. A key whose
     last row was deleted **counts again** when it returns. A multi-column index compares the whole tuple.
@@ -55,7 +57,13 @@ count, and it is gated on the total:
   have taken unique to `2`.
 - **Otherwise the total drops by one**, on every real index, for each row removed.
 - **And the unique count drops by one** on those indexes where the deleted row was the **last** holder of its
-  key — compared as index keys, exactly as on the insert side.
+  key — compared as index keys, exactly as on the insert side — **and is then held to no more than the
+  total**, as on an update (verified). An index at total `6`, unique `7` over twelve rows of
+  distinct keys reads `0`/`0` after they are all deleted — the sixth delete takes the total to `0` and the unique
+  count with it, the six after it touch nothing — while its sibling at `0`/`13` stays `0`/`13`.
+- **A `DELETE` with no `WHERE` that empties the table in one go** (see
+  [page-09](page-09-released-data.md#a-delete-with-no-where)) sets **both** counts of every real index to `0`,
+  whatever they read.
 
 > This is why an index built empty and filled by three inserts reads unique `3` before a delete and unique
 > `3` after it: its total is `0`, so the delete skips it. The rule is visible only on an index that *was*

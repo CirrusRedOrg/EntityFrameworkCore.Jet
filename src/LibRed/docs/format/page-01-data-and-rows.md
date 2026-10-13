@@ -182,6 +182,7 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
 [ colCount : 2 ]                                ← (max column id + 1), NOT the live column count
 [ fixed-length column data ... ]
 [ variable-length column data ... ]             ┐
+[ slack : zeros, usually none ]                 │ (record slack, below)
 [ variable-offset table : (numVarCols + 1) × 2 ]│ present ONLY when numVarCols > 0
 [ numVarCols : 2 ]                              ┘
 [ null bitmap : ceil(colCount / 8) bytes ]      ← the very end of the row
@@ -198,7 +199,7 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
   null bitmap decodes both forms; a *writer* must omit the section to be byte-faithful.)
 
 - **Which rows carry the section** is not written in the row; a reader decides it from the row's `colCount`
-  *n*, as ACE does (verified vs ACE across ADD and DROP of fixed and variable columns in either order). The
+  *n*, as ACE does (verified). The
   question is how many variable slots had been handed out when the row was written, and each live column's
   descriptor `0x07` (page-02b §3.4) records that for its own id:
   - *n* at the `0x29` high-water — every slot ever handed out, `0x2B`;
@@ -208,9 +209,8 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
 
   The section is present when that count is above 0. The last case is a guess, and ACE's: a variable column
   dropped from between that live column and *n* is not seen, so a row written while it existed is read as
-  having no section, and its trailer as fixed data. (Verified: with `S TEXT` then `Y LONG` added and both
-  dropped, ACE re-lays the count-3 row from `S`'s time with its `'two'` chunk, offsets and `numVar` carried as
-  fixed bytes.) A trailer-less row whose dead bytes happen to form a valid trailer is not read as having one —
+  having no section, and its trailer as fixed data — a re-lay carries that row's chunk, offsets and `numVar` as
+  fixed bytes (verified). A trailer-less row whose dead bytes happen to form a valid trailer is not read as having one —
   ACE does not look at the bytes.
 
 - **How long the fixed region is depends on the writer** (verified vs ACE):
@@ -222,6 +222,20 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
     slot, and a column set to NULL keeps its old bytes. A dropped variable column's chunk and every dead id's
     bit stay too;
   - an **ALTER COLUMN** re-lay does the same over the old live region plus the new slot (page-02b §3.8).
+
+- **Record slack: zero bytes between the variable data and the offset table**, outside every offset — the
+  offsets still mark where each value really ends. ACE leaves them in a record written over a longer default
+  (verified):
+  - an **INSERT** is written over the table's **all-defaults record** — every column's evaluated default, a
+    supplied column's included; a Text default cut to the column's width; a Memo or OLE default no part of it.
+    The statement's values go in **in the order its column list names them** (table order with no list): a value
+    shorter than the one it replaces leaves the difference as slack, and a longer one takes slack up before the
+    record grows. `T(K, A TEXT DEFAULT 'aaaa', B TEXT DEFAULT 'bbbbbbbb', C TEXT)` given `('x','y','z')` keeps 18
+    bytes — A and B leave 6 + 14, C's 2 take back 2 — while `(K, C, B, A)` with the same values keeps 20, because C
+    grows first. A value longer than every default keeps none, and so does a table without Text defaults;
+  - an **UPDATE** keeps the old record's slack, less what the changed values grow by — unless one of them
+    **shrinks**, which compacts the record and leaves none. A shrink never *adds* slack on UPDATE: a row without
+    any keeps none.
 
 - **An all-fixed row's fixed region is padded out to a minimum of 2 bytes**, so the shortest record ACE writes
   is 5: `[colCount:2][fixed:2][nullBitmap:1]`. It is a **floor, not an alignment** — `T(A,B,C BYTE)` keeps its
@@ -261,6 +275,12 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
   (`0x0F` above) and **clear** where it was NULL. A row **inserted afterwards** leaves it **clear** (`0x0D` on
   the same table), as do the dropped ids after a `DROP COLUMN` (`01` for a live column 0 with ids 1 and 2
   dropped).
+- **The padding past the last column follows the same rule.** The final byte's bits above the highest id are
+  carried forward by an UPDATE as they were: a row whose second byte reads `0x65` over its one live column (bit
+  0) still reads `0x65` after another column is updated or a memo set to Null (verified). An insert leaves them
+  clear. **Not known:** where the padding comes from in a byte the row did not have before — after an
+  `ADD COLUMN` that crosses a byte boundary and after an `ALTER COLUMN` re-lay, ACE leaves stray bits set there
+  (`0x65`, `0x79` over one live bit). LibRed leaves such padding clear.
 - **Null bitmap** is indexed by **column id**; a **set bit = the value is present** (non-null).
 - **Fixed** column value is at `rowStart + 2 + fixedOffset`, `length` bytes.
   - A **fixed-length text** column (`CHAR`/`NCHAR`, not `TEXT`/`VARCHAR`) fills its whole `length`: the value is

@@ -89,8 +89,7 @@ cannot be smuggled past it: a column-ref default written to `LvProp` opens clean
   AutoNumber exactly as one with `GenUniqueID()` is (verified).
 - An **unquoted single word** is a literal string — `DEFAULT Unknown` inserts `"Unknown"`, `DEFAULT K` inserts `"K"`
   even when `K` is a column — **except** the niladic `Now` and the constants: `Null` inserts NULL, and `True`,
-  `Yes`, `On` and `False`, `No`, `Off` insert -1 and 0 (verified, into LONG, TEXT, YESNO, DATETIME and DOUBLE —
-  `TEXT DEFAULT Yes` stores `'-1'`, not `'Yes'`).
+  `Yes`, `On` and `False`, `No`, `Off` insert -1 and 0 (verified; `TEXT DEFAULT Yes` stores `'-1'`, not `'Yes'`).
 - The value is converted to the column's type as any stored value is ([data-types.md](data-types.md)) — a date into
   a `LONG` is its serial, a number into a `DATETIME` the date at that serial — **except that text is cut to the
   column's width** rather than refused: `DEFAULT 'abcdefghijklmnopqrstuvwxyz'` on a `TEXT(20)` stores its first 20

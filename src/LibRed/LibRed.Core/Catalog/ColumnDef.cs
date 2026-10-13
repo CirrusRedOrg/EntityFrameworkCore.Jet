@@ -143,9 +143,9 @@ public sealed class ColumnDef
     /// every other column.</summary>
     public byte SystemFlags { get; init; }
 
-    /// <summary>Whether a created column belongs to a table the engine makes for itself, which writes 0x09 — the
-    /// second copy of the column id — as zero.</summary>
-    internal bool IsEngineColumn { get; init; }
+    /// <summary>The ordinal position a created column writes at 0x09, where it is not the column id: zero on a
+    /// table the engine makes for itself, and the 1-based position on a make-table's.</summary>
+    internal int? Ordinal { get; init; }
 
     /// <summary>Extended flag bits (byte 0x10) LibRed does not model, to set on a created column — the attachment
     /// value column marker (0x10). 0 for every other column.</summary>

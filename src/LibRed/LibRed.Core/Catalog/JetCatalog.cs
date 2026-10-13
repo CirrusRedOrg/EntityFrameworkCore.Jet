@@ -110,22 +110,22 @@ public sealed class JetCatalog
     /// column a complex column's <c>IdxFKPrimaryScalar</c> keys beside the owner link.</summary>
     internal static readonly (string Name, ColumnSpec[] Columns, string Key)[] MSysComplexTypeTables =
     [
-        ("MSysComplexType_UnsignedByte", [new("Value", JetDataType.Byte, 1, true, ColumnId: 0, IsEngineColumn: true)], "Value"),
-        ("MSysComplexType_Short", [new("Value", JetDataType.Int16, 2, true, ColumnId: 0, IsEngineColumn: true)], "Value"),
-        ("MSysComplexType_Long", [new("Value", JetDataType.Int32, 4, true, ColumnId: 0, IsEngineColumn: true)], "Value"),
-        ("MSysComplexType_IEEESingle", [new("Value", JetDataType.Single, 4, true, ColumnId: 0, IsEngineColumn: true)], "Value"),
-        ("MSysComplexType_IEEEDouble", [new("Value", JetDataType.Double, 8, true, ColumnId: 0, IsEngineColumn: true)], "Value"),
-        ("MSysComplexType_GUID", [new("Value", JetDataType.Guid, 16, true, ColumnId: 0, IsEngineColumn: true)], "Value"),
-        ("MSysComplexType_Decimal", [new("Value", JetDataType.FixedPoint, 9, false, ColumnId: 0, IsEngineColumn: true)], "Value"),
-        ("MSysComplexType_Text", [new("Value", JetDataType.Text, 510, false, ColumnId: 0, IsEngineColumn: true)], "Value"),
+        ("MSysComplexType_UnsignedByte", [new("Value", JetDataType.Byte, 1, true, ColumnId: 0, Ordinal: 0)], "Value"),
+        ("MSysComplexType_Short", [new("Value", JetDataType.Int16, 2, true, ColumnId: 0, Ordinal: 0)], "Value"),
+        ("MSysComplexType_Long", [new("Value", JetDataType.Int32, 4, true, ColumnId: 0, Ordinal: 0)], "Value"),
+        ("MSysComplexType_IEEESingle", [new("Value", JetDataType.Single, 4, true, ColumnId: 0, Ordinal: 0)], "Value"),
+        ("MSysComplexType_IEEEDouble", [new("Value", JetDataType.Double, 8, true, ColumnId: 0, Ordinal: 0)], "Value"),
+        ("MSysComplexType_GUID", [new("Value", JetDataType.Guid, 16, true, ColumnId: 0, Ordinal: 0)], "Value"),
+        ("MSysComplexType_Decimal", [new("Value", JetDataType.FixedPoint, 9, false, ColumnId: 0, Ordinal: 0)], "Value"),
+        ("MSysComplexType_Text", [new("Value", JetDataType.Text, 510, false, ColumnId: 0, Ordinal: 0)], "Value"),
         (AttachmentTemplate,
         [
-            new("FileData", JetDataType.Ole, 0, false, ColumnId: 3, IsEngineColumn: true, ExtendedFlags: AttachmentValue),
-            new("FileFlags", JetDataType.Int32, 4, true, ColumnId: 5, IsEngineColumn: true, ExtendedFlags: AttachmentValue),
-            new("FileName", JetDataType.Text, 510, false, ColumnId: 1, IsEngineColumn: true, ExtendedFlags: AttachmentValue),
-            new("FileTimeStamp", JetDataType.DateTime, 8, true, ColumnId: 4, IsEngineColumn: true, ExtendedFlags: AttachmentValue),
-            new("FileType", JetDataType.Text, 510, false, ColumnId: 2, IsEngineColumn: true, ExtendedFlags: AttachmentValue),
-            new("FileURL", JetDataType.Memo, 0, false, ColumnId: 0, IsEngineColumn: true, ExtendedFlags: AttachmentValue),
+            new("FileData", JetDataType.Ole, 0, false, ColumnId: 3, Ordinal: 0, ExtendedFlags: AttachmentValue),
+            new("FileFlags", JetDataType.Int32, 4, true, ColumnId: 5, Ordinal: 0, ExtendedFlags: AttachmentValue),
+            new("FileName", JetDataType.Text, 510, false, ColumnId: 1, Ordinal: 0, ExtendedFlags: AttachmentValue),
+            new("FileTimeStamp", JetDataType.DateTime, 8, true, ColumnId: 4, Ordinal: 0, ExtendedFlags: AttachmentValue),
+            new("FileType", JetDataType.Text, 510, false, ColumnId: 2, Ordinal: 0, ExtendedFlags: AttachmentValue),
+            new("FileURL", JetDataType.Memo, 0, false, ColumnId: 0, Ordinal: 0, ExtendedFlags: AttachmentValue),
         ], "FileName"),
     ];
 
@@ -179,7 +179,7 @@ public sealed class JetCatalog
             JetCatalog.InsertAceRow(db.Channel, aces, objectId, sid, acm, inherit);
 
         // Catalog rows in the real stored order: DAO containers + MSysDb first, then the system tables, then
-        // the DAO "SingleRecord" pseudo-object. Access's catalog bootstrap walks MSysObjects in this order.
+        // DAO's "SingleRecord" check object. Access's catalog bootstrap walks MSysObjects in this order.
         ObjectRow(JetCatalog.ObjectContainerParentId, "Tables", ObjectType.Container,
             ObjectAttributes.System, parentId: JetCatalog.ContainerParentId, owner: sidEngine);
         ObjectRow(JetCatalog.DatabaseContainerParentId, "Databases", ObjectType.Container,
@@ -196,7 +196,7 @@ public sealed class JetCatalog
             ObjectAttributes.System, parentId: JetCatalog.ObjectContainerParentId, owner: sidEngine);
         ObjectRow(relPage, "MSysRelationships", ObjectType.Table,
             ObjectAttributes.System, parentId: JetCatalog.ObjectContainerParentId, owner: sidEngine);
-        ObjectRow(JetCatalog.FirstPagelessObjectId, "SingleRecord", ObjectType.SingleRecord,
+        ObjectRow(JetCatalog.FirstPagelessObjectId, "SingleRecord", ObjectType.CheckConstraint,
             ObjectAttributes.QueryDef, parentId: JetCatalog.RelationshipContainerParentId, owner: null);
 
         // Access-control rows (verified per-object-class masks) in the same object order as the catalog rows.
@@ -653,7 +653,7 @@ public sealed class JetCatalog
         int? container = type switch
         {
             ObjectType.Table or ObjectType.Query or ObjectType.LinkedTable => JetCatalog.ObjectContainerParentId,
-            ObjectType.Relationship => JetCatalog.RelationshipContainerParentId,
+            ObjectType.Relationship or ObjectType.CheckConstraint => JetCatalog.RelationshipContainerParentId,
             ObjectType.Database or ObjectType.DatabaseDocument => JetCatalog.DatabaseContainerParentId,
             ObjectType.Container => JetCatalog.ContainerParentId,
             _ => (type switch
@@ -1150,8 +1150,11 @@ public sealed class JetCatalog
     /// <summary>Inserts one <c>MSysObjects</c> row into <paramref name="msysObjects"/> — both dates now, and
     /// <paramref name="properties"/>, when given, stored as any long value is: inline up to 64 bytes, else packed
     /// onto a shared LvProp page as Access does — maintaining whatever indexes the table has.</summary>
+    /// <remarks><paramref name="others"/> gives further columns' values by name — a CHECK's <c>Connect</c>,
+    /// <c>Database</c> and <c>ForeignName</c>.</remarks>
     internal static void InsertObjectRow(PageChannel channel, TableDefinition msysObjects, string name, int objectId,
-        ObjectType type, int parentId, int flags, byte[]? owner, byte[]? properties)
+        ObjectType type, int parentId, int flags, byte[]? owner, byte[]? properties,
+        IReadOnlyList<(string Column, object? Value)>? others = null)
     {
         DateTime now = DateTime.Now;
         var values = new object?[msysObjects.Columns.Count];
@@ -1163,6 +1166,8 @@ public sealed class JetCatalog
         if (owner is not null) Set(msysObjects, values, "Owner", owner);
         Set(msysObjects, values, "DateCreate", now);
         Set(msysObjects, values, "DateUpdate", now);
+        foreach ((string column, object? value) in others ?? [])
+            Set(msysObjects, values, column, value);
 
         var inserter = new RowInserter(channel, msysObjects);
         if (properties is not null)
@@ -1265,15 +1270,42 @@ public sealed class JetCatalog
             (int)ObjectAttributes.QueryDef | (int)type);
     }
 
+    /// <summary>
+    /// Records a CHECK constraint as ACE does (measured, whole-file diff): a type-9 <c>MSysObjects</c> object in the
+    /// Relationships container, with the next high-bit id from the sequence queries and relationships draw on, no
+    /// owner and <c>Flags</c> <see cref="ObjectAttributes.QueryDef"/> — the shape of the <c>SingleRecord</c> object
+    /// every database is created with — and no <c>MSysACEs</c> rows. <c>Connect</c> holds the expression,
+    /// <c>Database</c> <paramref name="reads"/> (see <see cref="SchemaEditor.CheckReadsText"/>), and
+    /// <c>ForeignName</c> the table's name ended by a NUL.
+    /// </summary>
+    internal void CreateCheckObject(string name, string table, string expression, string reads)
+    {
+        int id = ReserveObjectId(name, JetCatalog.RelationshipContainerParentId);
+        InsertObjectRow(_channel, RequireTable("MSysObjects"), name, id, ObjectType.CheckConstraint,
+            JetCatalog.RelationshipContainerParentId, (int)ObjectAttributes.QueryDef, owner: null, properties: null,
+            [("Connect", expression), ("Database", reads), ("ForeignName", table + "\0")]);
+    }
+
     /// <summary>Reserves the next free high-bit object id, checks the name is free, and writes
     /// the MSysObjects row and the MSysACEs rows its container grants it. For a query the <paramref name="flags"/>
     /// distinguish view / append / data-definition.</summary>
     private int AllocateObject(string name, ObjectType type, int parentId, int flags)
     {
+        int nextId = ReserveObjectId(name, parentId);
+        AddObjectRow(name, nextId, type, parentId, flags);
+        AddPermissionRows(nextId, parentId, inheritable: false);
+        return nextId;
+    }
+
+    /// <summary>The next free high-bit object id for an object named <paramref name="name"/> in container
+    /// <paramref name="parentId"/>, once the name is found free there.</summary>
+    private int ReserveObjectId(string name, int parentId)
+    {
         // A name must be free within the object's own container — the rule MSysObjects' unique (ParentId, Name)
         // index states, and the one ACE applies (measured): a query collides with a table, a query or a linked
         // table, all in the Tables container, and not with a form, report, macro, module, relationship, database
-        // document or container; a relationship only with another relationship.
+        // document or container; a relationship or CHECK constraint with another relationship or CHECK, and not
+        // with a table.
         if (FindObjectRow(parentId, name) is not null)
             throw parentId == JetCatalog.RelationshipContainerParentId
                 ? SchemaEditor.RelationshipNameTaken(name)
@@ -1286,23 +1318,20 @@ public sealed class JetCatalog
         var objects = new Table(_channel, msysObjects, this);
         foreach (object?[] row in objects.Rows(objects.DecodeOnly([idIndex])))
             if (row[idIndex] is int id && id < 0 && id >= nextId) nextId = id + 1;
-
-        AddObjectRow(name, nextId, type, parentId, flags);
-        AddPermissionRows(nextId, parentId, inheritable: false);
         return nextId;
     }
 
     private void AddActionRows(int objectId, ActionQuerySpec spec)
     {
-        TableDefinition mq = RequireTable("MSysQueries");
+        var rows = new QueryRows(_channel, RequireTable("MSysQueries"), objectId);
 
-        AddHeaderRows(mq, objectId, spec.Parameters);
+        AddHeaderRows(rows, spec.Parameters);
 
         if (spec.Kind == ActionQueryKind.DataDefinition)
         {
             // The whole DDL statement is stored verbatim in one row; Access records it with a leading space.
             // Nothing is decomposed: a data-definition query has no sources, columns or predicate.
-            Row(mq, objectId, QueryAttribute.Operation, order: 1, flag: (short)QueryOperation.Ddl,
+            rows.Row(QueryAttribute.Operation, order: 1, flag: (short)QueryOperation.Ddl,
                 expression: " " + spec.DdlSql);
             return;
         }
@@ -1316,48 +1345,73 @@ public sealed class JetCatalog
             ActionQueryKind.MakeTable => QueryOperation.MakeTable,
             _ => throw new NotSupportedException($"Action query kind {spec.Kind} is not stored yet."),
         };
-        Row(mq, objectId, QueryAttribute.Operation, order: 1, flag: (short)kind,
+        void Operation() => rows.Row(QueryAttribute.Operation, order: 1, flag: (short)kind,
             name1: spec.Kind is ActionQueryKind.Append or ActionQueryKind.MakeTable ? spec.TargetTable : null);
 
-        // Sources first: Access processes the rows in order, and a derived-table source defines an alias the
-        // column expressions reference (the same reason the view path writes tables before columns).
-        AddSourceRows(mq, objectId, spec.Body);
-
         var values = spec.Values ?? [];
+        void Columns()
+        {
+            switch (spec.Kind)
+            {
+                case ActionQueryKind.Append:
+                    // Name2 = target column, Expression = the value; the 0x8000 flag marks an INSERT … VALUES,
+                    // where a column fed by the query's own source carries Flag 0.
+                    for (int i = 0; i < values.Count; i++)
+                        rows.Row(QueryAttribute.Column, order: i + 1,
+                            flag: spec.Body is null ? StoredQuery.AppendValueFlag : (short)0,
+                            expression: values[i].ValueExpression, name2: values[i].Column);
+                    break;
+
+                case ActionQueryKind.Update:
+                    // One row per SET assignment, stored exactly as an append's columns are.
+                    for (int i = 0; i < values.Count; i++)
+                        rows.Row(QueryAttribute.Column, order: i + 1, flag: 0,
+                            expression: values[i].ValueExpression, name2: values[i].Column);
+                    break;
+
+                case ActionQueryKind.Delete:
+                    // `DELETE t.* FROM …` keeps that target verbatim in a single column row; `DELETE FROM …`
+                    // stores no column row at all, and Access renders it back as `DELETE * FROM …`.
+                    if (spec.DeleteTarget is { } target)
+                        rows.Row(QueryAttribute.Column, order: 1, flag: 0, expression: target);
+                    break;
+
+                case ActionQueryKind.MakeTable:
+                    AddColumnRows(rows, spec.Body?.Columns ?? []);
+                    break;
+            }
+        }
+
+        // The rows go in the statement's own clause order, a FROM's joins before its tables as a view's are
+        // (measured by whole-file diff, WholeFileParityProbeTest): INSERT INTO target (…) SELECT … FROM — the
+        // operation, the columns, then the source; SELECT … INTO target FROM — the columns, then the operation
+        // naming the target, then the source; UPDATE t SET … and DELETE FROM t — the operation, the table, then
+        // the assignments.
         switch (spec.Kind)
         {
             case ActionQueryKind.Append:
-                // Name2 = target column, Expression = the value; the 0x8000 flag marks an INSERT … VALUES,
-                // where a column fed by the query's own source carries Flag 0.
-                for (int i = 0; i < values.Count; i++)
-                    Row(mq, objectId, QueryAttribute.Column, order: i + 1,
-                        flag: spec.Body is null ? StoredQuery.AppendValueFlag : (short)0,
-                        expression: values[i].ValueExpression, name2: values[i].Column);
+                Operation();
+                Columns();
+                AddJoinRows(rows, spec.Body);
+                AddSourceRows(rows, spec.Body);
                 break;
-
-            case ActionQueryKind.Update:
-                // One row per SET assignment, stored exactly as an append's columns are.
-                for (int i = 0; i < values.Count; i++)
-                    Row(mq, objectId, QueryAttribute.Column, order: i + 1, flag: 0,
-                        expression: values[i].ValueExpression, name2: values[i].Column);
-                break;
-
-            case ActionQueryKind.Delete:
-                // `DELETE t.* FROM …` keeps that target verbatim in a single column row; `DELETE FROM …`
-                // stores no column row at all, and Access renders it back as `DELETE * FROM …`.
-                if (spec.DeleteTarget is { } target)
-                    Row(mq, objectId, QueryAttribute.Column, order: 1, flag: 0, expression: target);
-                break;
-
             case ActionQueryKind.MakeTable:
-                AddColumnRows(mq, objectId, spec.Body?.Columns ?? []);
+                Columns();
+                Operation();
+                AddJoinRows(rows, spec.Body);
+                AddSourceRows(rows, spec.Body);
+                break;
+            default:
+                Operation();
+                AddSourceRows(rows, spec.Body);
+                Columns();
+                AddJoinRows(rows, spec.Body);
                 break;
         }
-
-        AddJoinAndWhereRows(mq, objectId, spec.Body);
+        AddWhereRow(rows, spec.Body);
         // The option row a view carries: a make-table or append query's DISTINCT and TOP, and any kind's WITH
         // OWNERACCESS OPTION.
-        AddOptionRow(mq, objectId, spec.Body, spec.OwnerAccess);
+        AddOptionRow(rows, spec.Body, spec.OwnerAccess);
     }
 
     /// <summary>
@@ -1365,111 +1419,131 @@ public sealed class JetCatalog
     /// are bits of the same row, the TOP count in its Name1 (verified vs ACE: DISTINCT TOP is 18, with the option 22,
     /// and with PERCENT too 54; the option alone is 4; a make-table query's DISTINCT is the same row as a view's).
     /// </summary>
-    private void AddOptionRow(TableDefinition mq, int objectId, ViewSpec? body, bool ownerAccess)
+    private static void AddOptionRow(QueryRows rows, ViewSpec? body, bool ownerAccess)
     {
         QueryOptions options = (body?.Distinct == true ? QueryOptions.Distinct : QueryOptions.None)
             | (ownerAccess ? QueryOptions.OwnerAccess : QueryOptions.None)
             | (body?.Top is null ? QueryOptions.None
                 : QueryOptions.Top | (body.TopPercent ? QueryOptions.Percent : QueryOptions.None));
         if (options != QueryOptions.None)
-            Row(mq, objectId, QueryAttribute.Option, order: 1, flag: (short)options,
+            rows.Row(QueryAttribute.Option, order: 1, flag: (short)options,
                 name1: body?.Top?.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
     /// <summary>The rows every stored query opens with — the type row, the end row, then its declared parameters
     /// in declaration order — written identically for a view and for an action query.</summary>
-    private void AddHeaderRows(TableDefinition mq, int objectId, IReadOnlyList<ViewParameterSpec>? parameters)
+    /// <remarks>Once a parameter carrying facets in <c>LvExtra</c> is written, every row after it in the query
+    /// carries <c>LvExtra</c> too, as 0 where it has nothing of its own — a later parameter without facets, the
+    /// columns, tables, predicates and an action query's rows alike (measured by whole-file diff,
+    /// <c>WholeFileParityProbeTest</c>: <c>(who TEXT(20), lim LONG)</c> marks <c>lim</c>'s row, and
+    /// <c>(lim LONG, who TEXT(20))</c> leaves <c>lim</c>'s alone).</remarks>
+    private static void AddHeaderRows(QueryRows rows, IReadOnlyList<ViewParameterSpec>? parameters)
     {
-        Row(mq, objectId, QueryAttribute.Type, order: 1, flag: StoredQuery.QueryTypeSelect);
-        Row(mq, objectId, QueryAttribute.End, order: 1);
+        rows.Row(QueryAttribute.Type, order: 1, flag: StoredQuery.QueryTypeSelect);
+        rows.Row(QueryAttribute.End, order: 1);
         for (int i = 0; i < (parameters?.Count ?? 0); i++)
         {
             ViewParameterSpec p = parameters![i];
-            Row(mq, objectId, QueryAttribute.Parameter, order: i + 1,
-                flag: p.TypeCode, name1: p.Name,
-                lvExtra: StoredQuery.PackParameterFacets((JetDataType)p.TypeCode, p.Size, p.Scale));
+            int? facets = StoredQuery.PackParameterFacets((JetDataType)p.TypeCode, p.Size, p.Scale);
+            rows.Row(QueryAttribute.Parameter, order: i + 1, flag: p.TypeCode, name1: p.Name, lvExtra: facets);
+            if (facets is not null) rows.CarriedLvExtra = 0;
         }
     }
 
     /// <summary>An ordinary output list, a view's or a make-table query's: Expression = the column, Name1 = its
     /// alias.</summary>
-    private void AddColumnRows(TableDefinition mq, int objectId, IReadOnlyList<ViewColumnSpec> columns)
+    private static void AddColumnRows(QueryRows rows, IReadOnlyList<ViewColumnSpec> columns)
     {
         for (int i = 0; i < columns.Count; i++)
-            Row(mq, objectId, QueryAttribute.Column, order: i + 1, flag: 0,
+            rows.Row(QueryAttribute.Column, order: i + 1, flag: 0,
                 expression: columns[i].Expression, name1: columns[i].Alias);
     }
 
     /// <summary>The <c>0x05</c> FROM rows: a named table in Name1 (alias in Name2), or a derived table whose
     /// subquery SQL goes in Expression with Name1 empty.</summary>
-    private void AddSourceRows(TableDefinition mq, int objectId, ViewSpec? body)
+    private static void AddSourceRows(QueryRows rows, ViewSpec? body)
     {
         var tables = body?.Tables ?? [];
         for (int i = 0; i < tables.Count; i++)
         {
             ViewTableSpec t = tables[i];
             if (t.SubquerySql is { } sub)
-                Row(mq, objectId, QueryAttribute.Table, order: i + 1, expression: sub, name2: t.Alias);
+                rows.Row(QueryAttribute.Table, order: i + 1, expression: sub, name2: t.Alias);
             else
-                Row(mq, objectId, QueryAttribute.Table, order: i + 1, name1: t.Table, name2: t.Alias);
+                rows.Row(QueryAttribute.Table, order: i + 1, name1: t.Table, name2: t.Alias);
         }
     }
 
-    /// <summary>The <c>0x07</c> join rows (condition, kind, and the two tables the condition names) and the
-    /// single <c>0x08</c> WHERE row.</summary>
-    private void AddJoinAndWhereRows(TableDefinition mq, int objectId, ViewSpec? body)
+    /// <summary>The <c>0x07</c> join rows: condition, kind, and the two tables the condition names.</summary>
+    private static void AddJoinRows(QueryRows rows, ViewSpec? body)
     {
         var joins = body?.Joins ?? [];
         for (int i = 0; i < joins.Count; i++)
         {
             ViewJoinSpec j = joins[i];
-            Row(mq, objectId, QueryAttribute.Join, order: i + 1, flag: (short)j.Kind,
+            rows.Row(QueryAttribute.Join, order: i + 1, flag: (short)j.Kind,
                 expression: j.Condition, name1: j.LeftAlias, name2: j.RightAlias);
         }
+    }
+
+    /// <summary>The single <c>0x08</c> WHERE row, when there is a WHERE.</summary>
+    private static void AddWhereRow(QueryRows rows, ViewSpec? body)
+    {
         if (body?.Where is { } where)
-            Row(mq, objectId, QueryAttribute.Where, order: 1, expression: where);
+            rows.Row(QueryAttribute.Where, order: 1, expression: where);
     }
 
     private void AddQueryRows(int objectId, ViewSpec spec)
     {
-        TableDefinition mq = RequireTable("MSysQueries");
+        var rows = new QueryRows(_channel, RequireTable("MSysQueries"), objectId);
 
-        // ACE's row order (verified against every Northwind view): type, end, distinct, TABLES, COLUMNS,
-        // joins, where. Tables must precede columns — a derived-table source defines an alias that the
-        // column expressions reference, and Access processes the rows in order, so columns-before-tables
-        // makes it fail to run the view (it opens, but SELECT-from-view errors). Order fields are
-        // per-attribute counters, independent of this insertion order.
-        // Declared parameters (CREATE PROCEDURE) come right after the End row, before the tables.
-        AddHeaderRows(mq, objectId, spec.Parameters);
-        AddOptionRow(mq, objectId, spec, spec.OwnerAccess);
-        AddSourceRows(mq, objectId, spec);
-        AddColumnRows(mq, objectId, spec.Columns);
-        AddJoinAndWhereRows(mq, objectId, spec);
+        // The row order ACE's CREATE VIEW / CREATE PROCEDURE writes (measured by whole-file diff,
+        // WholeFileParityProbeTest): type, end, parameters, COLUMNS, joins, TABLES, where, group by, having,
+        // order by, and the option row last — columns before tables, a derived table's included; ACE over OLE DB
+        // runs such a view (DerivedTableViewAccessTests). Order fields are per-attribute counters, independent of
+        // this insertion order.
+        AddHeaderRows(rows, spec.Parameters);
+        AddColumnRows(rows, spec.Columns);
+        AddJoinRows(rows, spec);
+        AddSourceRows(rows, spec);
+        AddWhereRow(rows, spec);
         for (int i = 0; i < (spec.GroupBy?.Count ?? 0); i++)
-            Row(mq, objectId, QueryAttribute.GroupBy, order: i + 1, flag: 0, expression: spec.GroupBy![i]);
+            rows.Row(QueryAttribute.GroupBy, order: i + 1, flag: 0, expression: spec.GroupBy![i]);
         // The group filter carries no flag of its own, exactly as the WHERE row doesn't.
         if (spec.Having is { } having)
-            Row(mq, objectId, QueryAttribute.Having, order: 1, expression: having);
+            rows.Row(QueryAttribute.Having, order: 1, expression: having);
         for (int i = 0; i < (spec.OrderBy?.Count ?? 0); i++)
-            Row(mq, objectId, QueryAttribute.OrderBy, order: i + 1, expression: spec.OrderBy![i].Expression,
+            rows.Row(QueryAttribute.OrderBy, order: i + 1, expression: spec.OrderBy![i].Expression,
                 name1: spec.OrderBy[i].Descending ? "d" : null);
+        AddOptionRow(rows, spec, spec.OwnerAccess);
     }
 
-    private void Row(TableDefinition mq, int objectId, QueryAttribute attribute, int order,
-        short? flag = null, string? expression = null, string? name1 = null, string? name2 = null,
-        int? lvExtra = null)
+    /// <summary>One stored query's rows as they are written into <c>MSysQueries</c>: the table, the query's object
+    /// id, and the <c>LvExtra</c> its rows carry once a parameter with facets has been written
+    /// (<see cref="AddHeaderRows"/>).</summary>
+    private sealed class QueryRows(PageChannel channel, TableDefinition mq, int objectId)
     {
-        var values = new object?[mq.Columns.Count];
-        Set(mq, values, "ObjectId", objectId);
-        Set(mq, values, "Attribute", (byte)attribute);
-        Set(mq, values, "Order", StoredQuery.PackOrder(order));
-        if (flag is { } f) Set(mq, values, "Flag", f);
-        if (expression is not null) Set(mq, values, "Expression", expression);
-        if (name1 is not null) Set(mq, values, "Name1", name1);
-        if (name2 is not null) Set(mq, values, "Name2", name2);
-        // A declared parameter's length; ACE writes it here and renders the PARAMETERS clause from it.
-        if (lvExtra is { } extra) Set(mq, values, "LvExtra", extra);
-        new RowInserter(_channel, mq).Insert(values, updateIndexes: true);
+        /// <summary>The <c>LvExtra</c> a row carries when it has none of its own; null until a parameter with
+        /// facets has been written.</summary>
+        public int? CarriedLvExtra { get; set; }
+
+        public void Row(QueryAttribute attribute, int order,
+            short? flag = null, string? expression = null, string? name1 = null, string? name2 = null,
+            int? lvExtra = null)
+        {
+            var values = new object?[mq.Columns.Count];
+            Set(mq, values, "ObjectId", objectId);
+            Set(mq, values, "Attribute", (byte)attribute);
+            Set(mq, values, "Order", StoredQuery.PackOrder(order));
+            if (flag is { } f) Set(mq, values, "Flag", f);
+            if (expression is not null) Set(mq, values, "Expression", expression);
+            if (name1 is not null) Set(mq, values, "Name1", name1);
+            if (name2 is not null) Set(mq, values, "Name2", name2);
+            // A declared parameter's length; ACE writes it here and renders the PARAMETERS clause from it.
+            if ((lvExtra ?? CarriedLvExtra) is { } extra) Set(mq, values, "LvExtra", extra);
+            new RowInserter(channel, mq).Insert(values, updateIndexes: true);
+        }
     }
+
 
 }

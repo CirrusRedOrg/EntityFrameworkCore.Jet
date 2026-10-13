@@ -244,11 +244,36 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
         WriteOrThrow(parentPage, Build(PageType.IntermediateIndexPage, parent.Previous, parent.Next, tail, level: 1,
             entries, parent.CompressedByteCount));
 
-        // The page leaves the index the way AllocateIndexPage brought it in: its bit out of the index's own
-        // pages map, then released — held until this handle closes, the route ACE takes for a freed page.
-        _usageMaps.SetBit(index.UsageMap.Row, index.UsageMap.Page, leafPage, set: false);
-        _allocator.Release(leafPage);
+        ReleaseIndexPage(index, leafPage);
         return true;
+    }
+
+    /// <summary>A page leaves the index the way <see cref="AllocateIndexPage"/> brought it in: its bit out of the
+    /// index's own pages map, then released — held until this handle closes, the route ACE takes for a freed
+    /// page. Its bytes are left as they were.</summary>
+    private void ReleaseIndexPage(IndexDef index, int page)
+    {
+        _usageMaps.SetBit(index.UsageMap.Row, index.UsageMap.Page, page, set: false);
+        _allocator.Release(page);
+    }
+
+    /// <summary>
+    /// Empties <paramref name="index"/> the way ACE does for a <c>DELETE</c> with no <c>WHERE</c> (page-09): no
+    /// entry is removed — every page but the root is released as it stands, and the root becomes an empty leaf
+    /// over its old entry bytes (§10.4c), a node root included. Measured by whole-file diff
+    /// (<c>WholeFileParityProbeTest</c>) over two-level and single-leaf trees.
+    /// </summary>
+    internal void Empty(IndexDef index)
+    {
+        if (index.RootPage <= 0) return;
+        if (index.UsageMap.Page != 0)
+            foreach (int page in new UsageMap(_channel, _table).PagesInMap(index.UsageMap.Row, index.UsageMap.Page).ToList())
+                if (page != index.RootPage) ReleaseIndexPage(index, page);
+
+        JetFormatBase format = _channel.Format;
+        byte[] root = _channel.ReadPage(index.RootPage).Span.ToArray();
+        EmptyLeaf(format, _table.DefinitionPage).AsSpan(0, format.IndexEntryDataOffset).CopyTo(root);
+        _channel.WritePage(index.RootPage, root);
     }
 
     internal static bool HasNullKey(IndexDef index, object?[] values) =>
@@ -834,7 +859,7 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
     // The trailer is carried as an int and written big-endian (WriteInt32Be), so the helpers below that build or
     // compare key ++ trailer without a page work in sizeof(int); the page layout uses the format's
     // IndexEntryTrailerSize.
-    private static byte[] WithTrailer(byte[] key, int trailer)
+    internal static byte[] WithTrailer(byte[] key, int trailer)
     {
         var result = new byte[key.Length + sizeof(int)];
         key.CopyTo(result, 0);
@@ -1077,7 +1102,7 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
         return i;
     }
 
-    private static int CompareBytes(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
+    internal static int CompareBytes(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
     {
         int n = Math.Min(a.Length, b.Length);
         for (int i = 0; i < n; i++)

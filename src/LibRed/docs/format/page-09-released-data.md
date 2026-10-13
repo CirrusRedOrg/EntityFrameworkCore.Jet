@@ -43,6 +43,40 @@ the lowest page in the table's owned map.
 > with. The two coincide wherever they have been compared, so either reading fits; a table whose first page
 > came out of a hole in the free map would separate them.
 
+All of this is the **row-by-row** delete. A `DELETE` with no `WHERE` takes the other route below, and keeps
+nothing.
+
+### A DELETE with no WHERE
+
+ACE empties the table in one go, without visiting a row, and **no page it releases is stamped or rewritten**:
+
+- **Every data page** in the table's owned map — the first one included — is cleared from the owned **and**
+  free maps and released to the global map. Its bytes stay exactly as they were: type `0x0101`, row count,
+  slots and rows all live-looking, nothing tombstoned. No reader reaches it, because nothing owns it.
+- **Every long-value page** in each long-value column's owned map — chained and packed alike — is cleared from
+  that column's owned and free maps and released, its bytes untouched (a packed page keeps `0x0101`; it is not
+  stamped `0x0109` as a row-by-row delete of its last value stamps it).
+- **Every index** keeps only its root, which is rewritten as an **empty leaf**: type `0x0104` (a node root
+  becomes a leaf), free space everything past the header, owner unchanged, previous, next, child-tail,
+  compressed-byte count and level `0`, entry mask cleared. The entry bytes past the header stay as they were
+  ([page-03-04 §10.4c](page-03-04-index-btree.md)). Every other page of the tree is cleared from the index's
+  own pages map and released, untouched. The root keeps its bit.
+- The TDEF's row count and **both** counts of every real index read `0`. The AutoNumber counter is untouched.
+
+**When ACE takes it** (verified):
+
+- The test is the **missing `WHERE`**, not every row matching: `WHERE 1 = 1` and `WHERE D >= 0` delete row by
+  row. `DELETE * FROM t` is the same statement as `DELETE FROM t`.
+- A table an **enforced** relationship names as its **parent** is deleted row by row, cascading or not. A table
+  that is only a **child** (holds a foreign key) takes this route. A parent only through an unenforced
+  relationship is **not measured**; LibRed empties it in one go.
+- It holds for multi-level indexes, chained and packed long values, a definition on continuation pages, a table
+  already emptied row by row (its kept first page goes too), and tables with no index or a composite key. A
+  table with a **complex column** is not measured; LibRed deletes it row by row, the route that follows its
+  flat table's rows.
+- The reset root's compressed-byte count is `0` where the root was not compressed beforehand; whether ACE keeps
+  a non-zero count there is **not measured**.
+
 ### An emptied packed long-value page
 
 Deleting the **last** value sharing the page. Each delete tombstones that value's row and re-lays the page,
@@ -81,6 +115,9 @@ LibRed does the same on both routes, marking the existing page through `DataPage
 the allocator once nothing live is left and the page is not the table's first; `RowInserter.ReleasePackedValue`
 applies the same rule to an LVAL page against the column's maps. A long-value page that survives goes back
 into the column's **free** map, having room again.
+
+A `DELETE` with no `WHERE` goes through `RowInserter.Truncate` instead, which writes none of the pages it
+releases; `StatementExecutor` decides which route a statement takes.
 
 A page is "emptied" when every slot is a deleted **and** zero-length tombstone, not merely a deleted one: a
 hidden relocation target ([page-01](page-01-data-and-rows.md)) is a live row carrying the deleted flag, so a

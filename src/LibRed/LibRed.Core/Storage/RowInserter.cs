@@ -30,7 +30,13 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     /// <c>ParentIdName</c> index rather than by scan. The heap-only path is retained for seeding a table
     /// whose indexes do not exist yet; it has no caller today.
     /// </summary>
-    public void Insert(object?[] values, bool updateIndexes)
+    /// <param name="values">The row's values, aligned to column Index.</param>
+    /// <param name="updateIndexes">Whether to write the row's index entries.</param>
+    /// <param name="defaults">The table's all-defaults record — each column's evaluated default, null where it has
+    /// none — that ACE writes a new row over; with <paramref name="order"/> it decides the record's slack (spec §5).
+    /// Null for a row written with no defaults.</param>
+    /// <param name="order">The columns the statement names, in the order it names them.</param>
+    public void Insert(object?[] values, bool updateIndexes, object?[]? defaults = null, IReadOnlyList<int>? order = null)
     {
         JetFormatBase format = _channel.Format;
         RejectExplicitCalculatedValues(values, null);
@@ -58,7 +64,8 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         // Encode first, to know how much room the record needs.
         var encoder = new RowCodec(_table.Columns, format,
             _table.VariableColumnCount, SpillCalculated, _table.ColumnIdHighWater);
-        byte[] record = encoder.Encode(storage, null, calculated ? values : null);
+        byte[] record = encoder.Encode(storage, null, calculated ? values : null,
+            slackOf: defaults is null || order is null ? null : InsertSlack(format, defaults, order));
 
         EnsureRecordFits(format, record);
 
@@ -171,7 +178,8 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         // stay wherever the new values do not land.
         var encoder = new RowCodec(_table.Columns, format,
             _table.VariableColumnCount, SpillCalculated, _table.ColumnIdHighWater);
-        byte[] record = encoder.Encode(storage, preservedCalculated, HasCalculatedColumns ? values : null, oldLayout);
+        byte[] record = encoder.Encode(storage, preservedCalculated, HasCalculatedColumns ? values : null, oldLayout,
+            UpdateSlack(oldLayout, changedColumns));
 
         // Here as well as on the insert path, and before the in-place rewrite rather than beside the
         // page-search: a row that grows past the cap but still fits its current page is rewritten where it
@@ -205,6 +213,63 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         // slot into a 4-byte forward pointer (row id preserved, so index entries stay valid) — Access's own
         // overflow mechanism, verified against ACE.
         Relocate(format, id, record);
+    }
+
+    /// <summary>The slack a new record keeps (spec §5): ACE writes the statement's values over the all-defaults
+    /// record in the order the statement names them, and a value shorter than the one it replaces leaves the
+    /// difference behind, which a longer one takes up before the record grows. A Memo or OLE default is no part of
+    /// that record (verified). Read off the chunks the new record is encoded with.</summary>
+    private Func<IReadOnlyList<byte[]>, int> InsertSlack(JetFormatBase format, object?[] defaults, IReadOnlyList<int> order)
+    {
+        // Each named variable column's slot, and the bytes its default takes there.
+        var named = new List<(int Slot, int From)>();
+        foreach (int index in order)
+        {
+            ColumnDef column = _table.Columns[index];
+            if (column.IsFixedLength || column.IsCalculated) continue;
+            int from = column.Type is JetDataType.Memo or JetDataType.Ole || defaults[index] is not { } value
+                ? 0
+                : Types.JetTypeCodec.Encode(column, value, format).Length;
+            named.Add((column.VariableIndex, from));
+        }
+        return chunks =>
+        {
+            int slack = 0;
+            foreach ((int slot, int from) in named)
+            {
+                int to = chunks[slot].Length;
+                slack = to < from ? slack + from - to : Math.Max(0, slack - (to - from));
+            }
+            return slack;
+        };
+    }
+
+    /// <summary>The slack an updated record keeps (spec §5): the old record's, less what the new values grow by —
+    /// unless one of them shrinks, which compacts the record and leaves none (verified). Read off the chunks the new
+    /// record is encoded with.</summary>
+    private Func<IReadOnlyList<byte[]>, int> UpdateSlack(in RowCodec.Layout old, IReadOnlySet<int> changedColumns)
+    {
+        // Each changed variable column's slot, and the bytes it took in the old record.
+        var changed = new List<(int Slot, int From)>();
+        foreach (int index in changedColumns)
+        {
+            ColumnDef column = _table.Columns[index];
+            if (column.IsFixedLength || column.IsCalculated) continue;
+            changed.Add((column.VariableIndex,
+                column.VariableIndex < old.NumVar ? old.VarChunk(column.VariableIndex).Length : 0));
+        }
+        int oldSlack = old.Slack;
+        return chunks =>
+        {
+            int slack = oldSlack;
+            foreach ((int slot, int from) in changed)
+            {
+                int to = chunks[slot].Length;
+                if (to < from) return 0;
+                slack = Math.Max(0, slack - (to - from));
+            }
+            return slack;
+        };
     }
 
     /// <summary>Writes <paramref name="record"/> as a hidden row on a page with room and turns the slot at
@@ -349,14 +414,69 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             // from a DAO delete still 0 and 3, while its siblings with a non-zero total each dropped by one.
             // So it is not a clamp (a clamp would still have taken unique to 2); a zero total marks a counter
             // ACE is not maintaining, and it stops touching the pair. Without this the totals go negative.
+            //
+            // While the total is still counting, though, the unique count is held to no more than it, as an UPDATE's
+            // key move holds it (CountKeyMoved). Measured by whole-file diff (WholeFileParityProbeTest, DELETE FROM
+            // Customer): an index reading total 6 and unique 7 over twelve rows of distinct keys ends 0 and 0 in ACE;
+            // the sixth delete takes the total to 0 and the unique count with it, and the six after it touch nothing.
+            // Its sibling at total 0 and unique 13 stayed 0 and 13.
             foreach (IndexDef index in _table.Indexes.GroupBy(i => i.RealIndexOrdinal).Select(g => g.First()))
             {
                 (int total, int unique) = TableDefinition.ReadIndexCounts(tdef, format, index.RealIndexOrdinal);
                 if (total == 0) continue;
                 TableDefinition.WriteIndexCounts(tdef, format, index.RealIndexOrdinal, total - 1,
-                    lastKeyLost.Contains(index.RealIndexOrdinal) ? unique - 1 : unique);
+                    Math.Min(lastKeyLost.Contains(index.RealIndexOrdinal) ? unique - 1 : unique, total - 1));
             }
 
+            _channel.WritePage(_table.DefinitionPage, tdef.AsSpan(0, format.PageSize));
+        }
+        finally { ArrayPool<byte>.Shared.Return(tdef); }
+    }
+
+    /// <summary>
+    /// Empties the table the way ACE runs a <c>DELETE</c> with no <c>WHERE</c>: every page goes, and no row is
+    /// touched. Each data page and each long-value page is taken out of its owned and free maps and released,
+    /// its bytes left exactly as they were — rows, slots and type alike, so no <c>0x0109</c> stamp and no
+    /// tombstones, and the table's first data page goes with the rest. Every index keeps only its root, which
+    /// becomes an empty leaf over its old entry bytes; the other pages of the tree leave its map and are released
+    /// untouched. The row count and every index's pair of counts read 0.
+    /// </summary>
+    /// <remarks>
+    /// Measured by whole-file diff against ACE (<c>WholeFileParityProbeTest</c>), over a 112-page table with two
+    /// two-level indexes, a table with chained and packed long values, a definition on continuation pages, a
+    /// table already emptied row by row, and tables with no index, a composite key and a foreign key of their
+    /// own. The release is held until this handle closes, the route ACE takes for a delete's pages. The engine
+    /// decides when ACE takes this path; see <c>StatementExecutor.Delete</c>.
+    /// </remarks>
+    public void Truncate()
+    {
+        JetFormatBase format = _channel.Format;
+        var maps = new UsageMap(_channel, _table);
+
+        foreach (int page in maps.DataPages().ToList())
+            ReleaseDataPage(format, page);
+
+        TableDefinition definition = LongValueMaps;
+        foreach ((int columnId, (int Row, int Page) owned) in definition.LongValueOwnedMaps)
+        {
+            if (owned.Page == 0) continue;
+            definition.LongValueFreeMaps.TryGetValue(columnId, out (int Row, int Page) free);
+            foreach (int page in maps.PagesInMap(owned.Row, owned.Page).ToList())
+                ReleaseLongValuePage(page, owned, free, releaseAtClose: true);
+        }
+
+        IndexDef[] realIndexes = [.. _table.Indexes.GroupBy(i => i.RealIndexOrdinal).Select(g => g.First())];
+        var tree = new IndexTree(_channel, _table);
+        foreach (IndexDef index in realIndexes)
+            tree.Empty(index);
+
+        byte[] tdef = ArrayPool<byte>.Shared.Rent(format.PageSize);
+        try
+        {
+            _channel.ReadPage(_table.DefinitionPage, tdef);
+            TableDefinition.WriteRowCount(tdef, format, 0);
+            foreach (IndexDef index in realIndexes)
+                TableDefinition.WriteIndexCounts(tdef, format, index.RealIndexOrdinal, 0, 0);
             _channel.WritePage(_table.DefinitionPage, tdef.AsSpan(0, format.PageSize));
         }
         finally { ArrayPool<byte>.Shared.Return(tdef); }
@@ -463,15 +583,22 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         _channel.WritePage(pageNumber, page.AsSpan(0, format.PageSize));
         if (!release) return false;
 
-        UpdateUsageBit(format.TdefOwnedPagesOffset, pageNumber, set: false);
-        UpdateUsageBit(format.TdefFreePagesOffset, pageNumber, set: false);
-        _channel.Allocator.Release(pageNumber);
+        ReleaseDataPage(format, pageNumber);
         return true;
     }
 
+    /// <summary>Takes a data page out of the table's owned and free maps and releases it — held until this handle
+    /// closes, the route ACE takes for a delete's pages.</summary>
+    private void ReleaseDataPage(JetFormatBase format, int pageNumber)
+    {
+        UpdateUsageBit(format.TdefOwnedPagesOffset, pageNumber, set: false);
+        UpdateUsageBit(format.TdefFreePagesOffset, pageNumber, set: false);
+        _channel.Allocator.Release(pageNumber);
+    }
+
     /// <summary>
-    /// The first page of the table's owned-pages map — the one data page ACE never gives back, however empty
-    /// it gets. Measured: deleting every row of a 35-page table releases 34 of them and leaves this one at
+    /// The first page of the table's owned-pages map — the one data page a row-by-row delete never gives back,
+    /// however empty it gets (a <c>DELETE</c> with no <c>WHERE</c> takes it with the rest: <see cref="Truncate"/>). Measured: deleting every row of a 35-page table releases 34 of them and leaves this one at
     /// <c>0x01</c>, still in both of the table's maps, with all its slots tombstoned like the rest. It is not
     /// "keep one page": it stays even while later pages still hold live rows.
     /// </summary>
@@ -575,7 +702,6 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             ReleasePackedValue(column, valuePage, valueRow, owned, free, releaseAtClose);
             return;
         }
-        var allocator = _channel.Allocator;
         var reader = new LongValueStore(_channel);
         _ = reader.ResolveWithPages(descriptor, out IReadOnlyList<int> pages);
         var maps = new UsageMap(_channel, _table);
@@ -590,12 +716,17 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         // partially free. The writes themselves are atomic under the caller's transaction (the engine opens
         // one per statement); a direct Core caller without one gets no more than any other multi-page write.
         foreach (int page in pages)
-        {
-            if (releaseAtClose) allocator.Release(page);
-            else allocator.Free(page);
-            _usageMaps.SetBit(owned.Row, owned.Page, page, set: false);
-            if (free.Page != 0) _usageMaps.SetBit(free.Row, free.Page, page, set: false);
-        }
+            ReleaseLongValuePage(page, owned, free, releaseAtClose);
+    }
+
+    /// <summary>Gives a long-value page back — held until close or free at once — and clears it from the
+    /// column's owned map and, where the column has one, its free map.</summary>
+    private void ReleaseLongValuePage(int page, (int Row, int Page) owned, (int Row, int Page) free, bool releaseAtClose)
+    {
+        if (releaseAtClose) _channel.Allocator.Release(page);
+        else _channel.Allocator.Free(page);
+        _usageMaps.SetBit(owned.Row, owned.Page, page, set: false);
+        if (free.Page != 0) _usageMaps.SetBit(free.Row, free.Page, page, set: false);
     }
 
     /// <summary>
@@ -658,10 +789,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             if (free.Page != 0) _usageMaps.SetBit(free.Row, free.Page, pageNumber, set: true);
             return;
         }
-        _usageMaps.SetBit(owned.Row, owned.Page, pageNumber, set: false);
-        if (free.Page != 0) _usageMaps.SetBit(free.Row, free.Page, pageNumber, set: false);
-        if (releaseAtClose) _channel.Allocator.Release(pageNumber);
-        else _channel.Allocator.Free(pageNumber);
+        ReleaseLongValuePage(pageNumber, owned, free, releaseAtClose);
     }
 
     /// <summary>Rejects the insert if a primary-key or WITH DISALLOW NULL index would get a Null in any of its
@@ -712,18 +840,27 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     }
 
     /// <summary>
-    /// The root pages of the non-unique indexes the row brings a key they do not hold yet — the ones whose
-    /// unique-entry count advances (verified vs ACE: a key equal to one already in the index, collation included,
-    /// adds nothing; a key whose last row was deleted counts again; a Null key counts like any other, except in an
-    /// IGNORE NULL index, which does not hold it). A unique index always gains a new key, so it is not asked.
+    /// The root pages of the indexes the row brings a key they do not hold yet — the ones whose unique-entry count
+    /// advances (verified vs ACE: a key equal to one already in the index, collation included, adds nothing; a key
+    /// whose last row was deleted counts again; a Null key counts like any other, except in an IGNORE NULL index,
+    /// which does not hold it). A unique index is no exception: it may hold a key with a Null in it more than
+    /// once, and a repeat adds nothing (measured, whole-file diff — WholeFileParityProbeTest: two more rows with a
+    /// Null in a unique index's column left its count at 1). A unique key without a Null cannot be there already,
+    /// so only one with a Null is looked up.
     /// </summary>
     private HashSet<int> IndexesGainingANewKey(object?[] values)
     {
         var gaining = new HashSet<int>();
         IndexTree? writer = null;
-        foreach (IndexDef index in _table.RealIndexes.Where(i => !i.IsUnique))
+        foreach (IndexDef index in _table.RealIndexes)
         {
-            if (index.IgnoreNulls && HasNullKey(index, values)) continue;
+            bool nullKey = HasNullKey(index, values);
+            if (index.IgnoreNulls && nullKey) continue;
+            if (index.IsUnique && !nullKey)
+            {
+                gaining.Add(index.RootPage);
+                continue;
+            }
             writer ??= new IndexTree(_channel, _table);
             if (!writer.KeyExists(index, values)) gaining.Add(index.RootPage);
         }
@@ -755,7 +892,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
 
     private (int PageNumber, byte[] Page) FindPageWithRoom(JetFormatBase format, int needed)
     {
-        foreach (int pageNumber in new UsageMap(_channel, _table).FreeDataPages())
+        foreach (int pageNumber in new UsageMap(_channel, _table).FreeDataPages().ToList())
         {
             byte[] page = _channel.ReadPageShared(pageNumber).Span.ToArray();
             int freeSpace = DataPage.ReadFreeSpace(page, format);
@@ -765,6 +902,9 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             int rowCount = DataPage.ReadRowCount(page, format);
             if (freeSpace >= needed && rowCount < format.MaxRowsPerPage)
                 return (pageNumber, page);
+            // Access clears a page from the free-pages map when an insert finds it too full and moves on, so only
+            // the page being appended to stays marked free (page-05).
+            UpdateUsageBit(format.TdefFreePagesOffset, pageNumber, set: false);
         }
 
         return AllocateDataPage(format);
@@ -778,20 +918,14 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     /// </summary>
     private (int PageNumber, byte[] Page) AllocateDataPage(JetFormatBase format)
     {
-        // We only allocate when no owned page had room, so the current tail (highest owned data page)
-        // is full. Access clears such a page from the free-pages map when it moves past it to a new
-        // page — leaving only the page currently being appended to marked free. Match that: clear the
-        // old tail's free bit, then set the new page's. (Verified against an ACE sequential fill: only
-        // the last of six equally-full pages stays in the free map.)
-        int previousTail = new UsageMap(_channel, _table).MaxDataPage();
-
+        // Only reached when no page in the free map had room, and FindPageWithRoom has cleared each of those, so
+        // the new page is the only one left marked free. (Verified against an ACE sequential fill: only the last
+        // of six equally-full pages stays in the free map.)
         int pageNumber = _channel.Allocator.Allocate();
 
         byte[] page = DataPage.NewPage(format, (uint)_table.DefinitionPage);
         _channel.WritePage(pageNumber, page);
 
-        if (previousTail >= 0)
-            UpdateUsageBit(format.TdefFreePagesOffset, previousTail, set: false); // old tail is now full
         UpdateUsageBit(format.TdefOwnedPagesOffset, pageNumber, set: true);
         UpdateUsageBit(format.TdefFreePagesOffset, pageNumber, set: true);        // new tail has room
 
@@ -1111,8 +1245,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     /// to pick the *next* id = this + increment; leaving it stale makes Access reissue an existing id and
     /// reject the insert as a duplicate primary key.)</item>
     /// <item>Per-index **unique-entry count** (`0x3F + ordinal×12`, `+4`) — incremented by one for
-    /// each **unique** index (a unique index gets a distinct key per row) and each non-unique index in
-    /// <paramref name="newKeys"/> (the row brings a key it does not hold yet). Access advances it on insert only,
+    /// each index in <paramref name="newKeys"/> (the row brings a key it does not hold yet). Access advances it on insert only,
     /// once per real index, and never decrements it. The sibling **total-entry count**
     /// (`+0`) is deliberately left untouched **on insert**: Access does not raise it there — it is written
     /// when the index is built (to its entries, in <c>SchemaEditor</c>'s back-fill) or the file compacted
@@ -1182,8 +1315,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         // One count per real index, so a relationship's logical index sharing a real one does not advance it twice.
         foreach (IndexDef index in _table.Indexes.GroupBy(i => i.RealIndexOrdinal).Select(g => g.First()))
         {
-            if (!index.IsUnique && !newKeys.Contains(index.RootPage)) continue;
-            if (index.IgnoreNulls && HasNullKey(index, values)) continue; // row was excluded from the index
+            if (!newKeys.Contains(index.RootPage)) continue; // excluded from the index, or its key already there
             (int total, int unique) = TableDefinition.ReadIndexCounts(tdef, format, index.RealIndexOrdinal);
             TableDefinition.WriteIndexCounts(tdef, format, index.RealIndexOrdinal, total, unique + 1);
         }

@@ -329,8 +329,9 @@ to `n` bytes, as page-01 stores it. LibRed builds the row and every key from one
 > LibRed encodes both: `JetTextCollation` (v0, a measured table) and `JetTextCollationV1` (v1, the published
 > table plus the measured overrides — see `tools/sortkey-table/generate.ps1`), sharing `JetKanaSection`.
 > **Both cover the whole Basic Multilingual Plane**: every key byte-for-byte what ACE stores, nothing refused
-> and nothing left unhandled. Other locales are **not** refused under v1: the six orders with a version-1
-> table are tailored, and every other LANGID falls back to General v1 (see §10.4's collation list).
+> and nothing left unhandled. Under v1 only the six orders with a version-1 table are encodable; any other
+> LANGID declared at version 1 is refused. ACE resolves such a declaration to a version-0 order instead, not to
+> General v1, but nothing ACE produces carries one ([§3.4](page-02b-columns.md#34-column-descriptor-25-bytes)).
 >
 > **Above the BMP** the two orders disagree completely. **v0 ignores astral characters entirely** — every one
 > gets the empty key `7F 01 00`, so under General Legacy an astral character is invisible to the index. **v1 weighs both surrogate halves**, each
@@ -921,9 +922,10 @@ to `n` bytes, as page-01 stores it. LibRed builds the row and every key from one
 
   *Not yet handled:* **Irish 1084** and the two **Unicode** CJK orders (above). **Six** version-1 collations
   besides the CJK ones are implemented — General v1, Indic v1, Romanian v1, and Croatian / Bosnian / Serbian
-  v1 sharing one table — and those six are the only non-CJK orders that differ from General v1, so the rest
-  are covered by falling back to it. DAO writes version 0 for every LANGID it accepts, so a v1 database needs another authoring
-  route.
+  v1 sharing one table. Any other LANGID at version 1 is refused rather than encoded as General v1, which ACE
+  does not do either: it resolves the declaration to a version-0 order
+  ([§3.4](page-02b-columns.md#34-column-descriptor-25-bytes)). DAO writes version 0 for every LANGID it accepts,
+  so a v1 database needs another authoring route.
 - **GUID:** the start flag `0x7F`, then the 16 GUID bytes in **canonical string order** (i.e.
   `guid.ToString("N")` bytes — **not** the mixed-endian `.ToByteArray()` storage layout), split into two
   8-byte halves by a constant `0x09` marker, and terminated by `0x08` — a fixed **19-byte** key. Data

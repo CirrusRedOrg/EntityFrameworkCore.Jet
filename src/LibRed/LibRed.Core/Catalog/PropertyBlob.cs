@@ -123,6 +123,17 @@ public static class PropertyBlob
     public static Property Bool(string owner, string name, bool value) =>
         new(owner, name, value ? "1" : "0", JetDataType.Boolean);
 
+    /// <summary>A column's <c>DefaultValue</c> property — refused, as ACE refuses it, when the default is
+    /// <c>GenUniqueID()</c> and the column is not a <c>LONG</c>: "Cannot place this validation expression on this
+    /// field" (verified across BYTE/SHORT/SINGLE/DOUBLE/CURRENCY/DECIMAL/GUID/DATETIME/BIT/TEXT). Every route that
+    /// writes a default builds it here, after the statement's read-only refusal, which ACE makes first.</summary>
+    public static Property DefaultValue(string column, JetDataType type, string defaultSql) =>
+        defaultSql.Trim().Equals("GenUniqueID()", StringComparison.OrdinalIgnoreCase) && type != JetDataType.Int32
+            ? throw new InvalidOperationException(
+                $"Cannot place this validation expression on this field. GenUniqueID() is only valid as the " +
+                $"DEFAULT of a LONG (Int32) column (column '{column}').")
+            : new(column, DefaultValueProperty, defaultSql);
+
     /// <summary>A property holding <paramref name="value"/>, stored as the type Access uses for that CLR type —
     /// <see cref="bool"/> Boolean, <see cref="byte"/> Byte, <see cref="short"/> Int16, <see cref="int"/> Int32,
     /// <see cref="long"/> Int64, <see cref="decimal"/> Currency, <see cref="float"/> Single, <see cref="double"/>

@@ -27,11 +27,24 @@ public sealed class ColumnDef
     /// <summary>The "variable-table index" stored at descriptor offset 7 (<see cref="JetFormatBase.ColumnVariableIndexOffset"/>):
     /// the count of variable-length columns whose column-id is smaller than this one's. For a variable column this
     /// equals <see cref="VariableIndex"/>; for a fixed column it is the running count of preceding variable columns
-    /// (Access stores it on fixed columns too, and its strict row reader relies on it). -1 = unset (falls back to
-    /// the legacy "0 for fixed" behaviour used by the ADD COLUMN path).</summary>
-    public int VariableTableIndex { get; init; } = -1;
+    /// (Access stores it on fixed columns too, and its strict row reader relies on it). Left unset, it is what
+    /// the descriptor is written with: 0 for a fixed column, <see cref="VariableIndex"/> for a variable one.</summary>
+    public int VariableTableIndex
+    {
+        get => _variableTableIndex >= 0 ? _variableTableIndex : IsFixedLength ? 0 : VariableIndex;
+        init => _variableTableIndex = value;
+    }
+
+    private readonly int _variableTableIndex = -1;
 
     public bool IsFixedLength { get; init; }
+
+    /// <summary>Whether the column has bytes in the row's fixed-data region: every fixed-length column but a Yes/No,
+    /// which is fixed yet holds its value in its null-bitmap bit.</summary>
+    internal bool OccupiesFixedData => OccupiesFixed(Type, IsFixedLength);
+
+    internal static bool OccupiesFixed(JetDataType type, bool isFixedLength) =>
+        isFixedLength && type != JetDataType.Boolean;
 
     /// <summary>Whether the column accepts NULL. False for a NOT NULL / Required column — read from the
     /// <c>Required</c> property in the extended-properties (<c>LvProp</c>) blob, set by the catalog after

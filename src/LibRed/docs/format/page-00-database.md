@@ -85,16 +85,17 @@ A **calculated column** is the third of these, and the lowest: it declares Acces
 adding one to an ACE 12 file raises `0x14` to **`0x03`**. Three features, three different thresholds.
 
 **LibRed performs this upgrade itself**, as ACE does: DDL introducing a type the open file is too old for
-raises the version byte, and clears the minor, instead of refusing (`StatementExecutor.MapColumn` →
-`JetDatabase.EnsureFormatAtLeast` → `PageChannel.RaiseFormatVersion`). Three properties are worth recording,
-because each is a place the obvious implementation goes wrong:
+raises the version byte, and clears the minor, instead of refusing (`SchemaEditor.RaiseFormatFor` →
+`PageChannel.RaiseFormatVersion`, in CREATE TABLE, ADD COLUMN and ALTER COLUMN once the statement's checks —
+the read-only refusal among them — have passed). Three properties are worth recording, because each is a place the
+obvious implementation goes wrong:
 
 - The write goes through `PageChannel.WritePage`, not the stream, so it **joins the statement's transaction**.
   A `CREATE TABLE` that raises the format and then fails takes the raise back down with it.
 - The in-memory `Format` is *not* transactional on its own, so both rollback paths (`RollbackTransaction`
   and the savepoint `RestoreOverlay`) re-derive it from the version byte then visible, and `JetDatabase`
-  re-reads `DefinitionPage` alongside. Getting only the disk half right leaves an open database claiming a
-  version its file does not have.
+  re-reads `DefinitionPage` whenever its version byte no longer matches that `Format`. Getting only the disk half
+  right leaves an open database claiming a version its file does not have.
 - It is one-way: there is no downgrade, and an Access older than the new format can no longer open the file.
   That is inherent — the column it would find is one it could not read either.
 

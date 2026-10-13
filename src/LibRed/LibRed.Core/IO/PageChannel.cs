@@ -101,6 +101,25 @@ public sealed class PageChannel : IDisposable
     /// <summary>Whether this channel was opened read-only, so it can never write a page.</summary>
     internal bool IsReadOnly => _readOnly;
 
+    /// <summary>Refuses <paramref name="write"/> when this channel is read-only, with ACE's message for that kind of
+    /// write; <paramref name="objectName"/> names the table or query a design change is to.</summary>
+    /// <remarks>ACE reports these first, before the read-only refusal: the syntax, a name's legality, and a missing
+    /// table, query, column, index or constraint that the statement finds or drops. It reports these after it: an
+    /// INSERT's column list and values, a duplicate name, an index's columns, a relationship's target (verified vs
+    /// ACE). So each writer calls this between the two, and the refusals below — at the first page written — are
+    /// only what a writer that misses it meets.</remarks>
+    internal void RefuseIfReadOnly(ReadOnlyWrite write, string? objectName = null)
+    {
+        if (!_readOnly) return;
+        throw new InvalidOperationException(write switch
+        {
+            ReadOnlyWrite.Row => "Operation must use an updateable query.",
+            ReadOnlyWrite.RowDelete => "Could not delete from specified tables.",
+            ReadOnlyWrite.Design => $"Cannot modify the design of table '{objectName}'. It is in a read-only database.",
+            _ => "Cannot update. Database or object is read-only.",
+        });
+    }
+
     /// <summary>Holds a freed page until this channel closes. Inside a transaction the page is staged with it —
     /// released only if the transaction commits; outside one it is committed at once.</summary>
     internal void ReleaseAtClose(int page)
@@ -453,8 +472,7 @@ public sealed class PageChannel : IDisposable
     /// </summary>
     public Transaction BeginTransaction()
     {
-        if (_readOnly)
-            throw new InvalidOperationException("This channel was opened read-only.");
+        // Allowed read-only, as ACE allows it: nothing can be written into it, so it commits and rolls back nothing.
         if (_active is not null)
             throw new InvalidOperationException("A transaction is already in progress.");
         ClearTransactionState();
@@ -761,4 +779,20 @@ public sealed class PageChannel : IDisposable
         PageCache.ReleaseKey(_identity); // last channel on this file drops the shared pool
         if (_ownsLocks) MonitorLockManager.ReleaseKey(_identity); // and the shared lock manager
     }
+}
+
+/// <summary>The kinds of write a read-only database refuses, each with its own message from ACE.</summary>
+public enum ReadOnlyWrite
+{
+    /// <summary>An SQL INSERT or UPDATE: <i>"Operation must use an updateable query."</i></summary>
+    Row,
+    /// <summary>An SQL DELETE: <i>"Could not delete from specified tables."</i></summary>
+    RowDelete,
+    /// <summary>A change to a table's design, or the drop of a table, index or query:
+    /// <i>"Cannot modify the design of table 'X'. It is in a read-only database."</i></summary>
+    Design,
+    /// <summary>A new query (CREATE VIEW/PROCEDURE), a make-table query, or a row written through the table API
+    /// rather than SQL — as a DAO recordset's AddNew, Edit and Delete are (all verified):
+    /// <i>"Cannot update. Database or object is read-only."</i></summary>
+    DatabaseOrObject,
 }

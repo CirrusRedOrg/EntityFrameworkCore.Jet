@@ -792,7 +792,7 @@ public sealed class TableDefinition : Page
             RowCodec.ValidateFieldWidth(spec.Name, spec.Type, spec.Length);
             JetDataTypeVersions.EnsureStorable(spec.Type, format.Version, spec.Name);
             ValidateNumericPrecision(spec);
-            if (spec.IsFixedLength && spec.Type != JetDataType.Boolean)
+            if (spec.OccupiesFixedData)
                 fixedBytes += spec.Length;
             if (!spec.IsFixedLength) variableColumns++;
             highWater = Math.Max(highWater, id);
@@ -1037,10 +1037,9 @@ public sealed class TableDefinition : Page
         // Fixed-data offsets are assigned in ascending column-id order, NOT declaration order — Access lays the
         // fixed columns out by column id (e.g. MSysACEs stores ObjectId(id0) at offset 0 even though its
         // descriptor is written after ACM). Only differs from declaration order when ids are reordered (MSys*).
-        bool Occupies(int i) => specs[i].IsFixedLength && specs[i].Type != JetDataType.Boolean;
         var fixedOffsets = new Dictionary<int, int>();
         int running = 0;
-        foreach (int i in Enumerable.Range(0, specs.Count).Where(Occupies).OrderBy(EffectiveId))
+        foreach (int i in Enumerable.Range(0, specs.Count).Where(i => specs[i].OccupiesFixedData).OrderBy(EffectiveId))
         {
             fixedOffsets[i] = running;
             running += specs[i].Length;
@@ -1050,9 +1049,6 @@ public sealed class TableDefinition : Page
         for (int i = 0; i < specs.Count; i++)
         {
             ColumnSpec s = specs[i];
-            // Booleans live in the null bitmap and occupy no fixed-data bytes, so they don't
-            // advance the fixed offset (matching how the row codec skips them).
-            bool occupiesFixedData = s.IsFixedLength && s.Type != JetDataType.Boolean;
             columns.Add(new ColumnDef
             {
                 Name = s.Name,
@@ -1060,7 +1056,7 @@ public sealed class TableDefinition : Page
                 Index = i,
                 ColumnId = EffectiveId(i),
                 Length = s.Length,
-                FixedOffset = occupiesFixedData ? fixedOffsets[i] : 0,
+                FixedOffset = s.OccupiesFixedData ? fixedOffsets[i] : 0,
                 VariableIndex = s.IsFixedLength ? -1 : variableRank[i],
                 VariableTableIndex = VarTableIndex(i),
                 IsFixedLength = s.IsFixedLength,
@@ -1136,9 +1132,8 @@ public sealed class TableDefinition : Page
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnSecondaryNumberOffset, 2),
             (ushort)(c.IsEngineColumn ? 0 : c.ColumnId));
         // Offset 7 = variable-table index (count of variable columns with a smaller id), stored on fixed columns
-        // too. Prefer the precomputed value; fall back to the legacy rule (0 for fixed) when unset (ADD COLUMN).
-        BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnVariableIndexOffset, 2),
-            (ushort)(c.VariableTableIndex >= 0 ? c.VariableTableIndex : (c.IsFixedLength ? 0 : c.VariableIndex)));
+        // too.
+        BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnVariableIndexOffset, 2), (ushort)c.VariableTableIndex);
         WriteLocaleUnion(d, c.Type, c.Precision, c.Scale, c.Collation, format);
         if (c.Type == JetDataType.Complex)
             BinaryPrimitives.WriteInt32LittleEndian(d.AsSpan(format.ColumnComplexIdOffset, sizeof(int)), c.ComplexId);
@@ -1579,8 +1574,8 @@ public sealed class TableDefinition : Page
 
     /// <summary>Applies ACE's in-place column retype to the target descriptor within <paramref name="parts"/>
     /// (no page write — the caller writes the TDEF once): the target becomes a NEW column with a fresh id from the
-    /// <c>0x29</c> high-water and its fixed data appended to the END of the current fixed region (its old slot left
-    /// as dead space — ACE does not compact); <c>0x29</c> bumps, and <c>0x2B</c> too for a variable retype. Only
+    /// <c>0x29</c> high-water and its fixed data placed where the live fixed columns end (its old slot left as dead
+    /// space — ACE does not compact); <c>0x29</c> bumps, and <c>0x2B</c> too for a variable retype. Only
     /// the target descriptor changes; every other descriptor stays byte-identical. Returns the burned new id.</summary>
     internal static int EditTargetDescriptor(Parts parts, ColumnDef target, ColumnSpec newSpec, int fixedEnd,
         Collation collation, JetFormatBase format)
@@ -1603,7 +1598,7 @@ public sealed class TableDefinition : Page
         flags = newSpec.IsAutoNumber ? flags | ColumnFlags.AutoNumber : flags & ~ColumnFlags.AutoNumber;
         d[format.ColumnFlagsOffset] = (byte)flags;
         BinaryPrimitives.WriteUInt16LittleEndian(d[format.ColumnFixedOffsetOffset..],
-            (ushort)(newSpec.IsFixedLength && newSpec.Type != JetDataType.Boolean ? fixedEnd : 0)); // +0x15
+            (ushort)(newSpec.OccupiesFixedData ? fixedEnd : 0)); // +0x15
         BinaryPrimitives.WriteUInt16LittleEndian(d[format.ColumnLengthOffset..], (ushort)newSpec.Length); // +0x17
         // 0x0B–0x0E is a union keyed by type, so the WHOLE union is rewritten, not just the decimal arm.
         // Writing precision/scale on the way in but nothing on the way out left a former DECIMAL(12,3) with

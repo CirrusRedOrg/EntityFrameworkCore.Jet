@@ -25,9 +25,6 @@ public sealed class JetDatabase : IDisposable
     {
         _channel = channel;
 
-        DefinitionPage = new DatabaseDefinitionPage();
-        DefinitionPage.Read(channel.ReadPage(0), channel.Format);
-
         // A writable open checks page 0's global map pointers now rather than at the first allocation: ACE marks
         // a file corrupt when one names a page past the end, and fails its first allocation when one names
         // anything but a usage map. A read-only open never allocates, so it reads such a file as ACE would.
@@ -39,8 +36,23 @@ public sealed class JetDatabase : IDisposable
         Catalog = new JetCatalog(channel, DefinitionPage.CatalogRootPage);
     }
 
-    /// <summary>The decoded database definition page (page 0).</summary>
-    public DatabaseDefinitionPage DefinitionPage { get; }
+    /// <summary>The decoded database definition page (page 0) — re-read whenever the format version has moved
+    /// under it: raised by DDL that needs a newer one, taken back down by a rollback, or raised by another handle,
+    /// all of which <see cref="PageChannel.Format"/> already follows. A re-read decodes into a new instance and
+    /// replaces the old one, so a reader on another thread never sees one half-decoded.</summary>
+    public DatabaseDefinitionPage DefinitionPage
+    {
+        get
+        {
+            DatabaseDefinitionPage? page = _definitionPage;
+            if (page is not null && page.JetVersion == (byte)_channel.Format.Version) return page;
+            page = new DatabaseDefinitionPage();
+            page.Read(_channel.ReadPage(0), _channel.Format);
+            return _definitionPage = page;
+        }
+    }
+
+    private DatabaseDefinitionPage? _definitionPage;
 
     /// <summary>The instant the database file was created, decoded from the obfuscated OLE
     /// timestamp on page 0 (see <see cref="DatabaseDefinitionPage.DatabaseCreationDate"/>).</summary>
@@ -207,29 +219,14 @@ public sealed class JetDatabase : IDisposable
     /// unconditionally.
     /// </summary>
     /// <remarks>
-    /// This is what lets a `BIGINT` or `DATETIME2` column be added to an older file: the type cannot be
-    /// represented below a given format, and Access's own engine responds by upgrading the file rather than
-    /// refusing the DDL — verified by having ACE add a Date/Time Extended column to an ACE 12 database and
-    /// diffing the result, which moved the version byte to 0x06 and nothing else
-    /// (docs/format/page-00-database.md).
+    /// The same raise DDL makes for a column type the file is too old for (<c>SchemaEditor.RaiseFormatFor</c>,
+    /// docs/format/page-00-database.md), for a caller that wants the file at a version outright.
     /// <para>The upgrade is one-way and there is no downgrade: a raised file cannot be opened by an Access
-    /// older than the new format. That is inherent to the type, not a choice here — the alternative is a file
-    /// whose columns Access cannot read at all.</para>
+    /// older than the new format.</para>
     /// <para>It joins the caller's transaction, so it commits with the statement that needed it and is undone
     /// with a statement that fails.</para>
     /// </remarks>
-    public bool EnsureFormatAtLeast(JetVersion minimum)
-    {
-        if (Format.Version >= minimum) return false;
-        if (!_channel.RaiseFormatVersion((byte)minimum)) return false;
-
-        RereadDefinitionPage();
-        return true;
-    }
-
-    /// <summary>Re-decodes page 0 into <see cref="DefinitionPage"/> — after the format version moves, and
-    /// after a rollback that may have put it back.</summary>
-    private void RereadDefinitionPage() => DefinitionPage.Read(_channel.ReadPage(0), _channel.Format);
+    public bool EnsureFormatAtLeast(JetVersion minimum) => _channel.RaiseFormatVersion((byte)minimum);
 
     /// <summary>Whether a transaction is currently open.</summary>
     public bool InTransaction => _channel.InTransaction;
@@ -259,7 +256,6 @@ public sealed class JetDatabase : IDisposable
     {
         if (!_channel.InTransaction) return;
         _channel.RollbackTransaction();
-        RereadDefinitionPage();   // page 0 moves too, when a rolled-back statement raised the format version
     }
 
     /// <summary>Opens a savepoint within the current transaction (used to make a single statement atomic
@@ -268,11 +264,7 @@ public sealed class JetDatabase : IDisposable
 
     /// <summary>Rolls back to <paramref name="savepoint"/>, undoing writes made since it was created; the
     /// transaction (and savepoint) stay open.</summary>
-    public void RollbackToSavepoint(Savepoint savepoint)
-    {
-        _channel.RollbackToSavepoint(savepoint);
-        RereadDefinitionPage();
-    }
+    public void RollbackToSavepoint(Savepoint savepoint) => _channel.RollbackToSavepoint(savepoint);
 
     /// <summary>Releases <paramref name="savepoint"/>, merging its writes into the enclosing scope.</summary>
     public void ReleaseSavepoint(Savepoint savepoint) => _channel.ReleaseSavepoint(savepoint);
@@ -472,12 +464,14 @@ public sealed class JetDatabase : IDisposable
         TableType tableType = TableType.User)
     {
         ValidateCalculated(columns, [.. columns.Select(c => c.Name)]);
-        EnsureFormatForCalculated(columns);
         new Catalog.SchemaEditor(_channel, Catalog, Collation)
             .Create(name, columns, primaryKey, relationships, uniqueConstraints, columnDefaults, checkConstraints,
                 primaryKeyName, primaryKeyDeclaredAfter, tableType);
         Catalog.Invalidate();
     }
+
+    /// <inheritdoc cref="PageChannel.RefuseIfReadOnly"/>
+    public void RefuseIfReadOnly(ReadOnlyWrite write, string? objectName = null) => _channel.RefuseIfReadOnly(write, objectName);
 
     /// <summary>
     /// Adds an index to an existing table — the CREATE INDEX statement, back-filled from the table's rows.
@@ -615,7 +609,6 @@ public sealed class JetDatabase : IDisposable
         if (ownTransaction) BeginTransaction();
         try
         {
-            EnsureFormatForCalculated([column]);
             bool added = new Catalog.SchemaEditor(_channel, Catalog, Collation).AddColumn(table, column, defaultValue);
             if (added)
             {
@@ -637,19 +630,6 @@ public sealed class JetDatabase : IDisposable
         }
     }
 
-    /// <summary>Raises the file to ACE 14 when a calculated column is being created — the floor its own
-    /// <c>FCMinReadVer</c> property declares. Raising rather than refusing is what ACE does for a feature the
-    /// file is too old for, and is how <c>BIGINT</c> and <c>DATETIME2</c> are already handled; it joins the
-    /// caller's transaction, so a failed CREATE takes the version back down with it.</summary>
-    private void EnsureFormatForCalculated(IReadOnlyList<Catalog.ColumnSpec> columns)
-    {
-        foreach (Catalog.ColumnSpec column in columns)
-            if (column.CalculatedExpression is not null)
-            {
-                EnsureFormatAtLeast(JetVersion.Version14_2010);
-                return;
-            }
-    }
 
     /// <summary>Validates every calculated column in <paramref name="columns"/> against
     /// <paramref name="visible"/> before any of it is written. Runs first because the failure it prevents is

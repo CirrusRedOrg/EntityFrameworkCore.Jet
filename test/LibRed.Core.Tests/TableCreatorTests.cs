@@ -343,22 +343,25 @@ public class TableCreatorTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
-    // Every JetDatabase DDL entry point takes a raw ColumnSpec and hands it to the writer, so the version gate
-    // has to be here and not only on the SQL path above it — otherwise a Core caller writes a BIGINT
-    // descriptor into an ACE 12 file, a column Access cannot read.
+    // Every JetDatabase DDL entry point takes a raw ColumnSpec and hands it to the writer, so the file is raised
+    // there and not only on the SQL path above it — otherwise a Core caller writes a BIGINT descriptor into an
+    // ACE 12 file, a column Access cannot read. ACE raises it the same way: CREATE TABLE T (K LONG, Big BIGINT)
+    // on an ACE 12 file LibRed created moves the version byte from 0x02 to 0x05.
     [Fact]
-    public void Creating_a_table_refuses_a_type_the_file_is_too_old_for()
+    public void Creating_a_table_raises_the_file_to_the_format_its_types_need()
     {
         string path = TemporaryDatabase.CreatePath("versiongate-");
         try
         {
             JetDatabase.Create(path, version: 0x02);        // ACE 12
-            using var db = JetDatabase.Open(path, readOnly: false);
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                db.CreateTable("T",
+                    [new ColumnSpec("K", JetDataType.Int32, 4, IsFixedLength: true),
+                     new ColumnSpec("Big", JetDataType.Int64, 8, IsFixedLength: false)]);
 
-            var error = Assert.Throws<NotSupportedException>(() => db.CreateTable("T",
-                [new ColumnSpec("K", JetDataType.Int32, 4, IsFixedLength: true),
-                 new ColumnSpec("Big", JetDataType.Int64, 8, IsFixedLength: false)]));
-            Assert.Contains("Access 2016", error.Message);
+            using var reopened = JetDatabase.Open(path);
+            Assert.Equal(0x05, reopened.DefinitionPage.JetVersion);
+            Assert.Equal(JetDataType.Int64, reopened.Catalog.FindTable("T")!.FindColumn("Big")!.Type);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

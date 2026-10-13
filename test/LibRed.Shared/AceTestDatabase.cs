@@ -11,7 +11,7 @@ internal static class AceTestDatabase
 {
     private static readonly string[] Providers = ["Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0"];
 
-    public static OleDbConnection Open(string path, string? password = null, int attempts = 12)
+    public static OleDbConnection Open(string path, string? password = null, int attempts = 12, bool readOnly = false)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
         if (attempts < 1) throw new ArgumentOutOfRangeException(nameof(attempts));
@@ -33,8 +33,9 @@ internal static class AceTestDatabase
                 try
                 {
                     string passwordPart = password is null ? "" : $"Jet OLEDB:Database Password={password};";
+                    string modePart = readOnly ? "Mode=Read;" : "";
                     connection = new OleDbConnection(
-                        $"Provider={provider};Data Source={path};{passwordPart}OLE DB Services=-4;");
+                        $"Provider={provider};Data Source={path};{passwordPart}{modePart}OLE DB Services=-4;");
                     connection.Open();
 
                     OleDbConnection opened = connection;

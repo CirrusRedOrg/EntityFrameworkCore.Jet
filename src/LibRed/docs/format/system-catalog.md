@@ -470,6 +470,10 @@
   > to a declared name are lowered into engine parameters, so LibRed's own engine executes the stored procedure
   > when values are supplied.
   >
+  > **A parameter's type needs no format raise.** A `BIGINT` or `DATETIME2` parameter on an ACE 12 file is stored
+  > with its type (Int64 `0x13`, Date/Time Extended `0x14`) and the version byte stays `0x02` — for a SELECT and an
+  > action query alike (verified vs ACE). It declares no storage, so nothing about the file has to change.
+  >
   > **A form control is declared as a bang chain and stored as written.** `PARAMETERS [Forms]![frmMenu]![txtCity]
   > Text ( 20 )`, saved through DAO, stores `Name1=[Forms]![frmMenu]![txtCity]` — each part in its own brackets,
   > so a `Name1` that starts with `[` need not be one bracketed name. LibRed writes the same `Name1`, and the

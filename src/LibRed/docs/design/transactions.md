@@ -226,6 +226,10 @@ above), not before.
   concurrency-phase option and is not designed in here beyond "don't preclude".
 - **Savepoints:** nesting via the frame stack; an inner statement inside an explicit txn
   is a frame, so its failure rolls back just that statement, not the user's transaction.
+- **A read-only database** begins, commits and rolls back transactions like any other — ACE lets a read-only
+  connection `BEGIN` and read inside it (verified) — and nothing can enter the overlay, because a write is refused
+  before it reaches a page: each writer refuses where ACE does in the order of its checks, with ACE's message for
+  its kind (`PageChannel.RefuseIfReadOnly`), and the page writer refuses anything that gets past that.
 - **Nested transactions** (SQL `BEGIN`/`COMMIT`/`ROLLBACK`, and any caller that nests) map
   onto the one savepoint stack — there is a single physical transaction, never truly nested
   ones. A per-connection **transaction controller** holds a depth counter shared by *both*

@@ -27,6 +27,8 @@ public sealed class TableCursor(Table table, bool[]? decode = null) : IEnumerabl
         var decoder = new RowCodec(
             _table.Definition.Columns,
             _table.Channel.Format,
+            _table.Definition.VariableColumnCount,
+            columnIdHighWater: _table.Definition.ColumnIdHighWater,
             longValues: new LongValueStore(_table.Channel),
             decode: _decode);
 

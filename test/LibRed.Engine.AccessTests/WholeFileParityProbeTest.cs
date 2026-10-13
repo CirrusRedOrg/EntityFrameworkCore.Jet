@@ -445,7 +445,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
                 page.Read(table.Channel.ReadPageShared(id.Page), table.Channel.Format);
                 if (page.Rows[id.Row] is not { IsDeleted: false, HasOverflow: false } slot) continue;
                 ReadOnlySpan<byte> row = page.GetRow(id.Row);
-                foreach (byte[] descriptor in RowCodec.LongValueDescriptors(definition.Columns, table.Channel.Format, row).Values)
+                foreach (byte[] descriptor in RowCodec.LongValueDescriptors(definition, table.Channel.Format, row).Values)
                 {
                     if (descriptor.Length < format.LongValueDescriptorSize
                         || LongValueStore.Read(descriptor, format).Storage != LongValueStore.StorageKind.Chained) continue;

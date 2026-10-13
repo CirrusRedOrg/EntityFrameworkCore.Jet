@@ -129,7 +129,9 @@
 >   starts at the seed even where that repeats a value the rows were given — `COUNTER(2, 1)` over two rows
 >   goes on `2, 3, 4`, and `COUNTER(1, 5)` goes on `1, 6, 11`.
 >
-> An added **fixed** column's fixed offset is the current end of the fixed region (`max(offset+length)`);
+> An added **fixed** column's fixed offset is the current end of the fixed region (`max(offset+length)`) —
+> except a **Yes/No**, which has no fixed bytes and is written at `0` as on a new table (verified vs ACE:
+> `T(A LONG, B LONG)` + `ADD COLUMN Y YESNO` gives `Y fixed@0`, and a `LONG` added after it `fixed@8`);
 > an added **variable** column appends. A dropped column's descriptor + name are removed from the column
 > region; a dropped **memo/OLE** column's §3.3.2 entry is removed, an added one's is appended (its two page
 > maps go on the table's usage-map page, or a dedicated page if that's full — the same rule as create).
@@ -148,8 +150,9 @@ is exempt.
 | `colCount` + null-bitmap width = `0x29` high-water (max id ever handed out + 1) | ✅ | ✅ `newMaxId` | | | |
 | variable slots per row = `0x2B` | ✅ via `TableDefinition.VariableColumnCount` | ✅ appends onto a full-width row | | | |
 | variable index from `0x2B`, hole abandoned | | | ✅ | ✅ leaves `0x2B` | ✅ |
-| fixed offset = live `max(offset+length)`, hole **reused** | ✅ | ✅ `newFixedLen` from the old row | ✅ | ✅ no renumber | ⚠️ **NOT the live max** — measure the fixed-region end from an existing row's var-data start, because a prior retype's dead slot makes the descriptors under-count it ([§3.8](page-02b-columns.md)) |
-| fixed region never shrinks below existing rows | ✅ `InferFixedDataLength` takes `max(pinned, derived)` | ✅ derived from the old row | | | |
+| fixed offset = live `max(offset+length)`, hole **reused** | ✅ | ✅ `newFixedLen` | ✅ | ✅ no renumber | ✅ the live max too — a dead slot at the end of the region is written over ([§3.8](page-02b-columns.md)) |
+| fixed region: an INSERT's is the live one; an UPDATE or re-lay keeps the row's own where longer, over its old bytes ([page-01 §5](page-01-data-and-rows.md)) | ✅ `FixedRegionOver` | ✅ `FixedRegionOver` | | | |
+| a row carries a variable trailer by its `colCount` and the descriptors' `0x07` ([page-01 §5](page-01-data-and-rows.md)) | ✅ `Layout.HasVariableSection` | ✅ the same, against the old table | | | |
 | column id from the `0x29` high-water, 255 lifetime cap | | | ✅ | ✅ leaves `0x29` | ✅ burns an id |
 
 **The variable-slot count is the easiest cell to get wrong on the row writers.** Packing the variable

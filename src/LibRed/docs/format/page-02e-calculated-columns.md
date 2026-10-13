@@ -218,7 +218,7 @@ slot, the constant declared length. `CREATE TABLE` and `ADD COLUMN` write the
 `Expression`/`ResultType`/`FCMin*Ver` properties. A Memo result gets its long-value maps, keyed off the
 **result** type because the declared type is `Text` and says nothing — so neither the reader nor the
 write-side guard in `TableDefinition` may demand that a map's owner be Memo/OLE. The ACE-14 gate goes through
-`EnsureFormatAtLeast`, raising the file rather than refusing, as for `BIGINT`/`DATETIME2`.
+`SchemaEditor.RaiseFormatFor`, raising the file rather than refusing, as for `BIGINT`/`DATETIME2`.
 
 **Validation runs before anything is written** (`CalculatedExpression.ParseValidated`): the whitelist above,
 plus self-reference, an unknown column, and the `$` name variants. It is mandatory rather than a courtesy —

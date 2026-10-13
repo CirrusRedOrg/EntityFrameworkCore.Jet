@@ -79,7 +79,7 @@ public class LvPropStorageAccessTests(ITestOutputHelper output) : TempDatabaseTe
             var page = new DataPage();
             page.Read(objects.Channel.ReadPageShared(id.Page), objects.Channel.Format);
             byte[] descriptor = RowCodec.LongValueDescriptors(
-                definition.Columns, objects.Channel.Format, page.GetRow(id.Row))[lvProp];
+                definition, objects.Channel.Format, page.GetRow(id.Row))[lvProp];
             string form = descriptor[3] switch { 0x80 => "inline", 0x40 => "on a page", _ => $"0x{descriptor[3]:X2}" };
             return $"{form}, {((byte[])values[lvProp]!).Length} bytes";
         }

@@ -205,7 +205,7 @@ public class LongTextStorageAccessTests(ITestOutputHelper output) : TempDatabase
             {
                 if (page.Rows[row].IsDeleted) continue;
                 foreach (var descriptor in RowCodec.LongValueDescriptors(
-                             definition.Columns, channel.Format, page.GetRow(row)))
+                             definition, channel.Format, page.GetRow(row)))
                     if (descriptor.Key == columnId)
                         found.Add(descriptor.Value[..channel.Format.LongValueDescriptorSize]);
             }

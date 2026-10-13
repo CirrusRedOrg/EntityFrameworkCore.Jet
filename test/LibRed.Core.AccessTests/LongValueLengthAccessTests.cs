@@ -88,7 +88,7 @@ public class LongValueLengthAccessTests(ITestOutputHelper output) : TempDatabase
                 {
                     if (page.Rows[row].IsDeleted) continue;
                     foreach ((int index, byte[] slot) in
-                        RowCodec.LongValueDescriptors(definition.Columns, channel.Format, page.GetRow(row)))
+                        RowCodec.LongValueDescriptors(definition, channel.Format, page.GetRow(row)))
                     {
                         output.WriteLine(
                             $"{definition.Columns.Single(c => c.Index == index).Name}: {slot.Length} bytes"

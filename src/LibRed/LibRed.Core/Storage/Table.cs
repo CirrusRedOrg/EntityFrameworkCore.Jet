@@ -238,6 +238,9 @@ public sealed class Table
 
     private void Write(Action action)
     {
+        // A read-only database refuses a row written through this API as ACE refuses a DAO recordset's (verified).
+        // SQL refuses earlier, with its own messages, before it reaches here.
+        Channel.RefuseIfReadOnly(ReadOnlyWrite.DatabaseOrObject);
         bool ownTransaction = !Channel.InTransaction;
         if (ownTransaction) Channel.BeginTransaction();
         try

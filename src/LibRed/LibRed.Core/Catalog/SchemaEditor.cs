@@ -49,6 +49,23 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     }
 
 
+    /// <summary>Raises the file to the format its new columns need — a <c>BIGINT</c> or <c>DATETIME2</c> column's
+    /// type, or a calculated column's ACE 14, the floor its own <c>FCMinReadVer</c> property declares — as Access
+    /// itself does rather than refusing the DDL (verified: ACE adding a Date/Time Extended column to an ACE 12 file
+    /// moves the version byte to 0x06 and nothing else; docs/format/page-00-database.md). A Jet MDB cannot take an
+    /// ACE version and is refused. It joins the caller's transaction, so a failed statement takes the version back
+    /// down with it, and it runs after the statement's checks, so a read-only database is refused rather than
+    /// written.</summary>
+    private void RaiseFormatFor(IReadOnlyList<ColumnSpec> columns)
+    {
+        JetVersion needed = columns
+            .SelectMany(c => (JetVersion[])[
+                JetDataTypeVersions.Required(c.Type)?.Min ?? JetVersion.Version3,
+                c.CalculatedExpression is not null ? JetVersion.Version14_2010 : JetVersion.Version3])
+            .DefaultIfEmpty(JetVersion.Version3).Max();
+        _channel.RaiseFormatVersion((byte)needed);
+    }
+
     public void Create(
         string name,
         IReadOnlyList<ColumnSpec> columns,
@@ -78,12 +95,17 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // data and a 100-char index name breaks ACE's index enumeration. Only validate caller-supplied names.
         if (primaryKeyName is not null) JetName.Validate(primaryKeyName, "primary key name");
         foreach (RelationshipSpec r in relationships) JetName.Validate(r.Name, "foreign key name");
+        foreach (UniqueIndexSpec u in uniqueConstraints) JetName.Validate(u.Name, "unique constraint name");
+        foreach ((string checkName, _) in checkConstraints) JetName.Validate(checkName, "check constraint name");
+
+        // A legal name is all a read-only database looks at: a taken name, a relationship's target and everything
+        // below are refused as read-only (verified vs ACE).
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, name);
+
         var relationshipNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (RelationshipSpec r in relationships)
             if (!relationshipNames.Add(r.Name)) throw RelationshipNameTaken(r.Name);
             else EnsureRelationshipNameFree(r.Name);
-        foreach (UniqueIndexSpec u in uniqueConstraints) JetName.Validate(u.Name, "unique constraint name");
-        foreach ((string checkName, _) in checkConstraints) JetName.Validate(checkName, "check constraint name");
 
         // A table's name is free only if no table, query or linked table has it (case-insensitively) — ACE's
         // rule, reported as ACE reports it, rather than as the MSysObjects index violation writing the row hits.
@@ -114,6 +136,13 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
                 ? ColumnOf(columns)
                 : ColumnOf(_catalog.FindTable(fk.ReferencedTable)));
 
+        // Built before anything is written, since a default can be refused.
+        var defaults = new Dictionary<string, PropertyBlob.Property>(StringComparer.OrdinalIgnoreCase);
+        foreach ((string column, string defaultSql) in columnDefaults)
+            if (columns.FirstOrDefault(c => string.Equals(c.Name, column, StringComparison.OrdinalIgnoreCase)) is { } spec)
+                defaults.TryAdd(spec.Name, PropertyBlob.DefaultValue(spec.Name, spec.Type, defaultSql));
+
+        RaiseFormatFor(columns);
         JetFormatBase format = _channel.Format;
 
         // Allocate the pages the table needs through the global free-pages map (so Access accounts
@@ -308,9 +337,8 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         var columnProps = new List<PropertyBlob.Property>();
         foreach (ColumnSpec col in columns)
         {
-            var def = columnDefaults.FirstOrDefault(d => string.Equals(d.Column, col.Name, StringComparison.OrdinalIgnoreCase));
-            if (def.DefaultSql is not null)
-                columnProps.Add(new PropertyBlob.Property(col.Name, PropertyBlob.DefaultValueProperty, def.DefaultSql));
+            if (defaults.TryGetValue(col.Name, out PropertyBlob.Property def))
+                columnProps.Add(def);
             if (!col.IsNullable)
                 columnProps.Add(PropertyBlob.Bool(col.Name, PropertyBlob.RequiredProperty, true));
             columnProps.AddRange(CalculatedProperties(col));
@@ -381,7 +409,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         ["FCMinReadVer", "FCMinWriteVer", "FCMinDesignVer"];
 
     /// <summary>Access 2010 (ACE 14) is the floor a calculated column declares, which is also the on-disk
-    /// version byte it needs — see <see cref="RaiseFormatForCalculated"/>.</summary>
+    /// version byte it needs — see <see cref="RaiseFormatFor"/>.</summary>
     private const string CalculatedMinimumVersion = "14.0.0000.0000";
 
     /// <summary>ON UPDATE SET NULL pathway: the docs list it, but the ACE OLE DB provider rejects it via SQL,
@@ -601,6 +629,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         bool isUnique, bool isPrimary, bool disallowNull, bool ignoreNulls)
     {
         JetName.Validate(indexName, "index name");
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, table.Name);
         RejectCalculatedIndexColumns(indexName, columns.Select(c => c.Column),
             n => table.Columns.FirstOrDefault(
                 c => c.IsCalculated && string.Equals(c.Name, n, StringComparison.OrdinalIgnoreCase))?.Name);
@@ -871,9 +900,10 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     public void AddForeignKey(string childTable, RelationshipSpec fk)
     {
         JetName.Validate(fk.Name, "foreign key name");
-        EnsureRelationshipNameFree(fk.Name);
         TableDefinition child = _catalog.FindTable(childTable)
             ?? throw new InvalidOperationException($"Table '{childTable}' was not found.");
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, child.Name);
+        EnsureRelationshipNameFree(fk.Name);
         if (fk.NoIndex)
             throw new NotSupportedException("ALTER TABLE ADD FOREIGN KEY … NO INDEX is not supported yet.");
         if (fk.UpdateSetNull) throw UpdateSetNullNotImplemented();
@@ -942,6 +972,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
 
         TableDefinition child = _catalog.FindTable(childTable)
             ?? throw new InvalidOperationException($"Table '{childTable}' was not found.");
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, child.Name);
         IndexDef? fkIndex = child.Indexes.FirstOrDefault(i => string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase));
         bool selfRef = string.Equals(rel.ReferencedTable, childTable, StringComparison.OrdinalIgnoreCase);
 
@@ -1018,6 +1049,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     {
         TableDefinition? table = _catalog.FindTable(tableName);
         if (table is null) return false;
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, table.Name);
 
         // Remove the relationships this table owns as the child (referencing) side. Materialize first —
         // DropConstraint rewrites TDEFs and invalidates the catalog on each call.
@@ -1209,6 +1241,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     public bool DropQueryObject(string name)
     {
         if (_catalog.FindObjectId(name, ObjectType.Query) is not { } objId) return false;
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, name);
 
         DeleteCatalogRows("MSysObjects", "Id", objId);
         DeleteCatalogRows("MSysQueries", "ObjectId", objId);
@@ -1238,6 +1271,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // whole database unreadable to ACE ("Unrecognized database format"), which is exactly what the
         // create-side check exists to prevent (RenameNameValidationAccessTests).
         JetName.Validate(newName, "table name");
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, table.Name);
         // The table being renamed is not a collision with itself: renaming to the same name is a no-op that ACE
         // allows (and EF's schema "move" degrades to exactly that on a schema-less engine), as is a case-only
         // change. Both verified — RenameFanOutProbeTest.
@@ -1293,6 +1327,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         ColumnDef? col = table.Columns.FirstOrDefault(c => string.Equals(c.Name, oldName, StringComparison.OrdinalIgnoreCase));
         if (col is null) return false;
         JetName.Validate(newName, "column name");   // see RenameTable: unchecked, this corrupts the file
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, table.Name);
         if (table.Columns.Any(c => string.Equals(c.Name, newName, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException(
                 $"ALTER TABLE '{tableName}' RENAME COLUMN '{oldName}' TO '{newName}': the table already has a column named '{newName}'.");
@@ -1380,6 +1415,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
 
         foreach ((RowId id, object?[] values) in table.RowsWhere([guidIndex], v => v[guidIndex] is Guid g && g == objectGuid).ToList())
         {
+            _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, (values[nameIndex] as string)?.TrimEnd('\0'));
             // A long value, like LvProp: stored first, the row given the descriptor (see WriteObjectProperties).
             values[mapColumn.Index] = new RowInserter(_channel, def).StorePackedLongValue(mapColumn.ColumnId, map.WriteRow());
             var changed = new HashSet<int> { mapColumn.Index };
@@ -1413,6 +1449,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     public void WriteNameMapProperty(string objectName, ObjectType objectType, NameMap? map)
     {
         int objectId = RequireObjectId(objectName, objectType);
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, objectName);
         byte[] blob = ReadObjectProperties(objectId) ?? [];
         var properties = PropertyBlob.Read(blob).ToList();
         int at = properties.FindIndex(p => p.IsOwnedBy("") && p.Name == NameMapProperty);
@@ -1601,6 +1638,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
         IndexDef? index = table.Indexes.FirstOrDefault(i => string.Equals(i.Name, indexName, StringComparison.OrdinalIgnoreCase));
         if (index is null) return false;
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, table.Name);
 
         if (IndexParticipatesInRelationship(table, index))
             throw new InvalidOperationException(
@@ -1657,7 +1695,8 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// Adds a column — <c>ALTER TABLE t ADD COLUMN c type</c>. A metadata TDEF edit (probed vs ACE, the
     /// inverse of DROP COLUMN): appends the column's descriptor + name, gives it the next column id
     /// from the <c>0x29</c> max-columns high-water (which keeps counting even past dropped ids), appends its
-    /// fixed offset (end of the fixed region) or variable index (current variable count), and bumps
+    /// fixed offset (end of the fixed region; 0 for a Yes/No, which has no fixed bytes) or variable index (current
+    /// variable count), and bumps
     /// ColumnCount (0x2D), the 0x29 high-water, and — for a variable column — VariableColumnCount (0x2B).
     /// Existing rows are not rewritten; they read the new column as NULL via the null bitmap. Fully correct
     /// on an empty table (new inserts include it); on a populated table the column is visible and old rows
@@ -1670,6 +1709,8 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         JetName.Validate(spec.Name, "column name");
         TableDefinition table = _catalog.FindTable(tableName)
             ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
+        // A taken column name included (verified vs ACE).
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, table.Name);
         if (table.Columns.Any(c => string.Equals(c.Name, spec.Name, StringComparison.OrdinalIgnoreCase)))
             return false;
         JetFormatBase format = _channel.Format;
@@ -1689,12 +1730,11 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
 
         // The width limits Create enforces through TableDefinition apply just as much to a column added later:
         // the new column's own width, and what it does to the widest record the table can now hold.
-        int fixedEnd = FixedBytes(table);
+        int fixedEnd = RowCodec.ComputeFixedDataLength(table.Columns);
         RowCodec.ValidateFieldWidth(spec.Name, spec.Type, spec.Length);
-        JetDataTypeVersions.EnsureStorable(spec.Type, _channel.Format.Version, spec.Name);
         TableDefinition.ValidateNumericPrecision(spec);
         RowCodec.ValidateRecordFits(tableName,
-            fixedEnd + (spec.IsFixedLength && spec.Type != JetDataType.Boolean ? spec.Length : 0),
+            fixedEnd + (spec.OccupiesFixedData ? spec.Length : 0),
             varCount + (spec.IsFixedLength ? 0 : 1),
             columnId + 1,
             format);
@@ -1716,7 +1756,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             Index = colCount,
             ColumnId = columnId, // next id from the high-water (dropped ids are never reused)
             Length = spec.Length,
-            FixedOffset = spec.IsFixedLength ? fixedEnd : 0,
+            FixedOffset = spec.OccupiesFixedData ? fixedEnd : 0,
             VariableIndex = spec.IsFixedLength ? -1 : varCount,
             // Descriptor 0x07. A VARIABLE column carries its own variable index, which is the 0x2B high-water
             // (measured vs ACE in VariableColumnHighWaterAccessTests — NOT the count of live variable columns,
@@ -1765,16 +1805,18 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
 
         LongValueMapPlacement? lvMaps = isLongValue ? PlaceLongValueMaps(parts, columnId) : null;
 
+        // NOT NULL / DEFAULT go in the table's LvProp blob (DefaultValue before Required, matching ACE), the
+        // same properties CREATE TABLE writes — appended to the existing blob without disturbing other columns'.
+        // Built before anything is written, since a default can be refused.
+        var props = new List<PropertyBlob.Property>();
+        if (defaultValue is not null) props.Add(PropertyBlob.DefaultValue(spec.Name, spec.Type, defaultValue));
+        if (!spec.IsNullable) props.Add(PropertyBlob.Bool(spec.Name, PropertyBlob.RequiredProperty, true));
+        props.AddRange(CalculatedProperties(spec));
+
+        RaiseFormatFor([spec]);
         WriteTdef(table.DefinitionPage, parts);
 
         if (lvMaps is { } placed) WriteLongValueMaps(placed);
-
-        // NOT NULL / DEFAULT go in the table's LvProp blob (DefaultValue before Required, matching ACE), the
-        // same properties CREATE TABLE writes — appended to the existing blob without disturbing other columns'.
-        var props = new List<PropertyBlob.Property>();
-        if (defaultValue is not null) props.Add(new PropertyBlob.Property(spec.Name, PropertyBlob.DefaultValueProperty, defaultValue));
-        if (!spec.IsNullable) props.Add(PropertyBlob.Bool(spec.Name, PropertyBlob.RequiredProperty, true));
-        props.AddRange(CalculatedProperties(spec));
         if (props.Count > 0) SetColumnProperties(table.DefinitionPage, spec.Name, props);
 
         _catalog.Invalidate();
@@ -1954,17 +1996,17 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// ALTER TABLE … ALTER COLUMN … DEFAULT. Reads all properties, drops any existing DefaultValue for the
     /// column, adds the new one, and rewrites the blob (preserving every other property).</summary>
     public void SetColumnDefault(string tableName, string columnName, string defaultSql)
-        => MutateLvPropForColumn(tableName, columnName, props =>
+        => MutateLvPropForColumn(tableName, columnName, (props, column) =>
         {
             props.RemoveAll(p => p.IsOwnedBy(columnName) && p.Name == PropertyBlob.DefaultValueProperty);
-            props.Add(new PropertyBlob.Property(columnName, PropertyBlob.DefaultValueProperty, defaultSql));
+            props.Add(PropertyBlob.DefaultValue(columnName, column.Type, defaultSql));
         });
 
     /// <summary>Removes a column's <c>DefaultValue</c> from the table's <c>MSysObjects.LvProp</c> blob —
     /// ALTER TABLE … ALTER COLUMN … DROP DEFAULT. Drops only that property, so the column's type and its
     /// <c>Required</c> (NOT NULL) property survive — ACE-verified. A no-op if the column had no default.</summary>
     public void DropColumnDefault(string tableName, string columnName)
-        => MutateLvPropForColumn(tableName, columnName, props =>
+        => MutateLvPropForColumn(tableName, columnName, (props, _) =>
             props.RemoveAll(p => p.IsOwnedBy(columnName) && p.Name == PropertyBlob.DefaultValueProperty));
 
     /// <summary>Sets or clears a column's <c>Required</c> (NOT NULL) property in the table's
@@ -1974,7 +2016,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// <see cref="ColumnDef.IsNullable"/>). ACE-verified: ACE writes the same property for
     /// <c>ALTER COLUMN … NOT NULL</c> and enforces it.</summary>
     public void SetColumnRequired(string tableName, string columnName, bool required)
-        => MutateLvPropForColumn(tableName, columnName, props =>
+        => MutateLvPropForColumn(tableName, columnName, (props, _) =>
         {
             props.RemoveAll(p => p.IsOwnedBy(columnName) && p.Name == PropertyBlob.RequiredProperty);
             if (required) props.Add(PropertyBlob.Bool(columnName, PropertyBlob.RequiredProperty, true));
@@ -1982,15 +2024,15 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
 
     /// <summary>Reads the table's <c>MSysObjects.LvProp</c> property blob, applies <paramref name="mutate"/>,
     /// and rewrites it — the shared read-modify-write behind ALTER COLUMN … SET/DROP DEFAULT.</summary>
-    private void MutateLvPropForColumn(string tableName, string columnName, Action<List<PropertyBlob.Property>> mutate)
+    private void MutateLvPropForColumn(string tableName, string columnName,
+        Action<List<PropertyBlob.Property>, ColumnDef> mutate)
     {
-        TableDefinition target = _catalog.FindTable(tableName)
-            ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
-        int tdefPage = target.DefinitionPage;
+        (TableDefinition table, ColumnDef column) = CheckAlterColumn(tableName, columnName);
+        int tdefPage = table.DefinitionPage;
 
         byte[] blob = ReadObjectProperties(tdefPage) ?? [];
         var props = PropertyBlob.Read(blob).ToList();
-        mutate(props);
+        mutate(props, column);
         WriteObjectProperties(tdefPage, PropertyBlob.Write(props, blob));
     }
 
@@ -2013,6 +2055,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         JetName.Validate(checkName, "check constraint name");
         TableDefinition target = _catalog.FindTable(tableName)
             ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, target.Name);
         int tdefPage = target.DefinitionPage;
 
         byte[] blob = ReadObjectProperties(tdefPage) ?? [];
@@ -2042,12 +2085,25 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         var checks = PropertyBlob.ReadCheckConstraints(PropertyBlob.Read(blob)).ToList();
         if (checks.RemoveAll(c => string.Equals(c.Name, checkName, StringComparison.OrdinalIgnoreCase)) == 0)
             return false; // no CHECK of that name — let the caller try FK/PK/unique
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, target.Name);
 
         // Rewrite the list, or remove the entry when that was the last check — leaving every other
         // table-level property (ValidationRule, ValidationText, …) untouched. See AddCheckConstraint.
         WriteObjectProperties(tdefPage, ReplaceTableProperty(blob, PropertyBlob.CheckConstraintsProperty,
             checks.Count > 0 ? PropertyBlob.WriteCheckList(checks) : null));
         return true;
+    }
+
+    /// <summary>The table and column an ALTER COLUMN changes, and then the read-only refusal (verified vs ACE — a
+    /// missing column is ACE's "Could not find field" first).</summary>
+    private (TableDefinition Table, ColumnDef Column) CheckAlterColumn(string tableName, string columnName)
+    {
+        TableDefinition table = _catalog.FindTable(tableName)
+            ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
+        ColumnDef column = table.FindColumn(columnName)
+            ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, table.Name);
+        return (table, column);
     }
 
     /// <summary>Changes a column's declared type — ALTER TABLE … ALTER COLUMN. Apart from the counter edits and
@@ -2057,28 +2113,22 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// change.</summary>
     public void AlterColumn(string tableName, string columnName, ColumnSpec newSpec)
     {
-        TableDefinition table = _catalog.FindTable(tableName)
-            ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
-        ColumnDef col = table.FindColumn(columnName)
-            ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
+        (TableDefinition table, ColumnDef col) = CheckAlterColumn(tableName, columnName);
         EnsureColumnIsNotInRelationship(table, col);
 
         // Widening a column reaches the same bytes as declaring it wide in the first place, so the limits
         // Create enforces apply here too. This sits ahead of the identity and counter short-circuits below
         // deliberately: re-declaring an already-oversized column should report the problem, not wave it on.
         RowCodec.ValidateFieldWidth(newSpec.Name, newSpec.Type, newSpec.Length);
-        JetDataTypeVersions.EnsureStorable(newSpec.Type, _channel.Format.Version, newSpec.Name);
         TableDefinition.ValidateNumericPrecision(newSpec);
         // A pre-check, so an oversized re-declaration reports rather than being waved on by the short-circuits
-        // below; AlterColumnTypeInPlace re-runs it against the measured fixed region, which is authoritative.
-        // The variable-slot count comes from the stored 0x2B high-water — it never decrements, so deriving it
-        // from the live columns under-counts on a table that has dropped or retyped one.
+        // below; AlterColumnTypeInPlace makes the same check. The old slot stays as dead space, so nothing is
+        // subtracted for it. The variable-slot count comes from the stored 0x2B high-water — it never decrements,
+        // so deriving it from the live columns under-counts on a table that has dropped or retyped one.
         // A type or length change burns a fresh column id, so the bitmap can widen by one.
         RowCodec.ValidateRecordFits(tableName,
-            FixedBytes(table)
-                - (col.IsFixedLength && col.Type != JetDataType.Boolean ? col.Length : 0)
-                + (newSpec.IsFixedLength && newSpec.Type != JetDataType.Boolean ? newSpec.Length : 0),
-            table.VariableColumnCount + (col.IsFixedLength && !newSpec.IsFixedLength ? 1 : 0),
+            RowCodec.ComputeFixedDataLength(table.Columns) + (newSpec.OccupiesFixedData ? newSpec.Length : 0),
+            table.VariableColumnCount + (newSpec.IsFixedLength ? 0 : 1),
             table.ColumnIdHighWater + (col.Type == newSpec.Type && col.Length == newSpec.Length ? 0 : 1),
             _channel.Format);
 
@@ -2141,17 +2191,6 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             props.Add(new PropertyBlob.Property("", name, value));
         return PropertyBlob.Write(props, blob);
     }
-
-    /// <summary>The table's fixed-data region: the high-water of where its live columns END, not the sum of
-    /// their lengths. DROP COLUMN is a metadata-only edit that leaves every survivor's fixed offset exactly
-    /// where it was, so a dropped column's bytes stay in the region as dead space — a sum under-counts by
-    /// precisely that hole, and would pass a declaration whose rows then overrun 4060, which is a table Access
-    /// refuses to open the database for. On a table that has dropped nothing the two agree, because the
-    /// offsets pack from zero. Boolean is fixed but occupies no data, so it contributes nothing, exactly as
-    /// <see cref="TableDefinition"/> counts it on create.</summary>
-    private static int FixedBytes(TableDefinition table) =>
-        table.Columns.Where(c => c.IsFixedLength && c.Type != JetDataType.Boolean)
-            .Select(c => c.FixedOffset + c.Length).DefaultIfEmpty(0).Max();
 
     /// <summary>Whether the column is either end of a relationship — the child's FK column or the parent's
     /// referenced key. ACE refuses to alter or drop such a column; the two callers differ only in the message
@@ -2241,10 +2280,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// updated. Converts values in memory first (throws on bad data before any write); runs in a transaction.</summary>
     public void AlterColumnTypeInPlace(string tableName, string columnName, ColumnSpec newSpec)
     {
-        TableDefinition oldDef = _catalog.FindTable(tableName)
-            ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
-        ColumnDef oldTarget = oldDef.FindColumn(columnName)
-            ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
+        (TableDefinition oldDef, ColumnDef oldTarget) = CheckAlterColumn(tableName, columnName);
         EnsureColumnIsNotInRelationship(oldDef, oldTarget);
         if (newSpec.Type is JetDataType.Ole or JetDataType.BigBinary
             && oldDef.Indexes.Any(i => i.Columns.Any(c => c.Column.ColumnId == oldTarget.ColumnId)))
@@ -2253,7 +2289,6 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // Also reached directly, not only through AlterColumn, so it carries the width limits itself.
         // The record-fits check needs the true fixed-region end, so it runs once that is measured, below.
         RowCodec.ValidateFieldWidth(newSpec.Name, newSpec.Type, newSpec.Length);
-        JetDataTypeVersions.EnsureStorable(newSpec.Type, _channel.Format.Version, newSpec.Name);
         TableDefinition.ValidateNumericPrecision(newSpec);
 
         // A column becoming Memo/OLE, or ceasing to be one, takes the same in-place edit as any other retype plus the
@@ -2278,29 +2313,18 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         foreach (var r in rows)
             r.Values[oldTarget.Index] = ConvertValue(r.Values[oldTarget.Index], newSpec.Type, newSpec.Name);
 
-        // The fixed-region length is authoritative from the existing rows (their var-data-start), NOT the live
-        // column descriptors — those diverge once a high-offset column has been retyped to variable and left a
-        // dead fixed slot at the end. Take the MAX over every row, not row 0: ADD COLUMN of a fixed column is
-        // metadata-only, so a table legitimately holds short rows written before it alongside full-width ones.
-        // Sizing the whole re-lay from whichever row happened to be first either truncates the long rows' fixed
-        // tails or drags the short rows' variable data up into their fixed region. The schema floor covers an
-        // empty table, and rows shorter than the result are zero-filled by BuildRelaidRecord.
-        // Each row's own fixed region is read from the row itself (RowCodec.Layout.FixedRegionLength), which is
-        // authoritative over the live column descriptors: those omit dead fixed slots left by prior retypes.
-        int oldFixedLen = FixedBytes(oldDef);
-        foreach (var r in rows)
-            oldFixedLen = Math.Max(oldFixedLen, RowCodec.ParseLayout(oldDef.Columns, _channel.Format, r.Raw).FixedRegionLength);
+        // The new slot goes where the live fixed columns end, not past a dead slot an existing row still carries:
+        // ACE writes it over a dropped or retyped-away column's bytes (verified vs ACE). A row whose own region is
+        // longer keeps it — see BuildRelaidRecord.
+        int oldFixedLen = RowCodec.ComputeFixedDataLength(oldDef.Columns);
 
-        // Now the widest-record check, against what this path actually produces. Both counts come from stored
-        // state, not the live column list: the re-lay KEEPS the old target's fixed slot as dead space rather
-        // than reclaiming it (so nothing is subtracted), and 0x2B is a high-water that never decrements (so a
-        // variable→fixed retype leaves it where it is). Deriving either from the live columns under-counts on
-        // any table that has dropped or retyped a column, passing a declaration that then overflows 4060 —
-        // and per RowCodec's own remarks, Access cannot open a database containing such a table at all.
-        int newFixedLen = oldFixedLen + (newSpec.IsFixedLength && newSpec.Type != JetDataType.Boolean ? newSpec.Length : 0);
+        // Now the widest-record check, against what this path actually produces: the re-lay KEEPS the old target's
+        // fixed slot as dead space rather than reclaiming it (so nothing is subtracted), and the variable-slot
+        // count is the 0x2B high-water, which never decrements (so a variable→fixed retype leaves it where it is).
+        int newFixedLen = oldFixedLen + (newSpec.OccupiesFixedData ? newSpec.Length : 0);
         RowCodec.ValidateRecordFits(tableName,
             newFixedLen,
-            oldDef.VariableColumnCount + (oldTarget.IsFixedLength && !newSpec.IsFixedLength ? 1 : 0),
+            oldDef.VariableColumnCount + (newSpec.IsFixedLength ? 0 : 1),
             oldDef.ColumnIdHighWater + 1,   // the type change burns a fresh id
             _channel.Format);
 
@@ -2308,10 +2332,11 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         if (ownTx) _channel.BeginTransaction();
         try
         {
+            RaiseFormatFor([newSpec]);
             JetFormatBase format = _channel.Format;
 
             // 2. One TDEF edit for the whole modify: patch only the target descriptor (bump 0x29 / 0x2B — its
-            //    appended fixed offset is the row's true fixed-region end incl. dead slots) AND re-point every
+            //    appended fixed offset is where the live fixed columns end) AND re-point every
             //    index over the target, all into the SAME parts, then write the TDEF a single time. Each index
             //    re-point needs the fresh root allocated + owned-map recycled first (page work off the TDEF).
             TableDefinition.Parts parts = TableDefinition.ReadParts(_channel, oldDef.DefinitionPage);
@@ -2359,26 +2384,26 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
 
             TableDefinition newDef = _catalog.FindTable(tableName)!;
             ColumnDef newTarget = newDef.FindColumn(columnName)!;
-            int newMaxId = newDef.Columns.Max(c => c.ColumnId);
+            int newMaxId = RowCodec.MaxColumnId(newDef.Columns, newDef.ColumnIdHighWater);
 
             // Slots per row comes from the TDEF high-water, exactly as RowCodec derives it — never from a
             // row's own stored numVar. A row written before a variable ADD COLUMN carries fewer slots than the
             // table has, and appending the retyped column onto such a row lands it at the wrong index while its
             // descriptor names the high-water one, which is the "A column Id is incorrect" file ACE rejects.
-            var newVarCols = newDef.Columns.Where(c => !c.IsFixedLength).ToList();
-            int newVarCount = newVarCols.Count == 0 ? 0
-                : Math.Max(newDef.VariableColumnCount, newVarCols.Max(c => c.VariableIndex) + 1);
+            int newVarCount = RowCodec.VariableSlotCount(newDef.Columns, newDef.VariableColumnCount);
             var writer = new RowInserter(_channel, newDef);
 
             // 3. Re-lay each row: old fixed region + old var chunks verbatim (incl. the dead old slot), target
             //    appended (a new fixed slot, or a new variable chunk); count/var-table/null-bitmap rebuilt.
             //    A long value is stored first, as an insert would store it, so the chunk appended is its descriptor.
+            byte[] previous = [];
             foreach (var r in rows)
             {
                 if (toLongValue)
                     r.Values[newTarget.Index] = writer.MaterializeLongValue(newTarget, r.Values[newTarget.Index]);
-                writer.RewriteRowRaw(r.Id, BuildRelaidRecord(
-                    r.Raw, oldFixedLen, oldDef.Columns, newTarget, r.Values, newDef.Columns, newMaxId, newFixedLen, newVarCount));
+                previous = BuildRelaidRecord(
+                    r.Raw, oldDef, newTarget, r.Values, newDef.Columns, newMaxId, newFixedLen, newVarCount, previous);
+                writer.RewriteRowRaw(r.Id, previous);
             }
 
             // 4. Finish each index rebuild: backfill the fresh B-tree with new-type keys, then free the old root
@@ -2395,46 +2420,33 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         _catalog.Invalidate();
     }
 
-    /// <summary>Builds the re-laid row record, matching ACE's in-place modify byte-for-byte: the OLD fixed
-    /// region and OLD variable chunks are kept verbatim (the dead old-target slot/chunk keeps its stale bytes),
-    /// the converted target is appended (a new fixed slot if it is fixed, else a new variable chunk), and the
-    /// leading count (= max id + 1), variable-offset table + numVar (omitted if none), and null bitmap
-    /// (each dead id's bit carried over from the old row) are rebuilt.</summary>
-    private byte[] BuildRelaidRecord(byte[] oldRow, int oldFixedLen, IReadOnlyList<ColumnDef> oldCols,
-        ColumnDef newTarget, object?[] values, IReadOnlyList<ColumnDef> newCols, int newMaxId, int newFixedLen,
-        int newVarCount)
+    /// <summary>Builds the re-laid row record, matching ACE's in-place modify byte-for-byte: written over the old
+    /// row as an UPDATE is — its fixed bytes position for position and its variable chunks verbatim, so the dead
+    /// old-target slot/chunk keeps its stale bytes — with the converted target in its new fixed slot or variable
+    /// chunk, and the leading count (= max id + 1), variable-offset table + numVar (omitted if none), and null
+    /// bitmap (each dead id's bit carried over from the old row) rebuilt. The fixed region is at least
+    /// <paramref name="fixedLength"/> — the old live region plus the target's new slot, which a row predating a fixed
+    /// ADD COLUMN grows to even when the target becomes variable (verified vs ACE) — and past the end of a short old
+    /// record holds <paramref name="previous"/>, the record re-laid before it.</summary>
+    private byte[] BuildRelaidRecord(byte[] oldRow, TableDefinition oldDef, ColumnDef newTarget, object?[] values,
+        IReadOnlyList<ColumnDef> newCols, int newMaxId, int fixedLength, int newVarCount, byte[] previous)
     {
-        // A Yes/No target appends no fixed slot: AssembleRow sets its null-bitmap bit from the value.
         object? tv = values[newTarget.Index];
-        bool occupiesFixed = newFixedLen > oldFixedLen;
 
-        // Whether THIS row has a variable trailer, not whether the schema does — see RowCodec.Layout.HasVariableSection.
+        // Whether THIS row has a variable trailer is the old table's question — see RowCodec.Layout.HasVariableSection.
         JetFormatBase format = _channel.Format;
-        int countSize = format.RowColumnCountSize;
-        RowCodec.Layout oldLayout = RowCodec.ParseLayout(oldCols, format, oldRow);
+        RowCodec.Layout oldLayout = RowCodec.ParseLayout(oldDef, format, oldRow);
 
-        // Fixed region: old fixed bytes verbatim (incl. a dead fixed slot); append the target if it is fixed.
-        // A row predating a fixed ADD COLUMN is shorter than the region; copy what it has and leave the rest
-        // zeroed, which is what its null bitmap already says those columns are.
-        var newFixed = new byte[newFixedLen];
-        int rowFixedLen = Math.Min(oldFixedLen, oldLayout.FixedRegionLength);
-        Array.Copy(oldRow, countSize, newFixed, 0, rowFixedLen);
-        if (occupiesFixed && tv is not null)
+        // Fixed region: the target written into its new slot if it occupies fixed data — a Yes/No does not, and
+        // AssembleRow sets its null-bitmap bit from the value. A NULL target writes nothing: its slot holds whatever
+        // the old record had there.
+        byte[] newFixed = RowCodec.FixedRegionOver(oldLayout, fixedLength, format, previous);
+        if (newTarget.OccupiesFixedData && tv is not null)
             Storage.Types.JetTypeCodec.Encode(newTarget, tv, format).CopyTo(newFixed, newTarget.FixedOffset);
-        else if (occupiesFixed && rowFixedLen == oldFixedLen)
-        {
-            // ACE writes nothing into the new slot of a NULL: it holds whatever the old record had at those
-            // offsets — the start of its variable data, say — rather than zeros (verified on full-width rows).
-            int from = countSize + newTarget.FixedOffset;
-            int length = Math.Min(newTarget.Length, oldRow.Length - from);
-            if (length > 0) Array.Copy(oldRow, from, newFixed, newTarget.FixedOffset, length);
-        }
 
-        // Variable chunks: old chunks verbatim (incl. a dead variable chunk), padded out to the table's slot
-        // count so the target lands on the index its descriptor names, then the target placed at that index.
-        var chunks = new List<byte[]>(Math.Max(oldLayout.NumVar, newVarCount));
-        for (int j = 0; j < oldLayout.NumVar; j++) chunks.Add(oldLayout.VarChunk(j).ToArray());
-        while (chunks.Count < newVarCount) chunks.Add([]);
+        // Variable chunks: padded out to the table's slot count so the target lands on the index its descriptor
+        // names, then the target placed at that index.
+        byte[][] chunks = RowCodec.VarChunksOver(oldLayout, newVarCount);
         if (!newTarget.IsFixedLength)
             chunks[newTarget.VariableIndex] = tv is null ? [] : Storage.Types.JetTypeCodec.Encode(newTarget, tv, format);
 
@@ -2645,6 +2657,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
         ColumnDef? col = table.Columns.FirstOrDefault(c => string.Equals(c.Name, columnName, StringComparison.OrdinalIgnoreCase));
         if (col is null) return false;
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, table.Name);
 
         // A DELIBERATE divergence from ACE. ACE accepts dropping a column a calculated expression reads and
         // simply leaves that column unevaluatable — measured: every subsequent read of it fails, and there is

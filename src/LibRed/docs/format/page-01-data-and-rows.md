@@ -197,6 +197,32 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
   fixed-region length is recovered from the schema (column offsets), so the row needs no var-data-start pointer. (A reader keyed on fixed offsets +
   null bitmap decodes both forms; a *writer* must omit the section to be byte-faithful.)
 
+- **Which rows carry the section** is not written in the row; a reader decides it from the row's `colCount`
+  *n*, as ACE does (verified vs ACE across ADD and DROP of fixed and variable columns in either order). The
+  question is how many variable slots had been handed out when the row was written, and each live column's
+  descriptor `0x07` (page-02b §3.4) records that for its own id:
+  - *n* at the `0x29` high-water — every slot ever handed out, `0x2B`;
+  - *n* the id of a live column — that column's `0x07`;
+  - *n* a dead id — the nearest live column below it: its `0x07`, plus its own slot if it is variable; none if
+    there is no live column below.
+
+  The section is present when that count is above 0. The last case is a guess, and ACE's: a variable column
+  dropped from between that live column and *n* is not seen, so a row written while it existed is read as
+  having no section, and its trailer as fixed data. (Verified: with `S TEXT` then `Y LONG` added and both
+  dropped, ACE re-lays the count-3 row from `S`'s time with its `'two'` chunk, offsets and `numVar` carried as
+  fixed bytes.) A trailer-less row whose dead bytes happen to form a valid trailer is not read as having one —
+  ACE does not look at the bytes.
+
+- **How long the fixed region is depends on the writer** (verified vs ACE):
+  - an **INSERT** writes the region the live columns reach, `max(offset+length)` — a dead slot left at the end
+    by a DROP COLUMN or by a retype to a variable type is not kept for new rows, though older rows carry it;
+  - an **UPDATE** writes over the old record: the region is the live one or the row's own, whichever is
+    longer, holding the old record's bytes position for position past where the new values land — so a dead
+    slot stays, a row predating a fixed ADD COLUMN grows with its old variable data or null bitmap in the new
+    slot, and a column set to NULL keeps its old bytes. A dropped variable column's chunk and every dead id's
+    bit stay too;
+  - an **ALTER COLUMN** re-lay does the same over the old live region plus the new slot (page-02b §3.8).
+
 - **An all-fixed row's fixed region is padded out to a minimum of 2 bytes**, so the shortest record ACE writes
   is 5: `[colCount:2][fixed:2][nullBitmap:1]`. It is a **floor, not an alignment** — `T(A,B,C BYTE)` keeps its
   odd 3-byte region (record 6) — and a row with a **variable trailer is exempt**: a `TEXT`-only table's region
@@ -280,9 +306,9 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
 > between entry 0 and the table itself, which schema-evolved rows can carry; why those rows retain the gap
 > has not been verified against Access. A requested variable slot must exist. Fixed values must fit the derived fixed region, and fixed-width scalar codecs require the
 > exact widths in §6. A column id beyond an older row's stored `colCount` is absent/null—this preserves
-> ADD COLUMN behavior—and the variable trailer is considered present only when the stored row count
-> covers a currently known variable column. This also preserves the verified all-fixed form that omits
-> the trailer entirely. Structural violations are reported as `InvalidDataException`.
+> ADD COLUMN behavior—and the variable trailer is considered present by the `colCount` rule above. This also
+> preserves the verified all-fixed form that omits the trailer entirely. Structural violations are reported as
+> `InvalidDataException`.
 
 ## Writing — inserting a row
 
@@ -292,8 +318,7 @@ Placing an encoded row record (§5) into a data page's heap:
 > `lowestRowOffset − recordLength` (just below the current lowest row, or `pageSize − recordLength`
 > on an empty page), append its offset as a new slot at `0x0E + rowCount×2`, increment the row
 > count (`0x0C`), and decrease free space (`0x02`) by `recordLength + 2` (record bytes plus the
-> slot entry). The new row's **row id** is `(thisPage, oldRowCount)`. The fixed-region length of
-> the encoded record must match the table's existing rows — read it off any existing row's
-> variable-offset table (its last entry is the variable-data start = `2 + fixedRegionLength`).
+> slot entry). The new row's **row id** is `(thisPage, oldRowCount)`. The encoded record's fixed region is
+> the one the live columns reach (§5) — not one read off an existing row, which can be longer.
 > A row is found by **table scan** as soon as it is in the heap, but an **indexed lookup** (and
 > Access's PK seek) misses it until it is also added to every index B-tree (§10.4).

@@ -55,9 +55,8 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         bool calculated = HasCalculatedColumns;
         object?[] storage = ToStorageValues(values);
 
-        // Encode first: the fixed-region length is pinned by any existing row (to match Access),
-        // or derived from the columns for a just-created empty table.
-        var encoder = new RowCodec(_table.Columns, format, InferFixedDataLength(format),
+        // Encode first, to know how much room the record needs.
+        var encoder = new RowCodec(_table.Columns, format,
             _table.VariableColumnCount, SpillCalculated, _table.ColumnIdHighWater);
         byte[] record = encoder.Encode(storage, null, calculated ? values : null);
 
@@ -124,7 +123,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         // after the new values are written, as ACE does: the UPDATE that frees them never reuses them.
         byte[] oldRow = ReadRowBytes(id);
         // One layout for both: the trailer arithmetic is the same for either selection off this row.
-        RowCodec.Layout oldLayout = RowCodec.ParseLayout(_table.Columns, format, oldRow);
+        RowCodec.Layout oldLayout = RowCodec.ParseLayout(_table, format, oldRow);
         var oldDescriptors = RowCodec.LongValueDescriptors(_table.Columns, oldLayout, oldRow);
         var oldCalculated = RowCodec.CalculatedSlots(_table.Columns, oldLayout, oldRow);
         var replaced = new List<(ColumnDef Column, byte[] Descriptor)>();
@@ -168,12 +167,11 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             FreeLongValue(column, descriptor, releaseAtClose: false);
 
         byte[] srcPage = _channel.ReadPageShared(id.Page).Span.ToArray();
-        // Use the same guarded inference as Insert (Math.Max with the column-derived length): the raw per-row
-        // parse returns a negative length for an all-fixed-column table (no variable columns — e.g. Northwind
-        // Order Details), which without the guard would overflow `new byte[len]`.
-        var encoder = new RowCodec(_table.Columns, format, InferFixedDataLength(format),
+        // Written over the old row, as ACE writes it: its fixed bytes, its dropped columns' chunks and their bits
+        // stay wherever the new values do not land.
+        var encoder = new RowCodec(_table.Columns, format,
             _table.VariableColumnCount, SpillCalculated, _table.ColumnIdHighWater);
-        byte[] record = encoder.Encode(storage, preservedCalculated, HasCalculatedColumns ? values : null);
+        byte[] record = encoder.Encode(storage, preservedCalculated, HasCalculatedColumns ? values : null, oldLayout);
 
         // Here as well as on the insert path, and before the in-place rewrite rather than beside the
         // page-search: a row that grows past the cap but still fits its current page is rewritten where it
@@ -288,7 +286,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
 
         // Free the deleted row's chained long-value pages — held until close, as ACE holds them.
         byte[] rowBytes = ReadRowBytes(id);
-        var oldDescriptors = RowCodec.LongValueDescriptors(_table.Columns, format, rowBytes);
+        var oldDescriptors = RowCodec.LongValueDescriptors(_table, format, rowBytes);
 
         // Which real indexes this row was the LAST holder of a key for. Asked before the row goes, and with
         // the row itself excluded, so the answer is "does another row still carry this key" either way —
@@ -397,7 +395,8 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         // indexable, and decoded without the reader it comes back as its 12-byte on-disk descriptor, which the
         // encoder's text path casts to string and dies on. A decode that feeds a key needs the value the
         // column holds, not the pointer to it.
-        object?[] values = new RowCodec(_table.Columns, format, longValues: new LongValueStore(_channel)).Decode(rowBytes);
+        object?[] values = new RowCodec(_table.Columns, format, _table.VariableColumnCount,
+            columnIdHighWater: _table.ColumnIdHighWater, longValues: new LongValueStore(_channel)).Decode(rowBytes);
         var writer = new IndexTree(_channel, _table);
         foreach (IndexDef index in _table.Indexes.GroupBy(i => i.RealIndexOrdinal).Select(g => g.First()))
         {
@@ -808,82 +807,6 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             movableWindow: tdefPointerOffset == _channel.Format.TdefFreePagesOffset);
     }
 
-
-    /// <summary>Pins the fixed-region length to an existing row (so the layout matches Access), or returns
-    /// null for the encoder to derive it from the columns.</summary>
-    /// <remarks>The region may never shrink below what existing rows carry (page-02a §3.1), and a retired
-    /// column id — dropped, or burned by a retype — leaves its bytes as a hole nothing points at, so the live
-    /// descriptors can under-count where the region ends. Only then is a row worth reading.</remarks>
-    private int? InferFixedDataLength(JetFormatBase format)
-    {
-        // The current fixed-region end from the column descriptors — this includes a just-added fixed column,
-        // whereas an existing row pins only the length as of when it was written.
-        int derived = _table.Columns.Where(c => c.IsFixedLength)
-            .Select(c => c.FixedOffset + c.Length).DefaultIfEmpty(0).Max();
-
-        // A table with no variable columns has no variable-offset table in its rows (ACE omits it), so a row
-        // can't pin the fixed length — and the schema fully determines it. Let the encoder derive it.
-        if (_table.Columns.All(c => c.IsFixedLength))
-            return null;
-
-        // 0x29 counts ids ever handed out and never decrements, so equality means none was retired.
-        if (_table.Columns.Count == _table.ColumnIdHighWater) return null;
-
-        foreach (int pageNumber in new UsageMap(_channel, _table).DataPages())
-        {
-            byte[] page = _channel.ReadPageShared(pageNumber).Span.ToArray();
-            if (InferFixedDataLength(page, format) is { } pinned)
-                return Math.Max(pinned, derived); // ADD COLUMN of a fixed column grows the region past old rows
-        }
-        return null; // empty table → RowCodec derives the same length from the columns
-    }
-
-    /// <summary>
-    /// Reads the fixed-region length straight off an existing inline row: its variable-offset
-    /// table's last entry is the variable-data start (= columnCount field + fixed region), so the
-    /// fixed length is that minus the leading column-count field.
-    /// </summary>
-    private int? InferFixedDataLength(byte[] page, JetFormatBase format)
-    {
-        int rowCount = DataPage.ReadRowCount(page, format);
-
-        // Take the largest sane fixed length across the page's inline rows rather than trusting the first one:
-        // some rows decode to a nonsensical (e.g. zero) variable-data offset, which would yield a negative
-        // length — those are ignored, and the real rows agree on the true fixed length.
-        int? best = null;
-        int prevEnd = format.PageSize;
-        for (int i = 0; i < rowCount; i++)
-        {
-            (int offset, RowSlotFlags flags) = DataPage.ReadSlot(page, format, i);
-            int length = prevEnd - offset;
-            prevEnd = offset;
-
-            if ((flags & (RowSlotFlags.Deleted | RowSlotFlags.Overflow)) != RowSlotFlags.None) continue;
-            if (length < format.RowColumnCountSize) continue;
-
-            ReadOnlySpan<byte> row = page.AsSpan(offset, length);
-            bool rowHasVar = RowCodec.Layout.HasVariableSection(row, _table.Columns, format);
-
-            // A row written while a since-dropped variable column existed still carries its trailer, but the
-            // live columns no longer say so, and reading it as all-fixed measures the trailer as fixed data —
-            // which would then pad every new row out to it, up to a false "Record is too large". The table's
-            // 0x2B high-water is the tell: it outlives the drop, so a row that reads as all-fixed in a table
-            // that has ever had a variable column cannot be trusted to pin the length. The schema does it.
-            if (!rowHasVar && _table.VariableColumnCount > 0) continue;
-            // Too short for even an empty row of its own column count: not an inline record, so it cannot pin
-            // the length.
-            if (length < RowCodec.Layout.MinimumLength(format, RowCodec.Layout.ReadColumnCount(row, format), rowHasVar)) continue;
-            RowCodec.Layout layout = RowCodec.Layout.Parse(row, format, rowHasVar);
-            int varDataStart = layout.FixedRegionLength + format.RowColumnCountSize;
-
-            // The variable-data start is the end of the fixed region; it must lie after the column-count field
-            // and no later than the offset table. A row that fails this decoded garbage — skip it.
-            int candidate = layout.FixedRegionLength;
-            if (candidate > 0 && (!rowHasVar || varDataStart <= layout.VarTableStart))
-                best = best is null ? candidate : Math.Max(best.Value, candidate);
-        }
-        return best;
-    }
 
     /// <summary>
     /// Access stores a memo/OLE value <b>inline</b> only up to 64 bytes (Jackcess

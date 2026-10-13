@@ -112,7 +112,7 @@ public class AllocatorAndLvalOwnershipTests
         Assert.True(DataPage.TryReadRow(page, table.Channel.Format, id.Row, out _, out ReadOnlySpan<byte> row));
         ColumnDef memo = table.Definition.FindColumn("M")!;
         byte[] descriptor = RowCodec
-            .LongValueDescriptors(table.Definition.Columns, table.Channel.Format, row)[memo.Index];
+            .LongValueDescriptors(table.Definition, table.Channel.Format, row)[memo.Index];
         int firstPage = LongValueStore.Read(descriptor, table.Channel.Format).Page;
 
         var definition = new TableDefinition();

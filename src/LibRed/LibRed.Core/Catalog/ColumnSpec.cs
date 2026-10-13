@@ -70,6 +70,9 @@ public sealed record ColumnSpec(
     /// <summary>A complex column's <c>MSysComplexColumns.ComplexID</c>, assigned when the column is created.</summary>
     internal int ComplexId { get; init; }
 
+    /// <inheritdoc cref="ColumnDef.OccupiesFixedData"/>
+    internal bool OccupiesFixedData => ColumnDef.OccupiesFixed(Type, IsFixedLength);
+
     /// <summary>The column's collation, where it is not the database's.</summary>
     internal Collation? Collation { get; init; }
 

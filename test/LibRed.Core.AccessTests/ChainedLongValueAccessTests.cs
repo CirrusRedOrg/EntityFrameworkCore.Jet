@@ -85,7 +85,7 @@ public class ChainedLongValueAccessTests
                 .SelectMany(page => Enumerable.Range(0, page.RowCount)
                     .Where(row => !page.Rows[row].IsDeleted)
                     .SelectMany(row => RowCodec.LongValueDescriptors(
-                        definition.Columns, channel.Format, page.GetRow(row))))
+                        definition, channel.Format, page.GetRow(row))))
                 .Single(d => d.Key == columnId).Value[..channel.Format.LongValueDescriptorSize];
 
             var parsedDescriptor = LongValueStore.Read(descriptor, channel.Format);
@@ -130,7 +130,7 @@ public class ChainedLongValueAccessTests
                 var parsed = new DataPage();
                 parsed.Read(channel.ReadPage(dataPage), channel.Format);
                 byte[] descriptor = RowCodec
-                    .LongValueDescriptors(definition.Columns, channel.Format, parsed.GetRow(0))
+                    .LongValueDescriptors(definition, channel.Format, parsed.GetRow(0))
                     .Single(d => d.Key == columnId).Value;
                 firstChainPage = LongValueStore.Read(descriptor, channel.Format).Page;
 

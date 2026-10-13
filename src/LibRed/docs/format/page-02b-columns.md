@@ -403,24 +403,32 @@ null bitmap is keyed by **id** and not by position (§5).
 | `0x09` | **left unchanged** — it is the column's ordinal position (§3.4), which a retype does not move; it only looked like the *old* id because the two coincide until a column is dropped or moved |
 | `0x0F` | fixed-length bit (`0x01`) set/cleared for the new type; auto-number bit likewise |
 | `0x0B`/`0x0C` | precision/scale for a `DECIMAL`/`NUMERIC` (`FixedPoint`) target |
-| `0x15` | fixed-data offset = **end of the current fixed region** (appended) for a fixed target, or `0` for a variable target **or a Yes/No target** (fixed, but it has no data bytes, §5). The old slot is left where it was as dead bytes. |
+| `0x15` | fixed-data offset = **end of the live fixed columns**, `max(offset+length)` over the descriptors, for a fixed target, or `0` for a variable target **or a Yes/No target** (fixed, but it has no data bytes, §5). The old slot is left where it was as dead bytes. |
 | `0x17` | new length |
 
-The "end of the current fixed region" must be measured from an **existing row** (its variable-data start),
-**not** from the live column descriptors — after a prior retype left a dead fixed slot, the descriptors
-under-count the true fixed width. An all-fixed table has no var-data pointer, so its fixed length comes
-from the schema (§5).
+The end is the **live** one, not what existing rows carry: a dead slot at the end of the region — a dropped
+column's, or one a retype to a variable type left behind — is written over by the new slot (verified vs ACE,
+both kinds), in every row, whatever its old bytes were.
 
-**Row re-lay** — every row is rewritten (in place, landing at the offset ACE's repack-from-end produces):
-the **old fixed region and old variable chunks are kept verbatim** (the dead old-target slot / chunk keeps
-its stale bytes), and the converted target is **appended** — a new fixed slot at the offset above, or a new
-variable chunk at variable-index = the old var count. The leading count, variable-offset table + `numVar`,
-and null bitmap are then rebuilt per §5 (count and bitmap width = max id + 1; each dead id's bit as the old
-row had it — so the retyped column's old id is present where it held a value and clear where it was NULL).
-A fixed target whose converted value is NULL gets no bytes written: its new slot holds whatever the old record
-had at those offsets (the start of its variable data, on a row with some), not zeros. A **Yes/No** target
-appends nothing at all — the fixed region keeps its old width and the converted value is only the new id's
-null-bitmap bit (verified, from a `LONG` and from an indexed `TEXT`, NULLs included).
+**Row re-lay** — every row is rewritten (in place, landing at the offset ACE's repack-from-end produces) over
+its old record, as an UPDATE writes one (page-01 §5):
+- **Fixed region** — as long as the old live region plus the target's new slot, or as the row's own region if
+  that is longer, holding the **old record's bytes position for position** — past its own fixed region too, so
+  a row predating a fixed ADD COLUMN gets its old variable data or null bitmap in the slots it never had. It
+  grows even when the target becomes variable, to the old live end. Past the end of a short old record the
+  bytes are those of the record re-laid just before it — ACE builds every row in one buffer — and zeros for the
+  first row re-laid (verified). The target is then written into its new slot; a NULL target writes nothing, so
+  its slot keeps the old bytes, and the dead old-target slot keeps its stale bytes.
+- **Variable chunks** — the old row's, verbatim, in their slots (a dead old-target chunk, or a dropped column's,
+  included), padded with empty chunks to the `0x2B` count; a variable target goes at variable-index = the old var
+  count. The old row's trailer is located by page-01 §5's rule, which can read a real trailer as fixed data
+  — ACE then carries it as fixed bytes, and so does LibRed.
+- **Count, offset table + `numVar`, null bitmap** — rebuilt per §5 (count and bitmap width = max id + 1; each
+  dead id's bit as the old row had it — so the retyped column's old id is present where it held a value and
+  clear where it was NULL).
+
+A **Yes/No** target writes no fixed bytes — its value is only the new id's null-bitmap bit (verified, from a
+`LONG` and from an indexed `TEXT`, NULLs included).
 
 **A Memo/OLE source or target** takes the same edit and re-lay, plus the long-value side of ADD and DROP
 COLUMN (verified, both directions and a Memo re-declared as Memo). A column becoming Memo/OLE gets its §3.3.2

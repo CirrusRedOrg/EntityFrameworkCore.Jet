@@ -1107,6 +1107,7 @@ public sealed class JetCatalog
         JetDataType.Double => "DOUBLE",
         JetDataType.Currency => "CURRENCY",
         JetDataType.DateTime => "DATETIME",
+        JetDataType.DateTimeExtended => "DATETIME2",
         JetDataType.Text => "TEXT",
         JetDataType.Memo => "MEMO",
         JetDataType.Guid => "GUID",
@@ -1255,6 +1256,7 @@ public sealed class JetCatalog
     private int AllocateQueryObject(string name, QueryDefType type)
     {
         JetName.Validate(name, "query name");
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.DatabaseOrObject);   // before the clash check: a taken name is refused as read-only too
         return AllocateObject(name, ObjectType.Query, JetCatalog.ObjectContainerParentId,
             (int)ObjectAttributes.QueryDef | (int)type);
     }

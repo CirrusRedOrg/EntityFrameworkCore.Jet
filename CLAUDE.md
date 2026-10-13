@@ -293,21 +293,22 @@ src/LibRed/
 ```
 
 **Format version gating and auto-upgrade — LibRed already does this.** Don't grep for `JetCapabilities`;
-the names are `JetVersion` / `RequiredVersion` / `EnsureFormatAtLeast`:
+the names are `JetVersion` / `JetDataTypeVersions` / `RaiseFormatFor`:
 
 - `LibRed.Formats.JetVersion` enumerates the on-disk version byte (`Version3` = 0x00 … `Version17_2019` = 0x06).
-- `AccessTypeMapper.RequiredVersion(typeName)` is the capability table: `BIGINT` needs `Version16_2016` (0x05),
+- `JetDataTypeVersions.Required(type)` is the capability table: `BIGINT` needs `Version16_2016` (0x05),
   `DATETIME2` needs `Version17_2019` (0x06). **Different thresholds** — the natural assumption that ACE 16 added
-  both at once is wrong, and it's measured in `docs/format/page-00-database.md`.
-- `AccessTypeMapper.MapType` **refuses** a type the open file is too old for, so a caller that can't upgrade
-  (read-only database) fails loudly instead of writing a column Access couldn't read. That guard is on the SQL
-  path; the same rule is enforced again in Core over `JetDataType` (`JetDataTypeVersions.EnsureStorable`, called
-  from `TableDefinition` and `SchemaEditor`), because every `JetDatabase` method that defines a column takes a raw `ColumnSpec` and
-  would otherwise write the descriptor with nothing objecting.
-- `StatementExecutor.MapColumn` → `JetDatabase.EnsureFormatAtLeast` → `PageChannel.RaiseFormatVersion`
-  **raises the file's version byte** rather than refusing the DDL, which is what ACE itself does. The raise goes
+  both at once is wrong, and it's measured in `docs/format/page-00-database.md`. A calculated column needs
+  `Version14_2010`.
+- `SchemaEditor.RaiseFormatFor` → `PageChannel.RaiseFormatVersion` **raises the file's version byte** rather than
+  refusing the DDL, which is what ACE itself does — in CREATE TABLE, ADD COLUMN and ALTER COLUMN, for the SQL path
+  and the Core API alike, once the statement's checks (the read-only refusal among them) have passed. The raise goes
   through `WritePage`, so it joins the statement's transaction and a failed `CREATE`/`ALTER` takes it back down;
-  both rollback paths re-derive the in-memory `Format` from the version byte then visible.
+  both rollback paths re-derive the in-memory `Format` from the version byte then visible, and
+  `JetDatabase.DefinitionPage` re-reads itself when its version no longer matches. A Jet MDB cannot take an ACE
+  version and is refused. `JetDataTypeVersions.EnsureStorable` (in `TableDefinition`) refuses whatever reaches it
+  unraised. A stored query's `BIGINT`/`DATETIME2` *parameter* declares no storage: ACE stores it on an ACE 12 file
+  without raising the version (verified), and so does LibRed.
 
 The Jet provider (`src/EFCore.Jet*`) has **no** equivalent — it does no ACE version detection, and
 `JetTypeMappingSource` keeps `{"bigint", …}` commented out, so `long` maps to `decimal(20,0)` regardless of the

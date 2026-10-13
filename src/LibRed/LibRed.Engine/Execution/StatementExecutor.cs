@@ -1,5 +1,6 @@
 using LibRed.Catalog;
 using LibRed.Engine.Planning;
+using LibRed.IO;
 using LibRed.Sql.Ast;
 using LibRed.Sql.Parsing;
 using LibRed.Storage;
@@ -46,33 +47,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         _ => throw new NotSupportedException($"{statement.GetType().Name} cannot be executed as a non-query."),
     };
 
-    /// <summary>
-    /// Maps a declared column type to its storage spec, first raising the database's format version if the
-    /// type needs a newer one than the file currently is.
-    /// </summary>
-    /// <remarks>
-    /// Access does the upgrade itself rather than refusing the DDL — adding a Date/Time Extended column to an
-    /// ACE 12 database moves its version byte to 0x06, and for DATETIME2 that byte is the entire upgrade
-    /// (docs/format/page-00-database.md). Refusing instead would leave LibRed unable to do something the
-    /// engine it mirrors does routinely.
-    /// <para>The raise joins this statement's transaction, so a failed CREATE/ALTER takes its format bump
-    /// back down with it. It is still one-way in the sense that matters: once committed, an Access older than
-    /// the new format cannot open the file — unavoidable, since the column it would find is one it cannot
-    /// read either.</para>
-    /// </remarks>
-    private ColumnSpec MapColumn(ColumnDefinition column)
-    {
-        if (AccessTypeMapper.RequiredVersion(column.TypeName) is { } required)
-            _database.EnsureFormatAtLeast(required.Min);
-
-        return AccessTypeMapper.ToColumnSpec(column, _database.Format.Version);
-    }
-
     private int ExecuteCreateTable(CreateTableStatement statement)
     {
-        var columns = statement.Columns.Select(MapColumn).ToList();
-        foreach (var (spec, def) in columns.Zip(statement.Columns))
-            ValidateColumnDefault(spec, def.Default);
+        var columns = statement.Columns.Select(AccessTypeMapper.ToColumnSpec).ToList();
         IReadOnlyList<string>? primaryKey = statement.PrimaryKey.Count > 0 ? statement.PrimaryKey : null;
 
         var relationships = statement.ForeignKeys.Select(fk => ToRelationshipSpec(statement.Table, fk)).ToList();
@@ -625,10 +602,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // A procedure is a parameterized stored query: a view spec plus a parameter row per declared
         // parameter (name + Jet type code, resolved from the declared Access type name).
         //
-        // Deliberately NOT MapColumn: this declares no storage, so there is no column forcing the file's
-        // hand, and a BIGINT/DATETIME2 parameter on an older format is left to fail. Upgrading a whole
-        // database for a saved query's parameter type is a bigger claim than anything measured — what ACE
-        // does with a new-type parameter in MSysQueries has not been probed, unlike the column case.
+        // A parameter declares no storage, so its type neither raises the file nor is refused by it: ACE stores a
+        // BIGINT or DATETIME2 parameter on an ACE 12 file with its type, and the version byte stays 0x02 (verified).
         _database.CreateView(
             statement.Name,
             BuildViewSpec(statement.Definition) with { Parameters = BuildParameterSpecs(statement.Parameters) });
@@ -637,7 +612,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     /// <summary>The declared parameters of a stored query as the rows that hold them: each name with the Jet
     /// type code its declared Access type maps to. An action query declares them exactly as a SELECT does.</summary>
-    private List<ViewParameterSpec>? BuildParameterSpecs(IReadOnlyList<ProcedureParameter>? parameters) =>
+    private static List<ViewParameterSpec>? BuildParameterSpecs(IReadOnlyList<ProcedureParameter>? parameters) =>
         parameters is null or { Count: 0 }
             ? null
             : parameters
@@ -645,8 +620,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                     p.Stored ?? p.Name,
                     // The declared size decides the type code as well as being stored: Text(50) is a Text
                     // parameter (code 10) where a bare Text is a memo (12), which is what ACE records.
-                    (byte)AccessTypeMapper.ToColumnSpec(
-                        new ColumnDefinition(p.Name, p.TypeName, p.Size, p.Scale, false, false), _database.Format.Version).Type,
+                    (byte)AccessTypeMapper.ToColumnSpec(new ColumnDefinition(p.Name, p.TypeName, p.Size, p.Scale, false, false)).Type,
                     p.Size, p.Scale))
                 .ToList();
 
@@ -748,8 +722,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         ColumnDefinition column = add.Column;
         // NOT NULL and DEFAULT are written to the column's LvProp properties (Required / DefaultValue).
-        ColumnSpec spec = MapColumn(column);
-        ValidateColumnDefault(spec, column.Default);
+        ColumnSpec spec = AccessTypeMapper.ToColumnSpec(column);
         if (!_database.AddColumn(table, spec, column.Default))
             throw new InvalidOperationException($"ALTER TABLE '{table}' ADD COLUMN '{column.Name}': the column already exists.");
         // The column's constraints apply to it as in CREATE TABLE — a primary key, a unique index, a relationship —
@@ -762,34 +735,6 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         if (add.References is { } references)
             AddForeignKey(table, references);
         return 0;
-    }
-
-    /// <summary>Rejects a DEFAULT expression the storage engine can't accept — matching ACE's CREATE-time
-    /// validation. Currently: <c>GenUniqueID()</c> is only valid on a <c>LONG</c> (Int32) column; every other
-    /// type raises "Cannot place this validation expression on this field" (verified across BYTE/SHORT/SINGLE/
-    /// DOUBLE/CURRENCY/DECIMAL/GUID/DATETIME/BIT/TEXT).</summary>
-    private static void ValidateColumnDefault(ColumnSpec spec, string? defaultSql) =>
-        ValidateColumnDefault(spec.Name, spec.Type, defaultSql);
-
-    private static void ValidateColumnDefault(string columnName, JetDataType type, string? defaultSql)
-    {
-        if (defaultSql is not null
-            && defaultSql.Trim().Equals("GenUniqueID()", StringComparison.OrdinalIgnoreCase)
-            && type != JetDataType.Int32)
-            throw new InvalidOperationException(
-                $"Cannot place this validation expression on this field. GenUniqueID() is only valid as the " +
-                $"DEFAULT of a LONG (Int32) column (column '{columnName}').");
-    }
-
-    /// <summary>The same check for a column that already exists, so every statement that can write a
-    /// <c>DefaultValue</c> property passes it. CREATE TABLE and ADD COLUMN validated against the spec they
-    /// were handed; the two ALTER forms wrote the property straight through, which let a default ACE refuses
-    /// at DDL time be persisted — and then evaluated, putting a random Int32 into a Text column on insert.
-    /// A column the catalog cannot find is left to the layer below to report.</summary>
-    private void ValidateExistingColumnDefault(string table, string column, string? defaultSql)
-    {
-        if (_database.Catalog.FindTable(table)?.FindColumn(column) is { } existing)
-            ValidateColumnDefault(existing.Name, existing.Type, defaultSql);
     }
 
     private int DropColumn(string table, string column)
@@ -850,11 +795,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         var colDef = new ColumnDefinition(alter.Field, alter.TypeName, alter.Size, alter.Scale, NotNull: false, PrimaryKey: false,
             Identity: alter.Identity);
-        ColumnSpec spec = MapColumn(colDef);
-        // Validated against the column's NEW type, and before the type change, so a rejected DEFAULT leaves
-        // the whole statement having done nothing.
-        ValidateColumnDefault(spec, alter.Default);
-        _database.AlterColumn(table, alter.Field, spec);
+        // A DEFAULT the new type refuses fails the statement, and its transaction takes the type change back with it.
+        _database.AlterColumn(table, alter.Field, AccessTypeMapper.ToColumnSpec(colDef));
         // Apply DEFAULT before Required so the column's property map keeps ACE's order (DefaultValue, then Required).
         if (alter.Default is not null)   // ALTER COLUMN … DEFAULT: set the column's default after the type change
             _database.SetColumnDefault(table, alter.Field, alter.Default);
@@ -865,7 +807,6 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     private int SetColumnDefault(string table, AlterColumnSetDefaultAction set)
     {
-        ValidateExistingColumnDefault(table, set.Field, set.Default);
         _database.SetColumnDefault(table, set.Field, set.Default);
         return 0;
     }
@@ -960,6 +901,12 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // A taken name — a table's, a query's or a linked table's — is refused by CreateTable, before anything is
         // written; the read below has no side effect to undo.
         string target = statement.Into!;
+        // Both of these before a row is read (verified vs ACE): the same table as source and destination is reported
+        // first, and a read-only database is refused straight after it.
+        if (TablesIn(statement.From).Any(t => string.Equals(t, target, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException(
+                $"Same table '{target}' referenced as both the source and destination in make-table query.");
+        _database.RefuseIfReadOnly(ReadOnlyWrite.DatabaseOrObject);
 
         // Run the query first — with INTO stripped, or planning would recurse back into this method — and
         // materialise it. The rows have to exist before the table does: the source may read a table this
@@ -1095,6 +1042,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private int ExecuteInsert(InsertStatement statement)
     {
         Table table = _database.OpenTable(statement.Table);
+        // Before the column list and the values: ACE refuses a read-only database on finding the table (verified).
+        _database.RefuseIfReadOnly(ReadOnlyWrite.Row);
         var columns = table.Definition.Columns;
 
         // Target columns: the explicit list; DEFAULT VALUES provides none (every column takes its default);
@@ -1864,7 +1813,6 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         var (tables, kinds, ons, groupBases) = ResolveSource(statement.From);
         var columns = tables.SelectMany(t => t.Columns).ToList();
-        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, kinds, ons, groupBases, statement.Where, columns);
 
         // Resolve each assignment to its (table index, column) once.
         var targets = statement.Assignments.Select(a =>
@@ -1893,6 +1841,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             throw new InvalidOperationException(
                 $"Duplicate output destination '{tables[duplicate.Key.TableIndex].Alias}.{duplicate.First().Column.Name}'.");
 
+        // Once the SET targets are resolved and before the joined rows are read: ACE refuses a read-only database
+        // after a missing table or column and before the values it would write (verified).
+        _database.RefuseIfReadOnly(ReadOnlyWrite.Row);
+        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, kinds, ons, groupBases, statement.Where, columns);
         CompleteRows(joinRows, tables, targets.Select(t => t.TableIndex));
 
         // Apply SETs to the shared value arrays; snapshot each touched row's original bytes on first touch.
@@ -1979,10 +1931,13 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         var (tables, kinds, ons, groupBases) = ResolveSource(statement.From);
         var columns = tables.SelectMany(t => t.Columns).ToList();
-        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, kinds, ons, groupBases, statement.Where, columns);
 
         int ti = DeleteTarget(tables, statement.TargetTable);
         Table target = TargetTable(tables, ti);
+        // Once the target is resolved and before the joined rows are read, as ACE refuses a read-only database after
+        // a missing table (verified).
+        _database.RefuseIfReadOnly(ReadOnlyWrite.RowDelete);
+        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, kinds, ons, groupBases, statement.Where, columns);
         CompleteRows(joinRows, tables, [ti]);
 
         var deleted = new Dictionary<RowId, object?[]>();

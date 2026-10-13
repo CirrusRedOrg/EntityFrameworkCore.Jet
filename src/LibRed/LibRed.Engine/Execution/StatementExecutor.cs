@@ -1,5 +1,6 @@
 using LibRed.Catalog;
 using LibRed.Engine.Planning;
+using LibRed.Engine.Schema;
 using LibRed.IO;
 using LibRed.Sql.Ast;
 using LibRed.Sql.Parsing;
@@ -38,8 +39,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         AlterTableStatement alter => ExecuteAlterTable(alter),
         DropIndexStatement dropIndex => DropIndex(dropIndex.Table, dropIndex.Index),
         DropTableStatement dropTable => DropTable(dropTable.Table),
-        DropViewStatement dropView => DropQueryObject(dropView.View, "view"),
-        DropProcedureStatement dropProc => DropQueryObject(dropProc.Procedure, "procedure"),
+        DropViewStatement dropView => DropQueryObject(dropView.View),
+        DropProcedureStatement dropProc => DropQueryObject(dropProc.Procedure),
         SelectStatement { Into: not null } makeTable => ExecuteSelectInto(makeTable),
         InsertStatement insert => ExecuteInsert(insert),
         UpdateStatement update => ExecuteUpdate(update),
@@ -87,15 +88,22 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     /// <summary>Parses a column DEFAULT into an expression. In Access an **unquoted single word** is a LITERAL
     /// STRING (verified vs ACE: <c>DEFAULT Unknown</c> → "Unknown", <c>DEFAULT K</c> → "K" even when K is a
-    /// column) — it is never a column reference. The one exception is the niladic <c>Now</c> function. A
-    /// bracketed <c>[X]</c> stays a column reference (rejected in a default); a quoted literal, function call, or
-    /// compound expression parses normally. (A multi-word bare default is a syntax error at CREATE, matching ACE.)</summary>
+    /// column) — it is never a column reference. It is what the grammar reads it as only when that is a value: a
+    /// constant — <c>Null</c> stores NULL, and <c>True</c>, <c>Yes</c>, <c>On</c>, <c>False</c>, <c>No</c> and
+    /// <c>Off</c> store -1 and 0, as the column's type has them (verified vs ACE, into LONG, TEXT, YESNO, DATETIME and
+    /// DOUBLE) — or the niladic <c>Now</c>. A bracketed <c>[X]</c> stays a column reference (rejected in a default); a
+    /// quoted literal, function call, or compound expression parses normally. (A multi-word bare default is a syntax
+    /// error at CREATE, matching ACE.)</summary>
     private Expression ParseDefaultExpression(string text)
     {
-        string t = text.Trim();
-        return BareWord.IsMatch(t) && !t.Equals("Now", StringComparison.OrdinalIgnoreCase)
-            ? new LiteralExpression(t)
-            : _parser.ParseExpression(text);
+        string t = PropertyBlob.DefaultExpression(text);
+        if (!BareWord.IsMatch(t)) return _parser.ParseExpression(t);
+        Expression? parsed;
+        try { parsed = _parser.ParseExpression(t); }
+        catch (SqlParseException) { parsed = null; }   // a word the grammar reserves is text too
+        return parsed is LiteralExpression || parsed is ColumnReference c && ExpressionEvaluator.IsNiladicFunction(c)
+            ? parsed
+            : new LiteralExpression(t);
     }
 
     /// <summary>Rejects an insert that leaves a NOT NULL (Required) column null after defaults are applied —
@@ -754,14 +762,15 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private int DropTable(string table)
     {
         if (!_database.DropTable(table))
-            throw new InvalidOperationException($"DROP TABLE '{table}': no such table.");
+            throw new InvalidOperationException($"Table '{table}' does not exist.");   // ACE's message (verified)
         return 0;
     }
 
-    private int DropQueryObject(string name, string kind)
+    // ACE refuses a DROP VIEW or DROP PROCEDURE of nothing with its DDL message (verified).
+    private int DropQueryObject(string name)
     {
         if (!_database.DropQueryObject(name))
-            throw new InvalidOperationException($"DROP {kind.ToUpperInvariant()} '{name}': no such {kind}.");
+            throw new InvalidOperationException("Cannot find table or constraint.");
         return 0;
     }
 
@@ -1025,12 +1034,22 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// <summary>Writes a new row: every column not in <paramref name="provided"/> takes its default (an explicit
     /// NULL is left as NULL), the row is checked as any insert is, and it is written. Returns its AutoNumber value,
     /// if it has one.</summary>
+    /// <remarks>A Text column's default is cut to the column's width, where a value supplied for it is refused
+    /// (verified vs ACE: <c>DEFAULT 'abcdefghijklmnopqrstuvwxyz'</c> on a <c>TEXT(20)</c> stores its first 20
+    /// characters, and <c>DEFAULT Now()</c> the first 20 of the date's text).</remarks>
     private object? InsertNewRow(string tableName, Table table, RowDefaults defaults, object?[] values, HashSet<int> provided)
     {
         var evaluator = new ExpressionEvaluator(new EvalScope([], [], null), _scalarRunner, parameters: _parameters);
         foreach (var (index, expression) in defaults.Columns)
             if (!provided.Contains(index))
-                values[index] = evaluator.Evaluate(expression);
+            {
+                object? value = evaluator.Evaluate(expression);
+                ColumnDef column = table.Definition.Columns[index];
+                if (column.Type == JetDataType.Text && value is not null && JetStoreType.MaxLength(column) is int width
+                    && LibRed.Storage.Types.VbaText.Of(value) is var text && text.Length > width)
+                    value = text[..width];
+                values[index] = value;
+            }
 
         EnforceRequired(tableName, table.Definition.Columns, values);
         EnforceReferentialIntegrity(tableName, table, values);
@@ -1041,6 +1060,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     private int ExecuteInsert(InsertStatement statement)
     {
+        // The target is the one table ACE names differently when it is missing (verified).
+        if (_database.Catalog.FindTable(statement.Table) is null)
+            throw new InvalidOperationException($"Could not find output table '{statement.Table}'.");
         Table table = _database.OpenTable(statement.Table);
         // Before the column list and the values: ACE refuses a read-only database on finding the table (verified).
         _database.RefuseIfReadOnly(ReadOnlyWrite.Row);

@@ -420,6 +420,11 @@ internal static class AstBuilder
 
     private static CreateViewStatement BuildCreateView(CreateViewStatementContext ctx)
     {
+        // A view takes no ORDER BY or INTO, where a procedure may (verified vs ACE) — a TOP is allowed, but not with an
+        // ORDER BY.
+        if (ctx.query.orderByClause() is not null || MakeTableTarget(ctx.query) is not null)
+            throw new NotSupportedException("Only simple SELECT queries are allowed in VIEWS.");
+
         var columns = ctx._columns.Select(Identifier).ToList();
         ViewDefinition definition = BuildViewDefinition(ctx.query);
         return new CreateViewStatement(Identifier(ctx.name), columns, definition, OriginalText(ctx.query));

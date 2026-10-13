@@ -519,11 +519,11 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         return true;
     }
 
-    /// <summary>A relationship's parent table, or ACE's error when it does not exist.</summary>
-    private TableDefinition ReferencedTableOf(RelationshipSpec fk) =>
-        _catalog.FindTable(fk.ReferencedTable)
-        ?? throw new InvalidOperationException(
-            $"Cannot find table or constraint: the referenced table '{fk.ReferencedTable}' does not exist.");
+    /// <summary>The table a design change names — the one it alters, indexes or drops from, or a relationship's parent
+    /// — or ACE's error when there is none: "Cannot find table or constraint." for every one of them (verified: ALTER
+    /// TABLE in each form, CREATE and DROP INDEX, and a FOREIGN KEY's REFERENCES).</summary>
+    private TableDefinition DesignTable(string name) =>
+        _catalog.FindTable(name) ?? throw new InvalidOperationException("Cannot find table or constraint.");
 
     /// <summary>
     /// Resolves <c>REFERENCES table</c> with no column list (<see cref="RelationshipSpec.ReferencesPrimaryKey"/>)
@@ -541,7 +541,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         if (!fk.ReferencesPrimaryKey) return fk;
         bool selfInCreate = creatingTable is not null
                             && string.Equals(fk.ReferencedTable, creatingTable, StringComparison.OrdinalIgnoreCase);
-        IndexDef primaryKey = (selfInCreate ? null : ReferencedTableOf(fk).Indexes.FirstOrDefault(i => i.IsPrimaryKey))
+        IndexDef primaryKey = (selfInCreate ? null : DesignTable(fk.ReferencedTable).Indexes.FirstOrDefault(i => i.IsPrimaryKey))
             ?? throw new InvalidOperationException(
                 $"Cannot create relationship. Referenced table '{fk.ReferencedTable}' does not have a primary key.");
         return fk with
@@ -554,7 +554,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
 
     private (int Page, int ReferencedOrdinal, int NextIndexNumber) ResolveParent(RelationshipSpec fk, int childPage)
     {
-        TableDefinition parent = ReferencedTableOf(fk);
+        TableDefinition parent = DesignTable(fk.ReferencedTable);
         if (parent.DefinitionPage == childPage)
             throw new InvalidOperationException($"Self-referencing foreign key '{fk.Name}' should have been handled inline.");
 
@@ -619,8 +619,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     public void AddIndex(string tableName, string indexName, IReadOnlyList<(string Column, bool Descending)> columns,
         bool isUnique, bool isPrimary, bool disallowNull, bool ignoreNulls)
     {
-        TableDefinition table = _catalog.FindTable(tableName)
-            ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
+        TableDefinition table = DesignTable(tableName);
         AddIndex(table, indexName, columns, isUnique, isPrimary, disallowNull, ignoreNulls);
     }
 
@@ -900,8 +899,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     public void AddForeignKey(string childTable, RelationshipSpec fk)
     {
         JetName.Validate(fk.Name, "foreign key name");
-        TableDefinition child = _catalog.FindTable(childTable)
-            ?? throw new InvalidOperationException($"Table '{childTable}' was not found.");
+        TableDefinition child = DesignTable(childTable);
         _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, child.Name);
         EnsureRelationshipNameFree(fk.Name);
         if (fk.NoIndex)
@@ -914,7 +912,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
 
         // ACE refuses a relationship the existing rows already break — an orphan, or a partly null composite key
         // (verified; the ON DELETE action makes no difference).
-        if (fk.IsEnforced && ReferencedTableOf(fk) is var parent
+        if (fk.IsEnforced && DesignTable(fk.ReferencedTable) is var parent
             && !ExistingRowsHaveParents(child.Name, parent.Name, fk.Columns))
             throw new InvalidOperationException(
                 "Cannot create relationships to enforce referential integrity. Existing data in table "
@@ -970,8 +968,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             string.Equals(r.Table, childTable, StringComparison.OrdinalIgnoreCase));
         if (rel is null) return false;
 
-        TableDefinition child = _catalog.FindTable(childTable)
-            ?? throw new InvalidOperationException($"Table '{childTable}' was not found.");
+        TableDefinition child = DesignTable(childTable);
         _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, child.Name);
         IndexDef? fkIndex = child.Indexes.FirstOrDefault(i => string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase));
         bool selfRef = string.Equals(rel.ReferencedTable, childTable, StringComparison.OrdinalIgnoreCase);
@@ -1322,8 +1319,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// </summary>
     public bool RenameColumn(string tableName, string oldName, string newName)
     {
-        TableDefinition table = _catalog.FindTable(tableName)
-            ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
+        TableDefinition table = DesignTable(tableName);
         ColumnDef? col = table.Columns.FirstOrDefault(c => string.Equals(c.Name, oldName, StringComparison.OrdinalIgnoreCase));
         if (col is null) return false;
         JetName.Validate(newName, "column name");   // see RenameTable: unchecked, this corrupts the file
@@ -1634,8 +1630,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// </summary>
     public bool DropIndex(string tableName, string indexName)
     {
-        TableDefinition table = _catalog.FindTable(tableName)
-            ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
+        TableDefinition table = DesignTable(tableName);
         IndexDef? index = table.Indexes.FirstOrDefault(i => string.Equals(i.Name, indexName, StringComparison.OrdinalIgnoreCase));
         if (index is null) return false;
         _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, table.Name);
@@ -1707,8 +1702,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     public bool AddColumn(string tableName, ColumnSpec spec, string? defaultValue = null)
     {
         JetName.Validate(spec.Name, "column name");
-        TableDefinition table = _catalog.FindTable(tableName)
-            ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
+        TableDefinition table = DesignTable(tableName);
         // A taken column name included (verified vs ACE).
         _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, table.Name);
         if (table.Columns.Any(c => string.Equals(c.Name, spec.Name, StringComparison.OrdinalIgnoreCase)))
@@ -2053,8 +2047,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     public void AddCheckConstraint(string tableName, string checkName, string expression)
     {
         JetName.Validate(checkName, "check constraint name");
-        TableDefinition target = _catalog.FindTable(tableName)
-            ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
+        TableDefinition target = DesignTable(tableName);
         _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, target.Name);
         int tdefPage = target.DefinitionPage;
 
@@ -2077,8 +2070,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// false if no CHECK of that name exists (so the caller can try other constraint kinds).</summary>
     public bool DropCheckConstraint(string tableName, string checkName)
     {
-        TableDefinition target = _catalog.FindTable(tableName)
-            ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
+        TableDefinition target = DesignTable(tableName);
         int tdefPage = target.DefinitionPage;
 
         byte[] blob = ReadObjectProperties(tdefPage) ?? [];
@@ -2098,8 +2090,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// missing column is ACE's "Could not find field" first).</summary>
     private (TableDefinition Table, ColumnDef Column) CheckAlterColumn(string tableName, string columnName)
     {
-        TableDefinition table = _catalog.FindTable(tableName)
-            ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
+        TableDefinition table = DesignTable(tableName);
         ColumnDef column = table.FindColumn(columnName)
             ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
         _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, table.Name);
@@ -2267,7 +2258,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // make it a "Random" AutoNumber (IsRandomAutoNumber) — assigning random ids and ignoring the seed — so
         // clear it to honour the requested sequence. Other (literal) defaults are inert on a counter (the insert
         // path skips defaults for AutoNumber columns) and are left as-is.
-        if (autoNumber && col.DefaultValue?.Trim().Equals("GenUniqueID()", StringComparison.OrdinalIgnoreCase) == true)
+        if (autoNumber && PropertyBlob.IsGenUniqueId(col.DefaultValue))
             DropColumnDefault(table.Name, col.Name);
     }
 
@@ -2653,8 +2644,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// </summary>
     public bool DropColumn(string tableName, string columnName)
     {
-        TableDefinition table = _catalog.FindTable(tableName)
-            ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
+        TableDefinition table = DesignTable(tableName);
         ColumnDef? col = table.Columns.FirstOrDefault(c => string.Equals(c.Name, columnName, StringComparison.OrdinalIgnoreCase));
         if (col is null) return false;
         _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, table.Name);

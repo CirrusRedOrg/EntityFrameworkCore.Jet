@@ -614,7 +614,11 @@ public sealed class JetCatalog
         QueryOperation kind = operation?[flag] is short k ? (QueryOperation)k : QueryOperation.Select;
         StoredQuery query = operation is not null && kind != QueryOperation.Select
             ? ReconstructAction(queryRows, attr, expr, flag, n1, n2, order, lvExtra)
-            : new StoredQuery(Reconstruct(queryRows, attr, expr, flag, n1, n2, order, lvExtra), null, IsAction: false);
+            : Reconstruct(queryRows, attr, expr, flag, n1, n2, order, lvExtra) is { } sql
+                ? new StoredQuery(sql, null, IsAction: false)
+                : new StoredQuery(null,
+                    "The stored SELECT is not rebuilt by LibRed: it has a pass-through connection, complex-type data or "
+                    + "neither a source nor columns.", IsAction: false);
 
         // The declared parameters (Attribute=2 rows), in declaration order, for EXECUTE positional binding.
         // Each row's Flag is the parameter's Jet type code (0 for Access's untyped parameter).

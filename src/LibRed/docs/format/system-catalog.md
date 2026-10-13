@@ -414,6 +414,10 @@
   > (`0x08|0x01`) is what Access writes for its auto-generated form/report record-source queries**, the
   > `~sq_f…` / `~sq_r…` / `~sq_c…` objects, which it renders as `SELECT DISTINCTROW * FROM <table>`.
   >
+  > **ACE's `CREATE VIEW` takes a simple SELECT only, where `CREATE PROCEDURE` takes more** (verified): a view with an
+  > `ORDER BY` (with or without a `TOP`) or an `INTO` is refused with *"Only simple SELECT queries are allowed in
+  > VIEWS."*, as LibRed refuses it; a procedure accepts both.
+  >
   > **What ACE's own `CREATE VIEW` / `CREATE PROCEDURE` writes is one `0x03` row, `Order 1`, holding every bit the
   > query has**, the `TOP` count in its `Name1`: `DISTINCT TOP 2` is `Flag 18`, and `DISTINCT TOP 25 PERCENT` `50`.
   > A query with none of them has no `0x03` row. A make-table or append query's own SELECT keeps its

@@ -197,12 +197,9 @@ internal sealed class ExistsSemiJoin
 
         return !subquery.TopPercent
             && subquery.Top is LiteralExpression { Value: { } value }
-            && IsNumeric(value)
+            && LibRed.Storage.Types.JetTypeCodec.IsNumber(value)
             && JetDecimalConverter.ToDecimal(value, System.Globalization.CultureInfo.InvariantCulture) >= 1m;
     }
-
-    private static bool IsNumeric(object v)
-        => v is byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal;
 
     /// <summary>
     ///     Tests one outer row. The key set is built on first use — once per statement, not per row.

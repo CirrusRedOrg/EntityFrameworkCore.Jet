@@ -68,7 +68,9 @@ public class FixedWidthOverflowAccessTests
         try
         {
             CreateProbeTable(path);
-            using var db = JetDatabase.Open(path);
+            // Writable, as ACE's half is: a read-only database refuses the row as read-only before it looks at the
+            // value's width — DAO's AddNew of "abcdef" into C or V on this table does (verified).
+            using var db = JetDatabase.Open(path, readOnly: false);
             Table probe = db.OpenTable("Probe");
             ColumnDef target = probe.Definition.FindColumn(fixedLength ? "C" : "V")!;
 

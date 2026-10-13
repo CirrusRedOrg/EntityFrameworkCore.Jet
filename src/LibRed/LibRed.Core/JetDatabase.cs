@@ -707,11 +707,14 @@ public sealed class JetDatabase : IDisposable
     internal Storage.Table OpenTableAt(int tdefPage, string name, bool isSystem = true) =>
         new(_channel, Catalog.ReadTableDefinition(tdefPage, name, isSystem), Catalog);
 
-    /// <summary>Opens a table by name for row access.</summary>
+    /// <summary>Opens a table by name for row access. A missing one is refused with ACE's message for a table a
+    /// statement reads — the one DAO's <c>OpenRecordset</c> gives too (verified).</summary>
     public Table OpenTable(string name)
     {
         TableDefinition def = Catalog.FindTable(name)
-            ?? throw new ArgumentException($"Table '{name}' was not found.", nameof(name));
+            ?? throw new ArgumentException(
+                $"The Microsoft Access database engine cannot find the input table or query '{name}'. Make sure it "
+                + "exists and that its name is spelled correctly.", nameof(name));
         return new Table(_channel, def, Catalog);
     }
 

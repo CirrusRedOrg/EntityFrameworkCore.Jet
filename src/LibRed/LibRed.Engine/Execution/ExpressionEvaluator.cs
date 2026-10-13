@@ -60,7 +60,7 @@ internal sealed partial class ExpressionEvaluator(
     {
         LiteralExpression l => l.Value,
         ColumnReference c => scope.TryResolve(c, out object? v) ? v
-            : TryNiladicFunction(c, out object? nv) ? nv
+            : IsNiladicFunction(c) ? Clock
             : throw new InvalidOperationException($"Column '{EvalScope.Describe(c)}' was not found."),
         ScalarSubquery s => subqueries.ExecuteScalar(s.Query, scope),
         ExistsExpression e => subqueries.ExecuteExists(e.Query, scope),
@@ -85,16 +85,8 @@ internal sealed partial class ExpressionEvaluator(
     /// column named "Now" still wins. Note <c>Date</c>/<c>Time</c> are NOT included: they are reserved type
     /// keywords in Jet SQL and ACE rejects them bare ("Type mismatch") — they require parentheses (<c>Date()</c>,
     /// <c>Time()</c>), which parse as function calls and are handled in <see cref="EvaluateFunction"/>.</summary>
-    private static bool TryNiladicFunction(ColumnReference c, out object? value)
-    {
-        if (c.Table is null && c.Column.Equals("Now", StringComparison.OrdinalIgnoreCase))
-        {
-            value = Clock;
-            return true;
-        }
-        value = null;
-        return false;
-    }
+    internal static bool IsNiladicFunction(ColumnReference c) =>
+        c.Table is null && c.Column.Equals("Now", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The clock as <c>Now</c> and <c>Time</c> read it: in whole seconds, the fraction dropped rather than
     /// rounded (verified vs ACE).</summary>
@@ -2977,6 +2969,5 @@ internal sealed partial class ExpressionEvaluator(
     // a boolean predicate (e.g. IS NOT NULL) must compare equal to that stored value. The comparison
     // coercions (Dec/Dbl) use Jet's convention (false = 0, true = -1) so a bool matches the numeric value
     // it is stored as.
-    internal static bool IsNumeric(object v) =>
-        v is bool or byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal;
+    internal static bool IsNumeric(object v) => v is bool || JetTypeCodec.IsNumber(v);
 }

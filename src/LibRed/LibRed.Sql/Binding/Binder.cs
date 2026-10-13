@@ -49,7 +49,7 @@ public sealed class Binder(ISchemaProvider schema)
             case null: // FROM-less SELECT (e.g. `SELECT 2`) — nothing to validate
                 break;
             case NamedTable n when _schema.GetTable(n.Name) is null:
-                throw new SqlBindException($"Table '{n.Name}' does not exist.");
+                throw new SqlBindException(SqlBindException.InputNotFound(n.Name));
             case JoinTable j:
                 ValidateSources(j.Left);
                 ValidateSources(j.Right);

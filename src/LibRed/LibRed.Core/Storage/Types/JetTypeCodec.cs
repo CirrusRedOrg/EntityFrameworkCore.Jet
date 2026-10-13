@@ -420,13 +420,17 @@ public static class JetTypeCodec
     /// A value bound for a number column, with text read as VBA reads it as a number (<see cref="VbaText.TextAsNumber"/>;
     /// verified vs ACE, on INSERT and ALTER COLUMN alike: '$5', '(5)', '5-', '1,000', '&amp;H10' and '1d2' store as
     /// numbers, in the regional separators and currency symbol) — exactly, for a Currency or Decimal column, where a
-    /// Decimal holds it. Anything else is returned as it is.
+    /// Decimal holds it — and a date as its OLE Automation serial (verified vs ACE: <c>Time()</c> at 20:58 into a
+    /// LONG stores 1, into a DOUBLE its day fraction). Anything else is returned as it is.
     /// </summary>
     internal static object NumberFromText(JetDataType type, object value)
     {
-        if (value is not (string or char)
-            || type is not (JetDataType.Byte or JetDataType.Int16 or JetDataType.Int32 or JetDataType.Int64
+        if (type is not (JetDataType.Byte or JetDataType.Int16 or JetDataType.Int32 or JetDataType.Int64
                 or JetDataType.Single or JetDataType.Double or JetDataType.Currency or JetDataType.FixedPoint))
+            return value;
+        if (value is DateTime or TimeSpan or DateOnly or TimeOnly)
+            return ToDate(value, System.Globalization.CultureInfo.InvariantCulture).ToOADate();
+        if (value is not (string or char))
             return value;
         string text = value.ToString()!;
         return type is JetDataType.Currency or JetDataType.FixedPoint && VbaText.TextAsDecimal(text) is decimal exact
@@ -600,8 +604,13 @@ public static class JetTypeCodec
         return date.ToOADate();
     }
 
+    /// <summary>Whether a value is a CLR number — any integer, floating-point or decimal type.</summary>
+    public static bool IsNumber(object? value) =>
+        value is byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal;
+
     /// <summary>A value as the date it is stored as, on INSERT and ALTER COLUMN alike. Text is read as CDate reads
-    /// it, in the current culture, falling back to the invariant forms CDate does not read.</summary>
+    /// it, in the current culture, falling back to the invariant forms CDate does not read; a number is the date at
+    /// that OLE Automation serial (verified vs ACE: 0 stores 1899-12-30, True's -1 1899-12-29, 1000 1902-09-26).</summary>
     internal static DateTime ToDate(object value, IFormatProvider c) => value switch
     {
         DateTime dt => dt,
@@ -609,6 +618,10 @@ public static class JetTypeCodec
         DateOnly d => d.ToDateTime(TimeOnly.MinValue),
         TimeOnly t => OleEpoch + t.ToTimeSpan(),
         string s when VbaDateText.TryParse(s, System.Globalization.CultureInfo.CurrentCulture, out DateTime parsed) => parsed,
+        _ when IsNumber(value) =>
+            TryFromOaDate(JetDecimalConverter.ToDouble(value, c), out DateTime serial)
+                ? serial
+                : throw new OverflowException($"Overflow: {value} is outside the range of a date."),
         _ => Convert.ToDateTime(value, c),
     };
 

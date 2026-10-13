@@ -128,11 +128,24 @@ public static class PropertyBlob
     /// field" (verified across BYTE/SHORT/SINGLE/DOUBLE/CURRENCY/DECIMAL/GUID/DATETIME/BIT/TEXT). Every route that
     /// writes a default builds it here, after the statement's read-only refusal, which ACE makes first.</summary>
     public static Property DefaultValue(string column, JetDataType type, string defaultSql) =>
-        defaultSql.Trim().Equals("GenUniqueID()", StringComparison.OrdinalIgnoreCase) && type != JetDataType.Int32
+        IsGenUniqueId(defaultSql) && type != JetDataType.Int32
             ? throw new InvalidOperationException(
                 $"Cannot place this validation expression on this field. GenUniqueID() is only valid as the " +
                 $"DEFAULT of a LONG (Int32) column (column '{column}').")
             : new(column, DefaultValueProperty, defaultSql);
+
+    /// <summary>The expression a stored <c>DefaultValue</c> holds: its text without a leading <c>=</c>, which ACE
+    /// accepts in a DEFAULT and stores as written (verified: <c>DEFAULT =1</c> stores <c>=1</c> and inserts 1, and an
+    /// AutoNumber's <c>=GenUniqueID()</c> makes it a Random AutoNumber as <c>GenUniqueID()</c> does).</summary>
+    public static string DefaultExpression(string defaultValue)
+    {
+        string text = defaultValue.Trim();
+        return text.StartsWith('=') ? text[1..].Trim() : text;
+    }
+
+    /// <summary>Whether a stored <c>DefaultValue</c> is Access's <c>GenUniqueID()</c>.</summary>
+    public static bool IsGenUniqueId(string? defaultValue) =>
+        defaultValue is not null && DefaultExpression(defaultValue).Equals("GenUniqueID()", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>A property holding <paramref name="value"/>, stored as the type Access uses for that CLR type —
     /// <see cref="bool"/> Boolean, <see cref="byte"/> Byte, <see cref="short"/> Int16, <see cref="int"/> Int32,

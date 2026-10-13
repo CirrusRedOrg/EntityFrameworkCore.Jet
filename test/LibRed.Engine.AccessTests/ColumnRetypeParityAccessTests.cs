@@ -86,6 +86,11 @@ public class ColumnRetypeParityAccessTests
         "INSERT INTO SF VALUES (2, 2)",
         "ALTER TABLE SF ADD COLUMN B LONG",
         "ALTER TABLE SF ADD COLUMN C LONG",
+        // Dates and numbers, retyped into each other: a date becomes its serial, a number the date at that serial.
+        "CREATE TABLE DN (K LONG PRIMARY KEY, D DATETIME, N DOUBLE)",
+        "INSERT INTO DN VALUES (1, #2020-01-02 18:00:00#, 1000)",
+        "INSERT INTO DN VALUES (2, #1899-12-30 06:00:00#, -1.5)",
+        "INSERT INTO DN VALUES (3, NULL, 0)",
         // A dropped variable column's chunk and dead bit.
         "CREATE TABLE DV (K LONG PRIMARY KEY, A LONG, S1 TEXT(10), S2 TEXT(10))",
         "INSERT INTO DV VALUES (1, 1, 'one', 'uno')",
@@ -126,6 +131,13 @@ public class ColumnRetypeParityAccessTests
     [InlineData("D4", "UPDATE D4 SET X = 9 WHERE ID = 2")]            // the trailer ACE reads as fixed data
     [InlineData("SF", "ALTER TABLE SF ADD COLUMN Y YESNO")]           // an added Yes/No has no fixed slot: offset 0
     [InlineData("RD", "ALTER TABLE RD ADD COLUMN Y YESNO")]
+    [InlineData("RD", "ALTER TABLE RD ADD COLUMN Z LONG")]            // a column added over a dead slot at the end
+    [InlineData("RR", "ALTER TABLE RR ADD COLUMN Z DOUBLE")]
+    [InlineData("RD", "ALTER TABLE RD ADD COLUMN Z BYTE")]            // narrower than the dead slot it lands on
+    [InlineData("DN", "ALTER TABLE DN ALTER COLUMN D LONG")]          // a date into a number is its serial
+    [InlineData("DN", "ALTER TABLE DN ALTER COLUMN D DOUBLE")]
+    [InlineData("DN", "ALTER TABLE DN ALTER COLUMN D YESNO")]
+    [InlineData("DN", "ALTER TABLE DN ALTER COLUMN N DATETIME")]      // a number into a date the date at that serial
     public void A_statement_leaves_the_file_ACE_leaves(string table, string alter)
     {
         string basePath = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "retype-base-");

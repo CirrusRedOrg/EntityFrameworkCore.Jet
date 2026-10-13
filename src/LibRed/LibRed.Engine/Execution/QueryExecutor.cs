@@ -1095,8 +1095,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 return _parameters.TypeOf(parameter.Name);
             case ColumnReference column:
                 return DeclaredColumnType(column, columns)
-                    ?? (column.Table is null && column.Column.Equals("Now", StringComparison.OrdinalIgnoreCase)
-                        ? typeof(DateTime) : null);
+                    ?? (ExpressionEvaluator.IsNiladicFunction(column) ? typeof(DateTime) : null);
             case SystemVariableExpression variable:
                 return variable.Name.Equals("ROWCOUNT", StringComparison.OrdinalIgnoreCase)
                     ? typeof(int) : _session?.LastIdentity?.GetType();

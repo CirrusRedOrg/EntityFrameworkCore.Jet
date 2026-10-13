@@ -295,6 +295,10 @@ Points verified against ACE that aren't obvious from that page:
   after, brackets for negative, and `&H`/`&O` and `e`/`d` exponents — `'$5'`, `'(5)'`, `'5-'`, `'1,000'`, `'&H10'`
   and `'1d2'` all store as numbers (`VbaText.TextAsNumber`). Text that is not a number is refused, `'True'` and
   `'Yes'` into a Yes/No column included.
+- **A date stored into a number or Yes/No column is its OLE Automation serial, and a number stored into a date
+  column is the date at that serial** (verified, on `INSERT`, `ALTER COLUMN` and as a column default): `Time()` at 20:58 stores
+  0.874 into a `DOUBLE`, 1 into a `LONG` and True into a Yes/No; `Now()` into a `LONG` stores the day number; 0
+  into a `DATETIME` stores 1899-12-30, 1000 stores 1902-09-26, and `True` (-1) 1899-12-29.
 - **A whole-number column rounds half to even**, from a number or text alike (verified: `'2.5'` stores 2, `'3.5'` 4).
   A **Byte keeps the low byte** of that whole number rather than refusing one past its range (verified, on
   `INSERT`: 256 stores 0, -1 255, 300 44, 255.5 0); `SHORT` and `LONG` refuse one past theirs.

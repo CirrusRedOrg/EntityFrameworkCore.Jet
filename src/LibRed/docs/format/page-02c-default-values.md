@@ -52,10 +52,12 @@ The single most important structural fact: ACE has **two** places that touch a d
 capabilities.
 
 1. **The OLE DB *DDL parser*** (`CREATE TABLE … DEFAULT <expr>`) is narrow and inconsistent. It accepts a
-   literal or a simple function call, but rejects concatenation, **literal arithmetic** (`1+2` → "Syntax error in
-   CREATE TABLE statement"!), and nested calls (`Year(Now())`, `CBool(Choose(...))`). Quirks abound: `Now()+30`
-   parses but `1+2` doesn't; `(UCase('hi'))` parses but `UCase('hi')` doesn't. **Parentheses are not an
-   expression-escape** (unlike SQL Server's `DEFAULT (expr)`) — `(1+2)` is still rejected.
+   literal or a simple function call, but rejects concatenation, **spaced arithmetic** (`1 + 2` → "Syntax error in
+   CREATE TABLE statement"!, where `1+2` is accepted), and nested calls (`Year(Now())`, `CBool(Choose(...))`).
+   Quirks abound: `Now()+30` parses but `Now() + 30` doesn't; `(UCase('hi'))` parses but `UCase('hi')` doesn't.
+   **Parentheses are not an expression-escape** (unlike SQL Server's `DEFAULT (expr)`) — `(1+2)` is still
+   rejected. A **leading `=`** is accepted (`=1`, `='a'`, `=1+1`, `=GenUniqueID()`, but not `= 1`) and stored as
+   written, `=` included (all verified).
 
 2. **The expression *service*** (used to *evaluate* a stored default at insert, and by field validation rules)
    handles the full expression language.
@@ -82,7 +84,18 @@ cannot be smuggled past it: a column-ref default written to `LvProp` opens clean
 
 ## The `DefaultValue` text itself
 
-- Stored **verbatim**, preserving quote style (`'hello'` vs `"hello"` are kept as typed).
+- Stored **verbatim**, preserving quote style (`'hello'` vs `"hello"` are kept as typed), and a leading `=` with it.
+  The expression service reads past the `=`: `=1` inserts 1, and an AutoNumber with `=GenUniqueID()` is a Random
+  AutoNumber exactly as one with `GenUniqueID()` is (verified).
+- An **unquoted single word** is a literal string — `DEFAULT Unknown` inserts `"Unknown"`, `DEFAULT K` inserts `"K"`
+  even when `K` is a column — **except** the niladic `Now` and the constants: `Null` inserts NULL, and `True`,
+  `Yes`, `On` and `False`, `No`, `Off` insert -1 and 0 (verified, into LONG, TEXT, YESNO, DATETIME and DOUBLE —
+  `TEXT DEFAULT Yes` stores `'-1'`, not `'Yes'`).
+- The value is converted to the column's type as any stored value is ([data-types.md](data-types.md)) — a date into
+  a `LONG` is its serial, a number into a `DATETIME` the date at that serial — **except that text is cut to the
+  column's width** rather than refused: `DEFAULT 'abcdefghijklmnopqrstuvwxyz'` on a `TEXT(20)` stores its first 20
+  characters, and `DEFAULT Now()` the first 20 of the date's text, where the same value supplied by an `INSERT` is
+  refused (verified, on `TEXT` and `CHAR` alike).
 - The DAO **255-character** cap on `DefaultValue` is a **DAO-API limit, not an engine/file-format one**: ACE
   accepts and applies a 300-char default expression; LibRed round-trips 300+ char defaults. (A many-operator
   expression separately hits "Expression too complex" — an operator-count limit, unrelated to length.)
@@ -123,7 +136,8 @@ they are otherwise valid expressions (see the table below).
   stores the text and rejects at **INSERT** (defaults are parsed lazily when applied). Net behaviour matches
   (both refuse); the messages and timing differ. *TODO:* optional create-time validation with ACE-like messages.
 - **Superset grammar.** LibRed's ANTLR front-end parses compound/nested defaults ACE's DDL parser rejects; ACE
-  still reads and applies them from `LvProp`.
+  still reads and applies them from `LvProp`. The one form ACE's DDL accepts and LibRed's does not is the leading
+  `=` (`DEFAULT =1`); LibRed still applies such a default written by ACE (`PropertyBlob.DefaultExpression`).
 
 ### Parity of the forbidden categories
 

@@ -113,8 +113,7 @@ public sealed class ColumnDef
     /// <c>GenUniqueID()</c> expression (Access's "New Values = Random"). Such a column is assigned a random
     /// Int32 on insert instead of the sequential seed/increment counter, and its TDEF high-water is left
     /// unadvanced. Verified byte-identical to a UI-authored Random AutoNumber (see the format spec).</summary>
-    public bool IsRandomAutoNumber => IsAutoNumber && DefaultValue is not null
-        && DefaultValue.Trim().Equals("GenUniqueID()", StringComparison.OrdinalIgnoreCase);
+    public bool IsRandomAutoNumber => IsAutoNumber && PropertyBlob.IsGenUniqueId(DefaultValue);
 
     /// <summary>Precision/scale for <see cref="JetDataType.FixedPoint"/> columns.</summary>
     public byte Precision { get; init; }

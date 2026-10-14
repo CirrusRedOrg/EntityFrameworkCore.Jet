@@ -36,6 +36,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Build.Tasks.Core" />
+		<PackageReference Include="System.Security.Cryptography.Pkcs" />
 		<PackageReference Include="xunit.v3.core" />
 		<PackageReference Include="xunit.v3.assert" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" />

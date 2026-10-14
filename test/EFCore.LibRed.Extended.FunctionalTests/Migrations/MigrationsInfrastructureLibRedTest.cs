@@ -25,7 +25,6 @@ using LibRedDatabaseCreator = EntityFrameworkCore.LibRed.Storage.Internal.LibRed
 #nullable disable
 namespace EntityFrameworkCore.LibRed.Extended.FunctionalTests.Migrations
 {
-    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI)), SkipOnCI("Flaky on CI")]
     public class MigrationsInfrastructureLibRedTest(
         MigrationsInfrastructureLibRedTest.MigrationsInfrastructureLibRedFixture fixture)
         : MigrationsInfrastructureTestBase<MigrationsInfrastructureLibRedTest.MigrationsInfrastructureLibRedFixture>(fixture)

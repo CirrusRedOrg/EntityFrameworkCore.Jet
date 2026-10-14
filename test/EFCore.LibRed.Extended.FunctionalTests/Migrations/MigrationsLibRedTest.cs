@@ -3,6 +3,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using EntityFrameworkCore.Jet.Internal;
+using EntityFrameworkCore.Jet.Metadata.Internal;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -27,7 +28,6 @@ using Xunit;
 
 namespace EntityFrameworkCore.LibRed.Extended.FunctionalTests.Migrations;
 
-[ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
 public class MigrationsLibRedTest : MigrationsTestBase<MigrationsLibRedTest.MigrationsLibRedFixture>
 {
     protected static string EOL
@@ -715,9 +715,8 @@ ALTER TABLE `People` ADD `IdentityColumn` counter NOT NULL;
                 var table = Assert.Single(model.Tables);
                 var column = Assert.Single(table.Columns, c => c.Name == "IdentityColumn");
                 Assert.Equal(ValueGenerated.OnAdd, column.ValueGenerated);
-                // TODO: Do we not reverse-engineer identity facets?
-                // Assert.Equal(100, column[SqlServerAnnotationNames.IdentitySeed]);
-                // Assert.Equal(5, column[SqlServerAnnotationNames.IdentityIncrement]);
+                Assert.Equal(100, column[JetAnnotationNames.IdentitySeed]);
+                Assert.Equal(5, column[JetAnnotationNames.IdentityIncrement]);
             });
 
         AssertSql(
@@ -759,18 +758,16 @@ ALTER TABLE `People` ADD `IdentityColumn` counter(100, 5) NOT NULL;
                         Assert.Equal("Cats", t.Name);
                         var column = Assert.Single(t.Columns, c => c.Name == "IdentityColumn");
                         Assert.Equal(ValueGenerated.OnAdd, column.ValueGenerated);
-                        // TODO: Do we not reverse-engineer identity facets?
-                        // Assert.Equal(100, column[SqlServerAnnotationNames.IdentitySeed]);
-                        // Assert.Equal(5, column[SqlServerAnnotationNames.IdentityIncrement]);
+                        Assert.Equal(1, column[JetAnnotationNames.IdentitySeed]);
+                        Assert.Equal(2, column[JetAnnotationNames.IdentityIncrement]);
                     },
                     t =>
                     {
                         Assert.Equal("Dogs", t.Name);
                         var column = Assert.Single(t.Columns, c => c.Name == "IdentityColumn");
                         Assert.Equal(ValueGenerated.OnAdd, column.ValueGenerated);
-                        // TODO: Do we not reverse-engineer identity facets?
-                        // Assert.Equal(100, column[SqlServerAnnotationNames.IdentitySeed]);
-                        // Assert.Equal(5, column[SqlServerAnnotationNames.IdentityIncrement]);
+                        Assert.Equal(2, column[JetAnnotationNames.IdentitySeed]);
+                        Assert.Equal(2, column[JetAnnotationNames.IdentityIncrement]);
                     });
             });
 
@@ -875,6 +872,7 @@ ALTER TABLE `People` ADD `Sum` integer AS (`X` - `Y`);
 """);
     }
 
+    [Fact(Skip = "The Jet file format does not support computed columns with indexes")]
     public override async Task Alter_column_change_computed_recreates_indexes()
     {
         await base.Alter_column_change_computed_recreates_indexes();

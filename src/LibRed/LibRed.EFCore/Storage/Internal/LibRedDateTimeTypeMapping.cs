@@ -11,6 +11,9 @@ namespace EntityFrameworkCore.LibRed.Storage.Internal
         /// <summary>The lowest date Jet/ACE can represent; dates run 0100-01-01 to 9999-12-31.</summary>
         private static readonly DateTime LibRedMinDate = new(100, 1, 1);
 
+        private static readonly MethodInfo FromStoredMethod
+            = typeof(LibRedDateTimeTypeMapping).GetMethod(nameof(FromStored), [typeof(DateTime)])!;
+
         public static new LibRedDateTimeTypeMapping Default { get; } = new LibRedDateTimeTypeMapping("datetime", dbType: System.Data.DbType.DateTime);
 
         public LibRedDateTimeTypeMapping(
@@ -42,6 +45,15 @@ namespace EntityFrameworkCore.LibRed.Storage.Internal
                 parameter.Value = date.Date;
             }
         }
+
+        // The read half of the substitution above: the OLE epoch, where default(DateTime) is stored, reads back as
+        // default. It applies to EF's reads only (query shaping and SaveChanges read-back); LibRedDataReader keeps
+        // returning the stored date, as ACE does, because other consumers (linq2db) rely on that.
+        public override Expression CustomizeDataReaderExpression(Expression expression)
+            => Expression.Call(FromStoredMethod, base.CustomizeDataReaderExpression(expression));
+
+        public static DateTime FromStored(DateTime value)
+            => value == DateTime.FromOADate(0) ? default : value;
 
         protected override string GenerateNonNullSqlLiteral(object value)
             => GenerateNonNullSqlLiteral(value, false);

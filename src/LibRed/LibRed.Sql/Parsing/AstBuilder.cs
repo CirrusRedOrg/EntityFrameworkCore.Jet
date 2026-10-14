@@ -344,13 +344,15 @@ internal static class AstBuilder
             AddConstraintActionContext a => BuildAddConstraint(a.tableConstraint(), Identifier(ctx.table)),
             AlterColumnActionContext a => new AlterColumnAction(
                 Identifier(a.field), TypeName(a.dataType()), Size(a.dataType()), Scale(a.dataType()),
-                a.columnConstraint().OfType<DefaultConstraintContext>().FirstOrDefault()?.expression().GetText(),
+                a.columnConstraint().OfType<DefaultConstraintContext>().FirstOrDefault() is { } d
+                    ? OriginalText(d.defaultValue())
+                    : null,
                 // NOT NULL → true, NULL → false, neither → null (leave the column's nullability unchanged).
                 a.columnConstraint().OfType<NotNullConstraintContext>().Any() ? true
                     : a.columnConstraint().OfType<NullableConstraintContext>().Any() ? false : null,
                 IdentityOf(a.columnConstraint())),
             AlterColumnSetDefaultActionContext a => new AlterColumnSetDefaultAction(
-                Identifier(a.field), OriginalText(a.expression())),
+                Identifier(a.field), OriginalText(a.defaultValue())),
             AlterColumnDropDefaultActionContext a => new AlterColumnDropDefaultAction(Identifier(a.field)),
             DropColumnActionContext a => new DropColumnAction(Identifier(a.field)),
             DropConstraintActionContext a => new DropConstraintAction(Identifier(a.cname)),
@@ -480,12 +482,12 @@ internal static class AstBuilder
         bool compressed = ctx.columnConstraint().OfType<CompressionConstraintContext>().Any();
         bool notNull = ctx.columnConstraint().OfType<NotNullConstraintContext>().Any();
         bool primaryKey = ctx.columnConstraint().OfType<PrimaryKeyConstraintContext>().Any();
-        // Capture the DEFAULT expression's source text (stored verbatim as the DefaultValue property,
-        // matching Access — e.g. "42", "'hi'"). Re-parsed and evaluated when a column is omitted on insert.
-        string? defaultSql = ctx.columnConstraint().OfType<DefaultConstraintContext>()
-            .FirstOrDefault()?.expression().GetText();
-        // OriginalText, not GetText: the expression is stored verbatim and re-read by whichever engine opens
-        // the file, so its spacing and quoting have to survive the round trip through the parser.
+        // OriginalText, not GetText: the DEFAULT (a leading = included) and the calculated expression are stored
+        // verbatim and re-read by whichever engine opens the file, so their spacing and quoting have to survive
+        // the round trip through the parser. A default is re-parsed and evaluated when a column is omitted on insert.
+        string? defaultSql = ctx.columnConstraint().OfType<DefaultConstraintContext>().FirstOrDefault() is { } d
+            ? OriginalText(d.defaultValue())
+            : null;
         string? calculated = ctx.calculatedClause() is { } calc ? OriginalText(calc.expression()) : null;
 
         return new ColumnDefinition(

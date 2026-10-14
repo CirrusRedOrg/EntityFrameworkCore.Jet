@@ -136,12 +136,11 @@ public static class PropertyBlob
 
     /// <summary>The expression a stored <c>DefaultValue</c> holds: its text without a leading <c>=</c>, which ACE
     /// accepts in a DEFAULT and stores as written (verified: <c>DEFAULT =1</c> stores <c>=1</c> and inserts 1, and an
-    /// AutoNumber's <c>=GenUniqueID()</c> makes it a Random AutoNumber as <c>GenUniqueID()</c> does).</summary>
-    public static string DefaultExpression(string defaultValue)
-    {
-        string text = defaultValue.Trim();
-        return text.StartsWith('=') ? text[1..].Trim() : text;
-    }
+    /// AutoNumber's <c>=GenUniqueID()</c> makes it a Random AutoNumber as <c>GenUniqueID()</c> does). Only the first
+    /// character is read past: ACE applies <c>= 1</c>, but refuses <c> =1</c> and <c>==1</c> as a syntax error
+    /// (verified).</summary>
+    public static string DefaultExpression(string defaultValue) =>
+        (defaultValue.StartsWith('=') ? defaultValue[1..] : defaultValue).Trim();
 
     /// <summary>Whether a stored <c>DefaultValue</c> is Access's <c>GenUniqueID()</c>.</summary>
     public static bool IsGenUniqueId(string? defaultValue) =>

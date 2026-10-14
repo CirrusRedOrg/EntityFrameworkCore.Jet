@@ -56,8 +56,12 @@ capabilities.
    CREATE TABLE statement"!, where `1+2` is accepted), and nested calls (`Year(Now())`, `CBool(Choose(...))`).
    Quirks abound: `Now()+30` parses but `Now() + 30` doesn't; `(UCase('hi'))` parses but `UCase('hi')` doesn't.
    **Parentheses are not an expression-escape** (unlike SQL Server's `DEFAULT (expr)`) — `(1+2)` is still
-   rejected. A **leading `=`** is accepted (`=1`, `='a'`, `=1+1`, `=GenUniqueID()`, but not `= 1`) and stored as
-   written, `=` included (all verified).
+   rejected. A **leading `=`** is accepted by `CREATE TABLE`, `ADD COLUMN`, `ALTER COLUMN … DEFAULT` and
+   `ALTER COLUMN … SET DEFAULT` alike, and stored as written, `=` included. What may follow it is no more consistent:
+   `=1`, `='a'`, `=1+1`, `=(1 + 1)`, `='a'&'b'`, `=Left('abc', 2)`, `=UCase( 'x' )`, `=GenUniqueID()` are
+   accepted; `= 1`, `=1 + 1`, `='a b'`, `=#2020-01-02 10:00:00#`, `=UCase('x')`, `=Year(Now())` are a syntax error,
+   and `==1` and a bare `=` are refused as "Syntax error (missing operator) in table-level validation expression"
+   (all verified).
 
 2. **The expression *service*** (used to *evaluate* a stored default at insert, and by field validation rules)
    handles the full expression language.
@@ -86,9 +90,14 @@ cannot be smuggled past it: a column-ref default written to `LvProp` opens clean
 
 ## The `DefaultValue` text itself
 
-- Stored **verbatim**, preserving quote style (`'hello'` vs `"hello"` are kept as typed), and a leading `=` with it.
-  The expression service reads past the `=`: `=1` inserts 1, and an AutoNumber with `=GenUniqueID()` is a Random
-  AutoNumber exactly as one with `GenUniqueID()` is (verified).
+- Stored **verbatim**: its spacing (`Left('abc', 2)`, `UCase( 'x' )`), its quote style (`'hello'` vs `"hello"`),
+  and a leading `=` with it.
+- The expression service reads past a `=` that is the text's **first character**, and any spaces after it: `=1`,
+  `= 1` and `=  1` insert 1, `=' a b '` inserts ` a b `, `=1 + 1` inserts 2, and what follows is read as a default
+  without the `=` is (`= Z` inserts `"Z"`, `=Yes` inserts -1). An AutoNumber with `=GenUniqueID()` is a Random
+  AutoNumber exactly as one with `GenUniqueID()` is. A `=` anywhere else is an operator with nothing on its left:
+  ` =1` (a space first), `==1` and `=` alone fail the insert with "Syntax error (missing operator) in table-level
+  validation expression" (all verified).
 - An **unquoted single word** is a literal string — `DEFAULT Unknown` inserts `"Unknown"`, `DEFAULT K` inserts `"K"`
   even when `K` is a column — **except** the niladic `Now` and the constants: `Null` inserts NULL, and `True`,
   `Yes`, `On` and `False`, `No`, `Off` insert -1 and 0 (verified; `TEXT DEFAULT Yes` stores `'-1'`, not `'Yes'`).
@@ -137,8 +146,10 @@ they are otherwise valid expressions (see the table below).
   stores the text and rejects at **INSERT** (defaults are parsed lazily when applied). Net behaviour matches
   (both refuse); the messages and timing differ. *TODO:* optional create-time validation with ACE-like messages.
 - **Superset grammar.** LibRed's ANTLR front-end parses compound/nested defaults ACE's DDL parser rejects; ACE
-  still reads and applies them from `LvProp`. The one form ACE's DDL accepts and LibRed's does not is the leading
-  `=` (`DEFAULT =1`); LibRed still applies such a default written by ACE (`PropertyBlob.DefaultExpression`).
+  still reads and applies them from `LvProp`. That includes the leading `=`: LibRed takes it before any default,
+  spaced or not (`DEFAULT = 1`), in all four routes, and stores the text as written — every such text is one the
+  expression service applies. Applying a default reads past a first-character `=` exactly as the service does
+  (`PropertyBlob.DefaultExpression`, also what the scaffolder parses a default's CLR value from).
 
 ### Parity of the forbidden categories
 

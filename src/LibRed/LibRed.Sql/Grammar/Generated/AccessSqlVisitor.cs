@@ -352,6 +352,12 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitIdentityConstraint([NotNull] AccessSqlParser.IdentityConstraintContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.defaultValue"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitDefaultValue([NotNull] AccessSqlParser.DefaultValueContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>PrimaryKeyTableConstraint</c>
 	/// labeled alternative in <see cref="AccessSqlParser.tableConstraint"/>.
 	/// </summary>

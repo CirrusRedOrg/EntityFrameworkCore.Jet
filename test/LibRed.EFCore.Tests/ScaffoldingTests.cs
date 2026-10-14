@@ -82,6 +82,34 @@ public class ScaffoldingTests
         Assert.Null(customers.Columns.Single(c => c.Name == "ContactName").DefaultValueSql);
     }
 
+    // A default stored with a leading = (as ACE stores DEFAULT =7) is the value without it; the text stays verbatim.
+    [Fact]
+    public void A_default_with_a_leading_equals_scaffolds_as_the_value_without_it()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"scaffold-default-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using (var conn = new LibRedConnection($"Data Source={path}"))
+            {
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "CREATE TABLE D (Id long PRIMARY KEY, A long DEFAULT 7, B long DEFAULT =7, " +
+                                  "C text(20) DEFAULT 'hi', E text(20) DEFAULT ='hi')";
+                cmd.ExecuteNonQuery();
+            }
+
+            var columns = Factory().Create($"Data Source={path}", new DatabaseModelFactoryOptions())
+                .Tables.Single(t => t.Name == "D").Columns;
+            Assert.Equal("=7", columns.Single(c => c.Name == "B").DefaultValueSql);
+            Assert.Equal(7, columns.Single(c => c.Name == "A").DefaultValue);
+            Assert.Equal(7, columns.Single(c => c.Name == "B").DefaultValue);
+            Assert.Equal("hi", columns.Single(c => c.Name == "C").DefaultValue);
+            Assert.Equal("hi", columns.Single(c => c.Name == "E").DefaultValue);
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
     [Fact]
     public void On_delete_set_null_foreign_key_scaffolds_as_set_null()
     {

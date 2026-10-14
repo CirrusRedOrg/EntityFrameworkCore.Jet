@@ -120,7 +120,7 @@ alterTableAction
     : ADD COLUMN? columnDefinition               # AddColumnAction
     | ADD tableConstraint                        # AddConstraintAction
     | ALTER COLUMN? field=identifier dataType columnConstraint*  # AlterColumnAction
-    | ALTER COLUMN? field=identifier SET DEFAULT expression       # AlterColumnSetDefaultAction
+    | ALTER COLUMN? field=identifier SET DEFAULT defaultValue     # AlterColumnSetDefaultAction
     | ALTER COLUMN? field=identifier DROP DEFAULT                 # AlterColumnDropDefaultAction
     | DROP COLUMN field=identifier               # DropColumnAction
     | DROP CONSTRAINT cname=identifier           # DropConstraintAction
@@ -190,7 +190,7 @@ signedInteger : MINUS? INTEGER_LITERAL ;
 columnConstraint
     : NOT NULL                                       # NotNullConstraint
     | NULL                                           # NullableConstraint
-    | DEFAULT expression                             # DefaultConstraint
+    | DEFAULT defaultValue                           # DefaultConstraint
     | WITH (COMPRESSION | COMP)                       # CompressionConstraint
     | (CONSTRAINT cname=identifier)? PRIMARY KEY clusteredOption?   # PrimaryKeyConstraint
     | (CONSTRAINT cname=identifier)? UNIQUE clusteredOption?        # UniqueColumnConstraint
@@ -202,6 +202,9 @@ columnConstraint
     // other type, both as ACE does.
     | IDENTITY (LPAREN seed=signedInteger (COMMA increment=signedInteger)? RPAREN)?  # IdentityConstraint
     ;
+
+// A DEFAULT may start with =, as ACE's does: `DEFAULT =1`. It is stored with the = and read past when applied.
+defaultValue : EQ? expression ;
 
 // EF Core emits named table constraints: CONSTRAINT `PK_x` PRIMARY KEY (`col`, ...) and
 // CONSTRAINT `FK_x` FOREIGN KEY (`col`, ...) REFERENCES `Parent` (`col`, ...) ON DELETE CASCADE.

@@ -186,11 +186,18 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// <c>Off</c> store -1 and 0, as the column's type has them (verified vs ACE, into LONG, TEXT, YESNO, DATETIME and
     /// DOUBLE) — or the niladic <c>Now</c>. A bracketed <c>[X]</c> stays a column reference (rejected in a default); a
     /// quoted literal, function call, or compound expression parses normally. (A multi-word bare default is a syntax
-    /// error at CREATE, matching ACE.)</summary>
+    /// error at CREATE, matching ACE.) A subquery is refused: a default reads no table or query, and ACE refuses one.</summary>
     private Expression ParseDefaultExpression(string text)
     {
         string t = PropertyBlob.DefaultExpression(text);
-        if (!BareWord.IsMatch(t)) return _parser.ParseExpression(t);
+        if (!BareWord.IsMatch(t))
+        {
+            Expression expression = _parser.ParseExpression(t);
+            _ = Planning.ColumnPruning.Walk(expression, node => node is ScalarSubquery or ExistsExpression or InSubqueryExpression
+                ? throw new SqlParseException($"A default value cannot read a table or query: '{text}'.")
+                : true);
+            return expression;
+        }
         Expression? parsed;
         try { parsed = _parser.ParseExpression(t); }
         catch (SqlParseException) { parsed = null; }   // a word the grammar reserves is text too

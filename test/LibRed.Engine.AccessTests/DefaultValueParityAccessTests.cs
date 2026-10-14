@@ -1,6 +1,7 @@
 using System.Data.OleDb;
 using System.Globalization;
 using LibRed;
+using LibRed.Sql.Parsing;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -45,6 +46,67 @@ public class DefaultValueParityAccessTests
             engine.ExecuteNonQuery("INSERT INTO T (K) VALUES (2)");
             object?[][] rows = [.. engine.ExecuteQuery("SELECT V FROM T ORDER BY K").Rows];
             Assert.Equal(Text(rows[0][0]), Text(rows[1][0]));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // A default written by LibRed's DDL, stored as written — the leading = and the spacing kept — and applied by ACE
+    // as LibRed applies it. ACE's own DDL refuses the spaced forms, but its expression service reads them all.
+    [Theory]
+    [InlineData("LONG", "=1")]
+    [InlineData("LONG", "= 1")]
+    [InlineData("LONG", "=1 + 1")]
+    [InlineData("TEXT(20)", "=' a b '")]
+    [InlineData("TEXT(20)", "='a b'")]
+    [InlineData("TEXT(20)", "=\"a b\"")]
+    [InlineData("TEXT(20)", "=UCase('x')")]
+    [InlineData("TEXT(20)", "=Year(Now())")]
+    [InlineData("TEXT(20)", "= Z")]
+    [InlineData("TEXT(20)", "=Left('abc', 2)")]
+    [InlineData("TEXT(20)", "=Yes")]
+    [InlineData("DATETIME", "=#2020-01-02 10:00:00#")]
+    public void A_default_LibRed_wrote_is_stored_as_written_and_inserts_what_ACE_inserts(string type, string defaultSql)
+    {
+        string path = TemporaryDatabase.CreatePath("default-libred-");
+        try
+        {
+            JetDatabase.Create(path);
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                var engine = new QueryEngine(db);
+                engine.ExecuteNonQuery($"CREATE TABLE T (K LONG, V {type} DEFAULT {defaultSql})");
+                engine.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)");
+            }
+            Ace(path, "INSERT INTO T (K) VALUES (2)");
+
+            using var read = JetDatabase.Open(path);
+            Assert.Equal(defaultSql, read.Catalog.FindTable("T")!.FindColumn("V")!.DefaultValue);
+            object?[][] rows = [.. new QueryEngine(read).ExecuteQuery("SELECT V FROM T ORDER BY K").Rows];
+            Assert.Equal(Text(rows[1][0]), Text(rows[0][0]));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // Only a leading = is read past: one after a space, or a second one, is an operator with nothing on its left, and
+    // the insert taking that default is refused.
+    [Theory]
+    [InlineData(" =1")]
+    [InlineData("==1")]
+    public void A_default_whose_equals_is_not_its_first_character_is_refused_on_insert(string text)
+    {
+        string path = TemporaryDatabase.CreatePath("default-equals-");
+        try
+        {
+            JetDatabase.Create(path);
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                new QueryEngine(db).ExecuteNonQuery("CREATE TABLE T (K LONG, V LONG)");
+                db.SetColumnDefault("T", "V", text);
+            }
+
+            Assert.Throws<OleDbException>(() => Ace(path, "INSERT INTO T (K) VALUES (1)"));
+            using var libred = JetDatabase.Open(path, readOnly: false);
+            Assert.Throws<SqlParseException>(() => new QueryEngine(libred).ExecuteNonQuery("INSERT INTO T (K) VALUES (2)"));
         }
         finally { TemporaryDatabase.Delete(path); }
     }

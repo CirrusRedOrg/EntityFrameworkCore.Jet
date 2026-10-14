@@ -12,8 +12,7 @@ public class CheckConstraintTests
         return path;
     }
 
-    // CHECK constraints (table- and column-level) parse and are ignored (not enforced yet), so a
-    // CREATE TABLE that has them still creates the table and its other constraints.
+    // A table-level CHECK is stored with the table's other constraints.
     [Fact]
     public void Table_level_check_constraint_is_accepted_and_table_is_created()
     {
@@ -49,17 +48,19 @@ public class CheckConstraintTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // There is no column-level CHECK: ACE refuses this statement with "Syntax error in field definition." and
+    // creates nothing (measured).
     [Fact]
-    public void Column_level_check_constraint_is_accepted()
+    public void Column_level_check_constraint_is_refused()
     {
         string path = Fresh();
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
-                new QueryEngine(db).ExecuteNonQuery(
-                    "CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `Age` INTEGER CONSTRAINT `CK_Age` CHECK (`Age` > 0 AND `Age` < 200))");
+                Assert.Throws<LibRed.Sql.Parsing.SqlParseException>(() => new QueryEngine(db).ExecuteNonQuery(
+                    "CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `Age` INTEGER CONSTRAINT `CK_Age` CHECK (`Age` > 0 AND `Age` < 200))"));
             using (var db = JetDatabase.Open(path))
-                Assert.NotNull(db.Catalog.FindTable("T"));
+                Assert.Null(db.Catalog.FindTable("T"));
         }
         finally { TemporaryDatabase.Delete(path); }
     }

@@ -70,6 +70,9 @@ ACE empties the table in one go, without visiting a row, and **no page it releas
 - A table an **enforced** relationship names as its **parent** is deleted row by row, cascading or not. A table
   that is only a **child** (holds a foreign key) takes this route. A parent only through an unenforced
   relationship is **not measured**; LibRed empties it in one go.
+- A table with a **CHECK constraint** is deleted row by row, its pages exactly as a row-by-row delete leaves them,
+  and its checks evaluated as each row goes — one that fails only once some of the rows are gone refuses the
+  statement (verified).
 - It holds for multi-level indexes, chained and packed long values, a definition on continuation pages, a table
   already emptied row by row (its kept first page goes too), and tables with no index or a composite key. A
   table with a **complex column** is not measured; LibRed deletes it row by row, the route that follows its

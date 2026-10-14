@@ -65,12 +65,14 @@ capabilities.
 > **They do not even share a lexer.** ACE's SQL parser accepts `` `backtick` `` identifier quoting — it is
 > what EF Core's Jet provider emits for every identifier — and the expression service does **not**. It reads
 > `` `Qty` `` as a field whose name literally includes the backticks and fails with *"Could not find field
-> '`Qty`'"*. It shows in two unrelated features: a calculated column's `Expression`, and a `CHECK` constraint,
-> where `ALTER TABLE … CHECK (`Qty` > 0)` is **accepted and stored** and every later INSERT is then refused.
-> That is the same smuggling route as the compound defaults above, but it lands the other way round: the DDL
-> parser stores something the service cannot evaluate, so the table ends up unusable rather than usefully
-> extended. Any expression text LibRed writes into `LvProp` therefore has to be in the service's own syntax —
-> brackets, not backticks — whatever quoting the SQL it came from used.
+> '`Qty`'"*. It shows in a calculated column's `Expression`. That is the same smuggling route as the compound
+> defaults above, but it lands the other way round: the DDL parser stores something the service cannot
+> evaluate, so the table ends up unusable rather than usefully extended. A calculated column's expression LibRed
+> writes into `LvProp` therefore has to be in the service's own syntax — brackets, not backticks — whatever
+> quoting the SQL it came from used.
+>
+> A **`CHECK` constraint is not affected**: ACE stores `` `Qty` > 0 `` with its backticks, through `CREATE TABLE`
+> and `ALTER TABLE … ADD CONSTRAINT` alike, and enforces it (verified). LibRed stores a check's text as written.
 
 Consequence: a compound default that the DDL parser refuses can still be **stored** (via the table designer, DAO,
 or LibRed writing `LvProp` directly) and is then **read and applied** by ACE at insert. Verified:

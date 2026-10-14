@@ -421,18 +421,14 @@ public static class PropertyBlob
 
     /// <summary>Serialises CHECK constraints into the <c>CheckConstraints</c> property value: each is
     /// <c>name\0expression\0</c>, then a trailing <c>\0</c> terminator.</summary>
-    /// <remarks>Identifier quoting is normalised on the way in. A CHECK is evaluated by the Access
-    /// <b>expression service</b>, which does not understand SQL's <c>`backtick`</c> quoting — measured, it
-    /// reads <c>`Qty`</c> as a field whose name includes the backticks and fails "Could not find field". The
-    /// DDL parser accepts such a constraint quite happily and stores it, so the table is created and then
-    /// refuses every INSERT. This is the single point where check text becomes stored bytes, so normalising
-    /// here is what stops any route reaching the blob with SQL-flavoured quoting.</remarks>
+    /// <remarks>The expression is stored as given, <c>`backtick`</c> quoting included: ACE stores a CHECK's
+    /// backticks as written and enforces it (verified) — unlike a calculated column's expression, which it
+    /// cannot read with them.</remarks>
     public static string WriteCheckList(IReadOnlyList<(string Name, string Expression)> checks)
     {
         var sb = new StringBuilder();
         foreach (var (name, expr) in checks)
-            sb.Append(name).Append('\0')
-              .Append(Storage.Calculated.CalculatedExpression.NormaliseIdentifierQuoting(expr)).Append('\0');
+            sb.Append(name).Append('\0').Append(expr).Append('\0');
         sb.Append('\0');
         return sb.ToString();
     }

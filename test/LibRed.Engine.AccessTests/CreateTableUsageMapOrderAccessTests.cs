@@ -25,10 +25,17 @@ public class CreateTableUsageMapOrderAccessTests(ITestOutputHelper output)
     [InlineData("inline primary key", "CREATE TABLE T (Id LONG PRIMARY KEY, M MEMO)")]
     [InlineData("named inline primary key", "CREATE TABLE T (Id LONG CONSTRAINT pk PRIMARY KEY, M MEMO)")]
     // An inline constraint IS the tie case — it sits at the same point in the list as the column it is written
-    // on, and takes the row first. `CREATE TABLE T (Id LONG, CONSTRAINT pk PRIMARY KEY (Id), M MEMO)` would say
-    // the same thing about a TABLE-level constraint, and ACE gives it row 2 there, which is what rules out
-    // "table-level constraints come last". It is not a case here because LibRed's grammar does not accept a
-    // table constraint with columns still to come — every columnDefinition must precede every tableConstraint.
+    // on, and takes the row first.
+    // A table-level constraint written between columns takes its row where it is written too — which is what
+    // rules out "table-level constraints come last".
+    [InlineData("table constraint between columns", "CREATE TABLE T (Id LONG, CONSTRAINT pk PRIMARY KEY (Id), M MEMO)")]
+    [InlineData("unnamed table constraint between columns", "CREATE TABLE T (Id LONG, PRIMARY KEY (Id), M MEMO)")]
+    [InlineData("unique between two memos", "CREATE TABLE T (M MEMO, A LONG, CONSTRAINT u UNIQUE (A), N MEMO)")]
+    [InlineData("foreign key between columns",
+        "CREATE TABLE T (A LONG, CONSTRAINT fk FOREIGN KEY (A) REFERENCES Employees (EmployeeID), M MEMO, B LONG)")]
+    [InlineData("self-reference between columns, after its key",
+        "CREATE TABLE T (Id LONG, CONSTRAINT pk PRIMARY KEY (Id), P LONG, CONSTRAINT fk FOREIGN KEY (P) REFERENCES T, M MEMO)")]
+    [InlineData("check between columns takes no row", "CREATE TABLE T (A LONG, CONSTRAINT ck CHECK (A > 0), M MEMO)")]
     // …and one written after it takes the later row, which is the shape a migration emits.
     [InlineData("table constraint after the memo", "CREATE TABLE T (Id LONG, M MEMO, CONSTRAINT pk PRIMARY KEY (Id))")]
     [InlineData("memo column first", "CREATE TABLE T (M MEMO, Id LONG CONSTRAINT pk PRIMARY KEY)")]

@@ -11,6 +11,10 @@
 grammar AccessSql;
 
 @lexer::members {
+    // Whether comments are skipped. A statement's text can carry them (EF Core's query tags); a stored expression's
+    // cannot, since ACE's have none, and ACE writes a double negation as `--A` (verified).
+    public bool Comments { get; set; } = true;
+
     // Whether the input ahead is any number of dashes and then a number: a digit, or a point and a digit.
     private bool DashesThenNumber()
     {
@@ -75,9 +79,11 @@ parametersClause : PARAMETERS procParam (COMMA procParam)* SEMI ;
 
 // ---- DDL / DML ----
 
+// A table constraint may sit anywhere among the columns, as in ACE; the AST builder checks it names only columns
+// declared before it.
 createTableStatement
     : CREATE temp=TEMPORARY? TABLE table=identifier
-      LPAREN columnDefinition (COMMA columnDefinition)* (COMMA tableConstraint)* RPAREN
+      LPAREN (columnDefinition | tableConstraint) (COMMA (columnDefinition | tableConstraint))* RPAREN
     ;
 
 // CREATE VIEW view [(field1, …)] AS selectstatement. The body is a SELECT (UNION accepted too).
@@ -186,7 +192,6 @@ columnConstraint
     | NULL                                           # NullableConstraint
     | DEFAULT expression                             # DefaultConstraint
     | WITH (COMPRESSION | COMP)                       # CompressionConstraint
-    | (CONSTRAINT cname=identifier)? CHECK LPAREN checkBody RPAREN  # CheckColumnConstraint
     | (CONSTRAINT cname=identifier)? PRIMARY KEY clusteredOption?   # PrimaryKeyConstraint
     | (CONSTRAINT cname=identifier)? UNIQUE clusteredOption?        # UniqueColumnConstraint
     | (CONSTRAINT cname=identifier)? REFERENCES refTable=identifier
@@ -213,9 +218,9 @@ tableConstraint
     | (CONSTRAINT name=identifier)? CHECK LPAREN checkBody RPAREN                               # CheckTableConstraint
     ;
 
-// A CHECK expression is parsed as balanced-paren token soup and kept as its original text, so any
-// expression ACE accepts parses without needing full expression support. A table-level CHECK's text is
-// stored and enforced (parsed properly when evaluated); a column-level one is dropped by AstBuilder.
+// A CHECK expression is parsed as balanced-paren token soup and kept as its original text, which is stored, and
+// parsed properly when the statement runs. There is no column-level CHECK: ACE refuses one as a syntax error in
+// the field definition (verified).
 checkBody : ( ~(LPAREN | RPAREN) | LPAREN checkBody RPAREN )* ;
 
 // ON UPDATE / ON DELETE may appear in either order (Access documents UPDATE-then-DELETE; EF Core
@@ -639,7 +644,9 @@ BAND   : [Bb][Aa][Nn][Dd] ;
 BOR    : [Bb][Oo][Rr] ;
 BXOR   : [Bb][Xx][Oo][Rr] ;
 BNOT   : [Bb][Nn][Oo][Tt] ;
-LIKE   : [Ll][Ii][Kk][Ee] ;
+// ALike is LIKE with the ANSI-92 wildcards whatever the connection — the set LibRed's LIKE always uses. ACE writes it
+// for any LIKE in a CHECK constraint it re-forms (verified), so a stored constraint can hold either.
+LIKE   : [Ll][Ii][Kk][Ee] | [Aa][Ll][Ii][Kk][Ee] ;
 MOD    : [Mm][Oo][Dd] ;
 INNER  : [Ii][Nn][Nn][Ee][Rr] ;
 LEFT   : [Ll][Ee][Ff][Tt] ;
@@ -802,12 +809,13 @@ BACKTICK_ID     : '`' ~[`]+ '`' ;
 // identifier. Longest-match makes "Left$" an IDENTIFIER (5 chars) rather than the LEFT keyword (4); the
 // evaluator strips the '$' and dispatches to the base function.
 // Any script's letters, not just ASCII (verified vs ACE: Név, Номер, 名前, ΑΒΓ, straße and Ñandú all read unbracketed),
-// with a combining mark allowed after the first, as Devanagari and Thai spell a letter.
-IDENTIFIER      : [\p{L}_][\p{L}\p{M}\p{Nd}_]* '$'? ;
+// with a combining mark allowed after the first, as Devanagari and Thai spell a letter. U+FFFE alone is a name too:
+// a stored CHECK qualifies the row it is checking with it (see CheckConstraint.RowQualifier).
+IDENTIFIER      : [\p{L}_][\p{L}\p{M}\p{Nd}_]* '$'? | '\uFFFE' ;
 
 WS      : [ \t\r\n]+ -> skip ;
 // SQL comments — EF Core query tags prepend a `-- tag` line comment to the statement; also block comments.
 // '--' starts a comment unless nothing but more dashes stands between it and a number, so '--2' and '---2' are
 // repeated negation as in ACE (which has no comments at all), while '--Before' is a comment.
-LINE_COMMENT  : '--' {!DashesThenNumber()}? ~[\r\n]* -> skip ;
-BLOCK_COMMENT : '/*' .*? '*/' -> skip ;
+LINE_COMMENT  : '--' {Comments && !DashesThenNumber()}? ~[\r\n]* -> skip ;
+BLOCK_COMMENT : '/*' {Comments}? .*? '*/' -> skip ;

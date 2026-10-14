@@ -1,4 +1,6 @@
 using System.Globalization;
+using Antlr4.Runtime;
+using Antlr4.Runtime.Tree;
 using LibRed.Sql.Ast;
 using static LibRed.Sql.Grammar.AccessSqlParser;
 
@@ -114,6 +116,7 @@ internal static class AstBuilder
         if (ctx.temp is not null)
             throw new NotSupportedException("CREATE TEMPORARY TABLE is not supported.");
 
+        string table = Identifier(ctx.table);
         var columns = ctx.columnDefinition().Select(BuildColumnDefinition).ToList();
 
         // Primary key, foreign keys and unique constraints come from both column-level (single-field)
@@ -131,9 +134,21 @@ internal static class AstBuilder
         var uniqueTokens = new List<int>();
         int primaryKeyToken = int.MaxValue;
 
+        // A table constraint may be written anywhere among the columns, but ACE resolves each one as it reaches it,
+        // against the columns declared so far: one naming a column written after it — or not at all — is refused
+        // with this message (verified).
+        var columnStarts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        void RequireDeclaredBefore(IEnumerable<string> names, int token)
+        {
+            foreach (string name in names)
+                if (!columnStarts.TryGetValue(name, out int start) || start > token)
+                    throw new SqlParseException($"Invalid field definition '{name}' in definition of index or relationship.");
+        }
+
         // Column-level UNIQUE and REFERENCES (the single-field forms) apply to the column they follow.
         foreach (ColumnDefinitionContext cd in ctx.columnDefinition())
         {
+            columnStarts.TryAdd(Identifier(cd.name), cd.Start.TokenIndex);
             ColumnKeys keys = ColumnKeysOf(cd);
             foreach (PrimaryKeyConstraintContext p in keys.PrimaryKeys)
             {
@@ -157,11 +172,13 @@ internal static class AstBuilder
             switch (tc)
             {
                 case PrimaryKeyTableConstraintContext pk:
+                    RequireDeclaredBefore(pk._columns.Select(Identifier), pk.Start.TokenIndex);
                     primaryKey.AddRange(pk._columns.Select(Identifier));
                     if (pk.name is not null) primaryKeyName = Identifier(pk.name);
                     primaryKeyToken = Math.Min(primaryKeyToken, pk.Start.TokenIndex);
                     break;
                 case UniqueTableConstraintContext uq:
+                    RequireDeclaredBefore(uq._columns.Select(Identifier), uq.Start.TokenIndex);
                     uniques.Add(new UniqueConstraint(uq.name is null ? null : Identifier(uq.name), uq._columns.Select(Identifier).ToList()));
                     uniqueTokens.Add(uq.Start.TokenIndex);
                     break;
@@ -170,8 +187,9 @@ internal static class AstBuilder
                     foreignKeyTokens.Add(fk.Start.TokenIndex);
                     break;
                 case CheckTableConstraintContext ck:
-                    checks.Add(new CheckConstraint(
-                        ck.name is null ? null : Identifier(ck.name), OriginalText(ck.checkBody())));
+                    string? checkName = OptionalIdentifier(ck.name);
+                    checks.Add(new CheckConstraint(checkName, CheckText(ck.checkBody(), table, checkName),
+                        ctx.columnDefinition().Count(c => c.Start.TokenIndex < ck.Start.TokenIndex)));
                     break;
             }
         }
@@ -180,15 +198,21 @@ internal static class AstBuilder
         // the key this statement declares, but only if it is declared earlier in the text: ACE resolves each
         // reference as it reaches it, so against a key declared after it there is none yet (verified — ACE then
         // reports that the table has no primary key). Resolved here, where the text order is known; a reference
-        // left without columns is refused when the statement runs.
-        string table = Identifier(ctx.table);
+        // left without columns is refused when the statement runs. ACE resolves the reference before the foreign
+        // key's own columns (verified), so a self-reference left without a key is not checked for them here.
         for (int i = 0; i < foreignKeys.Count; i++)
         {
             ForeignKeyConstraint fk = foreignKeys[i];
-            if (fk.ReferencedColumns.Count == 0
-                && string.Equals(fk.ReferencedTable, table, StringComparison.OrdinalIgnoreCase)
-                && primaryKeyToken < foreignKeyTokens[i])
-                foreignKeys[i] = fk with { ReferencedColumns = primaryKey.ToList() };
+            if (string.Equals(fk.ReferencedTable, table, StringComparison.OrdinalIgnoreCase))
+            {
+                if (fk.ReferencedColumns.Count > 0)
+                    RequireDeclaredBefore(fk.ReferencedColumns, foreignKeyTokens[i]);
+                else if (primaryKeyToken < foreignKeyTokens[i])
+                    foreignKeys[i] = fk with { ReferencedColumns = primaryKey.ToList() };
+                else
+                    continue;
+            }
+            RequireDeclaredBefore(fk.Columns, foreignKeyTokens[i]);
         }
 
         // Each key constraint's place in the element list, as the count of columns and key constraints declared
@@ -210,10 +234,104 @@ internal static class AstBuilder
             primaryKeyToken == int.MaxValue ? 0 : DeclaredAfter(primaryKeyToken));
     }
 
+    /// <summary>
+    /// A CHECK's text as ACE stores it, which names the row being checked by <see cref="CheckConstraint.RowQualifier"/>,
+    /// not by the table's name. Where the text qualifies a column with <paramref name="table"/>'s own name, the
+    /// qualifier is dropped outside any subquery, and inside one becomes the row qualifier — unless that subquery, or
+    /// one it is inside, reads the table under its own name, when the column is that table's and is left alone. A
+    /// constraint it drops a qualifier from ACE writes out afresh from its parse (<see cref="CheckTextWriter"/>);
+    /// any other is kept as written. All verified.
+    /// <para>ACE takes the table's name as the row's qualifier only bare and joined by '.' — and inside a subquery only
+    /// before a bare column name — and no qualifier with space about its separator inside a subquery, or the
+    /// table's own name with space about it anywhere; it refuses the rest (verified).</para>
+    /// </summary>
+    private static string CheckText(CheckBodyContext body, string table, string? name)
+    {
+        string text = OriginalText(body);
+        if (body.Start is null || body.Stop is null || body.Stop.TokenIndex < body.Start.TokenIndex) return text;
+        var edits = new List<(int Start, int Stop, string Replacement)>();
+
+        // A group's own tokens, with those of the parenthesised groups in it that are not subqueries.
+        static IEnumerable<IToken> Tokens(CheckBodyContext group)
+        {
+            foreach (IParseTree child in group.children ?? [])
+                if (child is ITerminalNode t) yield return t.Symbol;
+                else if (child is CheckBodyContext nested && nested.Start?.Type != SELECT)
+                    foreach (IToken token in Tokens(nested)) yield return token;
+        }
+
+        // Whether a subquery's FROM clause reads the table under its own name: the name, not followed by an alias.
+        bool ReadsTable(CheckBodyContext subquery)
+        {
+            List<IToken> tokens = [.. Tokens(subquery)];
+            int from = tokens.FindIndex(t => t.Type == FROM);
+            for (int i = from + 1; from >= 0 && i < tokens.Count && tokens[i].Type is not (WHERE or GROUP or HAVING or ORDER or UNION); i++)
+                if (tokens[i].Type is IDENTIFIER or BRACKET_ID or BACKTICK_ID
+                    && string.Equals(Undelimited(tokens[i].Text), table, StringComparison.OrdinalIgnoreCase)
+                    && tokens[i - 1].Type != DOT
+                    && (i + 1 == tokens.Count || tokens[i + 1].Type is not (DOT or AS or IDENTIFIER or BRACKET_ID or BACKTICK_ID)))
+                    return true;
+            return false;
+        }
+
+        // row: what the table's name as a qualifier becomes in this group — "" to drop it, the row qualifier, or null
+        // to leave it alone.
+        void Rewrite(CheckBodyContext group, string? row, bool inSubquery)
+        {
+            IList<IParseTree> children = group.children ?? [];
+            for (int i = 0; i < children.Count; i++)
+            {
+                if (children[i] is CheckBodyContext nested)
+                {
+                    bool subquery = nested.Start?.Type == SELECT;
+                    Rewrite(nested, subquery && (row is null || ReadsTable(nested)) ? null : subquery ? CheckConstraint.RowQualifier : row,
+                        inSubquery || subquery);
+                    continue;
+                }
+                // A qualifier: a name, then '.' or '!', then the member it names — and not itself a chain's member.
+                if (i == 0 || i + 1 == children.Count
+                    || children[i] is not ITerminalNode { Symbol: { Type: DOT or BANG } separator }
+                    || children[i - 1] is not ITerminalNode { Symbol: { Type: IDENTIFIER or BRACKET_ID or BACKTICK_ID } qualifier }
+                    || children[i + 1] is not ITerminalNode { Symbol: { } member }
+                    || (i >= 2 && children[i - 2] is ITerminalNode { Symbol.Type: DOT or BANG }))
+                    continue;
+                bool spaced = separator.StartIndex != qualifier.StopIndex + 1 || member.StartIndex != separator.StopIndex + 1;
+                bool self = string.Equals(Undelimited(qualifier.Text), table, StringComparison.OrdinalIgnoreCase);
+                if (spaced && inSubquery)
+                    throw CheckConstraint.Refusal();
+                if (spaced && self)
+                    throw name is null ? CheckConstraint.Refusal() : new SqlParseException($"'{name}' is not an index in this table.");
+                if (!self || row is null)
+                    continue;
+                if (qualifier.Type != IDENTIFIER || separator.Type != DOT || (inSubquery && member.Type is BRACKET_ID or BACKTICK_ID))
+                    throw CheckConstraint.Refusal();
+                edits.Add(row.Length == 0
+                    ? (qualifier.StartIndex, separator.StopIndex, "")
+                    : (qualifier.StartIndex, qualifier.StopIndex, row));
+            }
+        }
+
+        Rewrite(body, "", inSubquery: false);
+        var stored = new System.Text.StringBuilder(text);
+        foreach (var (start, stop, replacement) in edits.OrderByDescending(e => e.Start))
+            stored.Remove(start - body.Start.StartIndex, stop - start + 1).Insert(start - body.Start.StartIndex, replacement);
+        if (!edits.Any(e => e.Replacement.Length == 0))
+            return stored.ToString();
+
+        try
+        {
+            return CheckTextWriter.Write(AntlrSqlParser.ExpressionTree(stored.ToString()));
+        }
+        catch (SqlParseException)
+        {
+            throw CheckConstraint.Refusal();
+        }
+    }
+
     /// <summary>The verbatim source text of a parse context (preserving spacing), via the input stream —
     /// unlike <c>GetText()</c>, which concatenates token text with no whitespace. Used to store a CHECK
     /// expression exactly as written (matching Access).</summary>
-    private static string OriginalText(Antlr4.Runtime.ParserRuleContext ctx) =>
+    internal static string OriginalText(Antlr4.Runtime.ParserRuleContext ctx) =>
         ctx.Start is null || ctx.Stop is null
             ? ctx.GetText()
             : ctx.Start.InputStream.GetText(Antlr4.Runtime.Misc.Interval.Of(ctx.Start.StartIndex, ctx.Stop.StopIndex));
@@ -223,7 +341,7 @@ internal static class AstBuilder
         AlterTableAction action = ctx.alterTableAction() switch
         {
             AddColumnActionContext a => BuildAddColumn(a.columnDefinition()),
-            AddConstraintActionContext a => BuildAddConstraint(a.tableConstraint()),
+            AddConstraintActionContext a => BuildAddConstraint(a.tableConstraint(), Identifier(ctx.table)),
             AlterColumnActionContext a => new AlterColumnAction(
                 Identifier(a.field), TypeName(a.dataType()), Size(a.dataType()), Scale(a.dataType()),
                 a.columnConstraint().OfType<DefaultConstraintContext>().FirstOrDefault()?.expression().GetText(),
@@ -277,7 +395,7 @@ internal static class AstBuilder
                 .Select(r => (BuildColumnReferences(r, name), r.Start.TokenIndex)).ToList());
     }
 
-    private static AlterTableAction BuildAddConstraint(TableConstraintContext tc) => tc switch
+    private static AlterTableAction BuildAddConstraint(TableConstraintContext tc, string table) => tc switch
     {
         PrimaryKeyTableConstraintContext pk =>
             new AddPrimaryKeyAction(pk.name is null ? null : Identifier(pk.name), pk._columns.Select(Identifier).ToList()),
@@ -285,7 +403,8 @@ internal static class AstBuilder
             new AddUniqueAction(new UniqueConstraint(uq.name is null ? null : Identifier(uq.name), uq._columns.Select(Identifier).ToList())),
         ForeignKeyTableConstraintContext fk => new AddForeignKeyAction(BuildForeignKey(fk)),
         CheckTableConstraintContext ck =>
-            new AddCheckAction(new CheckConstraint(ck.name is null ? null : Identifier(ck.name), OriginalText(ck.checkBody()))),
+            new AddCheckAction(new CheckConstraint(OptionalIdentifier(ck.name),
+                CheckText(ck.checkBody(), table, OptionalIdentifier(ck.name)))),
         _ => throw new SqlParseException("Unsupported ALTER TABLE ADD CONSTRAINT."),
     };
 
@@ -1388,7 +1507,7 @@ internal static class AstBuilder
 
         int start = lastDot < 0 ? column.first.Start.StartIndex : column._rest[lastDot].Start.StartIndex;
         string text = column.Start.InputStream.GetText(Antlr4.Runtime.Misc.Interval.Of(start, column.Stop.StopIndex));
-        return text is ['[', .., ']'] or ['`', .., '`'] ? text[1..^1] : text;
+        return Undelimited(text);
     }
 
     /// <summary><c>x IN (a, b, …)</c> becomes a flat <see cref="InListExpression"/> evaluated iteratively — NOT a
@@ -1408,7 +1527,7 @@ internal static class AstBuilder
     /// <summary>Parses an Access <c>#…#</c> date literal (e.g. <c>#1/1/1997#</c>, month/day/year) to a
     /// <see cref="DateTime"/>. A time without a date is on 1899-12-30, day zero (verified vs ACE: #13:45:30# is
     /// 1899-12-30 13:45:30), not on today.</summary>
-    private static DateTime ParseDate(string text)
+    internal static DateTime ParseDate(string text)
     {
         DateTime value = DateTime.Parse(text.Trim('#'), CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault);
         return value.Date == DateTime.MinValue ? new DateTime(1899, 12, 30).Add(value.TimeOfDay) : value;
@@ -1512,8 +1631,12 @@ internal static class AstBuilder
     private static object ParseInteger(string text) =>
         // Box each branch independently: a bare `? i : long.Parse(...)` would infer the
         // conditional's type as `long` and silently widen the int branch, so every literal
-        // (even `1`) would arrive as a boxed long.
-        int.TryParse(text, out int i) ? i : (object)long.Parse(text, CultureInfo.InvariantCulture);
+        // (even `1`) would arrive as a boxed long. Past a Long, ACE reads the literal as a Decimal, and past a
+        // Decimal as a Double (verified: 9223372036854775808 and 10^20 are Decimal, 2^96 a Double).
+        int.TryParse(text, out int i) ? i
+        : long.TryParse(text, CultureInfo.InvariantCulture, out long l) ? l
+        : decimal.TryParse(text, CultureInfo.InvariantCulture, out decimal m) ? m
+        : (object)double.Parse(text, CultureInfo.InvariantCulture);
 
     /// <summary>A GUID literal, <c>{…}</c> or ACE's <c>{guid {…}}</c>: the GUID is the innermost braced part.</summary>
     private static Guid ParseGuid(string text) => Guid.Parse(text[text.LastIndexOf('{')..(text.IndexOf('}') + 1)]);
@@ -1528,14 +1651,13 @@ internal static class AstBuilder
         return Convert.FromHexString(digits);
     }
 
-    private static string Identifier(IdentifierContext ctx)
-    {
-        string text = ctx.GetText();
+    private static string Identifier(IdentifierContext ctx) => Undelimited(ctx.GetText());
+
+    private static string Undelimited(string text) =>
         // Strip delimiters: [bracketed] or `backtick`.
-        return text.Length >= 2 && ((text[0] == '[' && text[^1] == ']') || (text[0] == '`' && text[^1] == '`'))
+        text.Length >= 2 && ((text[0] == '[' && text[^1] == ']') || (text[0] == '`' && text[^1] == '`'))
             ? text[1..^1]
             : text;
-    }
 
     private static string? OptionalIdentifier(IdentifierContext? ctx) => ctx is null ? null : Identifier(ctx);
 

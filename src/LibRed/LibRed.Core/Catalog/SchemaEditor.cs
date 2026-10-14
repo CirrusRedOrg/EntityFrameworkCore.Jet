@@ -295,7 +295,8 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             // the referenced index within the plans we are building and host both ends here.
             if (string.Equals(fk.ReferencedTable, name, StringComparison.OrdinalIgnoreCase))
             {
-                int refOrdinal = SelfReferencedOrdinal(indexPlans, fk);
+                // Only a key declared before the reference serves: ACE refuses one declared after it (verified).
+                int refOrdinal = SelfReferencedOrdinal(indexPlans.GetRange(0, i), fk);
                 int inNum = selfIncomingNum++;
                 // Outgoing block (this table's child side) — NO INDEX flags it 0x03 instead of 0x02.
                 childLogical.Add(new TableDefinition.LogicalIndexSpec(

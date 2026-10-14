@@ -179,9 +179,20 @@ public sealed record ForeignKeyConstraint(
 /// </para></summary>
 public sealed record UniqueConstraint(string? Name, IReadOnlyList<string> Columns, int DeclaredAfter = 0);
 
-/// <summary>A CHECK constraint: an optional name and the raw expression text (validated by Access, not
-/// yet enforced by LibRed).</summary>
-public sealed record CheckConstraint(string? Name, string Expression);
+/// <summary>A CHECK constraint: an optional name and the raw expression text.
+/// <para><b>ColumnsBefore</b> is, in CREATE TABLE, how many of the statement's columns it declares before this
+/// constraint — the ones it may name, as ACE resolves it where it is written. ALTER TABLE ADD CONSTRAINT leaves it
+/// unused: the table's columns all exist by then.</para></summary>
+public sealed record CheckConstraint(string? Name, string Expression, int ColumnsBefore = 0)
+{
+    /// <summary>The qualifier a stored CHECK names the row it is checking by: U+FFFE, which ACE writes where the
+    /// statement qualified a column with the table's own name inside a subquery (verified).</summary>
+    public static readonly string RowQualifier = ((char)0xFFFE).ToString();
+
+    /// <summary>ACE's refusal of a CHECK it cannot take, whatever the reason: one that does not parse, names what it
+    /// cannot resolve, or spells a qualifier in a way ACE does not accept (verified).</summary>
+    public static Parsing.SqlParseException Refusal() => new("Syntax error in CHECK constraint clause.");
+}
 
 public sealed record CreateTableStatement(
     string Table,

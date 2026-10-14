@@ -69,6 +69,8 @@ public class CheckConstraintEnforcementTests : TempDatabaseTest
         e.ExecuteNonQuery("UPDATE tblCustomers SET CustomerLimit = 100 WHERE CustomerID = 1");
     }
 
+    // ACE refuses this CREATE TABLE with "Syntax error in CHECK constraint clause." (measured), so the check never
+    // reaches a row.
     [Fact]
     public void Check_with_trailing_unparsed_tokens_is_refused_when_created()
     {

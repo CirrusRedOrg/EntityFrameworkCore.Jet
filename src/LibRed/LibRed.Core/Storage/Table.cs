@@ -244,7 +244,7 @@ public sealed class Table
 
     /// <summary>Deletes every row at once, as ACE runs a <c>DELETE</c> with no <c>WHERE</c> — see
     /// <see cref="RowInserter.Truncate"/>. Rows are not visited, so nothing a row reaches is followed: the caller
-    /// keeps to tables that no relationship names as its parent and that hold no complex column.</summary>
+    /// keeps to tables that no relationship names as its parent and that hold no complex column or CHECK constraint.</summary>
     public void Truncate() => Write(() => new RowInserter(Channel, Definition).Truncate());
 
     private void Write(Action action)

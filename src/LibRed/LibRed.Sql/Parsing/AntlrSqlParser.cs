@@ -39,13 +39,18 @@ public sealed class AntlrSqlParser : ISqlParser
         return lexer.NextToken().Type == TokenConstants.EOF;
     }
 
-    public Expression ParseExpression(string sql)
+    public Expression ParseExpression(string sql) => AstBuilder.BuildExpression(ExpressionTree(sql));
+
+    /// <summary>The parse tree of a standalone expression, before it is lowered to the AST — for a caller that needs
+    /// the text as written (its tokens) as well as its structure. Such text is stored text — a DEFAULT, a CHECK —
+    /// so it is read without comments, as ACE reads it.</summary>
+    internal static AccessSqlParser.ExpressionContext ExpressionTree(string sql)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
 
         var errors = new ThrowingErrorListener();
 
-        var lexer = new AccessSqlLexer(new AntlrInputStream(sql));
+        var lexer = new AccessSqlLexer(new AntlrInputStream(sql)) { Comments = false };
         lexer.RemoveErrorListeners();
         lexer.AddErrorListener(errors);
 
@@ -53,7 +58,7 @@ public sealed class AntlrSqlParser : ISqlParser
         parser.RemoveErrorListeners();
         parser.AddErrorListener(errors);
 
-        return AstBuilder.BuildExpression(parser.standaloneExpression().expression());
+        return parser.standaloneExpression().expression();
     }
 
     private sealed class ThrowingErrorListener : IAntlrErrorListener<int>, IAntlrErrorListener<IToken>

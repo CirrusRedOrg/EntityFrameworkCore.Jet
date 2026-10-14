@@ -77,7 +77,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         var checks = statement.CheckConstraints
             .Select((ck, i) => (Name: ck.Name ?? Generated("CK", i), ck.Expression,
                 Reads: (IReadOnlyList<(string Table, IReadOnlyList<string> Columns)>)CheckReads(
-                    statement.Table, [.. statement.Columns.Select(col => col.Name)], ck.Expression)))
+                    statement.Table, [.. statement.Columns.Take(ck.ColumnsBefore).Select(col => col.Name)], ck.Expression)))
             .ToList();
 
         _database.CreateTable(statement.Table, columns, primaryKey, relationships, uniques, defaults, checks,
@@ -92,13 +92,26 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// table's own, each once. A column takes the innermost table in scope that has it, or the one its qualifier
     /// names. Measured by whole-file diff (<c>WholeFileParityProbeTest</c>): <c>Len([Note]) &lt; [Level] + 20 OR
     /// [Level] &gt; 0</c> on <c>Setting</c> reads <c>Level, Note</c>; a <c>COUNT(*)</c> subquery over
-    /// <c>Customer</c> lists it with no column. An expression that does not parse throws: ACE refuses such a check
-    /// when it is created (measured), in CREATE TABLE and ALTER TABLE alike.
+    /// <c>Customer</c> lists it with no column.
+    /// <para>The same walk refuses what ACE refuses when the check is created, in CREATE TABLE and ALTER TABLE alike
+    /// (verified): an expression that does not parse; a name no scope has, even in an IIf branch that never runs, as
+    /// ACE resolves names rather than evaluating; inside a subquery, an unqualified name only the row being checked
+    /// has — the row is reached there only through its qualifier (<see cref="CheckConstraint.RowQualifier"/>); a
+    /// subquery over a table that does not exist; and an aggregate outside a subquery. <paramref name="ownColumns"/>
+    /// are the columns the check may name: in CREATE TABLE, those declared before it.</para>
     /// </summary>
     private List<(string Table, IReadOnlyList<string> Columns)> CheckReads(
         string table, IReadOnlyList<string> ownColumns, string expression)
     {
-        Expression parsed = _parser.ParseExpression(expression);
+        Expression parsed;
+        try
+        {
+            parsed = ParsedCheck(expression);
+        }
+        catch (SqlParseException)
+        {
+            throw CheckConstraint.Refusal();
+        }
 
         List<(string Name, IReadOnlyList<string> Columns, HashSet<string> Read)> tables =
             [(table, ownColumns, new HashSet<string>(StringComparer.OrdinalIgnoreCase))];
@@ -107,9 +120,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         {
             int at = tables.FindIndex(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase));
             if (at >= 0) return at;
-            TableDefinition? definition = _database.Catalog.FindTable(name);
+            TableDefinition definition = _database.Catalog.FindTable(name) ?? throw CheckConstraint.Refusal();
             HashSet<string> read = [with(StringComparer.OrdinalIgnoreCase)];
-            tables.Add((definition?.Name ?? name, [.. definition?.Columns.Select(c => c.Name) ?? []], read));
+            tables.Add((definition.Name, [.. definition.Columns.Select(c => c.Name)], read));
             return tables.Count - 1;
         }
 
@@ -142,20 +155,24 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                         Scan(select, [level, .. scopes]);
                         return false;
                     case ColumnReference column:
-                        foreach ((List<SourceTable> sources, List<int> ids) in scopes)
-                            if (FindColumns(sources, column.Table, column.Column) is [var (found, _), ..])
+                        for (int depth = 0; depth < scopes.Count; depth++)
+                            if (FindColumns(scopes[depth].Sources, column.Table, column.Column) is [var (found, _), ..])
                             {
-                                tables[ids[found]].Read.Add(column.Column);
-                                break;
+                                if (depth == scopes.Count - 1 && depth > 0 && column.Table is null)
+                                    throw CheckConstraint.Refusal();
+                                tables[scopes[depth].Tables[found]].Read.Add(column.Column);
+                                return false;
                             }
-                        return false;
+                        return ExpressionEvaluator.IsNiladicFunction(column) ? false : throw CheckConstraint.Refusal();
+                    case FunctionCall call when scopes.Count == 1 && QueryPlanner.IsAggregate(call.Name):
+                        throw CheckConstraint.Refusal();
                     default:
                         return true;
                 }
             });
         }
 
-        Scan(parsed, [([Source(0, null)], [0])]);
+        Scan(parsed, [([Source(0, CheckConstraint.RowQualifier)], [0])]);
         return [.. tables.Select(t => (t.Name, (IReadOnlyList<string>)[.. t.Columns.Where(t.Read.Contains)]))];
     }
 
@@ -192,24 +209,47 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 throw new InvalidOperationException($"You must enter a value in the '{table}.{column.Name}' field.");
     }
 
-    /// <summary>Rejects a row that violates any of the table's CHECK constraints — evaluated against the full
-    /// row. A CHECK is violated only when its expression is explicitly FALSE; NULL/unknown passes (SQL
-    /// three-valued CHECK semantics). The expression may reference the row's own columns and use (uncorrelated)
-    /// subqueries. Matches Access's validation-rule enforcement.</summary>
-    private void EnforceCheckConstraints(TableDefinition definition, object?[] values)
+    /// <summary>Rejects a row written against any of the table's CHECK constraints. Called once the row is written, so
+    /// a subquery over the table sees it, one row at a time in the order the statement writes them — and for a deleted
+    /// row once it is gone, against a row whose every column is Null — as ACE does (all verified). A CHECK is violated
+    /// only when its expression is explicitly FALSE; NULL/unknown passes. A row a cascade wrote is refused in ACE's
+    /// words for a cascade, and an expression that cannot be evaluated — a division by zero, an overflow, a type
+    /// mismatch — with ACE's error for that rather than the evaluator's own.</summary>
+    private void EnforceCheckConstraints(TableDefinition definition, object?[] values, bool cascaded)
     {
         if (definition.CheckConstraints.Count == 0) return;
-        var schema = definition.Columns.Select(c => OutputColumn.Of(definition.Name, definition, c)).ToList();
-        var evaluator = new ExpressionEvaluator(new EvalScope(schema, values, null), _scalarRunner, _parameters, _session);
+        // A runner of its own, not the statement's: that one keeps a subquery's answer once it has worked it out, as
+        // a query can, and this statement has written rows since — a CHECK reading the table has to see them.
+        // The row is named as ACE names it, by CheckConstraint.RowQualifier — not by the table's name, which inside a
+        // subquery could be the subquery's own table.
+        List<OutputColumn> row = [.. definition.Columns.Select(c => OutputColumn.Of(CheckConstraint.RowQualifier, definition, c))];
+        var evaluator = new ExpressionEvaluator(new EvalScope(row, values, null),
+            new QueryExecutor(_database, parameters, _session), _parameters, _session);
         foreach (var (name, expression) in definition.CheckConstraints)
         {
-            if (!_checkExpressions.TryGetValue(expression, out Expression? parsed))
-                _checkExpressions[expression] = parsed = _parser.ParseExpression(expression);
-            if (evaluator.Evaluate(parsed) is false)
-                throw new InvalidOperationException(
-                    $"One or more values are prohibited by the validation rule '{name}' set for '{definition.Name}'. " +
-                    "Enter a value that the expression for this field can accept.");
+            Expression parsed = ParsedCheck(expression);
+            object? holds;
+            try
+            {
+                holds = evaluator.Evaluate(parsed);
+            }
+            catch (Exception e) when (e is ArithmeticException or InvalidCastException or ArgumentException or InvalidOperationException)
+            {
+                throw new InvalidOperationException($"Error evaluating {name} CHECK constraint. {name}", e);
+            }
+            if (holds is false)
+                throw new InvalidOperationException(cascaded
+                    ? $"Cannot perform cascading operation. The value entered is prohibited by the validation rule '{name}' set for '{definition.Name}'."
+                    : $"One or more values are prohibited by the validation rule '{name}' set for '{definition.Name}'. " +
+                      "Enter a value that the expression for this field can accept.");
         }
+    }
+
+    private Expression ParsedCheck(string expression)
+    {
+        if (!_checkExpressions.TryGetValue(expression, out Expression? parsed))
+            _checkExpressions[expression] = parsed = _parser.ParseExpression(expression);
+        return parsed;
     }
 
     /// <summary>The relationship a parsed foreign key creates on <paramref name="childTable"/>, for CREATE TABLE and
@@ -480,6 +520,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         foreach (var (id, values) in roots.Reverse())
             if (scheduled.Add((rootTable.Name, id)))
                 stack.Push((rootTable, id, values, false));
+        var rootRows = new HashSet<(string Table, RowId Id)>(scheduled);
 
         while (stack.Count > 0)
         {
@@ -493,8 +534,12 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             EnqueueCascadeChildren(table.Name, values, scheduled, stack);
         }
 
-        foreach (var (table, id, values) in order)
+        foreach (var (table, id, _) in order)
+        {
             table.Delete(id);
+            EnforceCheckConstraints(table.Definition, new object?[table.Definition.Columns.Count],
+                cascaded: !rootRows.Contains((table.Name, id)));
+        }
     }
 
     /// <summary>Applies each enforced relationship's ON DELETE action to a parent row about to be deleted:
@@ -603,7 +648,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         }
 
         // A cascade rewrites a row, so it owes the row everything an UPDATE of it does — and the same code does it.
-        UpdateRow(ends.Child, childId, childValues, newValues, stillToWrite);
+        UpdateRow(ends.Child, childId, childValues, newValues, stillToWrite, cascaded: true);
     }
 
     /// <summary>
@@ -611,9 +656,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// reaches — after checking it against every rule an updated row is held to, then applies the ON UPDATE rules
     /// of any relationship whose key it changed. The one place a row is rewritten: a cascaded row is checked
     /// exactly as a directly updated one, and a cascade that changes a key others reference carries on down.
+    /// <paramref name="cascaded"/> says a cascade is writing it, which ACE words a refused CHECK differently for.
     /// </summary>
     private void UpdateRow(Table table, RowId id, object?[] original, object?[] values,
-        Dictionary<(int Tdef, RowId Id), object?[]>? stillToWrite)
+        Dictionary<(int Tdef, RowId Id), object?[]>? stillToWrite, bool cascaded)
     {
         var changed = new HashSet<int>();
         for (int i = 0; i < values.Length; i++)
@@ -651,11 +697,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                     index.Name,
                     index.IsPrimaryKey);
 
-        // The updated row must still satisfy every CHECK constraint (evaluated against the full new row).
-        EnforceCheckConstraints(table.Definition, values);
-
         table.Update(id, values, changed);
         stillToWrite?.Remove((table.Definition.DefinitionPage, id));
+
+        // The updated row must still satisfy every CHECK constraint.
+        EnforceCheckConstraints(table.Definition, values, cascaded);
 
         // Parent side, once the row holds its new key: a changed referenced-key column triggers each relationship's
         // ON UPDATE action (CASCADE rewrites the children, NO ACTION rejects if any exist). After the write, so a
@@ -875,10 +921,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     private int AddCheck(string table, AddCheckAction chk)
     {
-        // A missing table is left for the design path to report, as it always has.
+        // A missing table is left for the design path to report, as it always has: it reads nothing.
         TableDefinition? definition = _database.Catalog.FindTable(table);
-        _database.AddCheckConstraint(table, chk.Check.Name ?? $"CK_{table}", chk.Check.Expression,
-            CheckReads(definition?.Name ?? table, [.. definition?.Columns.Select(c => c.Name) ?? []], chk.Check.Expression));
+        _database.AddCheckConstraint(table, chk.Check.Name ?? $"CK_{table}", chk.Check.Expression, definition is null ? []
+            : CheckReads(definition.Name, [.. definition.Columns.Select(c => c.Name)], chk.Check.Expression));
         return 0;
     }
 
@@ -1150,8 +1196,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
         EnforceRequired(tableName, table.Definition.Columns, values);
         EnforceReferentialIntegrity(tableName, table, values);
-        EnforceCheckConstraints(table.Definition, values);
         table.Insert(values, defaultRecord, provided); // fills values[autoNumber.Index] with the generated id (array mutated in place)
+        EnforceCheckConstraints(table.Definition, values, cascaded: false);
         return defaults.AutoNumber is { } autoNumber ? values[autoNumber.Index] : null;
     }
 
@@ -2007,7 +2053,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             stillToWrite[(table.Definition.DefinitionPage, id)] = values;
 
         foreach (var (table, id, original, values) in dirty.Values)
-            UpdateRow(table, id, original, values, stillToWrite);
+            UpdateRow(table, id, original, values, stillToWrite, cascaded: false);
 
         var newRowDefaults = new Dictionary<int, RowDefaults>();
         foreach (var (values, (table, provided)) in newRows)
@@ -2060,10 +2106,12 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // With no WHERE over one table, ACE empties the table in one go rather than row by row — unless an enforced
         // relationship names it as the parent, when it deletes row by row as below (measured, whole-file diff:
         // WholeFileParityProbeTest). The test is the WHERE's absence, not every row matching: WHERE 1 = 1 deletes
-        // row by row. A table holding a complex column keeps the row path that follows its flat table's rows. No
-        // row is read but to be counted.
+        // row by row. So does a table with a CHECK constraint, pages and all, its checks evaluated as each row goes
+        // (verified: whole-file diff, and a check that fails only once some rows are gone). A table holding a complex column
+        // keeps the row path that follows its flat table's rows. No row is read but to be counted.
         if (statement.Where is null && statement.From is NamedTable
             && ChildRelationshipsOf(target.Name).Length == 0
+            && target.Definition.CheckConstraints.Count == 0
             && !_database.Catalog.ComplexColumns.Any(c =>
                 c.OwnerTable.DefinitionPage == target.Definition.DefinitionPage))
         {

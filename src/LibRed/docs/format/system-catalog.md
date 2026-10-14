@@ -154,6 +154,20 @@
   > DDL-parser-vs-expression-service split) are in [page-02c-default-values.md](page-02c-default-values.md);
   > table-level `CHECK` constraints are a single **table** property named `CheckConstraints` whose value is a
   > `name\0expression\0` list, terminated by an extra `\0` (verified byte-for-byte vs ACE).
+  > The expression names the row it checks by **U+FFFE**, never by the table's name (verified): a column the
+  > statement qualified with the table's own name is stored unqualified, or inside a subquery as `U+FFFE.column`
+  > — unless that subquery reads the table itself, where the qualifier is the subquery's and is kept. ACE cannot
+  > evaluate a stored `table.column` (*"Could not find field"*), so a writer must not leave one.
+  > A check is otherwise stored **as written** — spacing, keyword case, `` `backtick` `` quoting and all — except
+  > where a qualifier was dropped outside a subquery: that expression is stored **re-formed** from its parse
+  > (verified). No space about `^ * / \ + - = <> < <= > >=`; one either side of `&`, `Mod` and the word operators,
+  > spelt `Not And Or Xor Eqv Imp Between In Is Exists`, with `ALike` for `LIKE`; `x <> Null` becomes
+  > `x Is Not Null`, while `x = Null` stays. Brackets only where VBA operator precedence needs them — about an
+  > operand looser than its operator, or as loose on its right. Names, strings, function names and `0x` literals as
+  > written, save `IIf` (always so spelt) and a bare `Now` (written `Now()`); `True Yes On False No Off` each
+  > capitalised as its own word; a number in plain decimal with its digits exact (`1.50` → `1.5`, `1E3` → `1000`,
+  > `.5` → `0.5`); a date as `#m/d/yyyy#`, plus an unpadded 24-hour `h:n:s` when it has a time, a time alone
+  > dated `12/30/1899`. A subquery's own text is kept as written.
   > `ALTER TABLE … DROP CONSTRAINT <ck>` removes the matching entry from that list and rewrites it (dropping
   > the whole table-level property block when it was the last check) — ACE-verified: after the drop ACE stops enforcing the check. (In
   > Jet/ACE `DROP CONSTRAINT` is polymorphic over the name — FK / PK / unique index / CHECK.)
@@ -352,7 +366,8 @@
     **`Owner` null**, **no `MSysACEs` rows**, `Id` the next negative synthetic id from the sequence queries and
     relationships draw on. Its name must differ from every relationship's and every other check's, on whichever
     table (measured) — the unique `(ParentId, Name)` index — but may equal a table's (measured).
-  - **`Connect`** — the expression as written. **`ForeignName`** — the table's name followed by a NUL
+  - **`Connect`** — the expression as the `CheckConstraints` property stores it, `U+FFFE` row qualifier and
+    re-formed text included (verified). **`ForeignName`** — the table's name followed by a NUL
     character (`Setting\0`).
   - **`Database`** — what the expression reads, as text built of length-prefix characters: one character counting
     the tables, then for each table a character giving its name's length, the name, a character counting its

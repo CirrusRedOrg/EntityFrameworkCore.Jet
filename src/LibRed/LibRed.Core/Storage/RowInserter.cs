@@ -921,7 +921,8 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         // Only reached when no page in the free map had room, and FindPageWithRoom has cleared each of those, so
         // the new page is the only one left marked free. (Verified against an ACE sequential fill: only the last
         // of six equally-full pages stays in the free map.)
-        int pageNumber = _channel.Allocator.Allocate();
+        var owned = _channel.ReadPageShared(_table.DefinitionPage).ReadRecordPointer(format.TdefOwnedPagesOffset);
+        int pageNumber = _channel.Allocator.Allocate(owned);
 
         byte[] page = DataPage.NewPage(format, (uint)_table.DefinitionPage);
         _channel.WritePage(pageNumber, page);

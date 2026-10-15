@@ -765,7 +765,7 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
     /// own maintenance, not for LibRed's own traversal.)</summary>
     private int AllocateIndexPage(IndexDef index)
     {
-        int page = _allocator.Allocate();
+        int page = _allocator.Allocate(index.UsageMap);
         _usageMaps.SetBit(index.UsageMap.Row, index.UsageMap.Page, page, set: true);
         return page;
     }

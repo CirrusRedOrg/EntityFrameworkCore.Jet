@@ -1,3 +1,5 @@
+using LibRed.Storage;
+
 namespace LibRed.IO;
 
 /// <summary>Opaque handle to a savepoint within a <see cref="Transaction"/> (the frame's stack position).</summary>
@@ -27,11 +29,13 @@ public sealed class Transaction
         public int StartReleaseCount;
         // How many read dependencies the transaction had recorded when this frame opened.
         public int StartDependencyCount;
+        public PageAllocator.AllocationState? Allocation;
     }
 
     private readonly List<Frame> _frames;
 
-    internal Transaction(int originalPageCount) => _frames = [new Frame { StartPageCount = originalPageCount }];
+    internal Transaction(int originalPageCount, PageAllocator.AllocationState? allocation = null) =>
+        _frames = [new Frame { StartPageCount = originalPageCount, Allocation = allocation }];
 
     /// <summary>Logical page count when the transaction began — the high-water to restore on a full rollback.</summary>
     internal int OriginalPageCount => _frames[0].StartPageCount;
@@ -50,15 +54,23 @@ public sealed class Transaction
 
     /// <summary>Opens a savepoint over the given current logical page count; returns a handle for
     /// <see cref="TakeForRollbackTo"/> / <see cref="Release"/>.</summary>
-    internal Savepoint Save(int currentPageCount, int currentReleaseCount = 0, int currentDependencyCount = 0)
+    internal Savepoint Save(int currentPageCount, int currentReleaseCount = 0, int currentDependencyCount = 0,
+        PageAllocator.AllocationState? allocation = null)
     {
         _frames.Add(new Frame
         {
             StartPageCount = currentPageCount,
             StartReleaseCount = currentReleaseCount,
             StartDependencyCount = currentDependencyCount,
+            Allocation = allocation,
         });
         return new Savepoint(_frames.Count - 1);
+    }
+
+    internal PageAllocator.AllocationState? AllocationAt(Savepoint sp)
+    {
+        ValidateFrame(sp.Index);
+        return _frames[sp.Index].Allocation;
     }
 
     /// <summary>How many pages were staged for release when <paramref name="sp"/> was created — the count to

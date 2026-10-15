@@ -250,6 +250,14 @@ the long values:
 converts it to a reference map when it no longer fits — a long-value column's maps are not a special case,
 and `UsageMap.PagesInMap` reads either form back.
 
+**LVAL allocation still uses the session's shared free-page reservation.** Controlled ACE probes with
+7, 8, and 64 existing LVAL pages, packed binary values, chained binary values and memos all take the
+shared four-group (32-page) reservation. The data/index owner's eight-page group-selection switch
+does not apply to these column owners, even with prebuilt reference owned/free maps. A global
+reference map clips the reservation at its bitmap-page coverage boundary; a chain can exhaust the
+remainder and continue into a reservation from the next bitmap. The exact measurements and bitmap
+selection state are recorded in [global allocation policy](page-05-usage-maps.md).
+
 > **The terminating `0xFFFF` is mandatory on write — even for a table with no long-value
 > columns** (where the list is empty and the `0xFFFF` is the only bytes here). Omitting it makes
 > Access reject the whole table with *"Unrecognized database format"* even though every other byte

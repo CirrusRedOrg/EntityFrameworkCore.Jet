@@ -1,6 +1,7 @@
 using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
+using System.Numerics;
 
 namespace LibRed.Storage;
 
@@ -8,7 +9,8 @@ namespace LibRed.Storage;
 /// Allocates database pages the way Access does: through the **global free-pages map**, the usage-map record
 /// page 0 names at <c>0x18</c> (an inline or reference map where a set bit marks a free page). Allocation takes a
 /// free page, clears its bit (so it is no longer free), and returns it — reusing freed pages rather than always
-/// growing the file. The file is grown only when no free page is available.
+/// growing the file. Shared reservations and owner-private groups select eligible pages; the file grows
+/// when that selection cannot find a reusable page or group.
 /// </summary>
 /// <remarks>
 /// Pages set in the **global released-pages map** (named at <c>0x1C</c>) are never allocated, as ACE never
@@ -21,6 +23,28 @@ namespace LibRed.Storage;
 internal sealed class PageAllocator
 {
     private readonly PageChannel _channel;
+    private int _reservationStart;
+    private uint _reservationBits;
+    private int _bitmapSlot;
+    private Dictionary<(int Row, int Page), int> _owners = [];
+    private Dictionary<(int Row, int Page), (int Start, byte Bits)> _groups = [];
+
+    /// <summary>Session allocation state captured with a transaction or savepoint's page images.</summary>
+    internal sealed record AllocationState(int Start, uint Bits, int BitmapSlot, Dictionary<(int Row, int Page), int> Owners,
+        Dictionary<(int Row, int Page), (int Start, byte Bits)> Groups);
+
+    internal AllocationState State
+    {
+        get => new(_reservationStart, _reservationBits, _bitmapSlot, new(_owners), new(_groups));
+        set
+        {
+            _reservationStart = value.Start;
+            _reservationBits = value.Bits;
+            _bitmapSlot = value.BitmapSlot;
+            _owners = new(value.Owners);
+            _groups = new(value.Groups);
+        }
+    }
 
     internal PageAllocator(PageChannel channel) => _channel = channel;
 
@@ -46,12 +70,57 @@ internal sealed class PageAllocator
         public UsageMapType Type => UsageMap.RecordType(Record);
     }
 
-    public int Allocate()
+    public int Allocate((int Row, int Page)? owner = null, int previousPage = -1)
     {
         (MapRecord free, MapRecord released) = ReadGlobalMaps();
         var releasedPages = new ReleasedPages(this, released);
+        if (_reservationBits != 0)
+        {
+            int bit = BitOperations.TrailingZeroCount(_reservationBits);
+            int page = _reservationStart + bit;
+            ValidateReusablePage(page, "session reservation", free, released, Math.Max(page, _channel.PageCount));
+            if (releasedPages.Contains(page))
+                throw new InvalidDataException($"Reserved page {page} is also released.");
+            EnsurePhysicalAllocation(page, releasedPages);
+            _reservationBits &= ~(1u << bit);
+            if (owner is { } reservedOwner) _owners[reservedOwner] = page;
+            return page;
+        }
+
+        bool groups = false;
+        if (owner is { } pointer)
+        {
+            if (_groups.TryGetValue(pointer, out var group) && group.Bits != 0)
+            {
+                int bit = BitOperations.TrailingZeroCount((uint)group.Bits);
+                int page = group.Start + bit;
+                EnsurePhysicalAllocation(page, releasedPages);
+                _groups[pointer] = (group.Start, (byte)(group.Bits & ~(1 << bit)));
+                _owners[pointer] = page;
+                return page;
+            }
+            var maps = new UsageMap(_channel);
+            ReadOnlySpan<byte> record = maps.ReadRecordAt(pointer.Row, pointer.Page);
+            if (UsageMap.RecordType(record) == UsageMapType.Reference) groups = true;
+            else
+            {
+                int count = 0;
+                foreach (byte bits in record[_channel.Format.UsageMapInlineHeaderSize..])
+                    count += BitOperations.PopCount((uint)bits);
+                groups = count >= 8;
+            }
+            if (_owners.TryGetValue(pointer, out int last)) previousPage = last;
+            else if (previousPage < 0) previousPage = maps.PagesInMap(pointer.Row, pointer.Page).LastOrDefault(-1);
+            if (groups && previousPage >= 0)
+            {
+                int first = previousPage & ~7;
+                for (int page = first; page < first + 8; page++)
+                    if (IsFree(page, free, releasedPages))
+                        return TakePage(page, free, released, releasedPages, owner, reserve: false);
+            }
+        }
         if (free.Type == UsageMapType.Reference)
-            return AllocateFromReferenceMap(free, released, releasedPages);
+            return AllocateFromReferenceMap(free, released, releasedPages, owner, groups);
 
         JetFormatBase format = _channel.Format;
         int startPage = UsageMap.StartPage(free.Record, format);
@@ -60,15 +129,98 @@ internal sealed class PageAllocator
         {
             int allocated = startPage + bit;
             if (releasedPages.Contains(allocated)) continue; // released, not yet reusable
-            ValidateReusablePage(allocated, "inline free bit", free, released, AppendBoundary(releasedPages));
-            EnsurePhysicalAllocation(allocated, releasedPages);
-            BitmapBits.Set(bitmap, bit, false); // no longer free
-            _channel.WritePage(free.PageNumber, free.Page);
-            return allocated;
+            if (groups && (allocated % 8 != 0 || bit % 8 != 0 || bitmap[bit / 8] != byte.MaxValue
+                || Enumerable.Range(allocated, 8).Any(releasedPages.Contains))) continue;
+            return TakePage(allocated, free, released, releasedPages, owner, reserve: !groups);
         }
 
+        if (groups)
+        {
+            int boundary = (_channel.PageCount + 7) & ~7;
+            while (_channel.PageCount < boundary) Append();
+        }
         // An unrepresented page is not safely recorded as used. Grow the global map before appending.
-        return GrowAndAllocate();
+        return GrowAndAllocate(owner, previousPage);
+    }
+
+    private bool IsFree(int page, MapRecord free, ReleasedPages releasedPages)
+    {
+        if (releasedPages.Contains(page)) return false;
+        JetFormatBase format = _channel.Format;
+        if (free.Type == UsageMapType.Inline)
+        {
+            int bit = page - UsageMap.StartPage(free.Record, format);
+            ReadOnlySpan<byte> bits = free.Record[format.UsageMapInlineHeaderSize..];
+            return bit >= 0 && bit < bits.Length * 8 && BitmapBits.Get(bits, bit);
+        }
+        int slot = page / format.UsageMapPagesPerBitmapPage;
+        if (slot >= format.UsageMapReferenceSlots) return false;
+        int bitmap = UsageMap.ReferencePointer(free.Record, slot, format);
+        return bitmap != 0 && BitmapBits.Get(UsageMap.BitmapPageBits(UsageMap.ReadBitmapPage(_channel, bitmap).Span, format),
+            page % format.UsageMapPagesPerBitmapPage);
+    }
+
+    /// <summary>Takes one page or the free portion of its four-group reservation, using either global map form.</summary>
+    private int TakePage(int page, MapRecord free, MapRecord released, ReleasedPages releasedPages,
+        (int Row, int Page)? owner, bool reserve)
+    {
+        JetFormatBase format = _channel.Format;
+        int start;
+        byte[] bytes;
+        Span<byte> bits;
+        int holder;
+        if (free.Type == UsageMapType.Inline)
+        {
+            start = UsageMap.StartPage(free.Record, format);
+            bytes = free.Page;
+            holder = free.PageNumber;
+            bits = UsageMap.InlineBits(bytes.AsSpan(free.Slot.Offset, free.Slot.Length), format);
+        }
+        else
+        {
+            _bitmapSlot = page / format.UsageMapPagesPerBitmapPage;
+            start = _bitmapSlot * format.UsageMapPagesPerBitmapPage;
+            holder = UsageMap.ReferencePointer(free.Record, _bitmapSlot, format);
+            bytes = ValidateBitmapPage(holder, free, released);
+            bits = UsageMap.BitmapPageBits(bytes, format);
+        }
+        int first = page & ~7;
+        int end = Math.Min(first + (reserve ? 32 : 8), start + bits.Length * 8);
+        uint reservation = 0;
+        HashSet<int> bitmapPages = ReferenceBitmapPages(free, released);
+        for (int candidate = first; candidate < end; candidate++)
+        {
+            int bit = candidate - start;
+            if (bit < 0 || !BitmapBits.Get(bits, bit) || releasedPages.Contains(candidate)) continue;
+            ValidateReusablePage(candidate, "free bit", free, released, Math.Max(candidate, _channel.PageCount));
+            if (bitmapPages.Contains(candidate))
+                throw new InvalidDataException($"Global free map marks bitmap page {candidate} itself as free.");
+            reservation |= 1u << (candidate - first);
+        }
+        // Validate/materialize before changing any free bits. Gaps must themselves be free or released.
+        EnsurePhysicalAllocation(page, releasedPages);
+        for (int candidate = first; candidate < end; candidate++)
+            if ((reservation & (1u << (candidate - first))) != 0)
+                BitmapBits.Set(bits, candidate - start, false);
+        _channel.WritePage(holder, bytes);
+        if (reserve)
+        {
+            _reservationStart = first;
+            _reservationBits = reservation & ~(1u << (page - first));
+        }
+        if (owner is { } pointer) _owners[pointer] = page;
+        if (!reserve && owner is { } groupOwner)
+            _groups[groupOwner] = (first, (byte)(reservation & ~(1u << (page - first))));
+        return page;
+    }
+
+    /// <summary>Returns unused owner-private group pages at statement commit; shared reservations survive.</summary>
+    internal void ReturnGroups()
+    {
+        foreach (var group in _groups.Values)
+            for (int bit = 0; bit < 8; bit++)
+                if ((group.Bits & (1 << bit)) != 0) Free(group.Start + bit);
+        _groups.Clear();
     }
 
     /// <summary>Returns a page to the global free-pages map now (sets its bit), so it can be reused — the
@@ -77,7 +229,11 @@ internal sealed class PageAllocator
     public void Free(int page)
     {
         (MapRecord free, MapRecord released) = ReadGlobalMaps();
-        ValidateReusablePage(page, "page being freed", free, released, _channel.PageCount - 1);
+        bool reserved = page >= _reservationStart && page < _reservationStart + 32
+            && (_reservationBits & (1u << (page - _reservationStart))) != 0;
+        reserved |= _groups.Values.Any(g => page >= g.Start && page < g.Start + 8
+            && (g.Bits & (1 << (page - g.Start))) != 0);
+        ValidateReusablePage(page, "page being freed", free, released, reserved ? Math.Max(page, _channel.PageCount - 1) : _channel.PageCount - 1);
 
         if (free.Type == UsageMapType.Reference)
         {
@@ -126,12 +282,12 @@ internal sealed class PageAllocator
     public void ReturnReleasedPages()
     {
         SortedSet<int> pages = [.. _channel.PagesReleasedAtClose];
-        if (pages.Count == 0 && !_channel.HasPublishedWrites) return;
+        if (pages.Count == 0 && !_channel.HasPublishedWrites && _reservationBits == 0 && _groups.Count == 0) return;
         (_, MapRecord released) = ReadGlobalMaps();
         // Every bit kept, none bounded by the file: a released page past its end was never materialized, and is
         // skipped below.
         pages.UnionWith(UsageMap.PagesInRecord(_channel, released.Record, rejectBeyond: null, "The global released-pages map"));
-        if (pages.Count == 0) return;
+        if (pages.Count == 0 && _reservationBits == 0 && _groups.Count == 0) return;
 
         bool ownTransaction = !_channel.InTransaction;
         if (ownTransaction) _channel.BeginTransaction();
@@ -139,12 +295,18 @@ internal sealed class PageAllocator
         {
             // Sized before the merge: a conversion allocates its bitmap pages from the free map as it stands,
             // without the pages being released.
-            SizeReleasedMap(pages);
+            if (pages.Count != 0) SizeReleasedMap(pages);
+            ReturnGroups();
 
             // A released page past the end of the file was never materialized; the free map already records
             // every page past the end as free.
             foreach (int page in pages)
                 if (page < _channel.PageCount) Free(page);
+            for (int bit = 0; bit < 32; bit++)
+                if ((_reservationBits & (1u << bit)) != 0) Free(_reservationStart + bit);
+            _reservationBits = 0;
+            _owners.Clear();
+            _bitmapSlot = 0;
 
             (_, released) = ReadGlobalMaps();
             ClearReleasedMap(released);
@@ -288,14 +450,15 @@ internal sealed class PageAllocator
     /// <c>k × UsageMapPagesPerBitmapPage</c>. A **set bit is a free page** (the global map's sense, opposite of a
     /// per-table owned map). Finds the first free page, clears its bit on the bitmap page, and returns it;
     /// grows the file when no bitmap records a free page.</summary>
-    private int AllocateFromReferenceMap(MapRecord free, MapRecord released, ReleasedPages releasedPages)
+    private int AllocateFromReferenceMap(MapRecord free, MapRecord released, ReleasedPages releasedPages,
+        (int Row, int Page)? owner, bool groups)
     {
         JetFormatBase format = _channel.Format;
         ReadOnlySpan<byte> map = free.Record;
         int pagesPerBitmap = format.UsageMapPagesPerBitmapPage;
         HashSet<int> bitmapPages = ReferenceBitmapPages(free, released);
 
-        for (int slot = 0; slot < format.UsageMapReferenceSlots; slot++)
+        for (int slot = groups ? 0 : _bitmapSlot; slot < format.UsageMapReferenceSlots; slot++)
         {
             int bitmapPage = UsageMap.ReferencePointer(map, slot, format);
             if (bitmapPage == 0) continue; // no bitmap page allocated for this range
@@ -306,18 +469,15 @@ internal sealed class PageAllocator
             {
                 int allocated = slot * pagesPerBitmap + bit;
                 if (releasedPages.Contains(allocated)) continue; // released, not yet reusable
-                ValidateReusablePage(allocated, $"reference-map slot {slot} free bit", free, released,
-                    AppendBoundary(releasedPages));
+                if (groups && (bit % 8 != 0 || bitmap[bit / 8] != byte.MaxValue
+                    || Enumerable.Range(allocated, 8).Any(releasedPages.Contains))) continue;
                 if (bitmapPages.Contains(allocated))
                     throw new InvalidDataException($"Global free map marks bitmap page {allocated} itself as free.");
-                EnsurePhysicalAllocation(allocated, releasedPages);
-                BitmapBits.Set(bitmap, bit, false); // no longer free
-                _channel.WritePage(bitmapPage, page);
-                return allocated;
+                return TakePage(allocated, free, released, releasedPages, owner, reserve: !groups);
             }
         }
 
-        return GrowAndAllocate();
+        return GrowAndAllocate(owner);
     }
 
     /// <summary>Extends allocation metadata before the physical file: inline growth in
@@ -325,13 +485,13 @@ internal sealed class PageAllocator
     /// spare bytes left on the holder page before promoting to reference form, and a reference bitmap allocated
     /// before the first data page in its range. All three measured against ACE and asserted by
     /// <c>GlobalMapGrowthTests</c>.</summary>
-    private int GrowAndAllocate()
+    private int GrowAndAllocate((int Row, int Page)? owner = null, int previousPage = -1)
     {
         bool ownTransaction = !_channel.InTransaction;
         if (ownTransaction) _channel.BeginTransaction();
         try
         {
-            int result = GrowAndAllocateCore();
+            int result = GrowAndAllocateCore(owner, previousPage);
             if (ownTransaction) _channel.CommitTransaction(flush: false);
             return result;
         }
@@ -342,7 +502,7 @@ internal sealed class PageAllocator
         }
     }
 
-    private int GrowAndAllocateCore()
+    private int GrowAndAllocateCore((int Row, int Page)? owner, int previousPage)
     {
         JetFormatBase format = _channel.Format;
         (MapRecord free, MapRecord released) = ReadGlobalMaps();
@@ -372,7 +532,7 @@ internal sealed class PageAllocator
                 DataPage.ReadFreeSpace(rewritten, format) >= format.UsageMapHolderReserve)
             {
                 _channel.WritePage(free.PageNumber, rewritten);
-                return Allocate();
+                return Allocate(owner, previousPage);
             }
 
             // Inline exhausted: every existing page is used (Allocate already searched all free bits).
@@ -391,7 +551,7 @@ internal sealed class PageAllocator
                 if (bitmap != 0) WriteNewGlobalBitmap(bitmap, range);
             }
             LayMapRecord(free, record);
-            return Allocate();
+            return Allocate(owner, previousPage);
         }
 
         int rangeIndex = frontier / format.UsageMapPagesPerBitmapPage;
@@ -404,7 +564,7 @@ internal sealed class PageAllocator
         UsageMap.WriteReferencePointer(record, rangeIndex, format, newBitmap);
         WriteNewGlobalBitmap(newBitmap, rangeIndex);
         LayMapRecord(free, record);
-        return Allocate();
+        return Allocate(owner, previousPage);
     }
 
     /// <summary>Appends the next page past the end of the file that is not released. Released pages at the
@@ -517,20 +677,16 @@ internal sealed class PageAllocator
                 $"({free.PageNumber}/{released.PageNumber}), or past the contiguous range ending at {maximum}.");
     }
 
-    /// <summary>The highest page an allocation may name: the next page past the end of the file, pushed
-    /// further by any released pages sitting at the frontier (they are materialized, not handed out).</summary>
-    private int AppendBoundary(ReleasedPages releasedPages)
-    {
-        int boundary = _channel.PageCount;
-        while (releasedPages.Contains(boundary)) boundary++;
-        return boundary;
-    }
-
     private void EnsurePhysicalAllocation(int page, ReleasedPages releasedPages)
     {
         while (_channel.PageCount < page)
         {
-            if (!releasedPages.Contains(_channel.PageCount))
+            (MapRecord free, _) = ReadGlobalMaps();
+            int bit = _channel.PageCount - _reservationStart;
+            bool reserved = bit >= 0 && bit < 32 && (_reservationBits & (1u << bit)) != 0;
+            reserved |= _groups.Values.Any(g => _channel.PageCount >= g.Start && _channel.PageCount < g.Start + 8
+                && (g.Bits & (1 << (_channel.PageCount - g.Start))) != 0);
+            if (!releasedPages.Contains(_channel.PageCount) && !reserved && !IsFree(_channel.PageCount, free, releasedPages))
                 throw new InvalidDataException(
                     $"Global free map selected page {page} past a gap at page {_channel.PageCount} that is neither free nor released.");
             Append();

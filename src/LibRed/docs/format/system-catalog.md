@@ -459,7 +459,9 @@
   > **ACE's `CREATE VIEW` takes a simple SELECT only, where `CREATE PROCEDURE` takes more** (verified): a view with an
   > `ORDER BY` (with or without a `TOP`) or an `INTO` is refused with *"Only simple SELECT queries are allowed in
   > VIEWS."*, and one with a `UNION` with *"Unions not allowed in a subquery."*, as LibRed refuses them; a procedure
-  > accepts all three.
+  > accepts all three. **Nothing stored tells the two apart** (verified): a SELECT made by `CREATE VIEW` and the same
+  > one made by `CREATE PROCEDURE` write identical MSysQueries rows and MSysObjects flags, and both are listed as
+  > views.
   >
   > **A UNION query is two segments, however many SELECTs it combines** (verified, through `CREATE PROCEDURE` and
   > DAO alike). It is split at its **last** set operator: the first `0x05` row holds the text before that operator,
@@ -533,15 +535,62 @@
   > ACE writes it whenever it runs the query over a connection that can write, and writes it afresh on every such
   > run; a read-only connection writes none. `CREATE PROCEDURE` writes one at once for an `INSERT … VALUES`, a UNION
   > and a FROM-less SELECT; every other body, `CREATE VIEW` and DAO's `CreateQueryDef` write none until the query
-  > runs. It is binary, 1–7 KB on LVAL pages, beginning `FF FF FF FF B8 8A 7D 5F 06 01 00 5C`, and holds the names
-  > of the tables and columns the query reads; what the rest encodes is **not known**. It is not the same from one
-  > run to the next — the same query on the same data has given 2541 bytes and 2579. Compacting the file drops it,
-  > so a compacted file's queries carry none.
+  > runs. Compacting the file drops it, so a compacted file's queries carry none.
+  >
+  > **It is a packed memory image of the query as ACE compiled it** (layout verified, 64-bit ACE 16), 1–7 KB on
+  > LVAL pages:
+  >
+  > | Offset | Size | Meaning |
+  > | --- | --- | --- |
+  > | `0x00` | 12 | `FF FF FF FF B8 8A 7D 5F 06 01 00 5C` in every value seen |
+  > | `0x0C` | 52 | zero |
+  > | `0x40` | 4 | header length, `0x60` |
+  > | `0x44` | 4 | length from `0x60` to the end |
+  > | `0x48` | 4 | length of the unpacked image |
+  > | `0x50` | 8 | the address the image sat at in ACE's memory |
+  > | `0x58` | 4 | length of the whole value |
+  > | `0x5C` | 4 | zero |
+  > | `0x60` | 4 | length of the unpacked image again |
+  > | `0x64` | … | the image, packed: a byte `n` below `0x80` is followed by `n` bytes copied as they are, a byte with the top bit set stands for `n & 0x7F` zero bytes, and `00` ends it |
+  >
+  > The image holds 64-bit pointers into itself — absolute, at the address in `0x50` — and into the rest of ACE's
+  > memory, and UTF-16 strings: the query's name, each table it reads, each output column table-qualified
+  > (`T.A`) and its output name, the columns its predicate reads, and the index it is answered through (the
+  > primary key's name for `WHERE K = 2` or `COUNT(*)`, none for a scan or an `ORDER BY` over an unindexed
+  > column). It records the table's row count at the time it was compiled, and the `MSysObjects.DateUpdate` of the
+  > query and of each table it reads, to the second, as OLE dates — a table's last `ALTER`, not its creation. Its
+  > structures, cut at the offsets its pointers name, keep one order in every image seen:
+  >
+  > 1. a 472-byte structure at `0x00`, holding pointers to the structures after it — the 512-byte one and the
+  >    slot table among them;
+  > 2. four arrays from `0x1D8`, 8 bytes per output column each (the third holds `0x409`, which matches the
+  >    database's sort order but has not been varied to prove it), then the names, NUL-terminated UTF-16 and
+  >    8-aligned: each output column table-qualified, the column, the table;
+  > 3. a 288-byte structure carrying an OLE date;
+  > 4. a structure naming the table, 32 bytes plus 32 per output column (64, 96, 128 for one, two, three);
+  > 5. a second 288-byte structure, with the same date and the query's own name;
+  > 6. 88 bytes per output column, then the table's name again;
+  > 7. a 264-byte, a 16-byte and a 128-byte structure;
+  > 8. a 512-byte structure, `0xFF` but for its first words;
+  > 9. a further 88-byte structure per output column;
+  > 10. a 1896–1904-byte table that ends every image: pointers back to the structures above, then the same empty
+  >     entry repeated.
+  >
+  > This is the layout for a query over one table; a join's is **not known**.
+  >
+  > The rest is per feature: three 48-byte structures and a 192-byte one more for `WHERE A > 1`; a 192-byte
+  > structure naming the key and a 440-byte one for a seek on it; a 632-byte one for an `ORDER BY` or a
+  > `COUNT(*)`; and a pair of 272-byte ones for the `COUNT(*)`. Some images also hold an address inside ACE's own
+  > code (`00007FF8…`). What the fields inside each structure encode is **not known**. Rewritten on every run, it is not the same twice: the image sits
+  > at a new address, so every pointer changes, and once those are taken as offsets from `0x50` a rerun on the
+  > same data still differs in a counter and in the pointers outside the image, so even its packed length
+  > changes.
   >
   > **ACE does not rely on it.** DDL leaves it as it is, ACE's own as much as LibRed's, and the next run returns
   > what the changed schema gives: a column added to a table appears in `SELECT *`, a dropped one fails as a
-  > parameter, a table given a new index returns what it did — the same whether ACE or LibRed made the change. LibRed writes none, reads
-  > none, and leaves one it finds alone; where ACE writes one, the two files cannot be byte-identical.
+  > parameter, a table given a new index returns what it did — the same whether ACE or LibRed made the change.
+  > LibRed writes none, reads none, and leaves one it finds alone; where ACE writes one, the two files cannot be
+  > byte-identical.
   >
   > **Long `Expression` lives on an LVAL page.** `Expression` is a Memo, so a subquery longer than the
   > 64-byte inline limit is written to an LVAL page (§8) — required for Access to *run* the view (an

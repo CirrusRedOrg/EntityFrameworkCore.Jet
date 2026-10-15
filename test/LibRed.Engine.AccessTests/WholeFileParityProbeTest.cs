@@ -13,15 +13,15 @@ using Xunit;
 namespace LibRed.Engine.Tests;
 
 /// <summary>
-/// About 140 statements run through ACE over OLE DB and through LibRed on copies of one ACE-created empty database,
+/// A statement corpus run through ACE over OLE DB and through LibRed on copies of one ACE-created empty database,
 /// and the files compared byte for byte.
 /// </summary>
 /// <remarks>
 /// Two measurements. The whole run applies every statement in one session per engine and compares the two files at
 /// the end — how close LibRed comes over a realistic workload; it reports, since one early placement difference
 /// leaves every later page misaligned. Step by step applies one statement at a time, both engines starting from the
-/// same file — ACE's result of the step before — so each statement is compared on its own, and it asserts: every
-/// statement leaves identical files except the <see cref="KnownDifferences"/>, each of which must still differ.
+/// same file — ACE's result of the step before — so each statement is compared on its own, and it asserts that
+/// every statement leaves identical files.
 /// <para>Only what differs for reasons other than the format is masked: page 0's user commit-byte table, which
 /// counts a lock-file user's writes and LibRed does not keep; the wall-clock DateCreate and DateUpdate of each
 /// MSysObjects row; and a data page's write stamp at 0x08, with the copy of it a chained long value's descriptor
@@ -32,10 +32,71 @@ namespace LibRed.Engine.Tests;
 [Collection(AceCollection.Name)]
 public class WholeFileParityProbeTest(ITestOutputHelper output)
 {
-    [Fact]
-    public void The_whole_run_leaves_libred_and_ace_with_the_same_file()
+    [Theory]
+    [InlineData(0)] // The entire current corpus; explicit prefixes locate continuous-session divergence.
+    [InlineData(8, Explicit = true)]
+    [InlineData(64, Explicit = true)]
+    [InlineData(96, Explicit = true)]
+    [InlineData(117, Explicit = true)]
+    [InlineData(118, Explicit = true)]
+    [InlineData(118, 430, Explicit = true)]
+    [InlineData(118, 480, Explicit = true)]
+    [InlineData(118, 600, Explicit = true)]
+    [InlineData(118, 550, Explicit = true)]
+    [InlineData(118, 590, Explicit = true)]
+    [InlineData(118, 591, Explicit = true)]
+    [InlineData(118, 820, Explicit = true)]
+    [InlineData(118, 840, Explicit = true)]
+    [InlineData(118, 880, Explicit = true)]
+    [InlineData(118, 900, Explicit = true)]
+    [InlineData(118, 910, Explicit = true)]
+    [InlineData(118, 918, Explicit = true)]
+    [InlineData(118, -900, Explicit = true)]
+    [InlineData(118, 1000, 80, Explicit = true)]
+    [InlineData(118, 1000, 120, Explicit = true)]
+    [InlineData(118, 550, 120, Explicit = true)]
+    [InlineData(118, 580, 120, Explicit = true)]
+    [InlineData(118, 590, 120, Explicit = true)]
+    [InlineData(118, 591, 120, Explicit = true)]
+    [InlineData(118, 610, 120, Explicit = true)]
+    [InlineData(118, 1000, 200, Explicit = true)]
+    [InlineData(118, 920, Explicit = true)]
+    [InlineData(119, Explicit = true)]
+    [InlineData(120, Explicit = true)]
+    [InlineData(124, Explicit = true)]
+    [InlineData(128, Explicit = true)]
+    [InlineData(132, Explicit = true)]
+    [InlineData(136, Explicit = true)]
+    [InlineData(140, Explicit = true)]
+    [InlineData(150, Explicit = true)]
+    [InlineData(151, Explicit = true)]
+    [InlineData(155, Explicit = true)]
+    [InlineData(162, Explicit = true)]
+    [InlineData(164, Explicit = true)]
+    [InlineData(168, Explicit = true)]
+    [InlineData(176, Explicit = true)]
+    [InlineData(184, Explicit = true)]
+    [InlineData(192, Explicit = true)]
+    [InlineData(200, Explicit = true)]
+    [InlineData(247, Explicit = true)]
+    [InlineData(253, Explicit = true)]
+    [InlineData(265, Explicit = true)]
+    [InlineData(270, Explicit = true)]
+    [InlineData(300, Explicit = true)]
+    public void The_whole_run_leaves_libred_and_ace_with_the_same_file(int count, int bulkRows = 1000, int payloadLength = 150)
     {
         string[] statements = Statements();
+        if (count > 0) statements = statements[..count];
+        if (payloadLength != 150)
+            statements[117] = statements[117].Replace("String(150, 'p')", $"String({payloadLength}, 'p')", StringComparison.Ordinal);
+        if (bulkRows < 0)
+        {
+            string bulk = statements[117];
+            statements[117] = bulk.Replace("ORDER BY 1", $"WHERE a.D * 100 + b.D * 10 + c.D < {-bulkRows} ORDER BY 1", StringComparison.Ordinal);
+            statements = [.. statements, bulk.Replace("ORDER BY 1", $"WHERE a.D * 100 + b.D * 10 + c.D >= {-bulkRows} ORDER BY 1", StringComparison.Ordinal)];
+        }
+        else if (bulkRows != 1000)
+            statements[117] = statements[117].Replace("ORDER BY 1", $"WHERE a.D * 100 + b.D * 10 + c.D < {bulkRows} ORDER BY 1", StringComparison.Ordinal);
         string? origin = CreateEmptyThroughDao();
         Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
         string ace = TemporaryDatabase.CopyPath(origin, "wholefile-ace-");
@@ -43,9 +104,22 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
         string libred = TemporaryDatabase.CopyPath(origin, "wholefile-libred-");
         try
         {
-            string?[] aceErrors = RunThroughAce(ace, statements);
+            void Snapshot(string path, string label)
+            {
+                if (bulkRows == 1000 || payloadLength != 150) return;
+                Thread.Sleep(3000);
+                string snapshot = TemporaryDatabase.CopyPath(path, "continuous-live-");
+                try
+                {
+                    using var database = JetDatabase.Open(snapshot, readOnly: true);
+                    var free = PageGroupProbeTest.GlobalFree(database.OpenTable("Bulk"), 256);
+                    output.WriteLine($"{label} live free: {string.Join(",", free.Where(p => p >= 140 && p < 240).Order())}");
+                }
+                finally { TemporaryDatabase.Delete(snapshot); }
+            }
+            string?[] aceErrors = RunThroughAce(ace, statements, () => Snapshot(ace, "ACE"));
             using (AceTestDatabase.Open(noise)) { }
-            string?[] libredErrors = RunThroughLibRed(libred, statements);
+            string?[] libredErrors = RunThroughLibRed(libred, statements, () => Snapshot(libred, "LibRed"));
 
             var report = new StringBuilder();
             report.AppendLine(CultureInfo.InvariantCulture, $"{statements.Length} statements");
@@ -54,6 +128,18 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
                     report.AppendLine(CultureInfo.InvariantCulture,
                         $"  #{i + 1} {statements[i]}\n      ACE: {aceErrors[i] ?? "ok"}\n      LibRed: {libredErrors[i] ?? "ok"}");
             report.Append(Compare(origin, ace, noise, libred).Report);
+            if (statements.Length >= 117)
+            {
+                report.AppendLine($"ACE placement: {PageGroupProbeTest.Runs(ace)}");
+                report.AppendLine($"LibRed placement: {PageGroupProbeTest.Runs(libred)}");
+                foreach (string path in new[] { ace, libred })
+                {
+                    using var database = JetDatabase.Open(path, readOnly: true);
+                    Table bulk = database.OpenTable("Bulk");
+                    foreach (var index in bulk.Definition.Indexes)
+                        report.AppendLine($"{(path == ace ? "ACE" : "LibRed")} {index.Name} pages: {string.Join(",", bulk.UsageMap.PagesInMap(index.UsageMap.Row, index.UsageMap.Page))}");
+                }
+            }
             output.WriteLine(report.ToString());
         }
         finally
@@ -62,8 +148,11 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
         }
     }
 
-    [Fact]
-    public void Each_statement_leaves_libred_and_ace_with_the_same_file()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(138)]
+    [InlineData(-1)] // The bulk-allocation statement, independent of corpus numbering.
+    public void Each_statement_leaves_libred_and_ace_with_the_same_file(int statement)
     {
         string[] statements = Statements();
         string? origin = CreateEmptyThroughDao();
@@ -78,13 +167,28 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             for (int i = 0; i < statements.Length; i++)
             {
                 string ace = TemporaryDatabase.CopyPath(current, $"stepfile-ace{i}-");
+                bool selected = statement == 0 || statement > 0 && i + 1 == statement
+                    || statement == -1 && statements[i].StartsWith("INSERT INTO Bulk (Id, Grp, Label, Payload, Amount) SELECT", StringComparison.Ordinal);
+                if (!selected)
+                {
+                    Assert.Null(RunThroughAce(ace, [statements[i]])[0]);
+                    if (current != origin) TemporaryDatabase.Delete(current);
+                    current = ace;
+                    continue;
+                }
                 string noise = TemporaryDatabase.CopyPath(current, $"stepfile-noise{i}-");
                 string libred = TemporaryDatabase.CopyPath(current, $"stepfile-libred{i}-");
                 string? aceError = RunThroughAce(ace, [statements[i]])[0];
                 using (AceTestDatabase.Open(noise)) { }
                 string? libredError = RunThroughLibRed(libred, [statements[i]])[0];
+                CopyQueryPlans(ace, libred);
 
                 (string report, int pages) = Compare(current, ace, noise, libred);
+                if (statement == -1)
+                {
+                    output.WriteLine($"ACE placement: {PageGroupProbeTest.Runs(ace)}");
+                    output.WriteLine($"LibRed placement: {PageGroupProbeTest.Runs(libred)}");
+                }
                 string outcome = aceError is not null || libredError is not null
                     ? $"ACE: {aceError ?? "ok"} | LibRed: {libredError ?? "ok"}"
                     : pages == 0 ? "identical" : $"{pages} page(s) differ";
@@ -99,6 +203,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
                 current = ace;
                 TemporaryDatabase.Delete(noise);
                 TemporaryDatabase.Delete(libred);
+                if (statement != 0) break;
             }
 
             output.WriteLine($"{same} of {statements.Length} statements left identical files\n{summary}\n{details}");
@@ -106,10 +211,8 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             var unexpected = new List<string>();
             for (int i = 0; i < statements.Length; i++)
             {
-                string? known = KnownDifferences.FirstOrDefault(k => statements[i].StartsWith(k.Statement, StringComparison.Ordinal)).Reason;
-                if (outcomes[i] == "identical" && known is not null)
-                    unexpected.Add($"#{i + 1} is now identical; remove it from the known differences: {Abbreviate(statements[i])}");
-                else if (outcomes[i] != "identical" && (known is null || !outcomes[i].EndsWith("differ", StringComparison.Ordinal)))
+                if (outcomes[i] is null) continue;
+                if (outcomes[i] != "identical")
                     unexpected.Add($"#{i + 1} {outcomes[i]}: {Abbreviate(statements[i])}");
             }
             Assert.True(unexpected.Count == 0, string.Join("\n", unexpected));
@@ -121,15 +224,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
         }
     }
 
-    /// <summary>The statements, by how each begins, that ACE and LibRed are known to leave differently — each a
-    /// placement difference with every pointer correct — and why.</summary>
-    private static readonly (string Statement, string Reason)[] KnownDifferences =
-    [
-        ("INSERT INTO Bulk (Id, Grp, Label, Payload, Amount) SELECT",
-            "ACE allocates from session extents and 8-page groups (PageGroupProbeTest); LibRed takes the lowest free page"),
-    ];
-
-    /// <summary>A hundred statements over six tables: creates with every ordinary column type and each kind of
+    /// <summary>Statements over ordinary column types and each kind of
     /// constraint, inserts, updates and deletes, more inserts into the space the deletes freed, a column added,
     /// retyped and dropped, indexes made and dropped, and a table dropped and another made after it. Then what
     /// spans pages: a thousand rows from one <c>INSERT … SELECT</c> over many data pages with a text index grown
@@ -555,7 +650,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
 
     private static string Abbreviate(string statement) => statement.Length <= 90 ? statement : statement[..87] + "...";
 
-    private static string?[] RunThroughAce(string path, string[] statements)
+    private static string?[] RunThroughAce(string path, string[] statements, Action? beforeClose = null)
     {
         var errors = new string?[statements.Length];
         using OleDbConnection connection = AceTestDatabase.Open(path);
@@ -569,10 +664,11 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             }
             catch (OleDbException e) { errors[i] = e.Message; }
         }
+        beforeClose?.Invoke();
         return errors;
     }
 
-    private static string?[] RunThroughLibRed(string path, string[] statements)
+    private static string?[] RunThroughLibRed(string path, string[] statements, Action? beforeClose = null)
     {
         var errors = new string?[statements.Length];
         using var database = JetDatabase.Open(path, readOnly: false);
@@ -584,6 +680,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             catch (Exception e) { errors[i] = $"{e.GetType().Name}: {e.Message}"; }
 #pragma warning restore CA1031
         }
+        beforeClose?.Invoke();
         return errors;
     }
 
@@ -779,6 +876,37 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
                 }
             }
         }
+    }
+
+    /// <summary>Gives each query in LibRed's file the <c>MSysObjects.Lv</c> ACE's has, through LibRed's own row update.
+    /// It is ACE's compiled plan, a memory image with heap and code addresses in it that ACE rewrites on every run
+    /// (system-catalog.md), so its bytes can never match; only they are taken from ACE — the row's descriptor, the
+    /// LVAL page and the maps the value brings are still LibRed's to write, and compared.</summary>
+    private static void CopyQueryPlans(string acePath, string libredPath)
+    {
+        Dictionary<string, byte[]> plans = new(StringComparer.OrdinalIgnoreCase);
+        using (var ace = JetDatabase.Open(acePath, readOnly: true))
+            foreach ((string name, byte[]? plan, _, _) in QueryRows(ace))
+                if (plan is not null) plans[name] = plan;
+
+        using var libred = JetDatabase.Open(libredPath, readOnly: false);
+        foreach ((string name, byte[]? plan, RowId id, object?[] values) in QueryRows(libred))
+        {
+            if (!plans.TryGetValue(name, out byte[]? acePlan) || plan is not null && plan.AsSpan().SequenceEqual(acePlan)) continue;
+            int lv = libred.Catalog.FindTable("MSysObjects")!.FindColumn("Lv")!.Index;
+            values[lv] = acePlan;
+            libred.OpenTable("MSysObjects").Update(id, values, new HashSet<int> { lv });
+        }
+    }
+
+    /// <summary>Every stored query's MSysObjects row: its name, its <c>Lv</c>, its id and its values.</summary>
+    private static List<(string Name, byte[]? Plan, RowId Id, object?[] Values)> QueryRows(JetDatabase database)
+    {
+        TableDefinition objects = database.Catalog.FindTable("MSysObjects")!;
+        int name = objects.FindColumn("Name")!.Index, type = objects.FindColumn("Type")!.Index, lv = objects.FindColumn("Lv")!.Index;
+        return [.. database.OpenTable("MSysObjects").Rows().WithIds()
+            .Where(r => r.Values[type] is short t && t == 5)
+            .Select(r => ((string)r.Values[name]!, r.Values[lv] as byte[], r.Id, r.Values))];
     }
 
     /// <summary>An empty ACE 12 database made by DAO, the path Access itself takes; null where DAO is missing.</summary>

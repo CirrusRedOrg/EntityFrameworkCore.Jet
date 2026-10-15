@@ -478,7 +478,7 @@ public sealed class PageChannel : IDisposable
         ClearTransactionState();
         _schemaDirty = false;
         _txPageCount = PageCount; // committed count at start (PageCount is still file-based while _active is null)
-        return _active = new Transaction(_txPageCount);
+        return _active = new Transaction(_txPageCount, Allocator.State);
     }
 
     /// <summary>Commits the current transaction: publishes every buffered overlay page to disk and the shared
@@ -490,6 +490,7 @@ public sealed class PageChannel : IDisposable
     public void CommitTransaction(bool flush = true)
     {
         if (_active is null) return;
+        Allocator.ReturnGroups();
 
         int[] pages = _overlay.Keys.ToArray();
         Array.Sort(pages);
@@ -580,6 +581,7 @@ public sealed class PageChannel : IDisposable
     public void RollbackTransaction()
     {
         if (_active is null) return;
+        if (_active.AllocationAt(new Savepoint(0)) is { } allocation) Allocator.State = allocation;
         ClearTransactionState();   // including the staged releases: a rolled-back free frees nothing
         _schemaDirty = false;
         _active = null;
@@ -665,7 +667,7 @@ public sealed class PageChannel : IDisposable
     {
         if (_active is null)
             throw new InvalidOperationException("No transaction is in progress.");
-        return _active.Save(_txPageCount, _releasing.Count, _dependencies.Count);
+        return _active.Save(_txPageCount, _releasing.Count, _dependencies.Count, Allocator.State);
     }
 
     /// <summary>Rolls the transaction back to <paramref name="savepoint"/>: undoes every write made since it was
@@ -676,6 +678,7 @@ public sealed class PageChannel : IDisposable
             throw new InvalidOperationException("No transaction is in progress.");
         int releaseCount = _active.ReleaseCountAt(savepoint);
         int dependencyCount = _active.DependencyCountAt(savepoint);
+        if (_active.AllocationAt(savepoint) is { } allocation) Allocator.State = allocation;
         var (before, pageCount) = _active.TakeForRollbackTo(savepoint);
         RestoreOverlay(before, pageCount);
         _releasing.RemoveRange(releaseCount, _releasing.Count - releaseCount);

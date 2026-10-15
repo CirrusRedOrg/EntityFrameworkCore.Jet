@@ -483,7 +483,8 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
 
         // Tables refilled through INSERT … SELECT, then multi-table UPDATE and DELETE through joins; constraints and
         // indexes added and dropped over rows; long values grown and nulled; columns retyped, dropped and added
-        // with a default; make-tables with DISTINCT and TOP; reserved names; and a fresh AutoNumber memo table.
+        // with a default; make-tables with DISTINCT and TOP; reserved names; a fresh AutoNumber memo table; two UNION
+    // procedures; and indexes sharing one data block with another index or a relationship, then dropped.
         s.AddRange(
         [
             "INSERT INTO Orders (OrderId, CustomerId, Placed, Total) SELECT 2000 + Id, Id, Joined, Credit FROM Customer",
@@ -520,6 +521,27 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             "UPDATE Notes2 SET Body = Body & Body WHERE Id = 2",
             "DELETE FROM Notes2 WHERE Id = 1",
             "INSERT INTO Notes2 (Body) SELECT Name FROM Customer",
+            "CREATE PROCEDURE pUnion (who TEXT(20)) AS SELECT Name FROM Customer WHERE Name <> who " +
+                "UNION SELECT Code FROM Product ORDER BY Name DESC",
+            "CREATE PROCEDURE pUnionAll AS TABLE Seq UNION ALL SELECT Id, Label, Extra FROM Seq WITH OWNERACCESS OPTION",
+            "CREATE INDEX ixSeqLabelA ON Seq (Label)",
+            "CREATE INDEX ixSeqLabelB ON Seq (Label)",
+            "DROP INDEX ixSeqLabelA ON Seq",
+            "CREATE INDEX ixOrdersCustomer ON Orders (CustomerId)",
+            "DROP INDEX ixOrdersCustomer ON Orders",
+            "CREATE INDEX ixOrdersCustomer2 ON Orders (CustomerId)",
+            "ALTER TABLE Orders DROP CONSTRAINT fkOrderCustomer",
+            "CREATE TABLE ShP (Id LONG CONSTRAINT pkShP PRIMARY KEY)",
+            "CREATE TABLE ShC (Id LONG, P LONG)",
+            "CREATE INDEX ixShCP ON ShC (P)",
+            "ALTER TABLE ShC ADD CONSTRAINT fkShC FOREIGN KEY (P) REFERENCES ShP (Id)",
+            "DROP TABLE ShC",
+            "CREATE TABLE ShU (K LONG, C TEXT(10), CONSTRAINT u1 UNIQUE (C), CONSTRAINT u2 UNIQUE (C))",
+            "CREATE TABLE ShU2 (C TEXT(10) CONSTRAINT u3 UNIQUE, M MEMO, CONSTRAINT u4 UNIQUE (C))",
+            "CREATE TABLE ShF (K LONG, P LONG, CONSTRAINT r1 FOREIGN KEY (P) REFERENCES ShP (Id), " +
+                "CONSTRAINT r2 FOREIGN KEY (P) REFERENCES Seq (Id))",
+            "INSERT INTO ShU (K, C) VALUES (1, 'a')",
+            "DROP INDEX u1 ON ShU",
         ]);
 
         return [.. s];

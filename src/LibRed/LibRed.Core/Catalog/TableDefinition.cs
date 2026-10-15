@@ -65,6 +65,13 @@ public sealed class TableDefinition : Page
     public ColumnDef? FindColumn(string name) =>
         Columns.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>The real index the logical index <paramref name="name"/> names. Found through the logical indexes:
+    /// on a data block several of them share, <see cref="Indexes"/> carries only one of their names.</summary>
+    public IndexDef? FindIndex(string name) =>
+        LogicalIndexes.FirstOrDefault(l => string.Equals(l.Name, name, StringComparison.OrdinalIgnoreCase)) is { } logical
+            ? Indexes.First(i => i.RealIndexOrdinal == logical.RealIndexOrdinal)
+            : null;
+
     /// <summary>The column, or the error naming the table that is missing it — the partner of
     /// <see cref="JetCatalog.RequireTable"/>, for a column the caller's own correctness depends on rather than
     /// one the schema may or may not have.</summary>
@@ -1627,35 +1634,33 @@ public sealed class TableDefinition : Page
         return (columnId, variableIndex);
     }
 
-    /// <summary>Removes a data index (its stats + data block at <paramref name="removeDataOrdinal"/>,
-    /// decrementing the data-ordinal reference of every remaining info block that pointed past it)
-    /// and every logical block matching <paramref name="removeLogical"/> (with its name).</summary>
-    internal static void RemoveIndexBlocks(JetFormatBase format, Parts parts, int? removeDataOrdinal, Func<(byte[] Info, byte[] Name), bool> removeLogical)
+    /// <summary>Removes every logical block matching <paramref name="removeLogical"/> (with its name) and the data
+    /// index at <paramref name="removeDataOrdinal"/> (its stats + data block, decrementing the data-ordinal reference
+    /// of every remaining info block that pointed past it) — unless a remaining logical block still names that data
+    /// index, which then stays. Returns whether the data index went.</summary>
+    internal static bool RemoveIndexBlocks(JetFormatBase format, Parts parts, int? removeDataOrdinal, Func<(byte[] Info, byte[] Name), bool> removeLogical)
     {
         // The logical blocks go first, so what is left is exactly what has to survive the renumbering below.
         parts.Logical.RemoveAll(b => removeLogical(b));
+        if (removeDataOrdinal is not int ord)
+            return false;
 
-        if (removeDataOrdinal is int ord)
-        {
-            // One data block can be named by more than one logical block — a primary key that also backs a
-            // relationship is the everyday case — and the renumbering below only moves references PAST the
-            // block being removed. A surviving reference EQUAL to it would silently come to name whichever
-            // index slid into the slot: same table, same file, an index quietly pointing at another index's
-            // B-tree. The callers guard against this by refusing to drop an index a relationship uses; this is
-            // the structural check behind that, so a route that ever gets here says so instead of writing it.
-            List<(byte[] Block, LogicalIndexSpec Info)> survivors =
-                [.. parts.Logical.Select(b => (b.Info, ReadInfoBlock(b.Info, format, ReadName(new PageBuffer(b.Name, 0), 0, "logical index", format).Name)))];
-            foreach ((_, LogicalIndexSpec info) in survivors)
-                if (info.DataOrdinal == ord)
-                    throw new InvalidOperationException(
-                        $"Cannot remove index-data block {ord}: logical index '{info.Name}' still refers to it.");
+        // One data block can be named by more than one logical block: a primary key that also backs a relationship,
+        // and an index ACE created over the same columns, direction and flags as one already there — a plain
+        // index's or a relationship's, whichever came first — which names that index's block rather than taking
+        // its own. Dropping either of those leaves the block to the other (verified vs ACE, for DROP INDEX and DROP
+        // CONSTRAINT alike).
+        List<(byte[] Block, LogicalIndexSpec Info)> survivors =
+            [.. parts.Logical.Select(b => (b.Info, ReadInfoBlock(b.Info, format, ReadName(new PageBuffer(b.Name, 0), 0, "logical index", format).Name)))];
+        if (survivors.Any(s => s.Info.DataOrdinal == ord))
+            return false;
 
-            parts.Stats.RemoveAt(ord);
-            parts.DataBlocks.RemoveAt(ord);
-            foreach ((byte[] block, LogicalIndexSpec info) in survivors)
-                if (info.DataOrdinal > ord)
-                    WriteInfoBlock(block, format, info with { DataOrdinal = info.DataOrdinal - 1 });
-        }
+        parts.Stats.RemoveAt(ord);
+        parts.DataBlocks.RemoveAt(ord);
+        foreach ((byte[] block, LogicalIndexSpec info) in survivors)
+            if (info.DataOrdinal > ord)
+                WriteInfoBlock(block, format, info with { DataOrdinal = info.DataOrdinal - 1 });
+        return true;
     }
 
     /// <summary>Maps an absolute definition offset to the page holding it and the offset within that page.</summary>

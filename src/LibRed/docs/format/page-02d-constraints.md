@@ -167,8 +167,9 @@ something *references* it. So the budget is:
 ```
 
 The child side of a foreign key is a real index and costs one from each count — its **own**, even when a
-primary key or unique index already covers exactly those columns; only the parent end is free of storage,
-reusing the index already over the referenced columns. So being *referenced* is what spends the
+primary key or unique index already covers exactly those columns, though not when a plain index does (§3.6,
+*One data block, several logical indexes*); only the parent end is free of storage, reusing the index already
+over the referenced columns. So being *referenced* is what spends the
 budget invisibly. A self-reference lands both ends on one table: one data block, two logical blocks.
 
 Because a data block must be named by a logical block, `0x33 ≤ 0x2F` always holds — which makes `0x2F` the
@@ -218,7 +219,8 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > table gives its FK-column index a *single* logical block that **is** the relationship: `index_num2` → the FK-column data
 > block, `0x0C = 0x02` (outgoing), `0x11` = parent page, `0x17 = 0x02`, name = the constraint name.
 > That FK-column data block is a real index of the relationship's own, never shared with a primary key or
-> unique index over the same columns, and it is **non-unique unless the relationship is one-to-one**
+> unique index over the same columns (a plain index over them is another matter, below), and it is
+> **non-unique unless the relationship is one-to-one**
 > (`MSysRelationships.grbit` `0x01`, which SQL never sets): then its unique flag (§3.5, `0x2E` bit `0x01`)
 > is set, and ACE refuses a second child row with the same key (verified vs ACE, on a child primary-key column
 > and on a plain one).
@@ -241,6 +243,22 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > survivors' `index_num` (only their data ordinals shift), so the free numbers are gaps: neither the logical
 > block count (which collides with a live block, leaving two blocks claiming the number each end's `0x0D`
 > cross-link names) nor `max(index_num) + 1` is the number ACE uses.
+>
+> **One data block, several logical indexes.** A new index over exactly the columns, directions and flags
+> (§3.5 `0x2E`) of a data block the table already has takes no block of its own: its logical block names that
+> one, and nothing else is written — no statistics, no root, no usage-map row (verified vs ACE). What kind each
+> index is does not enter into it, only the block: two plain indexes over `(C)` share, as do two unique ones,
+> two `IGNORE NULL` ones, two descending ones, a unique index and a `UNIQUE` constraint, a unique
+> `DISALLOW NULL` index and the primary key (`0x89` both), two relationships over one column, and a plain index
+> and a relationship's child index — whichever of a pair came first, and inside one `CREATE TABLE` as well. A
+> flag or a column apart keeps them apart: plain beside unique, `IGNORE NULL` or `DISALLOW NULL`, ascending beside
+> descending, a relationship beside a `UNIQUE` or the primary key over its column, a column list beside a prefix
+> of it. Dropping one of the names — `DROP INDEX`, or `DROP CONSTRAINT` for a relationship — takes only its
+> logical block and name; the data block, its statistics and its B-tree stay with the name that is left
+> (verified). In a `CREATE TABLE` the constraint declared later is the one that shares: it takes no usage-map
+> row and no root, so the rows and roots go to the others in declaration order as if it were not there
+> (verified, with a long-value column between the two). LibRed shares exactly so on `CREATE TABLE`,
+> `CREATE INDEX` and `ALTER TABLE … ADD CONSTRAINT`.
 >
 > The parent key must be a **unique or primary** index over the referenced columns. Over a plain
 > non-unique index ACE refuses the relationship — *"No unique index found for the referenced field of the

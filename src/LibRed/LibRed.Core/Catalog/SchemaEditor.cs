@@ -196,8 +196,24 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // many *whole* columns as fit (a page holds ~57 inline records). Once the primary page is full, each
         // remaining long-value column gets its OWN usage-map page (owned = row 0, free = row 1). All maps
         // start empty. This keeps a wide table's per-column maps from overflowing a single page.
+        // A constraint over the same columns and of the same kind as one declared before it — two UNIQUEs, two
+        // foreign keys — takes that one's data block, as an index added later does (InsertIndex; verified vs ACE):
+        // the kind decides the block's flags. Each plan's data ordinal is its own, numbered among the plans that have
+        // one, or the one it shares; only an owner has a usage map, a root and a data block.
+        int[] dataOrdinal = new int[indexPlans.Count];
+        var owners = new List<int>();
+        for (int i = 0; i < indexPlans.Count; i++)
+        {
+            var plan = indexPlans[i];
+            int match = owners.FindIndex(o => indexPlans[o].IsPk == plan.IsPk && indexPlans[o].IsUnique == plan.IsUnique
+                && indexPlans[o].Columns.SequenceEqual(plan.Columns, StringComparer.OrdinalIgnoreCase));
+            dataOrdinal[i] = match >= 0 ? match : owners.Count;
+            if (match < 0) owners.Add(i);
+        }
+        bool Owns(int i) => owners[dataOrdinal[i]] == i;
+
         int mapsPerPage = UsageMap.RecordsFitting(format, format.PageSize - format.DataRowDirectoryOffset);
-        int primaryRecords = 2 + indexPlans.Count; // data owned/free + one per index
+        int primaryRecords = 2 + owners.Count; // data owned/free + one per data block
         int colsOnPrimary = Math.Clamp((mapsPerPage - primaryRecords) / 2, 0, longValueCols.Count);
         _channel.WritePage(usageMapPage, UsageMap.NewMapPage(format, primaryRecords + colsOnPrimary * 2));
 
@@ -216,8 +232,8 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // constraints, it is the columns before it, which is what places it among the long-value columns — and
         // its root among the columns' extended properties, below.
         int[] columnsBefore = [.. indexPlans.Select(p => p.DeclaredAfter - indexPlans.Count(q => q.DeclaredAfter < p.DeclaredAfter))];
-        var claims = indexPlans
-            .Select((p, i) => (Sort: (columnsBefore[i], Constraint: 0, i), Index: i, LongValue: -1))
+        var claims = owners
+            .Select(i => (Sort: (columnsBefore[i], Constraint: 0, i), Index: i, LongValue: -1))
             .Concat(longValueCols.Take(colsOnPrimary)
                 .Select((c, j) => (Sort: (c.Position, Constraint: 1, j), Index: -1, LongValue: j)))
             .OrderBy(c => c.Sort);
@@ -253,8 +269,8 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // relationship's rows (both below); until then the definition names page 0.
         bool HasProperties(ColumnSpec c) => defaults.ContainsKey(c.Name) || !c.IsNullable || c.CalculatedExpression is not null;
         bool[] afterProperties = [.. columnsBefore.Select(n => columns.Take(n).Any(HasProperties))];
-        var indexes = new List<IndexSpec>(indexPlans.Count);
-        for (int i = 0; i < indexPlans.Count; i++)
+        var indexes = new List<IndexSpec>(owners.Count);
+        foreach (int i in owners)
         {
             var plan = indexPlans[i];
             int rootPage = 0;
@@ -267,8 +283,8 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
                 rootPage, UsageMapRow: indexRows[i], UsageMapPage: usageMapPage));
         }
 
-        // Build the child's logical index-info blocks. A plain index (PK) maps 1:1 to its data block;
-        // a foreign key's data block instead carries the *outgoing* relationship block (§3.6), linked
+        // Build the child's logical index-info blocks, one per plan, each naming its plan's data block. A plain
+        // index's (PK's) is a plain block; a foreign key's instead carries the *outgoing* relationship block (§3.6), linked
         // to an *incoming* block. The two ends cross-reference by index_num. For a cross-table FK the
         // incoming block is added to the parent's TDEF; for a self-reference it lives in this same TDEF.
         var childLogical = new List<TableDefinition.LogicalIndexSpec>(indexPlans.Count);
@@ -282,7 +298,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             var plan = indexPlans[i];
             if (plan.Fk is null)
             {
-                childLogical.Add(TableDefinition.LogicalIndexSpec.Plain(i, i, plan.IsPk, plan.Name));
+                childLogical.Add(TableDefinition.LogicalIndexSpec.Plain(i, dataOrdinal[i], plan.IsPk, plan.Name));
                 continue;
             }
 
@@ -296,11 +312,11 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             if (string.Equals(fk.ReferencedTable, name, StringComparison.OrdinalIgnoreCase))
             {
                 // Only a key declared before the reference serves: ACE refuses one declared after it (verified).
-                int refOrdinal = SelfReferencedOrdinal(indexPlans.GetRange(0, i), fk);
+                int refOrdinal = dataOrdinal[SelfReferencedOrdinal(indexPlans.GetRange(0, i), fk)];
                 int inNum = selfIncomingNum++;
                 // Outgoing block (this table's child side) — NO INDEX flags it 0x03 instead of 0x02.
                 childLogical.Add(new TableDefinition.LogicalIndexSpec(
-                    Number: i, DataOrdinal: i, FkType: outgoingType, FkNumber: (uint)inNum,
+                    Number: i, DataOrdinal: dataOrdinal[i], FkType: outgoingType, FkNumber: (uint)inNum,
                     FkTablePage: tdefPage, UpdateAction: upd, DeleteAction: del,
                     Type: IndexInfoType.Foreign, Name: fk.Name));
                 // Incoming block (this table's parent side), hidden ".r" name unique within the table.
@@ -318,7 +334,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             parentAdds[parentPage] = parentNum;
 
             childLogical.Add(new TableDefinition.LogicalIndexSpec(
-                Number: i, DataOrdinal: i, FkType: outgoingType,
+                Number: i, DataOrdinal: dataOrdinal[i], FkType: outgoingType,
                 FkNumber: (uint)parentNum, FkTablePage: parentPage, UpdateAction: upd, DeleteAction: del,
                 Type: IndexInfoType.Foreign, Name: fk.Name));
             incoming.Add(new IncomingRelationship(parentPage, parentNum, refOrd,
@@ -352,7 +368,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             new UsageMap(_channel).SetBit(indexRows[i], usageMapPage, rootPage, set: true);
             _catalog.Invalidate();
             TableDefinition created = _catalog.RequireTable(name);
-            new IndexTree(_channel, created).UpdateIndexRoot(created.Indexes.First(ix => ix.RealIndexOrdinal == i), rootPage);
+            new IndexTree(_channel, created).UpdateIndexRoot(created.Indexes.First(ix => ix.RealIndexOrdinal == dataOrdinal[i]), rootPage);
         }
 
         // The extended properties are written ONE AT A TIME, in column order with DefaultValue before Required:
@@ -376,10 +392,10 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             if (defaults.TryGetValue(col.Name, out PropertyBlob.Property def)) Write(def);
             if (!col.IsNullable) Write(PropertyBlob.Bool(col.Name, PropertyBlob.RequiredProperty, true));
             foreach (PropertyBlob.Property calculated in CalculatedProperties(col)) Write(calculated);
-            for (int i = 0; i < indexPlans.Count; i++)
+            foreach (int i in owners)
                 if (afterProperties[i] && indexPlans[i].Fk is null && columnsBefore[i] == position + 1) AllocateRoot(i);
         }
-        for (int i = 0; i < indexPlans.Count; i++)
+        foreach (int i in owners)
             if (afterProperties[i] && indexPlans[i].Fk is null && columnsBefore[i] > columns.Count) AllocateRoot(i);
         if (checkConstraints.Count > 0)
             Write(new PropertyBlob.Property("", PropertyBlob.CheckConstraintsProperty,
@@ -394,7 +410,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         {
             if (indexPlans[i].Fk is not { } fk) continue;
             AddRelationshipRows(name, fk);
-            AllocateRoot(i);
+            if (Owns(i)) AllocateRoot(i);
         }
         foreach (IncomingRelationship inc in incoming)
             AddIncomingRelationshipBlock(inc);
@@ -713,9 +729,10 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             : throw new InvalidOperationException($"Column '{c.Column}' does not exist in '{table.Name}'.")).ToList();
     }
 
-    /// <summary>Surgically inserts one data index and its logical info block into an existing table's TDEF,
-    /// name-sorted. <paramref name="buildInfo"/> gets (block number, data-block ordinal) and returns the info
-    /// block's fields — a plain index or an outgoing-FK block. Returns the new block number.</summary>
+    /// <summary>Surgically inserts one index into an existing table's TDEF: its logical info block, name-sorted, and
+    /// its data index — or, where the table has a data block over the same columns, directions and flags, that one.
+    /// <paramref name="buildInfo"/> gets (block number, data-block ordinal) and returns the info block's fields — a
+    /// plain index or an outgoing-FK block. Returns the new block number.</summary>
     private int InsertIndex(TableDefinition table, string indexName, List<(int Id, bool Ascending)> slots,
         bool unique, bool required, bool ignoreNulls, Func<int, int, TableDefinition.LogicalIndexSpec> buildInfo)
     {
@@ -726,7 +743,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // finds an index by name with First/FirstOrDefault, so two blocks sharing one name make those operations
         // pick an arbitrary block — a DROP that removes the wrong one.
         JetTextComparer names = JetTextComparer.For(_collation);
-        if (table.Indexes.Any(i => names.Equals(i.Name, indexName)))
+        if (table.LogicalIndexes.Any(l => names.Equals(l.Name, indexName)))
             throw new InvalidOperationException(
                 $"Table '{table.Name}' already has an index named '{indexName}'.");
 
@@ -753,13 +770,33 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             EnsureExistingRowsFitIndex(table, indexName, slots, unique, required);
 
         int dataCount = parts.DataBlocks.Count;
+        bool complexColumn = slots.Any(s => table.Columns.Any(c => c.ColumnId == s.Id && c.Type == JetDataType.Complex));
+        byte[] dataBlock = TableDefinition.BuildDataBlock(format, slots, rootPage: 0, usageRow: 0, usagePage: 0,
+            unique, ignoreNulls, required, complexColumn);
 
-        // A plain index or an outgoing FK adds one of each. Checked before a byte moves, like the
-        // duplicate-key scan above, so a rejection leaves the file exactly as it was.
-        EnsureIndexCapacity(table.Name, $"index '{indexName}'", dataCount + 1, parts.Logical.Count + 1);
+        // An index over the same columns, in the same directions and with the same flags as a data block the table
+        // has takes no block of its own — whatever either is, a plain index, a key or a relationship's: its logical
+        // block names that one (verified vs ACE). Everything but the block's B-tree has to match.
+        int shared = parts.DataBlocks.FindIndex(existing =>
+        {
+            byte[] keyOnly = [.. existing];
+            TableDefinition.WriteIndexTree(keyOnly, format, rootPage: 0, usageRow: 0, usagePage: 0);
+            return keyOnly.AsSpan().SequenceEqual(dataBlock);
+        });
+
+        // A plain index or an outgoing FK adds a logical block, and a data block unless it shares one. Checked
+        // before a byte moves, like the duplicate-key scan above, so a rejection leaves the file exactly as it was.
+        EnsureIndexCapacity(table.Name, $"index '{indexName}'", shared < 0 ? dataCount + 1 : dataCount, parts.Logical.Count + 1);
 
         // The new block takes the lowest free index_num.
         int newNum = NextLogicalIndexNumber(table.DefinitionPage);
+        if (shared >= 0)
+        {
+            InsertLogicalBlock(parts, indexName, buildInfo(newNum, shared));
+            WriteTdef(table.DefinitionPage, parts);
+            _catalog.Invalidate();
+            return newNum;
+        }
 
         // Allocate the new index's root (empty leaf) and its usage-map row (appended after existing rows).
         int rootPage = AllocateIndexRoot(format, table.DefinitionPage);
@@ -792,14 +829,11 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // page until it splits, after which IndexTree adds each page it allocates).
         new UsageMap(_channel).SetBit(newIndexUsageRow, usageMapPage, rootPage, set: true);
 
-        // The new index adds a (zero) stats block and its data block after the existing ones, and a logical
-        // block in name order, in the database's collation.
+        // The new index adds a (zero) stats block and its data block after the existing ones, and a logical block.
         parts.Stats.Add(new byte[format.RealIndexEntrySize]);
-        bool complexColumn = slots.Any(s => table.Columns.Any(c => c.ColumnId == s.Id && c.Type == JetDataType.Complex));
-        parts.DataBlocks.Add(TableDefinition.BuildDataBlock(format, slots, rootPage, newIndexUsageRow, usageMapPage,
-            unique, ignoreNulls, required, complexColumn));
-        int k = parts.Logical.Count(b => names.Compare(NameOf(b.Name), indexName) < 0);
-        parts.Logical.Insert(k, (TableDefinition.BuildInfoBlock(format, buildInfo(newNum, dataCount)), TableDefinition.NameEntry(indexName, format)));
+        TableDefinition.WriteIndexTree(dataBlock, format, rootPage, newIndexUsageRow, usageMapPage);
+        parts.DataBlocks.Add(dataBlock);
+        InsertLogicalBlock(parts, indexName, buildInfo(newNum, dataCount));
 
         WriteTdef(table.DefinitionPage, parts);
         _catalog.Invalidate();
@@ -868,7 +902,8 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     {
         // The catalog's first index cannot resolve its own table until it has been back-filled.
         TableDefinition table = _catalog.ReadTableDefinition(definition.DefinitionPage, definition.Name, definition.IsSystem);
-        IndexDef index = table.Indexes.First(ix => string.Equals(ix.Name, indexName, StringComparison.OrdinalIgnoreCase));
+        IndexDef index = table.FindIndex(indexName)
+            ?? throw new InvalidOperationException($"Index '{indexName}' was not found on '{table.Name}'.");
         List<(byte[] Key, int Pointer, bool NullKey)> entries = IndexEntries(table, index, ignoreNulls);
 
         new IndexTree(_channel, table).BulkBuild(index, entries, validateUnique && index.IsUnique);
@@ -1002,7 +1037,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
 
         TableDefinition child = DesignTable(childTable);
         _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, child.Name);
-        IndexDef? fkIndex = child.Indexes.FirstOrDefault(i => string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase));
+        IndexDef? fkIndex = child.FindIndex(name);
         bool selfRef = string.Equals(rel.ReferencedTable, childTable, StringComparison.OrdinalIgnoreCase);
 
         int? childBlockNum = null;
@@ -1012,17 +1047,17 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         if (fkIndex is not null)
         {
             TableDefinition.Parts childParts = TableDefinition.ReadParts(_channel, child.DefinitionPage);
-            // The FK's backing index is an index like any other: its B-tree is released whole and its usage-map
-            // record retired.
-            QueueIndexMap(fkIndex, maps, owned, retire);
             int outgoing = OutgoingBlockNumber(childParts, name);
             childBlockNum = outgoing;
 
             // Remove the FK index (data ordinal) + its outgoing info block from the child, plus — for a
-            // self-reference — the incoming block, which also lives here.
-            TableDefinition.RemoveIndexBlocks(_channel.Format, childParts, removeDataOrdinal: fkIndex.RealIndexOrdinal, removeLogical: b =>
-                NameOf(b.Name).Equals(name, StringComparison.OrdinalIgnoreCase) ||
-                (selfRef && IsIncomingBlockFor(b, outgoing, child.DefinitionPage)));
+            // self-reference — the incoming block, which also lives here. The FK's backing index is an index like
+            // any other: its B-tree is released whole and its usage-map record retired, unless another index
+            // shares its data block and keeps it.
+            if (TableDefinition.RemoveIndexBlocks(_channel.Format, childParts, removeDataOrdinal: fkIndex.RealIndexOrdinal, removeLogical: b =>
+                    NameOf(b.Name).Equals(name, StringComparison.OrdinalIgnoreCase) ||
+                    (selfRef && IsIncomingBlockFor(b, outgoing, child.DefinitionPage))))
+                QueueIndexMap(fkIndex, maps, owned, retire);
             WriteTdef(child.DefinitionPage, childParts);
         }
 
@@ -1101,7 +1136,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         TableDefinition.Parts ownParts = TableDefinition.ReadParts(_channel, table.DefinitionPage);
         var ownRelationships = _catalog.Relationships
             .Where(r => string.Equals(r.Table, tableName, StringComparison.OrdinalIgnoreCase))
-            .Select(r => (Relationship: r, Block: table.Indexes.Any(i => string.Equals(i.Name, r.Name, StringComparison.OrdinalIgnoreCase))
+            .Select(r => (Relationship: r, Block: table.FindIndex(r.Name) is not null
                 ? OutgoingBlockNumber(ownParts, r.Name)
                 : (int?)null))
             .ToList();
@@ -1708,11 +1743,11 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     public bool DropIndex(string tableName, string indexName)
     {
         TableDefinition table = DesignTable(tableName);
-        IndexDef? index = table.Indexes.FirstOrDefault(i => string.Equals(i.Name, indexName, StringComparison.OrdinalIgnoreCase));
+        IndexDef? index = table.FindIndex(indexName);
         if (index is null) return false;
         _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, table.Name);
 
-        if (IndexParticipatesInRelationship(table, index))
+        if (IndexParticipatesInRelationship(table, index, indexName))
             throw new InvalidOperationException(
                 $"Cannot drop index '{indexName}': it is used in a relationship — drop the relationship first.");
 
@@ -1721,10 +1756,10 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         var owned = new HashSet<int>();
         var retire = new List<MapRetirement>();
         var maps = new UsageMap(_channel, table);
-        QueueIndexMap(index, maps, owned, retire);
-
-        TableDefinition.RemoveIndexBlocks(_channel.Format, parts, removeDataOrdinal: index.RealIndexOrdinal,
-            removeLogical: b => NameOf(b.Name).Equals(indexName, StringComparison.OrdinalIgnoreCase));
+        // Its B-tree goes with its data block, which another index sharing it keeps.
+        if (TableDefinition.RemoveIndexBlocks(_channel.Format, parts, removeDataOrdinal: index.RealIndexOrdinal,
+                removeLogical: b => NameOf(b.Name).Equals(indexName, StringComparison.OrdinalIgnoreCase)))
+            QueueIndexMap(index, maps, owned, retire);
         WriteTdef(table.DefinitionPage, parts);
 
         RetireMapRecords(retire, maps, owned);
@@ -1744,8 +1779,9 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// fails with "used in a relationship".
     /// <para>Two indexes are protected: on the child, the FK's backing index — named after the relationship,
     /// as both ACE and <see cref="AddForeignKey"/> create it; on the parent, the referenced key — the
-    /// unique/primary index over the referenced columns.</para></summary>
-    private bool IndexParticipatesInRelationship(TableDefinition table, IndexDef index)
+    /// unique/primary index over the referenced columns. <paramref name="name"/> is the one being dropped, which
+    /// on a data block several logical indexes share need not be the name <paramref name="index"/> carries.</para></summary>
+    private bool IndexParticipatesInRelationship(TableDefinition table, IndexDef index, string name)
     {
         var cols = index.Columns.Select(c => c.Column.Name).ToList();
         bool SameCols(IEnumerable<string> other) =>
@@ -1757,7 +1793,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // writes can have one.
         return _catalog.Relationships.Any(r =>
             (string.Equals(r.Table, table.Name, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(index.Name, r.Name, StringComparison.OrdinalIgnoreCase)) ||
+                && string.Equals(name, r.Name, StringComparison.OrdinalIgnoreCase)) ||
             (string.Equals(r.ReferencedTable, table.Name, StringComparison.OrdinalIgnoreCase)
                 && (index.IsUnique || index.IsPrimaryKey)
                 && SameCols(r.Columns.Select(c => c.ReferencedColumn))));
@@ -3031,11 +3067,17 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             "an incoming relationship", parts.DataBlocks.Count, parts.Logical.Count + 1);
 
         string newName = HiddenRelationshipName(inc.Number);
-        JetTextComparer names = JetTextComparer.For(_collation);
-        int k = parts.Logical.Count(b => names.Compare(NameOf(b.Name), newName) < 0); // name-sorted in the database's collation
-        parts.Logical.Insert(k, (TableDefinition.BuildInfoBlock(_channel.Format, inc.Spec(newName)), TableDefinition.NameEntry(newName, _channel.Format)));
+        InsertLogicalBlock(parts, newName, inc.Spec(newName));
 
         WriteTdef(inc.ParentPage, parts);
+    }
+
+    /// <summary>Inserts a logical block and its name where they sort: by name, in the database's collation (§3.6).</summary>
+    private void InsertLogicalBlock(TableDefinition.Parts parts, string name, TableDefinition.LogicalIndexSpec spec)
+    {
+        JetTextComparer names = JetTextComparer.For(_collation);
+        int k = parts.Logical.Count(b => names.Compare(NameOf(b.Name), name) < 0);
+        parts.Logical.Insert(k, (TableDefinition.BuildInfoBlock(_channel.Format, spec), TableDefinition.NameEntry(name, _channel.Format)));
     }
 
     /// <summary>An incoming block's hidden name: <c>.r</c> and the letter <c>'A' + index_num</c>, as ACE names it

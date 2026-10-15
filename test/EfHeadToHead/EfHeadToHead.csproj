@@ -14,7 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="D:\toolkits\efcorejetlibred\src\EFCore.Jet\EFCore.Jet.csproj" />
     <ProjectReference Include="D:\toolkits\efcorejetlibred\src\LibRed\LibRed.EFCore\LibRed.EFCore.csproj" />
-    <PackageReference Include="System.Data.OleDb" Version="11.0.0-rc.2.26504.105" />
+    <PackageReference Include="System.Data.OleDb" />
   </ItemGroup>
 
 </Project>

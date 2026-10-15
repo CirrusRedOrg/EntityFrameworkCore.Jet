@@ -158,7 +158,8 @@
   > statement qualified with the table's own name is stored unqualified, or inside a subquery as `U+FFFE.column`
   > — unless that subquery reads the table itself, where the qualifier is the subquery's and is kept. ACE cannot
   > evaluate a stored `table.column` (*"Could not find field"*), so a writer must not leave one.
-  > A check is otherwise stored **as written** — spacing, keyword case, `` `backtick` `` quoting and all — except
+  > A check is otherwise stored **as written** — spacing, keyword case, `` `backtick` `` quoting and all (which
+  > only newer engine builds can evaluate; see [page-02c-default-values.md](page-02c-default-values.md)) — except
   > where a qualifier was dropped outside a subquery: that expression is stored **re-formed** from its parse
   > (verified). No space about `^ * / \ + - = <> < <= > >=`; one either side of `&`, `Mod` and the word operators,
   > spelt `Not And Or Xor Eqv Imp Between In Is Exists`, with `ALike` for `LIKE`; `x <> Null` becomes

@@ -128,7 +128,7 @@ public class StoredQueryKindAccessTests
     }
 
     [Fact]
-    public void A_kind_libred_cannot_run_is_named_in_the_refusal()
+    public void A_union_authored_through_dao_is_rebuilt_as_a_query_returning_rows()
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "qkind-union-");
         try
@@ -138,11 +138,31 @@ public class StoredQueryKindAccessTests
             using var db = JetDatabase.Open(path);
             Assert.Equal((short)9, OperationFlag(db, "UniQ"));
 
+            // Its two segment rows and the option row's UNION bit, put back together; not an action query.
+            StoredQuery q = db.Catalog.FindQuery("UniQ")!;
+            Assert.False(q.IsAction);
+            Assert.Equal("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers", q.Sql);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    [Fact]
+    public void A_kind_libred_cannot_run_is_named_in_the_refusal()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "qkind-crosstab-");
+        try
+        {
+            if (!Author(path, ("CrossQ", "TRANSFORM Count(Orders.OrderID) SELECT Orders.CustomerID FROM Orders " +
+                                         "GROUP BY Orders.CustomerID PIVOT Orders.EmployeeID"))) return;
+
+            using var db = JetDatabase.Open(path);
+            Assert.Equal((short)6, OperationFlag(db, "CrossQ"));
+
             // Not executed — but the reason has to say WHICH kind. "Not supported" on its own gives a caller
             // no way to tell an unimplemented feature from a file LibRed failed to read.
-            StoredQuery q = db.Catalog.FindQuery("UniQ")!;
+            StoredQuery q = db.Catalog.FindQuery("CrossQ")!;
             Assert.Null(q.Sql);
-            Assert.Contains("UNION", q.UnsupportedReason!, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Crosstab", q.UnsupportedReason!, StringComparison.OrdinalIgnoreCase);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

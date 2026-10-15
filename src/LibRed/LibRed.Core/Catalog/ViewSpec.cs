@@ -88,6 +88,9 @@ public sealed record StoredQueryParameter(
 /// are ordinary column rows, and only the grouping keys and the group filter get rows of their own.
 /// <paramref name="TopPercent"/> makes <paramref name="Top"/> a percentage. <paramref name="OwnerAccess"/> is WITH
 /// OWNERACCESS OPTION: an option-row bit, and nothing LibRed acts on.
+/// <para>A <paramref name="Union"/> query has no columns, joins or predicate of its own: its two
+/// <paramref name="Tables"/> are its segments, each a <see cref="ViewTableSpec.SubquerySql"/> — the text before the
+/// query's last UNION and the term after it — and <paramref name="Distinct"/> is UNION as against UNION ALL.</para>
 /// </summary>
 public sealed record ViewSpec(
     bool Distinct,
@@ -101,4 +104,5 @@ public sealed record ViewSpec(
     IReadOnlyList<ViewOrderBySpec>? OrderBy = null,
     int? Top = null,
     bool TopPercent = false,
-    bool OwnerAccess = false);
+    bool OwnerAccess = false,
+    bool Union = false);

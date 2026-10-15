@@ -96,7 +96,7 @@ Treat the number as of its date — an EF Core version bump moves it.
   + `ORDER BY`**, and **derived-table / `UNION` sources** (the long subquery text lands on an LVAL page so
   Access executes it); **`CREATE PROCEDURE`** (parameterized — bare or parenthesised list, `@name`),
   including **action-query** bodies (`CREATE TABLE`, `INSERT … VALUES`, `INSERT … SELECT`, `UPDATE`, `DELETE`
-  and `SELECT … INTO`); and **`EXECUTE`/`EXEC`**.
+  and `SELECT … INTO`) and **`UNION`** bodies; and **`EXECUTE`/`EXEC`**.
   LibRed's own engine **reads them all back** — reconstructing the SQL from `MSysQueries` and expanding a
   view referenced in `FROM` (or inside an expression subquery) to a derived table — so they run through
   LibRed too. Reading is not limited to what LibRed writes: the `Attribute=1` operation row is read as the
@@ -297,8 +297,7 @@ Format-level detail on each on-disk gap lives in `docs/format/`.
 
 *SQL surface / engine gaps:*
 
-- **Stored crosstab, pass-through and UNION-kind queries** — read back as a *named* refusal rather than
-  executing.
+- **Stored crosstab and pass-through queries** — read back as a *named* refusal rather than executing.
 - **`ALTER TABLE … RENAME INDEX`** — parsed and routed, but throws: the TDEF rewrite is not implemented.
 - **Function surface** — the evaluator's whitelist isn't proven identical to ACE's JES, and `Format`'s named
   date/currency formats are locale-dependent by design (not byte-identical cross-locale).

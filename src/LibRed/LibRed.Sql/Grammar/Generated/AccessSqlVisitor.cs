@@ -492,6 +492,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitValuesTerm([NotNull] AccessSqlParser.ValuesTermContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>TableTerm</c>
+	/// labeled alternative in <see cref="AccessSqlParser.queryTerm"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitTableTerm([NotNull] AccessSqlParser.TableTermContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.setOperator"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

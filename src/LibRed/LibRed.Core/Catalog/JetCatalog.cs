@@ -771,9 +771,10 @@ public sealed class JetCatalog
             .ToList();
     }
 
-    /// <summary>Rebuilds a stored action query's executable SQL from its MSysQueries rows. Handles every kind
-    /// whose statement LibRed's engine can run — CREATE/DROP TABLE, INSERT (from VALUES or from a SELECT),
-    /// UPDATE, DELETE and make-table; the rest return an unsupported reason.</summary>
+    /// <summary>Rebuilds, from its MSysQueries rows, the executable SQL of a stored query whose operation row is not
+    /// SELECT. Handles every kind whose statement LibRed's engine can run — CREATE/DROP TABLE, INSERT (from VALUES or
+    /// from a SELECT), UPDATE, DELETE, make-table and UNION, the one of them that is not an action query; the rest
+    /// return an unsupported reason.</summary>
     private static StoredQuery ReconstructAction(
         List<object?[]> rows, int attr, int expr, int flag, int n1, int n2, int order, int lvExtra)
     {
@@ -796,7 +797,7 @@ public sealed class JetCatalog
         // The SELECT of a make-table or an append query keeps its DISTINCT, DISTINCTROW and TOP on the same option
         // row a view does, and reads back the same way; WITH OWNERACCESS OPTION ends every kind of statement, as
         // it ends a SELECT.
-        (string selecting, string owner) = SelectOptions(rows, attr, flag, n1, order);
+        (string selecting, string owner, QueryOptions options) = SelectOptions(rows, attr, flag, n1, order);
 
         switch (kind)
         {
@@ -856,6 +857,20 @@ public sealed class JetCatalog
                     return new StoredQuery(
                         $"{declared}SELECT {selecting}{selected} INTO {Quote(action[n1] as string ?? "")} FROM {intoSource.From}{Where()}{GroupingClauses(rows, attr, expr, order)}{owner}", null);
                 }
+
+            case QueryOperation.Union:
+                {
+                    // Two segment rows: the text before the query's last UNION and the term after it — ACE stores
+                    // `A UNION B UNION ALL C` as `A UNION B ` and `C` — and the option row's Distinct bit, which makes
+                    // that last UNION drop duplicates (verified).
+                    if (RowsOf(rows, attr, order, QueryAttribute.Table).Select(r => r[expr] as string).ToList()
+                        is not [{ } first, { } second])
+                        return new StoredQuery(null, "A UNION stored query without its two segments is not executed by LibRed.",
+                            IsAction: false);
+                    return new StoredQuery(
+                        $"{declared}{first.TrimEnd()} UNION {((options & QueryOptions.Distinct) == 0 ? "ALL " : "")}{second}{OrderByClause(rows, attr, expr, n1, order)}{owner}",
+                        null, IsAction: false);
+                }
         }
 
         // Everything else is stored but not executed. Name the kind: "not supported" that doesn't say what it
@@ -866,7 +881,6 @@ public sealed class JetCatalog
                 "The stored action query names no table.",
             QueryOperation.Crosstab => "Crosstab (TRANSFORM) stored queries are not executed by LibRed yet.",
             QueryOperation.PassThrough => "Pass-through stored queries are not executed by LibRed yet.",
-            QueryOperation.Union => "UNION stored queries are not executed by LibRed yet.",
             _ => $"Kind-{(short)kind} stored queries are not executed by LibRed yet.",
         };
         return new StoredQuery(null, reason);
@@ -881,8 +895,9 @@ public sealed class JetCatalog
         [.. rows.Where(r => IsAttribute(r[attr], attribute)).OrderBy(r => StoredQuery.UnpackOrder(r[order]))];
 
     /// <summary>The keywords a query's option rows put after SELECT — DISTINCTROW or DISTINCT, then TOP n
-    /// [PERCENT] — and the <c>WITH OWNERACCESS OPTION</c> that ends the statement, or empty strings.</summary>
-    private static (string Selecting, string OwnerAccess) SelectOptions(
+    /// [PERCENT] — and the <c>WITH OWNERACCESS OPTION</c> that ends the statement, or empty strings; and the option
+    /// bits themselves.</summary>
+    private static (string Selecting, string OwnerAccess, QueryOptions Options) SelectOptions(
         List<object?[]> rows, int attr, int flag, int n1, int order)
     {
         // The option bits are cumulative and can share one row, so test each as a bit across all of them.
@@ -900,7 +915,7 @@ public sealed class JetCatalog
         string selecting = ((options & QueryOptions.DistinctRow) != 0 ? "DISTINCTROW "
                 : (options & QueryOptions.Distinct) != 0 ? "DISTINCT " : "")
             + (top is null ? "" : $"TOP {top} {((options & QueryOptions.Percent) != 0 ? "PERCENT " : "")}");
-        return (selecting, (options & QueryOptions.OwnerAccess) != 0 ? " WITH OWNERACCESS OPTION" : "");
+        return (selecting, (options & QueryOptions.OwnerAccess) != 0 ? " WITH OWNERACCESS OPTION" : "", options);
     }
 
     /// <summary>A query's <c> GROUP BY …</c> and <c> HAVING …</c> clauses, each empty when it has none. HAVING is a
@@ -1079,11 +1094,7 @@ public sealed class JetCatalog
         // record-source query takes. Treating it as unreconstructable dropped those queries silently.
         if (columns.Count == 0) columns.Add("*");
 
-        (string selecting, string owner) = SelectOptions(rows, attr, flag, n1, order);
-        // ORDER BY: one row per key (Expression = column, Name1 = "d" for descending).
-        var orderBy = RowsOf(rows, attr, order, QueryAttribute.OrderBy)
-            .Select(r => (r[expr] as string ?? "") + (string.Equals(r[n1] as string, "d", StringComparison.OrdinalIgnoreCase) ? " DESC" : ""))
-            .Where(s => s.Length > 0).ToList();
+        (string selecting, string owner, _) = SelectOptions(rows, attr, flag, n1, order);
         string? whereClause = WhereClause(rows, attr, expr, order, source?.Extra ?? []);
 
         var sql = new System.Text.StringBuilder(ParametersClause(rows, attr, flag, n1, order, lvExtra));
@@ -1092,9 +1103,19 @@ public sealed class JetCatalog
         if (source is { } from) sql.Append(" FROM ").Append(from.From);
         if (whereClause is not null) sql.Append(" WHERE ").Append(whereClause);
         sql.Append(GroupingClauses(rows, attr, expr, order));
-        if (orderBy.Count > 0) sql.Append(" ORDER BY ").Append(string.Join(", ", orderBy));
+        sql.Append(OrderByClause(rows, attr, expr, n1, order));
         sql.Append(owner);
         return sql.ToString();
+    }
+
+    /// <summary>A query's <c> ORDER BY …</c>, empty when it has none: one row per key, Expression = the key and
+    /// Name1 = <c>d</c> for descending.</summary>
+    private static string OrderByClause(List<object?[]> rows, int attr, int expr, int n1, int order)
+    {
+        var orderBy = RowsOf(rows, attr, order, QueryAttribute.OrderBy)
+            .Select(r => (r[expr] as string ?? "") + (string.Equals(r[n1] as string, "d", StringComparison.OrdinalIgnoreCase) ? " DESC" : ""))
+            .Where(s => s.Length > 0).ToList();
+        return orderBy.Count > 0 ? $" ORDER BY {string.Join(", ", orderBy)}" : "";
     }
 
     /// <summary>The Access SQL type name for a stored parameter's Jet type code (inverse of the CREATE TABLE
@@ -1231,7 +1252,7 @@ public sealed class JetCatalog
 
     internal void CreateView(string name, ViewSpec spec)
     {
-        int objectId = AllocateQueryObject(name, QueryDefType.Select);
+        int objectId = AllocateQueryObject(name, spec.Union ? QueryDefType.SetOperation : QueryDefType.Select);
         AddQueryRows(objectId, spec);
     }
 
@@ -1417,11 +1438,13 @@ public sealed class JetCatalog
     /// <summary>
     /// The query's one <c>0x03</c> option row, when it has an option: DISTINCT, WITH OWNERACCESS OPTION, TOP and PERCENT
     /// are bits of the same row, the TOP count in its Name1 (verified vs ACE: DISTINCT TOP is 18, with the option 22,
-    /// and with PERCENT too 54; the option alone is 4; a make-table query's DISTINCT is the same row as a view's).
+    /// and with PERCENT too 54; the option alone is 4; a make-table query's DISTINCT is the same row as a view's). A
+    /// UNION always has one: 3, or 1 for UNION ALL.
     /// </summary>
     private static void AddOptionRow(QueryRows rows, ViewSpec? body, bool ownerAccess)
     {
-        QueryOptions options = (body?.Distinct == true ? QueryOptions.Distinct : QueryOptions.None)
+        QueryOptions options = (body?.Union == true ? QueryOptions.OutputAllFields : QueryOptions.None)
+            | (body?.Distinct == true ? QueryOptions.Distinct : QueryOptions.None)
             | (ownerAccess ? QueryOptions.OwnerAccess : QueryOptions.None)
             | (body?.Top is null ? QueryOptions.None
                 : QueryOptions.Top | (body.TopPercent ? QueryOptions.Percent : QueryOptions.None));
@@ -1465,13 +1488,15 @@ public sealed class JetCatalog
     {
         var tables = body?.Tables ?? [];
         for (int i = 0; i < tables.Count; i++)
-        {
-            ViewTableSpec t = tables[i];
-            if (t.SubquerySql is { } sub)
-                rows.Row(QueryAttribute.Table, order: i + 1, expression: sub, name2: t.Alias);
-            else
-                rows.Row(QueryAttribute.Table, order: i + 1, name1: t.Table, name2: t.Alias);
-        }
+            AddSourceRow(rows, tables[i], order: i + 1);
+    }
+
+    private static void AddSourceRow(QueryRows rows, ViewTableSpec t, int order)
+    {
+        if (t.SubquerySql is { } sub)
+            rows.Row(QueryAttribute.Table, order, expression: sub, name2: t.Alias);
+        else
+            rows.Row(QueryAttribute.Table, order, name1: t.Table, name2: t.Alias);
     }
 
     /// <summary>The <c>0x07</c> join rows: condition, kind, and the two tables the condition names.</summary>
@@ -1503,9 +1528,17 @@ public sealed class JetCatalog
         // runs such a view (DerivedTableViewAccessTests). Order fields are per-attribute counters, independent of
         // this insertion order.
         AddHeaderRows(rows, spec.Parameters);
+        if (spec.Union)
+        {
+            // A UNION's two segments, with the operation row between them, named X7YZ_____1 and X7YZ_____2 whatever
+            // the query (verified vs ACE and DAO).
+            AddSourceRow(rows, spec.Tables[0] with { Alias = "X7YZ_____1" }, order: 1);
+            rows.Row(QueryAttribute.Operation, order: 1, flag: (short)QueryOperation.Union);
+            AddSourceRow(rows, spec.Tables[1] with { Alias = "X7YZ_____2" }, order: 2);
+        }
         AddColumnRows(rows, spec.Columns);
         AddJoinRows(rows, spec);
-        AddSourceRows(rows, spec);
+        if (!spec.Union) AddSourceRows(rows, spec);
         AddWhereRow(rows, spec);
         for (int i = 0; i < (spec.GroupBy?.Count ?? 0); i++)
             rows.Row(QueryAttribute.GroupBy, order: i + 1, flag: 0, expression: spec.GroupBy![i]);

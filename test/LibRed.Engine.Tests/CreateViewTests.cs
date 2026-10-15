@@ -121,6 +121,30 @@ public class CreateViewTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // A UNION is not a view, but a procedure keeps one: stored as two segment rows, read back as the query it was,
+    // and queryable as a source. The counts are what ACE returns for the same query on the same data, and a TABLE
+    // operand reads as every column of its table.
+    [Theory]
+    [InlineData("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers", 94)]
+    [InlineData("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers UNION ALL SELECT CompanyName FROM Suppliers", 123)]
+    [InlineData("TABLE Shippers UNION TABLE Shippers", 3)]
+    public void A_union_procedure_round_trips(string body, int rows)
+    {
+        string path = Fresh();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                new QueryEngine(db).ExecuteNonQuery($"CREATE PROCEDURE `U` AS {body}");
+
+            using (var db = JetDatabase.Open(path))
+            {
+                Assert.Equal(body, db.Catalog.FindQuery("U")!.Sql);
+                Assert.Equal(rows, new QueryEngine(db).ExecuteQuery("SELECT * FROM `U`").Rows.Count());
+            }
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     [Fact]
     public void A_group_by_totals_view_round_trips()
     {

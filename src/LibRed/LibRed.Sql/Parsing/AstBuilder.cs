@@ -585,9 +585,41 @@ internal static class AstBuilder
                 name, ProcedureActionKind.MakeTable, null, target, null,
                 BuildViewDefinition(query), null, parameters, OwnerAccess(query));
 
-        ViewDefinition definition = BuildViewDefinition(query);
+        ViewDefinition definition = query.setOperator().Length > 0 ? BuildUnionDefinition(query) : BuildViewDefinition(query);
         return new CreateProcedureStatement(name, parameters, definition, OriginalText(query));
     }
+
+    /// <summary>A UNION body as ACE stores it (verified): two segments, each verbatim — the text before the query's
+    /// last set operator and the term after it, so <c>A UNION B UNION ALL C</c> is <c>A UNION B </c> and <c>C</c> —
+    /// and whether that last operator drops duplicates. Its ORDER BY and a WITH OWNERACCESS OPTION ending it are the
+    /// whole query's, stored as a SELECT's are; one ending an earlier SELECT stays in that segment's text.</summary>
+    private static ViewDefinition BuildUnionDefinition(QueryExpressionContext ctx)
+    {
+        // ACE has no INTERSECT or EXCEPT to store, and no paging: a stored query has nowhere to keep either.
+        if (ctx.setOperator().Any(o => o.UNION() is null))
+            throw new NotSupportedException("A stored query combines SELECTs with UNION only.");
+        if (ctx.offsetFetchClause() is not null)
+            throw new NotSupportedException("A stored UNION query cannot store OFFSET or FETCH.");
+
+        SetOperatorContext last = ctx.setOperator()[^1];
+        QueryTermContext lastTerm = ctx.queryTerm()[^1];
+        Antlr4.Runtime.ICharStream text = ctx.Start.InputStream;
+        string first = text.GetText(Antlr4.Runtime.Misc.Interval.Of(ctx.Start.StartIndex, last.Start.StartIndex - 1));
+        string second = lastTerm is SelectTermContext s && s.querySpecification().ownerAccessOption() is { } option
+            ? text.GetText(Antlr4.Runtime.Misc.Interval.Of(lastTerm.Start.StartIndex, option.Start.StartIndex - 1)).TrimEnd()
+            : OriginalText(lastTerm);
+
+        return new ViewDefinition(last.ALL() is null, Columns: [],
+            [new ViewSource(null, null, first), new ViewSource(null, null, second)], Joins: [], Where: null,
+            GroupBy: [], Having: null, ViewOrderBys(ctx), Top: null, OwnerAccess: OwnerAccess(ctx), Union: true);
+    }
+
+    /// <summary>A stored query's ORDER BY keys: they come off the query expression, not a SELECT, since they order
+    /// the query's result.</summary>
+    private static List<ViewOrderBy> ViewOrderBys(QueryExpressionContext ctx) =>
+        ctx.orderByClause() is { } ob
+            ? ob.orderByItem().Select(i => new ViewOrderBy(OriginalText(i.expression()), i.dir?.Type == DESC)).ToList()
+            : [];
 
     /// <summary>The table a <c>SELECT … INTO t</c> body writes into, or null for an ordinary SELECT.</summary>
     private static string? MakeTableTarget(QueryExpressionContext ctx) =>
@@ -818,10 +850,6 @@ internal static class AstBuilder
             ? g.expression().Select(OriginalText).ToList() : (IReadOnlyList<string>)[];
         // The group filter of a "totals" query, stored verbatim in its own row alongside the GROUP BY ones.
         string? having = select.havingClause() is { } h ? OriginalText(h.expression()) : null;
-        // The view's ORDER BY comes off the query expression, not the SELECT: it orders the view's result.
-        var orderBy = ctx.orderByClause() is { } ob
-            ? ob.orderByItem().Select(i => new ViewOrderBy(OriginalText(i.expression()), i.dir?.Type == DESC)).ToList()
-            : (IReadOnlyList<ViewOrderBy>)[];
         // A stored TOP has no WITH TIES of its own: it is ACE's TOP, which always keeps the ties, while LibRed reads
         // it back as a plain one. So neither reading can be stored faithfully.
         if (select.topClause()?.ties is not null || ctx.offsetFetchClause()?.ties is not null)
@@ -848,21 +876,21 @@ internal static class AstBuilder
             CollectSources(ts, tables, joins);
 
         string? where = select.whereClause() is { } w ? OriginalText(w.expression()) : null;
-        return new ViewDefinition(select.predicate?.DISTINCT() is not null, columns, tables, joins, where, groupBy, having, orderBy, top,
+        return new ViewDefinition(select.predicate?.DISTINCT() is not null, columns, tables, joins, where, groupBy, having, ViewOrderBys(ctx), top,
             TopPercent: select.topClause()?.percent is not null, OwnerAccess: OwnerAccess(ctx));
     }
 
-    /// <summary>Whether a query declares WITH OWNERACCESS OPTION — after its ORDER BY, or at the end of one of its
-    /// SELECTs, as ACE takes it either way. ACE reads a query's ORDER BY as part of its last SELECT, so the option
+    /// <summary>Whether a query declares WITH OWNERACCESS OPTION — after its ORDER BY, or at the end of its last
+    /// SELECT, as ACE takes it either way. ACE reads a query's ORDER BY as part of its last SELECT, so the option
     /// ending that SELECT cannot come before the ORDER BY, nor be written again after it (verified); both are
-    /// refused here.</summary>
+    /// refused here. One ending an earlier SELECT of a UNION is that SELECT's: ACE keeps it in the stored segment's
+    /// text, not as the query's option (verified).</summary>
     private static bool OwnerAccess(QueryExpressionContext ctx)
     {
-        if (ctx.queryTerm()[^1] is SelectTermContext last && last.querySpecification().ownerAccessOption() is not null
-            && (ctx.orderByClause() is not null || ctx.offsetFetchClause() is not null || ctx.ownerAccessOption() is not null))
+        bool ending = ctx.queryTerm()[^1] is SelectTermContext last && last.querySpecification().ownerAccessOption() is not null;
+        if (ending && (ctx.orderByClause() is not null || ctx.offsetFetchClause() is not null || ctx.ownerAccessOption() is not null))
             throw new SqlParseException("WITH OWNERACCESS OPTION ends a query: it comes after the query's ORDER BY, and once.");
-        return ctx.ownerAccessOption() is not null
-            || ctx.queryTerm().Any(t => t is SelectTermContext s && s.querySpecification().ownerAccessOption() is not null);
+        return ending || ctx.ownerAccessOption() is not null;
     }
 
     private static void CollectSources(TableSourceContext ts, List<ViewSource> tables, List<ViewJoin> joins)
@@ -1082,6 +1110,7 @@ internal static class AstBuilder
         SelectTermContext s => BuildQuerySpecification(s.querySpecification()),
         ParenTermContext p => BuildQueryExpression(p.queryExpression()),
         ValuesTermContext v => BuildValuesQuery(v),
+        TableTermContext t => new SelectStatement([], IsSelectStar: true, new NamedTable(Identifier(t.table), null), null, [], null, [], null),
         _ => throw new SqlParseException($"Unsupported query term: {ctx.GetText()}"),
     };
 

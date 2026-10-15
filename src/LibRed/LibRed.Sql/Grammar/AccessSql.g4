@@ -305,6 +305,9 @@ queryTerm
     // where the row values may reference outer columns, so this is evaluated per outer row. Column names come
     // from the leading query of the set operation, per SQL, which is why no column alias list is needed here.
     | VALUES rowValues (COMMA rowValues)*  # ValuesTerm
+    // TABLE t: every column of t, as SELECT * FROM t. ACE takes it alone and as a UNION's operand, and stores a
+    // UNION's verbatim (verified), so a stored query read back can hold it.
+    | TABLE table=identifier               # TableTerm
     ;
 setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 

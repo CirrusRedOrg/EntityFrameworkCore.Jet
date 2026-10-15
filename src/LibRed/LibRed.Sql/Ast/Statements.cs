@@ -244,7 +244,9 @@ public sealed record ViewOrderBy(string Expression, bool Descending);
 /// ordinary column rows; the group-by columns are separate rows), and <paramref name="Having"/> is that
 /// query's own filter over the groups, stored as its own <c>Attribute=0x0A</c> row.
 /// <paramref name="TopPercent"/> makes <paramref name="Top"/> a percentage, and <paramref name="OwnerAccess"/> is
-/// WITH OWNERACCESS OPTION, which a stored query keeps.</summary>
+/// WITH OWNERACCESS OPTION, which a stored query keeps. A <paramref name="Union"/> body's two
+/// <paramref name="Tables"/> are its segments' verbatim text — what precedes its last UNION and the term after it —
+/// and <paramref name="Distinct"/> is UNION as against UNION ALL.</summary>
 public sealed record ViewDefinition(
     bool Distinct,
     IReadOnlyList<ViewColumn> Columns,
@@ -256,7 +258,8 @@ public sealed record ViewDefinition(
     IReadOnlyList<ViewOrderBy> OrderBy,
     int? Top,
     bool TopPercent = false,
-    bool OwnerAccess = false);
+    bool OwnerAccess = false,
+    bool Union = false);
 
 /// <summary>CREATE VIEW view [(fields)] AS select — a stored query, decomposed for byte-faithful storage.</summary>
 public sealed record CreateViewStatement(

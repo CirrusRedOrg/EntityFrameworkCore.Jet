@@ -306,6 +306,94 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    /// <summary>A UNION query is stored as ACE stores it — two segments, the text before its last UNION and the term
+    /// after it — and returns the same rows whichever engine wrote it and whichever runs it: ACE on LibRed's file, and
+    /// LibRed on ACE's and on its own. ACE returns a UNION's rows sorted and LibRed in the order it meets them, so the
+    /// rows compare as sets.</summary>
+    [Theory]
+    [InlineData("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers")]
+    [InlineData("SELECT CompanyName FROM Shippers UNION ALL SELECT CompanyName FROM Customers")]
+    [InlineData("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers UNION ALL SELECT CompanyName FROM Suppliers")]
+    [InlineData("SELECT CompanyName FROM Shippers UNION ALL SELECT CompanyName FROM Customers UNION SELECT CompanyName FROM Suppliers")]
+    [InlineData("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers UNION SELECT CompanyName FROM Suppliers " +
+                "UNION ALL SELECT ShipName FROM Orders")]
+    [InlineData("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers ORDER BY CompanyName DESC")]
+    [InlineData("SELECT CompanyName AS N FROM Shippers WHERE ShipperID > 1 UNION SELECT ContactName FROM Customers WHERE Country = 'UK'")]
+    [InlineData("TABLE Shippers UNION TABLE Shippers")]
+    [InlineData("TABLE [Order Details] UNION ALL TABLE [Order Details]")]
+    [InlineData("(SELECT CompanyName FROM Shippers) UNION (SELECT CompanyName FROM Customers)")]
+    [InlineData("SELECT CompanyName FROM Shippers UNION (SELECT CompanyName FROM Customers UNION ALL SELECT CompanyName FROM Suppliers)")]
+    [InlineData("SELECT Orders.OrderID FROM Orders INNER JOIN Customers ON Orders.CustomerID = Customers.CustomerID " +
+                "WHERE Customers.Country = 'UK' UNION SELECT OrderID FROM Orders WHERE OrderID < 10250")]
+    [InlineData("SELECT TOP 2 CompanyName FROM Shippers UNION SELECT DISTINCT Country FROM Customers")]
+    [InlineData("   SELECT   CompanyName\r\n FROM  Shippers   UNION   SELECT CompanyName  FROM Customers")]
+    [InlineData("SELECT Country, Count(*) AS N FROM Customers GROUP BY Country UNION SELECT Country, Count(*) FROM Suppliers GROUP BY Country")]
+    [InlineData("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers WITH OWNERACCESS OPTION")]
+    [InlineData("SELECT CompanyName FROM Shippers WITH OWNERACCESS OPTION UNION SELECT CompanyName FROM Customers")]
+    [InlineData("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers ORDER BY CompanyName WITH OWNERACCESS OPTION")]
+    public void A_union_query_is_stored_as_ace_stores_it_and_runs_alike(string body) =>
+        UnionRoundTrip($"CREATE PROCEDURE [Q] AS {body}", parameter: null);
+
+    [Fact]
+    public void A_union_query_declares_its_parameters_as_a_select_does() =>
+        UnionRoundTrip("CREATE PROCEDURE [Q] (pc Text(20)) AS SELECT CompanyName FROM Customers WHERE Country = pc " +
+                       "UNION SELECT CompanyName FROM Shippers", parameter: "UK");
+
+    private static void UnionRoundTrip(string sql, string? parameter)
+    {
+        string ourPath = Copy(), acePath = Copy();
+        try
+        {
+            using (var db = TemporaryDatabase.OpenTracked(ourPath, readOnly: false))
+                new QueryEngine(db).ExecuteNonQuery(sql);
+            using (var connection = AceTestDatabase.Open(acePath))
+            {
+                using var create = connection.CreateCommand();
+                create.CommandText = sql;
+                create.ExecuteNonQuery();
+            }
+
+            Assert.Equal(QueryRows(acePath, "Q"), QueryRows(ourPath, "Q"));
+            Assert.Equal(ObjectFlags(acePath, "Q"), ObjectFlags(ourPath, "Q"));
+
+            var aceRows = new List<string>();
+            using (var connection = AceTestDatabase.Open(ourPath, readOnly: true))
+            {
+                using var run = connection.CreateCommand();
+                run.CommandText = "Q";
+                run.CommandType = CommandType.StoredProcedure;
+                if (parameter is not null)
+                    run.Parameters.Add(new OleDbParameter { OleDbType = OleDbType.VarWChar, Size = 20, Value = parameter });
+                using var reader = run.ExecuteReader();
+                var values = new object[reader.FieldCount];
+                while (reader.Read())
+                {
+                    reader.GetValues(values);
+                    aceRows.Add(Row(values));
+                }
+            }
+            OleDbConnection.ReleaseObjectPool();
+            aceRows.Sort(StringComparer.Ordinal);
+
+            foreach (string path in new[] { acePath, ourPath })
+            {
+                using var db = TemporaryDatabase.OpenTracked(path, readOnly: true);
+                string execute = parameter is null ? "EXECUTE [Q]" : $"EXECUTE [Q] '{parameter}'";
+                List<string> ours = [.. new QueryEngine(db).ExecuteQuery(execute).Rows.Select(r => Row(r))];
+                ours.Sort(StringComparer.Ordinal);
+                Assert.Equal(aceRows, ours);
+            }
+        }
+        finally
+        {
+            TemporaryDatabase.Delete(ourPath);
+            TemporaryDatabase.Delete(acePath);
+        }
+
+        static string Row(object?[] values) => string.Join(" | ", values.Select(v =>
+            v is null or DBNull ? "NULL" : Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture)));
+    }
+
     /// <summary>
     /// Every <c>MSysQueries</c> field of a stored query's rows, ordered so two files compare — a field
     /// neither side sets cannot hide behind a narrower comparison. Two are left out: <c>ObjectId</c>, which

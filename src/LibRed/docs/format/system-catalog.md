@@ -415,7 +415,7 @@
   (`Name1`=table, `Name2`=alias), a **derived table / subquery** (`Expression`=the verbatim inner
   subquery SQL — outer parens and `AS alias` stripped, whitespace preserved — `Name2`=alias, **no `Name1`**;
   verified), or, on a UNION query, one **UNION segment's
-  own SQL** (`Name2` = that segment's identifier).
+  own SQL** (`Expression`; `Name2` = `X7YZ_____1` or `X7YZ_____2`, no `Name1` — below).
 
   > **The `0x01` OPERATION row is the query KIND, and SELECT is one of its values** — its presence does *not*
   > mean the query is an action query. Access writes it on plain SELECTs as well, and omits it entirely on
@@ -443,8 +443,8 @@
   >
   > | bit | meaning |
   > |---|---|
-  > | `0x01` | output-all-fields; also `UNION ALL` on a UNION query, and part of the record-source form below |
-  > | `0x02` | `DISTINCT` |
+  > | `0x01` | output-all-fields; set on every UNION query, and part of the record-source form below |
+  > | `0x02` | `DISTINCT`; on a UNION query, `UNION` as against `UNION ALL` |
   > | `0x04` | `WITH OWNERACCESS OPTION` |
   > | `0x08` | `DISTINCTROW` |
   > | `0x10` | `TOP` (count as text in `Name1`) |
@@ -458,7 +458,20 @@
   >
   > **ACE's `CREATE VIEW` takes a simple SELECT only, where `CREATE PROCEDURE` takes more** (verified): a view with an
   > `ORDER BY` (with or without a `TOP`) or an `INTO` is refused with *"Only simple SELECT queries are allowed in
-  > VIEWS."*, as LibRed refuses it; a procedure accepts both.
+  > VIEWS."*, and one with a `UNION` with *"Unions not allowed in a subquery."*, as LibRed refuses them; a procedure
+  > accepts all three.
+  >
+  > **A UNION query is two segments, however many SELECTs it combines** (verified, through `CREATE PROCEDURE` and
+  > DAO alike). It is split at its **last** set operator: the first `0x05` row holds the text before that operator,
+  > verbatim and with the whitespace before it, and the second the term after it, so `A UNION B UNION ALL C` is
+  > stored as `A UNION B ` and `C`, and `A UNION (B UNION ALL C)` as `A ` and `(B UNION ALL C)`. A segment is any
+  > query ACE takes there — a parenthesised one, `TABLE t` (every column of `t`), a `TOP`, a `GROUP BY`, a join, a
+  > `WITH OWNERACCESS OPTION` ending an earlier SELECT, a declared parameter's name. The rest of the query is
+  > stored as a SELECT's is: the `0x01` row (`Flag 9`), one `0x03` row (`Flag 3` for `UNION`, `1` for
+  > `UNION ALL`, `0x04` added for a `WITH OWNERACCESS OPTION` ending the last SELECT or the query), the `ORDER BY`
+  > as `0x0B` rows and the parameters as `0x02` rows; there are no `0x06`, `0x07` or `0x08` rows. ACE refuses
+  > `INTERSECT` and `EXCEPT` (*"Syntax error in FROM clause."*), and an `ORDER BY` on anything but the first
+  > SELECT's output.
   >
   > **What ACE's own `CREATE VIEW` / `CREATE PROCEDURE` writes is one `0x03` row, `Order 1`, holding every bit the
   > query has**, the `TOP` count in its `Name1`: `DISTINCT TOP 2` is `Flag 18`, and `DISTINCT TOP 25 PERCENT` `50`.
@@ -504,6 +517,7 @@
   > | `INSERT INTO t (…) SELECT … FROM` | operation, columns, joins, tables, where |
   > | `SELECT … INTO t FROM` | columns, then the operation naming `t`, joins, tables, where |
   > | `UPDATE t SET …`, `DELETE FROM t` | operation, table, assignments, where |
+  > | `… UNION …` | first segment, operation, second segment, order-by, then the option row |
   >
   > **`LvExtra` after a sized parameter.** Once a parameter row carrying facets in `LvExtra` (a `TEXT(20)`'s
   > length) is written, **every later row of the query carries `LvExtra` too**, `0` where it has nothing of its
@@ -515,11 +529,19 @@
   > **Dropping a query** deletes its rows in key order — `(Attribute, Order)` — whatever order they were written
   > in (verified).
   >
-  > **ACE also writes a binary long value for some queries — not reproduced.** A procedure stored as `INSERT INTO
-  > … VALUES (…)` gives its `MSysObjects` row a long-value descriptor for a value of over a kilobyte on an LVAL
-  > page, and executing it rewrites the value larger (verified). Which column holds it is not decoded. The column
-  > names, table name and literal text are readable in it; what the rest is, is **not known**. Executing other
-  > stored queries also writes to `MSysObjects` and an LVAL page, **not examined**. LibRed writes none of it.
+  > **A query's `MSysObjects.Lv` is a value ACE keeps for running it, and nothing reads it but ACE** (verified).
+  > ACE writes it whenever it runs the query over a connection that can write, and writes it afresh on every such
+  > run; a read-only connection writes none. `CREATE PROCEDURE` writes one at once for an `INSERT … VALUES`, a UNION
+  > and a FROM-less SELECT; every other body, `CREATE VIEW` and DAO's `CreateQueryDef` write none until the query
+  > runs. It is binary, 1–7 KB on LVAL pages, beginning `FF FF FF FF B8 8A 7D 5F 06 01 00 5C`, and holds the names
+  > of the tables and columns the query reads; what the rest encodes is **not known**. It is not the same from one
+  > run to the next — the same query on the same data has given 2541 bytes and 2579. Compacting the file drops it,
+  > so a compacted file's queries carry none.
+  >
+  > **ACE does not rely on it.** DDL leaves it as it is, ACE's own as much as LibRed's, and the next run returns
+  > what the changed schema gives: a column added to a table appears in `SELECT *`, a dropped one fails as a
+  > parameter, a table given a new index returns what it did — the same whether ACE or LibRed made the change. LibRed writes none, reads
+  > none, and leaves one it finds alone; where ACE writes one, the two files cannot be byte-identical.
   >
   > **Long `Expression` lives on an LVAL page.** `Expression` is a Memo, so a subquery longer than the
   > 64-byte inline limit is written to an LVAL page (§8) — required for Access to *run* the view (an
@@ -640,8 +662,8 @@
   >
   > **The MSysObjects `Flags` low byte is DAO's own `QueryDef.Type`** — not the `0x01` row's `Flag`, which
   > numbers the kinds differently. The low byte is `0x10000000` plus crosstab `0x10`, delete
-  > `0x20`, update `0x30`, append `0x40`, make-table `0x50`, data-definition `0x60` — exactly the DAO values
-  > in the table above (16/32/48/64/80/96).
+  > `0x20`, update `0x30`, append `0x40`, make-table `0x50`, data-definition `0x60`, UNION `0x80` — exactly the
+  > DAO values in the table above (16/32/48/64/80/96/128).
   >
   > **A declared parameter's facets live in the `0x02` row's `LvExtra`**, and Access renders the PARAMETERS
   > clause from them — a row without them reads back as `Text(255)`. Verified against ACE, declaration by
@@ -670,12 +692,13 @@
   >
   > (A plain view/SELECT query uses `Flags=0x10000000` and no `0x01` row.) LibRed **writes** every kind it
   > reads: CREATE TABLE verbatim, INSERT from VALUES or from a SELECT, UPDATE (joins included), DELETE (with
-  > or without a `table.*` target) and make-table, each with its declared parameters and their facets — row
+  > or without a `table.*` target), make-table and UNION, each with its declared parameters and their facets — row
   > for row what ACE writes for the same statement, including the object flags, and ACE runs the result. **Read-back:** LibRed reconstructs and runs
   > every kind whose statement its engine can execute — DDL (verbatim), INSERT from VALUES or from a SELECT,
-  > UPDATE (joins included), DELETE and make-table — rebuilt with a leading `PARAMETERS` clause when the query
-  > declares parameters, so `EXECUTE name arg, …` binds them. Crosstab, pass-through and UNION read back with
-  > an "unsupported" reason naming the kind, and throw when executed.
+  > UPDATE (joins included), DELETE, make-table and UNION, the one of them that returns rows — rebuilt with a
+  > leading `PARAMETERS` clause when the query declares parameters, so `EXECUTE name arg, …` binds them. A UNION
+  > is its two segments joined by the operator its option row records, then its `ORDER BY`. Crosstab and
+  > pass-through read back with an "unsupported" reason naming the kind, and throw when executed.
 
 - **MSysRelationships** defines foreign keys (one row per relationship column): `szRelationship`
   (name), `szObject` (child/referencing table), `szColumn` (child column), `szReferencedObject`

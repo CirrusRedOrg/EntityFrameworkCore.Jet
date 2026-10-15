@@ -1027,7 +1027,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         OrderBy: d.OrderBy.Select(o => new ViewOrderBySpec(o.Expression, o.Descending)).ToList(),
         Top: d.Top,
         TopPercent: d.TopPercent,
-        OwnerAccess: d.OwnerAccess);
+        OwnerAccess: d.OwnerAccess,
+        Union: d.Union);
 
     /// <summary>
     /// A make-table query: <c>SELECT … INTO newtable FROM source</c>.

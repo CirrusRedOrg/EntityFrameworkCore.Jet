@@ -109,7 +109,7 @@ public class CoalesceTests
 
     [Fact]
     public void Numeric_arguments_widen_to_the_larger_type()
-        => Assert.Equal(typeof(double), ColumnType("COALESCE(1, 2.5E0)"));
+        => Assert.Equal(typeof(double), ColumnType("COALESCE(1, CDBL(2.5))"));
 
     // Text beside a number is a Mixed choice, which declares text as ACE's IIF does.
     [Fact]

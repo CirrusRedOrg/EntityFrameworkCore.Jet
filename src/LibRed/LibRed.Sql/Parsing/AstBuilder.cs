@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Numerics;
 using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
 using LibRed.Sql.Ast;
@@ -1564,11 +1565,44 @@ internal static class AstBuilder
         return value.Date == DateTime.MinValue ? new DateTime(1899, 12, 30).Add(value.TimeOfDay) : value;
     }
 
-    /// <summary>The exact value of a number written without an exponent; none for 1E5 or 1.5E2, or past a Decimal.</summary>
-    private static decimal? WrittenDecimal(string text) =>
-        text.IndexOfAny(['E', 'e']) < 0
-        && decimal.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal value)
-            ? value : null;
+    /// <summary>A number written with a decimal point or an exponent, as ACE reads it (verified vs ACE, over OLE DB):
+    /// a whole number a Long holds is a Long (<c>3.0</c>, <c>1E5</c>); a number a Decimal holds exactly is a Decimal
+    /// of the digits written (<c>1.50</c>, <c>15E-1</c>, <c>1E-28</c>, <c>3E9</c>, <c>7.9E28</c>); and anything
+    /// else is a Double — a Decimal's 29th place (<c>1.5E-28</c>), past its range (<c>1E29</c>), and a whole number
+    /// past a Long written with a point and no exponent (<c>3000000000.0</c>).</summary>
+    private static object ParseNumber(string text)
+    {
+        // The value as mantissa × 10^exponent, the mantissa's trailing zeros moved into the exponent.
+        int e = text.IndexOfAny(['E', 'e']);
+        string digits = e < 0 ? text : text[..e];
+        int exponent = e < 0 ? 0 : int.Parse(text[(e + 1)..], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+        int point = digits.IndexOf('.', StringComparison.Ordinal);
+        if (point >= 0)
+        {
+            exponent -= digits.Length - point - 1;
+            digits = digits.Remove(point, 1);
+        }
+        var mantissa = BigInteger.Parse(digits, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+        while (!mantissa.IsZero && mantissa % 10 == 0)
+        {
+            mantissa /= 10;
+            exponent++;
+        }
+
+        if (mantissa.IsZero) return 0;
+        var largest = new BigInteger(decimal.MaxValue);
+        if (exponent >= 0)
+        {
+            BigInteger whole = exponent <= 28 ? mantissa * BigInteger.Pow(10, exponent) : largest + 1;
+            if (whole >= int.MinValue && whole <= int.MaxValue) return (int)whole;
+            if (BigInteger.Abs(whole) > largest || point >= 0 && e < 0)
+                return double.Parse(text, CultureInfo.InvariantCulture);
+        }
+        else if (-exponent > 28 || BigInteger.Abs(mantissa) > largest)
+            return double.Parse(text, CultureInfo.InvariantCulture);
+        return decimal.Parse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent,
+            CultureInfo.InvariantCulture);
+    }
 
     /// <summary>
     /// A minus written directly against a number that begins with a digit is part of that number, which is then a single
@@ -1612,9 +1646,8 @@ internal static class AstBuilder
             : new BinaryExpression(BinaryOperator.Power, BuildExpression(power.left), BuildExpression(power.right));
 
     /// <summary>A number literal, with the sign when a minus is written against it.</summary>
-    private static LiteralExpression BuildNumber(string text, int tokenType) => tokenType == INTEGER_LITERAL
-        ? new LiteralExpression(ParseInteger(text))
-        : new LiteralExpression(double.Parse(text, CultureInfo.InvariantCulture), WrittenDecimal(text));
+    private static LiteralExpression BuildNumber(string text, int tokenType) =>
+        new(tokenType == INTEGER_LITERAL ? ParseInteger(text) : ParseNumber(text));
 
     private static LiteralExpression BuildLiteral(LiteralContext ctx) => ctx switch
     {

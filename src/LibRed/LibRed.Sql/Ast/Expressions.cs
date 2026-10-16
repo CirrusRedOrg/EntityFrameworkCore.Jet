@@ -3,10 +3,10 @@ namespace LibRed.Sql.Ast;
 /// <summary>Base type for scalar/boolean expressions.</summary>
 public abstract record Expression : SqlNode;
 
-/// <summary>A literal constant (number, string, date, boolean or null). <paramref name="Written"/> is the exact value of
-/// a number written with a decimal point and no exponent, its scale the digits written after the point (<c>1.50</c> is
-/// 1.50); ACE reads such a literal as a Decimal and keeps no more places than that in a product or quotient.</summary>
-public sealed record LiteralExpression(object? Value, decimal? Written = null) : Expression;
+/// <summary>A literal constant (number, string, date, boolean or null). A number written with a decimal point or an
+/// exponent is a Decimal of exactly the digits written, its scale those after the point (<c>1.50</c> is 1.50), unless
+/// it is a whole number a Long holds; ACE keeps no more places than that in a product or quotient.</summary>
+public sealed record LiteralExpression(object? Value) : Expression;
 
 /// <summary>A reference to a column, optionally table-qualified.</summary>
 public sealed record ColumnReference(string? Table, string Column) : Expression;

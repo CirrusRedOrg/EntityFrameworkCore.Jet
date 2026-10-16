@@ -56,7 +56,16 @@ internal sealed partial class ExpressionEvaluator(
     /// <summary>How text compares here: the database's collation, for every comparison whatever its operands.</summary>
     private JetTextComparer Text => subqueries.TextComparer;
 
-    public object? Evaluate(Expression expression) => expression switch
+    /// <summary>
+    /// The value of <paramref name="expression"/>. ACE works a value out in one of two ways (verified vs ACE). A
+    /// comparison, a logical operator, and every function's arguments go to its expression service, which does
+    /// OLE Automation arithmetic on the values as they are — a number written with a decimal point a Decimal, which
+    /// beats a Double (<c>WHERE F * 1.11 = 0.111</c> holds for a Double 0.1). Anything else is a result value — a
+    /// column, a sort or group key, an aggregate's argument, a value written — whose arithmetic is the same but for
+    /// the written numbers beside which the result is a Double (<see cref="NumberTypeOf"/>): those are Doubles, so
+    /// <c>F * 1.11</c> is 0.11100000000000002 there.
+    /// </summary>
+    public object? Evaluate(Expression expression) => !_service && OpensService(expression) ? InService(expression) : expression switch
     {
         LiteralExpression l => l.Value,
         ColumnReference c => scope.TryResolve(c, out object? v) ? v
@@ -78,6 +87,31 @@ internal sealed partial class ExpressionEvaluator(
         OutputColumnPosition p => scope.At(p.Position),
         _ => throw new NotSupportedException($"Cannot evaluate {expression.GetType().Name}."),
     };
+
+    /// <summary>Whether this evaluation is inside ACE's expression service (<see cref="Evaluate"/>).</summary>
+    private bool _service;
+
+    private object? InService(Expression expression)
+    {
+        _service = true;
+        try
+        {
+            return Evaluate(expression);
+        }
+        finally
+        {
+            _service = false;
+        }
+    }
+
+    /// <summary>Whether <paramref name="expression"/> hands what it holds to ACE's expression service: a comparison, a
+    /// logical operator, a function, or a choice.</summary>
+    private static bool OpensService(Expression expression) => expression is FunctionCall or CaseExpression
+        or InSubqueryExpression or InListExpression or BetweenExpression
+        or UnaryExpression { Operator: not (UnaryOperator.Negate or UnaryOperator.BitNot) }
+        or BinaryExpression { Operator: not (BinaryOperator.Add or BinaryOperator.Subtract or BinaryOperator.Multiply
+            or BinaryOperator.Divide or BinaryOperator.IntDivide or BinaryOperator.Modulo or BinaryOperator.Power
+            or BinaryOperator.Concat or BinaryOperator.BitAnd or BinaryOperator.BitOr or BinaryOperator.BitXor) };
 
     /// <summary>Access's <c>Now</c> is a niladic function callable without parentheses — so a bare unqualified
     /// identifier that isn't a column but names it evaluates as the current timestamp. Matches ACE, which accepts
@@ -922,22 +956,24 @@ internal sealed partial class ExpressionEvaluator(
     };
 
     /// <summary>Whether an expression is a Currency: a Currency column, CCur, or arithmetic that keeps one.</summary>
+    private bool IsCurrency(Expression expression) => ClassOf(expression) == NumberClass.Currency;
+
+    /// <summary>The expression's <see cref="NumberClass"/>.</summary>
     /// <remarks>Decided by the expression and the scope's columns, never the row, so it is worked out once per node
     /// for this evaluator — which is reused across rows. Working it out walks the schema, and did so for every row
     /// of every Currency-typed arithmetic result.</remarks>
-    private bool IsCurrency(Expression expression)
+    private NumberClass ClassOf(Expression expression)
     {
         // IDE0028's only fix here is `[]`, which would drop the comparer and key the nodes structurally.
 #pragma warning disable IDE0028
-        _currency ??= new Dictionary<Expression, bool>(ReferenceEqualityComparer.Instance);
+        _classes ??= new Dictionary<Expression, NumberClass>(ReferenceEqualityComparer.Instance);
 #pragma warning restore IDE0028
-        if (!_currency.TryGetValue(expression, out bool currency))
-            _currency[expression] = currency =
-                NumberTypeOf(expression, scope.AllColumns(), _ => null).Class == NumberClass.Currency;
-        return currency;
+        if (!_classes.TryGetValue(expression, out NumberClass numberClass))
+            _classes[expression] = numberClass = NumberTypeOf(expression, scope.AllColumns(), _ => null).Class;
+        return numberClass;
     }
 
-    private Dictionary<Expression, bool>? _currency;
+    private Dictionary<Expression, NumberClass>? _classes;
 
     /// <summary>
     /// Access <c>StrConv(string, conversion, [LCID])</c> (verified vs ACE). 0 leaves the text as it is. 1, 2 and 3
@@ -1410,7 +1446,7 @@ internal sealed partial class ExpressionEvaluator(
     /// Access <c>Round(number[, places])</c> (verified vs ACE): half to even on the number's decimal form — a Double or
     /// Single as OLE Automation writes it, so <c>Round(2.675, 2)</c> is 2.68 and <c>Round('2.55', 1)</c> 2.6 — and the
     /// number unchanged when nothing is cut. The operand's type is kept (the EF contract); text and dates give a
-    /// Double and True is -1; a number written with a decimal point rounds as written. Places are read as a number and
+    /// Double and True is -1. Places are read as a number and
     /// rounded; Null places give Null, fewer than 0 are an invalid procedure call, and more than a Decimal holds leave
     /// the number as it is.
     /// </summary>
@@ -1423,8 +1459,6 @@ internal sealed partial class ExpressionEvaluator(
         return value switch
         {
             decimal m => decimal.Round(m, places, MidpointRounding.ToEven),
-            double d when WrittenValue(f.Arguments[0]) is decimal written =>
-                RoundWritten(d, places, () => written, JetDecimalConverter.FromDecimal),
             double d => RoundDouble(d, places),
             float s => RoundWritten(s, places, () => JetDecimalConverter.FromSingle(s), r => (float)JetDecimalConverter.FromDecimal(r)),
             long or ulong => Lng(value),
@@ -1519,15 +1553,13 @@ internal sealed partial class ExpressionEvaluator(
     internal static object ConversionNumber(object v) => Numeric(Serial(NumericOperand(v)!));
 
     /// <summary>
-    /// A <c>CCur</c> or <c>CDec</c> argument as a Decimal, exactly where it can be: a number written with a decimal
-    /// point as written, and text that reads as a number within a Decimal's range as it reads (verified vs ACE:
-    /// CCur('12345678901234.5678') and CCur(12345678901234.5678) keep every place). Anything else is read as the
-    /// conversion functions read it. Null for a Null argument.
+    /// A <c>CCur</c> or <c>CDec</c> argument as a Decimal, exactly where it can be: a Decimal as it is, and text that
+    /// reads as a number within a Decimal's range as it reads (verified vs ACE: CCur('12345678901234.5678') and
+    /// CCur(12345678901234.5678) keep every place). Anything else is read as the conversion functions read it. Null
+    /// for a Null argument.
     /// </summary>
     private object? DecimalArgument(FunctionCall f, Func<decimal, decimal> convert)
     {
-        if (WrittenValue(f.Arguments[0]) is decimal written)
-            return convert(written);
         return Evaluate(f.Arguments[0]) switch
         {
             null => null,
@@ -2111,14 +2143,6 @@ internal sealed partial class ExpressionEvaluator(
             right = NumericOperand(right);
         }
 
-        // A number written with a decimal point meets a Decimal as the value written, not as the Double it was
-        // parsed to (verified vs ACE: a DECIMAL(18,4) 4.5 * 334.90 is 1507.05, not 1507.04999…).
-        if (b.Operator is BinaryOperator.Add or BinaryOperator.Subtract or BinaryOperator.Multiply or BinaryOperator.Divide)
-        {
-            if (right is decimal && WrittenValue(b.Left) is decimal leftWritten) left = leftWritten;
-            if (left is decimal && WrittenValue(b.Right) is decimal rightWritten) right = rightWritten;
-        }
-
         // A pattern written as just '%' is False for Null rather than Null, so it reads as IS NOT NULL (verified vs ACE;
         // '%%', or a '%' the pattern is computed to, stays Null).
         if (left is null && b.Operator == BinaryOperator.Like && b.Right is LiteralExpression { Value: "%" })
@@ -2127,13 +2151,34 @@ internal sealed partial class ExpressionEvaluator(
         if (left is null || right is null)
             return null;
 
+        if (b.Operator is BinaryOperator.Add or BinaryOperator.Subtract or BinaryOperator.Multiply or BinaryOperator.Divide)
+        {
+            // In a result value, a written number beside which the result is a Double is a Double (Evaluate; verified
+            // vs ACE: F * 1.11, 1.11 + 0.3 and Currency * 1.11 work in Doubles, where L * 1.11 stays a Decimal and
+            // DECIMAL(18,4) * 1.11 takes the Decimal column's arithmetic).
+            if (!_service && (b.Left is LiteralExpression { Value: decimal } || b.Right is LiteralExpression { Value: decimal })
+                && ClassOf(b) == NumberClass.Double)
+            {
+                if (b.Left is LiteralExpression && left is decimal written) left = JetDecimalConverter.FromDecimal(written);
+                if (b.Right is LiteralExpression && right is decimal writtenRight) right = JetDecimalConverter.FromDecimal(writtenRight);
+            }
+            // A Currency beside a Double or Single, or divided, is worked out as a Double, as OLE Automation does
+            // (verified vs ACE: Currency 1.1 * Double 0.1 is 0.11000000000000001, and Currency / 3 a Double).
+            bool divide = b.Operator == BinaryOperator.Divide;
+            if ((divide || right is double or float) && left is decimal money && IsCurrency(b.Left))
+                left = JetDecimalConverter.FromDecimal(money);
+            if ((divide || left is double or float) && right is decimal moneyRight && IsCurrency(b.Right))
+                right = JetDecimalConverter.FromDecimal(moneyRight);
+        }
+
         if (b.Operator is BinaryOperator.Equal or BinaryOperator.NotEqual && TruthTest(b, left, right) is bool truth)
             return Boxed(b.Operator == BinaryOperator.Equal ? truth : !truth);
 
         // A result that is a Currency (NumberTypeOf) is one at every step, not only in the result column: its four
         // places and its range apply to it where it is worked out, as CCur applies them (verified vs ACE: Currency
         // 1.2345 * 1.2345 is 1.524, 0.0003 * 1.2345 is 0.0004, and the largest Currency + 1 or * 3 is an
-        // overflow). A Currency with a written decimal or a Double is not one, so those are left as they are.
+        // overflow). A Currency with a written decimal is not one, nor one times a Double; one plus or less a Double
+        // is, worked out as a Double first (verified vs ACE: Currency 1.2345 + Double 1.5 is the Currency 2.7345).
         if (b.Operator is BinaryOperator.Add or BinaryOperator.Subtract or BinaryOperator.Multiply)
         {
             object result = b.Operator switch
@@ -2142,7 +2187,7 @@ internal sealed partial class ExpressionEvaluator(
                 BinaryOperator.Subtract => Arithmetic(left, right, '-'),
                 _ => Arithmetic(left, right, '*'),
             };
-            return result is decimal money && IsCurrency(b) ? ToCurrency(money) : result;
+            return result is decimal or double or float && IsCurrency(b) ? ToCurrency(Dec(result)) : result;
         }
 
         return b.Operator switch
@@ -2472,7 +2517,10 @@ internal sealed partial class ExpressionEvaluator(
                 '-' when bothDates => a - b,                       // date − date → number of days
                 '+' => OaDate(a + b),
                 '-' => OaDate(a - b),
-                _ => Finite(a * b),                                // date × n has no date meaning → numeric
+                // date × n has no date meaning → numeric; times a Decimal, a Decimal (verified vs ACE: a date times
+                // 0.25 is 10958.125 as a Decimal)
+                _ when left is decimal || right is decimal => ArithmeticDecimal(left) * ArithmeticDecimal(right),
+                _ => Finite(a * b),
             };
         }
         // A result past its type is an error, not a wrapped or infinite value (verified vs ACE: 2147483647 + 1,
@@ -2482,18 +2530,6 @@ internal sealed partial class ExpressionEvaluator(
         if (left is float || right is float) { float a = (float)Dbl(left), b = (float)Dbl(right); return op == '+' ? a + b : Finite(op == '-' ? a - b : a * b); }
         if (left is long or ulong || right is long or ulong) { long a = Lng(left), b = Lng(right); return checked(op == '+' ? a + b : op == '-' ? a - b : a * b); }
         int x = Int(left), y = Int(right); return checked(op == '+' ? x + y : op == '-' ? x - y : x * y);
-    }
-
-    /// <summary>The exact value of a number written with a decimal point (negated as written), or null.</summary>
-    private static decimal? WrittenValue(Expression expression)
-    {
-        bool negate = false;
-        while (expression is UnaryExpression { Operator: UnaryOperator.Negate } negation)
-        {
-            negate = !negate;
-            expression = negation.Operand;
-        }
-        return expression is LiteralExpression { Written: decimal written } ? (negate ? -written : written) : null;
     }
 
     /// <summary>
@@ -2506,10 +2542,10 @@ internal sealed partial class ExpressionEvaluator(
     /// none; a Decimal column has its scale; Currency counts as four places.</item>
     /// <item><c>*</c> and <c>/</c>: a Decimal with whole numbers, dates, Booleans or text stays that Decimal
     /// (DECIMAL(18,4) 4.5 / 7 is 0.6428; 1.5 / '2.5' is 0.6); two Decimals of the same places stay it (1.5 * 1.5 is
-    /// 2.2); two of different places, a Double or Single, or a Currency divided give a Double (1.5 * 1.25 is
-    /// 1.875; 1.5 / DECIMAL 4.5 is 0.333…).</item>
+    /// 2.2); two of different places, a Double or Single, a Currency with a Decimal, or a Currency divided give a
+    /// Double (1.5 * 1.25 is 1.875; 1.5 / DECIMAL 4.5 is 0.333…; DECIMAL 1.1 * Currency 1.1 is 1.21).</item>
     /// <item><c>+</c> and <c>-</c> keep the same rule, except that Currency with a Decimal is a Decimal of the
-    /// larger places (1.5 - Currency 3.25 is -1.7500).</item>
+    /// larger places (1.5 - Currency 3.25 is -1.7500), and Currency with a Double is a Currency.</item>
     /// <item>A function other than <c>CCur</c> and <c>Sum</c>/<c>Min</c>/<c>Max</c>/<c>First</c>/<c>Last</c>, a
     /// parameter or anything else is not a Decimal; a function returning text or a date counts as text or a date
     /// (1.5 / Left('12', 2) is 0.1), as <paramref name="declaredType"/> says.</item>
@@ -2522,14 +2558,10 @@ internal sealed partial class ExpressionEvaluator(
 
         switch (expression)
         {
-            case LiteralExpression { Written: decimal written }:
-                {
-                    int places = (written / 1.0000000000000000000000000000m).Scale;   // trailing zeros dropped
-                    return places == 0 ? new(NumberClass.Whole) : new(NumberClass.Decimal, places);
-                }
             case LiteralExpression literal:
                 return literal.Value switch
                 {
+                    decimal written => new(NumberClass.Decimal, (written / 1.0000000000000000000000000000m).Scale),   // trailing zeros dropped
                     // A whole number too big for a Long is a Decimal to ACE, so Currency * 864000000000 is a Double
                     // there rather than an overflowing Currency (verified vs ACE); LibRed keeps the value an Int64.
                     long => new(NumberClass.Decimal, 0),
@@ -2596,9 +2628,9 @@ internal sealed partial class ExpressionEvaluator(
         if (IsWhole(right)) return left;
         if (left.Class == NumberClass.Currency && right.Class == NumberClass.Currency)
             return new(NumberClass.Currency);
-        int leftPlaces = left.Class == NumberClass.Currency ? 4 : left.Places;
-        int rightPlaces = right.Class == NumberClass.Currency ? 4 : right.Places;
-        return leftPlaces == rightPlaces ? new(NumberClass.Decimal, leftPlaces) : new(NumberClass.Double);
+        if (left.Class == NumberClass.Currency || right.Class == NumberClass.Currency)
+            return new(NumberClass.Double);
+        return left.Places == right.Places ? new(NumberClass.Decimal, left.Places) : new(NumberClass.Double);
     }
 
     private static NumberType Sum(NumberType left, NumberType right, bool add)
@@ -2606,6 +2638,9 @@ internal sealed partial class ExpressionEvaluator(
         if (left.Class is NumberClass.Other or NumberClass.Date || right.Class is NumberClass.Other or NumberClass.Date
             || add && left.Class == NumberClass.Text && right.Class == NumberClass.Text)
             return new(NumberClass.Other);
+        if (left.Class == NumberClass.Currency && right.Class == NumberClass.Double
+            || left.Class == NumberClass.Double && right.Class == NumberClass.Currency)
+            return new(NumberClass.Currency);
         if (left.Class == NumberClass.Double || right.Class == NumberClass.Double)
             return new(NumberClass.Double);
         if (IsWhole(left) && IsWhole(right))
@@ -2620,18 +2655,22 @@ internal sealed partial class ExpressionEvaluator(
     }
 
     /// <summary>
-    /// A value as it goes into a result column of <paramref name="type"/>: a Decimal column keeps only its places,
-    /// the rest cut off. A Double or Single — LibRed's type for a written decimal literal — becomes a Decimal the
-    /// way OLE Automation converts it (<see cref="JetDecimalConverter"/>), so binary rounding (0.6 held as
-    /// 0.5999…) cannot drop a digit.
+    /// A value as it goes into a result column of <paramref name="type"/>, converted the OLE Automation way (verified
+    /// vs ACE): a Decimal column holds exactly its places, the rest cut off (DECIMAL(18,4) 1.1 / 1.1 is 1.0000), a
+    /// Double or Single becoming a Decimal first
+    /// (<see cref="JetDecimalConverter"/>), so binary rounding (0.6 held as 0.5999…) cannot drop a digit; a Double
+    /// column takes a Decimal as a Double (DECIMAL 1.1 * 1.11 is 1.221); a Currency column takes a Double to four
+    /// places (Currency 1.1 + Double 0.1 is 1.2).
     /// </summary>
-    internal static object? ToResultPlaces(object? value, NumberType type) =>
-        type.Class != NumberClass.Decimal ? value : value switch
-        {
-            decimal d => decimal.Round(d, type.Places, MidpointRounding.ToZero),
-            double or float => CutFloating(value, type.Places),
-            _ => value,
-        };
+    internal static object? ToResultPlaces(object? value, NumberType type) => (type.Class, value) switch
+    {
+        (NumberClass.Decimal, decimal d) =>
+            decimal.Round(d, type.Places, MidpointRounding.ToZero) + new decimal(0, 0, 0, false, (byte)type.Places),
+        (NumberClass.Decimal, double or float) => CutFloating(value, type.Places),
+        (NumberClass.Double, decimal d) => JetDecimalConverter.FromDecimal(d),
+        (NumberClass.Currency, double or float) => ToCurrency(Dec(value)),
+        _ => value,
+    };
 
     /// <summary>
     /// A value converted to the type its result column declares, when it has another: a number to a wider number
@@ -2856,13 +2895,20 @@ internal sealed partial class ExpressionEvaluator(
             if (left is float || right is float)
                 return Sng(left).CompareTo(Sng(right));
 
-            // Otherwise compare in double when either side is floating point: a double can exceed decimal's
-            // range (e.g. EXP of a large value) and coercing it to decimal overflows. For integer/decimal
-            // operands keep decimal, which holds 64-bit integers and exact decimals without the precision loss
-            // double would introduce.
-            return left is double || right is double
-                ? Dbl(left).CompareTo(Dbl(right))
-                : Dec(left).CompareTo(Dec(right));
+            // A Double beside a Decimal compares as a Decimal, the Double converted the OLE Automation way (verified vs
+            // ACE: a Double 0.1 is less than 0.10000000000000001); two Doubles, or a Double beside a whole number,
+            // compare as Doubles. Where a Double is past a Decimal's range they compare as Doubles too. Whole numbers
+            // and Decimals compare as Decimals, which hold 64-bit integers and exact decimals without loss.
+            if (left is double && right is not decimal || right is double && left is not decimal)
+                return Dbl(left).CompareTo(Dbl(right));
+            try
+            {
+                return Dec(left).CompareTo(Dec(right));
+            }
+            catch (OverflowException)
+            {
+                return Dbl(left).CompareTo(Dbl(right));
+            }
         }
 
         // Binary (byte[]) columns: structural, length-sensitive byte compare — lexicographic then by
@@ -2909,16 +2955,28 @@ internal sealed partial class ExpressionEvaluator(
         a is string sa && b is string sb ? text.Equals(sa, sb) : Compare(a, b, text) == 0;
 
     /// <summary>A hash for a non-null join key that agrees with <see cref="KeyEqual"/> within a type kind: values
-    /// the evaluator treats as equal hash the same (numeric via double, text by its collation key, binary
-    /// structurally). The planner only builds a hash join over same-kind key columns, so this is total over the
-    /// keys it actually sees.</summary>
+    /// the evaluator treats as equal hash the same (numeric via the Decimal a Double compares as beside one, or the
+    /// Double past a Decimal's range; text by its collation key, binary structurally). The planner only builds a
+    /// hash join over same-kind key columns, so this is total over the keys it actually sees.</summary>
     public static int KeyHash(object v, JetTextComparer text) => v switch
     {
         byte[] b => BinaryHash(b),
         string s => text.GetHashCode(s),
-        _ when IsNumeric(v) => Dbl(v).GetHashCode(),
+        _ when IsNumeric(v) => NumericHash(v),
         _ => v.GetHashCode(),
     };
+
+    private static int NumericHash(object v)
+    {
+        try
+        {
+            return Dec(v).GetHashCode();
+        }
+        catch (OverflowException)
+        {
+            return Dbl(v).GetHashCode();
+        }
+    }
 
     private static int BinaryHash(byte[] b)
     {

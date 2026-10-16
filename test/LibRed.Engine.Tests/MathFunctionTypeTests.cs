@@ -35,8 +35,8 @@ public class MathFunctionTypeTests
         Assert.Equal(3.7d, Scalar("ROUND(D, 1)"));
         Assert.IsType<decimal>(Scalar("ROUND(C, 1)"));
         Assert.Equal(3.7m, Scalar("ROUND(C, 1)"));
-        Assert.IsType<double>(Scalar("ROUND(2.5, 0)")); // 2.5 literal is a double
-        Assert.Equal(2d, Scalar("ROUND(2.5, 0)"));      // banker's rounding
+        Assert.IsType<decimal>(Scalar("ROUND(2.5, 0)")); // 2.5 is a Decimal, as ACE reads it
+        Assert.Equal(2m, Scalar("ROUND(2.5, 0)"));       // banker's rounding
     }
 
     [Fact]

@@ -37,10 +37,14 @@ public class CurrencyArithmeticTests(CurrencyArithmeticTests.Database database)
     [Theory]
     [InlineData("A + 0.00005", "1.23455")]                          // with a written decimal it is a Decimal
     [InlineData("Z + 0.5808", "922337203685477.5808")]              // ... so past the Currency range is no overflow
-    [InlineData("Y * 864000000000", "864000000432000000000")]       // a literal past a Long is a Decimal too
     [InlineData("Z + 1000000000000", "923337203685477")]
     public void A_currency_with_a_decimal_is_not_a_currency(string expression, string expected) =>
         Assert.Equal(decimal.Parse(expected, CultureInfo.InvariantCulture), Convert.ToDecimal(Scalar(expression)));
+
+    // A literal past a Long is a Decimal too, and a Currency times a Decimal is a Double (verified vs ACE).
+    [Fact]
+    public void A_currency_times_a_large_number_is_a_double() =>
+        Assert.Equal(8.64000000432E+20, Assert.IsType<double>(Scalar("Y * 864000000000")));
 
     [Theory]
     [InlineData("Z + 1")]

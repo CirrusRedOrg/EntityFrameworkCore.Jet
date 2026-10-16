@@ -1130,7 +1130,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     && binary.Operator is BinaryOperator.Add or BinaryOperator.Subtract
                     || right == typeof(DateTime) && IsSpan(binary.Left) && binary.Operator == BinaryOperator.Add)
                     return typeof(DateTime);
-                return DeclaredBinaryType(binary.Operator, left, right);
+                return DoubleWhereAceSays(binary, DeclaredBinaryType(binary.Operator, left, right), columns);
             case FunctionCall function:
                 return DeclaredFunctionType(function, columns);
             case CaseExpression @case:
@@ -1139,6 +1139,14 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 return null;
         }
     }
+
+    /// <summary>A Decimal that ACE gives a Double column is a Double (<see cref="ExpressionEvaluator.NumberTypeOf"/>;
+    /// <see cref="ExpressionEvaluator.ToResultPlaces"/> converts its value): DOUBLE * 1.11, 1.5 * 1.25, DECIMAL(18,4)
+    /// * 1.11, Currency * Double.</summary>
+    private Type? DoubleWhereAceSays(Expression expression, Type? declared, IReadOnlyList<OutputColumn> columns) =>
+        declared == typeof(decimal)
+        && ExpressionEvaluator.NumberTypeOf(expression, columns, e => DeclaredType(e, columns)).Class == NumberClass.Double
+            ? typeof(double) : declared;
 
     /// <summary>
     /// What ACE's expression service makes of a value beyond its type (verified vs ACE, over OLE DB, for IIF, SWITCH
@@ -1296,10 +1304,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     /// <summary>The single type a set of alternative expressions declares — shared by CASE, IIF, COALESCE,
     /// GREATEST and LEAST, which the standard defines in terms of CASE or gives the same precedence rule.</summary>
-    /// <remarks>A number written with a decimal point counts as a Decimal here, as ACE reads it (NumberTypeOf), though
-    /// its value is held as a Double: EF writes a decimal zero as <c>0.0</c>, so its Sum-with-a-default shape
-    /// <c>IIF(SUM(x) IS NULL, 0.0, SUM(x))</c> would otherwise make every money sum a Double. A Double still wins
-    /// where one is present.</remarks>
+    /// <remarks>A Decimal stays a Decimal beside a whole number, as .NET and EF expect — where ACE makes any Decimal
+    /// value in IIF a Double — so EF's Sum-with-a-default shape <c>IIF(SUM(x) IS NULL, 0.0, SUM(x))</c> keeps a
+    /// decimal sum a Decimal. A Double still wins where one is present.</remarks>
     private Type? UnifiedType(IEnumerable<Expression> alternatives, IReadOnlyList<OutputColumn> columns)
     {
         Type? result = null;
@@ -1307,7 +1314,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
         foreach (Expression alternative in alternatives)
         {
-            Type? branchType = IsWrittenDecimal(alternative) ? typeof(decimal) : OperandType(alternative, columns);
+            Type? branchType = OperandType(alternative, columns);
             if (branchType is null)
             {
                 if (alternative is LiteralExpression { Value: null })
@@ -1347,14 +1354,6 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
 
         return result;
-    }
-
-    /// <summary>Whether <paramref name="expression"/> is a number written with a decimal point, negated or not.</summary>
-    private static bool IsWrittenDecimal(Expression expression)
-    {
-        while (expression is UnaryExpression { Operator: UnaryOperator.Negate } negation)
-            expression = negation.Operand;
-        return expression is LiteralExpression { Written: decimal };
     }
 
     /// <summary>
@@ -1462,7 +1461,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 or "TANH" or "DEGREES" or "RADIANS" or "PI"
                 or "PMT" or "FV" or "PV" or "NPER" or "IPMT" or "PPMT" or "DDB" or "RATE" or "SLN" or "SYD" => typeof(double),
             // IIF chooses between two values as CASE does, so it takes CASE's rule rather than ACE's own (which
-            // makes every whole number a Long and lets Currency beat Double).
+            // makes every whole number a Long, any Decimal a Double, and lets Currency beat Double).
             "IIF" when function.Arguments.Count == 3 => UnifiedType(function.Arguments.Skip(1), columns),
             // SWITCH and CHOOSE pick one of their values as IIF does, and take its rule.
             "SWITCH" or "CHOOSE" => UnifiedType(ChoiceArms(function)!, columns),
@@ -1535,7 +1534,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         {
             if (op == BinaryOperator.Subtract && left == typeof(DateTime) && right == typeof(DateTime))
                 return typeof(double);
-            return op is BinaryOperator.Add or BinaryOperator.Subtract ? typeof(DateTime) : typeof(double);
+            return op is BinaryOperator.Add or BinaryOperator.Subtract ? typeof(DateTime)
+                : left == typeof(decimal) || right == typeof(decimal) ? typeof(decimal) : typeof(double);
         }
         if (left == typeof(decimal) || right == typeof(decimal)) return typeof(decimal);
         if (left == typeof(double) || right == typeof(double)) return typeof(double);

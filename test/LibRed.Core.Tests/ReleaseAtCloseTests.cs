@@ -181,11 +181,16 @@ public class ReleaseAtCloseTests
             table.Update(id, values, new HashSet<int> { 1 });
             Assert.True(channel.PageCount > pagesBefore);
 
-            // ...but it is free at once, not held to close: the next update lands on it and the file does not grow.
-            int pagesAfterFirst = channel.PageCount;
+            // ...but it is free at once, not held to close: the next update's chain starts on the old chain's first page,
+            // 354, and then continues through the session's shared reservation, growing the file as well — measured
+            // through ACE on this sequence: 375 pages after the first update, 384 after the second, the chain on 354
+            // and 375-383.
+            Assert.Equal(375, channel.PageCount);
             values[1] = new string('c', 20000);
             table.Update(id, values, new HashSet<int> { 1 });
-            Assert.Equal(pagesAfterFirst, channel.PageCount);
+            Assert.Equal(384, channel.PageCount);
+            (int Row, int Page) chain = Assert.Single(table.Definition.LongValueOwnedMaps.Values);
+            Assert.Contains(354, new UsageMap(channel, table.Definition).PagesInMap(chain.Row, chain.Page));
         }
         finally { TemporaryDatabase.Delete(path); }
     }

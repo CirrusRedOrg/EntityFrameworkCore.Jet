@@ -3515,14 +3515,11 @@ FROM `Order Details` AS `o`
 
             AssertSql(
                 """
-SELECT [o].[OrderID], (
-    SELECT ISNULL(SUM([s].[value]), 0)
-    FROM [Order Details] AS [o0]
-    OUTER APPLY (
-        SELECT [o0].[ProductID] * [o].[OrderID] AS [value]
-    ) AS [s]
-    WHERE [o].[OrderID] = [o0].[OrderID]) AS [Total]
-FROM [Orders] AS [o]
+SELECT `o`.`OrderID`, (
+    SELECT IIF(SUM(`o0`.`ProductID` * `o`.`OrderID`) IS NULL, 0, SUM(`o0`.`ProductID` * `o`.`OrderID`))
+    FROM `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Total`
+FROM `Orders` AS `o`
 """);
         }
 

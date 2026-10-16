@@ -53,9 +53,10 @@ internal sealed class ScalarAggregateSemiJoin
     {
         // A lone aggregate call and nothing else — see the remarks. TOP is redundant over a single row but would
         // have to be reasoned about, and DISTINCT/ORDER BY over one row are no-ops, so the strictest form is taken.
+        // OFFSET can skip that one row, which the grouped key query would not.
         if (subquery is not
             {
-                Top: null, GroupBy.Count: 0, Having: null, IsSelectStar: false,
+                Top: null, Offset: null, GroupBy.Count: 0, Having: null, IsSelectStar: false,
                 Projection: [{ Value: FunctionCall { Name: { } name } call }],
             }
             || !Planning.QueryPlanner.IsAggregate(name)

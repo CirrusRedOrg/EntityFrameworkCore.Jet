@@ -246,6 +246,8 @@ public class CorrelatedExistsSemiJoinTests : TempDatabaseTest
     [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.Keep = 1)")]
     [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT TOP 0 1 FROM I AS i WHERE i.K = o.K)")]
     [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT TOP 50 PERCENT 1 FROM I AS i WHERE i.K = o.K)")]
+    // An OFFSET asks for more than n rows per key — EF's ElementAt(n) != null. A key set can't say that.
+    [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K OFFSET 1 ROWS)")]
     public void The_analysis_accepts_exactly_these_shapes(bool expected, string sql)
         => Assert.Equal(expected, Decorrelates(Fresh(), sql));
 

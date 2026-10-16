@@ -104,8 +104,10 @@ internal sealed class ExistsSemiJoin
         HashSet<string> outerAliases,
         JetCatalog catalog)
     {
-        // (ORDER BY and DISTINCT are irrelevant to EXISTS.)
-        if (!TopCannotChangeExistence(subquery)
+        // (ORDER BY and DISTINCT are irrelevant to EXISTS.) OFFSET is not: it asks for more than n rows per key,
+        // which a key set cannot express.
+        if (subquery.Offset is not null
+            || !TopCannotChangeExistence(subquery)
             || !EmptyInputMeansNoRows(subquery)
             || SubqueryCorrelation.TrySplit(subquery, outerColumns, outerAliases, catalog) is not { } split)
         {

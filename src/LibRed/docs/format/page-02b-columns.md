@@ -102,11 +102,16 @@
 >   the default increment whatever the source's (`AUTOINCREMENT(10, 5)` copies as step 1) and `0x14` on the last
 >   id copied. A **computed** column takes its type from its result: a Boolean, Byte or Integer result is a fixed
 >   Integer, and every other number and a date keep their type but are **variable-length** (fixed flag clear,
->   counted in `0x2B`), a Single widening to Double (verified). **Not modelled yet:** a computed Decimal keeps
->   its places as a variable `DECIMAL` (`DECIMAL(18,4) * 2` is `DECIMAL(18,4)`, `DECIMAL(10,2) * 2` is
->   `DECIMAL(12,2)`, length 9 and 6), and a Double or Currency computed after one carries its precision and scale
->   in `0x0B`–`0x0E` where the others hold the collation; LibRed writes those as Currency and Double with the
->   collation.
+>   counted in `0x2B`), a Single widening to Double (verified). A computed **Decimal** is a variable `DECIMAL`
+>   of the precision and scale the expression has (`DECIMAL(18,4) * 2` is `DECIMAL(18,4)`, `DECIMAL(10,2) * 2`
+>   is `DECIMAL(12,2)`, a decimal literal `DECIMAL(28,s)`), and its **length `0x17` is the bytes the largest
+>   number of that precision takes plus a sign byte** — 3 for precision 4, 6 for 10–12, 9 for 18, 10 for 20,
+>   11 for 24, 13 for 28 — where a declared `DECIMAL` has 17; its values are 17 bytes whichever (verified).
+>   Round, Abs, Int and an IIF over a Decimal make a Double. And after a Decimal, **every later column but a
+>   text one carries that Decimal's precision and scale in `0x0B`–`0x0E` as two words** where it would hold the
+>   collation — `0C 00 02 00` after a `DECIMAL(12,2)`, the latest Decimal's, copied columns included; a text
+>   column keeps its own collation, and does not stop the columns after it carrying them. The next statement
+>   starts afresh, and `CREATE TABLE` does not do it (verified).
 >
 > So **descriptor order is display order**, and a reader needs nothing else — LibRed reads column order from
 > descriptor order and never reads `0x09`, and matches ACE even in a file where the two were made to disagree.

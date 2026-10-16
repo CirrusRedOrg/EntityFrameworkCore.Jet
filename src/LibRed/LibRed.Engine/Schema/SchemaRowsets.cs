@@ -434,7 +434,8 @@ public static class SchemaRowsets
                 described.Add(new Execution.ResultColumn(
                     column.Name, clrType, AllowNull: clrType != typeof(bool), IsExpression: true, IsReadOnly: true,
                     Size: (int?)ComputedTextLength(column.ClrType, column.Origin),
-                    Precision: ComputedPrecision(column.ClrType, column.Currency), Scale: column.Scale,
+                    // A Decimal's own precision (verified vs ACE: DECIMAL(10,2) * 2 reports 12, see NumberTypeOf).
+                    Precision: column.Precision ?? ComputedPrecision(column.ClrType, column.Currency), Scale: column.Scale,
                     ProviderType: ComputedDataTypeCode(column.ClrType, column.Currency),
                     TypeName: ComputedTypeName(column.ClrType, column.Currency)));
                 continue;

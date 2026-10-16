@@ -23,8 +23,13 @@ internal enum NumberClass
     Double,
 }
 
-/// <summary>A result's <see cref="NumberClass"/>, with its places when it is a Decimal.</summary>
-internal readonly record struct NumberType(NumberClass Class, int Places = 0);
+/// <summary>A result's <see cref="NumberClass"/>, with its places when it is a Decimal, and the whole digits it counts
+/// beside a Decimal: a Decimal's precision is <c>Integers + Places</c>.</summary>
+internal readonly record struct NumberType(NumberClass Class, int Places = 0, int Integers = 0)
+{
+    /// <summary>A Decimal's precision.</summary>
+    public int Precision => Integers + Places;
+}
 
 /// <summary>
 /// Evaluates an AST <see cref="Expression"/> against a single row, resolving column
@@ -2533,42 +2538,78 @@ internal sealed partial class ExpressionEvaluator(
     }
 
     /// <summary>
-    /// The type ACE gives a result column before reading any row, as far as its places go (verified vs ACE). ACE
-    /// works the expression out in full and cuts the value only as it goes into a Decimal result column — so
+    /// The type ACE gives a result column before reading any row, as far as its places and precision go (verified
+    /// vs ACE, by the column a make-table query creates and the precision and scale OLE DB reports). ACE works the
+    /// expression out in full and cuts the value only as it goes into a Decimal result column — so
     /// <c>Pmt(0.05 / 12, …)</c> uses the whole rate while <c>SELECT 1 / 1.5</c> is 0.6.
     /// <list type="bullet">
     /// <item>A number written with a decimal point is a Decimal of the places written less trailing zeros
-    /// (<c>334.90</c> has one; <c>3.0</c> is a whole number), and so is a whole number too big for a Long, with
-    /// none; a Decimal column has its scale; Currency counts as four places.</item>
-    /// <item><c>*</c> and <c>/</c>: a Decimal with whole numbers, dates, Booleans or text stays that Decimal
-    /// (DECIMAL(18,4) 4.5 / 7 is 0.6428; 1.5 / '2.5' is 0.6); two Decimals of the same places stay it (1.5 * 1.5 is
-    /// 2.2); two of different places, a Double or Single, a Currency with a Decimal, or a Currency divided give a
-    /// Double (1.5 * 1.25 is 1.875; 1.5 / DECIMAL 4.5 is 0.333…; DECIMAL 1.1 * Currency 1.1 is 1.21).</item>
+    /// (<c>334.90</c> has one; <c>3.0</c> is a whole number) and a precision of 28, and so is a whole number too big
+    /// for a Long, with none; a Decimal column has its precision and scale; Currency counts as four places.</item>
+    /// <item>Beside a Decimal, an Integer or a Boolean counts five whole digits, a Byte, a Long and any whole result
+    /// ten (an Integer times an Integer is a Long), text and a date 28.</item>
+    /// <item><c>*</c> and <c>/</c>: a Decimal with whole numbers, dates, Booleans or text stays a Decimal of its
+    /// places (DECIMAL(18,4) 4.5 / 7 is 0.6428; 1.5 / '2.5' is 0.6), its whole digits the most either side counts,
+    /// up to a precision of 28 (DECIMAL(10,2) * LONG is DECIMAL(12,2)). Two Decimals are one of the larger places
+    /// and the most whole digits where that fits 28 digits (DECIMAL(18,4) * DECIMAL(10,2) is DECIMAL(18,4); 1.5 *
+    /// 1.5 is 2.2), and a Double where it does not (1.5 * 1.25 is 1.875, 27 whole digits and two places; DECIMAL
+    /// 1.1 * 1.11). A Double or Single, a Currency with a Decimal, or a Currency divided give a Double (DECIMAL 1.1
+    /// * Currency 1.1 is 1.21).</item>
     /// <item><c>+</c> and <c>-</c> keep the same rule, except that Currency with a Decimal is a Decimal of the
-    /// larger places (1.5 - Currency 3.25 is -1.7500), and Currency with a Double is a Currency.</item>
-    /// <item>A function other than <c>CCur</c> and <c>Sum</c>/<c>Min</c>/<c>Max</c>/<c>First</c>/<c>Last</c>, a
-    /// parameter or anything else is not a Decimal; a function returning text or a date counts as text or a date
-    /// (1.5 / Left('12', 2) is 0.1), as <paramref name="declaredType"/> says.</item>
+    /// larger places and precision 28 (1.5 - Currency 3.25 is -1.7500), and Currency with a Double is a
+    /// Currency.</item>
+    /// <item><c>Sum</c> keeps its argument's places at a precision of 28; <c>Min</c>, <c>Max</c>, <c>First</c> and
+    /// <c>Last</c> keep its type, and so — where ACE makes them Doubles, LibRed keeping the type .NET does — do
+    /// <c>Round</c>, <c>Abs</c>, <c>Int</c> and <c>Fix</c> of a Decimal or Currency, and a choice its Decimal or
+    /// Currency arms'. Any other function, a parameter or anything else is not a Decimal; a function
+    /// returning text or a date counts as text or a date (1.5 / Left('12', 2) is 0.1), as
+    /// <paramref name="declaredType"/> says.</item>
     /// </list>
     /// </summary>
     internal static NumberType NumberTypeOf(
         Expression expression, IReadOnlyList<OutputColumn> columns, Func<Expression, Type?> declaredType)
     {
         NumberType Of(Expression e) => NumberTypeOf(e, columns, declaredType);
+        const int Most = AccessTypeMapper.MaxDecimalPrecision;
+
+        // A choice's arms taken together as + takes them, but for two Decimals past 28 digits, which + makes a Double:
+        // a choice computes nothing, so it is the Decimal of the larger places that holds either arm, its whole digits
+        // cut to fit. A Double arm, or anything else that is not a Decimal or a Currency, leaves the choice to its
+        // declared type.
+        NumberType Chosen(IEnumerable<Expression> arms)
+        {
+            NumberType? chosen = null;
+            foreach (Expression arm in arms)
+            {
+                if (arm is LiteralExpression { Value: null }) continue;
+                NumberType type = Of(arm);
+                if (type.Class is NumberClass.Double or NumberClass.Other) return new(NumberClass.Other);
+                if (chosen is not { } before)
+                {
+                    chosen = type;
+                    continue;
+                }
+                NumberType both = Sum(before, type, add: false);
+                int places = Math.Max(before.Places, type.Places);
+                chosen = both.Class == NumberClass.Double ? new(NumberClass.Decimal, places, Most - places) : both;
+            }
+            return chosen is { Class: NumberClass.Decimal or NumberClass.Currency } kept ? kept : new(NumberClass.Other);
+        }
 
         switch (expression)
         {
             case LiteralExpression literal:
                 return literal.Value switch
                 {
-                    decimal written => new(NumberClass.Decimal, (written / 1.0000000000000000000000000000m).Scale),   // trailing zeros dropped
+                    decimal written when (written / 1.0000000000000000000000000000m).Scale is var places =>   // trailing zeros dropped
+                        new(NumberClass.Decimal, places, Most - places),
                     // A whole number too big for a Long is a Decimal to ACE, so Currency * 864000000000 is a Double
                     // there rather than an overflowing Currency (verified vs ACE); LibRed keeps the value an Int64.
-                    long => new(NumberClass.Decimal, 0),
-                    int or short or byte or bool => new(NumberClass.Whole),
+                    long => new(NumberClass.Decimal, 0, Most),
+                    int or short or byte or bool => new(NumberClass.Whole, Integers: WholeDigits(literal.Value.GetType())),
                     double or float => new(NumberClass.Double),
-                    string => new(NumberClass.Text),
-                    DateTime => new(NumberClass.Date),
+                    string => new(NumberClass.Text, Integers: Most),
+                    DateTime => new(NumberClass.Date, Integers: Most),
                     _ => new(NumberClass.Other),
                 };
             case ColumnReference reference:
@@ -2577,13 +2618,13 @@ internal sealed partial class ExpressionEvaluator(
                 if (column.Currency)
                     return new(NumberClass.Currency);
                 if (column.Scale is int scale)
-                    return new(NumberClass.Decimal, scale);
+                    return new(NumberClass.Decimal, scale, (column.Precision ?? Most) - scale);
                 Type? type = column.ClrType;
                 return type == typeof(double) || type == typeof(float) ? new(NumberClass.Double)
                     : type == typeof(int) || type == typeof(long) || type == typeof(short) || type == typeof(byte)
-                        || type == typeof(bool) ? new(NumberClass.Whole)
-                    : type == typeof(string) ? new(NumberClass.Text)
-                    : type == typeof(DateTime) ? new(NumberClass.Date)
+                        || type == typeof(bool) ? new(NumberClass.Whole, Integers: WholeDigits(type))
+                    : type == typeof(string) ? new(NumberClass.Text, Integers: Most)
+                    : type == typeof(DateTime) ? new(NumberClass.Date, Integers: Most)
                     : new(NumberClass.Other);
             case UnaryExpression { Operator: UnaryOperator.Negate } negation:
                 return Of(negation.Operand);
@@ -2592,28 +2633,74 @@ internal sealed partial class ExpressionEvaluator(
             case BinaryExpression { Operator: BinaryOperator.Add or BinaryOperator.Subtract } sum:
                 return Sum(Of(sum.Left), Of(sum.Right), sum.Operator == BinaryOperator.Add);
             case BinaryExpression { Operator: BinaryOperator.IntDivide or BinaryOperator.Modulo }:
-                return new(NumberClass.Whole);
+                return new(NumberClass.Whole, Integers: WholeDigits(typeof(int)));
             case BinaryExpression { Operator: BinaryOperator.Power }:
                 return new(NumberClass.Double);
             case FunctionCall function when function.Name.Equals("CCUR", StringComparison.OrdinalIgnoreCase):
                 return new(NumberClass.Currency);
             case FunctionCall { Arguments: [var argument] } function
-                when function.Name.ToUpperInvariant() is "SUM" or "MIN" or "MAX" or "FIRST" or "LAST":
+                when function.Name.Equals("SUM", StringComparison.OrdinalIgnoreCase):
+                NumberType summed = Of(argument);
+                return summed.Class == NumberClass.Decimal ? summed with { Integers = Most - summed.Places } : summed;
+            case FunctionCall { Arguments: [var argument] } function
+                when function.Name.ToUpperInvariant() is "MIN" or "MAX" or "FIRST" or "LAST":
                 return Of(argument);
+            // Round, Abs, Int and Fix keep a Decimal's or a Currency's type, as their declared type does
+            // (QueryExecutor.KeptNumberType), where ACE makes them Doubles.
+            case FunctionCall { Arguments: [var kept, ..] } function
+                when function.Name.ToUpperInvariant() is "ROUND" or "ABS" or "INT" or "FIX" or "FLOOR" or "CEILING" or "CEIL"
+                    && Of(kept).Class is NumberClass.Decimal or NumberClass.Currency:
+                return Of(kept);
+            // A choice keeps its Decimal or Currency arms' type beside whole numbers, as its declared type does
+            // (QueryExecutor.UnifiedType), where ACE makes it a Double.
+            case CaseExpression @case:
+                return Chosen(QueryExecutor.CaseResults(@case));
+            case FunctionCall function when QueryExecutor.ChoiceArms(function) is { } arms:
+                return Chosen(arms);
             case FunctionCall { WithinGroup: not null, Arguments: [_, var key] } function
                 when function.Name.Equals("PERCENTILE_DISC", StringComparison.OrdinalIgnoreCase):
                 return Of(key);
             case FunctionCall function:
                 Type? returns = declaredType(function);
-                return returns == typeof(string) ? new(NumberClass.Text)
-                    : returns == typeof(DateTime) ? new(NumberClass.Date)
+                return returns == typeof(string) ? new(NumberClass.Text, Integers: Most)
+                    : returns == typeof(DateTime) ? new(NumberClass.Date, Integers: Most)
                     : new(NumberClass.Other);
             default:
                 return new(NumberClass.Other);
         }
     }
 
+    /// <summary>The whole digits a whole number of <paramref name="type"/> counts beside a Decimal: an Integer's or a
+    /// Boolean's five, a Byte's or a Long's ten (verified vs ACE: DECIMAL(4,1) * INTEGER and * BIT are DECIMAL(6,1), *
+    /// BYTE and * LONG DECIMAL(11,1)). A BigInt's nineteen are its own digits: ACE makes a BigInt beside a Decimal a
+    /// BigInt, where LibRed keeps the Decimal .NET gives.</summary>
+    private static int WholeDigits(Type type) =>
+        type == typeof(short) || type == typeof(bool) ? 5 : type == typeof(long) ? 19 : 10;
+
     private static bool IsWhole(NumberType type) => type.Class is NumberClass.Whole or NumberClass.Text or NumberClass.Date;
+
+    /// <summary>A whole number with a whole number: at least a Long's digits, as ACE works an Integer times an
+    /// Integer out as a Long (verified vs ACE: DECIMAL(10,2) * (INTEGER * INTEGER) is DECIMAL(12,2)).</summary>
+    private static NumberType Whole(NumberType left, NumberType right) =>
+        new(NumberClass.Whole, Integers: Math.Max(WholeDigits(typeof(int)), Math.Max(left.Integers, right.Integers)));
+
+    /// <summary>A Decimal or Currency beside a whole number, a date or text: its own places, the whole digits the
+    /// two count between them, up to a precision of 28 (DECIMAL(4,1) * TEXT is DECIMAL(28,1)).</summary>
+    private static NumberType Beside(NumberType number, NumberType whole) => number.Class != NumberClass.Decimal ? number
+        : number with
+        {
+            Integers = Math.Min(AccessTypeMapper.MaxDecimalPrecision - number.Places, Math.Max(number.Integers, whole.Integers)),
+        };
+
+    /// <summary>Two Decimals: the larger places and the more whole digits, or a Double where they come to more than
+    /// 28 digits.</summary>
+    private static NumberType Decimals(NumberType left, NumberType right)
+    {
+        int places = Math.Max(left.Places, right.Places), integers = Math.Max(left.Integers, right.Integers);
+        return integers + places > AccessTypeMapper.MaxDecimalPrecision
+            ? new(NumberClass.Double)
+            : new(NumberClass.Decimal, places, integers);
+    }
 
     private static NumberType Product(NumberType left, NumberType right, bool divide)
     {
@@ -2623,14 +2710,14 @@ internal sealed partial class ExpressionEvaluator(
             || divide && (left.Class == NumberClass.Currency || right.Class == NumberClass.Currency))
             return new(NumberClass.Double);
         if (IsWhole(left) && IsWhole(right))
-            return divide ? new(NumberClass.Double) : new(NumberClass.Whole);
-        if (IsWhole(left)) return right;
-        if (IsWhole(right)) return left;
+            return divide ? new(NumberClass.Double) : Whole(left, right);
+        if (IsWhole(left)) return Beside(right, left);
+        if (IsWhole(right)) return Beside(left, right);
         if (left.Class == NumberClass.Currency && right.Class == NumberClass.Currency)
             return new(NumberClass.Currency);
         if (left.Class == NumberClass.Currency || right.Class == NumberClass.Currency)
             return new(NumberClass.Double);
-        return left.Places == right.Places ? new(NumberClass.Decimal, left.Places) : new(NumberClass.Double);
+        return Decimals(left, right);
     }
 
     private static NumberType Sum(NumberType left, NumberType right, bool add)
@@ -2644,14 +2731,17 @@ internal sealed partial class ExpressionEvaluator(
         if (left.Class == NumberClass.Double || right.Class == NumberClass.Double)
             return new(NumberClass.Double);
         if (IsWhole(left) && IsWhole(right))
-            return new(NumberClass.Whole);
-        if (IsWhole(left)) return right;
-        if (IsWhole(right)) return left;
+            return Whole(left, right);
+        if (IsWhole(left)) return Beside(right, left);
+        if (IsWhole(right)) return Beside(left, right);
         if (left.Class == NumberClass.Currency && right.Class == NumberClass.Currency)
             return new(NumberClass.Currency);
         if (left.Class == NumberClass.Currency || right.Class == NumberClass.Currency)
-            return new(NumberClass.Decimal, Math.Max(4, Math.Max(left.Places, right.Places)));
-        return left.Places == right.Places ? left : new(NumberClass.Double);
+        {
+            int places = Math.Max(4, Math.Max(left.Places, right.Places));
+            return new(NumberClass.Decimal, places, AccessTypeMapper.MaxDecimalPrecision - places);
+        }
+        return Decimals(left, right);
     }
 
     /// <summary>

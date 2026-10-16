@@ -75,14 +75,20 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     /// variable chunks and its dead ids' bits are kept wherever this row does not write its own.</param>
     /// <param name="slackOf">The zero bytes to leave between the variable data and its offset table (spec §5), from
     /// the variable chunks this row is written with, by variable index; null for none.</param>
+    /// <param name="buffer">The buffer an UPDATE builds its rows in, one per statement and table, page-sized and
+    /// zeroed at the start: <paramref name="prior"/> is copied in, the row is built over it, and the row is left in
+    /// it — so a byte the row does not write and its old record did not reach holds the last updated record that
+    /// did (verified vs ACE, UpdateRowBufferProbeTest). Null for none.</param>
     internal byte[] Encode(object?[] values, IReadOnlyDictionary<int, byte[]>? preservedCalculated,
-        object?[]? logicalValues = null, Layout prior = default, Func<IReadOnlyList<byte[]>, int>? slackOf = null)
+        object?[]? logicalValues = null, Layout prior = default, Func<IReadOnlyList<byte[]>, int>? slackOf = null,
+        byte[]? buffer = null)
     {
         if (values.Length != _columns.Count)
             throw new ArgumentException($"Expected {_columns.Count} values, got {values.Length}.", nameof(values));
 
+        if (buffer is not null) prior.Record.CopyTo(buffer);
         // Encode each region's payload first so we can size the row exactly.
-        byte[] fixedRegion = FixedRegionOver(prior, _fixedDataLength, _format);
+        byte[] fixedRegion = FixedRegionOver(prior, _fixedDataLength, _format, buffer);
         foreach (ColumnDef column in _columns)
         {
             if (!column.OccupiesFixedData) continue;
@@ -106,8 +112,10 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
             varChunks[column.VariableIndex] = v is null ? [] : JetTypeCodec.Encode(column, v, _format);
         }
 
-        return AssembleRow(_format, _maxColumnId, fixedRegion, varChunks, _columns, values, prior.NullBitmap,
-            slackOf?.Invoke(varChunks) ?? 0);
+        byte[] row = AssembleRow(_format, _maxColumnId, fixedRegion, varChunks, _columns, values, prior.NullBitmap,
+            slackOf?.Invoke(varChunks) ?? 0, buffer);
+        if (buffer is not null) row.CopyTo(buffer, 0);
+        return row;
     }
 
     /// <summary>The fixed region of a row being written over <paramref name="prior"/>: <paramref name="liveLength"/>
@@ -117,9 +125,9 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     /// (<paramref name="prior"/> default) starts zeroed.</summary>
     /// <remarks>Verified vs ACE on UPDATE and on the ALTER COLUMN re-lay: a dead slot inside an old row's region
     /// stays, a row predating a fixed ADD COLUMN grows to the live length with its variable data's or null
-    /// bitmap's old bytes in the new slot, and a NULL leaves its slot's old bytes rather than zeros. The re-lay
-    /// builds every row in one buffer it never clears, so what lies past a short old record is whatever the last
-    /// record to reach that far left there — zeros until one has.</remarks>
+    /// bitmap's old bytes in the new slot, and a NULL leaves its slot's old bytes rather than zeros. The re-lay, and
+    /// an UPDATE, build every row in one buffer they never clear, so what lies past a short old record is whatever
+    /// the last record to reach that far left there — zeros until one has.</remarks>
     internal static byte[] FixedRegionOver(in Layout prior, int liveLength, JetFormatBase format,
         ReadOnlySpan<byte> previous = default)
     {
@@ -222,8 +230,8 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     /// column's bit is set when present (Boolean = its truthy value), and a dead id's (a gap below the max, from a
     /// burned/dropped id) is taken from <paramref name="priorBitmap"/> — the row's bitmap before an UPDATE or an
     /// ALTER COLUMN re-lay — or left clear for a new row — all verified vs ACE (§5). In a bitmap byte the prior
-    /// bitmap does not reach, those bits are what <paramref name="beneath"/> — the buffer the re-lay builds the
-    /// row in — holds at that position. Shared by <c>Encode</c> and the ALTER COLUMN row re-lay so the two can
+    /// bitmap does not reach, those bits are what <paramref name="beneath"/> — the buffer the re-lay or the UPDATE
+    /// builds the row in — holds at that position. Shared by <c>Encode</c> and the ALTER COLUMN row re-lay so the two can
     /// never drift.</summary>
     /// <remarks>
     /// The declared-width check runs HERE rather than in <c>Encode</c>. It used to sit above this call,
@@ -300,8 +308,8 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
         // the same statement pair gives ACE 0x0F for a re-laid row with a value and 0x0D for the next insert — and
         // for the padding past the last column in the final byte alike: an UPDATE of a row whose last byte read
         // 0x65 over one live column leaves it 0x65 (WholeFileParityProbeTest). Padding in a byte the row did not
-        // have before is whatever the re-lay's buffer holds there — stale text included, 0x78 under one live bit
-        // giving 0x79 — and clear for an UPDATE, which has no buffer.
+        // have before is whatever the re-lay's or the UPDATE's buffer holds there — stale text included, 0x78 under
+        // one live bit giving 0x79 — and clear for an INSERT, which has none.
         byte[] prior = new byte[nullBitmapSize];
         priorBitmap[..Math.Min(priorBitmap.Length, nullBitmapSize)].CopyTo(prior);
         for (int k = priorBitmap.Length; k < nullBitmapSize; k++)

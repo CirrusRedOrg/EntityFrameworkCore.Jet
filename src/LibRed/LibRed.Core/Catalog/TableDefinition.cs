@@ -1078,8 +1078,13 @@ public sealed class TableDefinition : Page
                 Precision = EffectivePrecision(s),
                 Scale = s.Scale,
                 // Numeric columns carry no collation (their 0x0B/0x0C bytes are precision/scale); every
-                // other column inherits the database's collating order unless the spec gives its own.
-                Collation = s.Collation ?? (s.Type == JetDataType.FixedPoint ? Collation.GeneralLegacy : collation),
+                // other column inherits the database's collating order unless the spec gives its own — or, for
+                // one that is not text, gives it a precision and scale, which then fill those bytes as two words,
+                // as ACE's make-table leaves them on the columns after a Decimal (page-02b §3.4).
+                Collation = s.Collation ?? (s.Type == JetDataType.FixedPoint ? Collation.GeneralLegacy
+                    : s.Precision != 0 && s.Type is not (JetDataType.Text or JetDataType.Memo)
+                        ? new Collation((CollatingOrder)s.Precision, Version: 0, SortId: s.Scale)
+                    : collation),
                 ComplexId = s.ComplexId,
             });
         }

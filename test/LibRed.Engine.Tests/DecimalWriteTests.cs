@@ -37,6 +37,22 @@ public class DecimalWriteTests : TempDatabaseTest
         Assert.Equal(-1234567890.01m, engine.ExecuteQuery("SELECT V FROM Z").Rows.Single()[0]);
     }
 
+    // A decimal-point literal is a Decimal, so every digit it has reaches a DECIMAL column, and a DOUBLE column
+    // takes it as the nearest Double (verified vs ACE on this table, AceDecimalPrecisionProbeTest.Literal_type_probe).
+    [Theory]
+    [InlineData("-123456789.0123456789", "-123456789.012346")]
+    [InlineData("123456789.0123456", "123456789.012346")]
+    [InlineData("0.0000000001", "0.0000000001")]
+    public void A_literal_keeps_every_digit_a_decimal_column_holds(string literal, string asDouble)
+    {
+        QueryEngine engine = Fresh();
+        engine.ExecuteNonQuery("CREATE TABLE L (Id LONG, D DECIMAL(28,10), F DOUBLE)");
+        engine.ExecuteNonQuery($"INSERT INTO L (Id, D, F) VALUES (1, {literal}, {literal})");
+        Assert.Equal(decimal.Parse(literal, System.Globalization.CultureInfo.InvariantCulture),
+            engine.ExecuteQuery("SELECT D FROM L").Rows.Single()[0]);
+        Assert.Equal(asDouble, SharedDatabase.Scalar(engine, "SELECT CStr(F) FROM L", System.Globalization.CultureInfo.GetCultureInfo("en-US")));
+    }
+
     [Fact]
     public void An_update_keeps_its_fraction()
     {

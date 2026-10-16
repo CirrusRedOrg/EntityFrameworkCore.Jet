@@ -622,6 +622,163 @@ public class AceDecimalPrecisionProbeTest(ITestOutputHelper output)
         }
     }
 
+    private static readonly string[] MakeTableSetup =
+    [
+        "CREATE TABLE T (C CURRENCY, D DECIMAL(10,2), F DOUBLE, S REAL, L LONG, I SHORT, B BYTE, Y BIT, "
+            + "E DECIMAL(18,4), G DECIMAL(4,1), H DECIMAL(28,6), N BIGINT, X TEXT(10), W DATETIME, K DECIMAL(20,10))",
+        "INSERT INTO T (C, D, F, S, L, I, B, Y, E, G, H, N, X, W, K) "
+            + "VALUES (1.1, 12.34, 0.1, 0.1, 3, 2, 4, TRUE, 1.2345, 1.5, 1.123456, 7, '5', #2020-01-02#, 1.5)",
+    ];
+
+    private static readonly string[] MakeTableExpressions =
+    [
+        "G * 2.25", "D * 2.5", "H * K", "G * K", "(G * 2) * D", "(G * 1.5) * D", "E * 1.11", "D * 334.90", "H - G",
+        "K + E", "H * E", "H * D", "K * H", "G + 0.25", "K * 1.5", "N * 1.7", "N * 2.5", "N + 0.5", "N * L",
+        "E * D", "G * D", "G * B", "D + C", "H + C", "AVG(D)", "SUM(G)", "G * N", "1.5 * 1.5", "0.25 + 0.5", "D * 2",
+        "ROUND(D, 1)", "ABS(D)", "INT(D)", "IIF(Y, D, 0)", "IIF(Y, D, G)", "AVG(H)", "AVG(K)", "AVG(G)", "SUM(D) / 2",
+        "I * I", "D * (I * I)", "N", "N * 2", "L * 2", "-N", "IIF(Y, D, 1.5)", "IIF(Y, H, K)", "IIF(Y, K, H)",
+    ];
+
+    /// <summary>The make-table probe's expressions as a plain SELECT's result columns, to set against the columns a
+    /// make-table query gives them.</summary>
+    [Fact(Explicit = true)]
+    public void Make_table_expressions_select_type_probe() => CompareTypes(MakeTableSetup,
+        [
+            .. MakeTableExpressions.Where(e => !e.Contains('(', StringComparison.Ordinal)),
+            "SELECT AVG(V) FROM (SELECT D AS V FROM T UNION ALL SELECT D + 0.01 FROM T)",
+            "SELECT AVG(V) FROM (SELECT G AS V FROM T UNION ALL SELECT G + 0.2 FROM T)",
+        ]);
+
+    /// <summary>The precision and scale ACE's OLE DB schema reports for a computed result column, against what
+    /// LibRed's result describes.</summary>
+    [Fact(Explicit = true)]
+    public void Computed_decimal_schema_probe()
+    {
+        string ace = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "ace-schema-");
+        string libred = TemporaryDatabase.CreatePath("libred-schema-");
+        File.Delete(libred);
+        try
+        {
+            using OleDbConnection connection = AceTestDatabase.Open(ace);
+            foreach (string sql in MakeTableSetup) Execute(connection, sql);
+            LibRedConnection.CreateDatabase($"Data Source={libred}");
+            using var db = JetDatabase.Open(libred, readOnly: false);
+            var engine = new QueryEngine(db);
+            foreach (string sql in MakeTableSetup) engine.ExecuteNonQuery(sql);
+            foreach (string expression in MakeTableExpressions)
+            {
+                string query = $"SELECT {expression} AS X FROM T";
+                using OleDbCommand command = connection.CreateCommand();
+                command.CommandText = query;
+                using OleDbDataReader r = command.ExecuteReader();
+                System.Data.DataRow row = r.GetSchemaTable()!.Rows[0];
+                string aceSchema = $"{row["DataType"]} p{row["NumericPrecision"]} s{row["NumericScale"]} type{row["ProviderType"]}";
+                LibRed.Engine.Execution.ResultColumn column = engine.ExecuteQuery(query).Columns[0];
+                string libredSchema = $"{column.ClrType} p{column.Precision} s{column.Scale} type{column.ProviderType}";
+                output.WriteLine($"{(aceSchema == libredSchema ? "  " : "!!")} {expression,-14} ACE {aceSchema,-36} LibRed {libredSchema}");
+            }
+        }
+        finally
+        {
+            TemporaryDatabase.Delete(ace);
+            TemporaryDatabase.Delete(libred);
+        }
+    }
+
+    /// <summary>Descriptor bytes 0x0B–0x0E of each column a make-table query creates — a Decimal's precision and
+    /// scale, anything else's collation — through ACE and through LibRed, for columns before and after a Decimal.</summary>
+    [Fact(Explicit = true)]
+    public void Make_table_descriptor_union_probe()
+    {
+        string[] queries =
+        [
+            "SELECT D * 2 AS A, F * 2 AS B, L * 2 AS C, X & '' AS S, F * 3 AS E, W + 1 AS H, Y AS I, C * 2 AS J, N * 2 AS K INTO M1 FROM T",
+            "SELECT F * 2 AS B INTO M2 FROM T",
+            "SELECT D AS A, F * 2 AS B INTO M3 FROM T",
+            "SELECT F * 2 AS B, G * 2 AS A, F * 3 AS E INTO M4 FROM T",
+            "SELECT G * 2 AS A, E * 2 AS B, F * 2 AS C INTO M5 FROM T",
+            "SELECT D * 2 AS A, X AS S, F * 2 AS B INTO M6 FROM T",
+            "SELECT D * 2 AS A, Y AS I, L AS C, F AS B INTO M7 FROM T",
+        ];
+        string ace = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "ace-union-");
+        string libred = TemporaryDatabase.CreatePath("libred-union-");
+        File.Delete(libred);
+        try
+        {
+            LibRedConnection.CreateDatabase($"Data Source={libred}");
+            using (OleDbConnection connection = AceTestDatabase.Open(ace))
+                foreach (string sql in MakeTableSetup.Concat(queries)) Execute(connection, sql);
+            using (var db = JetDatabase.Open(libred, readOnly: false))
+            {
+                var engine = new QueryEngine(db);
+                foreach (string sql in MakeTableSetup.Concat(queries)) engine.ExecuteNonQuery(sql);
+            }
+            static string[] Unions(string path, int i)
+            {
+                using var db = JetDatabase.Open(path, readOnly: true);
+                return [.. db.Catalog.FindTable($"M{i + 1}")!.Columns
+                    .Select(c => $"{c.Name}:{c.Type} {Convert.ToHexString(c.RawDescriptor.AsSpan(0x0B, 4))}")];
+            }
+            for (int i = 0; i < queries.Length; i++)
+            {
+                string aceColumns = string.Join("  ", Unions(ace, i)), libredColumns = string.Join("  ", Unions(libred, i));
+                output.WriteLine($"{(aceColumns == libredColumns ? "  " : "!!")} {queries[i]}\n   ACE    {aceColumns}\n   LibRed {libredColumns}");
+            }
+        }
+        finally
+        {
+            TemporaryDatabase.Delete(ace);
+            TemporaryDatabase.Delete(libred);
+        }
+    }
+
+    /// <summary>The column a make-table query gives each expression, through ACE and through LibRed: its type,
+    /// precision, scale and length, read from each file's TDEF.</summary>
+    [Fact(Explicit = true)]
+    public void Make_table_column_type_probe()
+    {
+        string[] setup = MakeTableSetup;
+        string[] expressions = MakeTableExpressions;
+        string ace = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "ace-make-");
+        string libred = TemporaryDatabase.CreatePath("libred-make-");
+        File.Delete(libred);
+        try
+        {
+            LibRedConnection.CreateDatabase($"Data Source={libred}");
+            using (OleDbConnection connection = AceTestDatabase.Open(ace))
+            {
+                foreach (string sql in setup) Execute(connection, sql);
+                for (int i = 0; i < expressions.Length; i++)
+                    Execute(connection, $"SELECT {expressions[i]} AS X INTO R{i} FROM T");
+            }
+            using (var db = JetDatabase.Open(libred, readOnly: false))
+            {
+                var engine = new QueryEngine(db);
+                foreach (string sql in setup) engine.ExecuteNonQuery(sql);
+                for (int i = 0; i < expressions.Length; i++)
+                    engine.ExecuteNonQuery($"SELECT {expressions[i]} AS X INTO R{i} FROM T");
+            }
+            static string Describe(string path, int i)
+            {
+                using var db = JetDatabase.Open(path, readOnly: true);
+                var column = db.Catalog.FindTable($"R{i}")!.FindColumn("X")!;
+                object? value = new QueryEngine(db).ExecuteQuery($"SELECT X FROM R{i}").Rows.First()[0];
+                return $"{column.Type} p{column.Precision} s{column.Scale} len{column.Length} "
+                    + Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture);
+            }
+            for (int i = 0; i < expressions.Length; i++)
+            {
+                string aceColumn = Describe(ace, i), libredColumn = Describe(libred, i);
+                output.WriteLine($"{(aceColumn == libredColumn ? "  " : "!!")} {expressions[i],-14} ACE {aceColumn,-40} LibRed {libredColumn}");
+            }
+        }
+        finally
+        {
+            TemporaryDatabase.Delete(ace);
+            TemporaryDatabase.Delete(libred);
+        }
+    }
+
     private void CompareTypes(string[] setup, string[] expressions)
     {
         string ace = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "ace-types-");

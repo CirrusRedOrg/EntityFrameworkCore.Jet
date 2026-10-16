@@ -16,6 +16,7 @@ internal enum ColumnOrigin { Expression, Aggregate, SetOperation }
 /// <param name="Currency">Marks a Currency value, which shares <see cref="decimal"/> with Decimal but
 /// calculates differently.</param>
 /// <param name="Scale">A Decimal's places.</param>
+/// <param name="Precision">A Decimal's precision.</param>
 /// <param name="Null">Marks a column that is a bare <c>NULL</c>, which has no type of its own, unlike one
 /// whose type is merely unknown.</param>
 /// <param name="Source">The stored column this output passes through unchanged, with the table it was read from, where
@@ -27,24 +28,31 @@ internal enum ColumnOrigin { Expression, Aggregate, SetOperation }
 /// text.</param>
 internal readonly record struct OutputColumn(
     string? Qualifier, string Name, Type? ClrType = null, bool Currency = false, int? Scale = null,
-    bool Null = false, (LibRed.Catalog.TableDefinition Table, LibRed.Catalog.ColumnDef Column)? Source = null,
+    int? Precision = null, bool Null = false,
+    (LibRed.Catalog.TableDefinition Table, LibRed.Catalog.ColumnDef Column)? Source = null,
     ColumnOrigin Origin = ColumnOrigin.Expression, bool Variant = false)
 {
     /// <summary>The output of <paramref name="table"/>'s stored <paramref name="column"/>.</summary>
-    public static OutputColumn Of(string? qualifier, LibRed.Catalog.TableDefinition table, LibRed.Catalog.ColumnDef column) =>
-        new(qualifier, column.Name, Schema.JetClrTypeMap.ToClrType(column.Type),
+    public static OutputColumn Of(string? qualifier, LibRed.Catalog.TableDefinition table, LibRed.Catalog.ColumnDef column)
+    {
+        bool numeric = column.Type == LibRed.Catalog.JetDataType.FixedPoint;
+        return new(qualifier, column.Name, Schema.JetClrTypeMap.ToClrType(column.Type),
             column.Type == LibRed.Catalog.JetDataType.Currency,
-            column.Type == LibRed.Catalog.JetDataType.FixedPoint ? column.Scale : null,
+            numeric ? column.Scale : null, numeric ? column.Precision : null,
             Source: (table, column));
+    }
 
     /// <summary>A computed column of <paramref name="type"/>, computed by <paramref name="expression"/>.
     /// <paramref name="source"/> is the stored column it merely renames, where it is one.</summary>
     public static OutputColumn Computed(
         string name, Type? clrType, NumberType type, Expression expression,
-        (LibRed.Catalog.TableDefinition Table, LibRed.Catalog.ColumnDef Column)? source = null) =>
-        new(null, name, clrType, type.Class == NumberClass.Currency,
-            type.Class == NumberClass.Decimal ? type.Places : null, expression is LiteralExpression { Value: null },
-            source);
+        (LibRed.Catalog.TableDefinition Table, LibRed.Catalog.ColumnDef Column)? source = null)
+    {
+        bool numeric = type.Class == NumberClass.Decimal;
+        return new(null, name, clrType, type.Class == NumberClass.Currency,
+            numeric ? type.Places : null, numeric ? type.Precision : null,
+            expression is LiteralExpression { Value: null }, source);
+    }
 
     /// <summary>The column <paramref name="reference"/> names, or null when none or more than one does (execution
     /// reports the ambiguous reference).</summary>
@@ -924,6 +932,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 ClrType = right.ClrType,
                 Currency = right.Currency,
                 Scale = right.Scale,
+                Precision = right.Precision,
                 Null = false,
                 Source = null,
                 Origin = ColumnOrigin.SetOperation,
@@ -938,13 +947,17 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             : l == typeof(Guid) || r == typeof(Guid) || l == typeof(byte[]) || r == typeof(byte[]) ? typeof(byte[])
             : CommonNumericType(AsInteger(l), AsInteger(r), currency: !leftDecimal && !rightDecimal) ?? typeof(string);
         bool isDecimal = type == typeof(decimal);
+        OutputColumn? scaled = !isDecimal ? null
+            : leftDecimal && rightDecimal
+                ? (left.Scale is not null && left.Scale == right.Scale
+                    ? left with { Precision = Math.Max(left.Precision ?? 0, right.Precision ?? 0) } : null)
+            : leftDecimal ? left : rightDecimal ? right : null;
         return left with
         {
             ClrType = type,
             Currency = isDecimal && !leftDecimal && !rightDecimal,
-            Scale = !isDecimal ? null
-                : leftDecimal && rightDecimal ? (left.Scale == right.Scale ? left.Scale : null)
-                : leftDecimal ? left.Scale : rightDecimal ? right.Scale : null,
+            Scale = scaled?.Scale,
+            Precision = scaled?.Precision,
             Source = null,
             Origin = ColumnOrigin.SetOperation,
             Variant = false,
@@ -1221,7 +1234,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     }
 
     /// <summary>The values a choice picks among, or null for a function that is not one.</summary>
-    private static IEnumerable<Expression>? ChoiceArms(FunctionCall function) =>
+    internal static IEnumerable<Expression>? ChoiceArms(FunctionCall function) =>
         function.Name.TrimEnd('$').ToUpperInvariant() switch
         {
             "IIF" when function.Arguments.Count == 3 => function.Arguments.Skip(1),
@@ -1294,7 +1307,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     private Type? DeclaredCaseType(CaseExpression @case, IReadOnlyList<OutputColumn> columns)
         => UnifiedType(CaseResults(@case), columns);
 
-    private static IEnumerable<Expression> CaseResults(CaseExpression c)
+    internal static IEnumerable<Expression> CaseResults(CaseExpression c)
     {
         foreach (CaseWhen arm in c.WhenClauses)
             yield return arm.Result;

@@ -23,6 +23,9 @@ public sealed class Table
     public TableDefinition Definition { get; }
     internal UsageMap UsageMap { get; }
 
+    // The buffer this table's updated rows are built in (Update), made on the first.
+    private byte[]? _updateBuffer;
+
     public string Name => Definition.Name;
 
     /// <summary>Returns a forward-only cursor over all rows in the table.</summary>
@@ -178,7 +181,9 @@ public sealed class Table
 
     /// <summary>Rewrites the row at <paramref name="id"/> in place with new values (row id preserved).
     /// <paramref name="changedColumns"/> are the columns that actually changed — an unchanged memo/OLE column
-    /// keeps its stored descriptor (no re-materialise), a changed one has its old LVAL pages reclaimed.</summary>
+    /// keeps its stored descriptor (no re-materialise), a changed one has its old LVAL pages reclaimed. Every row
+    /// this table object updates is built in one buffer, as ACE builds a statement's (RowCodec's <c>Encode</c>); a
+    /// statement opens its own.</summary>
     public void Update(RowId id, object?[] values, IReadOnlySet<int> changedColumns)
     {
         Write(() =>
@@ -190,7 +195,8 @@ public sealed class Table
                     ? !oldBytes.AsSpan().SequenceEqual(newBytes) : !Equals(original[i], values[i]))
                     changed.Add(i);
 
-            new RowInserter(Channel, Definition).Update(id, values, changed);
+            new RowInserter(Channel, Definition).Update(id, values, changed,
+                _updateBuffer ??= new byte[Channel.Format.PageSize]);
             foreach (IndexDef index in Definition.RealIndexes
                 .Where(i => i.Columns.Any(c => changed.Contains(c.Column.Index))))
                 MoveIndexEntry(index, original, values, id);

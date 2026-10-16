@@ -1071,9 +1071,23 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             .Select((name, i) => (sourceColumns.TryGetValue(name, out ColumnDef? column)
                 ? new ColumnSpec(name, column.Type, column.Length, column.IsFixedLength, column.IsAutoNumber,
                                  Precision: column.Precision, Scale: column.Scale)
-                : ColumnSpecFor(name, source.ColumnTypes[i])) with
+                : ColumnSpecFor(source.Columns[i])) with
             { Ordinal = i + 1 })
             .ToList();
+
+        // ACE fills in every column's descriptor from one structure, whose collation shares its bytes with a
+        // Decimal's precision and scale. So after a Decimal, each later column but a text one, whose collation is
+        // its own, carries the latest Decimal's precision and scale there as two words — 0C 00 02 00 after a
+        // DECIMAL(12,2) — and the next statement starts afresh (verified vs ACE, copied columns included,
+        // AceDecimalPrecisionProbeTest.Make_table_descriptor_union_probe; a Memo is taken to be text, unmeasured).
+        ColumnSpec? carried = null;
+        for (int i = 0; i < specs.Count; i++)
+        {
+            if (specs[i].Type == JetDataType.FixedPoint)
+                carried = specs[i];
+            else if (specs[i].Type is not (JetDataType.Text or JetDataType.Memo) && carried is not null)
+                specs[i] = specs[i] with { Precision = carried.Precision, Scale = carried.Scale };
+        }
         _database.CreateTable(target, specs);
 
         // Written the way every inserted row is, so whatever the new table carries is checked as INSERT checks it.
@@ -1132,20 +1146,32 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// values it produced. A Boolean, Byte or Integer result is a fixed Integer; every other number and a date
     /// keep their type but are variable-length, a Single widening to Double (verified vs ACE on CBool, a
     /// comparison, CByte, CInt, CLng, CSng, CDbl, CCur, CDate, COUNT, SUM and arithmetic,
-    /// WholeFileParityProbeTest).</summary>
-    private static ColumnSpec ColumnSpecFor(string name, Type clrType) => Type.GetTypeCode(clrType) switch
+    /// WholeFileParityProbeTest). A Decimal is a DECIMAL of the precision and scale the result has
+    /// (<see cref="ExpressionEvaluator.NumberTypeOf"/>), whose length is the bytes the largest number of that
+    /// precision takes and a sign byte — 6 for DECIMAL(12,2), 13 for DECIMAL(28,2) — where a declared DECIMAL's
+    /// is 17; its values are 17 bytes whichever (verified vs ACE, AceDecimalPrecisionProbeTest.Make_table_column_type_probe).
+    /// A Decimal with no scale of its own is a Double.</summary>
+    private static ColumnSpec ColumnSpecFor(ResultColumn column) => Type.GetTypeCode(column.ClrType) switch
     {
-        TypeCode.Boolean or TypeCode.Byte or TypeCode.Int16 => new ColumnSpec(name, JetDataType.Int16, 2, IsFixedLength: true),
-        TypeCode.Int32 => new ColumnSpec(name, JetDataType.Int32, 4, IsFixedLength: false),
-        TypeCode.Single or TypeCode.Double => new ColumnSpec(name, JetDataType.Double, 8, IsFixedLength: false),
-        TypeCode.Decimal => new ColumnSpec(name, JetDataType.Currency, 8, IsFixedLength: false),
-        TypeCode.DateTime => new ColumnSpec(name, JetDataType.DateTime, 8, IsFixedLength: false),
+        TypeCode.Boolean or TypeCode.Byte or TypeCode.Int16 => new ColumnSpec(column.Name, JetDataType.Int16, 2, IsFixedLength: true),
+        TypeCode.Int32 => new ColumnSpec(column.Name, JetDataType.Int32, 4, IsFixedLength: false),
+        // A BIGINT, as AccessTypeMapper declares one (verified vs ACE: BIGINT * 2 makes one).
+        TypeCode.Int64 => new ColumnSpec(column.Name, JetDataType.Int64, 8, IsFixedLength: false),
+        TypeCode.Single or TypeCode.Double => new ColumnSpec(column.Name, JetDataType.Double, 8, IsFixedLength: false),
+        TypeCode.Decimal when column.TypeName == "Currency" =>
+            new ColumnSpec(column.Name, JetDataType.Currency, 8, IsFixedLength: false),
+        TypeCode.Decimal when column is { Precision: int precision, Scale: int scale } => new ColumnSpec(
+            column.Name, JetDataType.FixedPoint,
+            (System.Numerics.BigInteger.Pow(10, precision) - 1).GetByteCount(isUnsigned: true) + 1,
+            IsFixedLength: false, Precision: (byte)precision, Scale: (byte)scale),
+        TypeCode.Decimal => new ColumnSpec(column.Name, JetDataType.Double, 8, IsFixedLength: false),
+        TypeCode.DateTime => new ColumnSpec(column.Name, JetDataType.DateTime, 8, IsFixedLength: false),
         // Variable, like every GUID column ACE declares — including through SELECT INTO, which is this
         // method's caller (verified: ACE's `SELECT G INTO Dst` gives Dst.G length 16, fixed flag clear).
         // See AccessTypeMapper for the same rule on a declared column, and BIGINT for the same shape.
-        _ when clrType == typeof(Guid) => new ColumnSpec(name, JetDataType.Guid, 16, IsFixedLength: false),
-        _ when clrType == typeof(byte[]) => new ColumnSpec(name, JetDataType.Binary, 255, IsFixedLength: false),
-        _ => new ColumnSpec(name, JetDataType.Text, 255 * 2, IsFixedLength: false),
+        _ when column.ClrType == typeof(Guid) => new ColumnSpec(column.Name, JetDataType.Guid, 16, IsFixedLength: false),
+        _ when column.ClrType == typeof(byte[]) => new ColumnSpec(column.Name, JetDataType.Binary, 255, IsFixedLength: false),
+        _ => new ColumnSpec(column.Name, JetDataType.Text, 255 * 2, IsFixedLength: false),
     };
 
     /// <summary>Sentinel standing for an explicit <c>DEFAULT</c> row value. Reference identity is what marks

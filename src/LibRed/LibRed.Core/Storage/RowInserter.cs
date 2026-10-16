@@ -87,9 +87,10 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     /// the page is repacked to absorb a size change (slot order = physical order, as Access keeps it).
     /// A row that no longer fits its page is <b>relocated</b> — the slot becomes a 4-byte forward pointer and
     /// the row moves to a page with room, as Access does — and one that outgrows its new page moves again.
-    /// Index-key maintenance for a changed indexed column is the caller's responsibility.
+    /// Index-key maintenance for a changed indexed column is the caller's responsibility. <c>buffer</c> is the one
+    /// the statement builds its updated rows in (see RowCodec's <c>Encode</c>), or null for a row rewritten on its own.
     /// </summary>
-    public void Update(RowId id, object?[] values, IReadOnlySet<int> changedColumns)
+    public void Update(RowId id, object?[] values, IReadOnlySet<int> changedColumns, byte[]? buffer = null)
     {
         // An update is several writes — the old long values are freed, the new ones materialised onto pages,
         // then the row itself — and the row is the last of them, so it is the last thing that can fail (a
@@ -102,7 +103,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         if (ownTransaction) _channel.BeginTransaction();
         try
         {
-            UpdateCore(id, values, changedColumns);
+            UpdateCore(id, values, changedColumns, buffer);
             if (ownTransaction) _channel.CommitTransaction(flush: false);
         }
         catch when (ownTransaction)
@@ -112,7 +113,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         }
     }
 
-    private void UpdateCore(RowId id, object?[] values, IReadOnlySet<int> changedColumns)
+    private void UpdateCore(RowId id, object?[] values, IReadOnlySet<int> changedColumns, byte[]? buffer)
     {
         JetFormatBase format = _channel.Format;
         RejectExplicitCalculatedValues(values, changedColumns);
@@ -179,7 +180,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         var encoder = new RowCodec(_table.Columns, format,
             _table.VariableColumnCount, SpillCalculated, _table.ColumnIdHighWater);
         byte[] record = encoder.Encode(storage, preservedCalculated, HasCalculatedColumns ? values : null, oldLayout,
-            UpdateSlack(oldLayout, changedColumns));
+            UpdateSlack(oldLayout, changedColumns), buffer);
 
         // Here as well as on the insert path, and before the in-place rewrite rather than beside the
         // page-search: a row that grows past the cap but still fits its current page is rewritten where it

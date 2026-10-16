@@ -178,7 +178,7 @@ internal static class AccessTypeMapper
     // openable by Access (an over-long fixed column produces an unreadable file).
     private const int MaxTextCharacters = 255;
     private const int MaxBinaryBytes = 510;
-    private const int MaxDecimalPrecision = 28;
+    internal const int MaxDecimalPrecision = 28;
 
     private static ColumnSpec Decimal(ColumnDefinition column)
     {

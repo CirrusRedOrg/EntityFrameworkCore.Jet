@@ -208,7 +208,7 @@ public class ColumnRetypeParityAccessTests
     }
 
     // The table's columns (descriptors whole), long-value maps, and each row's raw record and value.
-    private static string Describe(string path, string tableName)
+    internal static string Describe(string path, string tableName)
     {
         var lines = new List<string>();
         using var db = JetDatabase.Open(path, readOnly: true);

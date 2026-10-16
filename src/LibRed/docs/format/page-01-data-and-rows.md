@@ -220,7 +220,12 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
     longer, holding the old record's bytes position for position past where the new values land — so a dead
     slot stays, a row predating a fixed ADD COLUMN grows with its old variable data or null bitmap in the new
     slot, and a column set to NULL keeps its old bytes. A dropped variable column's chunk and every dead id's
-    bit stay too;
+    bit stay too. Past the end of the old record the bytes are what the statement's **row buffer** holds: ACE
+    builds every row one UPDATE rewrites, in the order it reaches them, in one buffer per table, zeroed when the
+    statement starts and never cleared — the old record copied in, the new one written over it — so a byte
+    there holds the last *updated* record that reached that far, and a row the statement only reads does not
+    reach the buffer. Verified with rows predating three fixed ADD COLUMNs: a short row's new slots hold the text
+    of the longer row updated before it;
   - an **ALTER COLUMN** re-lay does the same over the old live region plus the new slot (page-02b §3.8).
 
 - **Record slack: zero bytes between the variable data and the offset table**, outside every offset — the
@@ -278,9 +283,12 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
 - **The padding past the last column follows the same rule.** The final byte's bits above the highest id are
   carried forward by an UPDATE as they were: a row whose second byte reads `0x65` over its one live column (bit
   0) still reads `0x65` after another column is updated or a memo set to Null (verified). An insert leaves them
-  clear. **Not known:** where the padding comes from in a byte the row did not have before — after an
-  `ADD COLUMN` that crosses a byte boundary and after an `ALTER COLUMN` re-lay, ACE leaves stray bits set there
-  (`0x65`, `0x79` over one live bit). LibRed leaves such padding clear.
+  clear. In a byte the row did not have before — an UPDATE or an `ALTER COLUMN` re-lay of a row predating an
+  `ADD COLUMN` that crossed a byte boundary — the bitmap is written over the row buffer (above; page-02b §3.8),
+  so its bits past the last id are that buffer's byte: stale text of the last updated record to reach that
+  position, under the bits the row sets (verified: of five rows given a BIT column and all updated, the second
+  reads `0x49`, the first row's `H` under its one live bit; with only the second and fourth updated, both read
+  `0x01`).
 - **Null bitmap** is indexed by **column id**; a **set bit = the value is present** (non-null).
 - **Fixed** column value is at `rowStart + 2 + fixedOffset`, `length` bytes.
   - A **fixed-length text** column (`CHAR`/`NCHAR`, not `TEXT`/`VARCHAR`) fills its whole `length`: the value is

@@ -11,9 +11,10 @@ namespace LibRed.Core.Tests;
 
 public class AllocatorAndLvalOwnershipTests
 {
+    // A page past the end of the file with its free bit clear is not a corruption to refuse: another handle's
+    // reservation takes pages from the map before they are written, so that is what a second connection sees.
     [Theory]
     [InlineData("reserved")]
-    [InlineData("outside-file")]
     public void Allocator_rejects_invalid_pages_marked_free(string corruption)
     {
         using var fixture = new Fixture();

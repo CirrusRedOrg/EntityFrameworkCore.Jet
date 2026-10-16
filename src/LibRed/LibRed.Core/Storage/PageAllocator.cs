@@ -81,7 +81,7 @@ internal sealed class PageAllocator
             ValidateReusablePage(page, "session reservation", free, released, Math.Max(page, _channel.PageCount));
             if (releasedPages.Contains(page))
                 throw new InvalidDataException($"Reserved page {page} is also released.");
-            EnsurePhysicalAllocation(page, releasedPages);
+            EnsurePhysicalAllocation(page);
             _reservationBits &= ~(1u << bit);
             if (owner is { } reservedOwner) _owners[reservedOwner] = page;
             return page;
@@ -94,7 +94,7 @@ internal sealed class PageAllocator
             {
                 int bit = BitOperations.TrailingZeroCount((uint)group.Bits);
                 int page = group.Start + bit;
-                EnsurePhysicalAllocation(page, releasedPages);
+                EnsurePhysicalAllocation(page);
                 _groups[pointer] = (group.Start, (byte)(group.Bits & ~(1 << bit)));
                 _owners[pointer] = page;
                 return page;
@@ -197,8 +197,8 @@ internal sealed class PageAllocator
                 throw new InvalidDataException($"Global free map marks bitmap page {candidate} itself as free.");
             reservation |= 1u << (candidate - first);
         }
-        // Validate/materialize before changing any free bits. Gaps must themselves be free or released.
-        EnsurePhysicalAllocation(page, releasedPages);
+        // Validate/materialize before changing any free bits.
+        EnsurePhysicalAllocation(page);
         for (int candidate = first; candidate < end; candidate++)
             if ((reservation & (1u << (candidate - first))) != 0)
                 BitmapBits.Set(bits, candidate - start, false);
@@ -515,15 +515,17 @@ internal sealed class PageAllocator
             int start = UsageMap.StartPage(record, format);
             if (start != 0)
                 throw new NotSupportedException("Cannot grow a global inline map with a nonzero start page.");
-            int bitmapBytes = UsageMap.InlineBitmapBytes(format, frontier + 1);
-            if (bitmapBytes <= record.Length - headerSize)
-                return AppendUnreleasedPage(releasedPages); // already represented as used
+            // Grown past every page the map already covers, never handing out a covered one: Allocate found no
+            // eligible free page, and a covered page past the end of the file with its bit clear is not unused —
+            // a reservation or an owner group took it before it was written — so appending it allocated it twice.
+            int covered = (record.Length - headerSize) * 8;
+            int bitmapBytes = UsageMap.InlineBitmapBytes(format, Math.Max(frontier, covered) + 1);
 
             var grown = new byte[headerSize + bitmapBytes];
             // Preserve existing free bits; newly covered physical pages are already used. Only future
             // pages start free. The requested frontier is cleared by the ordinary allocation path.
             record.CopyTo(grown, 0);
-            for (int bit = frontier; bit < bitmapBytes * 8; bit++)
+            for (int bit = Math.Max(frontier, covered); bit < bitmapBytes * 8; bit++)
                 BitmapBits.Set(UsageMap.InlineBits(grown, format), bit, true);
             var holder = new DataPage();
             holder.Read(_channel.ReadPage(free.PageNumber), format);
@@ -677,20 +679,15 @@ internal sealed class PageAllocator
                 $"({free.PageNumber}/{released.PageNumber}), or past the contiguous range ending at {maximum}.");
     }
 
-    private void EnsurePhysicalAllocation(int page, ReleasedPages releasedPages)
+    /// <summary>Grows the file to <paramref name="page"/>, materializing every page before it. A page past the end
+    /// of the file is free (the growth region), released, or reserved — by this session or, with its free bit
+    /// clear, by another handle's shared reservation or owner group, which is taken from the map before it is
+    /// written (page-05 §9). So a gap is never a malformed map, and is written out as every other is. That a second
+    /// handle meets another's reservation this way is reasoned from the single-session measurements, not measured
+    /// against two ACE handles.</summary>
+    private void EnsurePhysicalAllocation(int page)
     {
-        while (_channel.PageCount < page)
-        {
-            (MapRecord free, _) = ReadGlobalMaps();
-            int bit = _channel.PageCount - _reservationStart;
-            bool reserved = bit >= 0 && bit < 32 && (_reservationBits & (1u << bit)) != 0;
-            reserved |= _groups.Values.Any(g => _channel.PageCount >= g.Start && _channel.PageCount < g.Start + 8
-                && (g.Bits & (1 << (_channel.PageCount - g.Start))) != 0);
-            if (!releasedPages.Contains(_channel.PageCount) && !reserved && !IsFree(_channel.PageCount, free, releasedPages))
-                throw new InvalidDataException(
-                    $"Global free map selected page {page} past a gap at page {_channel.PageCount} that is neither free nor released.");
-            Append();
-        }
+        while (_channel.PageCount < page) Append();
         if (page < _channel.PageCount) return;
         int allocated = Append();
         if (allocated != page)

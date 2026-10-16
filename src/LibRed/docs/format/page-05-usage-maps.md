@@ -526,8 +526,15 @@ Do not collapse the distinction into a blanket "always take the lowest free page
 > free page using the shared-reservation and owner-group policy above, growing when no eligible page
 > or group is found. Reservation masks, owner positions and the selected global bitmap participate in
 > transaction and savepoint rollback. Free bits at the current file end are the pre-allocated growth region; LibRed materializes
-> intervening free, reserved or released pages contiguously before returning the selected page. Repeated
-> allocations can therefore consume an ACE-authored run of future bits without creating a sparse file.
+> intervening pages contiguously before returning the selected page — free, released, or reserved, its own
+> session's or, with the free bit clear, another handle's. A session's reservation and an owner's group take
+> pages from the map before they are written (measured above: page 256's allocation clears 256–287 at EOF 256;
+> the bulk insert's index skips the data group's unwritten 109–111). *Unverified:* that a second handle — a
+> second ACE process, or a second LibRed connection — sees and treats another's past-EOF reservation this way;
+> multi-user allocation has not been probed. Repeated allocations can therefore consume an ACE-authored run
+> of future bits without creating a sparse file. For the same reason a covered page past the end of the file
+> whose bit is clear is never handed out as unused: when nothing eligible is free, the map is grown past every
+> page it covers and the page comes from the new free bits, as ACE skips 109–111 for 112.
 > **Both map forms are handled.** For an inline (`0x00`) map it scans the record's
 > bitmap directly; for a **reference (`0x01`)** map — as a very large pre-existing ACE file carries —
 > it scans each slot's dedicated bitmap page (type `0x0105`), where a **set bit is a free page** (the

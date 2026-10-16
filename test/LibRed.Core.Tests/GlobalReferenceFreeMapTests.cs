@@ -46,9 +46,11 @@ public class GlobalReferenceFreeMapTests
         UsageMap.WriteReferencePointer(map, 0, format, 2); // slot 0 → page 2
         UsageMap.WriteReferencePointer(map, 1, format, 3); // slot 1 → page 3
 
-        // Page 2 — bitmap page for slot 0; physical free page 5. Page 3 is an empty slot-1 bitmap.
-        WriteBitmapPage(file, 2 * pageSize, format, inRangeBit: 5);
-        WriteBitmapPage(file, 3 * pageSize, format, inRangeBit: null);
+        // Page 2 — bitmap page for slot 0; physical free page 5, and the growth region from the file's end (page 6)
+        // free as every global map carries it — a clear bit past the end of the file is a reservation's, not an
+        // unused page. Page 3 is the slot-1 bitmap, its whole range past the end and free.
+        WriteBitmapPage(file, 2 * pageSize, format, inRangeBit: 5, growthFrom: 6);
+        WriteBitmapPage(file, 3 * pageSize, format, inRangeBit: null, growthFrom: 0);
 
         string path = TemporaryDatabase.CreatePath("libred-globalref-");
         File.WriteAllBytes(path, file);
@@ -58,8 +60,10 @@ public class GlobalReferenceFreeMapTests
             var alloc = channel.Allocator;
 
             Assert.Equal(5, alloc.Allocate());                     // slot 0's physical free page
-            Assert.Equal(6, alloc.Allocate());                     // nothing free left → grows contiguously
+            Assert.Equal(6, alloc.Allocate());                     // nothing free below the end → grows contiguously
 
+            // Finish the reservation before checking lowest-free reuse in the next allocation scope.
+            alloc.ReturnReleasedPages();
             alloc.Free(5);
             Assert.Equal(5, alloc.Allocate());                     // page 5 is free again
         }
@@ -69,13 +73,17 @@ public class GlobalReferenceFreeMapTests
         }
     }
 
-    /// <summary>Writes a type-0x0105 usage-bitmap page at <paramref name="offset"/> with one free bit set (the
-    /// bitmap starts 4 bytes past the page header; a set bit marks a free page).</summary>
-    private static void WriteBitmapPage(byte[] file, int offset, JetFormatBase format, int? inRangeBit)
+    /// <summary>Writes a type-0x0105 usage-bitmap page at <paramref name="offset"/> with one free bit set and every
+    /// bit from <paramref name="growthFrom"/> on (the bitmap starts 4 bytes past the page header; a set bit marks a
+    /// free page).</summary>
+    private static void WriteBitmapPage(byte[] file, int offset, JetFormatBase format, int? inRangeBit, int growthFrom)
     {
         byte[] page = UsageMap.NewBitmapPage(format);
+        Span<byte> bits = UsageMap.BitmapPageBits(page, format);
         if (inRangeBit is int bit)
-            BitmapBits.Set(UsageMap.BitmapPageBits(page, format), bit, true);
+            BitmapBits.Set(bits, bit, true);
+        for (int free = growthFrom; free < bits.Length * 8; free++)
+            BitmapBits.Set(bits, free, true);
         page.CopyTo(file, offset);
     }
 }

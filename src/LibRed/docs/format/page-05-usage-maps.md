@@ -534,7 +534,12 @@ Do not collapse the distinction into a blanket "always take the lowest free page
 > multi-user allocation has not been probed. Repeated allocations can therefore consume an ACE-authored run
 > of future bits without creating a sparse file. For the same reason a covered page past the end of the file
 > whose bit is clear is never handed out as unused: when nothing eligible is free, the map is grown past every
-> page it covers and the page comes from the new free bits, as ACE skips 109–111 for 112.
+> page it covers and the page comes from the new free bits, as ACE skips 109–111 for 112. In reference form
+> that is the first range with no bitmap page, whose bitmap is the range's own first page, as ACE places it
+> (65472, measured where the file ended at the range's start); a promotion from inline form places its bitmap
+> pages past every page the inline map covered and carries the inline bits into them. *Unverified:* where ACE
+> puts a new bitmap when held pages lie between the end of the file and the range — LibRed writes them out and
+> takes the range's first page.
 > **Both map forms are handled.** For an inline (`0x00`) map it scans the record's
 > bitmap directly; for a **reference (`0x01`)** map — as a very large pre-existing ACE file carries —
 > it scans each slot's dedicated bitmap page (type `0x0105`), where a **set bit is a free page** (the

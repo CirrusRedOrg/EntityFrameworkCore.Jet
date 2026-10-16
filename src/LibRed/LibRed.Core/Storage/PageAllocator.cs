@@ -537,8 +537,11 @@ internal sealed class PageAllocator
                 return Allocate(owner, previousPage);
             }
 
-            // Inline exhausted: every existing page is used (Allocate already searched all free bits).
-            // Reserve the bitmap pages first so their own bits are clear in the finished map.
+            // Inline exhausted: promote to reference form. Reserve the bitmap pages first so their own bits are
+            // clear in the finished map, placing them past every page the inline map covered — a covered page past
+            // the end of the file is free or held, never unused — and carry its bits into the new bitmaps.
+            byte[] inline = record;
+            if (covered > _channel.PageCount) EnsurePhysicalAllocation(covered - 1);
             record = UsageMap.NewReferenceRecord(format);
             int span = format.UsageMapPagesPerBitmapPage;
             for (int range = 0; range <= _channel.PageCount / span; range++)
@@ -550,17 +553,22 @@ internal sealed class PageAllocator
             for (int range = 0; range < format.UsageMapReferenceSlots; range++)
             {
                 int bitmap = UsageMap.ReferencePointer(record, range, format);
-                if (bitmap != 0) WriteNewGlobalBitmap(bitmap, range);
+                if (bitmap != 0) WriteNewGlobalBitmap(bitmap, range, UsageMap.InlineBits(inline, format));
             }
             LayMapRecord(free, record);
             return Allocate(owner, previousPage);
         }
 
+        // The first range with no bitmap, never handing out a page of a represented one: its pages past the end of
+        // the file are free or held, not unused, as in the inline form. The new bitmap is the first page of its
+        // range, as ACE places it, the gap before it written out.
         int rangeIndex = frontier / format.UsageMapPagesPerBitmapPage;
+        while (rangeIndex < format.UsageMapReferenceSlots && UsageMap.ReferencePointer(record, rangeIndex, format) != 0)
+            rangeIndex++;
         if (rangeIndex >= format.UsageMapReferenceSlots)
             throw new NotSupportedException("Global allocation map has no remaining bitmap slots.");
-        if (UsageMap.ReferencePointer(record, rangeIndex, format) != 0)
-            return AppendUnreleasedPage(releasedPages); // represented range, bit already clear
+        int rangeStart = rangeIndex * format.UsageMapPagesPerBitmapPage;
+        if (rangeStart > _channel.PageCount) EnsurePhysicalAllocation(rangeStart - 1);
 
         int newBitmap = AppendUnreleasedPage(releasedPages);
         UsageMap.WriteReferencePointer(record, rangeIndex, format, newBitmap);
@@ -578,14 +586,20 @@ internal sealed class PageAllocator
         return Append();
     }
 
-    private void WriteNewGlobalBitmap(int number, int range)
+    /// <summary>Writes a new global bitmap page for <paramref name="range"/>: the pages below the end of the file
+    /// used, the rest free — except those an inline map being promoted covered (<paramref name="inline"/>), which
+    /// keep its bits, so a free page stays free and a held one past the end of the file stays held.</summary>
+    private void WriteNewGlobalBitmap(int number, int range, ReadOnlySpan<byte> inline = default)
     {
         JetFormatBase format = _channel.Format;
         byte[] bitmap = UsageMap.NewBitmapPage(format);
+        Span<byte> bits = UsageMap.BitmapPageBits(bitmap, format);
         int span = format.UsageMapPagesPerBitmapPage;
         int firstFree = Math.Clamp(_channel.PageCount - range * span, 0, span);
         for (int bit = firstFree; bit < span; bit++)
-            BitmapBits.Set(UsageMap.BitmapPageBits(bitmap, format), bit, true);
+            BitmapBits.Set(bits, bit, true);
+        for (int bit = 0; bit < span && range * span + bit < inline.Length * 8; bit++)
+            BitmapBits.Set(bits, bit, BitmapBits.Get(inline, range * span + bit));
         _channel.WritePage(number, bitmap);
     }
 

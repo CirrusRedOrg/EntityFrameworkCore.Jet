@@ -787,7 +787,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         // free-pages map packs nothing, so there it simply stays owned.
         if (!emptied)
         {
-            if (free.Page != 0) _usageMaps.SetBit(free.Row, free.Page, pageNumber, set: true);
+            if (free.Page != 0) _usageMaps.SetBit(free.Row, free.Page, pageNumber, set: true, movableWindow: true);
             return;
         }
         ReleaseLongValuePage(pageNumber, owned, free, releaseAtClose);

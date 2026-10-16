@@ -96,6 +96,47 @@ internal static class TestDatabases
         return (row, page, holder.Span.ToArray(), slot);
     }
 
+    /// <summary>Asserts that no page belongs to two owners and that no owned page is free in the global free map —
+    /// the invariant a page allocator breaks when it hands one page out twice. The owners are read through Core's
+    /// own map readers, as DROP TABLE reads them: every table's definition pages, its data map, each real index's
+    /// map (its root where it has none) and each long-value column's owned map.</summary>
+    public static void AssertPageOwnership(JetDatabase database)
+    {
+        var owners = new Dictionary<int, string>();
+        void Claim(int page, string owner)
+        {
+            if (!owners.TryAdd(page, owner))
+                Assert.Fail($"Page {page} belongs to both {owners[page]} and {owner}.");
+        }
+
+        IO.PageChannel? channel = null;
+        foreach (Catalog.TableDefinition table in database.Catalog.Tables)
+        {
+            channel = database.OpenTable(table.Name).Channel;
+            var maps = new Storage.UsageMap(channel, table);
+            Claim(table.DefinitionPage, $"[{table.Name}] definition");
+            foreach (int page in Catalog.TableDefinition.ReadChain(channel, table.DefinitionPage).ContinuationPages)
+                Claim(page, $"[{table.Name}] definition");
+            foreach (int page in maps.DataPages()) Claim(page, $"[{table.Name}] data");
+            foreach (Catalog.IndexDef index in table.RealIndexes)
+            {
+                if (index.UsageMap.Page == 0) Claim(index.RootPage, $"[{table.Name}] index {index.Name}");
+                else
+                    foreach (int page in maps.PagesInMap(index.UsageMap.Row, index.UsageMap.Page))
+                        Claim(page, $"[{table.Name}] index {index.Name}");
+            }
+            foreach ((int columnId, (int Row, int Page) map) in table.LongValueOwnedMaps)
+                foreach (int page in maps.PagesInMap(map.Row, map.Page))
+                    Claim(page, $"[{table.Name}] long values of column {columnId}");
+        }
+
+        if (channel is null) return;
+        (_, _, byte[] holder, Pages.DataPage.RowSlot slot) = GlobalMap(channel, channel.Format.FreePagesMapPointerOffset);
+        foreach (int page in Storage.UsageMap.PagesInRecord(channel, holder.AsSpan(slot.Offset, slot.Length), null, "The global free map"))
+            if (owners.TryGetValue(page, out string? owner))
+                Assert.Fail($"Page {page} belongs to {owner} but is free in the global free map.");
+    }
+
     /// <summary>An Access 2007 (ACE 12 / ACCDB) Northwind sample.</summary>
     public static string NorthwindAccdb { get; } =
         Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb");

@@ -4,7 +4,9 @@ using System.Data.Common;
 using System.Globalization;
 using System.IO;
 using System.Text;
+#if DEBUG
 using System.Threading;
+#endif
 
 namespace EntityFrameworkCore.Jet.Data
 {

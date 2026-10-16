@@ -111,6 +111,22 @@ public class DecimalEvaluationRuleTests(DecimalEvaluationRuleTests.Database data
         }
     }
 
+    // Not ACE's: with the expression over the first table in the FROM clause and a bare column of the second, ACE
+    // matches nothing — 0 * 1.5 = 0 included — a defect in its equality lookup (see the LibRed README, "ACE defects
+    // LibRed does not reproduce"). LibRed compares as a WHERE does, so the FROM order and the join syntax change
+    // nothing.
+    [Theory]
+    [InlineData("a.F * 1.5 = b.F", "11")]
+    [InlineData("a.F * 1.11 - a.G = b.F", "11 21")]
+    [InlineData("a.F = b.F * 1.11 - b.G", "11 12")]
+    public void An_equality_across_tables_matches_whatever_the_from_order(string condition, string expected)
+    {
+        string Pairs(string sql) => string.Join(" ", database.Engine.ExecuteQuery(sql).Rows.Select(r => $"{r[0]}{r[1]}"));
+        Assert.Equal(expected, Pairs($"SELECT a.K, b.K FROM O AS a INNER JOIN O AS b ON {condition} ORDER BY a.K, b.K"));
+        Assert.Equal(expected, Pairs($"SELECT a.K, b.K FROM O AS a, O AS b WHERE {condition} ORDER BY a.K, b.K"));
+        Assert.Equal(expected, Pairs($"SELECT a.K, b.K FROM O AS b, O AS a WHERE {condition} ORDER BY a.K, b.K"));
+    }
+
     // A sort, group or HAVING key is a result value too — 1.4E-17 as Doubles on K = 2, 0 as Decimals — except where
     // it is compared.
     [Fact]

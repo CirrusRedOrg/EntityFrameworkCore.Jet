@@ -265,6 +265,15 @@ Treat the number as of its date — an EF Core version bump moves it.
   - **`ORDER BY` bound to the query expression**, so it applies to a whole set operation rather than to its
     last operand; an operand carries its own ordering only when parenthesised. ACE silently accepts and then
     ignores an operand's `ORDER BY`, which is a wrong-answer bug rather than an error.
+- **ACE defects LibRed does not reproduce** — wrong answers ACE gives, measured, which LibRed answers correctly
+  on purpose. A parity probe that shows one of these is showing ACE's defect, not a LibRed gap:
+  - **An equality across two tables can match nothing.** Where one side is an expression over the *first*
+    table in the FROM clause whose result is a Double and which holds a decimal literal (`a.F * 1.5`,
+    `a.D * 1.5` past 28 digits, `a.C * 1.5`, `a.F * 1.11 - a.G`), and the other side is a bare column of a later
+    table, ACE returns no rows at all, `0 * 1.5 = 0` included — in `ON` and `WHERE` alike, whichever side of `=`
+    the expression is on. Swapping the tables in the FROM clause, making the column side an expression
+    (`b.F + 0`), or using `<`, `>` or `<>` gives the right rows, so it is ACE's equality lookup keying on the bare
+    column. LibRed matches the same rows in either FROM order (`DecimalEvaluationRuleTests`).
 - **ADO.NET** — connection / command / reader / parameter / transaction / factory over the engine, with the
   generated-AutoNumber `@@IDENTITY` round-trip carried up through Engine → Ado → EF Core.
   Transactions commit/roll back for real via a deferred-write page overlay in `PageChannel` (writes are

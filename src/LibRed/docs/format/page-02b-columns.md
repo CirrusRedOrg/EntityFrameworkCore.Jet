@@ -426,8 +426,9 @@ its old record, as an UPDATE writes one (page-01 §5):
   that is longer, holding the **old record's bytes position for position** — past its own fixed region too, so
   a row predating a fixed ADD COLUMN gets its old variable data or null bitmap in the slots it never had. It
   grows even when the target becomes variable, to the old live end. Past the end of a short old record the
-  bytes are those of the record re-laid just before it — ACE builds every row in one buffer — and zeros for the
-  first row re-laid (verified). The target is then written into its new slot; a NULL target writes nothing, so
+  bytes are what the re-lay left there: ACE builds every row, in table order, in one buffer it never clears —
+  the old record copied in, the new one written over it — so a byte holds the last record that reached it, not
+  necessarily the one just before, and zero until one has (verified). The target is then written into its new slot; a NULL target writes nothing, so
   its slot keeps the old bytes, and the dead old-target slot keeps its stale bytes.
 - **Variable chunks** — the old row's, verbatim, in their slots (a dead old-target chunk, or a dropped column's,
   included), padded with empty chunks to the `0x2B` count; a variable target goes at variable-index = the old var
@@ -435,7 +436,9 @@ its old record, as an UPDATE writes one (page-01 §5):
   — ACE then carries it as fixed bytes, and so does LibRed.
 - **Count, offset table + `numVar`, null bitmap** — rebuilt per §5 (count and bitmap width = max id + 1; each
   dead id's bit as the old row had it — so the retyped column's old id is present where it held a value and
-  clear where it was NULL).
+  clear where it was NULL). The bitmap's last byte is written over that same buffer, so its bits past the last
+  id keep the buffer's byte: a row whose bitmap grows a byte gets the stale bits of whatever record last reached
+  that position — text bytes included — under the bits it sets (verified).
 
 A **Yes/No** target writes no fixed bytes — its value is only the new id's null-bitmap bit (verified, NULLs
 included).

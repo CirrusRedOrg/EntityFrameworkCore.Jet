@@ -291,6 +291,45 @@ public class AceDecimalPrecisionProbeTest(ITestOutputHelper output)
         _ => throw new ArgumentOutOfRangeException(nameof(path)),
     };
 
+    [Theory(Explicit = true)]
+    [InlineData("1.5")]
+    [InlineData("0.1")]
+    [InlineData("123.4567")]
+    [InlineData("123456789.012345")]
+    [InlineData("123456789.0123456")]
+    [InlineData("-123456789.0123456789")]
+    [InlineData("1.23456789012345678")]
+    [InlineData("0.0000000001")]
+    [InlineData("12345678901234567890.5")]
+    public void Literal_type_probe(string literal)
+    {
+        string file = TemporaryDatabase.CopyPath(
+            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "ace-literal-");
+        try
+        {
+            using OleDbConnection connection = AceTestDatabase.Open(file);
+            Execute(connection, "CREATE TABLE L (Id LONG, D DECIMAL(28,10), F DOUBLE)");
+            using OleDbCommand type = connection.CreateCommand();
+            type.CommandText = $"SELECT VarType({literal}), TypeName({literal}), CStr({literal})";
+            using (OleDbDataReader r = type.ExecuteReader())
+            {
+                r.Read();
+                output.WriteLine($"{literal}: VarType {r[0]} {r[1]} CStr {r[2]}");
+            }
+            try
+            {
+                Execute(connection, $"INSERT INTO L (Id, D, F) VALUES (1, {literal}, {literal})");
+                using OleDbCommand back = connection.CreateCommand();
+                back.CommandText = "SELECT CStr(D), CStr(F) FROM L";
+                using OleDbDataReader b = back.ExecuteReader();
+                b.Read();
+                output.WriteLine($"   stored decimal {b[0]}, double {b[1]}");
+            }
+            catch (OleDbException e) { output.WriteLine($"   insert refused: {e.Message.Trim()}"); }
+        }
+        finally { TemporaryDatabase.Delete(file); }
+    }
+
     private static void Execute(OleDbConnection connection, string sql)
     {
         using OleDbCommand command = connection.CreateCommand();

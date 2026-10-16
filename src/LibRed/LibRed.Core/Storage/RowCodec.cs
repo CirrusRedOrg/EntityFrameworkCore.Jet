@@ -118,8 +118,8 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     /// <remarks>Verified vs ACE on UPDATE and on the ALTER COLUMN re-lay: a dead slot inside an old row's region
     /// stays, a row predating a fixed ADD COLUMN grows to the live length with its variable data's or null
     /// bitmap's old bytes in the new slot, and a NULL leaves its slot's old bytes rather than zeros. The re-lay
-    /// builds every row in one buffer, so what lies past a short old record is the record re-laid before it — the
-    /// first row re-laid has zeros there.</remarks>
+    /// builds every row in one buffer it never clears, so what lies past a short old record is whatever the last
+    /// record to reach that far left there — zeros until one has.</remarks>
     internal static byte[] FixedRegionOver(in Layout prior, int liveLength, JetFormatBase format,
         ReadOnlySpan<byte> previous = default)
     {
@@ -221,8 +221,10 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     /// there are none) then <c>[null bitmap]</c>. The count and bitmap width are <c>maxColumnId + 1</c>; a
     /// column's bit is set when present (Boolean = its truthy value), and a dead id's (a gap below the max, from a
     /// burned/dropped id) is taken from <paramref name="priorBitmap"/> — the row's bitmap before an UPDATE or an
-    /// ALTER COLUMN re-lay — or left clear for a new row — all verified vs ACE (§5). Shared by <c>Encode</c> and
-    /// the ALTER COLUMN row re-lay so the two can never drift.</summary>
+    /// ALTER COLUMN re-lay — or left clear for a new row — all verified vs ACE (§5). In a bitmap byte the prior
+    /// bitmap does not reach, those bits are what <paramref name="beneath"/> — the buffer the re-lay builds the
+    /// row in — holds at that position. Shared by <c>Encode</c> and the ALTER COLUMN row re-lay so the two can
+    /// never drift.</summary>
     /// <remarks>
     /// The declared-width check runs HERE rather than in <c>Encode</c>. It used to sit above this call,
     /// which meant the ALTER COLUMN re-lay — the other caller — never got it, and a narrowing retype could
@@ -230,7 +232,7 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     /// </remarks>
     internal static byte[] AssembleRow(JetFormatBase format, int maxColumnId, ReadOnlySpan<byte> fixedRegion,
         IReadOnlyList<byte[]> varChunks, IReadOnlyList<ColumnDef> columns, object?[] values,
-        ReadOnlySpan<byte> priorBitmap = default, int slack = 0)
+        ReadOnlySpan<byte> priorBitmap = default, int slack = 0, ReadOnlySpan<byte> beneath = default)
     {
         // A calculated column is exempt from the declared-width check: its length field is a constant ACE
         // writes (39 for a value type, 509 for any Text, whatever size was asked for), not a limit — a
@@ -297,10 +299,15 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
         // it clear. That holds for a dead id's bit — set where the column held a value, clear where it was NULL:
         // the same statement pair gives ACE 0x0F for a re-laid row with a value and 0x0D for the next insert — and
         // for the padding past the last column in the final byte alike: an UPDATE of a row whose last byte read
-        // 0x65 over one live column leaves it 0x65 (WholeFileParityProbeTest). What sets padding in a byte the row
-        // did not have before is not known; LibRed leaves it clear.
-        for (int id = 0; id < nullBitmapSize * 8 && id < priorBitmap.Length * 8; id++)
-            if (!liveIds.Contains(id) && BitmapBits.Get(priorBitmap, id))
+        // 0x65 over one live column leaves it 0x65 (WholeFileParityProbeTest). Padding in a byte the row did not
+        // have before is whatever the re-lay's buffer holds there — stale text included, 0x78 under one live bit
+        // giving 0x79 — and clear for an UPDATE, which has no buffer.
+        byte[] prior = new byte[nullBitmapSize];
+        priorBitmap[..Math.Min(priorBitmap.Length, nullBitmapSize)].CopyTo(prior);
+        for (int k = priorBitmap.Length; k < nullBitmapSize; k++)
+            if (row.Length - nullBitmapSize + k < beneath.Length) prior[k] = beneath[row.Length - nullBitmapSize + k];
+        for (int id = 0; id < nullBitmapSize * 8; id++)
+            if (!liveIds.Contains(id) && BitmapBits.Get(prior, id))
                 BitmapBits.Set(nullBitmap, id, true);
         return row;
     }

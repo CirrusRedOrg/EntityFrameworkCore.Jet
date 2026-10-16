@@ -524,9 +524,10 @@
   > **`LvExtra` after a sized parameter.** Once a parameter row carrying facets in `LvExtra` (a `TEXT(20)`'s
   > length) is written, **every later row of the query carries `LvExtra` too**, `0` where it has nothing of its
   > own — a later parameter without facets, the columns, tables and predicates, an action query's rows alike.
-  > `(who TEXT(20), lim LONG)` marks `lim`'s row; `(lim LONG, who TEXT(20))` leaves it null. **Not explained:**
-  > in `CREATE PROCEDURE p (who TEXT(20)) AS UPDATE Customer SET Name = who WHERE Id = 999` ACE writes `0xDD`,
-  > not `0`, in the WHERE row's `LvExtra`; LibRed writes `0`.
+  > `(who TEXT(20), lim LONG)` marks `lim`'s row; `(lim LONG, who TEXT(20))` leaves it null. In
+  > `CREATE PROCEDURE p (who TEXT(20)) AS UPDATE Customer SET Name = who WHERE Id = 999` ACE writes an
+  > **uninitialised** value, not `0`, in the WHERE row's `LvExtra` (verified): the same in every run within one ACE
+  > process and different in the next (`0xDD`, `0x90`, `0xAD` from the same file). LibRed writes `0`.
   >
   > **Dropping a query** deletes its rows in key order — `(Attribute, Order)` — whatever order they were written
   > in (verified).

@@ -2540,14 +2540,18 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             // 3. Re-lay each row: old fixed region + old var chunks verbatim (incl. the dead old slot), target
             //    appended (a new fixed slot, or a new variable chunk); count/var-table/null-bitmap rebuilt.
             //    A long value is stored first, as an insert would store it, so the chunk appended is its descriptor.
-            byte[] previous = [];
+            //    ACE builds every row in one buffer it never clears: the old record is copied in and the new one
+            //    written over it, so a byte the new record does not write holds whatever last reached it.
+            var buffer = new byte[format.PageSize];
             foreach (var r in rows)
             {
                 if (toLongValue)
                     r.Values[newTarget.Index] = writer.MaterializeLongValue(newTarget, r.Values[newTarget.Index]);
-                previous = BuildRelaidRecord(
-                    r.Raw, oldDef, newTarget, r.Values, newDef.Columns, newMaxId, newFixedLen, newVarCount, previous);
-                writer.RewriteRowRaw(r.Id, previous);
+                r.Raw.CopyTo(buffer, 0);
+                byte[] record = BuildRelaidRecord(
+                    r.Raw, oldDef, newTarget, r.Values, newDef.Columns, newMaxId, newFixedLen, newVarCount, buffer);
+                record.CopyTo(buffer, 0);
+                writer.RewriteRowRaw(r.Id, record);
             }
 
             // 4. Finish each index rebuild: backfill the fresh B-tree with new-type keys, then free the old root
@@ -2571,9 +2575,10 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// bitmap (each dead id's bit carried over from the old row) rebuilt. The fixed region is at least
     /// <paramref name="fixedLength"/> — the old live region plus the target's new slot, which a row predating a fixed
     /// ADD COLUMN grows to even when the target becomes variable (verified vs ACE) — and past the end of a short old
-    /// record holds <paramref name="previous"/>, the record re-laid before it.</summary>
+    /// record holds what <paramref name="buffer"/>, the re-lay's buffer with the old record copied in, holds there;
+    /// so does the padding of a null-bitmap byte the old row did not have.</summary>
     private byte[] BuildRelaidRecord(byte[] oldRow, TableDefinition oldDef, ColumnDef newTarget, object?[] values,
-        IReadOnlyList<ColumnDef> newCols, int newMaxId, int fixedLength, int newVarCount, byte[] previous)
+        IReadOnlyList<ColumnDef> newCols, int newMaxId, int fixedLength, int newVarCount, byte[] buffer)
     {
         object? tv = values[newTarget.Index];
 
@@ -2584,7 +2589,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // Fixed region: the target written into its new slot if it occupies fixed data — a Yes/No does not, and
         // AssembleRow sets its null-bitmap bit from the value. A NULL target writes nothing: its slot holds whatever
         // the old record had there.
-        byte[] newFixed = RowCodec.FixedRegionOver(oldLayout, fixedLength, format, previous);
+        byte[] newFixed = RowCodec.FixedRegionOver(oldLayout, fixedLength, format, buffer);
         if (newTarget.OccupiesFixedData && tv is not null)
             Storage.Types.JetTypeCodec.Encode(newTarget, tv, format).CopyTo(newFixed, newTarget.FixedOffset);
 
@@ -2597,7 +2602,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // Assemble via the shared row layout (count + var table + null bitmap identical to a fresh encode), each
         // dead id's bit carried over from the old row's bitmap.
         return RowCodec.AssembleRow(format, newMaxId, newFixed, chunks, newCols, values,
-            priorBitmap: oldLayout.NullBitmap);
+            priorBitmap: oldLayout.NullBitmap, beneath: buffer);
     }
 
     /// <summary>Hands the rebuilt indexes back the real-index slots they held, in the order they were rebuilt: the

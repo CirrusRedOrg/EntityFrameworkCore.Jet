@@ -24,8 +24,9 @@ namespace LibRed.Engine.Tests;
 /// every statement leaves identical files.
 /// <para>Only what differs for reasons other than the format is masked: page 0's user commit-byte table, which
 /// counts a lock-file user's writes and LibRed does not keep; the wall-clock DateCreate and DateUpdate of each
-/// MSysObjects row; and a data page's write stamp at 0x08, with the copy of it a chained long value's descriptor
-/// carries. A copy opened and closed through ACE with nothing
+/// MSysObjects row; a data page's write stamp at 0x08, with the copy of it a chained long value's descriptor
+/// carries; and a stored query's WHERE-row LvExtra, which ACE can leave uninitialised. A query's compiled plan
+/// (MSysObjects.Lv) is copied from ACE's file into LibRed's before comparing. A copy opened and closed through ACE with nothing
 /// done to it shows what ACE writes merely for holding a session; a byte that alone changes is counted apart rather
 /// than as a difference. Calculated and complex columns are left out — ACE's OLE DB DDL cannot create either.</para>
 /// </remarks>
@@ -219,6 +220,57 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
         }
         finally
         {
+            if (current != origin) TemporaryDatabase.Delete(current);
+            TemporaryDatabase.Delete(origin);
+        }
+    }
+
+    /// <summary>One statement run through ACE three times from the same file: every byte where ACE does not agree
+    /// with itself, which no engine could be expected to reproduce.</summary>
+    [Theory(Explicit = true)]
+    [InlineData(162, 234)]
+    [InlineData(247, 69)]
+    [InlineData(253, 0)]
+    public void Ace_against_itself(int statement, int page)
+    {
+        string[] statements = Statements();
+        string? origin = CreateEmptyThroughDao();
+        Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
+        string current = origin;
+        var runs = new List<string>();
+        try
+        {
+            for (int i = 0; i < statement - 1; i++)
+            {
+                string next = TemporaryDatabase.CopyPath(current, $"selfcheck{i}-");
+                Assert.Null(RunThroughAce(next, [statements[i]])[0]);
+                if (current != origin) TemporaryDatabase.Delete(current);
+                current = next;
+            }
+            for (int run = 0; run < 3; run++)
+            {
+                runs.Add(TemporaryDatabase.CopyPath(current, $"selfcheck-run{run}-"));
+                Assert.Null(RunThroughAce(runs[run], [statements[statement - 1]])[0]);
+            }
+            byte[][] files = [.. runs.Select(File.ReadAllBytes)];
+            output.WriteLine($"#{statement} {statements[statement - 1]}; lengths {string.Join(", ", files.Select(f => f.Length))}");
+            for (int at = 0; at < files.Min(f => f.Length); at++)
+                if (files[1][at] != files[0][at] || files[2][at] != files[0][at])
+                    output.WriteLine($"  page {at / 4096} +0x{at % 4096:X3}: {string.Join(" ", files.Select(f => f[at].ToString("X2", CultureInfo.InvariantCulture)))}");
+            if (page > 0)
+            {
+                byte[] before = File.ReadAllBytes(current);
+                for (int line = 0; line < 4096; line += 32)
+                {
+                    string was = Convert.ToHexString(before, page * 4096 + line, 32), now = Convert.ToHexString(files[0], page * 4096 + line, 32);
+                    if (was != now || was.Trim('0').Length > 0)
+                        output.WriteLine($"  +0x{line:X3} WAS {was}\n         NOW {now}");
+                }
+            }
+        }
+        finally
+        {
+            foreach (string run in runs) TemporaryDatabase.Delete(run);
             if (current != origin) TemporaryDatabase.Delete(current);
             TemporaryDatabase.Delete(origin);
         }
@@ -804,8 +856,8 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
 
     /// <summary>Masks the bytes known to differ for reasons other than the format: page 0's user commit-byte table,
     /// a count of each lock-file user's committed writes that LibRed, keeping no lock file, leaves alone
-    /// (page-00-database.md §2.2); each MSysObjects row's wall-clock DateCreate and DateUpdate; and every data page's
-    /// write stamp.</summary>
+    /// (page-00-database.md §2.2); each MSysObjects row's wall-clock DateCreate and DateUpdate; every data page's
+    /// write stamp; and a stored query's WHERE-row LvExtra.</summary>
     private static void Mask(string path, byte[] file, HashSet<int>[] masks)
     {
         using var database = JetDatabase.Open(path, readOnly: true);
@@ -875,6 +927,23 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
                         for (int i = stamp; i < stamp + sizeof(int); i++) masks[id.Page].Add(slot.Offset + at + i);
                 }
             }
+        }
+
+        // A WHERE row's LvExtra, which ACE can fill with an uninitialised value that changes from one ACE process to
+        // the next (system-catalog.md). Only the WHERE row's: a parameter row's LvExtra holds its facets, the other
+        // rows' are ACE's 0, and whether a row carries one at all is its null-bitmap bit — all still compared.
+        TableDefinition queries = database.Catalog.FindTable("MSysQueries")!;
+        ColumnDef attribute = queries.FindColumn("Attribute")!, lvExtra = queries.FindColumn("LvExtra")!;
+        if (!lvExtra.IsFixedLength) return;
+        Table queryRows = database.OpenTable("MSysQueries");
+        foreach ((RowId id, object?[] values) in queryRows.Rows().WithIds())
+        {
+            if (values[attribute.Index] is not (byte and 8) || values[lvExtra.Index] is null) continue;
+            var page = new DataPage();
+            page.Read(queryRows.Channel.ReadPageShared(id.Page), queryRows.Channel.Format);
+            if (page.Rows[id.Row] is not { IsDeleted: false, HasOverflow: false } slot) continue;
+            int at = slot.Offset + format.RowColumnCountSize + lvExtra.FixedOffset;
+            for (int i = 0; i < sizeof(int); i++) masks[id.Page].Add(at + i);
         }
     }
 

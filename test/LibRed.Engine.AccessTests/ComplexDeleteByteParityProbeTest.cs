@@ -312,10 +312,15 @@ public class ComplexDeleteByteParityProbeTest(ITestOutputHelper output)
                 output.WriteLine($"PROBE     {page,5}: was {Describe(o, page, owners, format),-28}"
                     + $" ace={Describe(a, page, owners, format),-28} libred={Describe(l, page, owners, format)}");
 
-            // For the pages both changed, are the resulting bytes identical — and where not, what exactly?
+            // A page ACE alone changed: which bytes.
+            foreach (int page in aceReal.Except(libredPages).Order())
+                output.WriteLine($"PROBE   page {page} (ACE only) differs from orig at {Ranges(o.AsSpan(page * pageSize, pageSize), a.AsSpan(page * pageSize, pageSize))}");
+
+            // For the pages both changed, are the resulting bytes identical — and where not, what exactly? A page
+            // the insert added past the original file's end compares against a zero page.
             foreach (int page in aceReal.Intersect(libredPages).Order())
             {
-                var origSpan = o.AsSpan(page * pageSize, pageSize);
+                ReadOnlySpan<byte> origSpan = (page + 1) * pageSize <= o.Length ? o.AsSpan(page * pageSize, pageSize) : new byte[pageSize];
                 var aceSpan = a.AsSpan(page * pageSize, pageSize);
                 var libSpan = l.AsSpan(page * pageSize, pageSize);
                 if (aceSpan.SequenceEqual(libSpan)) { output.WriteLine($"PROBE   page {page}: IDENTICAL"); continue; }

@@ -395,7 +395,7 @@ exactly, and say what was measured. A `PostToolUse` hook stops the turn after ev
   `.ps1`/`.g4`, and any `python` invocation) — these bypass file checkpointing, so `/rewind` cannot undo them.
   Use `Edit`/`Write`.
 - **`LibRed.Core.AccessTests` or `LibRed.Engine.AccessTests` in the foreground with no `--filter`** — they are
-  ~7 and ~1.5 minutes, and waiting on them is dead session time. Add a `--filter` naming the tests that cover
+  ~12 and ~4.5 minutes, and waiting on them is dead session time. Add a `--filter` naming the tests that cover
   the change, or pass `run_in_background` and carry on working while they run. The other suites are unaffected.
 
 `dotnet build`/`test`/`restore` and, in Bash, `git status`/`diff`/`log`/`show`/`branch`/`add`/`commit`/`push`

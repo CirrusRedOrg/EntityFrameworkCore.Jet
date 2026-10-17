@@ -391,8 +391,8 @@ and via `git grep`/`git cat-file`, which read the same way but slip past the rea
 of its own file tools; the underlying convention applies to any agent working here.)
 
 Writing scratch files and logs outside the repo is fine. `dotnet build`/`test`/`restore` and read-only `git`
-commands are the expected shell usage. Run `LibRed.Core.AccessTests` (~7 min) and `LibRed.Engine.AccessTests`
-(~1.5 min) with a `--filter` naming the tests that cover the change, or in the background — Claude Code's hooks
+commands are the expected shell usage. Run `LibRed.Core.AccessTests` (~12 min) and `LibRed.Engine.AccessTests`
+(~4.5 min) with a `--filter` naming the tests that cover the change, or in the background — Claude Code's hooks
 refuse either suite whole in the foreground.
 
 ## CI

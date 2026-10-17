@@ -793,6 +793,510 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
 
     private static string Notes(int i) => string.Concat(Enumerable.Repeat($"Note {i}. ", i * 12));
 
+    /// <summary>Statement 118's bulk insert cut to every row count from 1 to 1,000, each on a fresh copy of the corpus
+    /// file after statement 117, through ACE and through LibRed: the pages each owner gains from one row count to the
+    /// next are that row's allocations, in order, so every placement decision of the statement is logged with the row
+    /// that made it.</summary>
+    [Theory(Explicit = true)]
+    [InlineData(120, -2)]
+    [InlineData(150, -2)]
+    [InlineData(200, -2)]
+    [InlineData(150, -1)]
+    [InlineData(150, 2)]
+    [InlineData(150, 4)]
+    public void Bulk_insert_page_timeline(int payloadLength, int filler)
+    {
+        string? origin = CreateEmptyThroughDao();
+        Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
+        try
+        {
+            string[] statements = Statements();
+            // -2: statements 1–117 in one session; otherwise each in its own, as the step-by-step run applies them, then
+            // a filler table of that many one-page rows (none for -1), as Bulk_insert_alignment_map builds its starts.
+            if (filler == -2) RunThroughAce(origin, statements[..117]);
+            else
+            {
+                foreach (string statement in statements[..117]) RunThroughAce(origin, [statement]);
+                if (filler >= 0)
+                    RunThroughAce(origin, ["CREATE TABLE Filler (Id LONG, W1 TEXT(255), W2 TEXT(255), W3 TEXT(255), W4 TEXT(255), W5 TEXT(255), W6 TEXT(255), W7 TEXT(255))",
+                        .. Enumerable.Range(0, filler).Select(i => $"INSERT INTO Filler VALUES ({i}, String(255,'a'), String(255,'b'), " +
+                            "String(255,'c'), String(255,'d'), String(255,'e'), String(255,'f'), String(255,'g'))")]);
+            }
+            output.WriteLine($"before statement 118: {PageGroupProbeTest.Runs(origin)}");
+            string bulk = statements[117].Replace("String(150, 'p')", $"String({payloadLength}, 'p')", StringComparison.Ordinal);
+            var seen = new Dictionary<string, Dictionary<string, HashSet<int>>> { ["ACE"] = [], ["LibRed"] = [] };
+            for (int rows = 1; rows <= 1000; rows++)
+            {
+                string sql = bulk.Replace("ORDER BY 1", $"WHERE a.D * 100 + b.D * 10 + c.D < {rows} ORDER BY 1", StringComparison.Ordinal);
+                var events = new List<string>();
+                foreach (string engine in new[] { "ACE", "LibRed" })
+                {
+                    string copy = TemporaryDatabase.CopyPath(origin, "timeline-");
+                    try
+                    {
+                        if (engine == "ACE") Assert.Null(RunThroughAce(copy, [sql])[0]);
+                        else Assert.Null(RunThroughLibRed(copy, [sql])[0]);
+                        using var database = JetDatabase.Open(copy, readOnly: true);
+                        Table table = database.OpenTable("Bulk");
+                        var owners = new List<(string Name, IEnumerable<int> Pages)> { ("data", table.UsageMap.DataPages()) };
+                        owners.AddRange(table.Definition.RealIndexes.Select(i =>
+                            (i.Name, table.UsageMap.PagesInMap(i.UsageMap.Row, i.UsageMap.Page))));
+                        var parts = new List<string>();
+                        foreach ((string name, IEnumerable<int> pages) in owners)
+                        {
+                            HashSet<int> before = seen[engine].TryGetValue(name, out var known) ? known : [];
+                            int[] added = [.. pages.Where(p => !before.Contains(p)).Order()];
+                            seen[engine][name] = [.. pages];
+                            // An index page's siblings name the page it was split from.
+                            string Siblings(int page)
+                            {
+                                if (name == "data") return "";
+                                ReadOnlySpan<byte> bytes = database.Channel.ReadPage(page).Span;
+                                return $"({(PageHeader.ReadType(bytes) == PageType.LeafIndexPage ? "leaf" : "node")} " +
+                                    $"{BinaryPrimitives.ReadInt32LittleEndian(bytes[database.Format.IndexPrevPageOffset..])}<>" +
+                                    $"{BinaryPrimitives.ReadInt32LittleEndian(bytes[database.Format.IndexNextPageOffset..])})";
+                            }
+                            if (added.Length > 0) parts.Add($"{name} +{string.Join(",", added.Select(p => p + Siblings(p)))}");
+                        }
+                        if (parts.Count > 0) events.Add($"{engine} {string.Join("; ", parts)}");
+                    }
+                    finally { TemporaryDatabase.Delete(copy); }
+                }
+                if (events.Count > 0) output.WriteLine($"row {rows}: {string.Join(" | ", events)}");
+            }
+        }
+        finally
+        {
+            OleDbConnection.ReleaseObjectPool();
+            TemporaryDatabase.Delete(origin);
+        }
+    }
+
+    /// <summary>A controlled bulk insert: on a fresh database, one statement appends rows in ascending key order to
+    /// <c>Indexed (K TEXT(200), P TEXT(n))</c> with an index on K — so every index split is at the rightmost leaf and
+    /// the index entries are the same whatever <paramref name="padding"/> is. The padding, not indexed, only changes
+    /// how often the data needs a page. Each row's allocations through ACE and LibRed, the first disagreement marked.</summary>
+    [Theory(Explicit = true)]
+    [InlineData(0)]
+    [InlineData(50)]
+    [InlineData(100)]
+    [InlineData(200)]
+    public void Indexed_append_timeline(int padding)
+    {
+        string? origin = CreateEmptyThroughDao();
+        Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
+        try
+        {
+            RunThroughAce(origin, ["CREATE TABLE Digits (D BYTE)", .. Enumerable.Range(0, 10).Select(d => $"INSERT INTO Digits (D) VALUES ({d})"),
+                "CREATE TABLE Source (Id LONG CONSTRAINT pkSource PRIMARY KEY)",
+                "INSERT INTO Source (Id) SELECT a.D * 100 + b.D * 10 + c.D FROM Digits AS a, Digits AS b, Digits AS c ORDER BY 1",
+                $"CREATE TABLE Indexed (K TEXT(200), P TEXT({Math.Max(padding, 1)}))", "CREATE INDEX ixK ON Indexed (K)"]);
+            var seen = new Dictionary<string, Dictionary<string, HashSet<int>>> { ["ACE"] = [], ["LibRed"] = [] };
+            bool parted = false;
+            for (int rows = 1; rows <= 1000; rows++)
+            {
+                string sql = $"INSERT INTO Indexed (K, P) SELECT Right('0000' & Id, 4) & String(180, 'x'), String({padding}, 'q') " +
+                    $"FROM Source WHERE Id < {rows} ORDER BY Id";
+                var events = new Dictionary<string, string>();
+                foreach (string engine in new[] { "ACE", "LibRed" })
+                {
+                    string copy = TemporaryDatabase.CopyPath(origin, "append-");
+                    try
+                    {
+                        Assert.Null((engine == "ACE" ? RunThroughAce(copy, [sql]) : RunThroughLibRed(copy, [sql]))[0]);
+                        using var database = JetDatabase.Open(copy, readOnly: true);
+                        Table table = database.OpenTable("Indexed");
+                        var owners = new List<(string Name, IEnumerable<int> Pages)> { ("data", table.UsageMap.DataPages()) };
+                        owners.AddRange(table.Definition.RealIndexes.Select(i => ("ix", table.UsageMap.PagesInMap(i.UsageMap.Row, i.UsageMap.Page))));
+                        var parts = new List<string>();
+                        foreach ((string name, IEnumerable<int> pages) in owners)
+                        {
+                            HashSet<int> before = seen[engine].TryGetValue(name, out var known) ? known : [];
+                            int[] added = [.. pages.Where(p => !before.Contains(p)).Order()];
+                            seen[engine][name] = [.. pages];
+                            // An index page's type and siblings: a new leaf's previous sibling is the leaf it split from.
+                            string Shape(int page)
+                            {
+                                if (name == "data") return "";
+                                ReadOnlySpan<byte> bytes = database.Channel.ReadPage(page).Span;
+                                return $"({(PageHeader.ReadType(bytes) == PageType.LeafIndexPage ? "leaf" : "node")} " +
+                                    $"{BinaryPrimitives.ReadInt32LittleEndian(bytes[database.Format.IndexPrevPageOffset..])}<>" +
+                                    $"{BinaryPrimitives.ReadInt32LittleEndian(bytes[database.Format.IndexNextPageOffset..])})";
+                            }
+                            if (added.Length > 0) parts.Add($"{name} +{string.Join(",", added.Select(p => p + Shape(p)))}");
+                        }
+                        events[engine] = string.Join("; ", parts);
+                    }
+                    finally { TemporaryDatabase.Delete(copy); }
+                }
+                bool differ = events["ACE"] != events["LibRed"];
+                if (events["ACE"] != "" || events["LibRed"] != "")
+                    output.WriteLine($"{(differ && !parted ? "* " : "  ")}row {rows}: ACE {events["ACE"]} | LibRed {events["LibRed"]}");
+                parted |= differ;
+            }
+        }
+        finally
+        {
+            OleDbConnection.ReleaseObjectPool();
+            TemporaryDatabase.Delete(origin);
+        }
+    }
+
+    /// <summary>Statement 118 on the chained-sessions starting file shifted by a filler table of 0–10 one-page rows (its
+    /// own session): for each shift, whether ACE and LibRed end alike, and where they part the first row that differs
+    /// and each engine's pages for that row.</summary>
+    [Theory(Explicit = true)]
+    [InlineData(150)]
+    public void Bulk_insert_alignment_map(int payloadLength)
+    {
+        string? origin = CreateEmptyThroughDao();
+        Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
+        try
+        {
+            string[] statements = Statements();
+            foreach (string statement in statements[..117]) RunThroughAce(origin, [statement]);
+            string bulk = statements[117].Replace("String(150, 'p')", $"String({payloadLength}, 'p')", StringComparison.Ordinal);
+            string Cut(int rows) => bulk.Replace("ORDER BY 1", $"WHERE a.D * 100 + b.D * 10 + c.D < {rows} ORDER BY 1", StringComparison.Ordinal);
+            const string Wide = "W1 TEXT(255), W2 TEXT(255), W3 TEXT(255), W4 TEXT(255), W5 TEXT(255), W6 TEXT(255), W7 TEXT(255)";
+            const string WideValues = "String(255,'a'), String(255,'b'), String(255,'c'), String(255,'d'), String(255,'e'), String(255,'f'), String(255,'g')";
+
+            for (int filler = -1; filler <= 10; filler++)
+            {
+                string start = TemporaryDatabase.CopyPath(origin, "align-");
+                try
+                {
+                    if (filler >= 0)
+                        RunThroughAce(start, [$"CREATE TABLE Filler (Id LONG, {Wide})",
+                            .. Enumerable.Range(0, filler).Select(i => $"INSERT INTO Filler VALUES ({i}, {WideValues})")]);
+                    int startPages;
+                    using (var database = JetDatabase.Open(start, readOnly: true)) startPages = database.Channel.PageCount;
+
+                    // Every page Bulk owns, per owner, and the file's length, after the statement cut to the given rows.
+                    string Placement(string engine, int rows, out Dictionary<string, int[]> owners)
+                    {
+                        string copy = TemporaryDatabase.CopyPath(start, "align-run-");
+                        try
+                        {
+                            Assert.Null((engine == "ACE" ? RunThroughAce(copy, [Cut(rows)]) : RunThroughLibRed(copy, [Cut(rows)]))[0]);
+                            using var database = JetDatabase.Open(copy, readOnly: true);
+                            Table table = database.OpenTable("Bulk");
+                            owners = new() { ["data"] = [.. table.UsageMap.DataPages()] };
+                            foreach (IndexDef index in table.Definition.RealIndexes)
+                                owners[index.Name] = [.. table.UsageMap.PagesInMap(index.UsageMap.Row, index.UsageMap.Page)];
+                            return $"{database.Channel.PageCount}|" + string.Join("|", owners.Select(o => $"{o.Key}:{string.Join(",", o.Value)}"));
+                        }
+                        finally { TemporaryDatabase.Delete(copy); }
+                    }
+
+                    bool Same(int rows) => Placement("ACE", rows, out _) == Placement("LibRed", rows, out _);
+                    if (Same(1000)) { output.WriteLine($"filler {filler} (start {startPages} pages): identical"); continue; }
+                    int low = 0, high = 1000; // Same(low) holds, Same(high) does not
+                    while (high - low > 1)
+                    {
+                        int mid = (low + high) / 2;
+                        if (Same(mid)) low = mid; else high = mid;
+                    }
+                    Placement("ACE", low, out var aceBefore);
+                    Placement("ACE", high, out var aceAfter);
+                    Placement("LibRed", high, out var libredAfter);
+                    string Added(Dictionary<string, int[]> after) => string.Join("; ", after
+                        .Select(o => (o.Key, New: o.Value.Except(aceBefore.TryGetValue(o.Key, out var b) ? b : []).ToArray()))
+                        .Where(o => o.New.Length > 0).Select(o => $"{o.Key} +{string.Join(",", o.New)}"));
+                    output.WriteLine($"filler {filler} (start {startPages} pages): first differs at row {high} — ACE {Added(aceAfter)} | LibRed {Added(libredAfter)}");
+                    foreach ((string owner, int[] pages) in aceBefore)
+                        output.WriteLine($"    before, {owner}: {string.Join(",", pages.Where(p => p >= startPages - 8))}");
+                }
+                finally { TemporaryDatabase.Delete(start); }
+            }
+        }
+        finally
+        {
+            OleDbConnection.ReleaseObjectPool();
+            TemporaryDatabase.Delete(origin);
+        }
+    }
+
+    /// <summary>The file statement 118 starts from, built two ways — statements 1–117 in one ACE session, or each in a
+    /// session of its own — with each one's free pages below its end and its page layout.</summary>
+    [Fact(Explicit = true)]
+    public void Bulk_insert_starting_files()
+    {
+        foreach (bool chained in new[] { false, true })
+        {
+            string? origin = CreateEmptyThroughDao();
+            Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
+            try
+            {
+                string[] statements = Statements();
+                if (chained)
+                    foreach (string statement in statements[..117]) RunThroughAce(origin, [statement]);
+                else RunThroughAce(origin, statements[..117]);
+                using var database = JetDatabase.Open(origin, readOnly: true);
+                Table bulk = database.OpenTable("Bulk");
+                int end = database.Channel.PageCount;
+                HashSet<int> free = PageGroupProbeTest.GlobalFree(bulk, int.MaxValue);
+                output.WriteLine($"{(chained ? "chained" : "one session")}: {end} pages; free below the end " +
+                    $"[{string.Join(",", free.Where(p => p < end).Order())}]; free from the end [{string.Join(",", free.Where(p => p >= end).Order().Take(12))}…]");
+                output.WriteLine($"  {PageGroupProbeTest.Runs(origin)}");
+            }
+            finally { TemporaryDatabase.Delete(origin); }
+        }
+    }
+
+    /// <summary>Statement 118 on the one-session starting file, which has free holes below its end, and on a twin with
+    /// only those holes' free bits cleared: where each engine's index pages end up, and the pages each engine holds
+    /// — taken while the session is open, free once it closes — after the first rows, around the data's first pages.</summary>
+    [Theory(Explicit = true)]
+    [InlineData(150)]
+    public void Bulk_insert_holes_pair(int payloadLength)
+    {
+        string? origin = CreateEmptyThroughDao();
+        Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
+        string filled = "";
+        try
+        {
+            string[] statements = Statements();
+            RunThroughAce(origin, statements[..117]);
+            int[] holes;
+            using (var database = JetDatabase.Open(origin, readOnly: true))
+            {
+                int end = database.Channel.PageCount;
+                holes = [.. PageGroupProbeTest.GlobalFree(database.OpenTable("Bulk"), end).Order()];
+            }
+            filled = TemporaryDatabase.CopyPath(origin, "holes-filled-");
+            using (var database = JetDatabase.Open(filled, readOnly: false))
+            {
+                (int row, int holderPage) = database.DefinitionPage.FreePagesMap;
+                byte[] bytes = database.Channel.ReadPage(holderPage).Span.ToArray();
+                var holder = new DataPage();
+                holder.Read(database.Channel.ReadPageShared(holderPage), database.Format);
+                DataPage.RowSlot slot = holder.Rows[row];
+                Span<byte> record = bytes.AsSpan(slot.Offset, slot.Length);
+                int start = UsageMap.StartPage(record, database.Format);
+                foreach (int hole in holes) BitmapBits.Set(UsageMap.InlineBits(record, database.Format), hole - start, false);
+                database.Channel.WritePage(holderPage, bytes);
+            }
+            output.WriteLine($"holes [{string.Join(",", holes)}]; the twin has them marked used");
+
+            string bulk = statements[117].Replace("String(150, 'p')", $"String({payloadLength}, 'p')", StringComparison.Ordinal);
+            string Cut(int rows) => bulk.Replace("ORDER BY 1", $"WHERE a.D * 100 + b.D * 10 + c.D < {rows} ORDER BY 1", StringComparison.Ordinal);
+            foreach ((string name, string file) in new[] { ("holes", origin), ("filled", filled) })
+            {
+                foreach (string engine in new[] { "ACE", "LibRed" })
+                {
+                    string copy = TemporaryDatabase.CopyPath(file, "holes-run-");
+                    try
+                    {
+                        Assert.Null((engine == "ACE" ? RunThroughAce(copy, [bulk]) : RunThroughLibRed(copy, [bulk]))[0]);
+                        using var database = JetDatabase.Open(copy, readOnly: true);
+                        Table table = database.OpenTable("Bulk");
+                        output.WriteLine($"{name} {engine} 1,000 rows: {database.Channel.PageCount} pages; " + string.Join("; ",
+                            table.Definition.RealIndexes.Select(i => $"{i.Name} [{string.Join(",", table.UsageMap.PagesInMap(i.UsageMap.Row, i.UsageMap.Page))}]")));
+                    }
+                    finally { TemporaryDatabase.Delete(copy); }
+                }
+                foreach (int rows in new[] { 1, 2, 10, 11, 19, 20, 28, 29, 37, 38 })
+                {
+                    var line = new List<string>();
+                    foreach (string engine in new[] { "ACE", "LibRed" })
+                    {
+                        string copy = TemporaryDatabase.CopyPath(file, "holes-run-");
+                        string open = TemporaryDatabase.CreatePath("holes-open-");
+                        try
+                        {
+                            void Snapshot()
+                            {
+                                if (engine == "ACE") Thread.Sleep(3000);
+                                using var source = new FileStream(copy, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                                using var target = File.Create(open);
+                                source.CopyTo(target);
+                            }
+                            Assert.Null((engine == "ACE" ? RunThroughAce(copy, [Cut(rows)], Snapshot) : RunThroughLibRed(copy, [Cut(rows)], Snapshot))[0]);
+                            OleDbConnection.ReleaseObjectPool();
+                            HashSet<int> NotFree(string path)
+                            {
+                                using var database = JetDatabase.Open(path, readOnly: true);
+                                HashSet<int> free = PageGroupProbeTest.GlobalFree(database.OpenTable("Bulk"), int.MaxValue);
+                                return [.. Enumerable.Range(40, 160).Where(p => !free.Contains(p))];
+                            }
+                            int[] held = [.. NotFree(open).Except(NotFree(copy)).Order()];
+                            using var closed = JetDatabase.Open(copy, readOnly: true);
+                            line.Add($"{engine} held [{string.Join(",", held)}] data [{string.Join(",", closed.OpenTable("Bulk").UsageMap.DataPages())}]");
+                        }
+                        finally
+                        {
+                            TemporaryDatabase.Delete(copy);
+                            TemporaryDatabase.Delete(open);
+                        }
+                    }
+                    output.WriteLine($"{name} row {rows}: {string.Join(" | ", line)}");
+                }
+            }
+        }
+        finally
+        {
+            OleDbConnection.ReleaseObjectPool();
+            TemporaryDatabase.Delete(origin);
+            if (filled != "") TemporaryDatabase.Delete(filled);
+        }
+    }
+
+    /// <summary>What ACE still holds after statement 118's bulk insert cut to <paramref name="rows"/> row counts — read
+    /// from a copy taken with the session still open, after ACE's flush timeout, since a shared reservation goes back
+    /// only at close. Pages taken in the global map but owned by none of Bulk's maps are held; listed with each
+    /// owner's pages, around each label-index split of the timeline.</summary>
+    [Theory(Explicit = true)]
+    [InlineData(120, new[] { 369, 370, 414, 415, 459, 460, 545, 546, 590, 591, 602, 603, 634, 635, 679, 680, 724, 725, 769, 770, 814, 815 }, -2)]
+    [InlineData(150, new[] { 500, 510, 520, 530, 540, 545, 546, 547, 590, 591, 602, 603 }, 2)]
+    public void Bulk_insert_held_pages(int payloadLength, int[] rows, int filler)
+    {
+        string? origin = CreateEmptyThroughDao();
+        Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
+        try
+        {
+            string[] statements = Statements();
+            // -2: statements 1–117 in one session; otherwise each in its own, then a filler table of that many one-page
+            // rows (none for -1), as Bulk_insert_alignment_map builds its starts.
+            if (filler == -2) RunThroughAce(origin, statements[..117]);
+            else
+            {
+                foreach (string statement in statements[..117]) RunThroughAce(origin, [statement]);
+                if (filler >= 0)
+                    RunThroughAce(origin, ["CREATE TABLE Filler (Id LONG, W1 TEXT(255), W2 TEXT(255), W3 TEXT(255), W4 TEXT(255), W5 TEXT(255), W6 TEXT(255), W7 TEXT(255))",
+                        .. Enumerable.Range(0, filler).Select(i => $"INSERT INTO Filler VALUES ({i}, String(255,'a'), String(255,'b'), " +
+                            "String(255,'c'), String(255,'d'), String(255,'e'), String(255,'f'), String(255,'g'))")]);
+            }
+            string bulk = statements[117].Replace("String(150, 'p')", $"String({payloadLength}, 'p')", StringComparison.Ordinal);
+            foreach (int count in rows)
+            {
+                string sql = bulk.Replace("ORDER BY 1", $"WHERE a.D * 100 + b.D * 10 + c.D < {count} ORDER BY 1", StringComparison.Ordinal);
+                string copy = TemporaryDatabase.CopyPath(origin, "held-");
+                string open = TemporaryDatabase.CreatePath("held-open-");
+                try
+                {
+                    Assert.Null(RunThroughAce(copy, [sql], () =>
+                    {
+                        Thread.Sleep(3000);
+                        using var source = new FileStream(copy, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                        using var target = File.Create(open);
+                        source.CopyTo(target);
+                    })[0]);
+                    using var database = JetDatabase.Open(open, readOnly: true);
+                    Table table = database.OpenTable("Bulk");
+                    var owned = new Dictionary<string, int[]> { ["data"] = [.. table.UsageMap.DataPages().Where(p => p >= 112)] };
+                    foreach (IndexDef index in table.Definition.RealIndexes)
+                        owned[index.Name] = [.. table.UsageMap.PagesInMap(index.UsageMap.Row, index.UsageMap.Page).Where(p => p >= 112)];
+                    HashSet<int> free = PageGroupProbeTest.GlobalFree(table, int.MaxValue);
+                    int end = database.Channel.PageCount;
+                    int[] held = [.. Enumerable.Range(112, end + 40 - 112).Where(p => !free.Contains(p) && !owned.Values.Any(o => o.Contains(p)))];
+                    output.WriteLine($"row {count}: file {end}; held [{string.Join(",", held)}]; " +
+                        string.Join("; ", owned.Select(o => $"{o.Key} [{string.Join(",", o.Value)}]")));
+                }
+                finally
+                {
+                    OleDbConnection.ReleaseObjectPool();
+                    TemporaryDatabase.Delete(copy);
+                    TemporaryDatabase.Delete(open);
+                }
+            }
+        }
+        finally { TemporaryDatabase.Delete(origin); }
+    }
+
+    /// <summary>The bulk insert of statement 118 run inside Access, its label computed by a VBA callback that copies the
+    /// file before each sampled row, so the label index's and the data's pages can be read mid-statement; LibRed runs
+    /// the same rows on a twin. The rows come from a keyed source table in Id order rather than through ORDER BY,
+    /// which would evaluate every callback before the first insert.</summary>
+    [Theory(Explicit = true)]
+    [InlineData(120)]
+    public void Bulk_insert_observed_inside_Access(int payloadLength)
+    {
+        Type? accessType = Type.GetTypeFromProgID("Access.Application");
+        Assert.SkipWhen(accessType is null, "Access automation is unavailable.");
+        string origin = TemporaryDatabase.CreatePath("bulk-inside-");
+        string prefix = origin + "-inside-";
+        string libred = "";
+        int[] samples = [.. Enumerable.Range(585, 9)];
+        dynamic access = Activator.CreateInstance(accessType)!;
+        try
+        {
+            access.Visible = false;
+            // Only this disposable automation instance opens our own generated callback module.
+            access.AutomationSecurity = 1;
+            access.NewCurrentDatabase(origin);
+            dynamic module = access.VBE.ActiveVBProject.VBComponents.Add(1);
+            module.Name = "BulkCallback";
+            string path = prefix.Replace("\"", "\"\"", StringComparison.Ordinal);
+            module.CodeModule.AddFromString($$"""
+                Public Function BulkLabel(ByVal id As Long) As String
+                    Dim f As Integer, g As Integer, bytes() As Byte
+                    BulkLabel = "Bulk label number " & CStr(id) & " " & String$(30, "L")
+                    Select Case id
+                    Case {{string.Join(", ", samples)}}
+                        DBEngine.Idle dbRefreshCache
+                        f = FreeFile
+                        Open CurrentProject.FullName For Binary Access Read Shared As #f
+                        ReDim bytes(0 To LOF(f) - 1)
+                        Get #f, 1, bytes
+                        Close #f
+                        g = FreeFile
+                        Open "{{path}}" & CStr(id) & ".accdb" For Binary Access Write As #g
+                        Put #g, 1, bytes
+                        Close #g
+                    End Select
+                End Function
+                Public Sub BulkCache()
+                    DBEngine.SetOption dbMaxBufferSize, 64
+                End Sub
+                """);
+            access.DoCmd.Save(5, "BulkCallback");
+            access.Run("BulkLabel", -1);
+            access.CloseCurrentDatabase();
+
+            RunThroughAce(origin, [.. Statements()[..117],
+                "CREATE TABLE Src (Id LONG CONSTRAINT pkSrc PRIMARY KEY)",
+                "INSERT INTO Src (Id) SELECT a.D * 100 + b.D * 10 + c.D FROM Digits AS a, Digits AS b, Digits AS c ORDER BY 1"]);
+            libred = TemporaryDatabase.CopyPath(origin, "bulk-inside-lib-");
+
+            string Insert(string label) =>
+                $"INSERT INTO Bulk (Id, Grp, Label, Payload, Amount) SELECT Id, Id \\ 100, {label}, String({payloadLength}, 'p'), " +
+                "Id \\ 100 + ((Id \\ 10) MOD 10) * 0.5 FROM Src";
+            access.OpenCurrentDatabase(origin, false);
+            access.Run("BulkLabel", -1);
+            // A small buffer, so the statement's pages reach the file while it runs (the final placement is the same).
+            access.Run("BulkCache");
+            access.CurrentDb().Execute(Insert("BulkLabel(Id)"), 128);
+            access.CloseCurrentDatabase();
+            using (var database = JetDatabase.Open(libred, readOnly: false))
+                new QueryEngine(database).ExecuteNonQuery(Insert("'Bulk label number ' & Id & ' ' & String(30, 'L')"));
+
+            foreach ((string name, string file) in samples.Select(s => ($"ACE before row {s}", prefix + s.ToString(CultureInfo.InvariantCulture) + ".accdb"))
+                .Append(("ACE after", origin)).Append(("LibRed after", libred)))
+            {
+                if (!File.Exists(file)) { output.WriteLine($"{name}: no snapshot"); continue; }
+                // The table's own maps are still cached mid-statement; the pages themselves say what they hold. (Not
+                // for the end state, which the maps give, and whose file Access may still hold.)
+                if (file != origin && file != libred) output.WriteLine($"{name}: pages {PageGroupProbeTest.Runs(file)}");
+                using var snapshot = JetDatabase.Open(file, readOnly: true);
+                Table bulk = snapshot.OpenTable("Bulk");
+                IndexDef label = bulk.Definition.Indexes.Single(i => i.Name == "ixBulkLabel");
+                HashSet<int> free = PageGroupProbeTest.GlobalFree(bulk, int.MaxValue);
+                int low = 136, high = Math.Max(176, snapshot.Channel.PageCount);
+                output.WriteLine($"{name}: {snapshot.Channel.PageCount} pages; data [{string.Join(",", bulk.UsageMap.DataPages().Where(p => p >= low))}]; " +
+                    $"label index [{string.Join(",", bulk.UsageMap.PagesInMap(label.UsageMap.Row, label.UsageMap.Page).Where(p => p >= low))}]; " +
+                    $"not free [{string.Join(",", Enumerable.Range(low, high - low).Where(p => !free.Contains(p)))}]");
+            }
+        }
+        finally
+        {
+            access.Quit(2);
+            System.Runtime.InteropServices.Marshal.FinalReleaseComObject((object)access);
+            TemporaryDatabase.Delete(origin);
+            if (libred != "") TemporaryDatabase.Delete(libred);
+            foreach (int sample in samples) TemporaryDatabase.Delete(prefix + sample.ToString(CultureInfo.InvariantCulture) + ".accdb");
+        }
+    }
+
     private static string Abbreviate(string statement) => statement.Length <= 90 ? statement : statement[..87] + "...";
 
     private static string?[] RunThroughAce(string path, string[] statements, Action? beforeClose = null)

@@ -28,14 +28,17 @@ internal sealed class PageAllocator
     private int _bitmapSlot;
     private Dictionary<(int Row, int Page), int> _owners = [];
     private Dictionary<(int Row, int Page), (int Start, byte Bits)> _groups = [];
+    private Dictionary<(int Row, int Page), int> _otherGroups = [];
+    private Dictionary<(int Row, int Page), (int Page, int Held)> _dataGroups = [];
 
     /// <summary>Session allocation state captured with a transaction or savepoint's page images.</summary>
     internal sealed record AllocationState(int Start, uint Bits, int BitmapSlot, Dictionary<(int Row, int Page), int> Owners,
-        Dictionary<(int Row, int Page), (int Start, byte Bits)> Groups);
+        Dictionary<(int Row, int Page), (int Start, byte Bits)> Groups, Dictionary<(int Row, int Page), int> OtherGroups,
+        Dictionary<(int Row, int Page), (int Page, int Held)> DataGroups);
 
     internal AllocationState State
     {
-        get => new(_reservationStart, _reservationBits, _bitmapSlot, new(_owners), new(_groups));
+        get => new(_reservationStart, _reservationBits, _bitmapSlot, new(_owners), new(_groups), new(_otherGroups), new(_dataGroups));
         set
         {
             _reservationStart = value.Start;
@@ -43,6 +46,8 @@ internal sealed class PageAllocator
             _bitmapSlot = value.BitmapSlot;
             _owners = new(value.Owners);
             _groups = new(value.Groups);
+            _otherGroups = new(value.OtherGroups);
+            _dataGroups = new(value.DataGroups);
         }
     }
 
@@ -70,22 +75,60 @@ internal sealed class PageAllocator
         public UsageMapType Type => UsageMap.RecordType(Record);
     }
 
-    public int Allocate((int Row, int Page)? owner = null, int previousPage = -1)
+    public int Allocate((int Row, int Page)? owner = null, int previousPage = -1, (int Row, int Page)? data = null,
+        bool leaf = false)
     {
         (MapRecord free, MapRecord released) = ReadGlobalMaps();
         var releasedPages = new ReleasedPages(this, released);
-        if (_reservationBits != 0)
+        (int Page, int Held) dataGroup = data is { } dataOwner
+            ? (_owners.TryGetValue(dataOwner, out int dataPage) ? dataPage & ~7 : -1,
+                _groups.TryGetValue(dataOwner, out var dataHeld) ? dataHeld.Start : -1)
+            : (-1, -1);
+        bool dataMoved = false, dataTookGroup = false;
+        if (owner is { } indexOwner && data is not null)
         {
-            int bit = BitOperations.TrailingZeroCount(_reservationBits);
-            int page = _reservationStart + bit;
-            ValidateReusablePage(page, "session reservation", free, released, Math.Max(page, _channel.PageCount));
-            if (releasedPages.Contains(page))
-                throw new InvalidDataException($"Reserved page {page} is also released.");
-            EnsurePhysicalAllocation(page);
-            _reservationBits &= ~(1u << bit);
-            if (owner is { } reservedOwner) _owners[reservedOwner] = page;
-            return page;
+            if (_dataGroups.TryGetValue(indexOwner, out var seen))
+                (dataMoved, dataTookGroup) = (seen.Page != dataGroup.Page, seen.Held != dataGroup.Held);
+            _dataGroups[indexOwner] = dataGroup;
         }
+
+        // An index works two groups, as ACE does (page-05-usage-maps.md). When the table's data has moved to another
+        // group since the index's previous page, a leaf takes the lowest page of both not in use; otherwise it takes
+        // the other group's lowest free page, or a fresh group's, and a node page takes the current group's, then the
+        // other's. The shared reservation comes first, except that when the data took a new group of its own, a leaf
+        // counts reserved pages too and leaves for the other group ahead of it. The group left returns its held pages,
+        // to the shared reservation where it covers them, and becomes the other one.
+        if (data is not null && owner is { } index && _groups.TryGetValue(index, out var current)
+            && (leaf && dataTookGroup || _reservationBits == 0))
+        {
+            int other = _otherGroups.GetValueOrDefault(index, -1);
+            int lowestOther = -1;
+            for (int page = other; other >= 0 && page < other + 8 && lowestOther < 0; page++)
+                if (IsFree(page, free, releasedPages) || leaf && dataTookGroup && Reserved(page)) lowestOther = page;
+            int lowestCurrent = current.Bits != 0 ? current.Start + BitOperations.TrailingZeroCount((uint)current.Bits) : -1;
+            bool keep = leaf
+                ? dataMoved && lowestCurrent >= 0 && (lowestOther < 0 || lowestCurrent < lowestOther)
+                : lowestCurrent >= 0 || lowestOther < 0;
+            if (!keep && (lowestOther >= 0 || _reservationBits == 0))
+            {
+                ReturnGroup(current, toReservation: true);
+                _groups.Remove(index);
+                _otherGroups[index] = current.Start;
+                (free, released) = ReadGlobalMaps();
+                releasedPages = new ReleasedPages(this, released);
+                if (Reserved(lowestOther))
+                {
+                    _groups[index] = (lowestOther & ~7, 0);
+                    return TakeReserved(lowestOther, free, released, releasedPages, owner);
+                }
+                if (lowestOther >= 0) return TakePage(lowestOther, free, released, releasedPages, owner, reserve: false);
+                _owners[index] = -1; // a fresh group: nothing to continue in, here or after growing the map
+            }
+        }
+
+        if (_reservationBits != 0)
+            return TakeReserved(_reservationStart + BitOperations.TrailingZeroCount(_reservationBits), free, released,
+                releasedPages, owner);
 
         bool groups = false;
         if (owner is { } pointer)
@@ -217,10 +260,41 @@ internal sealed class PageAllocator
     /// <summary>Returns unused owner-private group pages at statement commit; shared reservations survive.</summary>
     internal void ReturnGroups()
     {
-        foreach (var group in _groups.Values)
-            for (int bit = 0; bit < 8; bit++)
-                if ((group.Bits & (1 << bit)) != 0) Free(group.Start + bit);
+        foreach (var group in _groups.Values) ReturnGroup(group, toReservation: false);
         _groups.Clear();
+        _otherGroups.Clear();
+        _dataGroups.Clear();
+    }
+
+    /// <summary>Returns an owner group's held pages to the free map — or, with <paramref name="toReservation"/>, to
+    /// the shared reservation where its window covers them while it lasts.</summary>
+    private void ReturnGroup((int Start, byte Bits) group, bool toReservation)
+    {
+        for (int bit = 0; bit < 8; bit++)
+        {
+            if ((group.Bits & (1 << bit)) == 0) continue;
+            int page = group.Start + bit;
+            if (toReservation && _reservationBits != 0 && page >= _reservationStart && page < _reservationStart + 32)
+                _reservationBits |= 1u << (page - _reservationStart);
+            else Free(page);
+        }
+    }
+
+    /// <summary>Whether <paramref name="page"/> is in the shared reservation.</summary>
+    private bool Reserved(int page) => page >= _reservationStart && page < _reservationStart + 32
+        && (_reservationBits & (1u << (page - _reservationStart))) != 0;
+
+    /// <summary>Takes <paramref name="page"/> out of the shared reservation.</summary>
+    private int TakeReserved(int page, MapRecord free, MapRecord released, ReleasedPages releasedPages,
+        (int Row, int Page)? owner)
+    {
+        ValidateReusablePage(page, "session reservation", free, released, Math.Max(page, _channel.PageCount));
+        if (releasedPages.Contains(page))
+            throw new InvalidDataException($"Reserved page {page} is also released.");
+        EnsurePhysicalAllocation(page);
+        _reservationBits &= ~(1u << (page - _reservationStart));
+        if (owner is { } reservedOwner) _owners[reservedOwner] = page;
+        return page;
     }
 
     /// <summary>Returns a page to the global free-pages map now (sets its bit), so it can be reused — the
@@ -229,8 +303,7 @@ internal sealed class PageAllocator
     public void Free(int page)
     {
         (MapRecord free, MapRecord released) = ReadGlobalMaps();
-        bool reserved = page >= _reservationStart && page < _reservationStart + 32
-            && (_reservationBits & (1u << (page - _reservationStart))) != 0;
+        bool reserved = Reserved(page);
         reserved |= _groups.Values.Any(g => page >= g.Start && page < g.Start + 8
             && (g.Bits & (1 << (page - g.Start))) != 0);
         ValidateReusablePage(page, "page being freed", free, released, reserved ? Math.Max(page, _channel.PageCount - 1) : _channel.PageCount - 1);

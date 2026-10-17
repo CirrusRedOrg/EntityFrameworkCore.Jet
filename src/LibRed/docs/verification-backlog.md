@@ -105,15 +105,14 @@ column's input (rewrites the envelope) → DAO `CompactDatabase`; re-read the by
 
 | where | claim | what it takes |
 |---|---|---|
-| page-05:532 | A second handle and another handle's past-EOF reservation; multi-user allocation. | Two processes (ACE shares one engine per process). Deferred with multi-writer. |
-| page-05:486, 511 | ACE's current-group/cursor choice over a long session (LibRed drifts from statement 118). | Extend `Index_groups_observed_inside_Access_statement` to snapshot the global map after every split; align with LibRed's trace. |
+| page-05:316 | A second handle and another handle's past-EOF reservation; multi-user allocation. | Two processes (ACE shares one engine per process). Deferred with multi-writer. |
 | page-00:355; transactions:55, 154, 323 | The two commit-slot values; page-0 byte-range lock; lock bands, poll interval, `.ldb` record shape. | Frida on `NtWriteFile`/`NtLockFile`, ProcMon for lock offsets (user-run). `.ldb` shape: share-read the lock file while ACE holds it. |
 | page-00:457 | Creating under a non-default workgroup (Access desktop's open of a default-workgroup file is now verified). | DAO `SystemDB` + `CreateUser` on a copied System.mdw, then `Access.Application` under that user. OLE DB does not check SIDs. |
 | page-00:201 | `0x6A` is the creating engine's build (inferred). | 32-bit process with `DAO.DBEngine.36`: create an `.mdb`, compare with `msjet40.dll`'s `FileVersionInfo`. |
 | page-00:14 | `0x15` minor byte's purpose. | In the §3 ladder; plus whether it changes how ACE raises the version. |
 | page-01:95 | 20 bytes between 4060 and 4080 — row-lock bookkeeping? | LibRed writes 4061/4070/4080-byte rows; ACE reads them exclusive vs shared at locking modes 0/1. |
 | page-01:160 | What writes overflow slots wider than 4 bytes (`MSysAccessStorage`). | `Access.Application`: save/resize forms and modules; scan for live `0x4000` slots > 4 bytes. |
-| page-05:250 | A non-empty released map = a release cut off before close (inferred). | Child process `DROP TABLE` then `TerminateProcess`; read the map; reopen with ACE. |
+| page-05:265 | A non-empty released map = a release cut off before close (inferred). | Child process `DROP TABLE` then `TerminateProcess`; read the map; reopen with ACE. |
 | long-values:115 | Why the single-page/chain boundary is 3816. | Whether it moves with other long values in the row or LVAL tenants (a moving number = a budget). |
 | system-catalog:120 | Entry flag `0x80` set by Access, by no DAO call. | Same property through `Access.Application`'s `CurrentDb` vs standalone DAO; diff flags; repeat for a saved query. |
 | system-catalog:622, 635, 640 | The `Lv` query image (sort-order array, join layout, field meanings). | ACE stored queries varied one feature at a time; low value (LibRed never writes `Lv`). |

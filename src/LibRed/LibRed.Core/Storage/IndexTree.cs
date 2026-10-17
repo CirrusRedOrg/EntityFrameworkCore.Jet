@@ -491,8 +491,9 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
         // The root never moves: when it splits, both halves go to new pages, left first, and the root page is
         // rewritten as the node over them — so the index-data block's root pointer stays as it is. The left half
         // is the root's page carried over, so what lies past its live end is what the root held there.
-        int leftPage = level == 0 ? AllocateIndexPage(index) : path[level];
-        int rightPage = AllocateIndexPage(index);
+        bool leaf = type == PageType.LeafIndexPage;
+        int leftPage = level == 0 ? AllocateIndexPage(index, leaf) : path[level];
+        int rightPage = AllocateIndexPage(index, leaf);
         int nodeLevel = path.Count - 1 - level; // height above the leaves of the page being split
 
         byte[] promoted;
@@ -763,9 +764,10 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
     /// pages usage map, exactly as Access does — the map then covers every page of the index's B-tree, not
     /// just the root. (Reads use the B-tree's own links, so this is for byte-faithfulness and to feed Access's
     /// own maintenance, not for LibRed's own traversal.)</summary>
-    private int AllocateIndexPage(IndexDef index)
+    private int AllocateIndexPage(IndexDef index, bool leaf)
     {
-        int page = _allocator.Allocate(index.UsageMap);
+        var data = _channel.ReadPageShared(_table.DefinitionPage).ReadRecordPointer(_channel.Format.TdefOwnedPagesOffset);
+        int page = _allocator.Allocate(index.UsageMap, data: data, leaf: leaf);
         _usageMaps.SetBit(index.UsageMap.Row, index.UsageMap.Page, page, set: true);
         return page;
     }
@@ -984,8 +986,8 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
     {
         SpinePage page = spine[level];
         bool root = level == spine.Count - 1;
-        int left = root ? AllocateIndexPage(index) : page.Number;
-        int right = AllocateIndexPage(index);
+        int left = root ? AllocateIndexPage(index, level == 0) : page.Number;
+        int right = AllocateIndexPage(index, level == 0);
 
         byte[] leftBytes, promoted;
         int rightTail;

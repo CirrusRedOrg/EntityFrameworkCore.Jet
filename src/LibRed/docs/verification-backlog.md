@@ -32,6 +32,7 @@ Items marked ✔ were re-checked by reading the cited code/test; the rest are as
 | Kept page on a full row-by-row delete (page-09) | The lowest owned page, not the creation page (created 361, keeps 310). LibRed agrees. | `WholeFileParityProbeTest` #458–464 |
 | A map's start past page 512 (page-05) | **LibRed bug, fixed.** An inline map that marks no page, asked for one outside its window, is re-based on that page rounded down to 8 — data, index and long-value, owned and free alike. A free map's window "slide" is that rule applied to a map just emptied, so it lands on the tail's byte, not a 512 boundary (600 → 1112, 1152 → 1672). LibRed grew the owned map from 0 and slid free windows to 512 boundaries. | `WholeFileParityProbeTest` #469–473 |
 | Owned-map conversion point (page-05) | **LibRed bug, fixed.** A grown record must leave its holder 4 bytes free, as the global map's must: a key-less table converts at page 32,000 (4005 bytes inline, not 4009), and a key only shrinks the budget by its index map (1,785 bytes → page 17,696). LibRed converted only when the record no longer fitted at all. Both measured to the row against ACE; LibRed now converts at the same row. | measured once (probe not kept) |
+| New global bitmap past held pages (page-05) | The range's own first page, as with the file ending at the range: a table's group holding 65465–65471 while a long value in the same statement opened range 2 put its bitmap at 65472. LibRed byte-for-byte the same placement throughout (bitmap, long value, row, owned-map bitmap, file length). No code change. | `PageGroupProbeTest.Controlled_free_page_selection` `ref-held8` / `heap-then-long` |
 | A fresh data page and the free map (page-05) | **LibRed bug, fixed.** ACE marks a newly allocated data page free only if its first row leaves room for another as large: a 2019-byte first row (2061 left) is marked, a 2059-byte one (2021 left) is not, and a table of one-page rows keeps an empty free map. LibRed marked every new page free, which on a reference-form free map also cost a bitmap page ACE never allocates. Found while probing page-05:540. | `WholeFileParityProbeTest` Half*, `WideTableUsageMapTests` |
 | Free window above the marked page (page-05) | **LibRed bug, fixed.** ACE converts the free-pages map to a reference map with a fresh bitmap page; LibRed widened the inline record. | `WholeFileParityProbeTest` #465–468 |
 
@@ -61,11 +62,10 @@ location, and four mdbtools-TODO entries (`0x1C`, v1 collation, the index header
 
 | where | claim | instrument | probe |
 |---|---|---|---|
-| page-05:540 | New global bitmap page placement when held pages lie between EOF and the range. | ACE OLE DB | `PageGroupProbeTest` `ref-held` / `heap-side-heap` reaches range 2 (ACE = LibRed, bitmap at 65472) but with the file already at the range: a shared reservation's pages serve every owner, so they never stay held when range 2 opens. Needs a hold that survives — another owner's private group, still being filled — at the moment a different owner opens the range. LibRed takes the range's first page. |
 | long-values:275 | Retiring a value from a column with an owned map but no free map — not measured against ACE. | ACE OLE DB + patch | Patch a table's §3.3.2 free pointer to 0; insert >64-byte values through LibRed; delete one through ACE and one through LibRed on twins; diff owned map, page type, global free bit. |
 | system-catalog:114 | A set `0x01` makes a property definition-protected (its effect on DEFAULT/Required/CHECK is settled above). | DAO with a secured workgroup | Under a secured `.mdw`, try deleting a `0x01` vs a `0x00` property as a user without `dbSecWriteDef`. |
 
-page-05:540 needs a file near 65,472 pages (~268 MB) — background-run material. long-values:275 needs the §3.3.2 free pointer patched to 0.
+long-values:275 needs the §3.3.2 free pointer patched to 0.
 
 ## 2. Engine/catalog surface — ACE answers in one statement each
 

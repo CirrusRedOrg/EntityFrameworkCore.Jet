@@ -549,11 +549,12 @@ Do not collapse the distinction into a blanket "always take the lowest free page
 > of future bits without creating a sparse file. For the same reason a covered page past the end of the file
 > whose bit is clear is never handed out as unused: when nothing eligible is free, the map is grown past every
 > page it covers and the page comes from the new free bits, as ACE skips 109–111 for 112. In reference form
-> that is the first range with no bitmap page, whose bitmap is the range's own first page, as ACE places it
-> (65472, measured where the file ended at the range's start); a promotion from inline form places its bitmap
-> pages past every page the inline map covered and carries the inline bits into them. *Unverified:* where ACE
-> puts a new bitmap when held pages lie between the end of the file and the range — LibRed writes them out and
-> takes the range's first page.
+> that is the first range with no bitmap page, whose bitmap is the range's own first page, as ACE places it —
+> also when pages an owner's group still holds lie between the end of the file and the range: LibRed writes
+> them out and takes the range's first page, as ACE does (verified both ways: 65472 with the file ending at the
+> range's start, and with 65465–65471 held by a table's own group while a long value in the same statement
+> opened the range). A promotion from inline form places its bitmap pages past every page the inline map
+> covered and carries the inline bits into them.
 > **Both map forms are handled.** For an inline (`0x00`) map it scans the record's
 > bitmap directly; for a **reference (`0x01`)** map — as a very large pre-existing ACE file carries —
 > it scans each slot's dedicated bitmap page (type `0x0105`), where a **set bit is a free page** (the

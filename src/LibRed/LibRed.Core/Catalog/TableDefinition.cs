@@ -66,7 +66,7 @@ public sealed class TableDefinition : Page
         Columns.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>The real index the logical index <paramref name="name"/> names. Found through the logical indexes:
-    /// on a data block several of them share, <see cref="Indexes"/> carries only one of their names.</summary>
+    /// a relationship that shares a named index's data block has no entry of its own in <see cref="Indexes"/>.</summary>
     public IndexDef? FindIndex(string name) =>
         LogicalIndexes.FirstOrDefault(l => string.Equals(l.Name, name, StringComparison.OrdinalIgnoreCase)) is { } logical
             ? Indexes.First(i => i.RealIndexOrdinal == logical.RealIndexOrdinal)
@@ -121,7 +121,7 @@ public sealed class TableDefinition : Page
 
     private readonly List<LogicalIndexDef> _logicalIndexes = [];
     /// <summary>Every logical index, in the order the TDEF lists them — including the relationship names that
-    /// share a real index with a named one, which <see cref="Indexes"/> keeps only one of.</summary>
+    /// share a real index with a named one, which <see cref="Indexes"/> leaves out.</summary>
     public IReadOnlyList<LogicalIndexDef> LogicalIndexes
     {
         get => _logicalIndexesView ??= _logicalIndexes.AsReadOnly();
@@ -214,8 +214,8 @@ public sealed class TableDefinition : Page
 
     /// <summary>
     /// Parses the index structures following the column names into <see cref="IndexDef"/>s
-    /// (one per index-data block): columns + sort order, unique/primary flags, root page,
-    /// and the index name (resolved from the logical-index info blocks).
+    /// (one per named index over each index-data block): columns + sort order, unique/primary flags,
+    /// root page, and the index name (resolved from the logical-index info blocks).
     /// </summary>
     private void ReadIndexes(PageBuffer buffer, JetFormatBase format, Regions regions)
     {
@@ -400,15 +400,18 @@ public sealed class TableDefinition : Page
     }
 
     /// <summary>
-    /// Reads the logical-index info blocks and their names, then attaches each name (and the
-    /// primary-key flag) to the index-data block it references. A data block may be referenced
-    /// by several logical indexes (e.g. a relationship plus the real index); the real index's
-    /// name wins over a foreign-key relationship's.
+    /// Reads the logical-index info blocks and their names, then gives every named index an entry of its own over
+    /// the index-data block it references, with its name and primary-key flag. A data block may be referenced by
+    /// several logical indexes — a relationship plus a named index, or two named indexes over the same columns,
+    /// which share one block as ACE writes them (verified) — and every named one is listed, the primary key
+    /// first; a block only relationships name goes by the first relationship's name.
     /// </summary>
     private int ResolveIndexNames(PageBuffer buffer, Regions regions, JetFormatBase format)
     {
         int namePos = regions.IndexNames;
-        var priority = new int[_indexes.Count];
+        var named = new List<(string Name, bool IsPrimaryKey)>[_indexes.Count];
+        var relationship = new string?[_indexes.Count];
+        for (int b = 0; b < named.Length; b++) named[b] = [];
         _logicalIndexes.Clear();
         for (int i = 0; i < LogicalIndexCount; i++) // 0x2F — the logical-index (slot) count
         {
@@ -429,17 +432,19 @@ public sealed class TableDefinition : Page
             _logicalIndexes.Add(new LogicalIndexDef(name, dataNumber, isRelationship,
                 !isRelationship && info.Type == IndexInfoType.Primary, info.FkType, info.UpdateAction, info.DeleteAction));
 
-            // Prefer a real index name over a relationship's; prefer the primary among real ones.
-            int p = isRelationship ? 1 : info.Type == IndexInfoType.Primary ? 3 : 2;
-            if (p > priority[dataNumber])
-            {
-                priority[dataNumber] = p;
-                _indexes[dataNumber] = _indexes[dataNumber] with
-                {
-                    Name = name,
-                    IsPrimaryKey = !isRelationship && info.Type == IndexInfoType.Primary,
-                };
-            }
+            if (isRelationship) relationship[dataNumber] ??= name;
+            else if (info.Type == IndexInfoType.Primary) named[dataNumber].Insert(0, (name, true));
+            else named[dataNumber].Add((name, false));
+        }
+
+        IndexDef[] blocks = [.. _indexes];
+        _indexes.Clear();
+        foreach (IndexDef block in blocks)
+        {
+            if (named[block.RealIndexOrdinal].Count == 0)
+                _indexes.Add(relationship[block.RealIndexOrdinal] is { } name ? block with { Name = name } : block);
+            foreach ((string name, bool isPrimaryKey) in named[block.RealIndexOrdinal])
+                _indexes.Add(block with { Name = name, IsPrimaryKey = isPrimaryKey });
         }
 
         return namePos;

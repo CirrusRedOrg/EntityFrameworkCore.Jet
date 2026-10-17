@@ -1193,7 +1193,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             QueueLongValueMaps(definition, column, maps, owned, retire);
 
         // Then each real index's whole B-tree and its own map, in index order.
-        foreach (IndexDef index in table.Indexes)
+        foreach (IndexDef index in table.Indexes.GroupBy(i => i.RealIndexOrdinal).Select(g => g.First()))
             QueueIndexMap(index, maps, owned, retire);
         List<int> dataPages = maps.DataPages().ToList();
         owned.UnionWith(dataPages);

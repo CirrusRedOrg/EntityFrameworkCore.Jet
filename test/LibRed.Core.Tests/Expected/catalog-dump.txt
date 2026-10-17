@@ -217,7 +217,7 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
           U  "ParentIdName"             [ParentId, Name] root=163 uniqueEntries=24
 
       Order Details
-        tdefPage=164  type=User  rows=2155  columns=5  indexes=3
+        tdefPage=164  type=User  rows=2155  columns=5  indexes=5
            0. OrderID                    Int32     len=  4 fixed@0
            1. ProductID                  Int32     len=  4 fixed@4
            2. UnitPrice                  Currency  len=  8 fixed@8
@@ -225,14 +225,16 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
            4. Discount                   Single    len=  4 fixed@18
         --- indexes ---
              "OrderID"                  [OrderID] root=181 uniqueEntries=830
+             "OrdersOrder_Details"      [OrderID] root=181 uniqueEntries=830
           PK "PK_Order_Details"         [OrderID, ProductID] root=186 uniqueEntries=2155
              "ProductID"                [ProductID] root=194 uniqueEntries=77
+             "ProductsOrder_Details"    [ProductID] root=194 uniqueEntries=77
         --- foreign keys ---
           "FK_Order_Details_Orders"                    [OrderID] -> Orders [OrderID]
           "FK_Order_Details_Products"                  [ProductID] -> Products [ProductID]
 
       Orders
-        tdefPage=198  type=User  rows=830  columns=14  indexes=7
+        tdefPage=198  type=User  rows=830  columns=14  indexes=9
            0. OrderID                    Int32     len=  4 fixed@0 auto
            1. CustomerID                 Text      len= 10 fixed@4
            2. EmployeeID                 Int32     len=  4 fixed@14
@@ -249,7 +251,9 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
           13. ShipCountry                Text      len= 30 var#5
         --- indexes ---
              "CustomerID"               [CustomerID] root=240 uniqueEntries=89
+             "CustomersOrders"          [CustomerID] root=240 uniqueEntries=89
              "EmployeeID"               [EmployeeID] root=244 uniqueEntries=9
+             "EmployeesOrders"          [EmployeeID] root=244 uniqueEntries=9
              "OrderDate"                [OrderDate] root=247 uniqueEntries=480
           PK "PK_Orders"                [OrderID] root=251 uniqueEntries=830
              "ShippedDate"              [ShippedDate] root=254 uniqueEntries=388
@@ -261,7 +265,7 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
           "FK_Orders_Shippers"                         [ShipVia] -> Shippers [ShipperID]
 
       Products
-        tdefPage=266  type=User  rows=77  columns=10  indexes=4
+        tdefPage=266  type=User  rows=77  columns=10  indexes=6
            0. ProductID                  Int32     len=  4 fixed@0 auto
            1. ProductName                Text      len= 80 var#0
            2. SupplierID                 Int32     len=  4 fixed@4
@@ -274,9 +278,11 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
            9. Discontinued               Boolean   len=  1 fixed@0
         --- indexes ---
              "CategoriesProducts"       [CategoryID] root=270 uniqueEntries=8
+             "CategoryID"               [CategoryID] root=270 uniqueEntries=8
           PK "PK_Products"              [ProductID] root=271 uniqueEntries=77
              "ProductName"              [ProductName] root=272 uniqueEntries=77
              "SupplierID"               [SupplierID] root=273 uniqueEntries=29
+             "SuppliersProducts"        [SupplierID] root=273 uniqueEntries=29
         --- foreign keys ---
           "FK_Products_Categories"                     [CategoryID] -> Categories [CategoryID]
           "FK_Products_Suppliers"                      [SupplierID] -> Suppliers [SupplierID]

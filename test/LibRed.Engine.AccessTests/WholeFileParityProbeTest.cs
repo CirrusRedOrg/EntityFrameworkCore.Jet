@@ -942,6 +942,63 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
         }
     }
 
+    /// <summary>The scaffolding test's two indexes over one column, created by ACE and by LibRed: each file's
+    /// real (data-block) and logical index counts, and the names each engine's TDEF gives them.</summary>
+    [Fact(Explicit = true)]
+    public void Two_indexes_on_one_column()
+    {
+        string? origin = CreateEmptyThroughDao();
+        Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
+        string[] ddl =
+        [
+            "CREATE TABLE IndexTable (Id int, IndexProperty int)",
+            "CREATE INDEX IX_One on IndexTable ( IndexProperty )",
+            "CREATE INDEX IX_Two on IndexTable ( IndexProperty )",
+        ];
+        string ace = TemporaryDatabase.CopyPath(origin!, "twoix-ace-");
+        string libred = TemporaryDatabase.CopyPath(origin!, "twoix-libred-");
+        try
+        {
+            foreach (string sql in ddl) Assert.Null(RunThroughAce(ace, [sql])[0]);
+            foreach (string sql in ddl) Assert.Null(RunThroughLibRed(libred, [sql])[0]);
+            foreach ((string engine, string path) in new[] { ("ACE", ace), ("LibRed", libred) })
+            {
+                using var database = JetDatabase.Open(path, readOnly: true);
+                TableDefinition t = database.OpenTable("IndexTable").Definition;
+                output.WriteLine($"{engine}: real {t.IndexCount}, logical {t.LogicalIndexCount}; " +
+                    $"data blocks [{string.Join("; ", t.Indexes.Select(i => $"#{i.RealIndexOrdinal} {i.Name} root {i.RootPage}"))}]; " +
+                    $"logical [{string.Join("; ", t.LogicalIndexes.Select(l => $"{l.Name} -> #{l.RealIndexOrdinal}"))}]");
+            }
+        }
+        finally
+        {
+            OleDbConnection.ReleaseObjectPool();
+            foreach (string path in new[] { origin!, ace, libred }) TemporaryDatabase.Delete(path);
+        }
+    }
+
+    /// <summary>The indexes ACE lists for Northwind's tables whose named indexes share data blocks.</summary>
+    [Theory(Explicit = true)]
+    [InlineData("Order Details")]
+    [InlineData("Orders")]
+    [InlineData("Products")]
+    public void Shared_block_indexes_as_ACE_lists_them(string table)
+    {
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "od-indexes-");
+        try
+        {
+            using var connection = AceTestDatabase.Open(path);
+            System.Data.DataTable indexes = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Indexes, [null, null, null, null, table])!;
+            foreach (string name in indexes.Rows.Cast<System.Data.DataRow>().Select(r => $"{r["INDEX_NAME"]} [{r["COLUMN_NAME"]}] pk={r["PRIMARY_KEY"]}").Distinct())
+                output.WriteLine(name);
+        }
+        finally
+        {
+            OleDbConnection.ReleaseObjectPool();
+            TemporaryDatabase.Delete(path);
+        }
+    }
+
     /// <summary>A table whose owned map starts above a page ACE then gives it: Filler fills pages past the first 512,
     /// T is created after it (so its owned map is re-based above 512), Filler is dropped, and T's next rows take the
     /// pages it freed. T's owned-map record — type, start, length — and data pages, before and after.</summary>

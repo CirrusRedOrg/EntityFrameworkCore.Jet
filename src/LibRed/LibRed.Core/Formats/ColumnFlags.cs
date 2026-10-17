@@ -53,6 +53,10 @@ internal enum ColumnExtendedFlags : byte
     /// the attachment template and every attachment flat table.</summary>
     AttachmentValue = 0x10,
 
+    /// <summary>A table's version-history column: the hidden <c>VersionHistory_&lt;GUID&gt;</c> complex column an
+    /// append-only memo gives its table, and no other.</summary>
+    VersionHistory = 0x20,
+
     /// <summary>A calculated (computed) column (ACE 14+): the 0xC0 pair, either bit set.</summary>
     Calculated = 0xC0,
 }

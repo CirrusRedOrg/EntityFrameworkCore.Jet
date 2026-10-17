@@ -385,4 +385,24 @@ public class ComplexColumnTests
     [InlineData(new byte[] { 0, 0, 0, 0, 99, 0, 0, 0, 1, 2, 3, 4 })]       // body shorter than declared
     public void Malformed_attachment_data_is_rejected(byte[] blob) =>
         Assert.Throws<InvalidDataException>(() => ComplexAttachment.Unwrap(blob));
+
+    // What ACE refused and took through DAO's LoadFromFile: the blocked types whatever their case, their near
+    // neighbours and a name with no extension allowed.
+    [Theory]
+    [InlineData("x.exe", true)]
+    [InlineData("x.EXE", true)]
+    [InlineData("x.ps1", true)]
+    [InlineData("x.accdb", true)]
+    [InlineData("x.iso", true)]
+    [InlineData("x.dll", false)]
+    [InlineData("x.psm1", false)]
+    [InlineData("x.vss", false)]
+    [InlineData("x.txt", false)]
+    [InlineData("x", false)]
+    public void Attachment_types_ace_refuses_are_refused(string fileName, bool refused)
+    {
+        void Validate() => ComplexAttachment.ValidateAccessLimits(fileName, [1, 2, 3]);
+        if (refused) Assert.Throws<ArgumentException>(Validate);
+        else Validate();
+    }
 }

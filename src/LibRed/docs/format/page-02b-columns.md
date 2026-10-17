@@ -41,8 +41,9 @@
 > **`0x08` is load-bearing** (verified): without it DAO cannot open the owner table at all (*"cannot find the
 > input table or query"*) and ACE no longer resolves the owner's complex column. **`0x04` is not read**
 > (verified): without it DAO and ACE still read every value, DAO still adds one, and neither restores the bit.
-> Writers set both, as ACE does. mdbtools also gives `0x20` to a version-history column, which no file
-> seen has.
+> Writers set both, as ACE does. **`0x20` marks a table's version-history column** (verified): the hidden
+> `VersionHistory_<GUID>` complex column an append-only memo gives its table carries it, and nothing else does —
+> not the memo, the `MSysComplexTypeVH_` template, the flat table, nor an attachment's complex column.
 
 > **A `Complex` column (type `0x12`) is an AutoNumber, and its `0x0B` names its `MSysComplexColumns` row.**
 > Verified on every complex column: `0x0F` = `0x07` on every one — fixed `0x01`,

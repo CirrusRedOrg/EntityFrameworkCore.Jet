@@ -352,23 +352,25 @@ public static class PropertyBlob
         return Parse(blob).Properties;
     }
 
-    /// <summary>Extracts each column's <c>DefaultValue</c> (column name → value text).</summary>
+    /// <summary>Extracts each column's <c>DefaultValue</c> (column name → value text). An entry without the DDL flag
+    /// is not a default: ACE ignores it (verified).</summary>
     public static IReadOnlyDictionary<string, string> ReadColumnDefaults(IReadOnlyList<Property> properties)
     {
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (Property p in properties)
-            if (p.BlockType == ColumnBlock && p.Name == DefaultValueProperty)
+            if (p.BlockType == ColumnBlock && p.Name == DefaultValueProperty && (p.Flags & DdlFlag) != 0)
                 result[p.Owner] = p.Value;
         return result;
     }
 
     /// <summary>The set of columns marked <c>Required</c> (NOT NULL) — a column has the property
-    /// only when it is required (Access omits it for a nullable column).</summary>
+    /// only when it is required (Access omits it for a nullable column). An entry without the DDL flag is not
+    /// enforced: ACE ignores it (verified).</summary>
     public static IReadOnlySet<string> ReadRequiredColumns(IReadOnlyList<Property> properties)
     {
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (Property p in properties)
-            if (p.BlockType == ColumnBlock && p.Name == RequiredProperty && p.Value == "1")
+            if (p.BlockType == ColumnBlock && p.Name == RequiredProperty && p.Value == "1" && (p.Flags & DdlFlag) != 0)
                 result.Add(p.Owner);
         return result;
     }

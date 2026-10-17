@@ -399,11 +399,9 @@ public sealed class JetDatabase : IDisposable
     /// refuses it too.</para>
     /// <para>The rest of what Access imposes on an attachment is <b>policy, not capability</b>: which
     /// extensions it deflates, its 256 MB per file (the format holds four times that), its name length and
-    /// character rules, and its blocked-extension list. The defaults here follow Access, because a file
-    /// Access cannot open is rarely what a caller wants — but <paramref name="compress"/> and
-    /// <paramref name="enforceAccessLimits"/> exist so the choice is the caller's. The blocked-extension list
-    /// is never applied: it belongs to the Access UI, and whether the engine refuses those through DAO is
-    /// untested.</para>
+    /// character rules, and the file types ACE refuses to attach — through DAO as well as in Access. The defaults
+    /// here follow ACE, because a file Access cannot open is rarely what a caller wants — but
+    /// <paramref name="compress"/> and <paramref name="enforceAccessLimits"/> exist so the choice is the caller's.</para>
     /// </remarks>
     /// <param name="column">The attachment column to add to.</param>
     /// <param name="complexId">The owning record's complex id, as its row carries it in the column.</param>
@@ -411,7 +409,7 @@ public sealed class JetDatabase : IDisposable
     /// <param name="content">The file's bytes.</param>
     /// <param name="compress">Force the stored form, or <see langword="null"/> to follow Access's convention
     /// for the extension. Both forms are valid on disk and ACE reads either.</param>
-    /// <param name="enforceAccessLimits">Apply Access's size and naming limits
+    /// <param name="enforceAccessLimits">Apply Access's size and naming limits and ACE's blocked file types
     /// (<see cref="ComplexAttachment.ValidateAccessLimits"/>). Off writes what the format permits.</param>
     public void AddAttachment(
         ComplexColumn column, int complexId, string fileName, byte[] content,

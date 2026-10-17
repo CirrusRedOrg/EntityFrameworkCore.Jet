@@ -84,4 +84,21 @@ public class PropertyBlobTests
         Assert.Equal("0", defaults["A"]);
         Assert.Equal("-1", defaults["B"]);
     }
+
+    // ACE recognises a column's DefaultValue and Required only with the entry's DDL flag set: with it clear, an
+    // INSERT omitting the column stores NULL and the NOT NULL column takes an explicit NULL.
+    [Fact]
+    public void Default_and_required_without_the_ddl_flag_are_not_read()
+    {
+        byte[] blob = PropertyBlob.Write(
+        [
+            new("A", PropertyBlob.DefaultValueProperty, "0") { Flags = 0 },
+            PropertyBlob.Bool("A", PropertyBlob.RequiredProperty, true) with { Flags = 0 },
+            new("B", PropertyBlob.DefaultValueProperty, "1"),
+            PropertyBlob.Bool("B", PropertyBlob.RequiredProperty, true),
+        ]);
+        IReadOnlyList<PropertyBlob.Property> read = PropertyBlob.Read(blob);
+        Assert.Equal(["B"], PropertyBlob.ReadColumnDefaults(read).Keys);
+        Assert.Equal(["B"], PropertyBlob.ReadRequiredColumns(read));
+    }
 }

@@ -319,9 +319,11 @@ Points verified against ACE that aren't obvious from that page:
   being unable to materialise such a column — a 0 leaves the value no declared shape to be read back into.
   LibRed rejects out-of-range dimensions in `AccessTypeMapper` and, because a direct Core caller bypasses that, in `TableDefinition` too; an unspecified
   precision resolves to 18 on write rather than reaching the file as 0.
-- The grammar parses **two-word** type names (`CHARACTER VARYING`, `BIT VARYING`); three-word
-  (`NATIONAL CHARACTER VARYING`) is not parsed yet. `HYPERLINK`/`XML`/`SQL_VARIANT`/`VARIANT`/`COMP` have no
-  mapping (rejected, as ACE also rejects them).
+- Type names run to three words, mapped as ACE maps them (verified): the `NATIONAL` and `N` forms are the plain
+  ones — `NATIONAL CHAR[ACTER]`/`NCHAR` a fixed Text, `NATIONAL CHAR[ACTER] VARYING`/`NCHAR VARYING`/`NVARCHAR` a
+  variable one, and `NATIONAL TEXT` is `TEXT` (bare a Memo, sized a variable Text). ACE refuses `NATIONAL VARCHAR`,
+  `HYPERLINK`, `XML`, `SQL_VARIANT`, `VARIANT` and `COMP` as a type ("Syntax error in field definition"), and so
+  does LibRed.
 
 
 ---

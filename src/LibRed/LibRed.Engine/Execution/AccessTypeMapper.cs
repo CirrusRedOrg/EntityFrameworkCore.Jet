@@ -139,8 +139,9 @@ internal static class AccessTypeMapper
             "CHAR" or "CHARACTER" or "NCHAR" or "NATIONAL CHAR" or "NATIONAL CHARACTER"
                 => Text(column, isFixed: true),
             // Bare TEXT is a Jet quirk: with no size it means LONGTEXT (Memo), but TEXT(n) is a variable
-            // Text column of n characters. Verified vs ACE: `TEXT` → Memo, `TEXT(50)` → Text(50).
-            "TEXT" => column.Size is null
+            // Text column of n characters. Verified vs ACE: `TEXT` → Memo, `TEXT(50)` → Text(50); NATIONAL TEXT
+            // is the same (verified), though NATIONAL VARCHAR is refused.
+            "TEXT" or "NATIONAL TEXT" => column.Size is null
                 ? new ColumnSpec(column.Name, JetDataType.Memo, 0, IsFixedLength: false)
                 : Text(column, isFixed: false),
             // Variable-length character types (the VARCHAR family) → a variable Text column.

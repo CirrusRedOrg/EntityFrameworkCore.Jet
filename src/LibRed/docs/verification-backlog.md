@@ -10,6 +10,16 @@ as an assertion once known. Page-0 pokes go through
 
 Items marked ✔ were re-checked by reading the cited code/test; the rest are as the sweep reported them.
 
+## Settled 2026-10-18
+
+| item | result | where it is pinned |
+|---|---|---|
+| Pass-through storage (system-catalog) | Operation row `Flag 8`: connect string in `Name1`, SQL in `Expression`; **no `0x04` row** (the doc had it there); start row `Flag 0`; `MSysObjects.Flags` `0x70`. LibRed reads the kind and reports it unsupported; code comments corrected. | measured once (DAO; LibRed writes none) |
+| Extended flag `0x20` (page-02b) | Marks a table's hidden `VersionHistory_<GUID>` complex column and nothing else. LibRed preserves it (descriptors are edited in place) and writes no version history; `ColumnExtendedFlags.VersionHistory` names it. | measured once (DAO) |
+| Blocked attachment types (system-catalog) | **The engine refuses them through DAO** (`0x800C000E`, any case) — a wide list, inferred to be Windows' dangerous file types. **LibRed now refuses the measured set** under `enforceAccessLimits`. | `ComplexColumnTests.Attachment_types_ace_refuses_are_refused` |
+| Type-name spellings (data-types) | Three-word names already parsed and mapped as ACE maps them. **LibRed bug, fixed:** `NATIONAL TEXT` (bare Memo, sized variable Text) was refused. The unmapped names are refused by both. | `TypeAliasTests.Alias_maps_to_ace_storage` |
+| DefaultValue/Required without the DDL flag (system-catalog) | **LibRed bug, fixed:** its reader applied them whatever the entry flag; ACE ignores them at `0x00`. | `PropertyBlobTests.Default_and_required_without_the_ddl_flag_are_not_read` |
+
 ## Settled 2026-10-17
 
 | item | result | where it is pinned |
@@ -44,8 +54,6 @@ Items marked ✔ were re-checked by reading the cited code/test; the rest are as
 - A single `INSERT … SELECT` of 30,500 one-page rows into a keyed table leaves ACE's index map at 3445 bytes and
   LibRed's at 3597: their index pages land differently over that long a statement (14,000 rows still agree). The
   continuous-session placement drift of page-05 at a larger scale; it moves the owned map's conversion point.
-- LibRed's reader applies `DefaultValue`/`Required` whatever the entry flag; ACE ignores them at `0x00`. No writer
-  seen produces that, so low priority.
 
 ## 0. Stale — fixed 2026-10-17
 
@@ -72,11 +80,7 @@ long-values:275 needs the §3.3.2 free pointer patched to 0.
 | where | claim | instrument | probe |
 |---|---|---|---|
 | functions.md:57 | Function list "not proven exhaustive". | ACE OLE DB | Every member of the VBA type library modules → `SELECT fn(<args>) FROM MSysObjects WHERE 1=0`; bucket "Undefined function" vs anything else; diff with `ExpressionEvaluator`'s dispatch. Commit as the missing `FunctionWhitelist*ProbeTest`. |
-| system-catalog:404, 436 | Pass-through = Flag 8, connect string in the `0x04` row (from published tables). | DAO | QueryDef with `.Connect = "ODBC;DSN=none;"`, `.ReturnsRecords`, `.SQL = "SELECT 1"`; append (no live DSN needed); read rows and `MSysObjects.Flags` (expect `0x70`). |
-| data-types:322 | Three-word type names (`NATIONAL CHARACTER VARYING`) unparsed; `HYPERLINK`/`XML`/`SQL_VARIANT`/`VARIANT`/`COMP` rejected "as ACE does" (not marked verified). | ACE OLE DB | One `CREATE TABLE` per spelling; record accept + resulting descriptor, or ACE's refusal text; compare. |
-| page-02c:151 | Create-time DEFAULT validation messages (LibRed rejects at INSERT). | ACE OLE DB | `CREATE TABLE` with `DEFAULT [A]`, `Sum(1)`, `DCount('*','X')`, `Foo()`, a subquery; capture ACE's message for each. |
-| system-catalog:1141 | Does the engine refuse Access's blocked attachment extensions through DAO? | DAO | `Recordset2` on an attachment column; `LoadFromFile` with `x.exe` then `x.txt`; record refusal + error. |
-| page-02b:41 | Version-history column extended flag `0x20` (mdbtools). | DAO, existing fixture | Run `AppendOnlyDropAccessTests.Build`; dump `0x10` on the `VersionHistory_…` column, the `MSysComplexTypeVH_` template and flat-table columns. |
+| page-02c:151 | Create-time DEFAULT validation (LibRed rejects at INSERT). | measured, not yet implemented | ACE at CREATE / ADD COLUMN: `[A]` → "The database engine does not recognize either the field 'A' in a validation expression, or the default value in the table 'T'."; bare `A` into a LONG → "Type mismatch"; `Sum(1)`, `Count(*)`, `Foo()` (and `DCount(…)` in ADD COLUMN) → "Unknown function 'Sum' in validation expression or default value on 'T.C'."; a subquery, and `DCount('*','X')` in CREATE (its comma, inferred), → "Syntax error in CREATE/ALTER TABLE statement." Needs the evaluator to answer "is this function known" without running it. |
 | page-02b:180 | Error envelope is 38 bytes vs 23 for Null; the extra 15 undescribed. | DAO, existing fixture | From `Records_what_ace_stores_for_a_conversion_over_null`: diff error-94 vs error-13 envelopes under Text and Long result types; decode the length field and the 15 bytes. |
 | data-types:28 | Type codes `0x0D`/`0x0E` never observed. | corpus + patch | Scan corpus TDEFs; patch a Binary column's type to `0x0D`; ACE open/select, DAO `Field.Type`. |
 | transactions:347 | `.laccdb` lifecycle (create on first open, delete on last close). | ACE OLE DB | `File.Exists` before/during/after two overlapping connections, and after a killed child process. |

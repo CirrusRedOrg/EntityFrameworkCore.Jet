@@ -1122,8 +1122,7 @@ public sealed class JetCatalog
         // Bail out if the query uses attributes beyond a simple SELECT: complex-type data mean this is not a shape we
         // can render. The operation row is allowed because a SELECT may carry one — the caller has already checked
         // that its kind IS SELECT, so reaching here with any other kind is impossible — and so is the 0x04 row, which
-        // on a SELECT is its FROM's IN externaldatabase (a pass-through query, the other kind that has one, is not a
-        // SELECT).
+        // on a SELECT is its FROM's IN externaldatabase.
         if (rows.Any(r => r[attr] is byte b
                 && ((QueryAttribute)b is QueryAttribute.Complex || !Enum.IsDefined((QueryAttribute)b))))
             return null;

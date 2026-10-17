@@ -119,8 +119,7 @@
   > `Description`) is `0x00`. **ACE only recognises a column's `DefaultValue` and `Required` with the bit set**
   > (verified): with it clear, an `INSERT` omitting the column stores NULL rather than the default, and an explicit
   > NULL is accepted into the `NOT NULL` column. The table's `CheckConstraints` entry is enforced either way.
-  > LibRed's reader applies `DefaultValue` and
-  > `Required` by name and block alone, so on such a file it would honour what ACE ignores; every writer seen sets
+  > LibRed's reader applies `DefaultValue` and `Required` only with the bit set, as ACE does; every writer seen sets
   > the bit on them. That a set bit makes the property definition-protected (`dbSecWriteDef` permission needed
   > to change or delete it) is unverified. Observed in files too: `CheckConstraints`, `GUID` and `ResultType` are `0x01`,
   > while `Title`, `Author`, `AccessVersion` and datasheet-layout properties are `0x00`. DAO stored a column's
@@ -410,8 +409,8 @@
   (`Name1`=parameter name, `Flag`=Jet
   type code — same codes as on-disk column types, e.g. `8`=DateTime; **`Flag 0` is not a type code but Access's
   untyped parameter, rendered as the keyword `Value`**; one row per parameter, `Order`
-  1-based), `0x03` = **options** (see below), `0x04` = the **external database** of the FROM (below) — and the
-  connection string of a **pass-through** query (*unverified, from the published MSysQueries tables*),
+  1-based), `0x03` = **options** (see below), `0x04` = the **external database** of the FROM (below) — a
+  pass-through query keeps its connection string on the operation row instead (below),
   `0x05` = FROM source, `0x06` =
   output column (`Expression`=verbatim text; **`Name1`=the column's output alias** when it has one, e.g.
   `Expression=Customers.CompanyName`, `Name1=CustomerName`; a computed column stores its whole verbatim
@@ -442,7 +441,7 @@
   > | `5` | DELETE | `32` dbQDelete | observed |
   > | `6` | crosstab (`TRANSFORM`) | `16` dbQCrosstab | observed |
   > | `7` | data definition (whole SQL in `Expression`, leading space) | `96` dbQDDL | observed |
-  > | `8` | pass-through | `112` dbQSQLPassThrough | *unverified — from the published MSysQueries tables* |
+  > | `8` | pass-through (connect string in `Name1`, the SQL verbatim in `Expression`; no `0x04` row, a start row with `Flag 0`, `MSysObjects.Flags` `0x70`) | `112` dbQSQLPassThrough | verified (DAO) |
   > | `9` | UNION | `128` dbQSetOperation | observed |
   >
   > On a crosstab, the `0x06` and `0x09` rows carry the extra structure in their own `Flag`: `0` = the
@@ -1133,8 +1132,8 @@ The stream is standard zlib (RFC 1950, opening `78 5E`), so `ZLibStream` reads i
 > **Capability and policy are different here.** The *format* stores a payload either way — the outer flag
 > says which, ACE reads both, and a long value's stored length runs to `0x3FFFFFFF` (ACE accepts that and
 > rejects `0x40000000`). Everything below is what **Access** chooses on top of that: which extensions it
-> deflates, its 256 MB per file — a quarter of what the format holds — its naming rules, and its
-> blocked-extension list. A reader needs none of it; a writer wanting files that look like Access's does.
+> deflates, its 256 MB per file — a quarter of what the format holds — its naming rules, and the file types the
+> engine refuses to attach. A reader needs none of it; a writer wanting files that look like Access's does.
 >
 > **When Access compresses is an extension list, not a size rule.** Microsoft documents it on the
 > [Attachment object](https://learn.microsoft.com/en-us/office/vba/api/access.attachment): *"Access will
@@ -1148,9 +1147,13 @@ The stream is standard zlib (RFC 1950, opening `78 5E`), so `ZLibStream` reads i
 >
 > The same page gives a writer three more limits: an individual file may not exceed **256 MB**, a name may
 > not exceed **255 characters** including the extension, and a name may not contain `? " / \ < > * | :` or a
-> paragraph mark. Access also blocks a long list of executable extensions (`.exe`, `.bat`, `.vbs`, `.mdb`,
-> …) — that is an Access **application** policy, and whether the engine refuses them through DAO is
-> untested here.
+> paragraph mark. **The engine refuses a long list of file types** (verified through DAO's `LoadFromFile`): each
+> fails with `0x800C000E` (urlmon's `INET_E_SECURITY_PROBLEM`), whatever the extension's case — executables and
+> scripts (`.exe`, `.bat`, `.cmd`, `.vbs`, `.js`, `.ps1`, `.py`, `.jar`, …), installers and disk images (`.msi`,
+> `.msix`, `.cab`, `.iso`, `.vhd`), Access's own files (`.mdb`, `.accdb`, `.accde`, …) and shell types (`.lnk`,
+> `.url`, `.theme`, `.library-ms`). Near neighbours pass (`.dll`, `.sys`, `.psm1`, `.htm`, `.svg`, `.vss`,
+> `.vst`, `.laccdb`), as does a name with no extension. That ACE asks Windows for its dangerous file types, so the
+> list is the machine's rather than the format's, is *inferred* from the urlmon error.
 
 **To materialize**: read the row's `0x12` id → find the column's row in `MSysComplexColumns` (by `ComplexID`
 from the descriptor's `0x0B`, or by name) → open `FlatTableID`'s `f_` table → select the rows whose

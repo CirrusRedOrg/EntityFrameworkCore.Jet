@@ -952,8 +952,7 @@ internal static class AstBuilder
     /// OPTION its statement gives it — a query expression's own, or a crosstab's.</summary>
     private static ViewDefinition ViewDefinitionOf(QuerySpecificationContext select, OrderByClauseContext? orderBy, bool ownerAccess)
     {
-        // Checked as running it is checked, so what cannot run is not stored either (ACE refuses to store two outputs
-        // aliased alike, as it refuses to run them).
+        // Checked as running it is checked, so what cannot run is not stored either.
         _ = BuildQuerySpecification(select);
         var groupBy = select.groupByClause() is { } g
             ? g.expression().Select(OriginalText).ToList() : (IReadOnlyList<string>)[];
@@ -1267,12 +1266,6 @@ internal static class AstBuilder
         var projection = star
             ? (IReadOnlyList<SelectItem>)[]
             : items.Select(BuildSelectItem).ToList();
-
-        // ACE refuses two items aliased alike, whatever their case, naming the later (verified).
-        var aliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (ExpressionSelectItemContext item in items.OfType<ExpressionSelectItemContext>())
-            if (item.alias is { } alias && !aliases.Add(Identifier(alias)))
-                throw new SqlParseException($"Duplicate output alias '{Identifier(alias)}'.");
 
         TableReference? from = ctx.fromClause() is { } fc ? BuildFrom(fc) : null;
         Expression? where = ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null;

@@ -1,4 +1,3 @@
-using LibRed.Sql.Parsing;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -96,11 +95,10 @@ public class SelectStarTests : TempDatabaseTest
     }
 
     [Theory]
-    [InlineData("SELECT CompanyName AS X, Phone AS X FROM Shippers", "Duplicate output alias 'X'.")]
-    [InlineData("SELECT ShipperID AS X, CompanyName AS x FROM Shippers", "Duplicate output alias 'x'.")]
-    [InlineData("CREATE PROCEDURE P AS SELECT CompanyName AS X, Phone AS X FROM Shippers", "Duplicate output alias 'X'.")]
-    public void Two_outputs_aliased_alike_are_refused(string sql, string message) =>
-        Assert.Equal(message, Assert.Throws<SqlParseException>(() => Fresh().ExecuteNonQuery(sql)).Message);
+    [InlineData("SELECT CompanyName AS X, Phone AS X FROM Shippers", "X, X")]
+    [InlineData("SELECT ShipperID AS X, CompanyName AS x FROM Shippers", "X, x")]
+    public void Two_outputs_aliased_alike_both_keep_the_alias(string sql, string names) =>
+        Assert.Equal(names, string.Join(", ", Names(Fresh(), sql)));
 
     [Theory]
     [InlineData("SELECT * FROM Shippers GROUP BY ShipperID, CompanyName, Phone")]

@@ -211,7 +211,7 @@ Treat the number as of its date — an EF Core version bump moves it.
   returns, as ACE orders them; a `*` in a grouped or aggregate query is refused. Output columns are named as ACE
   names them: an unnamed expression is `Expr1000` and up by its place in the list, a column reference written twice
   is an `Expr` name but for its last, two outputs that still share a name are told apart by table (`Orders.CustomerID`),
-  an alias keeps its name, and two equal aliases are refused.
+  and an alias keeps its name, two equal aliases included.
   A comparison with each row of a subquery — `x > ANY (…)`, `SOME`, `ALL`, any comparison — gives ACE's three-valued
   result: ANY holds when one comparison does, ALL when every one does, over no rows ANY is False and ALL True whatever
   `x` is (so `Null IN` an empty subquery is False, as in ACE), and otherwise a Null that leaves it undecided makes it

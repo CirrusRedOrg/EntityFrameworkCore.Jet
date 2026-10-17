@@ -16,7 +16,6 @@ namespace LibRed.Engine.Execution;
 /// unqualified reference becomes an <c>Expr</c> name instead. An <c>Expr</c> name is never told apart, from another or
 /// from an alias spelled the same.</description></item>
 /// </list>
-/// Two aliases spelled alike are refused before this, when the statement is parsed.
 /// </summary>
 internal static class OutputNames
 {

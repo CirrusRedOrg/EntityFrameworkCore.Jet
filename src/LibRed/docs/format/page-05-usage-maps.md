@@ -117,12 +117,12 @@ free = row 1); an index's map spills the same way rather than being squeezed in.
 >   record of length **69** with `startPage` 512 / 1024 / 1536 / 2560, one bit set, while the *owned* map of
 >   the same table kept `startPage = 0` and grew. An owned map cannot slide: it must retain every page it has
 >   ever taken. LibRed slides the window for free-pages maps (table and long-value column), and only for
->   them; if a bit already set would fall outside the new window it **widens** the record instead — the start
->   drops to the lowest page it must cover (rounded down to a byte, as the released map's move does) and the
->   record is sized to reach the highest — so nothing is silently forgotten. The window can already sit
->   **above** the page being marked, since it follows the append tail while a table's older pages stay where
->   they are; a map in that position must still be able to record the lower page. What ACE writes there —
->   a widened record, or a re-based window — is **not measured**.
+>   them. The window can already sit **above** the page being marked, since it follows the append tail while
+>   a table's older pages stay where they are. There ACE neither widens the record nor re-bases the window:
+>   it **converts the free-pages map to a reference map** (type `0x01`), allocating a fresh bitmap page for it,
+>   so no page it advertised is dropped (verified: a table grown to page ~1140, its free window at 1024, a row
+>   deleted on page ~340). LibRed converts likewise whenever a page already marked would fall outside the
+>   window the target needs, and is byte-identical in that case.
 > - **The conversion point is a page-budget calculation, not a constant.** The owned map converts as soon as
 >   its next grown record would not fit the usage-map page alongside the page header (14 bytes), the row
 >   directory (2 bytes/record) and the *other* records sharing that page. So the threshold moves with the

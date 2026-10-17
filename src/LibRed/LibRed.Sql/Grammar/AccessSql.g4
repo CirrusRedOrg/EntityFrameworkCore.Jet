@@ -62,8 +62,9 @@ assignment : target=columnRef EQ expression ;
 // DELETE [table.* | *] FROM tableexpression [WHERE …]. For a join, the `table.*` target selects which
 // table's rows to delete; a bare `*` (or no target) is only valid for a single table — a join without a
 // `table.*` target is ambiguous and rejected at execution (matching Access, which asks you to specify it).
-// As in a FROM clause, the tableexpression may be a comma list of sources (verified vs ACE).
-deleteStatement : DELETE (target=identifier DOT STAR | STAR)? FROM tableSource (COMMA tableSource)* whereClause? ownerAccessOption? ;
+// As in a FROM clause, the tableexpression may be a comma list of sources (verified vs ACE). The target may also list
+// columns, as the Access designer writes it — see deleteItem.
+deleteStatement : DELETE (STAR | deleteItem (COMMA deleteItem)*)? FROM tableSource (COMMA tableSource)* whereClause? ownerAccessOption? ;
 
 // A FROM-less SELECT of system variables only — ACE allows `SELECT @@IDENTITY` / `SELECT @@ROWCOUNT`
 // (and a comma list of them) with no FROM clause. Listed before queryExpression so it is preferred; a
@@ -244,12 +245,13 @@ referentialAction
     ;
 
 // Access's two append-query forms:
-//   single-record    INSERT INTO target [(field, …)] VALUES (value, …)
-//   multiple-record  INSERT INTO target [(field, …)] SELECT [source.]field, … FROM tableexpression
+//   single-record    INSERT INTO target [(field, …)] [IN externaldatabase] VALUES (value, …)
+//   multiple-record  INSERT INTO target [(field, …)] [IN externaldatabase] SELECT [source.]field, … FROM tableexpression
 // plus `INSERT INTO t DEFAULT VALUES` — EF Core emits that for an all-store-generated/all-default row, and
 // it inserts one row taking every column's default / AutoNumber.
 //
-// The IN externaldatabase clause both forms allow is not taken here yet; a SELECT's FROM and INTO take it.
+// The IN puts the target in another Access file, and only the target: the SELECT's FROM reads this one unless it has
+// an IN of its own (verified vs ACE, which refuses the IN before the field list).
 //
 // The multiple-record source is a queryExpression rather than a bare selectStatement, so a UNION can feed an
 // append — the shape EF emits from a Concat — which is a superset of what Access documents.
@@ -261,7 +263,7 @@ referentialAction
 // cost.
 insertStatement
     : INSERT INTO table=identifier
-      ( (LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN)? source=queryExpression
+      ( (LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN)? targetDatabase=externalDatabase? source=queryExpression
       | DEFAULT VALUES )
     ;
 
@@ -286,7 +288,9 @@ rowValue : DEFAULT | expression ;
 // is what gives `(SELECT TOP 5 … ORDER BY x) UNION …` its meaning — the ordering is what makes that TOP
 // deterministic. This is the standard's own structure: <query expression> carries the ordering, <query term>
 // does not.
-queryExpression : queryTerm (setOperator queryTerm)* orderByClause? offsetFetchClause? ownerAccessOption? ;
+// A ';' may end an operand before its set operator: ACE runs `A; UNION ALL B`, and a UNION stored in Access often
+// keeps one there, verbatim in its first segment (verified).
+queryExpression : queryTerm (SEMI? setOperator queryTerm)* orderByClause? offsetFetchClause? ownerAccessOption? ;
 
 // WITH OWNERACCESS OPTION: run the query with its owner's permissions. LibRed has no users to act for, so it
 // changes nothing when a query runs; a stored query keeps it (QueryOptions.OwnerAccess). ACE takes it
@@ -654,6 +658,11 @@ transformStatement
     : TRANSFORM value=expression (AS? valueAlias=identifier)? select=querySpecification orderByClause?
       PIVOT pivot=expression ownerAccessOption?
     ;
+
+// A DELETE target item: `table.*`, which names the table whose rows go, or a column, which names nothing — ACE deletes
+// whole rows of the one table either way, refuses a column target over a join as it refuses no target ("Specify the
+// table containing the records you want to delete."), and stores every item as a column row (verified).
+deleteItem : table=identifier DOT STAR | columnRef ;
 
 // ---- Lexer ----
 

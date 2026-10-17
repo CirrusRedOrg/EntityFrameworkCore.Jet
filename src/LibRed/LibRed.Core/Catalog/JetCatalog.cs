@@ -798,39 +798,36 @@ public sealed class JetCatalog
         // row a view does, and reads back the same way; WITH OWNERACCESS OPTION ends every kind of statement, as
         // it ends a SELECT.
         (string selecting, string owner, QueryOptions options) = SelectOptions(rows, attr, flag, n1, order);
+        // An append's or a make-table's IN externaldatabase is on its operation row: the path in Name2, a type or
+        // connect string in Expression (verified vs ACE).
+        string into = action[n2] is not null || action[expr] is not null
+            ? $" {new ExternalDatabaseSpec(action[n2] as string, action[expr] as string).Text}" : "";
 
         switch (kind)
         {
             case QueryOperation.Append:
                 {
                     string target = Quote(action[n1] as string ?? "");
-                    // A literal-value column (Flag 0x8000) is an INSERT … VALUES; a Flag-0 one reads its value
-                    // from the query's own FROM source, which makes it an INSERT … SELECT. Both name the target
-                    // column in Name2 and hold the value's text in Expression — when the statement lists its
-                    // target columns. One that does not is stored as its SELECT is, each value's output name in
-                    // Name1, and `SELECT *` with no column rows at all; ACE fills the targets by those names
-                    // (verified), and so does the statement rebuilt from them.
-                    if (columns.Count == 0)
-                        return source is { } allSource
-                            ? new StoredQuery($"{declared}INSERT INTO {target} SELECT {selecting}* FROM {allSource.From}{Where()}{owner}", null)
-                            : new StoredQuery(null, "An append query with no columns is not executed by LibRed.");
-                    if (source is { } namedSource && columns.All(r => r[n2] is null))
-                        return new StoredQuery(
-                            $"{declared}INSERT INTO {target} SELECT {selecting}{string.Join(", ", columns.Select(r => OutputColumn(r, expr, n1)))} " +
-                            $"FROM {namedSource.From}{Where()}{owner}", null);
+                    // A literal-value column (Flag 0x8000) is an INSERT … VALUES; a Flag-0 one is a value of the
+                    // query's own SELECT, which makes it an INSERT … SELECT. Both name the target column in Name2 and
+                    // hold the value's text in Expression — when the statement lists its target columns. One that
+                    // does not leaves Name2 empty: its VALUES fill the table's columns in order, and its SELECT is
+                    // stored as a view's is, each value's output name in Name1 and `SELECT *` with no column rows at
+                    // all; ACE fills the targets by those names (verified), and so does the statement rebuilt from
+                    // them.
+                    // The IN externaldatabase follows the column list; ACE refuses it before one.
+                    string targetColumns = (columns.Any(r => r[n2] is not null)
+                        ? $" ({string.Join(", ", columns.Select(r => Quote(r[n2] as string ?? "")))})" : "") + into;
 
-                    string targetColumns = string.Join(", ", columns.Select(r => Quote(r[n2] as string ?? "")));
-                    string values = string.Join(", ", columns.Select(r => r[expr] as string ?? "NULL"));
-
-                    if (columns.All(r => r[flag] is short cf && cf == StoredQuery.AppendValueFlag))
+                    if (columns.Count > 0 && columns.All(r => r[flag] is short cf && cf == StoredQuery.AppendValueFlag))
                         return source is null
-                            ? new StoredQuery($"{declared}INSERT INTO {target} ({targetColumns}) VALUES ({values}){owner}", null)
+                            ? new StoredQuery(
+                                $"{declared}INSERT INTO {target}{targetColumns} VALUES ({string.Join(", ", columns.Select(r => r[expr] as string ?? "NULL"))}){owner}", null)
                             : new StoredQuery(null, "An append query cannot take both literal values and a source.");
 
-                    return source is { } appendSource
-                        ? new StoredQuery(
-                            $"{declared}INSERT INTO {target} ({targetColumns}) SELECT {selecting}{values} FROM {appendSource.From}{Where()}{owner}", null)
-                        : new StoredQuery(null, "An append query with no values and no source is not executed by LibRed.");
+                    return SelectText(rows, attr, expr, flag, n1, n2, order, into: "") is { } select
+                        ? new StoredQuery($"{declared}INSERT INTO {target}{targetColumns} {select}", null)
+                        : new StoredQuery(null, "An append query with no columns is not executed by LibRed.");
                 }
 
             case QueryOperation.Update when source is { } updateSource:
@@ -847,22 +844,16 @@ public sealed class JetCatalog
             case QueryOperation.Delete when source is { } deleteSource:
                 {
                     // Access writes `DELETE <table>.* FROM …` when the query names the table's columns and
-                    // `DELETE * FROM …` when it doesn't; the column row holds that `<table>.*` verbatim.
-                    string what = columns.Count > 0 ? columns[0][expr] as string ?? "*" : "*";
+                    // `DELETE * FROM …` when it doesn't; the column rows hold that `<table>.*` verbatim, and any
+                    // column the designer lists beside it or instead (`DELETE t.c FROM t`), one row each.
+                    string what = columns.Count > 0 ? string.Join(", ", columns.Select(r => r[expr] as string ?? "")) : "*";
                     return new StoredQuery($"{declared}DELETE {what} FROM {deleteSource.From}{Where()}{owner}", null);
                 }
 
-            case QueryOperation.MakeTable when source is { } intoSource:
-                {
-                    // The target is on the action row, and so is the IN externaldatabase it is made in: the path in
-                    // Name2, a type or connect string in Expression.
-                    string into = action[n2] is not null || action[expr] is not null
-                        ? $" {new ExternalDatabaseSpec(action[n2] as string, action[expr] as string).Text}" : "";
-                    string selected = string.Join(", ", columns.Select(r => OutputColumn(r, expr, n1))
-                        .Concat(columns.Count == 0 || (options & QueryOptions.OutputAllFields) != 0 ? ["*"] : []));
-                    return new StoredQuery(
-                        $"{declared}SELECT {selecting}{selected} INTO {Quote(action[n1] as string ?? "")}{into} FROM {intoSource.From}{Where()}{GroupingClauses(rows, attr, expr, order)}{owner}", null);
-                }
+            // The target is on the action row, with the IN externaldatabase it is made in.
+            case QueryOperation.MakeTable when source is not null:
+                return new StoredQuery(
+                    $"{declared}{SelectText(rows, attr, expr, flag, n1, n2, order, into: $" INTO {Quote(action[n1] as string ?? "")}{into}")}", null);
 
             case QueryOperation.Crosstab when source is { } crosstabSource:
                 {
@@ -962,9 +953,30 @@ public sealed class JetCatalog
 
     /// <summary>Bracket-quotes a name that may already be table-qualified, quoting each part — a stored
     /// assignment names its target as <c>Orders.ShipCountry</c> when the update runs over a join, and
-    /// quoting that whole string would make it one nonexistent column.</summary>
-    private static string Qualified(string name) =>
-        name.Contains('.') ? string.Join(".", name.Split('.').Select(Quote)) : Quote(name);
+    /// quoting that whole string would make it one nonexistent column. A part Access stored quoted already
+    /// (<c>COMBINED.[temp 2 for pasta]</c>, verified) is kept as it is, and a dot inside one splits nothing.</summary>
+    private static string Qualified(string name)
+    {
+        var parts = new List<string>();
+        int start = 0;
+        char? closing = null;
+        for (int i = 0; i < name.Length; i++)
+        {
+            if (closing is { } end)
+            {
+                if (name[i] == end) closing = null;
+            }
+            else if (name[i] is '[') closing = ']';
+            else if (name[i] is '`') closing = '`';
+            else if (name[i] is '.')
+            {
+                parts.Add(name[start..i]);
+                start = i + 1;
+            }
+        }
+        parts.Add(name[start..]);
+        return string.Join(".", parts.Select(p => p is ['[', .., ']'] or ['`', .., '`'] ? p : Quote(p)));
+    }
 
     /// <summary>
     /// A stored query's FROM clause, and the join conditions that could not go in it. Access stores a query's
@@ -1116,6 +1128,15 @@ public sealed class JetCatalog
                 && ((QueryAttribute)b is QueryAttribute.Complex || !Enum.IsDefined((QueryAttribute)b))))
             return null;
 
+        return SelectText(rows, attr, expr, flag, n1, n2, order, into: "") is { } select
+            ? ParametersClause(rows, attr, flag, n1, order, lvExtra) + select
+            : null;
+    }
+
+    /// <summary>A stored SELECT's text from its rows: a view's, or the SELECT of an append or make-table query, the
+    /// make-table's <paramref name="into"/> after its columns. Null for one with neither tables nor columns.</summary>
+    private static string? SelectText(List<object?[]> rows, int attr, int expr, int flag, int n1, int n2, int order, string into)
+    {
         var columns = RowsOf(rows, attr, order, QueryAttribute.Column).Select(r => OutputColumn(r, expr, n1)).ToList();
         // A query with no table rows has no FROM clause, which Access allows and stores this way (`SELECT 1
         // AS n`). One with neither tables nor columns says nothing at all, and is not a query we can rebuild.
@@ -1128,9 +1149,10 @@ public sealed class JetCatalog
         if (columns.Count == 0 || (options & QueryOptions.OutputAllFields) != 0) columns.Add("*");
         string? whereClause = WhereClause(rows, attr, expr, order, source?.Extra ?? []);
 
-        var sql = new System.Text.StringBuilder(ParametersClause(rows, attr, flag, n1, order, lvExtra));
-        sql.Append("SELECT ").Append(selecting);
+        var sql = new System.Text.StringBuilder("SELECT ");
+        sql.Append(selecting);
         sql.Append(string.Join(", ", columns));
+        sql.Append(into);
         if (source is { } from) sql.Append(" FROM ").Append(from.From);
         if (whereClause is not null) sql.Append(" WHERE ").Append(whereClause);
         sql.Append(GroupingClauses(rows, attr, expr, order));
@@ -1398,8 +1420,8 @@ public sealed class JetCatalog
             ActionQueryKind.MakeTable => QueryOperation.MakeTable,
             _ => throw new NotSupportedException($"Action query kind {spec.Kind} is not stored yet."),
         };
-        // A make-table's IN externaldatabase rides on the same row: the path in Name2, a type or connect string in
-        // Expression (verified vs ACE).
+        // An append's or a make-table's IN externaldatabase rides on the same row: the path in Name2, a type or
+        // connect string in Expression (verified vs ACE).
         void Operation() => rows.Row(QueryAttribute.Operation, order: 1, flag: (short)kind,
             name1: spec.Kind is ActionQueryKind.Append or ActionQueryKind.MakeTable ? spec.TargetTable : null,
             name2: spec.TargetDatabase?.Path, expression: spec.TargetDatabase?.Connect);
@@ -1429,10 +1451,11 @@ public sealed class JetCatalog
                     break;
 
                 case ActionQueryKind.Delete:
-                    // `DELETE t.* FROM …` keeps that target verbatim in a single column row; `DELETE FROM …`
-                    // stores no column row at all, and Access renders it back as `DELETE * FROM …`.
-                    if (spec.DeleteTarget is { } target)
-                        rows.Row(QueryAttribute.Column, order: 1, flag: 0, expression: target);
+                    // `DELETE t.* FROM …` keeps that target verbatim in a column row, and a column it names the same
+                    // way, one row each (verified vs ACE); `DELETE FROM …` stores no column row at all, and Access
+                    // renders it back as `DELETE * FROM …`.
+                    for (int i = 0; i < (spec.DeleteTarget?.Count ?? 0); i++)
+                        rows.Row(QueryAttribute.Column, order: i + 1, flag: 0, expression: spec.DeleteTarget![i]);
                     break;
 
                 case ActionQueryKind.MakeTable:
@@ -1468,6 +1491,7 @@ public sealed class JetCatalog
                 break;
         }
         AddWhereRow(rows, spec.Body);
+        AddGroupingRows(rows, spec.Body);
         // The option row a view carries: a make-table or append query's DISTINCT and TOP, and any kind's WITH
         // OWNERACCESS OPTION.
         AddOptionRow(rows, spec.Body, spec.OwnerAccess);
@@ -1595,24 +1619,30 @@ public sealed class JetCatalog
         AddJoinRows(rows, spec);
         if (!spec.Union) AddSourceRows(rows, spec);
         AddWhereRow(rows, spec);
-        int groupBy = spec.GroupBy?.Count ?? 0;
-        for (int i = 0; i < groupBy; i++)
-            rows.Row(QueryAttribute.GroupBy, order: i + 1, flag: spec.Crosstab is null ? (short)0 : CrosstabHeading,
-                expression: spec.GroupBy![i]);
-        // The group filter carries no flag of its own, exactly as the WHERE row doesn't.
-        if (spec.Having is { } having)
-            rows.Row(QueryAttribute.Having, order: 1, expression: having);
-        for (int i = 0; i < (spec.OrderBy?.Count ?? 0); i++)
-            rows.Row(QueryAttribute.OrderBy, order: i + 1, expression: spec.OrderBy![i].Expression,
-                name1: spec.OrderBy[i].Descending ? "d" : null);
+        AddGroupingRows(rows, spec);
         // A crosstab's PIVOT follows its ORDER BY: the field as the last GROUP BY row, then the clause as the last
         // column row, numbered past the TRANSFORM value and the headings (verified vs ACE).
         if (spec.Crosstab is { } crosstab)
         {
-            rows.Row(QueryAttribute.GroupBy, order: groupBy + 1, flag: CrosstabPivot, expression: crosstab.Pivot);
+            rows.Row(QueryAttribute.GroupBy, order: (spec.GroupBy?.Count ?? 0) + 1, flag: CrosstabPivot, expression: crosstab.Pivot);
             rows.Row(QueryAttribute.Column, order: spec.Columns.Count + 2, flag: CrosstabPivot, expression: crosstab.PivotColumn);
         }
         AddOptionRow(rows, spec, spec.OwnerAccess);
+    }
+
+    /// <summary>A SELECT's GROUP BY, HAVING and ORDER BY rows, after its WHERE — a view's, a crosstab's, or the SELECT
+    /// of an append or make-table query.</summary>
+    private static void AddGroupingRows(QueryRows rows, ViewSpec? spec)
+    {
+        for (int i = 0; i < (spec?.GroupBy?.Count ?? 0); i++)
+            rows.Row(QueryAttribute.GroupBy, order: i + 1, flag: spec!.Crosstab is null ? (short)0 : CrosstabHeading,
+                expression: spec.GroupBy![i]);
+        // The group filter carries no flag of its own, exactly as the WHERE row doesn't.
+        if (spec?.Having is { } having)
+            rows.Row(QueryAttribute.Having, order: 1, expression: having);
+        for (int i = 0; i < (spec?.OrderBy?.Count ?? 0); i++)
+            rows.Row(QueryAttribute.OrderBy, order: i + 1, expression: spec!.OrderBy![i].Expression,
+                name1: spec.OrderBy[i].Descending ? "d" : null);
     }
 
     /// <summary>One stored query's rows as they are written into <c>MSysQueries</c>: the table, the query's object

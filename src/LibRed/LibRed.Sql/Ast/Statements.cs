@@ -146,12 +146,15 @@ public sealed record ValuesStatement(IReadOnlyList<IReadOnlyList<Expression>> Ro
 /// The <c>DEFAULT VALUES</c> form (no column or value list): a single row where every column takes its
 /// default / AutoNumber. <paramref name="Columns"/> is empty and <paramref name="Rows"/> holds one empty row.
 /// </param>
+/// <param name="TableDatabase">The <c>IN externaldatabase</c> the target is in, or null for the database the statement
+/// runs on. The values and the source are still read from that one.</param>
 public sealed record InsertStatement(
     string Table,
     IReadOnlyList<string> Columns,
     IReadOnlyList<IReadOnlyList<Expression>> Rows,
     bool DefaultValues = false,
-    SqlStatement? Source = null) : SqlStatement;
+    SqlStatement? Source = null,
+    ExternalDatabase? TableDatabase = null) : SqlStatement;
 
 /// <summary>A column in a CREATE TABLE: its declared SQL type, optional size/scale, constraints, and the
 /// raw text of an optional DEFAULT value expression (stored as the column's DefaultValue property).</summary>
@@ -325,8 +328,9 @@ public enum ProcedureActionKind { DataDefinition, Append, Update, Delete, MakeTa
 
 /// <summary>One column/value pair of an action procedure body: an appended column of an INSERT and its
 /// verbatim value text, or one assignment of an UPDATE (whose <paramref name="Column"/> is table-qualified
-/// when the update runs over a join). Access stores both the same way.</summary>
-public sealed record AppendColumn(string Column, string ValueExpression);
+/// when the update runs over a join). Access stores both the same way. An INSERT … VALUES that lists no columns has
+/// none, and its values fill the table's in order.</summary>
+public sealed record AppendColumn(string? Column, string ValueExpression);
 
 /// <summary>
 /// A CREATE PROCEDURE whose body is an action query (not a plain SELECT). A
@@ -335,9 +339,10 @@ public sealed record AppendColumn(string Column, string ValueExpression);
 /// joins and WHERE in <paramref name="Body"/>, exactly as a view carries them, plus what its own kind needs:
 /// <paramref name="AppendColumns"/> are an INSERT's columns or an UPDATE's assignments,
 /// <paramref name="TargetTable"/> is the table an INSERT or a make-table writes into, and
-/// <paramref name="DeleteTarget"/> is the <c>table.*</c> a DELETE names when it names one.
+/// <paramref name="DeleteTarget"/> is each <c>table.*</c> or column a DELETE names as its target, as written.
 /// <paramref name="OwnerAccess"/> is WITH OWNERACCESS OPTION, which the stored query keeps.
-/// <paramref name="TargetDatabase"/> is the <c>IN externaldatabase</c> a make-table's new table is made in.
+/// <paramref name="TargetDatabase"/> is the <c>IN externaldatabase</c> an INSERT's target is in, or a make-table's new
+/// table is made in.
 /// </summary>
 public sealed record CreateActionProcedureStatement(
     string Name,
@@ -346,7 +351,7 @@ public sealed record CreateActionProcedureStatement(
     string? TargetTable,
     IReadOnlyList<AppendColumn>? AppendColumns,
     ViewDefinition? Body = null,
-    string? DeleteTarget = null,
+    IReadOnlyList<string>? DeleteTarget = null,
     IReadOnlyList<ProcedureParameter>? Parameters = null,
     bool OwnerAccess = false,
     ExternalDatabase? TargetDatabase = null) : SqlStatement;

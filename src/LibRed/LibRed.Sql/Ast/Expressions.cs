@@ -9,7 +9,11 @@ public abstract record Expression : SqlNode;
 public sealed record LiteralExpression(object? Value) : Expression;
 
 /// <summary>A reference to a column, optionally table-qualified.</summary>
-public sealed record ColumnReference(string? Table, string Column) : Expression;
+public sealed record ColumnReference(string? Table, string Column) : Expression
+{
+    /// <summary>The reference unquoted: <c>table.column</c>, or the bare column.</summary>
+    public string QualifiedName => Table is null ? Column : $"{Table}.{Column}";
+}
 
 /// <summary>A positional or named query parameter (e.g. <c>?</c> or <c>@p</c>).</summary>
 public sealed record ParameterExpression(string Name) : Expression;

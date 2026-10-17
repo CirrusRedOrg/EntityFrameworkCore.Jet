@@ -97,14 +97,12 @@ internal sealed class EvalScope(
 
             if (found >= 0)
                 return throwIfAmbiguous
-                    ? throw new InvalidOperationException($"Column reference '{Describe(reference)}' is ambiguous.")
+                    ? throw new InvalidOperationException($"Column reference '{reference.QualifiedName}' is ambiguous.")
                     : -1;
             found = i;
         }
         return found;
     }
-
-    internal static string Describe(ColumnReference r) => r.Table is null ? r.Column : $"{r.Table}.{r.Column}";
 
     /// <summary>The current row's value at a 1-based column position.</summary>
     public object? At(int position) =>

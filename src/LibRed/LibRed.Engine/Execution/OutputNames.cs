@@ -37,7 +37,7 @@ internal static class OutputNames
         if (item.Value is ColumnReference reference && (item.Alias is null || item.Written is not null))
             return new(index, Kind.Reference, item.Alias ?? reference.Column,
                 reference.Table ?? OutputColumn.Find(columns, reference)?.Qualifier, reference.Table is not null,
-                item.Written ?? (reference.Table is null ? reference.Column : $"{reference.Table}.{reference.Column}"));
+                item.Written ?? reference.QualifiedName);
         return item.Alias is { } alias ? new(index, Kind.Alias, alias, null) : new(index, Kind.Expression, "", null);
     }
 

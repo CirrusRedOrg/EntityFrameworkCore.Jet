@@ -1782,5 +1782,15 @@ public partial class AccessSqlBaseVisitor<Result> : AbstractParseTreeVisitor<Res
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	public virtual Result VisitTransformStatement([NotNull] AccessSqlParser.TransformStatementContext context) { return VisitChildren(context); }
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.deleteItem"/>.
+	/// <para>
+	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
+	/// on <paramref name="context"/>.
+	/// </para>
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	public virtual Result VisitDeleteItem([NotNull] AccessSqlParser.DeleteItemContext context) { return VisitChildren(context); }
 }
 } // namespace LibRed.Sql.Grammar

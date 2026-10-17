@@ -35,6 +35,17 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
     [InlineData("INSERT INTO Shippers SELECT ContactTitle AS Phone, Phone AS CompanyName FROM Suppliers WHERE SupplierID < 4")]
     [InlineData("INSERT INTO Shippers SELECT Suppliers.CompanyName FROM Suppliers WHERE SupplierID < 4")]
     [InlineData("INSERT INTO Shippers SELECT * FROM (SELECT CompanyName, Phone FROM Suppliers WHERE SupplierID < 4) AS s")]
+    [InlineData("INSERT INTO Shippers VALUES (50, 'Fifty', '555')")]
+    [InlineData("INSERT INTO Shippers SELECT 'NoFrom' AS CompanyName")]
+    [InlineData("INSERT INTO Shippers (CompanyName) SELECT TOP 1 CompanyName FROM Suppliers ORDER BY SupplierID DESC")]
+    [InlineData("INSERT INTO Shippers (CompanyName) SELECT Country FROM Customers GROUP BY Country HAVING Count(*) > 10")]
+    [InlineData("SELECT TOP 1 CompanyName INTO TopCopy FROM Customers ORDER BY CustomerID DESC")]
+    [InlineData("SELECT Country, Count(*) AS N INTO CountryCount FROM Customers GROUP BY Country HAVING Count(*) > 5 ORDER BY Country DESC")]
+    [InlineData("DELETE Shippers.Phone FROM Shippers WHERE ShipperID > 900")]
+    [InlineData("DELETE Shippers.Phone, Shippers.CompanyName FROM Shippers WHERE ShipperID > 900")]
+    [InlineData("DELETE Phone FROM Shippers WHERE ShipperID > 900")]
+    [InlineData("DELETE Shippers.Phone, Shippers.* FROM Shippers WHERE ShipperID > 900")]
+    [InlineData("UPDATE [Order Details] SET [Order Details].Discount = 0 WHERE OrderID = 10248")]
     public void A_libred_written_action_query_stores_the_rows_ace_stores(string body)
     {
         string ourPath = Copy(), acePath = Copy();
@@ -337,6 +348,9 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
     [InlineData("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers WITH OWNERACCESS OPTION")]
     [InlineData("SELECT CompanyName FROM Shippers WITH OWNERACCESS OPTION UNION SELECT CompanyName FROM Customers")]
     [InlineData("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers ORDER BY CompanyName WITH OWNERACCESS OPTION")]
+    [InlineData("SELECT CompanyName FROM Shippers WHERE ShipperID = 1; UNION ALL SELECT CompanyName FROM Shippers WHERE ShipperID = 2")]
+    [InlineData("SELECT CompanyName FROM Shippers WHERE ShipperID = 1;\r\nUNION SELECT CompanyName FROM Shippers WHERE ShipperID = 2; " +
+                "UNION SELECT CompanyName FROM Shippers WHERE ShipperID = 3")]
     public void A_union_query_is_stored_as_ace_stores_it_and_runs_alike(string body) =>
         UnionRoundTrip($"CREATE PROCEDURE [Q] AS {body}", parameter: null);
 
@@ -442,6 +456,19 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
     public void A_star_or_distinctrow_query_is_stored_as_ace_stores_it_and_runs_alike(string body) =>
         QueryRoundTrip($"CREATE PROCEDURE [Q] AS {body}", parameter: null);
 
+    /// <summary>A SELECT's GROUP BY, HAVING and ORDER BY are stored as ACE stores them, and the query returns the same
+    /// rows in the same order from both engines — an ORDER BY on an aggregate, and a TOP it chooses the rows of,
+    /// included.</summary>
+    [Theory]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT Country, Count(*) AS N FROM Customers GROUP BY Country HAVING Count(*) > 5 ORDER BY Country DESC")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT TOP 3 Country, Count(*) AS N FROM Customers GROUP BY Country ORDER BY Count(*) DESC, Country")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT Customers.Country, Sum(Orders.Freight) AS F FROM Customers INNER JOIN Orders " +
+                "ON Customers.CustomerID = Orders.CustomerID WHERE Orders.OrderID < 10300 GROUP BY Customers.Country " +
+                "HAVING Sum(Orders.Freight) > 100 ORDER BY Sum(Orders.Freight) DESC")]
+    [InlineData("CREATE VIEW [Q] AS SELECT Country, Count(*) AS N FROM Customers GROUP BY Country HAVING Count(*) > 5")]
+    public void A_grouped_or_ordered_query_is_stored_as_ace_stores_it_and_runs_alike(string sql) =>
+        QueryRoundTrip(sql, parameter: null);
+
     private static void QueryRoundTrip(string sql, short? parameter)
     {
         string ourPath = Copy(), acePath = Copy();
@@ -522,6 +549,13 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
     [InlineData("CREATE PROCEDURE [Q] AS SELECT ShipperID INTO ShipCopy FROM Shippers IN '{0}'")]
     [InlineData("CREATE PROCEDURE [Q] AS SELECT Shippers.ShipperID INTO ShipCopy IN '' [;DATABASE={0}] FROM Shippers IN '{0}' WHERE ShipperID > 0")]
     [InlineData("CREATE PROCEDURE [Q] AS SELECT ShipperID INTO ShipCopy IN '{0}' 'MS Access;' FROM Shippers")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers (CompanyName, Phone) IN '{0}' SELECT CompanyName, Phone FROM Suppliers WHERE SupplierID < 3")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers IN '{0}' SELECT CompanyName, Phone FROM Suppliers WHERE SupplierID < 3")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers IN '' [;DATABASE={0}] SELECT CompanyName FROM Suppliers WHERE SupplierID < 3")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers IN '{0}' 'MS Access;' SELECT TOP 1 CompanyName FROM Suppliers ORDER BY SupplierID DESC")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers IN '{0}' [MS Access;] SELECT CompanyName FROM Shippers IN '{0}' WHERE ShipperID = 1")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers (CompanyName) IN '{0}' VALUES ('new')")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers IN '{0}' VALUES (50, 'Fifty', '555')")]
     public void An_in_externaldatabase_is_stored_as_ace_stores_it_and_runs_alike(string template)
     {
         string external = Copy(), ourPath = Copy(), acePath = Copy(), runPath = Copy(), runExternal = Copy();
@@ -554,12 +588,13 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
             Assert.Equal(QueryRows(acePath, "Q"), QueryRows(ourPath, "Q"));
             Assert.Equal(ObjectFlags(acePath, "Q"), ObjectFlags(ourPath, "Q"));
 
-            bool makeTable = sql.Contains(" INTO ", StringComparison.Ordinal);
+            // A make-table or an append writes rather than returns rows.
+            bool action = sql.Contains(" INTO ", StringComparison.Ordinal);
             using (var db = TemporaryDatabase.OpenTracked(ourPath, readOnly: true))
                 Assert.Contains(" IN '", db.Catalog.FindQuery("Q")!.Sql, StringComparison.Ordinal);
 
-            // ACE runs the query LibRed stored, on a copy pointed at a copy of the other file, so a make-table leaves both
-            // files the comparison reads alone.
+            // ACE runs the query LibRed stored, on a copy pointed at a copy of the other file, so a make-table or an
+            // append leaves both files the comparison reads alone.
             File.Copy(ourPath, runPath, overwrite: true);
             using (var db = TemporaryDatabase.OpenTracked(runPath, readOnly: false))
             {
@@ -572,7 +607,7 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
                 using var run = connection.CreateCommand();
                 run.CommandText = "Q";
                 run.CommandType = CommandType.StoredProcedure;
-                if (makeTable) run.ExecuteNonQuery();
+                if (action) run.ExecuteNonQuery();
                 else
                 {
                     using var reader = run.ExecuteReader();
@@ -585,7 +620,7 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
                 }
             }
             OleDbConnection.ReleaseObjectPool();
-            if (makeTable) return;
+            if (action) return;
 
             aceRows.Sort(StringComparer.Ordinal);
             foreach (string path in new[] { acePath, ourPath })

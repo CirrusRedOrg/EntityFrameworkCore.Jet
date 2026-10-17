@@ -66,8 +66,9 @@ public enum ActionQueryKind
 /// <summary>One column/value pair of an action query, stored as an <c>Attribute=0x06</c> row (Name2 = the
 /// column, Expression = the value): an appended column of an INSERT — whose value is a literal for the VALUES
 /// form and a source expression for the SELECT form — or one assignment of an UPDATE, whose
-/// <paramref name="Column"/> is table-qualified when the update runs over a join.</summary>
-public sealed record AppendColumnSpec(string Column, string ValueExpression);
+/// <paramref name="Column"/> is table-qualified when the update runs over a join. An INSERT … VALUES that lists no
+/// columns has none, and its values fill the table's in order.</summary>
+public sealed record AppendColumnSpec(string? Column, string ValueExpression);
 
 /// <summary>
 /// A stored action query (a CREATE PROCEDURE body that is not a plain SELECT). A
@@ -75,7 +76,9 @@ public sealed record AppendColumnSpec(string Column, string ValueExpression);
 /// else — Access does not decompose it. Every other kind stores its sources, joins and WHERE exactly as a view
 /// does, in <paramref name="Body"/>, and differs only in the action row and in what its column rows mean:
 /// <paramref name="Values"/> holds an append's columns or an update's assignments, <paramref name="TargetTable"/>
-/// the table an append or make-table writes into, and the body's own columns are a make-table's output list.
+/// the table an append or make-table writes into — in the file <paramref name="TargetDatabase"/> names, when it names
+/// one — and the body's own columns are a make-table's output list. <paramref name="DeleteTarget"/> is each
+/// <c>table.*</c> or column a delete names as its target, as written.
 /// <paramref name="Parameters"/> are declared exactly as a parameterized SELECT declares them, and
 /// <paramref name="OwnerAccess"/> is WITH OWNERACCESS OPTION, stored as the view stores it.
 /// </summary>
@@ -86,7 +89,7 @@ public sealed record ActionQuerySpec(
     IReadOnlyList<AppendColumnSpec>? Values = null,
     ViewSpec? Body = null,
     IReadOnlyList<ViewParameterSpec>? Parameters = null,
-    string? DeleteTarget = null,
+    IReadOnlyList<string>? DeleteTarget = null,
     bool OwnerAccess = false,
     ExternalDatabaseSpec? TargetDatabase = null);
 

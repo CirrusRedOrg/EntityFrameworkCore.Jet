@@ -218,8 +218,9 @@ Treat the number as of its date — an EF Core version bump moves it.
   **`TRANSFORM … PIVOT … [IN (…)]`**, the crosstab, with ACE's column naming and ordering, its fixed headings, row
   totals and refusals (no `HAVING`, `TOP` or `*`); a stored one runs by name and as a FROM source.
   **`IN externaldatabase`** after a FROM (every table of that FROM is read from the other file, a stored query of
-  that file included; a subquery elsewhere in the statement still reads this one) and after a make-table's `INTO`
-  (the table is made there), in each of the forms ACE takes — `IN 'path'`, `IN 'path' 'MS Access;'`,
+  that file included; a subquery elsewhere in the statement still reads this one), after a make-table's `INTO`
+  (the table is made there) and after an `INSERT INTO`'s target and column list (the rows are appended there, from a
+  SELECT or VALUES read here; `@@IDENTITY` is then the other file's new AutoNumber), in each of the forms ACE takes — `IN 'path'`, `IN 'path' 'MS Access;'`,
   `IN 'path' [MS Access;]`, `IN '' [;DATABASE=path]`. Only Access databases are opened: a dBASE, Paradox, Excel or
   text type is refused. ACE itself refuses every one of these unless its `AllowQueryRemoteTables` setting allows them
   (Office updates since December 2025 default it to trusted databases only); LibRed has no such gate. The other file

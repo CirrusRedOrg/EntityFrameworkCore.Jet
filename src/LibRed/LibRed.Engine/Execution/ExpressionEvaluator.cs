@@ -75,7 +75,7 @@ internal sealed partial class ExpressionEvaluator(
         LiteralExpression l => l.Value,
         ColumnReference c => scope.TryResolve(c, out object? v) ? v
             : IsNiladicFunction(c) ? Clock
-            : throw new InvalidOperationException($"Column '{EvalScope.Describe(c)}' was not found."),
+            : throw new InvalidOperationException($"Column '{c.QualifiedName}' was not found."),
         ScalarSubquery s => subqueries.ExecuteScalar(s.Query, scope),
         ExistsExpression e => subqueries.ExecuteExists(e.Query, scope),
         InSubqueryExpression i => EvaluateInSubquery(i),

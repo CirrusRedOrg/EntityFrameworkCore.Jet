@@ -1119,5 +1119,11 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitTransformStatement([NotNull] AccessSqlParser.TransformStatementContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.deleteItem"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitDeleteItem([NotNull] AccessSqlParser.DeleteItemContext context);
 }
 } // namespace LibRed.Sql.Grammar

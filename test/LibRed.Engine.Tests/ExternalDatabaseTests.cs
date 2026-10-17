@@ -199,6 +199,83 @@ public class ExternalDatabaseTests : TempDatabaseTest
     }
 
     [Fact]
+    public void An_insert_with_in_appends_to_the_other_file_from_this_one()
+    {
+        (QueryEngine engine, string external) = Fresh();
+        // A FROM with an IN of its own reads the other file too — first, before anything is appended to it.
+        Assert.Equal(3, engine.ExecuteNonQuery($"INSERT INTO Dup IN '{external}' SELECT Id + 30 AS Id, Label FROM Dup IN '{external}'"));
+        Assert.Equal(3, engine.ExecuteNonQuery($"INSERT INTO Dup (Id, Label) IN '{external}' SELECT Id + 20, Label FROM Dup"));
+        Assert.Equal(3, engine.ExecuteNonQuery($"INSERT INTO Dup IN '' [;DATABASE={external}] SELECT Id + 40 AS Id, Label FROM Dup"));
+        Assert.Equal(3, engine.ExecuteNonQuery($"INSERT INTO Dup IN '{external}' 'MS Access;' SELECT Id + 50 AS Id, Label FROM Dup"));
+        // A subquery reads this file, as the FROM does.
+        Assert.Equal(3, engine.ExecuteNonQuery($"INSERT INTO Dup IN '{external}' SELECT Id + 60 AS Id, Label FROM Dup WHERE Id IN (SELECT Id FROM Dup)"));
+        Assert.Equal(1, engine.ExecuteNonQuery($"INSERT INTO Dup IN '{external}' VALUES (80, 'v')"));
+        Assert.Equal(1, engine.ExecuteNonQuery($"INSERT INTO Dup (Id, Label) IN '{external}' VALUES (81, 'v')"));
+
+        Assert.Equal(["2 | main2", "3 | main3", "4 | main4"], Rows(engine, "SELECT * FROM Dup"));
+        Assert.Equal(
+            ["1 | ext1", "2 | ext2", "22 | main2", "23 | main3", "24 | main4", "3 | ext3", "31 | ext1", "32 | ext2", "33 | ext3",
+             "42 | main2", "43 | main3", "44 | main4", "52 | main2", "53 | main3", "54 | main4", "62 | main2", "63 | main3",
+             "64 | main4", "80 | v", "81 | v"],
+            Rows(engine, $"SELECT * FROM Dup IN '{external}'").Order(StringComparer.Ordinal).ToList());
+
+        // Without a column list the values fill the columns by name, wherever they stand.
+        (engine, external) = Fresh();
+        Assert.Equal(3, engine.ExecuteNonQuery($"INSERT INTO Dup IN '{external}' SELECT Label, Id FROM Dup"));
+        Assert.Equal(["1 | ext1", "2 | ext2", "2 | main2", "3 | ext3", "3 | main3", "4 | main4"],
+            Rows(engine, $"SELECT * FROM Dup IN '{external}'").Order(StringComparer.Ordinal).ToList());
+    }
+
+    [Fact]
+    public void An_insert_with_in_finds_its_target_in_the_other_file_only()
+    {
+        (QueryEngine engine, string external) = Fresh();
+        engine.ExecuteNonQuery("CREATE TABLE OnlyMain (Id LONG, Label TEXT(20))");
+        var missing = Assert.Throws<InvalidOperationException>(
+            () => engine.ExecuteNonQuery($"INSERT INTO OnlyMain IN '{external}' SELECT Id, Label FROM Dup"));
+        Assert.Equal("Could not find output table 'OnlyMain'.", missing.Message);
+
+        // ACE takes the IN after the column list only.
+        Assert.Throws<SqlParseException>(() => engine.ExecuteNonQuery($"INSERT INTO Dup IN '{external}' (Id, Label) VALUES (82, 'v')"));
+        Assert.Throws<NotSupportedException>(() => engine.ExecuteNonQuery($"INSERT INTO Dup IN '{external}' 'dBASE IV;' SELECT Id, Label FROM Dup"));
+        Assert.Equal(["1 | ext1", "2 | ext2", "3 | ext3"], Rows(engine, $"SELECT * FROM Dup IN '{external}'"));
+    }
+
+    [Fact]
+    public void An_insert_with_in_reports_the_other_files_new_autonumber()
+    {
+        (QueryEngine engine, string external) = Fresh();
+        // The other file's Shippers numbered on past this one's, so the two ids differ.
+        using (var db = JetDatabase.Open(external, readOnly: false))
+            new QueryEngine(db).ExecuteNonQuery("INSERT INTO Shippers (CompanyName) VALUES ('pad1'), ('pad2')");
+
+        engine.ExecuteNonQuery($"INSERT INTO Shippers (CompanyName) IN '{external}' VALUES ('x')");
+        Assert.Equal(6, engine.ExecuteQuery("SELECT @@IDENTITY").Rows.Single()[0]);
+        engine.ExecuteNonQuery($"INSERT INTO Shippers (CompanyName) IN '{external}' SELECT 'y'");
+        Assert.Equal(7, engine.ExecuteQuery("SELECT @@IDENTITY").Rows.Single()[0]);
+    }
+
+    [Fact]
+    public void A_stored_insert_keeps_its_in_and_appends_to_the_other_file()
+    {
+        (QueryEngine engine, string external) = Fresh();
+        engine.ExecuteNonQuery($"CREATE PROCEDURE A1 AS INSERT INTO Dup (Id, Label) IN '{external}' SELECT Id + 20, Label FROM Dup");
+        engine.ExecuteNonQuery($"CREATE PROCEDURE A2 AS INSERT INTO Dup IN '{external}' VALUES (80, 'v')");
+        engine.ExecuteNonQuery($"CREATE PROCEDURE A3 AS INSERT INTO Dup IN '{external}' SELECT TOP 1 Id + 95 AS Id, Label FROM Dup ORDER BY Id DESC");
+
+        Assert.Equal($"INSERT INTO [Dup] ([Id], [Label]) IN '{external}' SELECT Id + 20, Label FROM [Dup]",
+            engine.Database.Catalog.FindQuery("A1")!.Sql);
+        Assert.Equal($"INSERT INTO [Dup] IN '{external}' VALUES (80, 'v')", engine.Database.Catalog.FindQuery("A2")!.Sql);
+        Assert.Equal(3, engine.ExecuteNonQuery("EXECUTE A1"));
+        Assert.Equal(1, engine.ExecuteNonQuery("EXECUTE A2"));
+        Assert.Equal(1, engine.ExecuteNonQuery("EXECUTE A3"));
+
+        Assert.Equal(["2 | main2", "3 | main3", "4 | main4"], Rows(engine, "SELECT * FROM Dup"));
+        Assert.Equal(["1 | ext1", "2 | ext2", "22 | main2", "23 | main3", "24 | main4", "3 | ext3", "80 | v", "99 | main4"],
+            Rows(engine, $"SELECT * FROM Dup IN '{external}'").Order(StringComparer.Ordinal).ToList());
+    }
+
+    [Fact]
     public void A_stored_query_keeps_its_in_and_runs_against_the_other_file()
     {
         (QueryEngine engine, string external) = Fresh();

@@ -135,7 +135,7 @@ internal static class AstBuilder
     };
 
     private static DeleteStatement BuildDelete(DeleteStatementContext ctx) =>
-        new(OptionalIdentifier(ctx.target),
+        new(OptionalIdentifier(ctx.deleteItem().FirstOrDefault(i => i.STAR() is not null)?.table),
             BuildTableSources(ctx.tableSource()),
             ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null);
 
@@ -696,6 +696,8 @@ internal static class AstBuilder
         string name, InsertStatementContext insert, IReadOnlyList<ProcedureParameter> parameters)
     {
         var columns = insert._columns;
+        // An IN externaldatabase goes on the operation row, as a make-table's does (verified vs ACE).
+        ExternalDatabase? target = insert.targetDatabase is { } external ? BuildExternalDatabase(external) : null;
 
         // The multiple-record form: the values come from a SELECT, which is stored as the query's own source
         // — the same table / join / where rows a view stores — with each column row naming what it reads.
@@ -718,7 +720,7 @@ internal static class AstBuilder
                         .ToList();
                 return new CreateActionProcedureStatement(
                     name, ProcedureActionKind.Append, null, Identifier(insert.table), null, body with { Columns = named }, null,
-                    parameters, OwnerAccess(source));
+                    parameters, OwnerAccess(source), target);
             }
             if (body.Columns.Count != columns.Count)
                 throw new SqlParseException(
@@ -729,11 +731,8 @@ internal static class AstBuilder
                 .ToList();
             return new CreateActionProcedureStatement(
                 name, ProcedureActionKind.Append, null, Identifier(insert.table), sourced, body, null, parameters,
-                OwnerAccess(source));
+                OwnerAccess(source), target);
         }
-
-        if (columns.Count == 0)
-            throw new NotSupportedException("An INSERT … VALUES procedure body must list its target columns.");
 
         // A stored append query keeps its columns and values as text pairs, which has room for exactly one
         // row — so a multi-row table value constructor cannot be stored as a procedure even though it is
@@ -750,16 +749,18 @@ internal static class AstBuilder
                 "An INSERT procedure body cannot use DEFAULT as a value.");
 
         var values = rowValues.Select(v => v.expression()).ToArray();
-        if (columns.Count != values.Length)
+        if (columns.Count > 0 && columns.Count != values.Length)
             throw new SqlParseException(
                 $"INSERT lists {columns.Count} columns but {values.Length} values.");
 
-        var appendColumns = columns
-            .Select((col, i) => new AppendColumn(Identifier(col), OriginalText(values[i])))
+        // Without a column list each value is stored with no target column, and fills the table's in order — so a
+        // count the table does not have is refused when the query runs, not here (verified vs ACE).
+        var appendColumns = values
+            .Select((value, i) => new AppendColumn(columns.Count > 0 ? Identifier(columns[i]) : null, OriginalText(value)))
             .ToList();
         return new CreateActionProcedureStatement(
             name, ProcedureActionKind.Append, null, Identifier(insert.table), appendColumns,
-            null, null, parameters, insert.source is { } query && OwnerAccess(query));
+            null, null, parameters, insert.source is { } query && OwnerAccess(query), target);
     }
 
     /// <summary>An UPDATE body: its sources and WHERE are stored exactly as a view's are, and each SET
@@ -768,8 +769,9 @@ internal static class AstBuilder
     private static CreateActionProcedureStatement BuildUpdateProcedure(
         string name, UpdateStatementContext update, IReadOnlyList<ProcedureParameter> parameters)
     {
+        // ACE stores the target unquoted whatever was written — `My T.My Col`, `od.Discount` (verified).
         var assignments = update.assignment()
-            .Select(a => new AppendColumn(OriginalText(a.target), OriginalText(a.expression())))
+            .Select(a => new AppendColumn(BuildColumn(a.target).QualifiedName, OriginalText(a.expression())))
             .ToList();
         return new CreateActionProcedureStatement(
             name, ProcedureActionKind.Update, null, null, assignments,
@@ -777,12 +779,12 @@ internal static class AstBuilder
             update.ownerAccessOption() is not null);
     }
 
-    /// <summary>A DELETE body: its sources and WHERE, plus the <c>table.*</c> target when the statement names
-    /// one — which Access stores verbatim, and omits entirely for a bare <c>DELETE FROM</c>.</summary>
+    /// <summary>A DELETE body: its sources and WHERE, plus each <c>table.*</c> or column the statement names as its
+    /// target — which Access stores as written, and omits entirely for a bare <c>DELETE FROM</c>.</summary>
     private static CreateActionProcedureStatement BuildDeleteProcedure(
         string name, DeleteStatementContext delete, IReadOnlyList<ProcedureParameter> parameters)
     {
-        string? target = delete.target is { } t ? $"{Identifier(t)}.*" : null;
+        List<string> target = [.. delete.deleteItem().Select(i => i.table is { } t ? $"{Identifier(t)}.*" : OriginalText(i))];
         return new CreateActionProcedureStatement(
             name, ProcedureActionKind.Delete, null, null, null,
             ActionBody(delete.tableSource(), delete.whereClause()), target, parameters,
@@ -1101,6 +1103,7 @@ internal static class AstBuilder
             return new InsertStatement(table, [], [(IReadOnlyList<Expression>)[]], DefaultValues: true);
 
         var columns = ctx._columns.Select(Identifier).ToList();
+        ExternalDatabase? database = ctx.targetDatabase is { } external ? BuildExternalDatabase(external) : null;
 
         // A table value constructor: one or more parenthesised rows. The AST and executor were already
         // row-list shaped, so a multi-row insert needs nothing beyond handing them every row.
@@ -1109,11 +1112,11 @@ internal static class AstBuilder
             var rows = values
                 .Select(r => (IReadOnlyList<Expression>)r.rowValue().Select(BuildRowValue).ToList())
                 .ToList();
-            return new InsertStatement(table, columns, rows);
+            return new InsertStatement(table, columns, rows, TableDatabase: database);
         }
 
         // The multiple-record form: the rows come from a query rather than a VALUES list.
-        return new InsertStatement(table, columns, [], Source: BuildQueryExpression(ctx.source));
+        return new InsertStatement(table, columns, [], Source: BuildQueryExpression(ctx.source), TableDatabase: database);
     }
 
     /// <summary>The rows of an INSERT's VALUES list — a source that is one table value constructor and nothing

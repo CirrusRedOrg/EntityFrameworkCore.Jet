@@ -426,7 +426,7 @@
   > |---|---|---|---|
   > | `1` | SELECT | `0` dbQSelect | observed |
   > | `2` | make-table (`SELECT … INTO`; target in `Name1`, external db path in `Name2`, its type or connect string in `Expression`) | `80` dbQMakeTable | observed |
-  > | `3` | append (`INSERT`; target table in `Name1`) | `64` dbQAppend | observed |
+  > | `3` | append (`INSERT`; target table in `Name1`, external db path in `Name2`, its type or connect string in `Expression`) | `64` dbQAppend | observed |
   > | `4` | UPDATE | `48` dbQUpdate | observed |
   > | `5` | DELETE | `32` dbQDelete | observed |
   > | `6` | crosstab (`TRANSFORM`) | `16` dbQCrosstab | observed |
@@ -441,7 +441,12 @@
   > `Name2`; without one (`INSERT INTO t SELECT …`) the rows are the SELECT's own, each value's output name — its
   > alias, or the column's name — in `Name1` and no `Name2`, and a `SELECT *` has no column rows and sets the option
   > row's `0x01` bit (verified vs ACE). ACE then fills the target columns by those names, not by position, refusing
-  > one the target lacks ("unknown field name").
+  > one the target lacks ("unknown field name"). An `INSERT INTO t VALUES (…)` without a column list has neither
+  > `Name1` nor `Name2` on its rows, and its values fill the table's columns in order: ACE stores one of the wrong
+  > length and refuses it only when it runs ("Number of query values and destination fields are not the same.").
+  > The SELECT is stored as any other: a SELECT with no FROM has no `0x05` rows, and its `GROUP BY`, `HAVING` and
+  > `ORDER BY` are `0x09`, `0x0A` and `0x0B` rows after the WHERE — so a stored `TOP` keeps the order that chooses its
+  > rows. A make-table's SELECT keeps them the same way (verified vs ACE).
   >
   > **A crosstab (verified vs ACE, `CREATE PROCEDURE` and DAO alike).** The operation row (`Flag 6`) comes straight
   > after the type, end and parameter rows. Then:
@@ -463,9 +468,12 @@
   > from another file; the query keeps it as one `0x04` row, written straight after the `0x05` rows: the quoted path in
   > `Name1` (absent when written `''`), and the type or connect string after it in `Expression` — `IN 'C:\x.accdb'` is
   > `Name1` alone, `IN 'C:\x.accdb' 'MS Access;'` and `IN 'C:\x.accdb' [MS Access;]` add `Expression=MS Access;`, and
-  > `IN '' [;DATABASE=C:\x.accdb]` is `Expression=;DATABASE=C:\x.accdb` alone. A make-table's `INTO t IN …` is kept on
-  > its operation row instead: the path in `Name2`, the type or connect string in `Expression`. A view, a procedure, a
-  > make-table's source and a crosstab's FROM all store it the same way.
+  > `IN '' [;DATABASE=C:\x.accdb]` is `Expression=;DATABASE=C:\x.accdb` alone. A make-table's `INTO t IN …` and an
+  > append's `INSERT INTO t [(…)] IN …` are kept on the operation row instead: the path in `Name2`, the type or connect
+  > string in `Expression`. Either names the target's file only — the SELECT's FROM, and a subquery in its WHERE, read
+  > the query's own file unless that FROM has an `IN` of its own, a `0x04` row beside the operation row's. ACE takes
+  > the append's `IN` after the column list and refuses it before one. A view, a procedure, a make-table's or an
+  > append's source and a crosstab's FROM all store the FROM's the same way.
   >
   > **A bare `SELECT *` has no `0x06` rows** and sets the option row's `0x01` bit instead (verified vs ACE, a view and
   > a procedure alike, with and without an external database). **A `*` among other items** (`SELECT *, x AS X`,
@@ -506,7 +514,9 @@
   > **A UNION query is two segments, however many SELECTs it combines** (verified, through `CREATE PROCEDURE` and
   > DAO alike). It is split at its **last** set operator: the first `0x05` row holds the text before that operator,
   > verbatim and with the whitespace before it, and the second the term after it, so `A UNION B UNION ALL C` is
-  > stored as `A UNION B ` and `C`, and `A UNION (B UNION ALL C)` as `A ` and `(B UNION ALL C)`. A segment is any
+  > stored as `A UNION B ` and `C`, and `A UNION (B UNION ALL C)` as `A ` and `(B UNION ALL C)`. A `;` ending an
+  > operand before its operator, which ACE takes, stays in that text (`A; UNION ALL B` is `A; ` and `B`); one ending
+  > the whole query is dropped (verified). A segment is any
   > query ACE takes there — a parenthesised one, `TABLE t` (every column of `t`), a `TOP`, a `GROUP BY`, a join, a
   > `WITH OWNERACCESS OPTION` ending an earlier SELECT, a declared parameter's name. The rest of the query is
   > stored as a SELECT's is: the `0x01` row (`Flag 9`), one `0x03` row (`Flag 3` for `UNION`, `1` for
@@ -745,11 +755,17 @@
   > - **Update**: the `0x01` action row has `Flag 4` and nothing else on it — the target is the FROM source.
   >   One `0x06` row per SET assignment: **`Name2` = the assigned column**, `Expression` = the new value.
   >   Over a join, `Name2` is **table-qualified** (`Orders.ShipCountry`) and the join is an ordinary `0x07`
-  >   row, so an UPDATE over a join stores exactly what the same join in a SELECT stores.
+  >   row, so an UPDATE over a join stores exactly what the same join in a SELECT stores. ACE writes `Name2`
+  >   unquoted however the target was written — `SET [My T].[My Col]` and `` SET `My T`.`My Col` `` are both
+  >   `My T.My Col`, an alias's `od.Discount` — and qualified only when the statement qualified it (verified). A
+  >   file from an older engine can hold a quoted part (`COMBINED.[temp 2 for pasta]`), which reads the same.
   > - **Delete**: the `0x01` action row has `Flag 5`. A `DELETE <table>.* FROM …` keeps that target as a
   >   single `0x06` row whose `Expression` is the verbatim `<table>.*` and which has no `Name2`; a
   >   `DELETE FROM …` (no named target) stores **no** `0x06` row at all, and ACE renders it back as
-  >   `DELETE * FROM …`.
+  >   `DELETE * FROM …`. The Access designer also lists columns as the target (`DELETE t.c FROM t`, `DELETE c FROM
+  >   t`, several, or beside `t.*`): each is a `0x06` row of its own, as written, in order. A column names no table —
+  >   ACE deletes whole rows of the one table, and over a join refuses a target of columns only ("Specify the table
+  >   containing the records you want to delete.") as it refuses no target (verified).
   > - **Make-table** (`SELECT … INTO`): `Flag 2`, with the target table in `Name1` and, when the target is in
   >   another database file, its path in `Name2`. Everything else is stored as the SELECT it is.
   >

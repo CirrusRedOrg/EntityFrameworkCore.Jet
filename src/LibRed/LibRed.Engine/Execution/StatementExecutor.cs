@@ -1101,30 +1101,38 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 specs[i] = specs[i] with { Precision = carried.Precision, Scale = carried.Scale };
         }
 
-        if (into == _database)
-            MakeTable(target, specs, rows);
-        else
-            // Another file is written as a statement on it would be: under its own exclusive scope and in its own
-            // transaction, so a failure part-way leaves no half-made table there either. Its rows are checked against
-            // that file's catalog, by an executor of its own.
-            into.WriteExclusive(() =>
-            {
-                into.BeginTransaction();
-                try
-                {
-                    new StatementExecutor(into, null, _parser).MakeTable(target, specs, rows);
-                    into.Commit(flush: false);
-                }
-                catch
-                {
-                    into.Rollback();
-                    throw;
-                }
-                return 0;
-            });
+        WriteIn(into, executor => executor.MakeTable(target, specs, rows));
 
         if (_session is not null) _session.RowCount = rows.Count;
         return rows.Count;
+    }
+
+    /// <summary>Runs a statement's writes on the database they go to: this one, within the statement, or another file
+    /// an IN externaldatabase names, written as a statement on it would be — under its own exclusive scope and in its
+    /// own transaction, so a failure part-way leaves nothing half-written there either. Its rows are checked against
+    /// that file's catalog, by an executor of its own.</summary>
+    private void WriteIn(JetDatabase into, Action<StatementExecutor> write)
+    {
+        if (into == _database)
+        {
+            write(this);
+            return;
+        }
+        into.WriteExclusive(() =>
+        {
+            into.BeginTransaction();
+            try
+            {
+                write(new StatementExecutor(into, null, _parser));
+                into.Commit(flush: false);
+            }
+            catch
+            {
+                into.Rollback();
+                throw;
+            }
+            return 0;
+        });
     }
 
     /// <summary>Creates a make-table query's new table and writes its rows into it, each the way every inserted row is,
@@ -1275,13 +1283,14 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     private int ExecuteInsert(InsertStatement statement)
     {
-        // The target is the one table ACE names differently when it is missing (verified).
-        if (_database.Catalog.FindTable(statement.Table) is null)
+        // An IN externaldatabase puts the target in that file, and only the target: the values and the source are read
+        // from this one (verified vs ACE).
+        JetDatabase into = ExternalDatabases.Open(_database, statement.TableDatabase, writable: true);
+        // The target is the one table ACE names differently when it is missing (verified), in another file too.
+        if (into.Catalog.FindTable(statement.Table) is not { } definition)
             throw new InvalidOperationException($"Could not find output table '{statement.Table}'.");
-        Table table = _database.OpenTable(statement.Table);
         // Before the column list and the values: ACE refuses a read-only database on finding the table (verified).
-        _database.RefuseIfReadOnly(ReadOnlyWrite.Row);
-        var columns = table.Definition.Columns;
+        into.RefuseIfReadOnly(ReadOnlyWrite.Row);
 
         // Target columns: the explicit list; DEFAULT VALUES provides none (every column takes its default);
         // otherwise a bare VALUES (…) targets all columns in order.
@@ -1289,10 +1298,66 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             ? statement.Columns
             : statement.DefaultValues
                 ? []
-                : columns.Select(c => c.Name).ToList();
+                : definition.Columns.Select(c => c.Name).ToList();
 
         var evaluator = new ExpressionEvaluator(
             new EvalScope([], [], null), _scalarRunner, parameters: _parameters);
+        IEnumerable<object?[]> rows;
+
+        if (statement.Source is not null)
+        {
+            // The multiple-record form. The source is MATERIALISED before a single row is written: appending
+            // a table to itself otherwise feeds its own output back into the scan and never terminates.
+            // Access's INSERT INTO t SELECT * FROM t doubles the table and stops, so the read completes
+            // before the write begins.
+            ResultSet source = _scalarRunner.ExecuteQuery(Planning.ColumnPruning.Apply(
+                Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(statement.Source), _database)));
+            rows = source.Rows.ToList();
+
+            // With no column list the source's output NAMES choose the target columns — ACE resolves by name,
+            // not by position. Measured, because the two only disagree when they disagree silently:
+            //   INSERT INTO PDst SELECT B AS Name, A AS Id FROM PSrc
+            // stores Id=7, Name='seven' — the values routed by their aliases, not by the order they appear
+            // in. Positionally that would have put 'seven' in Id. ACE rejects a name the target lacks
+            // ("unknown field name: 'A'"), including through SELECT *, and FindColumn below does the same.
+            //
+            // An explicit column list is the other rule entirely: it names the targets and the source's
+            // values map positionally onto IT, whatever the source calls them.
+            if (statement.Columns.Count == 0)
+                targets = source.ColumnNames;
+        }
+        else
+            // Each row's values are evaluated as that row is written.
+            rows = statement.Rows.Select(rowExprs => rowExprs
+                // DEFAULT is a marker, not something to evaluate — it is carried through as a sentinel so
+                // InsertRow can tell "take the column's default" apart from any value, NULL included.
+                .Select(e => e is DefaultValueExpression ? DefaultRowValue : evaluator.Evaluate(e))
+                .ToArray());
+
+        (int affected, object? lastIdentity, bool generates) = (0, null, false);
+        WriteIn(into, executor => (affected, lastIdentity, generates) = executor.AppendRows(statement.Table, targets, rows));
+
+        // Publish @@ROWCOUNT (rows this insert affected) and @@IDENTITY (the last AutoNumber generated) so a
+        // following SELECT in the same batch can read the store-generated key back — the shape EF Core emits.
+        // @@IDENTITY is connection-scoped and only overwritten by an insert that actually generates an id,
+        // so an insert into a keyless table leaves the previous value intact (matching Access).
+        if (_session is not null)
+        {
+            _session.RowCount = affected;
+            if (generates)
+                _session.LastIdentity = lastIdentity;
+        }
+        return affected;
+    }
+
+    /// <summary>Appends an INSERT's rows to a table of this database, each given its values in the order of
+    /// <paramref name="targets"/>: how many it wrote, the last AutoNumber it generated, and whether the table has
+    /// one.</summary>
+    private (int Affected, object? LastIdentity, bool Generates) AppendRows(
+        string tableName, IReadOnlyList<string> targets, IEnumerable<object?[]> rows)
+    {
+        Table table = _database.OpenTable(tableName);
+        var columns = table.Definition.Columns;
         RowDefaults defaults = DefaultsOf(table.Definition);
 
         int affected = 0;
@@ -1311,7 +1376,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             for (int i = 0; i < targets.Count; i++)
             {
                 ColumnDef column = table.Definition.FindColumn(targets[i])
-                    ?? throw new InvalidOperationException($"Column '{targets[i]}' does not exist in '{statement.Table}'.");
+                    ?? throw new InvalidOperationException($"Column '{targets[i]}' does not exist in '{tableName}'.");
 
                 // An explicit DEFAULT is not a value: leaving the column out of `provided` routes it through
                 // InsertNewRow's default filling, so it takes its declared default, or stays NULL when it has
@@ -1324,68 +1389,20 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 // (verified vs ACE) — to the row inserter a Null means "generate the next id".
                 if (supplied[i] is null && column.IsAutoNumber && column.Type == JetDataType.Int32)
                     throw new InvalidOperationException(
-                        $"Cannot insert a Null value into AutoNumber field '{statement.Table}.{column.Name}'.");
+                        $"Cannot insert a Null value into AutoNumber field '{tableName}.{column.Name}'.");
 
                 values[column.Index] = supplied[i];
                 if (!provided.Contains(column.Index)) provided.Add(column.Index);
             }
 
-            object? identity = InsertNewRow(statement.Table, table, defaults, values, provided);
+            object? identity = InsertNewRow(tableName, table, defaults, values, provided);
             if (defaults.AutoNumber is not null)
                 lastIdentity = identity;
             affected++;
         }
 
-        if (statement.Source is not null)
-        {
-            // The multiple-record form. The source is MATERIALISED before a single row is written: appending
-            // a table to itself otherwise feeds its own output back into the scan and never terminates.
-            // Access's INSERT INTO t SELECT * FROM t doubles the table and stops, so the read completes
-            // before the write begins.
-            ResultSet source = _scalarRunner.ExecuteQuery(Planning.ColumnPruning.Apply(
-                Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(statement.Source), _database)));
-            var rows = source.Rows.ToList();
-
-            // With no column list the source's output NAMES choose the target columns — ACE resolves by name,
-            // not by position. Measured, because the two only disagree when they disagree silently:
-            //   INSERT INTO PDst SELECT B AS Name, A AS Id FROM PSrc
-            // stores Id=7, Name='seven' — the values routed by their aliases, not by the order they appear
-            // in. Positionally that would have put 'seven' in Id. ACE rejects a name the target lacks
-            // ("unknown field name: 'A'"), including through SELECT *, and FindColumn below does the same.
-            //
-            // An explicit column list is the other rule entirely: it names the targets and the source's
-            // values map positionally onto IT, whatever the source calls them.
-            if (statement.Columns.Count == 0)
-                targets = source.ColumnNames;
-
-            foreach (object?[] row in rows) InsertRow(row);
-        }
-        else
-        {
-            foreach (IReadOnlyList<Expression> rowExprs in statement.Rows)
-            {
-                var supplied = new object?[rowExprs.Count];
-                for (int i = 0; i < rowExprs.Count; i++)
-                    // DEFAULT is a marker, not something to evaluate — it is carried through as a sentinel so
-                    // InsertRow can tell "take the column's default" apart from any value, NULL included.
-                    supplied[i] = rowExprs[i] is DefaultValueExpression
-                        ? DefaultRowValue
-                        : evaluator.Evaluate(rowExprs[i]);
-                InsertRow(supplied);
-            }
-        }
-
-        // Publish @@ROWCOUNT (rows this insert affected) and @@IDENTITY (the last AutoNumber generated) so a
-        // following SELECT in the same batch can read the store-generated key back — the shape EF Core emits.
-        // @@IDENTITY is connection-scoped and only overwritten by an insert that actually generates an id,
-        // so an insert into a keyless table leaves the previous value intact (matching Access).
-        if (_session is not null)
-        {
-            _session.RowCount = affected;
-            if (defaults.AutoNumber is not null)
-                _session.LastIdentity = lastIdentity;
-        }
-        return affected;
+        foreach (object?[] row in rows) InsertRow(row);
+        return (affected, lastIdentity, defaults.AutoNumber is not null);
     }
 
     /// <summary>A table participating in an UPDATE/DELETE source: its alias, columns (alias-qualified, for the

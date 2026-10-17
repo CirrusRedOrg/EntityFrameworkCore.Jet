@@ -452,6 +452,9 @@ expression
     // ACE: 1 & 2 + 3 is '15').
     | left=expression op=AMP right=expression                                 # ConcatExpr
     | left=expression op=(EQ | NEQ | LT | LTE | GT | GTE) right=expression   # ComparisonExpr
+    // A comparison with each row of a one-column subquery: true for ANY (or SOME) when one comparison is, for ALL
+    // when every one is (verified vs ACE). ACE takes no value list here and no second pair of parentheses.
+    | left=expression op=(EQ | NEQ | LT | LTE | GT | GTE) quantifier=(ANY | SOME | ALL) LPAREN sub=queryExpression RPAREN # QuantifiedComparisonExpr
     // The lower bound is parsed at the upper bound's precedence (see EnterRecursionRule above), so the AND between
     // them is never taken into it.
     | val=expression not=NOT? BETWEEN lo=expression AND hi=expression        # BetweenExpr
@@ -618,7 +621,7 @@ reservedKeyword
     | VALUES | PRIMARY | KEY | CONSTRAINT | FOREIGN | REFERENCES | DELETE | UPDATE | CASCADE | RESTRICT | ACTION
     | SET | DEFAULT | NO | UNIQUE | CLUSTERED | IDENTITY | NONCLUSTERED | INDEX | TEMPORARY | WITH | COMPRESSION
     | COMP | DISALLOW | IGNORE | CHECK | VIEW | PROCEDURE | PARAMETERS | EXECUTE | EXEC | ASC | DESC | TRUE
-    | FALSE | NULL | TRANSFORM | PIVOT
+    | FALSE | NULL | TRANSFORM | PIVOT | ANY | SOME
     ;
 
 // An aggregate's FILTER: only the rows for which the condition is true go into it.
@@ -722,6 +725,9 @@ ONLY     : [Oo][Nn][Ll][Yy] ;
 BETWEEN  : [Bb][Ee][Tt][Ww][Ee][Ee][Nn] ;
 UNION     : [Uu][Nn][Ii][Oo][Nn] ;
 ALL       : [Aa][Ll][Ll] ;
+// ANY and SOME are reserved, as ACE has them: neither is a bare column name or alias there (verified).
+ANY       : [Aa][Nn][Yy] ;
+SOME      : [Ss][Oo][Mm][Ee] ;
 INTERSECT : [Ii][Nn][Tt][Ee][Rr][Ss][Ee][Cc][Tt] ;
 EXCEPT    : [Ee][Xx][Cc][Ee][Pp][Tt] ;
 CREATE    : [Cc][Rr][Ee][Aa][Tt][Ee] ;

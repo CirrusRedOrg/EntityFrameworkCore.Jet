@@ -25,6 +25,7 @@ internal static class CheckTextWriter
             Strength(Unparenthesised(operand)) <= strength ? $"({Write(operand)})" : Write(operand);
         string Binary(ExpressionContext left, string op, ExpressionContext right) => Left(left) + op + Right(right);
         static string Not(Antlr4.Runtime.IToken? not) => not is null ? "" : " Not";
+        static string Comparison(Antlr4.Runtime.IToken op) => op.Type == NEQ ? "<>" : op.Text;
 
         return expression switch
         {
@@ -36,7 +37,10 @@ internal static class CheckTextWriter
             AddSubExprContext e => Binary(e.left, e.op.Text, e.right),
             ConcatExprContext e => Binary(e.left, " & ", e.right),
             ComparisonExprContext e when e.op.Type == NEQ && IsNull(e.right) => Left(e.left) + " Is Not Null",
-            ComparisonExprContext e => Binary(e.left, e.op.Type == NEQ ? "<>" : e.op.Text, e.right),
+            ComparisonExprContext e => Binary(e.left, Comparison(e.op), e.right),
+            // As IN is written: the keyword capitalised, then the subquery as written (verified vs ACE).
+            QuantifiedComparisonExprContext e => Left(e.left) + Comparison(e.op)
+                + e.quantifier.Type switch { ANY => "Any", SOME => "Some", _ => "All" } + " (" + AstBuilder.OriginalText(e.sub) + ")",
             BetweenExprContext e => Left(e.val) + Not(e.not) + " Between " + Right(e.lo) + " And " + Right(e.hi),
             LikeExprContext e => Left(e.left) + Not(e.not) + " ALike " + Right(e.right),
             InSubqueryExprContext e => Left(e.val) + Not(e.not) + " In (" + AstBuilder.OriginalText(e.sub) + ")",
@@ -63,8 +67,8 @@ internal static class CheckTextWriter
         ModExprContext => 10,
         AddSubExprContext => 9,
         ConcatExprContext => 8,
-        ComparisonExprContext or BetweenExprContext or LikeExprContext or InSubqueryExprContext or InExprContext
-            or IsNullExprContext => 7,
+        ComparisonExprContext or QuantifiedComparisonExprContext or BetweenExprContext or LikeExprContext or InSubqueryExprContext
+            or InExprContext or IsNullExprContext => 7,
         NotExprContext => 6,
         AndExprContext => 5,
         OrExprContext => 4,

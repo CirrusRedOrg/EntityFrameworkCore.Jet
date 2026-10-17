@@ -1442,6 +1442,13 @@ internal static class AstBuilder
         InExprContext i => BuildIn(i),
         InSubqueryExprContext i => new InSubqueryExpression(
             BuildExpression(i.val), BuildQueryExpression(i.sub), i.not is not null),
+        // `= ANY` is IN and `<> ALL` NOT IN, value for value (verified vs ACE), so they go the way IN does.
+        QuantifiedComparisonExprContext q => (MapOperator(q.op.Type), q.quantifier.Type == ALL) switch
+        {
+            (BinaryOperator.Equal, false) => new InSubqueryExpression(BuildExpression(q.left), BuildQueryExpression(q.sub), Negated: false),
+            (BinaryOperator.NotEqual, true) => new InSubqueryExpression(BuildExpression(q.left), BuildQueryExpression(q.sub), Negated: true),
+            var (comparison, all) => new InSubqueryExpression(BuildExpression(q.left), BuildQueryExpression(q.sub), Negated: false, comparison, all),
+        },
         LikeExprContext l => l.not is null
             ? new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))
             : new UnaryExpression(UnaryOperator.Not, new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))),

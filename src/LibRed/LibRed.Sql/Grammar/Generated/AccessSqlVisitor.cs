@@ -750,6 +750,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitPowExpr([NotNull] AccessSqlParser.PowExprContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>QuantifiedComparisonExpr</c>
+	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitQuantifiedComparisonExpr([NotNull] AccessSqlParser.QuantifiedComparisonExprContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>OrExpr</c>
 	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
 	/// </summary>

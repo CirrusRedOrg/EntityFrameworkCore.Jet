@@ -176,8 +176,11 @@ public sealed record ExistsExpression(SqlStatement Query) : Expression;
 
 /// <summary><c>x [NOT] IN (SELECT … )</c>: membership of <paramref name="Value"/> in the first column of a
 /// (possibly correlated) subquery, with SQL three-valued semantics. The query is any query statement — see
-/// <see cref="ScalarSubquery"/>.</summary>
-public sealed record InSubqueryExpression(Expression Value, SqlStatement Query, bool Negated) : Expression;
+/// <see cref="ScalarSubquery"/>. Membership is <c>x = ANY (…)</c>; <paramref name="Comparison"/> and
+/// <paramref name="All"/> make it any quantified comparison, <c>x &gt; ALL (…)</c> and the rest.</summary>
+public sealed record InSubqueryExpression(
+    Expression Value, SqlStatement Query, bool Negated, BinaryOperator Comparison = BinaryOperator.Equal, bool All = false)
+    : Expression;
 
 /// <summary><c>x [NOT] IN (a, b, …)</c> over a literal value list, kept as a flat node (rather than lowered to a
 /// deep <c>OR</c>-chain) so a very large list — EF Core inlines a "huge number of values" Contains as thousands

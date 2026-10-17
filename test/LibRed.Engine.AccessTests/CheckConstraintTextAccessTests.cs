@@ -213,6 +213,11 @@ public class CheckConstraintTextAccessTests(ITestOutputHelper output)
     [InlineData("T.A > 0 AND (SELECT COUNT(*) FROM Employees WHERE EmployeeID = T.A) > 0")]
     [InlineData("T.A > 0 AND (SELECT COUNT(*)   FROM T WHERE T.A > 5) < 1")]
     [InlineData("T.A IN (SELECT EmployeeID FROM Employees WHERE EmployeeID > 0 AND EmployeeID < 99)")]
+    [InlineData("T.A > ANY (SELECT EmployeeID FROM Employees)")]
+    [InlineData("T.A = SOME (SELECT EmployeeID FROM Employees)")]
+    [InlineData("T.A <> ALL (SELECT EmployeeID FROM Employees)")]
+    [InlineData("T.A > 0 And A >= All(SELECT EmployeeID FROM Employees)")]
+    [InlineData("T.A < any (select EmployeeID from Employees)")]
     public void Libred_stores_or_refuses_a_check_as_ace_does(string check)
     {
         string sql = $"CREATE TABLE T (A LONG, S TEXT(50), D DATETIME, B BIT, [My Col] LONG, CONSTRAINT ck CHECK ({check}))";

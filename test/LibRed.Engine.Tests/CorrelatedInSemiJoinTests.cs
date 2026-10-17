@@ -96,19 +96,21 @@ public class CorrelatedInSemiJoinTests : TempDatabaseTest
     [Fact]
     public void Not_in_is_the_complement_when_no_null_is_seen()
         // Same shape without a null in play: the body projects Id, which is a primary key. Every row's value is
-        // simply absent from its own body's set, so NOT IN holds for all of them — except row 4, whose left side
-        // is NULL (see below).
-        => Assert.Equal([1, 2, 3, 5],
+        // simply absent from its own body's set, so NOT IN holds for all of them — row 4's too, whose NULL left side
+        // meets an empty body (see below; verified vs ACE: 1 2 3 4 5).
+        => Assert.Equal([1, 2, 3, 4, 5],
             Ids(Fresh(), "SELECT o.Id FROM O AS o WHERE o.K NOT IN (SELECT i.Id FROM I AS i WHERE i.K = o.K)"));
 
     [Fact]
-    public void A_null_left_side_satisfies_neither_form()
+    public void A_null_left_side_is_in_no_empty_body()
     {
-        // `NULL IN (…)` is UNKNOWN whatever the set holds, so row 4 appears in neither result.
+        // Row 4's NULL key finds no partner, so its body is empty — and `NULL IN ()` is FALSE, as `x IN ()` is for any
+        // x, so NOT IN admits the row (verified vs ACE on these rows: IN is 0 for row 4, and NOT IN returns it). Only a
+        // body with rows makes a NULL left side UNKNOWN.
         QueryEngine e = Fresh();
         const string body = "(SELECT i.Id FROM I AS i WHERE i.K = o.K)";
         Assert.DoesNotContain(4L, Ids(e, $"SELECT o.Id FROM O AS o WHERE o.K IN {body}"));
-        Assert.DoesNotContain(4L, Ids(e, $"SELECT o.Id FROM O AS o WHERE o.K NOT IN {body}"));
+        Assert.Contains(4L, Ids(e, $"SELECT o.Id FROM O AS o WHERE o.K NOT IN {body}"));
     }
 
     [Fact]

@@ -168,7 +168,9 @@
   > written, save `IIf` (always so spelt) and a bare `Now` (written `Now()`); `True Yes On False No Off` each
   > capitalised as its own word; a number in plain decimal with its digits exact (`1.50` → `1.5`, `1E3` → `1000`,
   > `.5` → `0.5`); a date as `#m/d/yyyy#`, plus an unpadded 24-hour `h:n:s` when it has a time, a time alone
-  > dated `12/30/1899`. A subquery's own text is kept as written.
+  > dated `12/30/1899`. A subquery's own text is kept as written. A comparison with a subquery's rows is spelt
+  > `Any`, `Some` or `All` — kept as distinct words, `Some` not made `Any` — after its operator, with a space before
+  > the subquery: `A>Any (SELECT …)`, `A<>All (SELECT …)` (verified).
   > `ALTER TABLE … DROP CONSTRAINT <ck>` removes the matching entry from that list and rewrites it (dropping
   > the whole table-level property block when it was the last check) — ACE-verified: after the drop ACE stops enforcing the check. (In
   > Jet/ACE `DROP CONSTRAINT` is polymorphic over the name — FK / PK / unique index / CHECK.)
@@ -801,13 +803,13 @@
   >
   > (A plain view/SELECT query uses `Flags=0x10000000` and no `0x01` row.) LibRed **writes** every kind it
   > reads: CREATE TABLE verbatim, INSERT from VALUES or from a SELECT, UPDATE (joins included), DELETE (with
-  > or without a `table.*` target), make-table and UNION, each with its declared parameters and their facets — row
+  > or without a target), make-table, UNION and crosstab, each with its declared parameters and their facets — row
   > for row what ACE writes for the same statement, including the object flags, and ACE runs the result. **Read-back:** LibRed reconstructs and runs
   > every kind whose statement its engine can execute — DDL (verbatim), INSERT from VALUES or from a SELECT,
-  > UPDATE (joins included), DELETE, make-table and UNION, the one of them that returns rows — rebuilt with a
+  > UPDATE (joins included), DELETE, make-table, UNION and crosstab, the last two returning rows — rebuilt with a
   > leading `PARAMETERS` clause when the query declares parameters, so `EXECUTE name arg, …` binds them. A UNION
-  > is its two segments joined by the operator its option row records, then its `ORDER BY`. Crosstab and
-  > pass-through read back with an "unsupported" reason naming the kind, and throw when executed.
+  > is its two segments joined by the operator its option row records, then its `ORDER BY`. Pass-through reads
+  > back with an "unsupported" reason naming the kind, and throws when executed.
 
 - **MSysRelationships** defines foreign keys (one row per relationship column): `szRelationship`
   (name), `szObject` (child/referencing table), `szColumn` (child column), `szReferencedObject`

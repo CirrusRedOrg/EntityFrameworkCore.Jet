@@ -155,18 +155,22 @@ internal sealed partial class ExpressionEvaluator(
         };
     }
 
-    /// <summary><c>x [NOT] IN (subquery)</c> with SQL three-valued semantics: NULL if x is null or (no match
-    /// and the subquery yields a null), otherwise the membership result (negated for NOT IN).</summary>
+    /// <summary><c>x [NOT] IN (subquery)</c>, and any quantified comparison <c>x op ANY | ALL (subquery)</c>, with SQL
+    /// three-valued semantics (verified vs ACE): ANY holds when x compares so with one of the rows, ALL when with every
+    /// one. Over no rows ANY is False and ALL True, whatever x, so <c>Null IN</c> an empty subquery is False; otherwise
+    /// a Null x, or a Null row that leaves it undecided, makes it Null. NOT IN, and a NOT over it, is its negation —
+    /// where ACE turns <c>NOT x &lt; ALL (…)</c> into <c>x &gt;= ALL (…)</c>, which is not, for any comparison but
+    /// <c>=</c> (measured; deliberately not followed).</summary>
     private bool? EvaluateInSubquery(InSubqueryExpression inq)
     {
         object? val = Evaluate(inq.Value);
-        if (val is null) return null;
+        bool membership = inq is { Comparison: BinaryOperator.Equal, All: false };
+        bool? result = null;
 
-        bool hasNull = false, found = false;
         // A correlated IN is a semi-join: hash the body's values once instead of re-running it for every outer row.
-        if (subqueries.ExecuteInSubquery(inq.Query, inq.Value, val, scope) is var (semiFound, semiNull))
+        if (val is not null && membership && subqueries.ExecuteInSubquery(inq.Query, inq.Value, val, scope) is var (semiFound, semiNull))
         {
-            (found, hasNull) = (semiFound, semiNull);
+            result = semiFound ? true : semiNull ? null : false;
         }
         else
         {
@@ -174,22 +178,32 @@ internal sealed partial class ExpressionEvaluator(
             // was the membership test over its values, repeated per outer row. Hoisting also builds a hash set,
             // so ask that first and only walk the values when it declines (mixed or non-hashable kinds).
             IEnumerable<object?> items = subqueries.ExecuteColumn(inq.Query, scope);
-            if (subqueries.LookupHoistedIn(inq.Query, val) is var (setFound, setNull))
+            if (val is not null && membership && subqueries.LookupHoistedIn(inq.Query, val) is var (setFound, setNull))
             {
-                (found, hasNull) = (setFound, setNull);
+                result = setFound ? true : setNull ? null : false;
             }
             else
             {
+                // ANY is decided by the first row it holds for, ALL by the first it fails for.
+                bool any = !inq.All, unknown = false;
                 foreach (object? item in items)
                 {
-                    if (item is null) hasNull = true;
-                    else if (Compare(val, item, Text) == 0) { found = true; break; }
+                    if (val is null || item is null)
+                    {
+                        unknown = true;
+                        if (val is null) break;
+                    }
+                    else if (Holds(inq.Comparison, Compare(val, item, Text)) == any)
+                    {
+                        result = any;
+                        break;
+                    }
                 }
+                result ??= unknown ? null : !any;
             }
         }
 
-        bool? result = found ? true : hasNull ? null : false;
-        return inq.Negated ? (result is null ? null : !result) : result;
+        return inq.Negated ? !result : result;
     }
 
     /// <summary><c>x [NOT] IN (a, b, …)</c> over a list, evaluated iteratively (not as a recursive OR-tree) so a huge
@@ -2197,12 +2211,9 @@ internal sealed partial class ExpressionEvaluator(
 
         return b.Operator switch
         {
-            BinaryOperator.Equal => Boxed(CompareOperands(b, left, right) == 0),
-            BinaryOperator.NotEqual => Boxed(CompareOperands(b, left, right) != 0),
-            BinaryOperator.LessThan => Boxed(CompareOperands(b, left, right) < 0),
-            BinaryOperator.LessThanOrEqual => Boxed(CompareOperands(b, left, right) <= 0),
-            BinaryOperator.GreaterThan => Boxed(CompareOperands(b, left, right) > 0),
-            BinaryOperator.GreaterThanOrEqual => Boxed(CompareOperands(b, left, right) >= 0),
+            BinaryOperator.Equal or BinaryOperator.NotEqual or BinaryOperator.LessThan or BinaryOperator.LessThanOrEqual
+                or BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual =>
+                Boxed(Holds(b.Operator, CompareOperands(b, left, right))),
             // LIKE reads any other value as the text CStr gives it (verified vs ACE: TRUE LIKE '-1' is True). A binary
             // value becomes text too, so LIKE is case-insensitive over a binary column even though '=' on the same
             // column is byte-wise: `B LIKE 'A%'` matches both 0x4100 ('A') and 0x6100 ('a').
@@ -2217,6 +2228,18 @@ internal sealed partial class ExpressionEvaluator(
             _ => throw new NotSupportedException($"Binary operator {b.Operator}."),
         };
     }
+
+    /// <summary>Whether a comparison operator holds for two values in the given order (negative, zero or positive).</summary>
+    private static bool Holds(BinaryOperator comparison, int order) => comparison switch
+    {
+        BinaryOperator.Equal => order == 0,
+        BinaryOperator.NotEqual => order != 0,
+        BinaryOperator.LessThan => order < 0,
+        BinaryOperator.LessThanOrEqual => order <= 0,
+        BinaryOperator.GreaterThan => order > 0,
+        BinaryOperator.GreaterThanOrEqual => order >= 0,
+        _ => throw new NotSupportedException($"Comparison operator {comparison}."),
+    };
 
     /// <summary>
     /// Whether <paramref name="expression"/> is a span — known before any row is read, as a Currency result is.

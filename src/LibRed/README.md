@@ -96,8 +96,8 @@ Treat the number as of its date — an EF Core version bump moves it.
   + `ORDER BY`**, and **derived-table / `UNION` sources** (the long subquery text lands on an LVAL page so
   Access executes it); **`CREATE PROCEDURE`** (parameterized — bare or parenthesised list, `@name`),
   including **action-query** bodies (`CREATE TABLE`, `INSERT … VALUES`, `INSERT … SELECT`, `UPDATE`, `DELETE`
-  and `SELECT … INTO`), **`UNION`** and **crosstab (`TRANSFORM … PIVOT`)** bodies, and a FROM or make-table
-  naming another file with **`IN externaldatabase`**; and **`EXECUTE`/`EXEC`**.
+  and `SELECT … INTO`), **`UNION`** and **crosstab (`TRANSFORM … PIVOT`)** bodies, and a FROM, make-table or
+  append naming another file with **`IN externaldatabase`**; and **`EXECUTE`/`EXEC`**.
   LibRed's own engine **reads them all back** — reconstructing the SQL from `MSysQueries` and expanding a
   view referenced in `FROM` (or inside an expression subquery) to a derived table — so they run through
   LibRed too. Reading is not limited to what LibRed writes: the `Attribute=1` operation row is read as the
@@ -105,8 +105,9 @@ Treat the number as of its date — an EF Core version bump moves it.
   rows is Access's `SELECT *`, one with column rows and the output-all-fields bit is a `*` among those columns,
   and `DISTINCTROW`, `TOP … PERCENT` and `WITH OWNERACCESS OPTION` are decoded from their own option bits —
   and written back the same way.
-  Measured over a corpus of 19 real-world databases: 479 of 592 stored queries come back as views, and 337 of
-  those reproduce ACE's own SQL exactly once bracketing and whitespace are normalised.
+  Measured over a corpus of 49 real-world databases (2026-10-17): 1,297 of 1,314 stored queries are rebuilt, and
+  1,259 of those parse. The rest read multi-valued or attachment fields, or are Access's own form and report
+  record sources (which need the form), or alias two outputs alike, which ACE refuses too.
 - **Write** — row insert with order-preserving index-key encoding and **full B-tree maintenance**
   (descend to the target leaf, insert with prefix compression, **leaf/node splitting and root growth**);
   composite keys, byte-verified against a five-column mixed-type, mixed-direction index ACE itself built
@@ -210,6 +211,11 @@ Treat the number as of its date — an EF Core version bump moves it.
   names them: an unnamed expression is `Expr1000` and up by its place in the list, a column reference written twice
   is an `Expr` name but for its last, two outputs that still share a name are told apart by table (`Orders.CustomerID`),
   an alias keeps its name, and two equal aliases are refused.
+  A comparison with each row of a subquery — `x > ANY (…)`, `SOME`, `ALL`, any comparison — gives ACE's three-valued
+  result: ANY holds when one comparison does, ALL when every one does, over no rows ANY is False and ALL True whatever
+  `x` is (so `Null IN` an empty subquery is False, as in ACE), and otherwise a Null that leaves it undecided makes it
+  Null. **A NOT over one deliberately differs from ACE's:** LibRed negates it, where ACE turns `NOT (x < ALL (…))` into
+  `x >= ALL (…)`, which is not the negation, for any comparison but `=`.
   **`TOP n` deliberately differs from ACE's:** it returns exactly n rows, where ACE's `TOP n` (and `TOP n PERCENT`)
   also returns every further row whose `ORDER BY` keys equal the last one's — a stored query ACE wrote included.
   `WITH TIES` asks for ACE's rows (below).
@@ -235,7 +241,7 @@ Treat the number as of its date — an EF Core version bump moves it.
   Function arguments are arity-checked against a per-function range table, so a wrong count raises rather
   than being silently ignored.
   Plan nodes: Scan / IndexScan / IndexSeek / IndexRangeSeek / Filter / Project / Join / HashJoin / Aggregate /
-  Sort / Limit / Distinct / DistinctRow / SetOperation / DerivedTable / Values / Window / SingleRow.
+  Sort / Limit / Distinct / DistinctRow / SetOperation / DerivedTable / Crosstab / Values / Window / SingleRow.
 - **SQL beyond what ACE has** — the engine deliberately accepts a superset of the Access dialect, which is
   what extended mode generates against (see the EF Core section below):
   - `CROSS APPLY` / `OUTER APPLY` — a lateral join, with the right side re-evaluated per left row. ACE has
@@ -326,7 +332,6 @@ Format-level detail on each on-disk gap lives in `docs/format/`.
 *SQL surface / engine gaps:*
 
 - **Stored pass-through queries** — read back as a *named* refusal rather than executing.
-- **`INSERT INTO … IN externaldatabase`** — ACE appends into another file; LibRed's INSERT does not take the clause.
 - **A crosstab's columns when describing** (`CommandBehavior.SchemaOnly`) — only the row headings and fixed
   headings, since the rest come from the data.
 - **`ALTER TABLE … RENAME INDEX`** — parsed and routed, but throws: the TDEF rewrite is not implemented.

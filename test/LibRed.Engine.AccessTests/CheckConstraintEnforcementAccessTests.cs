@@ -34,6 +34,11 @@ public class CheckConstraintEnforcementAccessTests(ITestOutputHelper output)
     [InlineData("CREATE TABLE T (A LONG, CONSTRAINT ck CHECK ((SELECT COUNT(*) FROM T WHERE A = 2) <= 1))", "INSERT INTO T VALUES (1)", "INSERT INTO T VALUES (2)", "UPDATE T SET A = A + 1")]
     [InlineData("CREATE TABLE T (A LONG, CONSTRAINT ck CHECK ((SELECT COUNT(*) FROM T WHERE A = 2) <= 1))", "INSERT INTO T VALUES (2)", "INSERT INTO T VALUES (1)", "UPDATE T SET A = A + 1")]
     [InlineData("CREATE TABLE T (A LONG, CONSTRAINT ck CHECK ((SELECT COUNT(*) FROM T WHERE A = 1) <= 1))", "INSERT INTO T VALUES (1)", "INSERT INTO T VALUES (2)", "INSERT INTO T VALUES (3)", "UPDATE T SET A = 1 WHERE A > 1", "INSERT INTO T VALUES (1)")]
+    // A comparison with each row of a subquery: against another table, and against the table itself.
+    [InlineData("CREATE TABLE T (A LONG, CONSTRAINT ck CHECK (A > ANY (SELECT EmployeeID FROM Employees)))",
+        "INSERT INTO T VALUES (5)", "INSERT INTO T VALUES (1)", "INSERT INTO T VALUES (NULL)")]
+    [InlineData("CREATE TABLE T (A LONG, CONSTRAINT ck CHECK (A >= ALL (SELECT A FROM T)))",
+        "INSERT INTO T VALUES (1)", "INSERT INTO T VALUES (5)", "INSERT INTO T VALUES (3)", "UPDATE T SET A = 0 WHERE A = 1")]
     // Only the row written is checked, not the rows already there.
     [InlineData("CREATE TABLE T (A LONG, CONSTRAINT ck CHECK (A >= (SELECT COUNT(*) FROM T)))", "INSERT INTO T VALUES (1)", "INSERT INTO T VALUES (5)")]
     [InlineData("CREATE TABLE T (K LONG, A LONG, CONSTRAINT ck CHECK (A >= (SELECT MAX(K) FROM T)))", "INSERT INTO T VALUES (1, 5)", "INSERT INTO T VALUES (2, 5)", "UPDATE T SET K = 7 WHERE K = 2")]

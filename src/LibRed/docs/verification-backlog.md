@@ -30,6 +30,7 @@ Items marked ✔ were re-checked by reading the cited code/test; the rest are as
 | Property flag `0x01` effect (system-catalog) | ACE ignores a column's `DefaultValue` and `Required` with the bit cleared; `CheckConstraints` is enforced regardless. | measured once (no LibRed behaviour to pin yet — see the open item below) |
 | Compressed long value at the page boundary (long-values) | The directory entry counts (1138 shares, 1139 does not). **LibRed bug, fixed:** ACE decides free-pages-map membership on the room the *uncompressed* bytes leave (1009 stays, 1010 leaves); LibRed used the compressed row. | `WholeFileParityProbeTest` Cmp* |
 | Kept page on a full row-by-row delete (page-09) | The lowest owned page, not the creation page (created 361, keeps 310). LibRed agrees. | `WholeFileParityProbeTest` #458–464 |
+| A map's start past page 512 (page-05) | **LibRed bug, fixed.** An inline map that marks no page, asked for one outside its window, is re-based on that page rounded down to 8 — data, index and long-value, owned and free alike. A free map's window "slide" is that rule applied to a map just emptied, so it lands on the tail's byte, not a 512 boundary (600 → 1112, 1152 → 1672). LibRed grew the owned map from 0 and slid free windows to 512 boundaries. | `WholeFileParityProbeTest` #469–473 |
 | Free window above the marked page (page-05) | **LibRed bug, fixed.** ACE converts the free-pages map to a reference map with a fresh bitmap page; LibRed widened the inline record. | `WholeFileParityProbeTest` #465–468 |
 
 **New open items found on the way:**
@@ -37,11 +38,6 @@ Items marked ✔ were re-checked by reading the cited code/test; the rest are as
 - An unordered cross join returns rows in a different order — ACE ran `SELECT … FROM Tens AS a, Tens AS b WHERE
   a.D < 5` with `b` as the outer loop and the filtered `a` inner; LibRed iterates `a` outer. Only visible through
   `INSERT … SELECT` row placement without `ORDER BY`. One data point; the rule ACE follows is unmeasured.
-- **A new table whose first data page is above 512 starts its maps differently.** Its first page 1146: ACE writes
-  both the owned and the free record at 69 bytes from `startPage` 1144 (the page rounded down to 8); LibRed starts
-  the owned map at 0 and grows it to 153 bytes, and the free window at 1024. Below page 512 the two agree, which is
-  why the corpus never showed it. The doc's measured window *slides* land on multiples of 512, so a fresh map and a
-  sliding one are placed by different rules — measure both before changing `UsageMap`.
 - LibRed's reader applies `DefaultValue`/`Required` whatever the entry flag; ACE ignores them at `0x00`. No writer
   seen produces that, so low priority.
 

@@ -761,6 +761,19 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             "DELETE FROM WinMap WHERE Id = 5",
         ]);
 
+        // A new table whose pages all lie past the first 512 — its data, index and long-value maps each start out
+        // empty at page 0 and are re-based on their first page — grown until its free maps move on.
+        s.AddRange(
+        [
+            "CREATE TABLE Late (Id LONG, W1 TEXT(255), W2 TEXT(255), M MEMO)",
+            "CREATE INDEX ixLate ON Late (Id)",
+            "INSERT INTO Late (Id, W1, W2, M) VALUES (0, String(255, 'a'), String(255, 'b'), String(100, 'm'))",
+            "INSERT INTO Late (Id, W1, W2, M) SELECT 1 + a.D * 100 + b.D * 10 + c.D, String(255, 'a'), String(255, 'b'), " +
+                "String(100, 'm') FROM Tens AS a, Tens AS b, Tens AS c ORDER BY 1",
+            "INSERT INTO Late (Id, W1, W2, M) SELECT 1001 + a.D * 100 + b.D * 10 + c.D, String(255, 'a'), String(255, 'b'), " +
+                "String(100, 'm') FROM Tens AS a, Tens AS b, Tens AS c WHERE a.D < 6 ORDER BY 1",
+        ]);
+
         return [.. s];
     }
 

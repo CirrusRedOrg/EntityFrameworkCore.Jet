@@ -111,16 +111,25 @@ free = row 1); an index's map spills the same way rather than being squeezed in.
 >   fits, otherwise convert — re-marking every previously-owned page into freshly allocated bitmap pages
 >   (grouped by slot, one write per bitmap page) and shrinking the record to the fixed 69 bytes.
 >   ACE reads a LibRed-written reference map and counts every row back.
+> - **An empty map is re-based, not grown.** Every inline map a table owns — owned and free, data, index and
+>   long-value — starts at `startPage = 0` with a 64-byte bitmap and no bit set. Asked to mark a page outside
+>   its window while it marks **no** page, ACE moves `startPage` to that page rounded down to 8 and keeps the
+>   record's length (verified: a table whose first data page is 605 / 1151 / 1535 starts its owned and free
+>   maps at 600 / 1144 / 1528, its index and long-value maps likewise on their own first pages). A page the
+>   window already covers is marked where it is, which is why a table below page 512 keeps `startPage = 0`.
+>   Its owned map then grows from that start as below.
 > - **Movable window (free-pages maps).** A free-pages map's set bits stay clustered at the append tail, so
->   Access never grows it: it slides a fixed **64-byte bitmap (512 pages)** whose `startPage` is
->   `floor(page / 512) × 512`. Verified — a table whose tail page was 852 / 1227 / 1852 / 2852 had a free
->   record of length **69** with `startPage` 512 / 1024 / 1536 / 2560, one bit set, while the *owned* map of
->   the same table kept `startPage = 0` and grew. An owned map cannot slide: it must retain every page it has
->   ever taken. LibRed slides the window for free-pages maps (table and long-value column), and only for
->   them. The window can already sit **above** the page being marked, since it follows the append tail while
+>   Access never grows it: the page an insert finds full leaves the map before the next tail is marked, so the
+>   map is empty at that moment and re-based on the new tail by the rule above. Its window therefore moves to
+>   the new tail's page rounded down to 8 — not to a 512-page boundary: a free map starting at 600 moved to
+>   1112, one at 1152 to 1664, and a long-value free map at 1152 to 1672 (verified). An owned map cannot
+>   slide: it must retain every page it has ever taken. LibRed re-bases an empty map the same way. A non-empty
+>   free-pages map asked for a page outside its window LibRed slides to the 512-page window holding the target
+>   when every page it marks fits there; what ACE does in that case is **not measured**. The window can
+>   already sit **above** the page being marked, since it follows the append tail while
 >   a table's older pages stay where they are. There ACE neither widens the record nor re-bases the window:
 >   it **converts the free-pages map to a reference map** (type `0x01`), allocating a fresh bitmap page for it,
->   so no page it advertised is dropped (verified: a table grown to page ~1140, its free window at 1024, a row
+>   so no page it advertised is dropped (verified: a table grown to page ~1140, its free map marking the tail, a row
 >   deleted on page ~340). LibRed converts likewise whenever a page already marked would fall outside the
 >   window the target needs, and is byte-identical in that case.
 > - **The conversion point is a page-budget calculation, not a constant.** The owned map converts as soon as

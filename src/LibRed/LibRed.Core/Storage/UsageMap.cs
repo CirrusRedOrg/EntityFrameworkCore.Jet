@@ -331,17 +331,26 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
         {
             if (!set) return;
 
+            // A map that marks no page has nothing to keep, so ACE re-bases it on the target, rounded down to a
+            // byte, rather than growing or sliding it — owned, free, index and long-value maps alike (verified: a
+            // table whose first page is 605 / 1151 / 1535 starts its maps at 600 / 1144 / 1528, and a free map
+            // emptied by a filled page moves to the next tail's byte, not to a 512-page boundary).
+            if (!InlineBits(page.AsSpan(mapOffset, slot.Length), format).ContainsAnyExcept((byte)0))
+            {
+                BinaryPrimitives.WriteInt32LittleEndian(
+                    page.AsSpan(mapOffset + format.UsageMapStartPageOffset, sizeof(int)), targetPage / 8 * 8);
+                bitIndex = targetPage % 8;
+            }
             // A free-pages map slides its window onto the target instead of growing (and can therefore also
             // move *backwards*, which a grown map could never do). Where the window cannot take every page it
             // already marks as well, ACE neither widens the record nor drops a page: it converts the map to a
-            // reference map (verified: a table whose window had slid to 1024 marking a page near 340).
-            if (movableWindow)
+            // reference map (verified: a table grown to page ~1140, marking its tail, asked for a page near 340).
+            else if (movableWindow)
             {
                 if (!TryRepositionWindow(page, holder, format, mapPage, mapRow, targetPage)) SetAsReference();
                 return;
             }
-
-            if (bitIndex < 0)
+            else if (bitIndex < 0)
                 throw new NotSupportedException(
                     $"Page {targetPage} is below the usage map's start page {startPage}; this map's window cannot move.");
         }

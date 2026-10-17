@@ -691,6 +691,76 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             "DROP INDEX u1 ON ShU",
         ]);
 
+        // A CHECK's place among the table-level elements written after the columns' properties: before and after a
+        // table-level UNIQUE, and ahead of a table-level primary key. Then a definition written onto a page a dropped
+        // table released — each step is its own session, so the drop's pages are back in the free map by the create.
+        s.AddRange(
+        [
+            "CREATE TABLE CkBefore (Id LONG, Code TEXT(10) DEFAULT 'x', CONSTRAINT ckBefore CHECK (Id > 0), CONSTRAINT uqBefore UNIQUE (Code))",
+            "CREATE TABLE CkAfter (Id LONG, Code TEXT(10) DEFAULT 'x', CONSTRAINT uqAfter UNIQUE (Code), CONSTRAINT ckAfter CHECK (Id > 0))",
+            "CREATE TABLE CkKey (Id LONG, Code TEXT(10), CONSTRAINT ckKey CHECK (Id > 0), CONSTRAINT pkCkKey PRIMARY KEY (Id))",
+            "CREATE TABLE Reuse1 (" + string.Join(", ", Enumerable.Range(1, 30).Select(i => $"Wide{i:D2} TEXT(50)")) + ")",
+            "DROP TABLE Reuse1",
+            "CREATE TABLE Reuse2 (Id LONG)",
+        ]);
+
+        // A backfill into leaves an ascending load packed: the odd keys go in after the even ones, in a scrambled
+        // order (7919 is coprime with 1000, so every n is visited once). Then a no-WHERE DELETE of a table whose
+        // one-leaf index root is compressed — 500 equal keys fill it, which is what makes ACE compress it.
+        s.Add("CREATE TABLE Tens (D BYTE)");
+        for (int d = 0; d <= 9; d++) s.Add($"INSERT INTO Tens (D) VALUES ({d})");
+        s.AddRange(
+        [
+            "CREATE TABLE Backfill (K LONG)",
+            "CREATE INDEX ixBackfill ON Backfill (K)",
+            "INSERT INTO Backfill (K) SELECT 2 * (a.D * 100 + b.D * 10 + c.D) + 2 FROM Tens AS a, Tens AS b, Tens AS c ORDER BY 1",
+            "INSERT INTO Backfill (K) SELECT 2 * (a.D * 100 + b.D * 10 + c.D) + 1 FROM Tens AS a, Tens AS b, Tens AS c " +
+                "ORDER BY ((a.D * 100 + b.D * 10 + c.D) * 7919) MOD 1000",
+            "CREATE TABLE Prefixed (K TEXT(100))",
+            "CREATE INDEX ixPrefixed ON Prefixed (K)",
+            "INSERT INTO Prefixed (K) SELECT 'same' FROM Tens AS a, Tens AS b, Tens AS c WHERE a.D < 5",
+            "DELETE FROM Prefixed",
+        ]);
+
+        // A compressed single-page value goes on a page only if its UNCOMPRESSED bytes fit. A second value swept
+        // across the boundary beside a first, each pair in a table of its own so every one starts from the same
+        // page, settles whether the directory entry counts on top of those bytes.
+        // Then the same pairs where the page's room after the second value crosses the free-pages map's 258-byte
+        // cut-off when measured by the uncompressed bytes (n = 1009 | 1010), and single values on a fresh page
+        // whose uncompressed image leaves more or less than that.
+        foreach (int n in Enumerable.Range(1130, 16).Concat(Enumerable.Range(1006, 7)))
+        {
+            s.Add($"CREATE TABLE Cmp{n} (Id LONG, M MEMO WITH COMPRESSION)");
+            s.Add($"INSERT INTO Cmp{n} (Id, M) VALUES (1, String(1800, 'e'))");
+            s.Add($"INSERT INTO Cmp{n} (Id, M) VALUES (2, String({n}, 'f'))");
+        }
+        foreach (int n in new[] { 1900, 1911, 1912, 1950 })
+        {
+            s.Add($"CREATE TABLE CmpOne{n} (Id LONG, M MEMO WITH COMPRESSION)");
+            s.Add($"INSERT INTO CmpOne{n} (Id, M) VALUES (1, String({n}, 'g'))");
+        }
+
+        // The page a table keeps through a row-by-row delete of every row, where its first page and its lowest
+        // part company: Kept's first page sits above PadA's, PadA is dropped, and Kept grows into the holes below.
+        // Then a free-pages map whose window has slid to 1024 with the append tail, asked to record a page below
+        // 512 when a row is deleted there.
+        s.AddRange(
+        [
+            "CREATE TABLE PadA (Id LONG, Body TEXT(255))",
+            "INSERT INTO PadA (Id, Body) SELECT a.D * 10 + b.D, String(250, 'p') FROM Tens AS a, Tens AS b ORDER BY 1",
+            "CREATE TABLE Kept (Id LONG, Body TEXT(255))",
+            "INSERT INTO Kept (Id, Body) VALUES (0, String(250, 'k'))",
+            "DROP TABLE PadA",
+            "INSERT INTO Kept (Id, Body) SELECT 1 + a.D * 10 + b.D, String(250, 'k') FROM Tens AS a, Tens AS b ORDER BY 1",
+            "DELETE FROM Kept WHERE Id >= 0",
+            "CREATE TABLE WinMap (Id LONG, A TEXT(255), B TEXT(255), C TEXT(255))",
+            "INSERT INTO WinMap (Id, A, B, C) SELECT a.D * 100 + b.D * 10 + c.D, String(255, 'a'), String(255, 'b'), " +
+                "String(255, 'c') FROM Tens AS a, Tens AS b, Tens AS c ORDER BY 1",
+            "INSERT INTO WinMap (Id, A, B, C) SELECT 1000 + a.D * 100 + b.D * 10 + c.D, String(255, 'a'), String(255, 'b'), " +
+                "String(255, 'c') FROM Tens AS a, Tens AS b, Tens AS c WHERE a.D < 6 ORDER BY 1",
+            "DELETE FROM WinMap WHERE Id = 5",
+        ]);
+
         return [.. s];
     }
 

@@ -108,6 +108,7 @@ public class StoredQueryKindAccessTests
     [InlineData("UpdQ", "UPDATE Shippers SET Shippers.Phone = '555-0100'", 4, "SET")]
     [InlineData("DelQ", "DELETE FROM Shippers WHERE Shippers.CompanyName = 'nope'", 5, "FROM [Shippers]")]
     [InlineData("MakeQ", "SELECT Shippers.* INTO ShipCopy FROM Shippers", 2, "INTO [ShipCopy]")]
+    [InlineData("DdlQ", "CREATE TABLE ZZ (Id LONG)", 7, "CREATE TABLE ZZ")]
     public void Action_query_kinds_authored_through_dao_are_rebuilt(string name, string sql, int flag, string expected)
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "qkind-action-");

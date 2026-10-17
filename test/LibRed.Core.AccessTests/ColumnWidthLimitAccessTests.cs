@@ -1,4 +1,5 @@
 using System.Data.OleDb;
+using System.Reflection;
 using LibRed.Catalog;
 using Xunit;
 
@@ -61,10 +62,7 @@ public class ColumnWidthLimitAccessTests : TempDatabaseTest
     [InlineData(251, 7, false)]     // 4023
     public void A_fixed_region_past_the_record_cap_is_refused(int guids, int textWidth, bool allowed)
     {
-        var specs = Enumerable.Range(0, guids)
-            .Select(i => new ColumnSpec($"G{i}", JetDataType.Guid, 16, IsFixedLength: true))
-            .Append(new ColumnSpec("T", JetDataType.Text, textWidth, IsFixedLength: true))
-            .ToList();
+        ColumnSpec[] specs = FixedRegion(guids, textWidth);
 
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "record-cap-");
         using (var database = JetDatabase.Open(path, readOnly: false))
@@ -115,6 +113,105 @@ public class ColumnWidthLimitAccessTests : TempDatabaseTest
         read.CommandText = "SELECT COUNT(*) FROM F";
         Assert.Equal(0, Convert.ToInt32(read.ExecuteScalar()));
     }
+
+    public enum Outcome { Unopenable, TooLarge, Fits }
+
+    // A calculated column is charged like a variable one, 2 bytes, against the declared size; its stored value then
+    // counts in the row with a 27-byte envelope for a Long. DAO is the one route ACE offers to a calculated column,
+    // and it does not check the cap: past it the database is unopenable, and inside it but without room for the
+    // envelope every insert is too large. LibRed refuses the first on AddColumn and the second on Insert.
+    [Theory]
+    [InlineData(251, 6, Outcome.Unopenable)]   // 4022 fixed bytes — at the cap before the column
+    [InlineData(251, 5, Outcome.Unopenable)]   // 4021
+    [InlineData(251, 4, Outcome.TooLarge)]     // 4020: the column fits the declaration
+    [InlineData(249, 10, Outcome.TooLarge)]    // 3994
+    [InlineData(249, 9, Outcome.Fits)]         // 3993: 27 bytes more room, and a row with its value fits
+    public void A_calculated_column_is_held_to_the_record_cap_as_ace_holds_it(int guids, int textWidth, Outcome expected)
+    {
+        object? engine = AceTestDatabase.CreateDaoEngine();
+        Assert.SkipWhen(engine is null, "DAO is not available in this process.");
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "record-cap-calc-");
+        try
+        {
+            using (var database = JetDatabase.Open(path, readOnly: false)) database.CreateTable("W", FixedRegion(guids, textWidth));
+
+            object db = Invoke(engine!, "OpenDatabase", path)!;
+            try
+            {
+                object td = Item(Get(db, "TableDefs"), "W");
+                object field = Invoke(td, "CreateField", "C", DaoLong)!;
+                Set(field, "Expression", "1+1");
+                Invoke(Get(td, "Fields"), "Append", field);
+            }
+            finally { Invoke(db, "Close"); AceTestDatabase.ReleaseAbandonedComObjects(); }
+
+            Outcome ace;
+            try
+            {
+                using OleDbConnection connection = AceTestDatabase.Open(path, attempts: 1);
+                using OleDbCommand insert = connection.CreateCommand();
+                insert.CommandText = "INSERT INTO W (T) VALUES ('x')";
+                insert.ExecuteNonQuery();
+                ace = Outcome.Fits;
+            }
+            catch (Exception e) when ((e.InnerException ?? e).Message.Contains("Unrecognized database format", StringComparison.Ordinal))
+            {
+                ace = Outcome.Unopenable;   // raised by the open or by the first statement, whichever reaches the table
+            }
+            catch (OleDbException e) when (e.Message.Contains("Record is too large", StringComparison.Ordinal))
+            {
+                ace = Outcome.TooLarge;
+            }
+            finally { OleDbConnection.ReleaseObjectPool(); }
+            Assert.Equal(expected, ace);
+
+            Assert.Equal(expected, CalculatedThroughLibRed(guids, textWidth));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    /// <summary>The same column added, and the same row inserted, through LibRed on a copy of its own.</summary>
+    private static Outcome CalculatedThroughLibRed(int guids, int textWidth)
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "record-cap-calc-lib-");
+        try
+        {
+            using var database = JetDatabase.Open(path, readOnly: false);
+            database.CreateTable("W", FixedRegion(guids, textWidth));
+            try { database.AddColumn("W", ColumnSpec.Calculated("C", JetDataType.Int32, "1+1")); }
+            catch (NotSupportedException) { return Outcome.Unopenable; }
+            try
+            {
+                var row = new object?[guids + 2];
+                row[guids] = "x";
+                database.OpenTable("W").Insert(row);
+                return Outcome.Fits;
+            }
+            catch (InvalidOperationException e) when (e.Message.Contains("Record is too large", StringComparison.Ordinal))
+            {
+                return Outcome.TooLarge;
+            }
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    private const int DaoLong = 4;
+
+    private static ColumnSpec[] FixedRegion(int guids, int textWidth) =>
+        [.. Enumerable.Range(0, guids).Select(i => new ColumnSpec($"G{i}", JetDataType.Guid, 16, IsFixedLength: true))
+            .Append(new ColumnSpec("T", JetDataType.Text, textWidth, IsFixedLength: true))];
+
+    private static object Get(object target, string member) =>
+        target.GetType().InvokeMember(member, BindingFlags.GetProperty, null, target, null)!;
+
+    private static void Set(object target, string member, object value) =>
+        target.GetType().InvokeMember(member, BindingFlags.SetProperty, null, target, [value]);
+
+    private static object Item(object collection, object key) =>
+        collection.GetType().InvokeMember("Item", BindingFlags.GetProperty, null, collection, [key])!;
+
+    private static object? Invoke(object target, string member, params object?[] args) =>
+        target.GetType().InvokeMember(member, BindingFlags.InvokeMethod, null, target, args);
 
     private static JetDatabase Fresh(out string path)
     {

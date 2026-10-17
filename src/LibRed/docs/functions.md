@@ -54,8 +54,9 @@ reference throws "Column not found" — a default is row-blind by design). The e
 
 ## Access / VBA functions
 
-The JES surface, **verified against ACE** via a function-whitelist probe sweep (`FunctionWhitelist*Probe`). It is
-close but *not proven exhaustive* — re-run the sweep when in doubt.
+The JES surface, drawn from a function-whitelist probe sweep against ACE. That sweep is not kept in the repository,
+so the list is close but *not proven exhaustive*; rebuilding it as a committed probe is in
+[the verification backlog](verification-backlog.md) (§2).
 
 ### Type conversion
 

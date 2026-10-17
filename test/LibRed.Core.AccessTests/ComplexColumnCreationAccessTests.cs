@@ -102,6 +102,67 @@ public partial class ComplexColumnCreationAccessTests(ITestOutputHelper output)
             dao: db => CreateTable(db, table, (column, 104)),
             libred: db => db.CreateTable(table, [Kinds[104](column)]));
 
+    // The descriptor's ComplexID at 0x0B–0x0E is an Int32 (page-02b §3.2), and DAO takes it from MSysComplexColumns'
+    // AutoNumber: raised so the next id needs a second byte (300) and a third (70000, which a 16-bit id would lose),
+    // the id LibRed reads is the one DAO assigned, and the value stored under it resolves.
+    [Theory]
+    [InlineData(300)]
+    [InlineData(70000)]
+    public void A_complex_id_past_one_byte_reads_as_dao_assigned_it(int expectedId)
+    {
+        object? engine = AceTestDatabase.CreateDaoEngine();
+        Assert.SkipWhen(engine is null, "DAO is not available in this process.");
+        string path = TemporaryDatabase.CreatePath("complex-id-");
+        try
+        {
+            Invoke(Invoke(engine!, "CreateDatabase", path, Locale)!, "Close");
+            AceTestDatabase.ReleaseAbandonedComObjects();
+            Ole(path, c =>
+            {
+                Exec(c, "CREATE TABLE P (ID LONG, Txt TEXT(10))");
+                Exec(c, "INSERT INTO P (ID, Txt) VALUES (1, 'a')");
+            });
+
+            int registryPage, counterOffset, pageSize;
+            using (var db = JetDatabase.Open(path, readOnly: true))
+            {
+                registryPage = db.Catalog.FindTable("MSysComplexColumns")!.DefinitionPage;
+                counterOffset = db.Format.TdefLastAutoNumberOffset;
+                pageSize = db.Format.PageSize;
+            }
+            using (var file = new FileStream(path, FileMode.Open, FileAccess.ReadWrite))
+            {
+                Span<byte> counter = stackalloc byte[4];
+                BinaryPrimitives.WriteInt32LittleEndian(counter, expectedId - 1);
+                file.Position = (long)registryPage * pageSize + counterOffset;
+                file.Write(counter);
+            }
+
+            Dao(engine!, path, db =>
+            {
+                AppendField(db, "P", "X", 104);
+                object rs = Invoke(db, "OpenRecordset", "SELECT * FROM P WHERE ID = 1")!;
+                Invoke(rs, "Edit");
+                object child = Get(Item(Get(rs, "Fields"), "X"), "Value");
+                Invoke(child, "AddNew");
+                Set(Item(Get(child, "Fields"), "Value"), "Value", 7);
+                Invoke(child, "Update");
+                Invoke(child, "Close");
+                Invoke(rs, "Update");
+                Invoke(rs, "Close");
+            });
+
+            using (var db = JetDatabase.Open(path, readOnly: true))
+            {
+                ColumnDef x = db.Catalog.FindTable("P")!.FindColumn("X")!;
+                Assert.Equal(expectedId, x.ComplexId);
+                int link = Convert.ToInt32(db.OpenTable("P").Rows().Single()[x.Index]);
+                Assert.Equal(7, Convert.ToInt32(Assert.Single(db.ReadComplexValues("P", "X", link))[0]));
+            }
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     /// <summary>Seeds a file — DAO-created, or LibRed-created for General v1, which DAO cannot make — with
     /// <c>P (ID, Txt)</c> and <paramref name="rows"/> rows, runs <paramref name="prepare"/> on it, then has DAO and LibRed
     /// each make the change on a copy and compares the two.</summary>
@@ -300,6 +361,9 @@ public partial class ComplexColumnCreationAccessTests(ITestOutputHelper output)
 
     private static object Get(object target, string member) =>
         target.GetType().InvokeMember(member, BindingFlags.GetProperty, null, target, null)!;
+
+    private static void Set(object target, string member, object value) =>
+        target.GetType().InvokeMember(member, BindingFlags.SetProperty, null, target, [value]);
 
     private static object Item(object collection, object key) =>
         collection.GetType().InvokeMember("Item", BindingFlags.GetProperty, null, collection, [key])!;

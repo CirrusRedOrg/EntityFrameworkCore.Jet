@@ -333,8 +333,8 @@ updated as the format understanding grows. (`docs/jet-ace-file-format.md` is now
 stub to that folder.) Alongside it: `docs/functions.md` catalogs the supported VBA/Access function surface,
 `docs/design/transactions.md` covers the deferred-write page overlay,
 `docs/design/index-key-checksum.md` records how the index-key truncation checksum was pinned down (and why the
-rule it replaced looked verified for years), and `docs/mdbtools-spec-diff-todo.md`
-tracks where our spec and mdbtools' still disagree.
+rule it replaced looked verified for years), and `docs/verification-backlog.md` lists every claim the docs
+still call unverified, with how to settle each.
 
 > **Rule — spec sync on every `LibRed.Core` change.** Whenever you touch the actual on-disk
 > read/write code in `src/LibRed/LibRed.Core/` (page/row/index/TDEF/usage-map parsing or

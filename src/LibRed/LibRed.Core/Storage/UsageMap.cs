@@ -350,9 +350,13 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
                 if (!TryRepositionWindow(page, holder, format, mapPage, mapRow, targetPage)) SetAsReference();
                 return;
             }
+            // An owned map cannot slide, and one asked for a page below its start converts the same way (verified: a
+            // table whose owned map was re-based on 600, given 42, 44 and 45, holds them in a reference map).
             else if (bitIndex < 0)
-                throw new NotSupportedException(
-                    $"Page {targetPage} is below the usage map's start page {startPage}; this map's window cannot move.");
+            {
+                SetAsReference();
+                return;
+            }
         }
 
         // When Access needs to mark a page beyond the window it grows the bitmap record in place (still

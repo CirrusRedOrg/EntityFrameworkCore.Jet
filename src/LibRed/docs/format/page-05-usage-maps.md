@@ -121,7 +121,8 @@ free = row 1); an index's map spills the same way rather than being squeezed in.
 >   record's length (verified: a table whose first data page is 605 / 1151 / 1535 starts its owned and free
 >   maps at 600 / 1144 / 1528, its index and long-value maps likewise on their own first pages). A page the
 >   window already covers is marked where it is, which is why a table below page 512 keeps `startPage = 0`.
->   Its owned map then grows from that start as below.
+>   Its owned map then grows from that start as below; given a page *below* that start, it cannot slide, and ACE
+>   converts it to a reference map (verified: an owned map re-based on 600, its table then given 42, 44 and 45).
 > - **Movable window (free-pages maps).** A free-pages map's set bits stay clustered at the append tail, so
 >   Access never grows it: the page an insert finds full leaves the map before the next tail is marked, so the
 >   map is empty at that moment and re-based on the new tail by the rule above. Its window therefore moves to

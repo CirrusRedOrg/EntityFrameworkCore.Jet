@@ -942,6 +942,49 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
         }
     }
 
+    /// <summary>A table whose owned map starts above a page ACE then gives it: Filler fills pages past the first 512,
+    /// T is created after it (so its owned map is re-based above 512), Filler is dropped, and T's next rows take the
+    /// pages it freed. T's owned-map record — type, start, length — and data pages, before and after.</summary>
+    [Fact(Explicit = true)]
+    public void Owned_map_given_a_page_below_its_start()
+    {
+        string? origin = CreateEmptyThroughDao();
+        Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
+        const string Wide = "W1 TEXT(255), W2 TEXT(255), W3 TEXT(255), W4 TEXT(255), W5 TEXT(255), W6 TEXT(255), W7 TEXT(255)";
+        const string WideValues = "String(255,'a'), String(255,'b'), String(255,'c'), String(255,'d'), String(255,'e'), String(255,'f'), String(255,'g')";
+        try
+        {
+            RunThroughAce(origin, [$"CREATE TABLE Filler (Id LONG, {Wide})",
+                .. Enumerable.Range(0, 560).Select(i => $"INSERT INTO Filler VALUES ({i}, {WideValues})"),
+                $"CREATE TABLE T (Id LONG, {Wide})", $"INSERT INTO T VALUES (0, {WideValues})"]);
+            Report("before the drop");
+            RunThroughAce(origin, ["DROP TABLE Filler"]);
+            RunThroughAce(origin, [.. Enumerable.Range(1, 3).Select(i => $"INSERT INTO T VALUES ({i}, {WideValues})")]);
+            Report("after three more rows");
+        }
+        finally
+        {
+            OleDbConnection.ReleaseObjectPool();
+            TemporaryDatabase.Delete(origin);
+        }
+
+        void Report(string when)
+        {
+            using var database = JetDatabase.Open(origin!, readOnly: true);
+            Table table = database.OpenTable("T");
+            (int row, int page) = database.Channel.ReadPageShared(table.Definition.DefinitionPage)
+                .ReadRecordPointer(database.Format.TdefOwnedPagesOffset);
+            var holder = new DataPage();
+            holder.Read(database.Channel.ReadPageShared(page), database.Format);
+            DataPage.RowSlot slot = holder.Rows[row];
+            byte[] record = database.Channel.ReadPageShared(page).Span.Slice(slot.Offset, slot.Length).ToArray();
+            UsageMapType type = UsageMap.RecordType(record);
+            int start = type == UsageMapType.Inline ? UsageMap.StartPage(record, database.Format) : -1;
+            output.WriteLine($"{when}: owned map {type}, start {start}, length {slot.Length}; " +
+                $"data [{string.Join(",", table.UsageMap.DataPages())}]; file {database.Channel.PageCount}");
+        }
+    }
+
     /// <summary>Statement 118 on the chained-sessions starting file shifted by a filler table of 0–10 one-page rows (its
     /// own session): for each shift, whether ACE and LibRed end alike, and where they part the first row that differs
     /// and each engine's pages for that row.</summary>

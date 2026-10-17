@@ -139,14 +139,15 @@ free = row 1); an index's map spills the same way rather than being squeezed in.
 >
 >   | Table | Records on the map page | Owned-record budget | Converts at |
 >   | --- | --- | --- | --- |
->   | No primary key | owned + free | `4096 − 14 − 4 − 69` = **4009** | page **32,032** |
->   | Primary key | owned + free + the index's own map | `4096 − 14 − 6 − 69 − 69` = **3938** | page **31,456** while the index map stays 69 bytes |
+>   | No primary key | owned + free | `4096 − 14 − 4 − 69 − 4` = **4005** | page **32,000** |
+>   | Primary key | owned + free + the index's own map | `4096 − 14 − 6 − 69 − index − 4` | page **17,696** with a 1,785-byte index map; **31,424** were it to stay 69 bytes |
 >
->   The no-PK row is verified end-to-end: LibRed's table converts at exactly page 32,032 with a last inline
->   record of 4009 bytes; ACE's is still inline at page 31,354 (record 3925) and reference by 32,356,
->   bracketing the same value. **The primary-key row is not reconciled.** ACE carries the third record but has
->   already converted by page 31,409, earlier than 31,456 — consistent with the index's map growing past 69
->   bytes (below) and shrinking the budget, but the exact ACE conversion point with a key is not measured.
+>   The final **4** is the holder's reserve: a grown record may not leave the page fewer than 4 bytes free, the
+>   same rule as the global map's (below). Both rows are verified against ACE to the row, with one-row pages: a
+>   key-less table's owned map is inline at 4005 bytes with page 31,995 and reference once it needs page 32,000
+>   (4009 bytes would leave 0); a keyed table whose index map is 1,785 bytes is inline at 2217 bytes, 5 bytes
+>   left, with page 17,687, and reference at page 17,696 (2221 would leave 1). LibRed converts at the same row
+>   in both.
 >
 >   > Beware comparing thresholds across table shapes: a **primary-keyed** table and a **key-less** one
 >   > convert at different page counts under the identical rule, because only the budget differs. A keyed

@@ -31,6 +31,7 @@ Items marked ✔ were re-checked by reading the cited code/test; the rest are as
 | Compressed long value at the page boundary (long-values) | The directory entry counts (1138 shares, 1139 does not). **LibRed bug, fixed:** ACE decides free-pages-map membership on the room the *uncompressed* bytes leave (1009 stays, 1010 leaves); LibRed used the compressed row. | `WholeFileParityProbeTest` Cmp* |
 | Kept page on a full row-by-row delete (page-09) | The lowest owned page, not the creation page (created 361, keeps 310). LibRed agrees. | `WholeFileParityProbeTest` #458–464 |
 | A map's start past page 512 (page-05) | **LibRed bug, fixed.** An inline map that marks no page, asked for one outside its window, is re-based on that page rounded down to 8 — data, index and long-value, owned and free alike. A free map's window "slide" is that rule applied to a map just emptied, so it lands on the tail's byte, not a 512 boundary (600 → 1112, 1152 → 1672). LibRed grew the owned map from 0 and slid free windows to 512 boundaries. | `WholeFileParityProbeTest` #469–473 |
+| Owned-map conversion point (page-05) | **LibRed bug, fixed.** A grown record must leave its holder 4 bytes free, as the global map's must: a key-less table converts at page 32,000 (4005 bytes inline, not 4009), and a key only shrinks the budget by its index map (1,785 bytes → page 17,696). LibRed converted only when the record no longer fitted at all. Both measured to the row against ACE; LibRed now converts at the same row. | measured once (probe not kept) |
 | Free window above the marked page (page-05) | **LibRed bug, fixed.** ACE converts the free-pages map to a reference map with a fresh bitmap page; LibRed widened the inline record. | `WholeFileParityProbeTest` #465–468 |
 
 **New open items found on the way:**
@@ -38,6 +39,9 @@ Items marked ✔ were re-checked by reading the cited code/test; the rest are as
 - An unordered cross join returns rows in a different order — ACE ran `SELECT … FROM Tens AS a, Tens AS b WHERE
   a.D < 5` with `b` as the outer loop and the filtered `a` inner; LibRed iterates `a` outer. Only visible through
   `INSERT … SELECT` row placement without `ORDER BY`. One data point; the rule ACE follows is unmeasured.
+- A single `INSERT … SELECT` of 30,500 one-page rows into a keyed table leaves ACE's index map at 3445 bytes and
+  LibRed's at 3597: their index pages land differently over that long a statement (14,000 rows still agree). The
+  continuous-session placement drift of page-05 at a larger scale; it moves the owned map's conversion point.
 - LibRed's reader applies `DefaultValue`/`Required` whatever the entry flag; ACE ignores them at `0x00`. No writer
   seen produces that, so low priority.
 
@@ -57,12 +61,10 @@ location, and four mdbtools-TODO entries (`0x1C`, v1 collation, the index header
 | where | claim | instrument | probe |
 |---|---|---|---|
 | page-05:540 | New global bitmap page placement when held pages lie between EOF and the range. | ACE OLE DB | `PageGroupProbeTest` `ref-*` fixture with EOF below 65472 and a reservation up to the range edge; force an allocation in range 1 before close; read slot 1's pointer. LibRed takes the range's first page. |
-| page-05:137 | Owned-map conversion point with a PK (ACE converts before 31,409; model says 31,456). | ACE OLE DB | Fill a keyed table in batches, copying the file after each; log owned-record type/length and index-map length; bisect the flip against `4096−14−6−69−indexMap`. |
 | long-values:275 | Retiring a value from a column with an owned map but no free map — not measured against ACE. | ACE OLE DB + patch | Patch a table's §3.3.2 free pointer to 0; insert >64-byte values through LibRed; delete one through ACE and one through LibRed on twins; diff owned map, page type, global free bit. |
 | system-catalog:114 | A set `0x01` makes a property definition-protected (its effect on DEFAULT/Required/CHECK is settled above). | DAO with a secured workgroup | Under a secured `.mdw`, try deleting a `0x01` vs a `0x00` property as a user without `dbSecWriteDef`. |
 
-page-05:540 needs a file near 65,472 pages (~268 MB) and page-05:137 one near 31,400 (~128 MB) with a bisection
-over batches — both background-run material. long-values:275 needs the §3.3.2 free pointer patched to 0.
+page-05:540 needs a file near 65,472 pages (~268 MB) — background-run material. long-values:275 needs the §3.3.2 free pointer patched to 0.
 
 ## 2. Engine/catalog surface — ACE answers in one statement each
 

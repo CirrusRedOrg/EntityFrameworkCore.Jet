@@ -567,8 +567,8 @@ public abstract class JetFormatBase
     /// <summary>The step an inline bitmap grows in.</summary>
     public abstract int UsageMapInlineGrowthSize { get; }
 
-    /// <summary>Bytes the global maps' holder page keeps free: an inline global map that would leave less
-    /// converts to reference form instead.</summary>
+    /// <summary>Bytes a usage-map holder page keeps free — the global maps' and a table's alike: an inline map
+    /// that would grow to leave less converts to reference form instead.</summary>
     public abstract int UsageMapHolderReserve { get; }
 
     /// <summary>Offset in a reference record of its 4-byte bitmap-page pointers.</summary>

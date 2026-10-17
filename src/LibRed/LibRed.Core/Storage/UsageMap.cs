@@ -364,9 +364,11 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
             page.AsSpan(mapOffset, slot.Length).CopyTo(grownRecord);
 
             byte[]? grown = ReplaceMapRecord(page, holder, format, mapRow, grownRecord, out mapOffset);
-            if (grown is null)
+            if (grown is null || DataPage.ReadFreeSpace(grown, format) < format.UsageMapHolderReserve)
             {
-                // The record can no longer grow within its page: switch to a reference map and retry there.
+                // The record can no longer grow within its page, keeping the holder's reserve free as ACE does
+                // (verified: a key-less table's owned map ends inline at 4005 bytes, 4 left, rather than 4009):
+                // switch to a reference map and retry there.
                 SetAsReference();
                 return;
             }

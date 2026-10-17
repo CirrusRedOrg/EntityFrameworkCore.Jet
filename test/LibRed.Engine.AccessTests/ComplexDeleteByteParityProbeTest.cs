@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Data.OleDb;
 using System.Reflection;
 using LibRed;
 using LibRed.Catalog;
@@ -45,6 +46,69 @@ public class ComplexDeleteByteParityProbeTest(ITestOutputHelper output)
             output.WriteLine($"PROBE complex case: Table1 WHERE {where} (complex id {recordId})");
         }
         Compare(Source, "Table1", where, "complex");
+    }
+
+    // A DELETE with no WHERE empties a table in one go and leaves its complex values' flat rows where they are
+    // (page-09 §9). On a DAO-built multi-value column holding values, LibRed's DELETE FROM must change exactly the
+    // pages DAO's does, byte for byte — page 0 aside, whose commit-byte counter LibRed does not keep.
+    [Fact]
+    public void A_complex_delete_with_no_where_leaves_the_bytes_dao_leaves()
+    {
+        object? engine = CreateDbEngine(out _);
+        Assert.SkipWhen(engine is null, "DAO is not available in this process.");
+        string source = TemporaryDatabase.CreatePath("cx-all-src-");
+        try
+        {
+            Invoke(Invoke(engine!, "CreateDatabase", source, ";LANGID=0x0409;CP=1252;COUNTRY=0")!, "Close");
+            AceTestDatabase.ReleaseAbandonedComObjects();
+            using (OleDbConnection connection = AceTestDatabase.Open(source))
+            {
+                foreach (string sql in new[] { "CREATE TABLE P (ID LONG CONSTRAINT pkP PRIMARY KEY, Txt TEXT(10))" }
+                    .Concat(Enumerable.Range(1, 5).Select(i => $"INSERT INTO P (ID, Txt) VALUES ({i}, 'row {i}')")))
+                {
+                    using OleDbCommand command = connection.CreateCommand();
+                    command.CommandText = sql;
+                    command.ExecuteNonQuery();
+                }
+            }
+            OleDbConnection.ReleaseObjectPool();
+            object db = Invoke(engine!, "OpenDatabase", source)!;
+            try
+            {
+                object tableDefs = Get(db, "TableDefs")!;
+                object td = tableDefs.GetType().InvokeMember("Item", BindingFlags.GetProperty, null, tableDefs, ["P"])!;
+                Invoke(Get(td, "Fields")!, "Append", Invoke(td, "CreateField", "X", 104));   // multi-value Long
+                foreach ((int id, int[] values) in new[] { (1, new[] { 7, 8, 9 }), (3, new[] { 4 }) })
+                {
+                    object rs = Invoke(db, "OpenRecordset", $"SELECT * FROM P WHERE ID = {id}")!;
+                    Invoke(rs, "Edit");
+                    object child = Get(Fields(rs, "X"), "Value")!;
+                    foreach (int v in values)
+                    {
+                        Invoke(child, "AddNew");
+                        object value = Fields(child, "Value");
+                        value.GetType().InvokeMember("Value", BindingFlags.SetProperty, null, value, [v]);
+                        Invoke(child, "Update");
+                    }
+                    Invoke(child, "Close");
+                    Invoke(rs, "Update");
+                    Invoke(rs, "Close");
+                }
+            }
+            finally { Invoke(db, "Close"); AceTestDatabase.ReleaseAbandonedComObjects(); }
+
+            (byte[] o, byte[] a, byte[] n, byte[] l) = Compare(source, "P", where: null, "complex-all");
+            int pageSize = JetFormatBase.Detect(new MemoryStream(o)).PageSize;
+            HashSet<int> ace = ChangedPages(o, a, pageSize), noise = ChangedPages(o, n, pageSize);
+            ace.ExceptWith(noise);
+            ace.Remove(0);
+            HashSet<int> libred = ChangedPages(o, l, pageSize);
+            Assert.Equal(ace.Order(), libred.Order());
+            foreach (int page in ace)
+                Assert.True(a.AsSpan(page * pageSize, pageSize).SequenceEqual(l.AsSpan(page * pageSize, pageSize)),
+                    $"page {page} differs from DAO's");
+        }
+        finally { TemporaryDatabase.Delete(source); }
     }
 
     // The control: the same comparison on a table with NO complex column. If the differences look the same,
@@ -188,10 +252,13 @@ public class ComplexDeleteByteParityProbeTest(ITestOutputHelper output)
     private static object? Get(object target, string member) =>
         target.GetType().InvokeMember(member, BindingFlags.GetProperty, null, target, null);
 
-    private void Compare(string source, string table, string where, string label)
+    /// <param name="where">The rows to delete, or null for a <c>DELETE</c> with no <c>WHERE</c> — which DAO runs
+    /// as the statement itself, since a recordset delete is row by row.</param>
+    /// <returns>The four files' bytes — original, DAO, DAO housekeeping alone, LibRed — for a caller that asserts.</returns>
+    private (byte[] Orig, byte[] Ace, byte[] Noise, byte[] LibRed) Compare(string source, string table, string? where, string label)
     {
         object? engine = CreateDbEngine(out string progId);
-        if (engine is null) { output.WriteLine("PROBE skipped: DAO unavailable."); return; }
+        if (engine is null) { output.WriteLine("PROBE skipped: DAO unavailable."); return ([], [], [], []); }
         output.WriteLine($"PROBE [{label}] DAO engine: {progId}");
 
         string orig = TemporaryDatabase.CopyPath(source, $"{label}-parity-orig-");
@@ -203,10 +270,12 @@ public class ComplexDeleteByteParityProbeTest(ITestOutputHelper output)
             DaoDelete(engine, aceCopy, table, where);
             DaoOpenClose(engine, noiseCopy, table);
             using (var db = JetDatabase.Open(libredCopy, readOnly: false))
-                new QueryEngine(db).ExecuteNonQuery($"DELETE FROM [{table}] WHERE {where}");
+                new QueryEngine(db).ExecuteNonQuery(where is null ? $"DELETE FROM [{table}]" : $"DELETE FROM [{table}] WHERE {where}");
 
-            Report(label, File.ReadAllBytes(orig), File.ReadAllBytes(aceCopy),
-                File.ReadAllBytes(noiseCopy), File.ReadAllBytes(libredCopy), Owners(orig));
+            byte[] o = File.ReadAllBytes(orig), a = File.ReadAllBytes(aceCopy),
+                n = File.ReadAllBytes(noiseCopy), l = File.ReadAllBytes(libredCopy);
+            Report(label, o, a, n, l, Owners(orig));
+            return (o, a, n, l);
         }
         finally
         {
@@ -416,11 +485,16 @@ public class ComplexDeleteByteParityProbeTest(ITestOutputHelper output)
         return changed;
     }
 
-    private static void DaoDelete(object engine, string path, string table, string where)
+    private static void DaoDelete(object engine, string path, string table, string? where)
     {
         object db = Invoke(engine, "OpenDatabase", path)!;
         try
         {
+            if (where is null)
+            {
+                Invoke(db, "Execute", $"DELETE FROM [{table}]");
+                return;
+            }
             object rs = Invoke(db, "OpenRecordset", $"SELECT * FROM [{table}] WHERE {where}")!;
             try { Invoke(rs, "Delete"); }
             finally { Invoke(rs, "Close"); }

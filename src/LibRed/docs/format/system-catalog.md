@@ -1013,7 +1013,8 @@ Four layers — the user table, then three kinds of ordinary hidden/system table
 > DAO). Deleting a record removes its flat rows across every one of the table's complex columns. The owner's
 > `0x1C` and each flat table's `0x14` keep their values, so the next row still gets the next id and the freed
 > value ids are never reissued. A delete path must therefore remove the flat rows of **every** complex column
-> on the table for that id, and must leave both high-waters alone.
+> on the table for that id, and must leave both high-waters alone. The exception is a `DELETE` with no `WHERE`,
+> which empties the owner in one go and leaves every flat table as it was ([page-09](page-09-released-data.md)).
 
 LibRed's `Table.Delete` performs this cleanup before removing the owner's index entries and row. Each
 backing row uses the same table deletion path, including its indexes and long-value reclamation. All writes

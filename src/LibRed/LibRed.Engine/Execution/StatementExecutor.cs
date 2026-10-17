@@ -2196,13 +2196,12 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // relationship names it as the parent, when it deletes row by row as below (measured, whole-file diff:
         // WholeFileParityProbeTest). The test is the WHERE's absence, not every row matching: WHERE 1 = 1 deletes
         // row by row. So does a table with a CHECK constraint, pages and all, its checks evaluated as each row goes
-        // (verified: whole-file diff, and a check that fails only once some rows are gone). A table holding a complex column
-        // keeps the row path that follows its flat table's rows. No row is read but to be counted.
+        // (verified: whole-file diff, and a check that fails only once some rows are gone). A table holding a complex
+        // column takes this path too, and its values' flat rows stay where they are, owned by no row (verified through
+        // DAO and ACE's OLE DB alike). No row is read but to be counted.
         if (statement.Where is null && statement.From is NamedTable
             && ChildRelationshipsOf(target.Name).Length == 0
-            && target.Definition.CheckConstraints.Count == 0
-            && !_database.Catalog.ComplexColumns.Any(c =>
-                c.OwnerTable.DefinitionPage == target.Definition.DefinitionPage))
+            && target.Definition.CheckConstraints.Count == 0)
         {
             int rows = target.Rows(target.DecodeOnly([])).Count();
             target.Truncate();

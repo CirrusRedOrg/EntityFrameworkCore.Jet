@@ -77,6 +77,39 @@ public class ForeignKeyLinkageTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // The hidden name of a parent's incoming block is ".r" + index_num in base 16, digits A–P, least significant
+    // first — so 15 is ".rP" and 16 ".rAB", not ".rQ" — and the blocks sort by that name. Thirty children of one
+    // parent, in the order and with the names ACE writes for them (measured, CREATE TABLE through ACE).
+    [Fact]
+    public void Incoming_blocks_past_fifteen_take_two_letter_names_as_ace_writes_them()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "fkrname-");
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("P", [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true)], primaryKey: ["Id"]);
+                for (int i = 1; i <= 30; i++)
+                    db.CreateTable($"C{i}",
+                        [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                         new ColumnSpec("Pid", JetDataType.Int32, 4, IsFixedLength: true)],
+                        relationships: [new RelationshipSpec($"FK{i}", "P", [("Pid", "Id")], true, false, false)]);
+            }
+            using var ch = PageChannel.Open(path, readOnly: true);
+            List<(string, int)> incoming = [.. ReadLogicalBlocks(ch, new JetCatalog(ch).FindTable("P")!.DefinitionPage)
+                .Where(b => b.FkType == ForeignKeyType.Incoming).Select(b => (b.Name, (int)b.Number))];
+
+            Assert.Equal(
+            [
+                (".rAB", 16), (".rB", 1), (".rBB", 17), (".rC", 2), (".rCB", 18), (".rD", 3), (".rDB", 19), (".rE", 4),
+                (".rEB", 20), (".rF", 5), (".rFB", 21), (".rG", 6), (".rGB", 22), (".rH", 7), (".rHB", 23), (".rI", 8),
+                (".rIB", 24), (".rJ", 9), (".rJB", 25), (".rK", 10), (".rKB", 26), (".rL", 11), (".rLB", 27), (".rM", 12),
+                (".rMB", 28), (".rN", 13), (".rNB", 29), (".rO", 14), (".rOB", 30), (".rP", 15),
+            ], incoming);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     // FOREIGN KEY NO INDEX: ACE flags the child's outgoing block 0x03 instead of 0x02; the parent
     // incoming block is unchanged (0x01).
     [Fact]

@@ -3085,11 +3085,20 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         parts.Logical.Insert(k, (TableDefinition.BuildInfoBlock(_channel.Format, spec), TableDefinition.NameEntry(name, _channel.Format)));
     }
 
-    /// <summary>An incoming block's hidden name: <c>.r</c> and the letter <c>'A' + index_num</c>, as ACE names it
-    /// (verified: 1 → <c>.rB</c>, 2 → <c>.rC</c>, 3 → <c>.rD</c>, in CREATE TABLE and ALTER TABLE alike). The
-    /// name past <c>Z</c> is not measured.</summary>
-    private static string HiddenRelationshipName(int number) =>
-        number is >= 0 and < 26 ? $".r{(char)('A' + number)}" : $".r{Guid.NewGuid():N}"[..8];
+    /// <summary>An incoming block's hidden name: <c>.r</c> and index_num in base 16 with the letters <c>A</c>–<c>P</c>
+    /// as digits, least significant first, as ACE names it (verified in CREATE TABLE for 1–30: 1 → <c>.rB</c>,
+    /// 15 → <c>.rP</c>, 16 → <c>.rAB</c>, 30 → <c>.rOB</c>; in ALTER TABLE for 1–3).</summary>
+    private static string HiddenRelationshipName(int number)
+    {
+        var name = new System.Text.StringBuilder(".r");
+        do
+        {
+            name.Append((char)('A' + number % 16));
+            number /= 16;
+        }
+        while (number > 0);
+        return name.ToString();
+    }
 
 
     // A user table's owner + grantee SIDs — Users owns user objects; Users + Admin get the grants — read from

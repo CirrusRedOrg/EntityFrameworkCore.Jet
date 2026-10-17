@@ -542,6 +542,7 @@ public class PageGroupProbeTest(ITestOutputHelper output)
     [InlineData("ref-shared", "lv8-release")]
     [InlineData("ref-empty-first", "index")]
     [InlineData("ref-exhaust", "heap-then-index")]
+    [InlineData("ref-held", "heap-side-heap")]
     public void Controlled_free_page_selection(string layout, string operation)
     {
         object? engine = AceTestDatabase.CreateDaoEngine();
@@ -554,7 +555,7 @@ public class PageGroupProbeTest(ITestOutputHelper output)
         string columns = string.Join(", ", Enumerable.Range(0, fields).Select(i => $"F{i} BINARY(255)"));
         string values = string.Join(", ", Enumerable.Repeat("0x" + new string('A', 510), fields));
         int preloaded = layout.StartsWith("preload", StringComparison.Ordinal)
-            ? int.Parse(layout.AsSpan(7), CultureInfo.InvariantCulture) : layout.StartsWith("order-", StringComparison.Ordinal) || layout is "ref-groups" or "ref-native-order" or "ref-exhaust" ? 8 : 1;
+            ? int.Parse(layout.AsSpan(7), CultureInfo.InvariantCulture) : layout.StartsWith("order-", StringComparison.Ordinal) || layout is "ref-groups" or "ref-native-order" or "ref-exhaust" or "ref-held" ? 8 : 1;
         bool referenceMap = layout.StartsWith("ref-", StringComparison.Ordinal);
         bool referenceOwner = referenceMap || layout == "owner-ref";
         int mapLimit = referenceMap ? 65472 : 512;
@@ -590,7 +591,7 @@ public class PageGroupProbeTest(ITestOutputHelper output)
                     command.CommandText = "DROP TABLE Padding";
                     command.ExecuteNonQuery();
                 }
-                if (operation == "second-table")
+                if (operation is "second-table" or "heap-side-heap")
                 {
                     command.CommandText = $"CREATE TABLE Side (Id LONG, {columns})";
                     command.ExecuteNonQuery();
@@ -716,6 +717,8 @@ public class PageGroupProbeTest(ITestOutputHelper output)
                 "ref-groups" => [32729, .. Enumerable.Range(32736, 32)],
                 "ref-empty-first" => [.. Enumerable.Range(32736, 32)],
                 "ref-exhaust" => [32729, .. Enumerable.Range(32736, 8)],
+                // Nothing offered: the only free pages are the 16 past the end of the file, up to range 2.
+                "ref-held" => [],
                 "ref-native-order" => [.. Enumerable.Range(64, 8), .. Enumerable.Range(160, 8),
                     .. Enumerable.Range(currentGroup + 8, 8), .. Enumerable.Range(currentGroup + 24, 8)],
                 "owner-ref" => [65, .. Enumerable.Range(80, 32)],
@@ -734,7 +737,7 @@ public class PageGroupProbeTest(ITestOutputHelper output)
                 Assert.True(table.Channel.PageCount <= (layout == "ref-native-order" ? 32800 : layout.StartsWith("order-", StringComparison.Ordinal) ? 224 : preloaded > 1 || treeRows > 0 || longPreloaded > 0 ? 128 : 64));
                 int originalPages = table.Channel.PageCount;
                 HashSet<int> originalFree = GlobalFree(table, mapLimit);
-                int frontier = layout == "ref-exhaust" ? mapLimit : referenceMap ? 32800 : referenceOwner ? 264 : operation == "growth257" ? 257 : 256;
+                int frontier = layout == "ref-exhaust" ? mapLimit : layout == "ref-held" ? mapLimit - 16 : referenceMap ? 32800 : referenceOwner ? 264 : operation == "growth257" ? 257 : 256;
                 for (int p = table.Channel.PageCount; p < frontier; p++)
                     table.Channel.WritePage(p, new byte[database.Format.PageSize]);
                 (int row, int holderPage) = database.DefinitionPage.FreePagesMap;
@@ -841,6 +844,7 @@ public class PageGroupProbeTest(ITestOutputHelper output)
                 _ when longPreloaded == 64 && operation.EndsWith("chain", StringComparison.Ordinal) => [1, 11, 12],
                 _ when longPreloaded == 64 => [1, 32, 33, 65],
                 _ when operation.StartsWith("lv", StringComparison.Ordinal) => [1, 2, 9],
+                "heap-side-heap" => [9, 12, 20],
                 _ when referenceMap => [1, 2, 9, 33],
                 _ when layout.StartsWith("order-", StringComparison.Ordinal) => [1, 2, 9, 17],
                 _ when layout.StartsWith("preload", StringComparison.Ordinal) => [1, 2],
@@ -956,6 +960,14 @@ public class PageGroupProbeTest(ITestOutputHelper output)
                             {
                                 command.CommandText = $"INSERT INTO Bulk VALUES ({id}, {values})";
                                 Assert.Equal(1, command.ExecuteNonQuery());
+                                // After Bulk's first row has taken a group of its own, a small inline-map owner takes
+                                // the session's shared reservation over the rest of range 1, holding it unwritten
+                                // when Bulk outgrows its group and has to open range 2.
+                                if (operation == "heap-side-heap" && id == 1)
+                                {
+                                    command.CommandText = $"INSERT INTO Side VALUES (1, {values})";
+                                    command.ExecuteNonQuery();
+                                }
                             }
                             if (operation == "index-pages")
                                 for (int id = 600; id < 600 + count; id++)
@@ -995,6 +1007,7 @@ public class PageGroupProbeTest(ITestOutputHelper output)
                         Assert.Equal(expectedPages, table.UsageMap.DataPages().Count());
                         report.AppendLine($"prefix={count}: Bulk data [{Ranges(table.UsageMap.DataPages())}]");
                         report.AppendLine($"  file pages={table.Channel.PageCount}; indexes [{string.Join(", ", table.Definition.Indexes.Select(i => $"{i.Name}:root={i.RootPage}"))}]");
+                        if (operation == "heap-side-heap") report.AppendLine($"  Bulk map bitmaps {OwnerBitmaps(table)}");
                         if (operation.StartsWith("lv", StringComparison.Ordinal))
                         {
                             Table longs = database.OpenTable("Longs");
@@ -1013,6 +1026,30 @@ public class PageGroupProbeTest(ITestOutputHelper output)
                         }
                     }
                     report.AppendLine($"  taken [{Ranges(offered.Except(openFree))}]; used [{Ranges(offered.Except(closedFree))}]; returned [{Ranges(closedFree.Except(openFree))}]");
+                    if (operation == "heap-side-heap")
+                    {
+                        string libred = TemporaryDatabase.CopyPath(origin, "allocator-lib-");
+                        try
+                        {
+                            using (var database = JetDatabase.Open(libred, readOnly: false))
+                            {
+                                var queries = new QueryEngine(database);
+                                for (int id = 1; id <= count; id++)
+                                {
+                                    queries.ExecuteNonQuery($"INSERT INTO Bulk VALUES ({id}, {values})");
+                                    if (id == 1) queries.ExecuteNonQuery($"INSERT INTO Side VALUES (1, {values})");
+                                }
+                            }
+                            using var reopened = JetDatabase.Open(libred, readOnly: true);
+                            Table table = reopened.OpenTable("Bulk");
+                            report.Append("LibRed:");
+                            GlobalFree(table, int.MaxValue, report);
+                            report.AppendLine($"  file pages={table.Channel.PageCount}; Bulk data [{Ranges(table.UsageMap.DataPages())}]; " +
+                                $"Side data [{Ranges(reopened.OpenTable("Side").UsageMap.DataPages())}]");
+                            report.AppendLine($"  Bulk map bitmaps {OwnerBitmaps(table)}");
+                        }
+                        finally { TemporaryDatabase.Delete(libred); }
+                    }
                     if (operation.EndsWith("release", StringComparison.Ordinal))
                         report.AppendLine($"  newly free while open [{Ranges(openFree.Except(offered))}]; reopen={count >= 1000}");
                 }
@@ -1560,6 +1597,24 @@ public class PageGroupProbeTest(ITestOutputHelper output)
             report.AppendLine($"  global bitmap pointers [{string.Join(", ", pointers)}]");
         }
         return [.. UsageMap.PagesInRecord(any.Channel, map, null, "Global free map").Where(p => p < pages)];
+    }
+
+    /// <summary>A table's owned and free maps' reference-form bitmap pointers, slot by slot.</summary>
+    private static string OwnerBitmaps(Table table)
+    {
+        var tdef = table.Channel.ReadPage(table.Definition.DefinitionPage);
+        var parts = new List<string>();
+        foreach ((string name, int offset) in new[] { ("owned", table.Channel.Format.TdefOwnedPagesOffset), ("free", table.Channel.Format.TdefFreePagesOffset) })
+        {
+            (int row, int page) = tdef.ReadRecordPointer(offset);
+            ReadOnlySpan<byte> record = table.UsageMap.ReadRecordAt(row, page);
+            var slots = new List<string>();
+            if (UsageMap.RecordType(record) == UsageMapType.Reference)
+                for (int slot = 0; slot < table.Channel.Format.UsageMapReferenceSlots; slot++)
+                    if (UsageMap.ReferencePointer(record, slot, table.Channel.Format) is int bitmap and not 0) slots.Add($"{slot}:{bitmap}");
+            parts.Add($"{name} [{string.Join(", ", slots)}]");
+        }
+        return string.Join("; ", parts);
     }
 
     private static string Ranges(IEnumerable<int> pages)

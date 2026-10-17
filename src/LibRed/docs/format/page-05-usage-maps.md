@@ -76,14 +76,18 @@ free = row 1); an index's map spills the same way rather than being squeezed in.
 
 > **LibRed write behaviour (multi-page growth on insert).** When an insert finds no owned data page
 > with room, LibRed allocates a new page (via the global map, §9.1), initialises it as an empty data
-> page owned by the table, sets its **owned** bit, and moves the **free** marker to it. Verified:
+> page owned by the table, sets its **owned** bit, and moves the **free** marker to it — but only when the
+> record it was taken for leaves room for a second as large (free space after it ≥ the record plus its
+> directory entry); a page its first row more than half fills is never marked free at all (verified: a first
+> row of 2019 bytes leaves 2061 and the page is marked, one of 2059 leaves 2021 and it is not; whether the
+> edge counts the 2-byte directory entry is not separated, and LibRed counts it, as its fit test does). Verified:
 > Access reads a table LibRed spilled across many data pages and can still insert into it.
 > - **Free-pages map = the current append tail only.** Access clears a page from the free-pages map
 >   when an insert finds it too full and moves on, so after a sequential fill only the *last* page
 >   stays marked free — verified: of equally-full ACE pages only the last is in the free map, because
 >   each earlier one had a next-row attempt that didn't fit. LibRed matches this: an insert **clears the free bit
 >   of every page in the free map it finds too full** on its way to one with room, and a page it allocates is
->   set, leaving exactly the tail marked free. That holds when the page with room is not the last one tried
+>   set when its first row leaves room for another, leaving at most the tail marked free. That holds when the page with room is not the last one tried
 >   too: a catalog insert that passes over a full `MSysObjects` page to a later one clears the full page's bit
 >   (verified).
 > - **A delete puts the bit back.** Space freed in a page that had none makes that page a candidate again, so

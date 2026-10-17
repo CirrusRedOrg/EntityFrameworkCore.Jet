@@ -774,6 +774,16 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
                 "String(100, 'm') FROM Tens AS a, Tens AS b, Tens AS c WHERE a.D < 6 ORDER BY 1",
         ]);
 
+        // A fresh data page joins the free map only if its first row leaves room for another as large: rows of about
+        // 2,015 and 2,055 bytes, either side of that edge.
+        foreach (int chars in new[] { 1000, 1020 })
+        {
+            s.Add($"CREATE TABLE Half{chars} (W1 TEXT(255), W2 TEXT(255), W3 TEXT(255), W4 TEXT(255))");
+            string row = $"INSERT INTO Half{chars} VALUES (String(255, 'a'), String(255, 'b'), String(255, 'c'), String({chars - 765}, 'd'))";
+            s.Add(row);
+            s.Add(row);
+        }
+
         return [.. s];
     }
 

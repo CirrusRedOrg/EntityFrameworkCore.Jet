@@ -908,20 +908,20 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             UpdateUsageBit(format.TdefFreePagesOffset, pageNumber, set: false);
         }
 
-        return AllocateDataPage(format);
+        return AllocateDataPage(format, needed);
     }
 
     /// <summary>
     /// Grows the table by one data page — like Access does for the first insert into a fresh
     /// (data-page-less) table: takes a page from the global free-pages map, initialises it as an
-    /// empty data page owned by this table, and records it in the table's owned- and free-pages
-    /// usage maps so both Access and LibRed find it.
+    /// empty data page owned by this table, and records it in the table's owned-pages usage map, and in its
+    /// free-pages map when the <paramref name="needed"/> bytes it is taken for leave room for as many again.
     /// </summary>
-    private (int PageNumber, byte[] Page) AllocateDataPage(JetFormatBase format)
+    private (int PageNumber, byte[] Page) AllocateDataPage(JetFormatBase format, int needed)
     {
         // Only reached when no page in the free map had room, and FindPageWithRoom has cleared each of those, so
-        // the new page is the only one left marked free. (Verified against an ACE sequential fill: only the last
-        // of six equally-full pages stays in the free map.)
+        // the new page is the only one that can be marked free. (Verified against an ACE sequential fill: only the
+        // last of six equally-full pages stays in the free map.)
         var owned = _channel.ReadPageShared(_table.DefinitionPage).ReadRecordPointer(format.TdefOwnedPagesOffset);
         int pageNumber = _channel.Allocator.Allocate(owned);
 
@@ -929,7 +929,10 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         _channel.WritePage(pageNumber, page);
 
         UpdateUsageBit(format.TdefOwnedPagesOffset, pageNumber, set: true);
-        UpdateUsageBit(format.TdefFreePagesOffset, pageNumber, set: true);        // new tail has room
+        // ACE marks the new tail free only if a second record as large would still fit once this one is on it
+        // (verified: a first row of 2019 bytes, 2061 left, puts the page in the map; one of 2059, 2021 left, does not).
+        if (DataPage.ReadFreeSpace(page, format) - needed >= needed)
+            UpdateUsageBit(format.TdefFreePagesOffset, pageNumber, set: true);
 
         return (pageNumber, page);
     }

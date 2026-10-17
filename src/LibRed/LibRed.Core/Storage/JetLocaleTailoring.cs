@@ -155,6 +155,10 @@ internal sealed class LocaleTailoring
     {
         for (int length = Math.Min(MaxLength, text.Length - start); length >= 1; length--)
         {
+            // A lowercase letter followed by an uppercase one breaks a contraction, which then falls to a shorter
+            // match: "cS" is c and S, "dzS" is dz and S, "dZs" is d and zs (verified vs ACE in every digraph order).
+            if (BreaksCase(text.Slice(start, length)))
+                continue;
             if (TryGet(text.Slice(start, length), out weight))
             {
                 consumed = length;
@@ -164,6 +168,14 @@ internal sealed class LocaleTailoring
         weight = default;
         consumed = 0;
         return false;
+
+        static bool BreaksCase(ReadOnlySpan<char> candidate)
+        {
+            for (int i = 0; i + 1 < candidate.Length; i++)
+                if (char.IsLower(candidate[i]) && char.IsUpper(candidate[i + 1]))
+                    return true;
+            return false;
+        }
     }
 
     /// <summary>The entry for <paramref name="key"/> as written, else for its invariant uppercase — the order

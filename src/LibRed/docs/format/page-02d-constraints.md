@@ -93,7 +93,7 @@ differently from a delete:
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 4 | Marker (`0x00000783` = 1923, or 0) |
+| `0x00` | 4 | Marker — `0x00000783` (1923) as ACE writes it; not read (any value accepted, [page-02a §3.1](page-02a-tdef.md)) |
 | `0x04` | 30 | **Exactly 10** column slots × (2-byte column id + 1-byte flags); column id `0xFFFF` = unused; flag `0x01` = ascending. This fixed array (no count field, no continuation) is why a Jet/ACE index — and therefore any `PRIMARY KEY`, `UNIQUE`, or `FOREIGN KEY` built on one — is **limited to 10 columns**. |
 | `0x22` | 1 | Usage-map row |
 | `0x23` | 3 | Usage-map page |
@@ -200,7 +200,7 @@ isolation: 33 plain indexes push both counts to 33 together.
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 4 | Marker (`0x00000659` = 1625, or 0) |
+| `0x00` | 4 | Marker — `0x00000659` (1625) as ACE writes it; not read (any value accepted, [page-02a §3.1](page-02a-tdef.md)) |
 | `0x04` | 4 | **Logical index number** (`index_num`) — a unique id per logical index, `0 … logicalCount-1` |
 | `0x08` | 4 | **Real index-data block ordinal** (`index_num2`) this logical index uses, `0 … realIndexCount-1` |
 | `0x0C` | 1 | Foreign-key index type: `0x00` = none, `0x01` = **incoming** (this table is the parent/referenced end), `0x02` = **outgoing** (this table is the child/referencing end), `0x03` = **outgoing, `FOREIGN KEY NO INDEX`** (verified vs ACE: identical to `0x02` — same data block and same parent incoming `0x01` block — only this type byte differs) |
@@ -226,9 +226,10 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > and on a plain one).
 > The **parent** (referenced) table gains an **extra** logical block beyond its data blocks:
 > `index_num2` → its referenced-key (PK) data block, `0x0C = 0x01` (incoming), `0x11` = child page,
-> `0x17 = 0x02`, name = the hidden name **`.r` followed by the letter `'A' + index_num`** — `.rB` for block 1,
-> `.rC` for 2, `.rD` for 3 (verified vs ACE, in `CREATE TABLE` and `ALTER TABLE` alike; the name past `Z` is
-> not measured). The two ends cross-reference: each block's `0x0D` holds the other block's `index_num`
+> `0x17 = 0x02`, name = the hidden name **`.r` followed by index_num in base 16, with the letters `A`–`P` as
+> digits, least significant first** — `.rB` for block 1, `.rP` for 15, `.rAB` for 16, `.rBB` for 17, `.rOB` for
+> 30 (verified vs ACE for 1–30 in `CREATE TABLE`, and for 1–3 in `ALTER TABLE`). A one-letter reading, `'A' +
+> index_num`, agrees only up to 15. The two ends cross-reference: each block's `0x0D` holds the other block's `index_num`
 > (`0x04`). Logical blocks are stored **sorted by name in the database's collation** (page 0's), the order
 > index keys in that collation sort in: case ignored, `_` and most punctuation before digits and letters,
 > hyphen and apostrophe weighed after the letters, accented letters beside their base letter, each locale's
@@ -257,7 +258,7 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > logical block and name; the data block, its statistics and its B-tree stay with the name that is left
 > (verified). In a `CREATE TABLE` the constraint declared later is the one that shares: it takes no usage-map
 > row and no root, so the rows and roots go to the others in declaration order as if it were not there
-> (verified, with a long-value column between the two). LibRed shares exactly so on `CREATE TABLE`,
+> (verified). LibRed shares exactly so on `CREATE TABLE`,
 > `CREATE INDEX` and `ALTER TABLE … ADD CONSTRAINT`.
 >
 > The parent key must be a **unique or primary** index over the referenced columns. Over a plain

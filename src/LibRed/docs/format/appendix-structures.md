@@ -83,12 +83,12 @@ Variable section (`varOffsetTable`+`numVar`) omitted only when the table has nev
 | `0x02` | 2 | Free-space count — bytes still free on the page |
 | `0x04` | 4 | Next TDEF page (0 = single page) |
 | `0x08` | 4 | TDEF length (total logical bytes) |
-| `0x0C` | 4 | Constant marker `0x00000659` |
+| `0x0C` | 4 | Minimum engine build, `0x00000659` as ACE writes it (refused above 4518) |
 | `0x10` | 4 | Row count |
 | `0x14` | 4 | AutoNumber high-water = last assigned id (assignment rules: [page-02a](page-02a-tdef.md) §3.1) |
 | `0x18` | 4 | AutoNumber increment (signed int32; default 1) |
 | `0x1C` | 4 | Complex-type AutoNumber high-water |
-| `0x20` | 8 | Unknown / reserved (zero) |
+| `0x20` | 8 | Uninitialised — whatever ACE's write buffer held, often non-zero; preserve verbatim ([page-02a](page-02a-tdef.md)) |
 | `0x28` | 1 | Table type: `0x4E` 'N' user / `0x53` 'S' system |
 | `0x29` | 2 | Maximum column count (id high-water; lifetime cap 255) |
 | `0x2B` | 2 | Variable-length column count (high-water) |
@@ -110,7 +110,7 @@ Variable section (`varOffsetTable`+`numVar`) omitted only when the table has nev
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 1 | Data type (see codes below) |
-| `0x01` | 2 | Marker `0x0659` |
+| `0x01` | 2 | Minimum engine build, `0x0659` as ACE writes it (refused above 4518) |
 | `0x03` | 2 | Unknown (zero) |
 | `0x05` | 2 | Column id |
 | `0x07` | 2 | Variable-table index — on a **fixed** column the running count of preceding variable columns, dropped ones included (so the `0x2B` high-water for an added column), **NOT `0`**; on a variable column its own slot index, which follows the `0x2B` high-water ([page-02b §3.4](page-02b-columns.md)) |
@@ -259,7 +259,7 @@ creates it) — set bit = freed, not reusable until close.
 - **MSysACEs** (4 cols): `ObjectId`, `SID`, `ACM`, `FInheritable` — two rows per object.
 - **MSysQueries** (8 cols): `ObjectId`, `Attribute`, `Flag`, `Name1`, `Name2`, `Expression`, `Order`, `LvExtra`; PK `(ObjectId, Attribute, Order)`.
 - **MSysRelationships**: `szRelationship`, `szObject`, `szColumn`, `szReferencedObject`, `szReferencedColumn`, `icolumn`, `ccolumn`, `grbit` (`0x01` one-to-one, `0x02` don't-enforce, `0x100` cascade-update, `0x1000` cascade-delete, `0x2000` delete-set-null, `0x1000000`/`0x2000000` join type: all records from the parent / from the child). The cascades ACE applies come from the index-info blocks' `0x15`/`0x16`, not from these bits.
-- **LvProp blob:** `MR2\0` signature, then `[int len][short type][body]` blocks; type `0x80` = name pool; value-block type `0x00` = table, `0x01` = column (`0x02` = index, unverified); per-owner entries are `[short entryLen][byte flags][byte dataType][short nameIndex][short valueLen][value]`. The flag byte is a bit field — `0x01` marks a definition-protected/schema property, and `0x80` also occurs in Access-written files — preserved whole per entry. `dataType` is any `JetDataType` code on any owner (text as `0x0A` or `0x0C`), and `valueLen`, not the type, gives the value's size (a Boolean or Int16 can be 4 bytes). Values include `DefaultValue`, `Required`, and `CheckConstraints`.
+- **LvProp blob:** `MR2\0` signature, then `[int len][short type][body]` blocks; type `0x80` = name pool; value-block type `0x00` = table, `0x01` = column, `0x02` = index (under the index's name); per-owner entries are `[short entryLen][byte flags][byte dataType][short nameIndex][short valueLen][value]`. The flag byte is a bit field — `0x01` is DAO's `DDL` bit (set on the engine's built-in properties and on `CreateProperty(…, DDL:=True)`), and `0x80` also occurs in Access-written files — preserved whole per entry. `dataType` is any `JetDataType` code on any owner (text as `0x0A` or `0x0C`), and `valueLen`, not the type, gives the value's size (a Boolean or Int16 can be 4 bytes). Values include `DefaultValue`, `Required`, and `CheckConstraints`.
 
 ---
 

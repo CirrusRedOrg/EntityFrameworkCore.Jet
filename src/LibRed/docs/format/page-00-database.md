@@ -100,7 +100,7 @@ obvious implementation goes wrong:
   That is inherent — the column it would find is one it could not read either.
 
 Verified against the real engine: ACE opens a file LibRed upgraded in place and reads the value that forced
-the upgrade. A saved query's *parameter* type is deliberately excluded — it declares no storage, and what ACE does with a new-type parameter in `MSysQueries` has not been probed.
+the upgrade. A saved query's *parameter* type is deliberately excluded — it declares no storage, and ACE stores a `BIGINT` or `DATETIME2` parameter with its type on an older file and leaves the version byte alone (verified; [system-catalog](system-catalog.md)).
 
 **Allocation bootstrap.** `0x18` and `0x1C` are the two things an engine needs before it can allocate a page,
 and so cannot look up through the catalog: record pointers to the global free-pages map and the global
@@ -160,7 +160,8 @@ table has been found. Verified: the four pointer values equal the objects'
 > inline constraint): a `PRIMARY KEY` on a first column with no properties takes its root first, while a
 > `UNIQUE` declared inline after a `DEFAULT`, or at the end of the statement, takes it after the property page
 > (verified). A `CHECK`, a table property, is written after the
-> columns' (its place among other table-level elements is not measured).
+> columns'; declared before or after a table-level `UNIQUE`, or ahead of a table-level `PRIMARY KEY`, LibRed's
+> placement is ACE's byte for byte (verified).
 >
 > | pages | contents |
 > | --- | --- |
@@ -458,8 +459,9 @@ header gives. Nothing the fold reads may change after the SIDs are derived. Crea
 workgroup is unverified.
 
 Opening a file through ACE's OLE DB provider is **not** a check of its SIDs: it also opens a file whose SIDs
-belong to a different date. The evidence is byte-for-byte agreement with SIDs Access itself wrote. Access
-desktop's permission-sensitive open of a LibRed-created file has not been tested.
+belong to a different date. LibRed's SIDs agree byte for byte with those Access itself writes, and Access
+desktop's own permission-sensitive open accepts a LibRed-created database, its system tables, table definitions
+and rows (verified).
 
 ### 2.4 Legacy Jet 3/4 RC4 page encryption (verified)
 

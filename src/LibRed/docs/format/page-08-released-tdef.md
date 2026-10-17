@@ -34,11 +34,10 @@ LibRed sets the same marker through `TableDefinition.MarkReleased` in `SchemaEdi
 (the owned/free maps, the per-column long-value maps, and the map-holder rows are covered in
 [page-05 §9](page-05-usage-maps.md)).
 
-> An ACE drop and a LibRed drop of the same table leave the file **byte-identical** except for the three
-> catalog **index root pages** — identical entries in identical order, but LibRed compacts a leaf harder than
-> ACE does after removing entries ([page-03-04 §10.4a](page-03-04-index-btree.md)) — and page 0, by the one
-> byte of the opening user's commit slot at `0xE02` ([page-00 §2.2](page-00-database.md)), which moves for any
-> write at all.
+> An ACE drop and a LibRed drop of the same table leave the file **byte-identical** — the catalog's index pages
+> included, since a removal keeps each leaf's stored prefix ([page-03-04 §10.4a](page-03-04-index-btree.md)) —
+> except page 0, by the one byte of the opening user's commit slot at `0xE02` ([page-00 §2.2](page-00-database.md)),
+> which moves for any write at all.
 
 ## Related
 

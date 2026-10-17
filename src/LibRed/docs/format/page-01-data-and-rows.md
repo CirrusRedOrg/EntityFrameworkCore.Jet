@@ -224,8 +224,8 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
     builds every row one UPDATE rewrites, in the order it reaches them, in one buffer per table, zeroed when the
     statement starts and never cleared — the old record copied in, the new one written over it — so a byte
     there holds the last *updated* record that reached that far, and a row the statement only reads does not
-    reach the buffer. Verified with rows predating three fixed ADD COLUMNs: a short row's new slots hold the text
-    of the longer row updated before it;
+    reach the buffer — so a short row predating a fixed ADD COLUMN can get, in its new slots, the text of a
+    longer row updated before it;
   - an **ALTER COLUMN** re-lay does the same over the old live region plus the new slot (page-02b §3.8).
 
 - **Record slack: zero bytes between the variable data and the offset table**, outside every offset — the
@@ -286,9 +286,8 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
   clear. In a byte the row did not have before — an UPDATE or an `ALTER COLUMN` re-lay of a row predating an
   `ADD COLUMN` that crossed a byte boundary — the bitmap is written over the row buffer (above; page-02b §3.8),
   so its bits past the last id are that buffer's byte: stale text of the last updated record to reach that
-  position, under the bits the row sets (verified: of five rows given a BIT column and all updated, the second
-  reads `0x49`, the first row's `H` under its one live bit; with only the second and fourth updated, both read
-  `0x01`).
+  position, under the bits the row sets (verified). Rows given a BIT column and all updated: the second reads
+  `0x49`, the first row's `H` under its one live bit; with only the second and fourth updated, both read `0x01`.
 - **Null bitmap** is indexed by **column id**; a **set bit = the value is present** (non-null).
 - **Fixed** column value is at `rowStart + 2 + fixedOffset`, `length` bytes.
   - A **fixed-length text** column (`CHAR`/`NCHAR`, not `TEXT`/`VARCHAR`) fills its whole `length`: the value is
@@ -331,8 +330,7 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
 > **Row-reader guardrails.** LibRed bounds the null bitmap and optional variable trailer before reading
 > them. The offset table must fit the row, entry 0 (the variable-data end) must not pass the table start,
 > and its end-first offsets must remain within the row and be non-increasing. LibRed permits unused bytes
-> between entry 0 and the table itself, which schema-evolved rows can carry; why those rows retain the gap
-> has not been verified against Access. A requested variable slot must exist. Fixed values must fit the derived fixed region, and fixed-width scalar codecs require the
+> between entry 0 and the table itself — the record slack ACE leaves (§5, *Record slack*). A requested variable slot must exist. Fixed values must fit the derived fixed region, and fixed-width scalar codecs require the
 > exact widths in §6. A column id beyond an older row's stored `colCount` is absent/null—this preserves
 > ADD COLUMN behavior—and the variable trailer is considered present by the `colCount` rule above. This also
 > preserves the verified all-fixed form that omits the trailer entirely. Structural violations are reported as

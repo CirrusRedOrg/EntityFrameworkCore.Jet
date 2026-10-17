@@ -36,12 +36,10 @@ maps — owned and free — and released. Exactly one page is released per page 
 
 **A table always keeps its first data page.** It is never stamped and never given back, however empty it
 gets, and stays in both of the table's maps with all its slots tombstoned like any other emptied page. This
-is not "a table keeps one page": it is kept even while later pages still hold live rows. It is identified as
-the lowest page in the table's owned map.
-
-> **Unsettled:** whether the kept page is the lowest page in the owned map or the page the table was created
-> with. The two coincide wherever they have been compared, so either reading fits; a table whose first page
-> came out of a hole in the free map would separate them.
+is not "a table keeps one page": it is kept even while later pages still hold live rows. It is **the lowest
+page in the table's owned map**, not the page the table was created with: a table that has grown into pages
+below the one it started on keeps the lowest of them and releases its original first page when every row is
+deleted (verified; LibRed agrees byte for byte).
 
 All of this is the **row-by-row** delete. A `DELETE` with no `WHERE` takes the other route below, and keeps
 nothing.
@@ -68,17 +66,19 @@ ACE empties the table in one go, without visiting a row, and **no page it releas
 - The test is the **missing `WHERE`**, not every row matching: `WHERE 1 = 1` and `WHERE D >= 0` delete row by
   row. `DELETE * FROM t` is the same statement as `DELETE FROM t`.
 - A table an **enforced** relationship names as its **parent** is deleted row by row, cascading or not. A table
-  that is only a **child** (holds a foreign key) takes this route. A parent only through an unenforced
-  relationship is **not measured**; LibRed empties it in one go.
+  that is only a **child** (holds a foreign key) takes this route, and so does a parent only through an
+  **unenforced** relationship, its rows left live-looking as a plain table's are (verified) — which LibRed
+  also empties in one go.
 - A table with a **CHECK constraint** is deleted row by row, its pages exactly as a row-by-row delete leaves them,
   and its checks evaluated as each row goes — one that fails only once some of the rows are gone refuses the
   statement (verified).
 - It holds for multi-level indexes, chained and packed long values, a definition on continuation pages, a table
   already emptied row by row (its kept first page goes too), and tables with no index or a composite key. A
-  table with a **complex column** is not measured; LibRed deletes it row by row, the route that follows its
-  flat table's rows.
-- The reset root's compressed-byte count is `0` where the root was not compressed beforehand; whether ACE keeps
-  a non-zero count there is **not measured**.
+  table with a **complex column** takes it too, and the engine **leaves the flat table alone**: the owner's pages
+  are released untouched, while the flat table keeps every row and its row count, each value now owned by no
+  row (verified). LibRed does the same, byte for byte.
+- The reset root's compressed-byte count is `0`, whether or not the root was compressed beforehand: a root
+  compressed at 9 reads 0 after `DELETE FROM` (verified).
 
 ### An emptied packed long-value page
 

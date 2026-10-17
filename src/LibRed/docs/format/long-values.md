@@ -196,10 +196,15 @@ the long values:
 > over their upper end; the rest of the uncompressed image stays in the page's free space. So a page takes the
 > value only if it has room for the *uncompressed* bytes and a directory entry: `String(1800,'e')` then
 > `String(1200,'f')` in a `MEMO WITH COMPRESSION` column put the second value on a new page, though its 1,202
-> compressed bytes would have fit beside the first; `String(1000,'f')` shared the page. The free-space field and
-> the free-pages map count the compressed row. Whether the directory entry counts on top of the uncompressed
-> bytes at the exact boundary is not established. A value that does not compress, or a column without
-> compression, leaves nothing behind. LibRed does the same, byte for byte.
+> compressed bytes would have fit beside the first; `String(1000,'f')` shared the page. The directory entry counts
+> on top of the uncompressed bytes (verified: beside the 1800-character value, 2,278 bytes
+> free, `String(1138,'f')` — 2,276 bytes and a 2-byte entry — shares the page and `String(1139,'f')` takes a new
+> one). The free-space field counts the compressed row, but **the free-pages map does not**: whether the page
+> stays offered is decided on the room the *uncompressed* bytes leave, against the usual 258-byte cut-off
+> (verified: `String(1009,'f')` leaves 258 and the page stays in the map, `String(1010,'f')` leaves 256 and it
+> goes — though its compressed row left over 1,100 bytes free). A value on a fresh page leaves the page in the
+> map whatever its size. A value that does not compress, or a column without compression, leaves nothing
+> behind. LibRed does the same, byte for byte.
 >
 > **LibRed writes the §3.3.2 entry + empty usage maps for every memo/OLE column** — byte-faithful with
 > ACE, whose usage-map page lays the records out as: row 0 table-owned, row 1 table-free, then one row
@@ -209,7 +214,7 @@ the long values:
 > **That order is the DDL's, not a fixed rule — ACE assigns the rows in declaration order.** An *inline*
 > `PRIMARY KEY` is declared before the long-value columns and takes row 2, giving the layout above; a
 > trailing `CONSTRAINT pk PRIMARY KEY (…)` clause is created *after* them, so on a two-memo table ACE gives
-> the columns rows 2–5 and the index row 6. Measured both ways. LibRed lays the rows out in declaration
+> the columns rows 2–5 and the index row 6 (measured). LibRed lays the rows out in declaration
 > order too ([page-05](page-05-usage-maps.md)).
 >
 > The spill rule applies here too, and to whichever comes last: at 27 memo columns the index still fits the
@@ -250,13 +255,13 @@ the long values:
 converts it to a reference map when it no longer fits — a long-value column's maps are not a special case,
 and `UsageMap.PagesInMap` reads either form back.
 
-**LVAL allocation still uses the session's shared free-page reservation.** Controlled ACE probes with
-7, 8, and 64 existing LVAL pages, packed binary values, chained binary values and memos all take the
-shared four-group (32-page) reservation. The data/index owner's eight-page group-selection switch
-does not apply to these column owners, even with prebuilt reference owned/free maps. A global
+**LVAL allocation uses the session's shared free-page reservation** (measured). Packed binary values,
+chained binary values and memos all take the shared four-group (32-page) reservation, whether the column
+already owns fewer than, exactly or well over eight LVAL pages: the data/index owner's eight-page group-selection switch
+does not apply to these column owners, even when their owned/free maps are reference maps. A global
 reference map clips the reservation at its bitmap-page coverage boundary; a chain can exhaust the
-remainder and continue into a reservation from the next bitmap. The exact measurements and bitmap
-selection state are recorded in [global allocation policy](page-05-usage-maps.md).
+remainder and continue into a reservation from the next bitmap. The bitmap selection rules are in
+[global allocation policy](page-05-usage-maps.md).
 
 > **The terminating `0xFFFF` is mandatory on write — even for a table with no long-value
 > columns** (where the list is empty and the `0xFFFF` is the only bytes here). Omitting it makes

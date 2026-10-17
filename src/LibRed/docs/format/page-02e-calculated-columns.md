@@ -334,9 +334,21 @@ type: `Left([A],2)` over a Null `[A]` stores an empty payload and reads back `""
 payload under a `DateTime` result type reads back Null. Reading it as Null in both cases is a silent
 disagreement about a value nothing ever recomputes.
 
-**The envelope does not consume fixed-region budget.** 250 `Double` columns — 2000 bytes, the documented
-record cap — are accepted both with and without a calculated column on top. The true ceiling was not
-bracketed, so this rules out a *fixed-region* cost rather than establishing the exact limit.
+**Against the 4060-byte record cap a calculated column is a variable column** (verified at both
+boundaries):
+
+- **Declared**, it costs its 2-byte offset entry and its null-bitmap bit and nothing else — on a table with no
+  variable column yet, the widest record ([page-02b §3.7](page-02b-columns.md)) grows by exactly 2 bytes, the
+  variable section's 4-byte allowance becoming 6. A table whose widest record already sits at the cap cannot
+  take one: ACE then refuses the whole database (*"Unrecognized database format"*). DAO itself does not check —
+  it appends the column and writes the file ACE then refuses — so a declaration ACE accepts is not proof that
+  the table is usable.
+- **Stored**, its envelope is variable data in the row, counted against the cap like any other: 27 bytes for a
+  Long value (23 of envelope, 4 of payload). So a table that just admits the column must give up another 27
+  bytes of fixed region before a row holding a value fits; until then every insert is *"Record is too large"*.
+
+LibRed agrees at both edges: `ValidateRecordFits` refuses the over-cap declaration up front, and the insert
+check refuses the over-cap record.
 
 **The engine evaluates the stored text, and enforces the whitelist itself.** Authoring a column with an
 allowed expression and then patching the stored `Expression` property on the page to another string of the

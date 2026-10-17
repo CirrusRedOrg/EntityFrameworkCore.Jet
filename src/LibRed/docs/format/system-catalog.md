@@ -112,12 +112,20 @@
   > entries `[short entryLen][byte flags][byte dataType][short nameIndex][short valueLen][value]`.
   > The owner record's second field is **always zero** (verified).
   > The per-entry flag byte is a **bit field**. Bit `0x01` marks a **DDL/property-definition property**; an
-  > ordinary property has it clear. A set bit makes the property definition-protected (`dbSecWriteDef`
-  > permission is needed to change/delete it), and Access only recognises some properties when the
-  > classification is correct (both unverified against ACE). Observed in files: `DefaultValue`, `Required`,
-  > `CheckConstraints`, `GUID`, and `ResultType` are `0x01`, while `Title`, `Author`, `AccessVersion`, and
-  > datasheet-layout properties are `0x00`. `ValidationRule`/`ValidationText` are classed as DDL and
-  > `Caption`/`Description` as ordinary (unverified). Bit **`0x80`** also occurs in Access-written files: every
+  > ordinary property has it clear. It is exactly DAO's `DDL` argument (verified): the engine's built-in
+  > properties set through DAO — `ValidationRule`, `ValidationText`, `DefaultValue`, `Required`,
+  > `AllowZeroLength`, on a column and on the table alike — are written `0x01`, a property appended with
+  > `CreateProperty(…, DDL:=True)` is `0x01`, and one appended with `DDL` left at its default (`Caption`,
+  > `Description`) is `0x00`. **ACE only recognises a column's `DefaultValue` and `Required` with the bit set**
+  > (verified): with it clear, an `INSERT` omitting the column stores NULL rather than the default, and an explicit
+  > NULL is accepted into the `NOT NULL` column. The table's `CheckConstraints` entry is enforced either way.
+  > LibRed's reader applies `DefaultValue` and
+  > `Required` by name and block alone, so on such a file it would honour what ACE ignores; every writer seen sets
+  > the bit on them. That a set bit makes the property definition-protected (`dbSecWriteDef` permission needed
+  > to change or delete it) is unverified. Observed in files too: `CheckConstraints`, `GUID` and `ResultType` are `0x01`,
+  > while `Title`, `Author`, `AccessVersion` and datasheet-layout properties are `0x00`. DAO stored a column's
+  > `ValidationRule` with a trailing NUL character in the value and the table's without one (observed, not
+  > explained). Bit **`0x80`** also occurs in Access-written files: every
   > stored query of one example database carries a `0x80` entry in its own (`0x00`) block. mdbtools reads it as
   > "store the value without running the property's handler", set by Access itself and by no DAO call
   > (unverified). The flag is independent per entry; it is not a file-version, encryption, owner, or data-type
@@ -147,8 +155,9 @@
   > changes the blob's bytes though nothing it means has changed.
   >
   > The value-block **type** is `0x01` for a column-owned map and `0x00` for the
-  > table-owned map (empty owner name). mdbtools gives `0x02` as an **index**-owned map, named for the index —
-  > which Access usually names for its column — though no example file has one (unverified). LibRed keeps each
+  > table-owned map (empty owner name), and `0x02` for an **index**-owned map, under the index's own name, not its
+  > column's (verified). Access usually names an index for its column, which is why the type, not the name, must decide
+  > the owner. LibRed keeps each
   > block's type as read, so a column's properties are only ever those in a `0x01` block of its name. A `DefaultValue` (column property) is the expression's **source
   > text** (e.g. `42`, `'hi'`) — its evaluation semantics (what an expression may contain, the
   > DDL-parser-vs-expression-service split) are in [page-02c-default-values.md](page-02c-default-values.md);
@@ -432,7 +441,7 @@
   > | `4` | UPDATE | `48` dbQUpdate | observed |
   > | `5` | DELETE | `32` dbQDelete | observed |
   > | `6` | crosstab (`TRANSFORM`) | `16` dbQCrosstab | observed |
-  > | `7` | data definition (whole SQL in `Expression`, leading space) | `96` dbQDDL | *not observed in a stored query; verified by write/read round-trip only* |
+  > | `7` | data definition (whole SQL in `Expression`, leading space) | `96` dbQDDL | observed |
   > | `8` | pass-through | `112` dbQSQLPassThrough | *unverified — from the published MSysQueries tables* |
   > | `9` | UNION | `128` dbQSetOperation | observed |
   >
@@ -760,7 +769,7 @@
   >   row, so an UPDATE over a join stores exactly what the same join in a SELECT stores. ACE writes `Name2`
   >   unquoted however the target was written — `SET [My T].[My Col]` and `` SET `My T`.`My Col` `` are both
   >   `My T.My Col`, an alias's `od.Discount` — and qualified only when the statement qualified it (verified). A
-  >   file from an older engine can hold a quoted part (`COMBINED.[temp 2 for pasta]`), which reads the same.
+  >   file from an older engine can hold a quoted part (`T.[My Col]`), which reads the same.
   > - **Delete**: the `0x01` action row has `Flag 5`. A `DELETE <table>.* FROM …` keeps that target as a
   >   single `0x06` row whose `Expression` is the verbatim `<table>.*` and which has no `Name2`; a
   >   `DELETE FROM …` (no named target) stores **no** `0x06` row at all, and ACE renders it back as
@@ -951,8 +960,9 @@
 
 The Access **Complex** column (on-disk type `0x12`, len 4 — see [data-types](data-types.md)) implements
 attachment and multi-value columns. Its in-row value is a 4-byte **complex id**; the actual data lives in a
-per-column backing table, wired up through hidden system tables. LibRed **reads every piece as an ordinary
-table but does not yet auto-resolve** a `0x12` column to its backing rows (a `SELECT` of it returns the raw 4-byte id as `byte[]`).
+per-column backing table, wired up through hidden system tables. LibRed reads every piece as an ordinary table: a
+row holds the column's complex id as an Int32, and `JetDatabase.ReadComplexValues(table, column, id)` resolves an
+id to its values in the backing table.
 
 Four layers — the user table, then three kinds of ordinary hidden/system table:
 
@@ -1143,4 +1153,4 @@ The stream is standard zlib (RFC 1950, opening `78 5E`), so `ZLibStream` reads i
 
 **To materialize**: read the row's `0x12` id → find the column's row in `MSysComplexColumns` (by `ComplexID`
 from the descriptor's `0x0B`, or by name) → open `FlatTableID`'s `f_` table → select the rows whose
-**owner-link** column equals that id. All readable today by hand; LibRed does not yet do it for you.
+**owner-link** column equals that id. `JetDatabase.ReadComplexValues` does exactly this.

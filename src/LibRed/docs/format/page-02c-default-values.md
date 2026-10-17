@@ -75,11 +75,11 @@ capabilities.
 > writes into `LvProp` therefore has to be in the service's own syntax — brackets, not backticks — whatever
 > quoting the SQL it came from used.
 >
-> A **`CHECK` constraint depends on the engine build.** Every ACE measured stores `` `Qty` > 0 `` with its
+> A **`CHECK` constraint depends on the engine build.** ACE stores `` `Qty` > 0 `` with its
 > backticks, through `CREATE TABLE` and `ALTER TABLE … ADD CONSTRAINT` alike. The current Microsoft 365 Access
 > Runtime (x64) then enforces it. ACE 2010 (x86) and the 2016 Access Database Engine redistributable (x64) do
 > not: their CHECK evaluator reads `` `Qty` `` as a field named with the backticks, so every insert
-> fails with *"Could not find field '`Qty`'"*, its own writes included (verified on all three). LibRed stores a
+> fails with *"Could not find field '`Qty`'"*, its own writes included (verified). LibRed stores a
 > check's text as written, so a backtick-quoted check it writes is enforceable only by the newer engine.
 
 Consequence: a compound default that the DDL parser refuses can still be **stored** (via the table designer, DAO,

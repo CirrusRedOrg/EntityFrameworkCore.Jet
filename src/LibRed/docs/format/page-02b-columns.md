@@ -7,7 +7,7 @@
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 1 | Data type (see §6) |
-| `0x01` | 2 | Record marker `0x0659` (see §3.1 note); ignored |
+| `0x01` | 2 | Minimum engine build for the column — `0x0659` as ACE writes it; ACE refuses the table when it exceeds its own build, 4518 ([page-02a §3.1](page-02a-tdef.md) note) |
 | `0x03` | 2 | Unknown (zero observed) |
 | `0x05` | 2 | Column id |
 | `0x07` | 2 | Variable-table index. For a **fixed** column it is the running count of variable columns with a smaller id (**not** `0`), dropped ones included — ACE's own `ADD COLUMN` writes `2` for a LONG added to `(K LONG, A TEXT, B TEXT)`, and still `2` when `B` was dropped first: an added column's count is the `0x2B` high-water. For a **variable** column it is that column's own slot index, which is the `0x2B` **high-water** and *not* the count of live variable columns: after a variable column is dropped the next one goes above the abandoned slot, so the two part company. Verified byte-for-byte against DAO-written system tables and against ACE performing the same DDL. |
@@ -36,10 +36,13 @@
 > **Extended flags beyond `0x01`/`0xC0` belong to the complex columns (verified where set).** `0x10` is set on
 > exactly the six attachment value columns — `FileData`, `FileFlags`, `FileName`, `FileTimeStamp`, `FileType`,
 > `FileURL` — in the `MSysComplexType_Attachment` template and in every attachment flat table, and on no other
-> column. A flat table (`f_<GUID>_…`) also sets `0x08` on its `_<column>` column and `0x04` on its
-> `<table>_<column>` column. mdbtools reads `0x08` as the flat table's foreign key to the complex id, which
-> Access refuses to open a flat table without; what `0x04` means is unknown (both unverified). mdbtools also
-> gives `0x20` to a version-history column, which no file seen has.
+> column. A flat table (`f_<GUID>_…`) also sets `0x08` on its `_<column>` column — the owner link, holding the
+> owning row's complex id — and `0x04` on its `<table>_<column>` column, the per-value AutoNumber id.
+> **`0x08` is load-bearing** (verified): without it DAO cannot open the owner table at all (*"cannot find the
+> input table or query"*) and ACE no longer resolves the owner's complex column. **`0x04` is not read**
+> (verified): without it DAO and ACE still read every value, DAO still adds one, and neither restores the bit.
+> Writers set both, as ACE does. mdbtools also gives `0x20` to a version-history column, which no file
+> seen has.
 
 > **A `Complex` column (type `0x12`) is an AutoNumber, and its `0x0B` names its `MSysComplexColumns` row.**
 > Verified on every complex column: `0x0F` = `0x07` on every one — fixed `0x01`,
@@ -62,8 +65,8 @@
 > byte, not a sort-order version. So the descriptor points at the catalog entry directly; a reader need not
 > match on column name.
 >
-> *Unverified:* whether the id is one byte at `0x0B` or a 16-bit value spanning `0x0B`–`0x0C`. Every observed
-> id is 1–4, so a zero at `0x0C` fits both readings.
+> The id is the full Int32, not one byte or 16 bits (verified): id 300 is written `2C 01 00 00` and id 70000
+> `70 11 01 00`.
 
 > **`0x09` is written by everything that creates a user table, and only by those.** Every genuine user
 > table carries the id on every column, and every zero belongs to a table the engine made for itself —
@@ -183,7 +186,9 @@ variable-length**, and its slot holds a fixed envelope around the result ACE las
 > So the leading field is the VBA runtime error number, and an error envelope is 38 bytes against 23 for a
 > Null. Reading such a column through OLE DB fails with *"Multiple-step OLE DB operation generated errors"* —
 > ACE will not hand back a row whose calculated column is in an error state. Anything decoding the payload
-> alone reads it as Null, which is what LibRed does today and is a silent disagreement, not a Null.
+> alone would read it as Null — a silent disagreement, since the payload is empty both ways — so LibRed reads
+> the status and refuses the row as ACE does, with the VBA error it names (`CalculatedExpressionException`,
+> e.g. *"Invalid use of Null"*).
 
 so a stored value occupies *n* + 23 bytes. The payload is encoded as the same value would be in an ordinary
 column, with one measured exception: **text compression follows the declared type, not the payload.** A

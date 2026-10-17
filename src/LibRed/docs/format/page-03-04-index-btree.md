@@ -16,7 +16,7 @@
 | `0x10` | 4 | **Next leaf page** (`0` on the last/rightmost leaf), little-endian; on a split node, its right sibling. **Verified against ACE — and load-bearing:** Access's full-table `COUNT(*)`/scan descends to the leftmost leaf and walks this forward chain. If it is wrong (e.g. `next` written at `0x0C`), Access stops after the first leaf and **silently sees only those rows** — a data-loss/corruption hazard, since it then treats the rest of the table's space as free. LibRed maintains `0x0C`/`0x10` across splits (§10.5). (This is **Jet3's `0x0C` next-pointer shifted +4**; the child-tail that mdbtools lists at `0x10` is the *Jet3* tail position — in Jet4 it too shifted to `0x14`.) |
 | `0x14` | 4 | **Child-tail** page (node pages: the rightmost child, referenced by no entry). **Verified** for Jet4/ACE: the tail pointer read here drives correct multi-level traversal. This is **Jet3's `0x10` tail shifted +4** by the `0x08` insertion, which is exactly why mdbtools (Jet3) documents the tail at `0x10`. |
 | `0x18` | 2 | Compressed-byte count (shared key prefix length, §10.3). Jet3's `0x14`, shifted +4. |
-| `0x1A` | 1 | The **1-byte field Jet4 inserted** just before the bitmask. ACE writes `0` on leaves and `1` on the root of a two-level split index, consistent with a **B-tree level/height** — but **only `0` and `1` have been observed** (no 3-level tree was built against ACE, so `2`+ is a guess). **Required only for leaves (verified):** writing `0x01` on a *leaf* makes ACE fail to open the whole database (`"could not find the object 'Databases'"`). **Node value is cosmetic (verified):** with correct leaf-chain offsets, nodes written with `0x1A=0` *and* prefix-compressed still give ACE the right `COUNT`/`SUM`, so Access reads a node's tail child regardless; leaf vs node is told by the page type at `0x00`. LibRed still writes the height to match ACE byte-for-byte, but the only hard requirements are the leaf-chain offsets and a *leaf's* `0x1A=0`. |
+| `0x1A` | 1 | The **1-byte field Jet4 inserted** just before the bitmask. The page's **height above the leaves**: `0` on a leaf, `1` on a node over leaves, `2` on the node over those (verified to height 2). **Required only for leaves (verified):** writing `0x01` on a *leaf* makes ACE fail to open the whole database (`"could not find the object 'Databases'"`). **Node value is cosmetic (verified):** with correct leaf-chain offsets, nodes written with `0x1A=0` *and* prefix-compressed still give ACE the right `COUNT`/`SUM`, so Access reads a node's tail child regardless; leaf vs node is told by the page type at `0x00`. LibRed still writes the height to match ACE byte-for-byte, but the only hard requirements are the leaf-chain offsets and a *leaf's* `0x1A=0`. |
 | `0x1B` | … | Entry-position bitmask. mdbtools **version-labels** this: bitmask at `0x16` (Jet3) / **`0x1B` (Jet4)**. The `+5` Jet3→Jet4 shift is **fully decomposed**: a **4-byte field inserted at `0x08`** (right after the owner) plus the **1-byte B-tree level at `0x1A`** = `+5`. Everything between is Jet3's field shifted by 4 (Jet3 → Jet4): prev `0x08`→`0x0C`, next `0x0C`→`0x10`, child-tail `0x10`→`0x14`, compressed count `0x14`→`0x18`, and the mask `0x16`→`0x1B`, the level accounting for its extra `+1`. No unexplained bytes remain in this header. (The Jet4 *positions* are ACE-verified; that these are exactly the bytes Jet3 lacks is not yet confirmed against a real Jet3 index page.) |
 | `0x1E0` | — | Start of entry data |
 
@@ -953,9 +953,9 @@ to `n` bytes, as page-01 stores it. LibRed builds the row and every key from one
   4-byte MSysQueries.Order key is the single-chunk form `7F <4B> 00000000 04`. The trailing
   length-terminator makes shorter values sort before longer ones that share a prefix (correct binary
   prefix order). **Descending** inverts every byte **except the `0x09` continuation markers** (mirrors
-  GUID): flag → `0x80`, data bytes and the terminator inverted, markers unchanged. Ascending is verified
-  byte-for-byte against ACE-written keys (single- and multi-chunk); descending is **unverified** against ACE,
-  extrapolated from the verified GUID descending. `IndexKeyCodec.EncodeBinaryChunked`.
+  GUID): flag → `0x80`, data bytes and the terminator inverted, markers unchanged. Both directions are verified
+  byte-for-byte against ACE-written keys, single- and multi-chunk; an empty value in a DESC index keys as the
+  lone `80` start marker. `IndexKeyCodec.EncodeBinaryChunked`.
 
 ### 10.4a Entry removal — a leaf is rewritten, not repacked
 
@@ -1162,8 +1162,9 @@ The split mechanics:
 
   The obvious objection — that a page packed to capacity must split as soon as anything lands in its range —
   does not show up in a gapped load backfilled ascending (ACE: 5 leaves, `1, 1, 1, 7, 55`), because an
-  ascending backfill keeps meeting the right edge of a subtree. A *random* backfill into pre-packed pages is
-  unmeasured.
+  ascending backfill keeps meeting the right edge of a subtree. A *scrambled* backfill into pre-packed pages
+  — keys landing between packed ones in no particular order — splits as ACE's does too, byte for byte
+  (verified).
 
 - **Propagation:** the promoted separator `[key → left page]` is inserted into the parent, whose
   pointer to the just-split page is repointed to the new right page; if the parent overflows it

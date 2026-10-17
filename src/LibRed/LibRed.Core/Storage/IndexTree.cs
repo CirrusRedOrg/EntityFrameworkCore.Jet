@@ -1032,9 +1032,11 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
     }
 
     /// <summary>The prefix every entry shares — the first and last, since they are in key order. None for a
-    /// single entry, which ACE stores whole.</summary>
+    /// single entry, which ACE stores whole. It is measured over the whole entry, key ++ trailer (§10.3): where
+    /// every row of a leaf has one key it runs on into the row pointers' common leading bytes, as ACE's does
+    /// (verified: 500 rows keyed <c>"same"</c> compress at 9, the 7-byte key and 2 pointer bytes).</summary>
     private static int Share(List<Entry> entries) =>
-        entries.Count <= 1 ? 0 : CommonPrefixLength(entries[0].Key, entries[^1].Key);
+        entries.Count <= 1 ? 0 : CommonPrefixLength(entries[0], entries[^1]);
 
     /// <summary>Whether <paramref name="count"/> entries totalling <paramref name="keyBytes"/> of key data fit
     /// one leaf at prefix <paramref name="prefix"/> — Build's layout, without building anything.</summary>
@@ -1095,11 +1097,16 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
         return total - other.Length;
     }
 
-    private static int CommonPrefixLength(byte[] a, byte[] b)
+    /// <summary>How many leading bytes two entries' stored <c>key ++ trailer</c> share, without building either —
+    /// past the key, the trailer's bytes are read most-significant first, as <see cref="CompareWithTrailer"/> does.</summary>
+    private static int CommonPrefixLength(Entry a, Entry b)
     {
-        int n = Math.Min(a.Length, b.Length), i = 0;
-        while (i < n && a[i] == b[i]) i++;
+        int n = Math.Min(a.Key.Length, b.Key.Length) + sizeof(int), i = 0;
+        while (i < n && ByteAt(a, i) == ByteAt(b, i)) i++;
         return i;
+
+        static int ByteAt(Entry e, int i) =>
+            i < e.Key.Length ? e.Key[i] : (byte)(e.Trailer >> (8 * (sizeof(int) - 1 - (i - e.Key.Length))));
     }
 
     internal static int CompareBytes(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)

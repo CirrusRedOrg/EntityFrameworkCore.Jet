@@ -55,7 +55,7 @@ public class CorrelatedScalarAggregateTests : TempDatabaseTest
 
         return ScalarAggregateSemiJoin.TryBuild(
             (SelectStatement)scalar.Query, outer, new(StringComparer.OrdinalIgnoreCase) { "o" },
-            e.Database.Catalog) is not null;
+            e.Database) is not null;
     }
 
     [Fact]

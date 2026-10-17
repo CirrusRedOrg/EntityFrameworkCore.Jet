@@ -45,8 +45,56 @@ internal static class AstBuilder
         if (ctx.transactionStatement() is { } txn) return BuildTransaction(txn);
         if (ctx.executeStatement() is { } exec) return BuildExecute(exec);
         if (ctx.systemVariableSelect() is { } sysSelect) return BuildSystemVariableSelect(sysSelect);
+        if (ctx.transformStatement() is { } transform) return BuildTransform(transform);
         return BuildQueryExpression(ctx.queryExpression());
     }
+
+    /// <summary>
+    /// A crosstab. What ACE refuses in one is refused here with its message (verified): a SELECT without GROUP BY or
+    /// with HAVING, <c>*</c>, a TOP, an INTO, and a fixed heading listed twice. A PIVOT written <c>x IN (…)</c> is the
+    /// field <c>x</c> and its fixed headings, which must be literals (ACE: "Data type mismatch in criteria
+    /// expression" for <c>IN (9+1)</c>).
+    /// </summary>
+    private static TransformStatement BuildTransform(TransformStatementContext ctx)
+    {
+        QuerySpecificationContext spec = ctx.select;
+        if (spec.groupByClause() is null || spec.havingClause() is not null || spec.into is not null)
+            throw new SqlParseException("Syntax error in TRANSFORM statement.");
+        if (spec.selectList().selectItem().Any(i => i is StarSelectItemContext or QualifiedStarSelectItemContext))
+            throw new SqlParseException("Cannot use '*' in crosstab query.");
+        if (spec.topClause() is not null)
+            throw new SqlParseException("Values specified in a TOP clause are not allowed in delete queries or reports.");
+
+        SelectStatement select = BuildQuerySpecification(spec) with
+        {
+            OrderBy = ctx.orderByClause() is { } ob ? ob.orderByItem().Select(BuildOrderByItem).ToList() : [],
+        };
+
+        Expression pivot = BuildExpression(PivotField(ctx));
+        List<PivotHeading>? headings = null;
+        if (PivotField(ctx) != ctx.pivot)
+        {
+            headings = [];
+            foreach (ExpressionContext item in ((InExprContext)ctx.pivot)._items)
+            {
+                if (BuildExpression(item) is not LiteralExpression literal)
+                    throw new SqlParseException("Data type mismatch in criteria expression.");
+                // A Null heading is named as a Null value is, <> (verified vs ACE).
+                string text = literal.Value is null ? ""
+                    : item is PrimaryExprContext p && p.primary() is LiteralPrimaryContext lp && lp.literal() is StringLiteralContext
+                        ? (string)literal.Value : OriginalText(item);
+                if (headings.Any(h => string.Equals(h.Text, text, StringComparison.OrdinalIgnoreCase)))
+                    throw new SqlParseException($"Cannot specify fixed column heading '{text}' in a crosstab query more than once.");
+                headings.Add(new PivotHeading(literal, text));
+            }
+        }
+
+        return new TransformStatement(BuildExpression(ctx.value), OptionalIdentifier(ctx.valueAlias), select, pivot, headings);
+    }
+
+    /// <summary>A PIVOT's field: the pivot itself, or the value of its <c>x IN (…)</c> heading list.</summary>
+    private static ExpressionContext PivotField(TransformStatementContext ctx) =>
+        ctx.pivot is InExprContext fixedHeadings && fixedHeadings.not is null ? fixedHeadings.val : ctx.pivot;
 
     private static TransactionControlStatement BuildTransaction(TransactionStatementContext ctx) => ctx switch
     {
@@ -544,7 +592,7 @@ internal static class AstBuilder
     {
         // A view takes no ORDER BY or INTO, where a procedure may (verified vs ACE) — a TOP is allowed, but not with an
         // ORDER BY.
-        if (ctx.query.orderByClause() is not null || MakeTableTarget(ctx.query) is not null)
+        if (ctx.query.orderByClause() is not null || MakeTable(ctx.query) is not null)
             throw new NotSupportedException("Only simple SELECT queries are allowed in VIEWS.");
 
         var columns = ctx._columns.Select(Identifier).ToList();
@@ -577,14 +625,17 @@ internal static class AstBuilder
         if (body.insertStatement() is { } insert) return BuildAppendProcedure(name, insert, parameters);
         if (body.updateStatement() is { } update) return BuildUpdateProcedure(name, update, parameters);
         if (body.deleteStatement() is { } delete) return BuildDeleteProcedure(name, delete, parameters);
+        if (body.transformStatement() is { } transform)
+            return new CreateProcedureStatement(name, parameters, BuildCrosstabDefinition(transform), OriginalText(transform));
 
         QueryExpressionContext query = body.queryExpression();
         // A SELECT with an INTO is a make-table query — an action query that stores its target on the action
         // row — not a view of the SELECT.
-        if (MakeTableTarget(query) is { } target)
+        if (MakeTable(query) is { } makeTable)
             return new CreateActionProcedureStatement(
-                name, ProcedureActionKind.MakeTable, null, target, null,
-                BuildViewDefinition(query), null, parameters, OwnerAccess(query));
+                name, ProcedureActionKind.MakeTable, null, Identifier(makeTable.into), null,
+                BuildViewDefinition(query), null, parameters, OwnerAccess(query),
+                makeTable.intoDatabase is { } into ? BuildExternalDatabase(into) : null);
 
         ViewDefinition definition = query.setOperator().Length > 0 ? BuildUnionDefinition(query) : BuildViewDefinition(query);
         return new CreateProcedureStatement(name, parameters, definition, OriginalText(query));
@@ -612,29 +663,39 @@ internal static class AstBuilder
 
         return new ViewDefinition(last.ALL() is null, Columns: [],
             [new ViewSource(null, null, first), new ViewSource(null, null, second)], Joins: [], Where: null,
-            GroupBy: [], Having: null, ViewOrderBys(ctx), Top: null, OwnerAccess: OwnerAccess(ctx), Union: true);
+            GroupBy: [], Having: null, ViewOrderBys(ctx.orderByClause()), Top: null, OwnerAccess: OwnerAccess(ctx), Union: true);
+    }
+
+    /// <summary>A crosstab body: its SELECT decomposed as a view's is, and the TRANSFORM value and PIVOT beside it.
+    /// It is checked as running it is checked, so what cannot run is not stored either.</summary>
+    private static ViewDefinition BuildCrosstabDefinition(TransformStatementContext ctx)
+    {
+        _ = BuildTransform(ctx);
+        return ViewDefinitionOf(ctx.select, ctx.orderByClause(), ctx.ownerAccessOption() is not null) with
+        {
+            Crosstab = new ViewCrosstab(OriginalText(ctx.value), OptionalIdentifier(ctx.valueAlias),
+                OriginalText(PivotField(ctx)), OriginalText(ctx.pivot)),
+        };
     }
 
     /// <summary>A stored query's ORDER BY keys: they come off the query expression, not a SELECT, since they order
     /// the query's result.</summary>
-    private static List<ViewOrderBy> ViewOrderBys(QueryExpressionContext ctx) =>
-        ctx.orderByClause() is { } ob
+    private static List<ViewOrderBy> ViewOrderBys(OrderByClauseContext? orderBy) =>
+        orderBy is { } ob
             ? ob.orderByItem().Select(i => new ViewOrderBy(OriginalText(i.expression()), i.dir?.Type == DESC)).ToList()
             : [];
 
-    /// <summary>The table a <c>SELECT … INTO t</c> body writes into, or null for an ordinary SELECT.</summary>
-    private static string? MakeTableTarget(QueryExpressionContext ctx) =>
-        ctx.setOperator().Length == 0 && ctx.queryTerm(0) is SelectTermContext term
-        && term.querySpecification().into is { } into
-            ? Identifier(into)
+    /// <summary>The SELECT of a <c>SELECT … INTO t</c> body, which names the table it writes into, or null for an
+    /// ordinary SELECT.</summary>
+    private static QuerySpecificationContext? MakeTable(QueryExpressionContext ctx) =>
+        ctx.setOperator().Length == 0 && ctx.queryTerm(0) is SelectTermContext term && term.querySpecification().into is not null
+            ? term.querySpecification()
             : null;
 
     private static CreateActionProcedureStatement BuildAppendProcedure(
         string name, InsertStatementContext insert, IReadOnlyList<ProcedureParameter> parameters)
     {
         var columns = insert._columns;
-        if (columns.Count == 0)
-            throw new NotSupportedException("An INSERT procedure body must list its target columns.");
 
         // The multiple-record form: the values come from a SELECT, which is stored as the query's own source
         // — the same table / join / where rows a view stores — with each column row naming what it reads.
@@ -642,6 +703,23 @@ internal static class AstBuilder
         if (rows is null && insert.source is { } source)
         {
             ViewDefinition body = BuildViewDefinition(source);
+
+            // Without a column list the SELECT is stored as a view's is, each value under its output name — its alias,
+            // or the column's own name — and SELECT * as no columns at all; ACE fills the target columns by those
+            // names (verified). ACE refuses a value with no name of its own to go by.
+            if (columns.Count == 0)
+            {
+                SelectItemContext[] items = [.. ((SelectTermContext)source.queryTerm(0)).querySpecification().selectList().selectItem()
+                    .Where(i => i is not StarSelectItemContext)];
+                var named = body.Columns.Select((column, i) => BuildSelectItem(items[i]) is var item
+                            && (item.Alias ?? (item.Value as ColumnReference)?.Column) is { } outputName
+                        ? column with { Alias = outputName }
+                        : throw new SqlParseException($"An INSERT without a column list needs a name for '{column.Expression}' to fill a column by."))
+                        .ToList();
+                return new CreateActionProcedureStatement(
+                    name, ProcedureActionKind.Append, null, Identifier(insert.table), null, body with { Columns = named }, null,
+                    parameters, OwnerAccess(source));
+            }
             if (body.Columns.Count != columns.Count)
                 throw new SqlParseException(
                     $"INSERT lists {columns.Count} columns but its SELECT returns {body.Columns.Count}.");
@@ -653,6 +731,9 @@ internal static class AstBuilder
                 name, ProcedureActionKind.Append, null, Identifier(insert.table), sourced, body, null, parameters,
                 OwnerAccess(source));
         }
+
+        if (columns.Count == 0)
+            throw new NotSupportedException("An INSERT … VALUES procedure body must list its target columns.");
 
         // A stored append query keeps its columns and values as text pairs, which has room for exactly one
         // row — so a multi-row table value constructor cannot be stored as a procedure even though it is
@@ -774,6 +855,13 @@ internal static class AstBuilder
             From = LowerFrom(del.From, names)!,
             Where = del.Where is null ? null : LowerExpr(del.Where, names),
         },
+        // A crosstab declares them as its SELECT does (verified vs ACE: PARAMETERS y SHORT; TRANSFORM … WHERE … = y).
+        TransformStatement transform => transform with
+        {
+            Value = LowerExpr(transform.Value, names),
+            Select = LowerSelect(transform.Select, names),
+            Pivot = LowerExpr(transform.Pivot, names),
+        },
         _ => s,
     };
 
@@ -843,18 +931,32 @@ internal static class AstBuilder
     {
         if (ctx.setOperator().Length > 0)
             throw new NotSupportedException("A UNION query is not a valid (simple) view.");
+        // TABLE t is SELECT * FROM t, and ACE stores it so (verified).
+        if (ctx.queryTerm(0) is TableTermContext table)
+            return new ViewDefinition(Distinct: false, Columns: [], [new ViewSource(Identifier(table.table), null)], Joins: [],
+                Where: null, GroupBy: [], Having: null, ViewOrderBys(ctx.orderByClause()), Top: null,
+                OwnerAccess: OwnerAccess(ctx), AllFields: true);
         if (ctx.queryTerm(0) is not SelectTermContext term)
             throw new NotSupportedException("A parenthesised query is not a valid (simple) view.");
 
-        QuerySpecificationContext select = term.querySpecification();
+        // A stored TOP has no WITH TIES of its own: it is ACE's TOP, which always keeps the ties, while LibRed reads
+        // it back as a plain one. So neither reading can be stored faithfully.
+        if (term.querySpecification().topClause()?.ties is not null || ctx.offsetFetchClause()?.ties is not null)
+            throw new NotSupportedException("A view cannot store TOP … WITH TIES.");
+        return ViewDefinitionOf(term.querySpecification(), ctx.orderByClause(), OwnerAccess(ctx));
+    }
+
+    /// <summary>One SELECT decomposed into the rows Access stores for it, with the ORDER BY and WITH OWNERACCESS
+    /// OPTION its statement gives it — a query expression's own, or a crosstab's.</summary>
+    private static ViewDefinition ViewDefinitionOf(QuerySpecificationContext select, OrderByClauseContext? orderBy, bool ownerAccess)
+    {
+        // Checked as running it is checked, so what cannot run is not stored either (ACE refuses to store two outputs
+        // aliased alike, as it refuses to run them).
+        _ = BuildQuerySpecification(select);
         var groupBy = select.groupByClause() is { } g
             ? g.expression().Select(OriginalText).ToList() : (IReadOnlyList<string>)[];
         // The group filter of a "totals" query, stored verbatim in its own row alongside the GROUP BY ones.
         string? having = select.havingClause() is { } h ? OriginalText(h.expression()) : null;
-        // A stored TOP has no WITH TIES of its own: it is ACE's TOP, which always keeps the ties, while LibRed reads
-        // it back as a plain one. So neither reading can be stored faithfully.
-        if (select.topClause()?.ties is not null || ctx.offsetFetchClause()?.ties is not null)
-            throw new NotSupportedException("A view cannot store TOP … WITH TIES.");
         // A stored view can only carry a literal TOP (Access stores it as text); reject a parameterized one.
         int? top = select.topClause() is { } t
             ? BuildTop(t) is LiteralExpression { Value: int n }
@@ -862,10 +964,10 @@ internal static class AstBuilder
                 : throw new NotSupportedException("A view's TOP must be a literal integer.")
             : null;
 
-        // Output columns; SELECT * becomes a single "*", a qualified star stays "Table.*".
-        var columns = select.selectList().STAR() is not null && select.selectList().selectItem().Length == 0
-            ? (IReadOnlyList<ViewColumn>)[new ViewColumn("*", null)]
-            : select.selectList().selectItem().Select(BuildViewColumn).ToList();
+        // Output columns; a qualified star stays "Table.*". A bare * is no column of its own but the query's
+        // output-all-fields option, beside whatever columns the list names too (verified vs ACE).
+        SelectItemContext[] items = select.selectList().selectItem();
+        var columns = items.Where(i => i is not StarSelectItemContext).Select(BuildViewColumn).ToList();
 
         // Flatten the FROM into a flat list of source tables and joins, descending through any parenthesised
         // join groups (Access stores them flat — one Attribute=5 per table, one Attribute=7 per join). A
@@ -877,8 +979,10 @@ internal static class AstBuilder
             CollectSources(ts, tables, joins);
 
         string? where = select.whereClause() is { } w ? OriginalText(w.expression()) : null;
-        return new ViewDefinition(select.predicate?.DISTINCT() is not null, columns, tables, joins, where, groupBy, having, ViewOrderBys(ctx), top,
-            TopPercent: select.topClause()?.percent is not null, OwnerAccess: OwnerAccess(ctx));
+        return new ViewDefinition(select.predicate?.DISTINCT() is not null, columns, tables, joins, where, groupBy, having, ViewOrderBys(orderBy), top,
+            TopPercent: select.topClause()?.percent is not null, OwnerAccess: ownerAccess,
+            Database: select.fromClause()?.externalDatabase() is { } external ? BuildExternalDatabase(external) : null,
+            AllFields: items.Any(i => i is StarSelectItemContext), DistinctRow: select.predicate?.DISTINCTROW() is not null);
     }
 
     /// <summary>Whether a query declares WITH OWNERACCESS OPTION — after its ORDER BY, or at the end of its last
@@ -1154,11 +1258,18 @@ internal static class AstBuilder
     /// them to belong to.</summary>
     private static SelectStatement BuildQuerySpecification(QuerySpecificationContext ctx)
     {
-        SelectListContext list = ctx.selectList();
-        bool star = list.STAR() != null;
+        // A lone * is every column, as it always was; a * among other items is one of them (see StarSelectItem).
+        SelectItemContext[] items = ctx.selectList().selectItem();
+        bool star = items is [StarSelectItemContext];
         var projection = star
             ? (IReadOnlyList<SelectItem>)[]
-            : list.selectItem().Select(BuildSelectItem).ToList();
+            : items.Select(BuildSelectItem).ToList();
+
+        // ACE refuses two items aliased alike, whatever their case, naming the later (verified).
+        var aliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (ExpressionSelectItemContext item in items.OfType<ExpressionSelectItemContext>())
+            if (item.alias is { } alias && !aliases.Add(Identifier(alias)))
+                throw new SqlParseException($"Duplicate output alias '{Identifier(alias)}'.");
 
         TableReference? from = ctx.fromClause() is { } fc ? BuildFrom(fc) : null;
         Expression? where = ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null;
@@ -1176,7 +1287,21 @@ internal static class AstBuilder
             DistinctRow: predicate?.DISTINCTROW() is not null,
             TopPercent: topPercent,
             Into: ctx.into is null ? null : Identifier(ctx.into),
-            WithTies: ctx.topClause()?.ties is not null);
+            WithTies: ctx.topClause()?.ties is not null,
+            IntoDatabase: ctx.intoDatabase is { } database ? BuildExternalDatabase(database) : null);
+    }
+
+    /// <summary>An <c>IN externaldatabase</c> as written. ACE refuses an empty database type, and an empty path with
+    /// nothing after it to name the file (verified: "Syntax error in FROM clause.").</summary>
+    private static ExternalDatabase BuildExternalDatabase(ExternalDatabaseContext ctx)
+    {
+        string path = Unquote(ctx.path.Text);
+        string? connect = ctx.type is { } type ? Unquote(type.Text)
+            : ctx.connect is { } bracketed ? bracketed.Text[1..^1]
+            : null;
+        if (connect is "" || path.Length == 0 && connect is null)
+            throw new SqlParseException("Syntax error in FROM clause.");
+        return new ExternalDatabase(path.Length == 0 ? null : path, connect);
     }
 
     /// <summary>The TOP count expression: a single operand, or a left-associative +/- chain of them (each
@@ -1201,13 +1326,30 @@ internal static class AstBuilder
 
     private static SelectItem BuildSelectItem(SelectItemContext ctx) => ctx switch
     {
+        StarSelectItemContext => new SelectItem(new StarExpression(), null),
         QualifiedStarSelectItemContext q => new SelectItem(new QualifiedStarExpression(Identifier(q.qualifier)), null),
         ExpressionSelectItemContext e => new SelectItem(
-            BuildExpression(e.expression()), OptionalIdentifier(e.alias) ?? BangColumnName(e.expression())),
+            BuildExpression(e.expression()), OptionalIdentifier(e.alias) ?? BangColumnName(e.expression()),
+            e.alias is null && e.expression() is PrimaryExprContext { } p && p.primary() is ColumnPrimaryContext
+                ? OriginalText(e.expression()) : null),
         _ => throw new SqlParseException($"Unsupported select item: {ctx.GetText()}"),
     };
 
-    private static TableReference BuildFrom(FromClauseContext ctx) => BuildTableSources(ctx.tableSource());
+    /// <summary>A FROM clause. An IN externaldatabase ending it puts every table it names in that file — the tables
+    /// of its joins and comma list alike, not those inside a derived table, whose FROM is a clause of its own, as a
+    /// subquery's is (verified vs ACE: a WHERE subquery under such a FROM reads the statement's own database).</summary>
+    private static TableReference BuildFrom(FromClauseContext ctx)
+    {
+        TableReference from = BuildTableSources(ctx.tableSource());
+        return ctx.externalDatabase() is { } external ? InDatabase(from, BuildExternalDatabase(external)) : from;
+
+        static TableReference InDatabase(TableReference table, ExternalDatabase database) => table switch
+        {
+            NamedTable named => named with { Database = database },
+            JoinTable join => join with { Left = InDatabase(join.Left, database), Right = InDatabase(join.Right, database) },
+            _ => table,
+        };
+    }
 
     /// <summary>A comma list of table sources, which is an implicit cross join (no ON).</summary>
     private static TableReference BuildTableSources(TableSourceContext[] sources)

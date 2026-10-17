@@ -13,8 +13,7 @@ namespace LibRed.Engine.Tests;
 // reasonably have gone the other way: a make-table copies DATA AND COLUMN TYPES ONLY — no primary key, no
 // indexes — which is easy to assume otherwise when the operation is described as copying a table.
 //
-// The IN externaldatabase clause is not implemented: creating a table in another file belongs to the
-// linked-database subsystem LibRed does not have.
+// The IN externaldatabase clause, which makes the table in another file, is ExternalDatabaseTests'.
 public class SelectIntoTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()

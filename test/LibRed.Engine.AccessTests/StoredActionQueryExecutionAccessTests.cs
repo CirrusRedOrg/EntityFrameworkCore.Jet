@@ -96,6 +96,16 @@ public class StoredActionQueryExecutionAccessTests : TempDatabaseTest
             "INSERT INTO Shippers (CompanyName) SELECT ContactName FROM Customers WHERE Country = 'UK'",
             "SELECT COUNT(*) FROM Shippers");
 
+    /// <summary>Without a column list ACE fills the target columns by the SELECT's output names, not their places,
+    /// and stores those names rather than target columns — so aliases that swap two columns swap them here too.</summary>
+    [Theory]
+    [InlineData("INSERT INTO Shippers SELECT CompanyName, Phone FROM Suppliers WHERE SupplierID < 4")]
+    [InlineData("INSERT INTO Shippers SELECT ContactTitle AS Phone, Phone AS CompanyName FROM Suppliers WHERE SupplierID < 4")]
+    [InlineData("INSERT INTO Shippers SELECT Suppliers.CompanyName FROM Suppliers WHERE SupplierID < 4")]
+    [InlineData("INSERT INTO Shippers SELECT * FROM (SELECT CompanyName, Phone FROM Suppliers WHERE SupplierID < 4) AS s")]
+    public void Append_query_without_a_column_list_fills_the_columns_ace_fills(string body) =>
+        AssertSameAsAce(body, "SELECT Max(CompanyName & '|' & Phone) FROM Shippers WHERE ShipperID > 3");
+
     [Fact]
     public void Make_table_query_writes_the_table_ace_writes() =>
         AssertSameAsAce(
@@ -140,11 +150,12 @@ public class StoredActionQueryExecutionAccessTests : TempDatabaseTest
     }
 
     [Fact]
-    public void A_kind_libred_cannot_run_is_refused_by_name()
+    public void An_ace_written_crosstab_runs_by_name_as_ace_runs_it()
     {
         string path = Copy();
         try
         {
+            var aceRows = new List<string>();
             using (var connection = AceTestDatabase.Open(path))
             {
                 using var create = connection.CreateCommand();
@@ -152,13 +163,24 @@ public class StoredActionQueryExecutionAccessTests : TempDatabaseTest
                     "CREATE PROCEDURE [ByCountry] AS " +
                     "TRANSFORM Count(*) SELECT Country FROM Customers GROUP BY Country PIVOT City";
                 create.ExecuteNonQuery();
+
+                using var run = connection.CreateCommand();
+                run.CommandText = "ByCountry";
+                run.CommandType = System.Data.CommandType.StoredProcedure;
+                using var reader = run.ExecuteReader();
+                aceRows.Add(string.Join(", ", Enumerable.Range(0, reader.FieldCount).Select(reader.GetName)));
+                var values = new object[reader.FieldCount];
+                while (reader.Read())
+                {
+                    reader.GetValues(values);
+                    aceRows.Add(string.Join(" | ", values.Select(v => v is DBNull ? "NULL" : Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture))));
+                }
             }
 
             using var db = TemporaryDatabase.OpenTracked(path, readOnly: false);
-            var engine = new QueryEngine(db);
-
-            var error = Assert.Throws<NotSupportedException>(() => engine.ExecuteNonQuery("EXECUTE [ByCountry]"));
-            Assert.Contains("Crosstab", error.Message, StringComparison.OrdinalIgnoreCase);
+            var result = new QueryEngine(db).ExecuteQuery("EXECUTE [ByCountry]");
+            Assert.Equal(aceRows, [string.Join(", ", result.ColumnNames),
+                .. result.Rows.Select(r => string.Join(" | ", r.Select(v => v is null ? "NULL" : Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture))))]);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

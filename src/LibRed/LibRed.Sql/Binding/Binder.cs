@@ -27,6 +27,9 @@ public sealed class Binder(ISchemaProvider schema)
                 BindStatement(set.Left);
                 BindStatement(set.Right);
                 break;
+            case TransformStatement transform:
+                BindSelect(transform.Select);
+                break;
             case IfThenStatement ifThen:
                 BindStatement(ifThen.Condition); // validate the condition's sources (e.g. INFORMATION_SCHEMA.TABLES)
                 BindStatement(ifThen.Then);   // DDL/DML Then is validated at execution; a query Then is bound here
@@ -48,7 +51,8 @@ public sealed class Binder(ISchemaProvider schema)
         {
             case null: // FROM-less SELECT (e.g. `SELECT 2`) — nothing to validate
                 break;
-            case NamedTable n when _schema.GetTable(n.Name) is null:
+            // A table in another file (IN externaldatabase) is not in this schema; the engine checks it in that file.
+            case NamedTable n when n.Database is null && _schema.GetTable(n.Name) is null:
                 throw new SqlBindException(SqlBindException.InputNotFound(n.Name));
             case JoinTable j:
                 ValidateSources(j.Left);

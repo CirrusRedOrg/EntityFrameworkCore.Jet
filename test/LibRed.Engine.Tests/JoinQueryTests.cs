@@ -65,8 +65,8 @@ public class JoinQueryTests
 
         var rows = Query(sql, out var columns);
 
-        // Duplicate output names (p.ProductID and s.ProductID) are preserved.
-        Assert.Equal(["ProductID", "ProductName", "UnitPrice", "OrderID", "ProductID", "Quantity", "OrderID0", "OrderDate"], columns);
+        // The two ProductIDs are told apart by their tables, as ACE names them for this query (verified vs ACE).
+        Assert.Equal(["p.ProductID", "ProductName", "UnitPrice", "OrderID", "s.ProductID", "Quantity", "OrderID0", "OrderDate"], columns);
 
         // Only products 39 and 73 satisfy (id MOD 17 = 5) AND (price < 20).
         Assert.Equal([39, 73], rows.Select(r => (int)r[0]!).Distinct().OrderBy(x => x));

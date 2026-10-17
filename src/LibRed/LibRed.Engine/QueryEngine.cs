@@ -53,7 +53,7 @@ public sealed class QueryEngine
     private T Scoped<T>(SqlStatement statement, Func<T> action) =>
         // A SELECT with INTO is a make-table query: it looks like a read and writes a table, so it takes the
         // exclusive scope with the other writers. The guard above caught this rather than letting it through.
-        statement is SelectStatement { Into: null } or SetOperationStatement or SystemVariableSelectStatement
+        statement is SelectStatement { Into: null } or SetOperationStatement or SystemVariableSelectStatement or TransformStatement
             ? _database.ReadConsistent(action)
             : _database.WriteExclusive(action);
 
@@ -62,8 +62,8 @@ public sealed class QueryEngine
         if (parsed is ExecuteStatement exec) return ExecuteProcedure(exec, parameters).Rows;
         // A make-table query is an action query however it was invoked: run it and return nothing, rather
         // than handing the caller the rows it just wrote into a table.
-        if (parsed is SelectStatement { Into: not null }) return Route(parsed, parameters).Rows;
-        SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog, _parser);
+        SqlStatement ast = ViewExpander.Expand(parsed, _database, _parser);
+        if (parsed is SelectStatement { Into: not null }) return Route(_binder.Bind(ast).Statement, parameters).Rows;
         BoundStatement bound = _binder.Bind(ast);
         if (bound.Statement is TransactionControlStatement txnControl)
         {
@@ -108,10 +108,10 @@ public sealed class QueryEngine
 
         // Everything that writes — DML, DDL, a make-table SELECT, transaction control — returns no rows and
         // does not run.
-        if (parsed is not (SelectStatement { Into: null } or SetOperationStatement or SystemVariableSelectStatement))
+        if (parsed is not (SelectStatement { Into: null } or SetOperationStatement or SystemVariableSelectStatement or TransformStatement))
             return ResultSet.Empty;
 
-        BoundStatement bound = _binder.Bind(ViewExpander.Expand(parsed, _database.Catalog, _parser));
+        BoundStatement bound = _binder.Bind(ViewExpander.Expand(parsed, _database, _parser));
         var executor = new QueryExecutor(_database, parameters, _session, describing: true);
         ResultSet shape = bound.Statement is SystemVariableSelectStatement sysSelect
             ? executor.ExecuteSystemVariableSelect(sysSelect)
@@ -163,7 +163,7 @@ public sealed class QueryEngine
     private CommandResult ExecuteCore(SqlStatement parsed, IReadOnlyDictionary<string, object?>? parameters)
     {
         if (parsed is ExecuteStatement exec) return ExecuteProcedure(exec, parameters);
-        SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog, _parser);
+        SqlStatement ast = ViewExpander.Expand(parsed, _database, _parser);
         BoundStatement bound = _binder.Bind(ast);
         return Route(bound.Statement, parameters);
     }
@@ -196,7 +196,7 @@ public sealed class QueryEngine
             // failure part-way cannot leave a half-populated table behind.
             case SelectStatement { Into: not null }:
                 return ExecuteWritingStatement(statement, parameters);
-            case SelectStatement or SetOperationStatement:
+            case SelectStatement or SetOperationStatement or TransformStatement:
                 return new CommandResult(
                     new QueryExecutor(_database, parameters, _session).ExecuteQuery(PlanWithIndexes(new BoundStatement(statement))), -1);
             case TransactionControlStatement txnControl:
@@ -260,7 +260,7 @@ public sealed class QueryEngine
     private CommandResult ExecuteIfThen(IfThenStatement ifThen, IReadOnlyDictionary<string, object?>? parameters)
     {
         var condPlan = ColumnPruning.Apply(
-            IndexSelection.Apply(QueryPlanner.PlanStatement(ifThen.Condition), _database.Catalog));
+            IndexSelection.Apply(QueryPlanner.PlanStatement(ifThen.Condition), _database));
         bool hasRows = new QueryExecutor(_database, parameters, _session).ExecuteQuery(condPlan).Rows.Any();
         if (hasRows == ifThen.Negated)
             return new CommandResult(ResultSet.Empty, 0); // guard not satisfied — skip the body
@@ -270,13 +270,13 @@ public sealed class QueryEngine
     /// <summary>Plans a bound statement, then applies index selection (turning scans into index seeks where a
     /// predicate allows) and column pruning (decoding only the columns the query reads).</summary>
     private PlanNode PlanWithIndexes(BoundStatement bound) =>
-        ColumnPruning.Apply(IndexSelection.Apply(QueryPlanner.Plan(bound), _database.Catalog));
+        ColumnPruning.Apply(IndexSelection.Apply(QueryPlanner.Plan(bound), _database));
 
     /// <summary>The optimised plan for a query — exposed for tests to assert the chosen access path/strategy
     /// (e.g. that an unindexed equi-join becomes a hash join).</summary>
     internal PlanNode PlanFor(string sql)
     {
-        SqlStatement ast = ViewExpander.Expand(_parser.ParseStatement(sql), _database.Catalog, _parser);
+        SqlStatement ast = ViewExpander.Expand(_parser.ParseStatement(sql), _database, _parser);
         return PlanWithIndexes(_binder.Bind(ast));
     }
 

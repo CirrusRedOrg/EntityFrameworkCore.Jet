@@ -53,7 +53,7 @@ public class CorrelatedInSemiJoinTests : TempDatabaseTest
 
         return ExistsSemiJoin.TryBuildForIn(
             (SelectStatement)inq.Query, inq.Value, outer, new(StringComparer.OrdinalIgnoreCase) { "o" },
-            e.Database.Catalog) is not null;
+            e.Database) is not null;
     }
 
     [Fact]

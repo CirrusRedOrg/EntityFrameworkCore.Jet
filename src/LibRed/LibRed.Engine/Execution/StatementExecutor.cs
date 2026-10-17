@@ -1007,7 +1007,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             Body: statement.Body is { } body ? BuildViewSpec(body) : null,
             Parameters: BuildParameterSpecs(statement.Parameters),
             DeleteTarget: statement.DeleteTarget,
-            OwnerAccess: statement.OwnerAccess);
+            OwnerAccess: statement.OwnerAccess,
+            TargetDatabase: ExternalSpec(statement.TargetDatabase));
 
         _database.CreateActionQuery(statement.Name, spec);
         return 0;
@@ -1028,7 +1029,14 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         Top: d.Top,
         TopPercent: d.TopPercent,
         OwnerAccess: d.OwnerAccess,
-        Union: d.Union);
+        Union: d.Union,
+        Database: ExternalSpec(d.Database),
+        Crosstab: d.Crosstab is { } c ? new ViewCrosstabSpec(c.Value, c.ValueAlias, c.Pivot, c.PivotColumn) : null,
+        AllFields: d.AllFields,
+        DistinctRow: d.DistinctRow);
+
+    private static ExternalDatabaseSpec? ExternalSpec(ExternalDatabase? database) =>
+        database is null ? null : new ExternalDatabaseSpec(database.Path, database.Connect);
 
     /// <summary>
     /// A make-table query: <c>SELECT … INTO newtable FROM source</c>.
@@ -1046,18 +1054,22 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // A taken name — a table's, a query's or a linked table's — is refused by CreateTable, before anything is
         // written; the read below has no side effect to undo.
         string target = statement.Into!;
+        // An IN externaldatabase after INTO makes the table in that file (verified vs ACE).
+        JetDatabase into = ExternalDatabases.Open(_database, statement.IntoDatabase, writable: true);
         // Both of these before a row is read (verified vs ACE): the same table as source and destination is reported
-        // first, and a read-only database is refused straight after it.
-        if (TablesIn(statement.From).Any(t => string.Equals(t, target, StringComparison.OrdinalIgnoreCase)))
+        // first, and a read-only database is refused straight after it. A table of that name in another file is
+        // another table: ACE reports it as the name being taken.
+        if (TablesIn(statement.From).Any(t => string.Equals(t.Name, target, StringComparison.OrdinalIgnoreCase)
+                && ExternalDatabases.Open(_database, t.Database) == into))
             throw new InvalidOperationException(
                 $"Same table '{target}' referenced as both the source and destination in make-table query.");
-        _database.RefuseIfReadOnly(ReadOnlyWrite.DatabaseOrObject);
+        into.RefuseIfReadOnly(ReadOnlyWrite.DatabaseOrObject);
 
         // Run the query first — with INTO stripped, or planning would recurse back into this method — and
         // materialise it. The rows have to exist before the table does: the source may read a table this
         // statement is about to change, and the row count is not known until the read completes.
         ResultSet source = _scalarRunner.ExecuteQuery(Planning.ColumnPruning.Apply(Planning.IndexSelection.Apply(
-            Planning.QueryPlanner.PlanSelect(statement with { Into = null }), _database.Catalog)));
+            Planning.QueryPlanner.PlanSelect(statement with { Into = null }), _database)));
         var rows = source.Rows.ToList();
 
         // A result column that IS a source column keeps that column's DEFINITION — its type, its declared
@@ -1088,9 +1100,38 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             else if (specs[i].Type is not (JetDataType.Text or JetDataType.Memo) && carried is not null)
                 specs[i] = specs[i] with { Precision = carried.Precision, Scale = carried.Scale };
         }
-        _database.CreateTable(target, specs);
 
-        // Written the way every inserted row is, so whatever the new table carries is checked as INSERT checks it.
+        if (into == _database)
+            MakeTable(target, specs, rows);
+        else
+            // Another file is written as a statement on it would be: under its own exclusive scope and in its own
+            // transaction, so a failure part-way leaves no half-made table there either. Its rows are checked against
+            // that file's catalog, by an executor of its own.
+            into.WriteExclusive(() =>
+            {
+                into.BeginTransaction();
+                try
+                {
+                    new StatementExecutor(into, null, _parser).MakeTable(target, specs, rows);
+                    into.Commit(flush: false);
+                }
+                catch
+                {
+                    into.Rollback();
+                    throw;
+                }
+                return 0;
+            });
+
+        if (_session is not null) _session.RowCount = rows.Count;
+        return rows.Count;
+    }
+
+    /// <summary>Creates a make-table query's new table and writes its rows into it, each the way every inserted row is,
+    /// so whatever the new table carries is checked as INSERT checks it.</summary>
+    private void MakeTable(string target, List<ColumnSpec> specs, List<object?[]> rows)
+    {
+        _database.CreateTable(target, specs);
         Table table = _database.OpenTable(target);
         RowDefaults defaults = DefaultsOf(table.Definition);
         var provided = Enumerable.Range(0, specs.Count).ToList();
@@ -1100,9 +1141,6 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             Array.Copy(row, values, Math.Min(row.Length, values.Length));
             InsertNewRow(target, table, defaults, values, provided);
         }
-
-        if (_session is not null) _session.RowCount = rows.Count;
-        return rows.Count;
     }
 
     /// <summary>
@@ -1116,8 +1154,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private Dictionary<string, ColumnDef> SourceColumnsFor(SelectStatement statement)
     {
         var available = new Dictionary<string, ColumnDef>(StringComparer.OrdinalIgnoreCase);
-        foreach (string table in TablesIn(statement.From))
-            if (_database.Catalog.FindTable(table) is { } def)
+        foreach (NamedTable table in TablesIn(statement.From))
+            if (ExternalDatabases.Open(_database, table.Database).Catalog.FindTable(table.Name) is { } def)
                 foreach (ColumnDef column in def.Columns)
                     available.TryAdd(column.Name, column);
 
@@ -1131,10 +1169,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         return byOutputName;
     }
 
-    /// <summary>The table names a FROM clause reaches, so their column definitions can be found.</summary>
-    private static IEnumerable<string> TablesIn(TableReference? from) => from switch
+    /// <summary>The tables a FROM clause reaches, so their column definitions can be found.</summary>
+    private static IEnumerable<NamedTable> TablesIn(TableReference? from) => from switch
     {
-        NamedTable named => [named.Name],
+        NamedTable named => [named],
         JoinTable join => [.. TablesIn(join.Left), .. TablesIn(join.Right)],
         // A derived table has no stored column definitions to copy, so its columns fall back to being typed
         // from their values — as a computed column does.
@@ -1305,7 +1343,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             // Access's INSERT INTO t SELECT * FROM t doubles the table and stops, so the read completes
             // before the write begins.
             ResultSet source = _scalarRunner.ExecuteQuery(Planning.ColumnPruning.Apply(
-                Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(statement.Source), _database.Catalog)));
+                Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(statement.Source), _database)));
             var rows = source.Rows.ToList();
 
             // With no column list the source's output NAMES choose the target columns — ACE resolves by name,
@@ -1466,7 +1504,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             // because the body runs once per outer row.
             var outerColumns = tables.SelectMany(t => t.Columns).ToList();
             Plan.PlanNode plan = Planning.ColumnPruning.Apply(Planning.IndexSelection.Apply(
-                Planning.QueryPlanner.PlanStatement(sq.Query), _database.Catalog,
+                Planning.QueryPlanner.PlanStatement(sq.Query), _database,
                 tables.Select(t => t.Alias).ToHashSet(StringComparer.OrdinalIgnoreCase)));
 
             // The rows vary per outer row but the schema does not, and JoinRows needs it before reading any row.
@@ -1712,7 +1750,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // an ExecuteUpdate, and a table value constructor for an inline collection. Same widening as the
         // subquery predicates needed, for the same reason - a derived table is a query expression.
         var plan = Planning.ColumnPruning.Apply(
-            Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(query), _database.Catalog));
+            Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(query), _database));
         ResultSet result = _scalarRunner.ExecuteQuery(plan);
         var columns = result.ColumnNames.Select((name, i) => new OutputColumn(alias, name, result.ColumnTypes[i])).ToList();
         return (columns, result.Rows.ToList());

@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-// Generated from AccessSql.g4 by ANTLR 4.13.1
+// Generated from D:/toolkits/efcorejetlibred/src/LibRed/LibRed.Sql/Grammar/AccessSql.g4 by ANTLR 4.13.1
 
 // Unreachable code detected
 #pragma warning disable 0162
@@ -559,6 +559,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitSelectList([NotNull] AccessSqlParser.SelectListContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>StarSelectItem</c>
+	/// labeled alternative in <see cref="AccessSqlParser.selectItem"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitStarSelectItem([NotNull] AccessSqlParser.StarSelectItemContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>QualifiedStarSelectItem</c>
 	/// labeled alternative in <see cref="AccessSqlParser.selectItem"/>.
 	/// </summary>
@@ -1100,5 +1107,17 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitDerivedColumns([NotNull] AccessSqlParser.DerivedColumnsContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.externalDatabase"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitExternalDatabase([NotNull] AccessSqlParser.ExternalDatabaseContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.transformStatement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitTransformStatement([NotNull] AccessSqlParser.TransformStatementContext context);
 }
 } // namespace LibRed.Sql.Grammar

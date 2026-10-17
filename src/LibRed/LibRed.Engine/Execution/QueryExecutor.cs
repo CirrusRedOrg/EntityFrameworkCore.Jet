@@ -326,7 +326,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             _scalarSemiJoins[query] = semi = query is SelectStatement scalarBody
                 ? ScalarAggregateSemiJoin.TryBuild(
                     scalarBody, outerScope.AllColumns(),
-                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database.Catalog)
+                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database)
                 : null;
         }
 
@@ -368,7 +368,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             _semiJoins[query] = semi = query is SelectStatement existsBody
                 ? ExistsSemiJoin.TryBuild(
                     existsBody, outerScope.AllColumns(),
-                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database.Catalog)
+                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database)
                 : null;
         }
 
@@ -550,7 +550,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             _inSemiJoins[query] = semi = query is SelectStatement inBody
                 ? ExistsSemiJoin.TryBuildForIn(
                     inBody, value, outerScope.AllColumns(),
-                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database.Catalog)
+                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database)
                 : null;
         }
 
@@ -591,19 +591,115 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
     }
 
+    /// <summary>
+    /// A crosstab: the TRANSFORM's SELECT, one row per group, followed by a column per pivot value holding the
+    /// TRANSFORM value for that row's group and that pivot value, or Null where the group has no rows with it.
+    /// </summary>
+    /// <remarks>
+    /// <para>It runs as two grouped queries over the same FROM and WHERE: the SELECT itself, which gives the rows, their
+    /// order and any further aggregates (a row total counts every row of the group, an IN list's or not), and the
+    /// value grouped by the same keys and the pivot. Both carry the GROUP BY keys, which is what matches a cell to its
+    /// row, folded as any GROUP BY folds them (<see cref="GroupKey"/>).</para>
+    /// <para>The pivot columns are a PIVOT IN list's headings, in their order and whatever the data holds, or else
+    /// every pivot value met, ascending with Null first. A column is named by its value as CStr writes it, trimmed,
+    /// with <c>.</c>, <c>!</c>, <c>[</c> and <c>]</c> made <c>_</c>, and Null or the empty string named <c>&lt;&gt;</c>;
+    /// a heading is named by its own text, made the same way (all verified vs ACE). Text values that fold together are
+    /// one column, named by the value its group came back with — ACE's choice among them is not stable, so is not
+    /// modelled.</para>
+    /// </remarks>
+    private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteCrosstab(
+        TransformStatement transform, EvalScope? outer)
+    {
+        SelectStatement select = transform.Select;
+        if (!QueryPlanner.HasAggregate(transform.Value))
+            throw new InvalidOperationException("Your query does not include the TRANSFORM value as part of an aggregate function.");
+        if (select.OrderBy.Any(o => QueryPlanner.HasAggregate(o.Value)))
+            throw new InvalidOperationException("Cannot have aggregate function in ORDER BY clause.");
+
+        IReadOnlyList<Expression> keys = select.GroupBy;
+        int width = select.Projection.Count;
+        List<SelectItem> keyItems = [.. keys.Select((key, i) => new SelectItem(key, $"$key{i}"))];
+        var rows = Run(select with { Projection = [.. select.Projection, .. keyItems] });
+        var cells = Run(new SelectStatement(
+            [.. keyItems, new SelectItem(transform.Pivot, "$pivot"), new SelectItem(transform.Value, "$value")],
+            IsSelectStar: false, select.From, select.Where, [.. keys, transform.Pivot], Having: null, OrderBy: [], Top: null));
+
+        // Each group's cells by pivot value, and every pivot value with the value it was first met as.
+        var byGroup = new Dictionary<GroupKey, Dictionary<GroupKey, object?>>();
+        var pivots = new Dictionary<GroupKey, object?>();
+        foreach (object?[] cell in cells.Rows)
+        {
+            var pivot = new GroupKey([cell[keys.Count]], TextComparer);
+            pivots.TryAdd(pivot, cell[keys.Count]);
+            var group = new GroupKey(cell[..keys.Count], TextComparer);
+            if (!byGroup.TryGetValue(group, out Dictionary<GroupKey, object?>? values))
+                byGroup[group] = values = [];
+            values[pivot] = cell[^1];
+        }
+
+        List<string> names;
+        var columnOf = new Dictionary<GroupKey, int>();
+        if (transform.Headings is { } fixedHeadings)
+        {
+            List<PivotHeading> headings = [.. fixedHeadings];
+            names = [.. headings.Select(h => HeadingName(h.Text))];
+            foreach ((GroupKey pivot, object? value) in pivots)
+                columnOf[pivot] = headings.FindIndex(h => Matches(value, h.Value.Value));
+        }
+        else
+        {
+            List<GroupKey> ordered = [.. pivots.Keys];
+            ordered.Sort((a, b) => ExpressionEvaluator.CompareForSort(a.Values[0], b.Values[0], TextComparer));
+            names = [.. ordered.Select(p => HeadingName(pivots[p] is { } value ? LibRed.Storage.Types.VbaText.Of(value) : null))];
+            for (int i = 0; i < ordered.Count; i++) columnOf[ordered[i]] = i;
+        }
+
+        OutputColumn valueColumn = cells.Columns[^1];
+        List<OutputColumn> columns = [.. rows.Columns.Take(width), .. names.Select(n => valueColumn with { Qualifier = null, Name = n, Source = null })];
+        var output = new List<object?[]>();
+        foreach (object?[] row in rows.Rows)
+        {
+            var result = new object?[width + names.Count];
+            Array.Copy(row, result, width);
+            if (byGroup.TryGetValue(new GroupKey(row[width..(width + keys.Count)], TextComparer), out Dictionary<GroupKey, object?>? values))
+                foreach ((GroupKey pivot, object? value) in values)
+                    if (columnOf[pivot] is int column and >= 0)
+                        result[width + column] = value;
+            output.Add(result);
+        }
+        return (columns, output);
+
+        (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) Run(SelectStatement statement) =>
+            Execute(SubqueryPlan(statement, outer), outer);
+
+        // A heading takes the values = would call it equal to (verified vs ACE: '9' and 'A' head the 9 and the a
+        // column), and a Null heading the Null ones; a value of a kind that cannot compare with it is not its.
+        bool Matches(object? value, object? heading)
+        {
+            try { return ExpressionEvaluator.CompareForSort(value, heading, TextComparer) == 0; }
+            catch (InvalidCastException) { return false; }
+        }
+
+        static string HeadingName(string? text)
+        {
+            string name = (text ?? "").Trim(' ').Replace('.', '_').Replace('!', '_').Replace('[', '_').Replace(']', '_');
+            return name.Length == 0 ? "<>" : name;
+        }
+    }
+
     /// <summary>The optimised plan for a subquery, planned once and cached: index selection (index seeks, hash
     /// joins) is applied just like a top-level query, and the outer query's aliases are passed so a correlated
     /// predicate (<c>inner.col = outer.col</c>) becomes an index seek keyed off the outer row — a correlated
     /// subquery runs per outer row, so an unoptimised plan re-run thousands of times is what made correlated
     /// EXISTS/scalar pathological.</summary>
-    private PlanNode SubqueryPlan(SqlStatement query, EvalScope outerScope)
+    private PlanNode SubqueryPlan(SqlStatement query, EvalScope? outerScope)
     {
         if (!_subqueryPlans.TryGetValue(query, out PlanNode? plan))
         {
-            var outerAliases = outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var outerAliases = outerScope?.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase);
             _subqueryPlans[query] = plan =
                 ColumnPruning.Apply(
-                    Planning.IndexSelection.Apply(QueryPlanner.PlanStatement(query), _database.Catalog, outerAliases));
+                    Planning.IndexSelection.Apply(QueryPlanner.PlanStatement(query), _database, outerAliases));
         }
         return plan;
     }
@@ -639,7 +735,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     return (valueColumns, valueRows);
                 }
 
-            case ScanNode scan when Schema.InformationSchema.IsInformationSchema(scan.Table):
+            case CrosstabNode crosstab:
+                return ExecuteCrosstab(crosstab.Transform, outer);
+
+            case ScanNode scan when scan.Database is null && Schema.InformationSchema.IsInformationSchema(scan.Table):
                 {
                     // Virtual INFORMATION_SCHEMA.<view> table: materialise rows from the catalog.
                     string alias = scan.Alias ?? scan.Table;
@@ -651,7 +750,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
             case ScanNode scan:
                 {
-                    var table = _database.OpenTable(scan.Table);
+                    var table = ExternalDatabases.Open(_database, scan.Database).OpenTable(scan.Table);
                     string alias = scan.Alias ?? scan.Table;
                     var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, table.Definition, c)).ToList();
                     return (columns, _describing ? [] : table.Rows(ColumnPruning.Mask(table.Definition, scan.Decode)));
@@ -659,7 +758,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
             case IndexSeekNode seek:
                 {
-                    var table = _database.OpenTable(seek.Table);
+                    var table = ExternalDatabases.Open(_database, seek.Database).OpenTable(seek.Table);
                     string alias = seek.Alias ?? seek.Table;
                     var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, table.Definition, c)).ToList();
                     if (_describing) return (columns, []);
@@ -691,7 +790,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
             case IndexRangeSeekNode range:
                 {
-                    var table = _database.OpenTable(range.Table);
+                    var table = ExternalDatabases.Open(_database, range.Database).OpenTable(range.Table);
                     string alias = range.Alias ?? range.Table;
                     var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, table.Definition, c)).ToList();
                     if (_describing) return (columns, []);
@@ -1047,24 +1146,40 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     /// <summary>Builds — or reuses — a ProjectNode's schema. Flattens the projection, expanding a qualified star
     /// (Table.*) into the input columns of that source (passed through by index); every other item is an
-    /// evaluated expression whose declared type is derived once here.</summary>
+    /// evaluated expression whose declared type is derived once here. A bare <c>*</c> among them is every input column
+    /// none of the others returns — none a column reference names, none a qualified star expands to — after all of
+    /// them, wherever it stands, and once however often it is written (verified vs ACE). The columns are named as
+    /// <see cref="OutputNames"/> has them.</summary>
     private ProjectionSchema ProjectionSchemaFor(ProjectNode project, IReadOnlyList<OutputColumn> columns)
     {
         if (_projectionSchemas.TryGetValue(project, out ProjectionSchema? cached))
             return cached;
 
         var plan = new List<(OutputColumn Column, int InputIndex, Expression? Expr, NumberType Type, Type? ConvertTo, int Slot)>();
+        var outputs = new List<OutputNames.Output>();
+        var returned = new HashSet<int>();
+        bool allFields = false;
+        int index = 0;
         foreach (SelectItem item in project.Projection)
         {
+            if (item.Value is StarExpression)
+            {
+                allFields = true;
+                continue;
+            }
             if (item.Value is QualifiedStarExpression star)
             {
                 for (int ci = 0; ci < columns.Count; ci++)
                     if (string.Equals(columns[ci].Qualifier, star.Table, StringComparison.OrdinalIgnoreCase))
+                    {
                         plan.Add((columns[ci], ci, null, default, null, -1));
+                        outputs.Add(new(index, OutputNames.Kind.Star, columns[ci].Name, columns[ci].Qualifier));
+                        returned.Add(ci);
+                    }
             }
             else
             {
-                string name = item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{plan.Count + 1}");
+                outputs.Add(OutputNames.For(item, index, columns));
                 NumberType type = ExpressionEvaluator.NumberTypeOf(item.Value, columns, e => DeclaredType(e, columns));
                 // A projection item that is just a column keeps what that column was: the stored column behind
                 // it, and where none stands behind it, what computed it — so a renamed union column still
@@ -1073,17 +1188,30 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     ? OutputColumn.Find(columns, reference)
                     : null;
                 (Type? convertTo, bool variant) = ItemConversion(item.Value, columns);
+                // The evaluator resolves this scope's columns before any outer one, so a name that is one
+                // column here is that column on every row. None, or more than one, stays with the evaluator.
+                int slot = item.Value is ColumnReference own ? EvalScope.Locate(columns, own, throwIfAmbiguous: false) : -1;
                 plan.Add((
-                    OutputColumn.Computed(name, DeclaredType(item.Value, columns), type, item.Value, referenced?.Source)
+                    OutputColumn.Computed("", DeclaredType(item.Value, columns), type, item.Value, referenced?.Source)
                         with
                     { Origin = referenced?.Origin ?? ColumnOrigin.Expression, Variant = variant },
-                    -1, item.Value, type, convertTo,
-                    // The evaluator resolves this scope's columns before any outer one, so a name that is one
-                    // column here is that column on every row. None, or more than one, stays with the evaluator.
-                    item.Value is ColumnReference own ? EvalScope.Locate(columns, own, throwIfAmbiguous: false) : -1));
+                    -1, item.Value, type, convertTo, slot));
+                if (slot >= 0) returned.Add(slot);
             }
+            index++;
         }
 
+        if (allFields)
+            for (int ci = 0; ci < columns.Count; ci++)
+                if (returned.Add(ci))
+                {
+                    plan.Add((columns[ci], ci, null, default, null, -1));
+                    outputs.Add(new(index, OutputNames.Kind.Star, columns[ci].Name, columns[ci].Qualifier));
+                }
+
+        string[] names = OutputNames.Of(outputs);
+        for (int i = 0; i < plan.Count; i++)
+            plan[i] = plan[i] with { Column = plan[i].Column with { Name = names[i] } };
         var schema = new ProjectionSchema(plan, plan.Select(p => p.Column).ToList());
         _projectionSchemas[project] = schema;
         return schema;
@@ -1669,7 +1797,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             // Open the inner table, resolve its columns, and precompute the seek key-column positions ONCE —
             // not per left row. Per left row we only rebuild the tiny key-value array and seek; this is the
             // hot path of the join, so everything hoistable stays out of the loop.
-            var innerTable = _database.OpenTable(seek.Table);
+            var innerTable = ExternalDatabases.Open(_database, seek.Database).OpenTable(seek.Table);
             string innerAlias = seek.Alias ?? seek.Table;
             int innerWidth = innerTable.Definition.Columns.Count;
             var seekColumns = innerTable.Definition.Columns.Select(c => OutputColumn.Of(innerAlias, innerTable.Definition, c)).ToList();
@@ -2321,9 +2449,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         var outTypes = node.Projection
             .Select(item => ExpressionEvaluator.NumberTypeOf(item.Value, columns, e => DeclaredType(e, columns))).ToList();
         var conversions = node.Projection.Select(item => ItemConversion(item.Value, columns)).ToList();
+        string[] names = OutputNames.Of([.. node.Projection.Select((item, i) => OutputNames.For(item, i, columns))]);
         var outColumns = node.Projection
             .Select((item, i) => OutputColumn.Computed(
-                    item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{i + 1}"),
+                    names[i],
                     DeclaredType(item.Value, columns),
                     outTypes[i],
                     item.Value,

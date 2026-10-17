@@ -617,8 +617,8 @@ public sealed class JetCatalog
             : Reconstruct(queryRows, attr, expr, flag, n1, n2, order, lvExtra) is { } sql
                 ? new StoredQuery(sql, null, IsAction: false)
                 : new StoredQuery(null,
-                    "The stored SELECT is not rebuilt by LibRed: it has a pass-through connection, complex-type data or "
-                    + "neither a source nor columns.", IsAction: false);
+                    "The stored SELECT is not rebuilt by LibRed: it has complex-type data or neither a source nor columns.",
+                    IsAction: false);
 
         // The declared parameters (Attribute=2 rows), in declaration order, for EXECUTE positional binding.
         // Each row's Flag is the parameter's Jet type code (0 for Access's untyped parameter).
@@ -806,9 +806,18 @@ public sealed class JetCatalog
                     string target = Quote(action[n1] as string ?? "");
                     // A literal-value column (Flag 0x8000) is an INSERT … VALUES; a Flag-0 one reads its value
                     // from the query's own FROM source, which makes it an INSERT … SELECT. Both name the target
-                    // column in Name2 and hold the value's text in Expression.
+                    // column in Name2 and hold the value's text in Expression — when the statement lists its
+                    // target columns. One that does not is stored as its SELECT is, each value's output name in
+                    // Name1, and `SELECT *` with no column rows at all; ACE fills the targets by those names
+                    // (verified), and so does the statement rebuilt from them.
                     if (columns.Count == 0)
-                        return new StoredQuery(null, "An append query with no columns is not executed by LibRed.");
+                        return source is { } allSource
+                            ? new StoredQuery($"{declared}INSERT INTO {target} SELECT {selecting}* FROM {allSource.From}{Where()}{owner}", null)
+                            : new StoredQuery(null, "An append query with no columns is not executed by LibRed.");
+                    if (source is { } namedSource && columns.All(r => r[n2] is null))
+                        return new StoredQuery(
+                            $"{declared}INSERT INTO {target} SELECT {selecting}{string.Join(", ", columns.Select(r => OutputColumn(r, expr, n1)))} " +
+                            $"FROM {namedSource.From}{Where()}{owner}", null);
 
                     string targetColumns = string.Join(", ", columns.Select(r => Quote(r[n2] as string ?? "")));
                     string values = string.Join(", ", columns.Select(r => r[expr] as string ?? "NULL"));
@@ -845,17 +854,32 @@ public sealed class JetCatalog
 
             case QueryOperation.MakeTable when source is { } intoSource:
                 {
-                    // The target is on the action row; a target in ANOTHER database file (Name2) is a shape
-                    // LibRed has no statement for.
-                    if (action[n2] is string external && external.Length > 0)
-                        return new StoredQuery(null, $"A make-table query writing into '{external}' is not executed by LibRed.");
-
-                    string selected = columns.Count == 0
-                        ? "*"
-                        : string.Join(", ", columns.Select(r =>
-                            (r[n1] as string) is { } alias ? $"{r[expr] as string} AS {Quote(alias)}" : r[expr] as string ?? ""));
+                    // The target is on the action row, and so is the IN externaldatabase it is made in: the path in
+                    // Name2, a type or connect string in Expression.
+                    string into = action[n2] is not null || action[expr] is not null
+                        ? $" {new ExternalDatabaseSpec(action[n2] as string, action[expr] as string).Text}" : "";
+                    string selected = string.Join(", ", columns.Select(r => OutputColumn(r, expr, n1))
+                        .Concat(columns.Count == 0 || (options & QueryOptions.OutputAllFields) != 0 ? ["*"] : []));
                     return new StoredQuery(
-                        $"{declared}SELECT {selecting}{selected} INTO {Quote(action[n1] as string ?? "")} FROM {intoSource.From}{Where()}{GroupingClauses(rows, attr, expr, order)}{owner}", null);
+                        $"{declared}SELECT {selecting}{selected} INTO {Quote(action[n1] as string ?? "")}{into} FROM {intoSource.From}{Where()}{GroupingClauses(rows, attr, expr, order)}{owner}", null);
+                }
+
+            case QueryOperation.Crosstab when source is { } crosstabSource:
+                {
+                    // The TRANSFORM value is the column row of Flag 0, the headings those of Flag 2 and the PIVOT clause,
+                    // its IN list included, the one of Flag 1; the GROUP BY rows of Flag 2 are the SELECT's own, and the
+                    // one of Flag 1 the pivot field again (verified vs ACE).
+                    List<object?[]> OfFlag(QueryAttribute attribute, short wanted) =>
+                        [.. RowsOf(rows, attr, order, attribute).Where(r => r[flag] is short f && f == wanted)];
+                    if (OfFlag(QueryAttribute.Column, 0) is not [{ } value] || OfFlag(QueryAttribute.Column, CrosstabPivot) is not [{ } pivot])
+                        return new StoredQuery(null, "A crosstab stored query without its TRANSFORM value and PIVOT is not executed by LibRed.",
+                            IsAction: false);
+                    string headings = string.Join(", ", OfFlag(QueryAttribute.Column, CrosstabHeading).Select(r => OutputColumn(r, expr, n1)));
+                    string groupBy = string.Join(", ", OfFlag(QueryAttribute.GroupBy, CrosstabHeading).Select(r => r[expr] as string ?? ""));
+                    return new StoredQuery(
+                        $"{declared}TRANSFORM {OutputColumn(value, expr, n1)} SELECT {selecting}{headings} FROM {crosstabSource.From}{Where()} "
+                        + $"GROUP BY {groupBy}{OrderByClause(rows, attr, expr, n1, order)} PIVOT {pivot[expr] as string}{owner}",
+                        null, IsAction: false);
                 }
 
             case QueryOperation.Union:
@@ -879,7 +903,7 @@ public sealed class JetCatalog
         {
             QueryOperation.Update or QueryOperation.Delete or QueryOperation.MakeTable =>
                 "The stored action query names no table.",
-            QueryOperation.Crosstab => "Crosstab (TRANSFORM) stored queries are not executed by LibRed yet.",
+            QueryOperation.Crosstab => "The stored crosstab query names no table.",
             QueryOperation.PassThrough => "Pass-through stored queries are not executed by LibRed yet.",
             _ => $"Kind-{(short)kind} stored queries are not executed by LibRed yet.",
         };
@@ -928,6 +952,10 @@ public sealed class JetCatalog
         return (groupBy.Count > 0 ? $" GROUP BY {string.Join(", ", groupBy)}" : "")
             + (having is null ? "" : $" HAVING {having}");
     }
+
+    /// <summary>An output column row as a select list writes it: Expression, and Name1, when present, its alias.</summary>
+    private static string OutputColumn(object?[] row, int expr, int n1) =>
+        (row[n1] as string) is { } alias ? $"{row[expr] as string} AS {Quote(alias)}" : row[expr] as string ?? "";
 
     /// <summary>Bracket-quotes a stored name, so one with a space in it survives.</summary>
     private static string Quote(string name) => $"[{name}]";
@@ -997,6 +1025,10 @@ public sealed class JetCatalog
         // Any tables the joins didn't reach are comma (cross) joins.
         foreach (var t in tables.Where(t => !used.Contains(Key(t))))
             from.Append(CultureInfo.InvariantCulture, $", {Render(t)}");
+
+        // The 0x04 row is the FROM's IN externaldatabase: the path in Name1, a type or connect string in Expression.
+        if (RowsOf(rows, attr, order, QueryAttribute.Connect).FirstOrDefault() is { } connect)
+            from.Append(' ').Append(new ExternalDatabaseSpec(connect[n1] as string, connect[expr] as string).Text);
 
         // Joins whose two tables were both already in scope become extra WHERE conditions (a cyclic graph).
         return (from.ToString(), pending.Select(j => j.Cond).ToList());
@@ -1075,26 +1107,25 @@ public sealed class JetCatalog
     private static string? Reconstruct(
         List<object?[]> rows, int attr, int expr, int flag, int n1, int n2, int order, int lvExtra)
     {
-        // Bail out if the query uses attributes beyond a simple SELECT: a pass-through connection string or
-        // complex-type data mean this is not a shape we can render. The operation row is allowed because a SELECT
-        // may carry one — the caller has already checked that its kind IS SELECT, so reaching here with any other
-        // kind is impossible.
+        // Bail out if the query uses attributes beyond a simple SELECT: complex-type data mean this is not a shape we
+        // can render. The operation row is allowed because a SELECT may carry one — the caller has already checked
+        // that its kind IS SELECT, so reaching here with any other kind is impossible — and so is the 0x04 row, which
+        // on a SELECT is its FROM's IN externaldatabase (a pass-through query, the other kind that has one, is not a
+        // SELECT).
         if (rows.Any(r => r[attr] is byte b
-                && ((QueryAttribute)b is QueryAttribute.Connect or QueryAttribute.Complex || !Enum.IsDefined((QueryAttribute)b))))
+                && ((QueryAttribute)b is QueryAttribute.Complex || !Enum.IsDefined((QueryAttribute)b))))
             return null;
 
-        // A column row's Name1 (when present) is its output alias.
-        var columns = RowsOf(rows, attr, order, QueryAttribute.Column)
-            .Select(r => (r[n1] as string) is { } a ? $"{r[expr] as string} AS [{a}]" : r[expr] as string ?? "").ToList();
+        var columns = RowsOf(rows, attr, order, QueryAttribute.Column).Select(r => OutputColumn(r, expr, n1)).ToList();
         // A query with no table rows has no FROM clause, which Access allows and stores this way (`SELECT 1
         // AS n`). One with neither tables nor columns says nothing at all, and is not a query we can rebuild.
         var source = BuildFromClause(rows, attr, expr, flag, n1, n2, order);
         if (source is null && columns.Count == 0) return null;
         // No column rows at all is Access's "SELECT *" -- the shape every auto-generated form/report
-        // record-source query takes. Treating it as unreconstructable dropped those queries silently.
-        if (columns.Count == 0) columns.Add("*");
-
-        (string selecting, string owner, _) = SelectOptions(rows, attr, flag, n1, order);
+        // record-source query takes. Treating it as unreconstructable dropped those queries silently. The option row's
+        // output-all-fields bit is that * beside any columns named too (`SELECT *, X`, verified vs ACE).
+        (string selecting, string owner, QueryOptions options) = SelectOptions(rows, attr, flag, n1, order);
+        if (columns.Count == 0 || (options & QueryOptions.OutputAllFields) != 0) columns.Add("*");
         string? whereClause = WhereClause(rows, attr, expr, order, source?.Extra ?? []);
 
         var sql = new System.Text.StringBuilder(ParametersClause(rows, attr, flag, n1, order, lvExtra));
@@ -1252,7 +1283,8 @@ public sealed class JetCatalog
 
     internal void CreateView(string name, ViewSpec spec)
     {
-        int objectId = AllocateQueryObject(name, spec.Union ? QueryDefType.SetOperation : QueryDefType.Select);
+        int objectId = AllocateQueryObject(name,
+            spec.Union ? QueryDefType.SetOperation : spec.Crosstab is not null ? QueryDefType.Crosstab : QueryDefType.Select);
         AddQueryRows(objectId, spec);
     }
 
@@ -1366,8 +1398,11 @@ public sealed class JetCatalog
             ActionQueryKind.MakeTable => QueryOperation.MakeTable,
             _ => throw new NotSupportedException($"Action query kind {spec.Kind} is not stored yet."),
         };
+        // A make-table's IN externaldatabase rides on the same row: the path in Name2, a type or connect string in
+        // Expression (verified vs ACE).
         void Operation() => rows.Row(QueryAttribute.Operation, order: 1, flag: (short)kind,
-            name1: spec.Kind is ActionQueryKind.Append or ActionQueryKind.MakeTable ? spec.TargetTable : null);
+            name1: spec.Kind is ActionQueryKind.Append or ActionQueryKind.MakeTable ? spec.TargetTable : null,
+            name2: spec.TargetDatabase?.Path, expression: spec.TargetDatabase?.Connect);
 
         var values = spec.Values ?? [];
         void Columns()
@@ -1376,7 +1411,10 @@ public sealed class JetCatalog
             {
                 case ActionQueryKind.Append:
                     // Name2 = target column, Expression = the value; the 0x8000 flag marks an INSERT … VALUES,
-                    // where a column fed by the query's own source carries Flag 0.
+                    // where a column fed by the query's own source carries Flag 0. With no target columns listed,
+                    // the rows are the SELECT's own, as a view's are (verified vs ACE).
+                    if (values.Count == 0)
+                        AddColumnRows(rows, spec.Body?.Columns ?? []);
                     for (int i = 0; i < values.Count; i++)
                         rows.Row(QueryAttribute.Column, order: i + 1,
                             flag: spec.Body is null ? StoredQuery.AppendValueFlag : (short)0,
@@ -1443,8 +1481,9 @@ public sealed class JetCatalog
     /// </summary>
     private static void AddOptionRow(QueryRows rows, ViewSpec? body, bool ownerAccess)
     {
-        QueryOptions options = (body?.Union == true ? QueryOptions.OutputAllFields : QueryOptions.None)
+        QueryOptions options = (body?.Union == true || body?.AllFields == true ? QueryOptions.OutputAllFields : QueryOptions.None)
             | (body?.Distinct == true ? QueryOptions.Distinct : QueryOptions.None)
+            | (body?.DistinctRow == true ? QueryOptions.DistinctRow : QueryOptions.None)
             | (ownerAccess ? QueryOptions.OwnerAccess : QueryOptions.None)
             | (body?.Top is null ? QueryOptions.None
                 : QueryOptions.Top | (body.TopPercent ? QueryOptions.Percent : QueryOptions.None));
@@ -1474,21 +1513,34 @@ public sealed class JetCatalog
     }
 
     /// <summary>An ordinary output list, a view's or a make-table query's: Expression = the column, Name1 = its
-    /// alias.</summary>
-    private static void AddColumnRows(QueryRows rows, IReadOnlyList<ViewColumnSpec> columns)
+    /// alias. A bare <c>*</c> is no column row but the option row's output-all-fields bit, beside the rows of whatever
+    /// else the list names (verified vs ACE, as a view and as a procedure). A crosstab's TRANSFORM value comes first,
+    /// with <c>Flag 0</c>, and its headings carry <c>Flag 2</c> (verified vs ACE).</summary>
+    private static void AddColumnRows(QueryRows rows, IReadOnlyList<ViewColumnSpec> columns, ViewCrosstabSpec? crosstab = null)
     {
-        for (int i = 0; i < columns.Count; i++)
-            rows.Row(QueryAttribute.Column, order: i + 1, flag: 0,
-                expression: columns[i].Expression, name1: columns[i].Alias);
+        int order = 1;
+        if (crosstab is not null)
+            rows.Row(QueryAttribute.Column, order: order++, flag: 0, expression: crosstab.Value, name1: crosstab.ValueAlias);
+        foreach (ViewColumnSpec column in columns)
+            rows.Row(QueryAttribute.Column, order: order++, flag: crosstab is null ? (short)0 : CrosstabHeading,
+                expression: column.Expression, name1: column.Alias);
     }
 
+    /// <summary>The <c>Flag</c> of a crosstab's row-heading column and GROUP BY rows; its PIVOT's are
+    /// <see cref="CrosstabPivot"/>.</summary>
+    private const short CrosstabHeading = 2, CrosstabPivot = 1;
+
     /// <summary>The <c>0x05</c> FROM rows: a named table in Name1 (alias in Name2), or a derived table whose
-    /// subquery SQL goes in Expression with Name1 empty.</summary>
+    /// subquery SQL goes in Expression with Name1 empty — then, for a FROM with an IN externaldatabase, the
+    /// <c>0x04</c> row naming that file: the path in Name1, a type or connect string in Expression (verified vs ACE,
+    /// written straight after the tables).</summary>
     private static void AddSourceRows(QueryRows rows, ViewSpec? body)
     {
         var tables = body?.Tables ?? [];
         for (int i = 0; i < tables.Count; i++)
             AddSourceRow(rows, tables[i], order: i + 1);
+        if (body?.Database is { } database)
+            rows.Row(QueryAttribute.Connect, order: 1, expression: database.Connect, name1: database.Path);
     }
 
     private static void AddSourceRow(QueryRows rows, ViewTableSpec t, int order)
@@ -1536,18 +1588,30 @@ public sealed class JetCatalog
             rows.Row(QueryAttribute.Operation, order: 1, flag: (short)QueryOperation.Union);
             AddSourceRow(rows, spec.Tables[1] with { Alias = "X7YZ_____2" }, order: 2);
         }
-        AddColumnRows(rows, spec.Columns);
+        // A crosstab's operation row comes before its columns (verified vs ACE).
+        if (spec.Crosstab is not null)
+            rows.Row(QueryAttribute.Operation, order: 1, flag: (short)QueryOperation.Crosstab);
+        AddColumnRows(rows, spec.Columns, spec.Crosstab);
         AddJoinRows(rows, spec);
         if (!spec.Union) AddSourceRows(rows, spec);
         AddWhereRow(rows, spec);
-        for (int i = 0; i < (spec.GroupBy?.Count ?? 0); i++)
-            rows.Row(QueryAttribute.GroupBy, order: i + 1, flag: 0, expression: spec.GroupBy![i]);
+        int groupBy = spec.GroupBy?.Count ?? 0;
+        for (int i = 0; i < groupBy; i++)
+            rows.Row(QueryAttribute.GroupBy, order: i + 1, flag: spec.Crosstab is null ? (short)0 : CrosstabHeading,
+                expression: spec.GroupBy![i]);
         // The group filter carries no flag of its own, exactly as the WHERE row doesn't.
         if (spec.Having is { } having)
             rows.Row(QueryAttribute.Having, order: 1, expression: having);
         for (int i = 0; i < (spec.OrderBy?.Count ?? 0); i++)
             rows.Row(QueryAttribute.OrderBy, order: i + 1, expression: spec.OrderBy![i].Expression,
                 name1: spec.OrderBy[i].Descending ? "d" : null);
+        // A crosstab's PIVOT follows its ORDER BY: the field as the last GROUP BY row, then the clause as the last
+        // column row, numbered past the TRANSFORM value and the headings (verified vs ACE).
+        if (spec.Crosstab is { } crosstab)
+        {
+            rows.Row(QueryAttribute.GroupBy, order: groupBy + 1, flag: CrosstabPivot, expression: crosstab.Pivot);
+            rows.Row(QueryAttribute.Column, order: spec.Columns.Count + 2, flag: CrosstabPivot, expression: crosstab.PivotColumn);
+        }
         AddOptionRow(rows, spec, spec.OwnerAccess);
     }
 

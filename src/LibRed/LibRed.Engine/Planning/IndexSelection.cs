@@ -20,45 +20,46 @@ internal static class IndexSelection
 #pragma warning restore IDE0028
 
     /// <param name="node">The plan subtree to rewrite.</param>
-    /// <param name="catalog">The catalog the candidate indexes are read from.</param>
+    /// <param name="database">The database the statement runs on. A table's candidate indexes are read from the
+    /// catalog of the database it is in — this one, or the file its FROM names with IN externaldatabase.</param>
     /// <param name="outer">Aliases of the enclosing query (empty at top level). A value referencing only these
     /// is a constant from this query's view, so a correlated predicate <c>t.col = outer.col</c> becomes an
     /// index seek keyed off the outer row — the point of running index selection on correlated subqueries.</param>
-    public static PlanNode Apply(PlanNode node, JetCatalog catalog, HashSet<string>? outer = null)
+    public static PlanNode Apply(PlanNode node, JetDatabase database, HashSet<string>? outer = null)
     {
         outer ??= NoOuter;
         return node switch
         {
-            FilterNode { Input: ScanNode scan } filter => RewriteFilterOverScan(filter, scan, catalog, outer),
-            JoinNode j => RewriteJoin(j, catalog, outer),
+            FilterNode { Input: ScanNode scan } filter => RewriteFilterOverScan(filter, scan, database, outer),
+            JoinNode j => RewriteJoin(j, database, outer),
 
             // `TOP n … ORDER BY <indexed columns>` — read the index in order and stop after n, instead of
             // scanning the table to feed a sort. Must precede the general SortNode arm below.
             SortNode { Input: ScanNode ordered, Limit: not null } sort
-                when OrderedIndexRead(sort, ordered, catalog) is { } indexScan => indexScan,
+                when OrderedIndexRead(sort, ordered, database) is { } indexScan => indexScan,
 
             // Otherwise rebuild the node with its children rewritten.
-            FilterNode f => f with { Input = Apply(f.Input, catalog, outer) },
-            SortNode s => s with { Input = Apply(s.Input, catalog, outer) },
-            ProjectNode p => p with { Input = Apply(p.Input, catalog, outer) },
-            DistinctNode d => d with { Input = Apply(d.Input, catalog, outer) },
-            DistinctRowNode dr => dr with { Input = Apply(dr.Input, catalog, outer) },
-            LimitNode l => l with { Input = Apply(l.Input, catalog, outer) },
-            AggregateNode a => a with { Input = Apply(a.Input, catalog, outer) },
-            DerivedTableNode dt => dt with { Input = Apply(dt.Input, catalog, outer) },
+            FilterNode f => f with { Input = Apply(f.Input, database, outer) },
+            SortNode s => s with { Input = Apply(s.Input, database, outer) },
+            ProjectNode p => p with { Input = Apply(p.Input, database, outer) },
+            DistinctNode d => d with { Input = Apply(d.Input, database, outer) },
+            DistinctRowNode dr => dr with { Input = Apply(dr.Input, database, outer) },
+            LimitNode l => l with { Input = Apply(l.Input, database, outer) },
+            AggregateNode a => a with { Input = Apply(a.Input, database, outer) },
+            DerivedTableNode dt => dt with { Input = Apply(dt.Input, database, outer) },
             // Must be here, not left to the `_` arm below: that arm does not merely decline to rewrite this
             // node, it stops DESCENDING, so the whole subtree loses index selection. A WindowNode sits directly
             // above the Filter-over-Scan that RewriteFilterOverScan turns into a seek, so omitting this would
             // silently make every windowed query a full scan — correct results, catastrophic plans.
-            WindowNode w => w with { Input = Apply(w.Input, catalog, outer) },
-            SetOperationNode so => so with { Left = Apply(so.Left, catalog, outer), Right = Apply(so.Right, catalog, outer) },
+            WindowNode w => w with { Input = Apply(w.Input, database, outer) },
+            SetOperationNode so => so with { Left = Apply(so.Left, database, outer), Right = Apply(so.Right, database, outer) },
             _ => node,
         };
     }
 
-    private static FilterNode RewriteFilterOverScan(FilterNode filter, ScanNode scan, JetCatalog catalog, HashSet<string> outer)
+    private static FilterNode RewriteFilterOverScan(FilterNode filter, ScanNode scan, JetDatabase database, HashSet<string> outer)
     {
-        if (catalog.FindTable(scan.Table) is not { } def)
+        if (ExternalDatabases.Open(database, scan.Database).Catalog.FindTable(scan.Table) is not { } def)
             return filter;
         string alias = scan.Alias ?? scan.Table;
         var conjuncts = Conjuncts(filter.Predicate).ToList();
@@ -85,7 +86,7 @@ internal static class IndexSelection
                 if (index.Columns.All(c => equalities.ContainsKey(c.Column.Name)))
                 {
                     var keys = index.Columns.Select(c => equalities[c.Column.Name]).ToList();
-                    return filter with { Input = new IndexSeekNode(scan.Table, scan.Alias, index, keys) };
+                    return filter with { Input = new IndexSeekNode(scan.Table, scan.Alias, index, keys, scan.Database) };
                 }
 
         // 2. Range comparison(s) on a single-column index → a range scan (lower and/or upper bound).
@@ -116,7 +117,7 @@ internal static class IndexSelection
             if (low is not null || high is not null)
                 return filter with
                 {
-                    Input = new IndexRangeSeekNode(scan.Table, scan.Alias, index, low, high) { Unordered = unordered },
+                    Input = new IndexRangeSeekNode(scan.Table, scan.Alias, index, low, high, scan.Database) { Unordered = unordered },
                 };
         }
 
@@ -151,9 +152,9 @@ internal static class IndexSelection
     /// <para>Ties then match too: equal-keyed index entries are ordered by row pointer, i.e. physical position,
     /// which is the order a scan feeds the sort in — and the sort breaks ties by input position.</para>
     /// </remarks>
-    private static IndexRangeSeekNode? OrderedIndexRead(SortNode sort, ScanNode scan, JetCatalog catalog)
+    private static IndexRangeSeekNode? OrderedIndexRead(SortNode sort, ScanNode scan, JetDatabase database)
     {
-        if (catalog.FindTable(scan.Table) is not { } def)
+        if (ExternalDatabases.Open(database, scan.Database).Catalog.FindTable(scan.Table) is not { } def)
             return null;
         string alias = scan.Alias ?? scan.Table;
 
@@ -176,7 +177,7 @@ internal static class IndexSelection
             // Both bounds open: the range seek descends to the leftmost leaf and walks the chain, which is the
             // whole index in key order — lazily, so the enclosing limit ends the read.
             if (matches)
-                return new IndexRangeSeekNode(scan.Table, scan.Alias, index, Low: null, High: null);
+                return new IndexRangeSeekNode(scan.Table, scan.Alias, index, Low: null, High: null, scan.Database);
         }
 
         return null;
@@ -239,14 +240,14 @@ internal static class IndexSelection
     /// </summary>
     // Not a HashJoinNode as CA1859 reads it: a join that cannot be hashed is returned as the join it was.
 #pragma warning disable CA1859
-    private static PlanNode RewriteJoin(JoinNode j, JetCatalog catalog, HashSet<string> outer)
+    private static PlanNode RewriteJoin(JoinNode j, JetDatabase database, HashSet<string> outer)
     {
-        PlanNode left = Apply(j.Left, catalog, outer); // rewrite the outer side first (independent of this join)
+        PlanNode left = Apply(j.Left, database, outer); // rewrite the outer side first (independent of this join)
 
         // Only a plain nested-loop join with an ON can become index-nested-loop; an outer join is left alone
         // for now (the right side must still contribute null rows when nothing matches — a scan, not a seek).
         if (j.Kind is (JoinKind.Inner or JoinKind.Cross) && j.On is { } on
-            && j.Right is ScanNode scan && catalog.FindTable(scan.Table) is { } def)
+            && j.Right is ScanNode scan && ExternalDatabases.Open(database, scan.Database).Catalog.FindTable(scan.Table) is { } def)
         {
             string rAlias = scan.Alias ?? scan.Table;
             // The seek key may reference the join's own left side or the enclosing (outer) query.
@@ -270,7 +271,7 @@ internal static class IndexSelection
                 if (index is null)
                     continue;
 
-                var seek = new IndexSeekNode(scan.Table, scan.Alias, index, [match.outerKey]);
+                var seek = new IndexSeekNode(scan.Table, scan.Alias, index, [match.outerKey], scan.Database);
                 return j with { Left = left, Right = seek }; // ON kept as residual
             }
         }
@@ -282,14 +283,14 @@ internal static class IndexSelection
         HashSet<string> rightOuter = j.Kind is JoinKind.CrossApply or JoinKind.OuterApply
             ? QueryPlanner.SubtreeAliases(left).Union(outer).ToHashSet(StringComparer.OrdinalIgnoreCase)
             : outer;
-        PlanNode right = Apply(j.Right, catalog, rightOuter);
+        PlanNode right = Apply(j.Right, database, rightOuter);
 
         // No index-nested-loop available: if this is an equi-join whose keys are same-kind columns, hash it
         // (O(n+m)) instead of leaving the O(n·m) nested loop. See HashJoinNode for why same-kind is required.
         // RIGHT joins hash too (the executor builds the left and probes with the right), and so does FULL, which
         // additionally emits the build rows the probe never matched.
         if (j.Kind is (JoinKind.Inner or JoinKind.Left or JoinKind.Right or JoinKind.Full) && j.On is { } cond
-            && TryHashKeys(cond, left, right, catalog) is { } keys)
+            && TryHashKeys(cond, left, right, database) is { } keys)
             return new HashJoinNode(left, right, j.Kind, keys.Left, keys.Right, cond);
 
         return j with { Left = left, Right = right };
@@ -300,7 +301,7 @@ internal static class IndexSelection
     /// whose columns are of the same type kind, or null if there is no such pair. The full ON is still applied
     /// as a residual, so a partial split (extra non-equi conjuncts) is fine.</summary>
     private static (IReadOnlyList<Expression> Left, IReadOnlyList<Expression> Right)? TryHashKeys(
-        Expression on, PlanNode left, PlanNode right, JetCatalog catalog)
+        Expression on, PlanNode left, PlanNode right, JetDatabase database)
     {
         HashSet<string> leftAliases = QueryPlanner.SubtreeAliases(left);
         HashSet<string> rightAliases = QueryPlanner.SubtreeAliases(right);
@@ -322,8 +323,8 @@ internal static class IndexSelection
 
             // A hash consistent with the evaluator's equality only exists within one type kind (5 = '5' and
             // 5 = 5.0 but '5' ≠ '5.0'), so both key columns must resolve to the same kind.
-            TypeKind? lk = ResolveKind(lc, left, catalog);
-            TypeKind? rk = ResolveKind(rc, right, catalog);
+            TypeKind? lk = ResolveKind(lc, left, database);
+            TypeKind? rk = ResolveKind(rc, right, database);
             if (lk is null || lk != rk)
                 continue;
 
@@ -364,13 +365,13 @@ internal static class IndexSelection
     /// directly, or a derived-table column followed through its projection to the underlying base column — or
     /// null if it can't be pinned down (e.g. the projection is a computed expression), in which case the join
     /// is left as a nested loop rather than risk an unsound hash.</summary>
-    internal static TypeKind? ResolveKind(ColumnReference col, PlanNode subtree, JetCatalog catalog)
+    internal static TypeKind? ResolveKind(ColumnReference col, PlanNode subtree, JetDatabase database)
     {
-        foreach ((string alias, string table) in BaseTables(subtree))
+        foreach ((string alias, string table, ExternalDatabase? external) in BaseTables(subtree))
         {
             if (col.Table is { } t && !string.Equals(t, alias, StringComparison.OrdinalIgnoreCase))
                 continue;
-            ColumnDef? c = catalog.FindTable(table)?.Columns
+            ColumnDef? c = ExternalDatabases.Open(database, external).Catalog.FindTable(table)?.Columns
                 .FirstOrDefault(cd => string.Equals(cd.Name, col.Column, StringComparison.OrdinalIgnoreCase));
             if (c is not null)
                 return Classify(c.Type);
@@ -383,18 +384,18 @@ internal static class IndexSelection
             if (col.Table is { } t && !string.Equals(t, d.Alias, StringComparison.OrdinalIgnoreCase))
                 continue;
             if (ProjectionExprFor(d, col.Column) is ColumnReference inner)
-                return ResolveKind(inner, d.Input, catalog);
+                return ResolveKind(inner, d.Input, database);
         }
         return null;
     }
 
     // A derived table is an opaque boundary: its inner tables/aliases are not visible outside it, so BaseTables
     // stops there (DerivedTables handles the derived level separately).
-    private static IEnumerable<(string Alias, string Table)> BaseTables(PlanNode node) => node switch
+    private static IEnumerable<(string Alias, string Table, ExternalDatabase? Database)> BaseTables(PlanNode node) => node switch
     {
-        ScanNode s => [(s.Alias ?? s.Table, s.Table)],
-        IndexSeekNode s => [(s.Alias ?? s.Table, s.Table)],
-        IndexRangeSeekNode s => [(s.Alias ?? s.Table, s.Table)],
+        ScanNode s => [(s.Alias ?? s.Table, s.Table, s.Database)],
+        IndexSeekNode s => [(s.Alias ?? s.Table, s.Table, s.Database)],
+        IndexRangeSeekNode s => [(s.Alias ?? s.Table, s.Table, s.Database)],
         DerivedTableNode => [],
         _ => node.Children.SelectMany(BaseTables),
     };

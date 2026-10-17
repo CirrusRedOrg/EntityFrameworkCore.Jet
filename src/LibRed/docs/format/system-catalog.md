@@ -399,7 +399,8 @@
   (`Name1`=parameter name, `Flag`=Jet
   type code — same codes as on-disk column types, e.g. `8`=DateTime; **`Flag 0` is not a type code but Access's
   untyped parameter, rendered as the keyword `Value`**; one row per parameter, `Order`
-  1-based), `0x03` = **options** (see below), `0x04` = the connection string of a **pass-through** query,
+  1-based), `0x03` = **options** (see below), `0x04` = the **external database** of the FROM (below) — and the
+  connection string of a **pass-through** query (*unverified, from the published MSysQueries tables*),
   `0x05` = FROM source, `0x06` =
   output column (`Expression`=verbatim text; **`Name1`=the column's output alias** when it has one, e.g.
   `Expression=Customers.CompanyName`, `Name1=CustomerName`; a computed column stores its whole verbatim
@@ -424,7 +425,7 @@
   > | `Flag` | kind | DAO `QueryDef.Type` | status |
   > |---|---|---|---|
   > | `1` | SELECT | `0` dbQSelect | observed |
-  > | `2` | make-table (`SELECT … INTO`; target in `Name1`, external db path in `Name2`) | `80` dbQMakeTable | observed |
+  > | `2` | make-table (`SELECT … INTO`; target in `Name1`, external db path in `Name2`, its type or connect string in `Expression`) | `80` dbQMakeTable | observed |
   > | `3` | append (`INSERT`; target table in `Name1`) | `64` dbQAppend | observed |
   > | `4` | UPDATE | `48` dbQUpdate | observed |
   > | `5` | DELETE | `32` dbQDelete | observed |
@@ -436,7 +437,46 @@
   > On a crosstab, the `0x06` and `0x09` rows carry the extra structure in their own `Flag`: `0` = the
   > `TRANSFORM` value / an ordinary GROUP BY column, `1` = the `PIVOT` column heading, `2` = a row heading.
   > On an append query, `0x06` `Flag` `-32768` (`0x8000`) marks an `INSERT … VALUES` literal, as against
-  > `Flag 0` for a column sourced from an `INSERT … SELECT`.
+  > `Flag 0` for a column sourced from an `INSERT … SELECT`. With a column list each row names its target column in
+  > `Name2`; without one (`INSERT INTO t SELECT …`) the rows are the SELECT's own, each value's output name — its
+  > alias, or the column's name — in `Name1` and no `Name2`, and a `SELECT *` has no column rows and sets the option
+  > row's `0x01` bit (verified vs ACE). ACE then fills the target columns by those names, not by position, refusing
+  > one the target lacks ("unknown field name").
+  >
+  > **A crosstab (verified vs ACE, `CREATE PROCEDURE` and DAO alike).** The operation row (`Flag 6`) comes straight
+  > after the type, end and parameter rows. Then:
+  >
+  > | Rows | Holds |
+  > |---|---|
+  > | `0x06` `Order 1`, `Flag 0` | the `TRANSFORM` value, its alias (accepted, naming nothing) in `Name1` |
+  > | `0x06` `Order 2…`, `Flag 2` | the SELECT's columns, aggregates such as a row total included, aliases in `Name1` |
+  > | `0x09` `Order 1…`, `Flag 2` | the SELECT's GROUP BY keys |
+  > | `0x09` last, `Flag 1` | the `PIVOT` field |
+  > | `0x06` last, `Flag 1` | the `PIVOT` clause, its `IN (…)` heading list included (`K IN ('a', 'b')`); `Order` is the column rows' count + 1 |
+  >
+  > They are written in clause order — columns, joins, tables, the external-database row, WHERE, the SELECT's GROUP BY
+  > rows, ORDER BY — and only then the pivot's GROUP BY row, its column row and the option row. `DISTINCT` and
+  > `WITH OWNERACCESS OPTION` go on the option row as a SELECT's do; a crosstab takes no `HAVING` or `TOP`, and
+  > `CREATE VIEW` refuses one ("expected token: SELECT"). `MSysObjects.Flags` carries DAO type `16`.
+  >
+  > **An external database (verified vs ACE).** A FROM ending in `IN externaldatabase` reads every table of that FROM
+  > from another file; the query keeps it as one `0x04` row, written straight after the `0x05` rows: the quoted path in
+  > `Name1` (absent when written `''`), and the type or connect string after it in `Expression` — `IN 'C:\x.accdb'` is
+  > `Name1` alone, `IN 'C:\x.accdb' 'MS Access;'` and `IN 'C:\x.accdb' [MS Access;]` add `Expression=MS Access;`, and
+  > `IN '' [;DATABASE=C:\x.accdb]` is `Expression=;DATABASE=C:\x.accdb` alone. A make-table's `INTO t IN …` is kept on
+  > its operation row instead: the path in `Name2`, the type or connect string in `Expression`. A view, a procedure, a
+  > make-table's source and a crosstab's FROM all store it the same way.
+  >
+  > **A bare `SELECT *` has no `0x06` rows** and sets the option row's `0x01` bit instead (verified vs ACE, a view and
+  > a procedure alike, with and without an external database). **A `*` among other items** (`SELECT *, x AS X`,
+  > `SELECT Phone, *, CompanyName`) sets the same bit and writes a `0x06` row for each other item only, in their
+  > written order — the `*` itself has no row, however many times it is written (verified vs ACE). Read back, the
+  > query returns those items first and then every column of the FROM that none of them returns by a column
+  > reference (aliased or not) or a `t.*`. A procedure `TABLE t` is stored exactly as `SELECT * FROM t`. ACE refuses
+  > to store a `*` in a grouped or aggregate query ("Cannot group on fields selected with '*'."); LibRed refuses to
+  > run one but still stores it. `DISTINCTROW` is the option row's `0x08` bit (below), so `SELECT DISTINCTROW *` is
+  > `Flag 9`, and `DISTINCTROW` with explicit columns `Flag 8`, its `TOP` and `PERCENT` adding `0x10` and `0x20` as
+  > they do to any SELECT (verified vs ACE).
 
   > **The `0x03` OPTION row's `Flag` is a bit set, and the bits are cumulative** — one row can carry several,
   > and Access may also split them across rows, so read them as a union of every `0x03` row's `Flag`:
@@ -520,6 +560,9 @@
   > | `SELECT … INTO t FROM` | columns, then the operation naming `t`, joins, tables, where |
   > | `UPDATE t SET …`, `DELETE FROM t` | operation, table, assignments, where |
   > | `… UNION …` | first segment, operation, second segment, order-by, then the option row |
+  > | `TRANSFORM … PIVOT` | operation, columns, joins, tables, external database, where, group-by, order-by, the pivot's group-by and column rows, then the option row |
+  >
+  > A FROM's external-database row (`0x04`) follows its tables in every kind.
   >
   > **`LvExtra` after a sized parameter.** Once a parameter row carrying facets in `LvExtra` (a `TEXT(20)`'s
   > length) is written, **every later row of the query carries `LvExtra` too**, `0` where it has nothing of its

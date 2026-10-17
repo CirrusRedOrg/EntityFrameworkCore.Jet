@@ -47,7 +47,7 @@ internal static class SubqueryCorrelation
         SelectStatement subquery,
         IReadOnlyList<OutputColumn> outerColumns,
         HashSet<string> outerAliases,
-        JetCatalog catalog)
+        JetDatabase database)
     {
         if (subquery is not { From: not null })
         {
@@ -96,7 +96,7 @@ internal static class SubqueryCorrelation
                 && Orient(left, right, innerAliases, outerAliases) is var (inner, outer)
                 && inner is ColumnReference innerCol
                 && (!fromHaving || IsGroupingKey(inner, subquery.GroupBy))
-                && SameKind(innerCol, plan, catalog, outer, outerColumns))
+                && SameKind(innerCol, plan, database, outer, outerColumns))
             {
                 innerKeys.Add(inner);
                 outerKeys.Add(outer);
@@ -219,11 +219,11 @@ internal static class SubqueryCorrelation
     internal static bool SameKind(
         ColumnReference innerCol,
         PlanNode innerPlan,
-        JetCatalog catalog,
+        JetDatabase database,
         Expression outer,
         IReadOnlyList<OutputColumn> outerColumns)
     {
-        IndexSelection.TypeKind? innerKind = IndexSelection.ResolveKind(innerCol, innerPlan, catalog);
+        IndexSelection.TypeKind? innerKind = IndexSelection.ResolveKind(innerCol, innerPlan, database);
         if (innerKind is null)
         {
             return false;

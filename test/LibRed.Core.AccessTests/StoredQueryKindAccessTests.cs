@@ -147,7 +147,7 @@ public class StoredQueryKindAccessTests
     }
 
     [Fact]
-    public void A_kind_libred_cannot_run_is_named_in_the_refusal()
+    public void A_dao_written_crosstab_reads_back_as_its_statement()
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "qkind-crosstab-");
         try
@@ -158,11 +158,11 @@ public class StoredQueryKindAccessTests
             using var db = JetDatabase.Open(path);
             Assert.Equal((short)6, OperationFlag(db, "CrossQ"));
 
-            // Not executed — but the reason has to say WHICH kind. "Not supported" on its own gives a caller
-            // no way to tell an unimplemented feature from a file LibRed failed to read.
+            // Its value, heading, GROUP BY and PIVOT rows, put back together; not an action query.
             StoredQuery q = db.Catalog.FindQuery("CrossQ")!;
-            Assert.Null(q.Sql);
-            Assert.Contains("Crosstab", q.UnsupportedReason!, StringComparison.OrdinalIgnoreCase);
+            Assert.False(q.IsAction);
+            Assert.Equal("TRANSFORM Count(Orders.OrderID) SELECT Orders.CustomerID FROM [Orders] " +
+                         "GROUP BY Orders.CustomerID PIVOT Orders.EmployeeID", q.Sql);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

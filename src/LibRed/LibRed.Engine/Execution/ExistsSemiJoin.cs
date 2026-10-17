@@ -62,8 +62,8 @@ internal sealed class ExistsSemiJoin
         SelectStatement subquery,
         IReadOnlyList<OutputColumn> outerColumns,
         HashSet<string> outerAliases,
-        JetCatalog catalog)
-        => TryBuild(subquery, null, outerColumns, outerAliases, catalog);
+        JetDatabase database)
+        => TryBuild(subquery, null, outerColumns, outerAliases, database);
 
     /// <summary>
     ///     The same analysis for <c>x [NOT] IN (subquery)</c>, where <paramref name="inValue" /> is the outer
@@ -92,9 +92,9 @@ internal sealed class ExistsSemiJoin
         Expression inValue,
         IReadOnlyList<OutputColumn> outerColumns,
         HashSet<string> outerAliases,
-        JetCatalog catalog)
+        JetDatabase database)
         => subquery is { Top: null, GroupBy.Count: 0, Having: null, IsSelectStar: false, Projection: [{ Value: ColumnReference }] }
-            ? TryBuild(subquery, inValue, outerColumns, outerAliases, catalog)
+            ? TryBuild(subquery, inValue, outerColumns, outerAliases, database)
             : null;
 
     private static ExistsSemiJoin? TryBuild(
@@ -102,14 +102,14 @@ internal sealed class ExistsSemiJoin
         Expression? inValue,
         IReadOnlyList<OutputColumn> outerColumns,
         HashSet<string> outerAliases,
-        JetCatalog catalog)
+        JetDatabase database)
     {
         // (ORDER BY and DISTINCT are irrelevant to EXISTS.) OFFSET is not: it asks for more than n rows per key,
         // which a key set cannot express.
         if (subquery.Offset is not null
             || !TopCannotChangeExistence(subquery)
             || !EmptyInputMeansNoRows(subquery)
-            || SubqueryCorrelation.TrySplit(subquery, outerColumns, outerAliases, catalog) is not { } split)
+            || SubqueryCorrelation.TrySplit(subquery, outerColumns, outerAliases, database) is not { } split)
         {
             return null;
         }
@@ -121,7 +121,7 @@ internal sealed class ExistsSemiJoin
         if (inValue is not null)
         {
             Expression output = subquery.Projection[0].Value;
-            if (!SubqueryCorrelation.SameKind((ColumnReference)output, split.Plan, catalog, inValue, outerColumns))
+            if (!SubqueryCorrelation.SameKind((ColumnReference)output, split.Plan, database, inValue, outerColumns))
             {
                 return null;
             }

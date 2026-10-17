@@ -710,6 +710,40 @@ public sealed class JetDatabase : IDisposable
     internal Storage.Table OpenTableAt(int tdefPage, string name, bool isSystem = true) =>
         new(_channel, Catalog.ReadTableDefinition(tdefPage, name, isSystem), Catalog);
 
+    /// <summary>The other database files this one's statements reached through an IN externaldatabase clause, by
+    /// <see cref="FileIdentity.Key"/>: one handle each, writable once anything has written there. Every handle opened
+    /// stays open until this one closes, a replaced read-only one too — a query's rows are read lazily, after the
+    /// statement that named the file returns.</summary>
+    private readonly Dictionary<string, JetDatabase> _external = [];
+    private readonly List<JetDatabase> _externalOpened = [];
+
+    /// <summary>
+    /// The database at <paramref name="path"/>, as a statement on this one reaches it through an IN externaldatabase
+    /// clause: opened on first use and kept for as long as this one is open, writable when <paramref name="writable"/>.
+    /// A relative path is taken from the process's current directory, and a missing file is refused with ACE's
+    /// message (both verified vs ACE). The file this database is itself is this database.
+    /// </summary>
+    public JetDatabase External(string path, string? password, bool writable)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        string key = FileIdentity.Key(path);
+        if (key == FileIdentity.Key(_channel.Path))
+            return this;
+        if (!File.Exists(path))
+            throw new FileNotFoundException(
+                $"'{path}' is not a valid path. Make sure that the path name is spelled correctly and that you are "
+                + "connected to the server on which the file resides.", path);
+
+        lock (_external)
+        {
+            if (_external.TryGetValue(key, out JetDatabase? database) && (!writable || !database._channel.IsReadOnly))
+                return database;
+            _external[key] = database = Open(path, readOnly: !writable, password);
+            _externalOpened.Add(database);
+            return database;
+        }
+    }
+
     /// <summary>Opens a table by name for row access. A missing one is refused with ACE's message for a table a
     /// statement reads — the one DAO's <c>OpenRecordset</c> gives too (verified).</summary>
     public Table OpenTable(string name)
@@ -728,6 +762,13 @@ public sealed class JetDatabase : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        lock (_external)
+        {
+            foreach (JetDatabase external in _externalOpened)
+                external.Dispose();
+            _externalOpened.Clear();
+            _external.Clear();
+        }
         try
         {
             if (!_channel.IsReadOnly)

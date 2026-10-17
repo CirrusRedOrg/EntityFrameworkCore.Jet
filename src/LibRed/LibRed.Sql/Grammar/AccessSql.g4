@@ -40,7 +40,7 @@ grammar AccessSql;
 }
 
 // A single statement, optionally terminated by ';' (EF Core emits a trailing semicolon).
-statement : parametersClause? (ifThenStatement | createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | dropStatement | insertStatement | updateStatement | deleteStatement | transactionStatement | executeStatement | systemVariableSelect | queryExpression) SEMI? EOF ;
+statement : parametersClause? (ifThenStatement | createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | dropStatement | insertStatement | updateStatement | deleteStatement | transactionStatement | executeStatement | systemVariableSelect | transformStatement | queryExpression) SEMI? EOF ;
 
 // EF emits Jet's conditional DDL for idempotent migrations: `IF [NOT] EXISTS (<select>) THEN <statement>`.
 // A single guarded statement (all EF produces); the condition is an ordinary subquery (e.g. over INFORMATION_SCHEMA).
@@ -132,10 +132,10 @@ alterTableAction
     ;
 
 // A procedure body is any statement Access allows. We store the ones we can decompose into the MSysQueries
-// rows Access writes for them — a SELECT (a plain view, or a make-table when it has an INTO), an INSERT from
-// either VALUES or a SELECT, an UPDATE, a DELETE, and CREATE TABLE (stored verbatim). The kinds we cannot
-// store (crosstab, pass-through, UNION) are rejected by the builder.
-procedureBody : queryExpression | insertStatement | updateStatement | deleteStatement | createTableStatement ;
+// rows Access writes for them — a SELECT (a plain view, a UNION, or a make-table when it has an INTO), a
+// crosstab, an INSERT from either VALUES or a SELECT, an UPDATE, a DELETE, and CREATE TABLE (stored verbatim).
+// ACE's CREATE VIEW takes no crosstab ("expected token: SELECT", verified), which is why only this rule has one.
+procedureBody : queryExpression | insertStatement | updateStatement | deleteStatement | createTableStatement | transformStatement ;
 
 // CREATE [UNIQUE] INDEX name ON table (field [ASC|DESC], …) [WITH {PRIMARY|DISALLOW NULL|IGNORE NULL}]
 createIndexStatement
@@ -249,8 +249,7 @@ referentialAction
 // plus `INSERT INTO t DEFAULT VALUES` — EF Core emits that for an all-store-generated/all-default row, and
 // it inserts one row taking every column's default / AutoNumber.
 //
-// The IN externaldatabase clause both forms allow is deliberately absent: appending into another file is
-// part of the linked/external-database subsystem, which LibRed neither reads nor writes.
+// The IN externaldatabase clause both forms allow is not taken here yet; a SELECT's FROM and INTO take it.
 //
 // The multiple-record source is a queryExpression rather than a bare selectStatement, so a UNION can feed an
 // append — the shape EF emits from a Concat — which is a superset of what Access documents.
@@ -315,8 +314,7 @@ setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 //
 // INTO makes it a MAKE-TABLE query: the rows go into a new table rather than back to the caller.
 //   SELECT field1[, field2[, …]] INTO newtable [IN externaldatabase] FROM source
-// The IN externaldatabase clause is deliberately absent, as it is on INSERT — creating a table in another
-// file is part of the linked-database subsystem LibRed does not have.
+// and the IN puts that table in another Access file (see externalDatabase).
 // The standard's <query specification>, and named for it: SELECT … FROM … WHERE … GROUP BY … HAVING, with no
 // ORDER BY or OFFSET/FETCH — see queryExpression, the only place those may appear. Splitting the ordering out
 // of the operand rule is what every serious SQL grammar does (Trino's querySpecification/queryNoWith, SQLite's
@@ -324,7 +322,7 @@ setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 // the enclosing expression's greedily. TOP stays, because a leading TOP genuinely belongs to its own operand:
 // `SELECT TOP 5 … UNION SELECT TOP 5 …` takes five rows from each side.
 querySpecification
-    : SELECT predicate=selectPredicate? topClause? selectList (INTO into=identifier)? fromClause? whereClause? groupByClause? havingClause?
+    : SELECT predicate=selectPredicate? topClause? selectList (INTO into=identifier intoDatabase=externalDatabase?)? fromClause? whereClause? groupByClause? havingClause?
       ownerAccessOption?
     ;
 
@@ -374,17 +372,20 @@ offsetFetchClause
     ;
 rowKeyword : ROW | ROWS ;
 
-selectList
-    : STAR
-    | selectItem (COMMA selectItem)*
-    ;
+// A bare * may sit among other items, as ACE takes it (verified): `SELECT *, X`, `SELECT X, *`, `SELECT *, *`. It means
+// every column the other items do not already return, after them, whatever its place in the list.
+selectList : selectItem (COMMA selectItem)* ;
 
 selectItem
-    : qualifier=identifier DOT STAR        # QualifiedStarSelectItem
+    : STAR                                 # StarSelectItem
+    | qualifier=identifier DOT STAR        # QualifiedStarSelectItem
     | expression (AS? alias=identifier)?   # ExpressionSelectItem
     ;
 
-fromClause : FROM tableSource (COMMA tableSource)* ;
+// An IN externaldatabase ends the whole table expression, after any alias and before WHERE, once per FROM, and
+// every table of the FROM is read from that file (verified vs ACE: `FROM a IN 'x', b` is a syntax error, and
+// `FROM a, b IN 'x'` reads both from x).
+fromClause : FROM tableSource (COMMA tableSource)* externalDatabase? ;
 
 // A table source and its explicit JOINs; comma between sources is an implicit cross join.
 tableSource : tablePrimary joinClause* ;
@@ -613,7 +614,7 @@ reservedKeyword
     | VALUES | PRIMARY | KEY | CONSTRAINT | FOREIGN | REFERENCES | DELETE | UPDATE | CASCADE | RESTRICT | ACTION
     | SET | DEFAULT | NO | UNIQUE | CLUSTERED | IDENTITY | NONCLUSTERED | INDEX | TEMPORARY | WITH | COMPRESSION
     | COMP | DISALLOW | IGNORE | CHECK | VIEW | PROCEDURE | PARAMETERS | EXECUTE | EXEC | ASC | DESC | TRUE
-    | FALSE | NULL
+    | FALSE | NULL | TRANSFORM | PIVOT
     ;
 
 // An aggregate's FILTER: only the rows for which the condition is true go into it.
@@ -632,6 +633,27 @@ nullTreatment : treatment=(RESPECT | IGNORE) NULLS ;
 // columns n and s, as SQL Server and PostgreSQL take it and EF Core emits it for an inline collection. ACE has no
 // such syntax. Kept after the existing parser rules so adding it does not renumber their ids.
 derivedColumns : LPAREN names+=identifier (COMMA names+=identifier)* RPAREN ;
+
+// IN externaldatabase — the Access file a FROM's tables, or a make-table's new table, are in. ACE takes the path
+// quoted, alone or followed by the database type, quoted or bracketed, or an empty path and a bracketed connect
+// string naming it (verified vs ACE, each form):
+//   IN 'C:\db.accdb'     IN 'C:\db.accdb' 'MS Access;'     IN 'C:\db.accdb' [MS Access;]
+//   IN '' [;DATABASE=C:\db.accdb]     IN '' [MS Access;DATABASE=C:\db.accdb]
+// An empty type string, a bare path and a connect string with no path before it are syntax errors there. The
+// builder refuses the empty type; which database types LibRed opens is decided when the statement runs. Kept after
+// the existing parser rules so adding it does not renumber their ids.
+externalDatabase : IN path=STRING_LITERAL (type=STRING_LITERAL | connect=BRACKET_ID)? ;
+
+// TRANSFORM aggfunction selectstatement PIVOT pivotfield [IN (value1[, value2[, …]])] — a crosstab query. The
+// SELECT's columns are the row headings, one row per GROUP BY group, and the pivot field's values the further
+// columns, each holding the TRANSFORM value for its row and heading. ACE takes an ORDER BY before the PIVOT and
+// WITH OWNERACCESS OPTION after it (verified). The IN list is the pivot's own `x IN (…)`: it parses as an IN
+// expression, which is how ACE stores it too, and the builder splits it into the field and its fixed headings.
+// Kept after the existing parser rules so adding it does not renumber their ids.
+transformStatement
+    : TRANSFORM value=expression (AS? valueAlias=identifier)? select=querySpecification orderByClause?
+      PIVOT pivot=expression ownerAccessOption?
+    ;
 
 // ---- Lexer ----
 
@@ -767,6 +789,9 @@ FILTER    : [Ff][Ii][Ll][Tt][Ee][Rr] ;
 // WITH OWNERACCESS OPTION's words — not reserved; see nonReservedKeyword.
 OWNERACCESS : [Oo][Ww][Nn][Ee][Rr][Aa][Cc][Cc][Ee][Ss][Ss] ;
 OPTION      : [Oo][Pp][Tt][Ii][Oo][Nn] ;
+// A crosstab's words, reserved as Access reserves them.
+TRANSFORM   : [Tt][Rr][Aa][Nn][Ss][Ff][Oo][Rr][Mm] ;
+PIVOT       : [Pp][Ii][Vv][Oo][Tt] ;
 
 STAR     : '*' ;
 SLASH    : '/' ;

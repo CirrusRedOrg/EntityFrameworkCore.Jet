@@ -96,13 +96,15 @@ Treat the number as of its date — an EF Core version bump moves it.
   + `ORDER BY`**, and **derived-table / `UNION` sources** (the long subquery text lands on an LVAL page so
   Access executes it); **`CREATE PROCEDURE`** (parameterized — bare or parenthesised list, `@name`),
   including **action-query** bodies (`CREATE TABLE`, `INSERT … VALUES`, `INSERT … SELECT`, `UPDATE`, `DELETE`
-  and `SELECT … INTO`) and **`UNION`** bodies; and **`EXECUTE`/`EXEC`**.
+  and `SELECT … INTO`), **`UNION`** and **crosstab (`TRANSFORM … PIVOT`)** bodies, and a FROM or make-table
+  naming another file with **`IN externaldatabase`**; and **`EXECUTE`/`EXEC`**.
   LibRed's own engine **reads them all back** — reconstructing the SQL from `MSysQueries` and expanding a
   view referenced in `FROM` (or inside an expression subquery) to a derived table — so they run through
   LibRed too. Reading is not limited to what LibRed writes: the `Attribute=1` operation row is read as the
   query **kind** (Access writes it on plain SELECTs as well as on action queries), a query with no column
-  rows is Access's `SELECT *`, and `DISTINCTROW`, `TOP … PERCENT` and `WITH OWNERACCESS OPTION` are decoded
-  from their own option bits.
+  rows is Access's `SELECT *`, one with column rows and the output-all-fields bit is a `*` among those columns,
+  and `DISTINCTROW`, `TOP … PERCENT` and `WITH OWNERACCESS OPTION` are decoded from their own option bits —
+  and written back the same way.
   Measured over a corpus of 19 real-world databases: 479 of 592 stored queries come back as views, and 337 of
   those reproduce ACE's own SQL exactly once bracketing and whitespace are normalised.
 - **Write** — row insert with order-preserving index-key encoding and **full B-tree maintenance**
@@ -203,8 +205,25 @@ Treat the number as of its date — an EF Core version bump moves it.
   `EXECUTE`, `IF … THEN`, `BEGIN`/`COMMIT`/`ROLLBACK [TRANSACTION|WORK]`, `SELECT @@IDENTITY`, and `SELECT`
   with `WHERE`, joins, `GROUP BY`/aggregates, `HAVING`, `ORDER BY`, `TOP [PERCENT]`,
   `ALL`/`DISTINCT`/`DISTINCTROW`, `UNION`/`INTERSECT`/`EXCEPT`, subqueries, and parameters.
+  A bare `*` may stand among other items (`SELECT *, x AS X`): those come first, then every column none of them
+  returns, as ACE orders them; a `*` in a grouped or aggregate query is refused. Output columns are named as ACE
+  names them: an unnamed expression is `Expr1000` and up by its place in the list, a column reference written twice
+  is an `Expr` name but for its last, two outputs that still share a name are told apart by table (`Orders.CustomerID`),
+  an alias keeps its name, and two equal aliases are refused.
+  **`TOP n` deliberately differs from ACE's:** it returns exactly n rows, where ACE's `TOP n` (and `TOP n PERCENT`)
+  also returns every further row whose `ORDER BY` keys equal the last one's — a stored query ACE wrote included.
+  `WITH TIES` asks for ACE's rows (below).
   `WITH OWNERACCESS OPTION` is taken wherever ACE takes it and changes nothing — LibRed has no users to act for —
   but a stored query keeps it.
+  **`TRANSFORM … PIVOT … [IN (…)]`**, the crosstab, with ACE's column naming and ordering, its fixed headings, row
+  totals and refusals (no `HAVING`, `TOP` or `*`); a stored one runs by name and as a FROM source.
+  **`IN externaldatabase`** after a FROM (every table of that FROM is read from the other file, a stored query of
+  that file included; a subquery elsewhere in the statement still reads this one) and after a make-table's `INTO`
+  (the table is made there), in each of the forms ACE takes — `IN 'path'`, `IN 'path' 'MS Access;'`,
+  `IN 'path' [MS Access;]`, `IN '' [;DATABASE=path]`. Only Access databases are opened: a dBASE, Paradox, Excel or
+  text type is refused. ACE itself refuses every one of these unless its `AllowQueryRemoteTables` setting allows them
+  (Office updates since December 2025 default it to trusted databases only); LibRed has no such gate. The other file
+  stays open for as long as the database that reached it.
   Access's bang notation: `[Table]![Column]` is `Table.Column`, and an unaliased one is named as written, as
   ACE names it. A form control such as `[Forms]![frmMenu]![txtCity]` is reachable only as a parameter the
   query declares; unlike ACE, LibRed does not make an undeclared one an implicit parameter. `Yes`/`On` and
@@ -246,8 +265,7 @@ Treat the number as of its date — an EF Core version bump moves it.
   - **`OFFSET … ROWS FETCH NEXT … ROWS ONLY`** paging, where the count may be any expression, not just a
     literal. Access has only `TOP n`, and only with a literal.
   - **`TOP n [PERCENT] WITH TIES`** and **`FETCH … ROWS WITH TIES`** — the n rows and every further one whose
-    `ORDER BY` keys equal the last one's. ACE's own `TOP n` always keeps those ties (it chooses the same rows,
-    verified); LibRed's plain `TOP n` returns exactly n, so `WITH TIES` is how to ask for ACE's rows. It needs an
+    `ORDER BY` keys equal the last one's — the rows ACE's own `TOP n` returns (verified). It needs an
     `ORDER BY` and is refused beside `DISTINCT`, and a view cannot store it.
   - **Standard scalar syntax** ACE lacks: `CASE`, `COALESCE`, `NULLIF`, `GREATEST`/`LEAST` (NULL arguments
     ignored, as SQL Server and PostgreSQL treat them — extended mode translates `Math.Max`/`Math.Min` to
@@ -306,7 +324,10 @@ Format-level detail on each on-disk gap lives in `docs/format/`.
 
 *SQL surface / engine gaps:*
 
-- **Stored crosstab and pass-through queries** — read back as a *named* refusal rather than executing.
+- **Stored pass-through queries** — read back as a *named* refusal rather than executing.
+- **`INSERT INTO … IN externaldatabase`** — ACE appends into another file; LibRed's INSERT does not take the clause.
+- **A crosstab's columns when describing** (`CommandBehavior.SchemaOnly`) — only the row headings and fixed
+  headings, since the rest come from the data.
 - **`ALTER TABLE … RENAME INDEX`** — parsed and routed, but throws: the TDEF rewrite is not implemented.
 - **Function surface** — the evaluator's whitelist isn't proven identical to ACE's JES, and `Format`'s named
   date/currency formats are locale-dependent by design (not byte-identical cross-locale).

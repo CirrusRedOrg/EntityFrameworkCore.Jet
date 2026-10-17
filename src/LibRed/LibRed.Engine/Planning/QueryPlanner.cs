@@ -27,6 +27,7 @@ public static class QueryPlanner
             new SetOperationNode(PlanStatement(set.Left), PlanStatement(set.Right), set.Operator),
             OrderByPositions(set.OrderBy ?? [], _ => null), set.Top, set.Offset, set.WithTies),
         ValuesStatement values => new ValuesNode(values.Rows),
+        TransformStatement transform => new CrosstabNode(transform),
         _ => throw new NotImplementedException(
             $"Planning for {statement.GetType().Name} is not yet implemented."),
     };
@@ -89,6 +90,10 @@ public static class QueryPlanner
             || select.Projection.Any(i => HasAggregate(i.Value))
             || windows.Any(w => w.Function.Expressions().Any(HasAggregate));
 
+        // A bare * names no column to group or total by (verified vs ACE, with GROUP BY and with an aggregate alike).
+        if (aggregate && (select.IsSelectStar || select.Projection.Any(i => i.Value is StarExpression)))
+            throw new InvalidOperationException("Cannot group on fields selected with '*'.");
+
         // Over a grouped query the windows run over the groups, after HAVING and before the projection and ORDER BY
         // — the standard's order — so the aggregate node computes them itself.
         if (windows.Count > 0 && !aggregate)
@@ -121,8 +126,10 @@ public static class QueryPlanner
         if (select.DistinctRow && !aggregate && !select.IsSelectStar)
             node = new DistinctRowNode(node, select.Projection);
 
-        if (!aggregate && !select.IsSelectStar)
-            node = new ProjectNode(node, select.Projection);
+        // A lone * passes its rows through, but over a join the columns two tables share are named apart (OutputNames),
+        // which a projection does.
+        if (!aggregate && (!select.IsSelectStar || select.From is JoinTable))
+            node = new ProjectNode(node, select.IsSelectStar ? [new SelectItem(new StarExpression(), null)] : select.Projection);
 
         if (select.Distinct)
             node = new DistinctNode(node);
@@ -305,7 +312,7 @@ public static class QueryPlanner
     private static PlanNode PlanFrom(TableReference? from) => from switch
     {
         null => new SingleRowNode(), // FROM-less SELECT (e.g. `SELECT 2`) — one row, no columns
-        NamedTable t => new ScanNode(t.Name, t.Alias),
+        NamedTable t => new ScanNode(t.Name, t.Alias, t.Database),
         JoinTable j => new JoinNode(PlanFrom(j.Left), PlanFrom(j.Right), j.Kind, j.On),
         SubqueryTable s => new DerivedTableNode(PlanStatement(s.Query), s.Alias, s.Columns), // alias optional (Access allows aliasless)
         _ => throw new NotSupportedException($"Unsupported FROM source {from.GetType().Name}."),

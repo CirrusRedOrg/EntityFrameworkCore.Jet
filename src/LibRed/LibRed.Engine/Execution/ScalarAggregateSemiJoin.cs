@@ -49,7 +49,7 @@ internal sealed class ScalarAggregateSemiJoin
         SelectStatement subquery,
         IReadOnlyList<OutputColumn> outerColumns,
         HashSet<string> outerAliases,
-        JetCatalog catalog)
+        JetDatabase database)
     {
         // A lone aggregate call and nothing else — see the remarks. TOP is redundant over a single row but would
         // have to be reasoned about, and DISTINCT/ORDER BY over one row are no-ops, so the strictest form is taken.
@@ -60,7 +60,7 @@ internal sealed class ScalarAggregateSemiJoin
                 Projection: [{ Value: FunctionCall { Name: { } name } call }],
             }
             || !Planning.QueryPlanner.IsAggregate(name)
-            || SubqueryCorrelation.TrySplit(subquery, outerColumns, outerAliases, catalog) is not { } split)
+            || SubqueryCorrelation.TrySplit(subquery, outerColumns, outerAliases, database) is not { } split)
         {
             return null;
         }

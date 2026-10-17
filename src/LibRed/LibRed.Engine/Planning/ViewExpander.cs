@@ -10,7 +10,7 @@ namespace LibRed.Engine.Planning;
 /// Rewrites a query so that any reference to a view becomes a derived table (a subquery over the view's
 /// stored SELECT) — the same shape the planner already handles for explicit subqueries. A view named in
 /// a FROM clause, or inside a scalar/EXISTS subquery in any clause (projection, WHERE, GROUP BY, HAVING,
-/// ORDER BY), is expanded. View SQL is reconstructed by the catalog (<c>JetCatalog.FindQuery</c>) and parsed
+/// ORDER BY), is expanded, and so is one an INSERT, UPDATE or DELETE reads — not the table it writes. View SQL is reconstructed by the catalog (<c>JetCatalog.FindQuery</c>) and parsed
 /// here. Views nested inside other views are expanded recursively. A name that is a table is never a view —
 /// tables and queries share one container, whose names are unique — so a name is only looked up as a query
 /// when <c>FindTable</c> does not know it.
@@ -55,6 +55,20 @@ internal static class ViewExpander
             Select = RewriteSelect(t.Select, scope),
             Pivot = RewriteExpression(t.Pivot, scope),
         },
+        // What an INSERT, UPDATE or DELETE reads goes through views as a SELECT's does: an INSERT's source and values,
+        // and an UPDATE's or DELETE's subqueries. The table it writes is left as written — writing through a query is
+        // not done.
+        InsertStatement i => i with
+        {
+            Source = i.Source is { } source ? Rewrite(source, scope) : null,
+            Rows = i.Rows.Select(row => (IReadOnlyList<Expression>)row.Select(e => RewriteExpression(e, scope)).ToList()).ToList(),
+        },
+        UpdateStatement u => u with
+        {
+            Assignments = u.Assignments.Select(a => a with { Value = RewriteExpression(a.Value, scope) }).ToList(),
+            Where = u.Where is { } updateWhere ? RewriteExpression(updateWhere, scope) : null,
+        },
+        DeleteStatement d => d with { Where = d.Where is { } deleteWhere ? RewriteExpression(deleteWhere, scope) : null },
         _ => statement,
     };
 

@@ -99,7 +99,8 @@ Treat the number as of its date — an EF Core version bump moves it.
   and `SELECT … INTO`), **`UNION`** and **crosstab (`TRANSFORM … PIVOT`)** bodies, and a FROM, make-table or
   append naming another file with **`IN externaldatabase`**; and **`EXECUTE`/`EXEC`**.
   LibRed's own engine **reads them all back** — reconstructing the SQL from `MSysQueries` and expanding a
-  view referenced in `FROM` (or inside an expression subquery) to a derived table — so they run through
+  view referenced in `FROM` (or inside an expression subquery, or anywhere an `INSERT`, `UPDATE` or `DELETE`
+  reads, though not as the table one writes) to a derived table — so they run through
   LibRed too. Reading is not limited to what LibRed writes: the `Attribute=1` operation row is read as the
   query **kind** (Access writes it on plain SELECTs as well as on action queries), a query with no column
   rows is Access's `SELECT *`, one with column rows and the output-all-fields bit is a `*` among those columns,

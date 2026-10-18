@@ -11,7 +11,7 @@ statistics:
 | --- | --- | --- |
 | `0x00` | 4 | Total entry count — written only when the index is **built** or the file compacted (see note), not on insert |
 | `0x04` | 4 | **Unique entry count** — maintained live on insert, set when the index is built (see note) |
-| `0x08` | 4 | Reserved (zero observed) |
+| `0x08` | 4 | Reserved (zero observed). ACE does not read it, and writes zero when it rewrites the TDEF (verified) |
 
 **These two fields are maintained very differently (verified vs ACE):**
 
@@ -98,12 +98,12 @@ differently from a delete:
 | `0x22` | 1 | Usage-map row |
 | `0x23` | 3 | Usage-map page |
 | `0x26` | 4 | **B-tree root page** |
-| `0x2A` | 4 | Unknown / reserved (zero). mdbtools calls it uninitialised page residue (unverified) |
+| `0x2A` | 4 | Unknown / reserved (zero). Not read by ACE, and zeroed when it rewrites the TDEF (verified) |
 | `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls (`WITH IGNORE NULL` — null-keyed rows excluded from the index), `0x08` required (`WITH DISALLOW NULL` / part of a primary key), `0x80` always-set (Access 2000+), `0x0200` an index over a **complex** (multi-value / attachment) column. Verified vs ACE: a plain index is `0x0080`, `IGNORE NULL` `0x0082`, `DISALLOW NULL` `0x0088`, a PK `0x0089`. Every index Access writes over a complex column is `0x0289` — unique, required, always-set and `0x0200` — and no other index carries `0x0200` (verified across Access-written files). A foreign key's child block (§3.6) carries `0x01` exactly when the relationship is one-to-one
 (`MSysRelationships.grbit` `0x01`), and **this bit, not `grbit`, is what ACE enforces**: made to disagree, a
 child index with the bit refuses a second child row with the same key although `grbit` says one-to-many, and
 one without it accepts the duplicate although `grbit` says one-to-one (verified vs ACE). There is **no clustered flag**: `CLUSTERED`/`NONCLUSTERED` after `PRIMARY KEY` or `UNIQUE` in a constraint is accepted and stores nothing (the file is byte-identical without it), and DAO's `Index.Clustered` reads `False` even on an index created with it set. |
-| `0x30` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 52-byte block |
+| `0x30` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 52-byte block. Not read by ACE, and zeroed when it rewrites the TDEF (verified) |
 
 > **The 10-column cap must be enforced on the incremental path too**, as must the 32-index cap below.
 > `TableDefinition` rejects an over-wide index when a table is created with its indexes, but `CREATE INDEX` and
@@ -209,7 +209,7 @@ isolation: 33 plain indexes push both counts to 33 together.
 | `0x15` | 1 | Update action: `0x04` plain index; on a relationship `0x00` = no cascade, `0x01` = cascade update. With `0x16`, what ACE acts on — not `MSysRelationships.grbit` (verified vs ACE: made to disagree, ACE follows these bytes) |
 | `0x16` | 1 | Delete action: `0x04` plain index; on a relationship `0x00` = no cascade, `0x01` = cascade delete, `0x02` = **`ON DELETE SET NULL`** (verified vs ACE) |
 | `0x17` | 1 | Index type: `0x00` = plain secondary, `0x01` = primary, `0x02` = foreign/relationship |
-| `0x18` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 28-byte block |
+| `0x18` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 28-byte block. Not read by ACE, and zeroed when it rewrites the TDEF (verified) |
 
 The index **name** read at the same ordinal applies to this logical index. To name the
 physical (data-block) index, prefer a real index's name over a foreign-key relationship's

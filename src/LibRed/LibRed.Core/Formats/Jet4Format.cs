@@ -117,6 +117,7 @@ internal class Jet4Format : JetFormatBase
     public override int ColumnCollationVersionOffset => 0x0E;
     public override int ColumnFlagsOffset => 0x0F;
     public override int ColumnExtendedFlagsOffset => 0x10;
+    public override int ColumnWriteOnceOffset => 0x11;
     public override int ColumnFixedOffsetOffset => 0x15;
     public override int ColumnLengthOffset => 0x17;
 

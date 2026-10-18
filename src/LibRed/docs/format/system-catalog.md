@@ -120,14 +120,17 @@
   > (verified): with it clear, an `INSERT` omitting the column stores NULL rather than the default, and an explicit
   > NULL is accepted into the `NOT NULL` column. The table's `CheckConstraints` entry is enforced either way.
   > LibRed's reader applies `DefaultValue` and `Required` only with the bit set, as ACE does; every writer seen sets
-  > the bit on them. That a set bit makes the property definition-protected (`dbSecWriteDef` permission needed
-  > to change or delete it) is unverified. Observed in files too: `CheckConstraints`, `GUID` and `ResultType` are `0x01`,
+  > the bit on them. **A set bit makes the property part of the definition** (verified): under user-level security a
+  > user without `dbSecWriteDef` on the table can change and delete a column's `0x00` property, but is refused
+  > *"You do not have the necessary permissions to use the 'T' object"* on a `0x01` one, as on adding a field.
+  > LibRed has no user-level security and so enforces none of this. Observed in files too: `CheckConstraints`, `GUID` and `ResultType` are `0x01`,
   > while `Title`, `Author`, `AccessVersion` and datasheet-layout properties are `0x00`. DAO stored a column's
   > `ValidationRule` with a trailing NUL character in the value and the table's without one (observed, not
-  > explained). Bit **`0x80`** also occurs in Access-written files: every
-  > stored query of one example database carries a `0x80` entry in its own (`0x00`) block. mdbtools reads it as
-  > "store the value without running the property's handler", set by Access itself and by no DAO call
-  > (unverified). The flag is independent per entry; it is not a file-version, encryption, owner, or data-type
+  > explained). Bit **`0x80`** also occurs in Access-written files, on one property only: `ReplicableBool`,
+  > in a stored query's own (`0x00`) block. Appending that property through DAO, or through Access's own
+  > `CurrentDb`, writes it `0x00` like any other (verified), so neither API sets the bit; `ReplicableBool`
+  > belongs to Jet replication, which `.accdb` does not support, so it is presumably the replication machinery or
+  > a conversion from a replicated `.mdb` that writes it (inferred). The flag is independent per entry; it is not a file-version, encryption, owner, or data-type
   > marker. LibRed accepts any flag byte, writes it back unchanged, and defaults newly constructed schema
   > properties to `0x01`. The
   > `dataType` is an ordinary **`JetDataType` code** (the same byte used by column descriptors and

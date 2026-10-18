@@ -10,12 +10,12 @@
 | `0x02` | 2 | Free-space count — bytes still free on this page |
 | `0x04` | 4 | Next TDEF page (0 if the definition fits one page) |
 | `0x08` | 4 | TDEF length (total logical bytes) |
-| `0x0C` | 4 | **Minimum engine build** for the table — `0x00000659` (1625) as ACE writes it; ACE refuses a table whose value exceeds its own build, 4518 (see below) |
+| `0x0C` | 4 | **Minimum engine build** for the table — `0x00000659` (1625) as ACE and Jet 4.0 write it; each refuses a table whose value exceeds its own build, 4518 and 9801 (see below) |
 | `0x10` | 4 | Row count |
 | `0x14` | 4 | **Highest AutoNumber value assigned** = the id of the last row inserted (the *next* id is this **`+ increment`**, see `0x18`); `0` when the table has no AutoNumber column. On a freshly created custom counter it is **`Seed - Increment`** so the first insert yields the `Seed` (verified: `COUNTER(1000, 7)` → `0x14` = `993`, first id `1000`). Verified **directly against `@@IDENTITY`**. It is not the row count, and deleted ids are not reused: insert 3 rows, delete id `3`, insert again (assigned id `4`) → `0x14` = `4` while the row **count** is `3`. mdbtools labels this *"Next autonumber value"* — that's **off by one**; the stored value is the last assigned, and the next id is `+ increment`. It is a **plain signed int32 that wraps** — there is no "counter exhausted" state (see the wrap note below). **Write requirement:** a writer inserting into an AutoNumber table must advance this to the last id it writes (LibRed does so in `RowInserter`); leaving it stale makes Access reissue an existing id and reject the insert as a duplicate primary key — verified end-to-end. **This pair (`0x14`/`0x18`) describes exactly one column**, and a reader must not apply it to every column bearing the descriptor's `0x04` AutoNumber flag: complex columns carry that flag too and are allocated from `0x1C` instead, so a table can have several flagged columns while only the non-complex one has a seed and increment here (`MSysResources` has two — `Id` and the complex `Data`; a table with an attachment column has five). |
 | `0x18` | 4 | **AutoNumber increment** — a **signed 32-bit int** (same width as `0x14`); the step added to `0x14` for each new id. Default `1` (a plain `COUNTER`); a custom `COUNTER(seed, increment)` / `AUTOINCREMENT(seed, increment)` / `INTEGER IDENTITY(seed, increment)` sets it. **Confirmed a full int32, not a byte + 3 unknown** (verified vs ACE): `COUNTER(1, 300)` → `2C 01 00 00` (spans 2 bytes, ids `1, 301, 601`); `COUNTER(5, 100000)` → `A0 86 01 00` (3 bytes); and decisively `COUNTER(100, -5)` → `FB FF FF FF` = `-5` in two's-complement (all 4 bytes) with a **descending** sequence `100, 95, 90`. It reads `1` on every table (autonumber or not) because that is the default increment — mdbtools labels it a 1-byte constant / "autonumber enable" flag, which only *looks* right because the default increment is 1. The seed itself is not stored separately — it is recovered as `0x14 + increment` (correct on a freshly-created, un-inserted table). A writer/reader must treat it as a signed int32; the insert bump of `0x14` moves in the increment's direction (max for +, min for −) so a descending counter doesn't reissue an id — except at the int32 wrap, where the generated id is the correct continuation despite comparing as backwards (see the wrap note below). |
 | `0x1C` | 4 | Complex-type AutoNumber (mdbtools `ct_autonum`) — the high-water **record** id of a table with complex (multi-value / attachment) columns; `0` for a table with none. A row's inline 4-byte value in a complex column is one of these ids. A row **inserted** into the table takes the next id when it is created, whether or not any value is ever stored against it, and every complex column of the table holds that same id — the counter is one TDEF word, not one per column. A complex column **appended** to a table that already has rows gives those rows `1`…*n* in row order, rewriting each in place (relocating it, as a growing `ALTER COLUMN` does, when its page is full), whatever ids the table's other complex columns hold, and `0x1C` becomes the larger of its old value and *n*. Deleting a row does **not** roll the counter back, so it equals or exceeds the largest live id. **It counts records, not values**: adding values to a row leaves it unchanged. The *per-value* ids inside the flat table are **not** this counter — they come from an ordinary AutoNumber column with the flat table's own `0x14`; see [system-catalog.md](system-catalog.md), "Complex columns" |
-| `0x20` | 8 | **Uninitialised — not a field.** ACE leaves these 8 bytes as whatever its write buffer held: often non-zero, carrying Windows user-mode pointers (`00007FFDF1459118`), UTF-16 and ASCII text fragments (`00460020006D0061` = `a m  F`, `65706F7250206D6F` = `om Prope`), float bit patterns (`41B0000044D82000`) and `FFFFFFFFFFFFFFFF`. Tables written in the same operation can share one value, which is buffer reuse rather than meaning. Preserve verbatim: it can be neither validated nor regenerated. (Whether ACE *reads* anything here is untested; it writes pointers, so almost certainly not.) |
+| `0x20` | 8 | **Uninitialised — not a field.** ACE leaves these 8 bytes as whatever its write buffer held: often non-zero, carrying Windows user-mode pointers (`00007FFDF1459118`), UTF-16 and ASCII text fragments (`00460020006D0061` = `a m  F`, `65706F7250206D6F` = `om Prope`), float bit patterns (`41B0000044D82000`) and `FFFFFFFFFFFFFFFF`. Tables written in the same operation can share one value, which is buffer reuse rather than meaning. Preserve verbatim: it can be neither validated nor regenerated. ACE does not read it, and changes it only when it rewrites the TDEF (verified). |
 | `0x28` | 1 | Table type: `0x4E` 'N' user, `0x53` 'S' system. `0x53` is on `MSysObjects`, `MSysACEs`, `MSysQueries` and `MSysRelationships`; `MSysComplexColumns`, the `MSysComplexType_*` templates and the flat tables are `0x4E` despite their system flag |
 | `0x29` | 2 | Maximum column count |
 | `0x2B` | 2 | Variable-length column count |
@@ -32,20 +32,22 @@
 > slot (4 bytes) — while `0x783` (1923) marks each index-data block `+0` (§3.5). They are constant within and
 > across files; mdbtools describes them as "usually 1625 / 1923 *or 0*".
 >
-> **The header's and each column's are a minimum engine build; the index blocks' are not read** (verified):
+> **They are minimum engine builds, each checked against the engine's own build** (verified, on an `.accdb` and a
+> Jet 4 `.mdb` alike):
 >
-> | field | accepted | refused |
+> | field | ACE (build 4518) | Jet 4.0 (build 9801) |
 > | --- | --- | --- |
-> | header `0x0C`, a column descriptor's `+1` | `0` … `0x11A6` (4518) | `0x11A7` and above, up to `0xFFFFFFFF` |
-> | an index-info block's `+0`, an index-data block's `+0` | every value, `0` … `0xFFFFFFFF` | — |
+> | header `0x0C`, a column descriptor's `+1` (32 bits, `+1`–`+4`) | refused above `0x11A6` (4518), on any read or write | refused above `0x2649` (9801), on any read or write |
+> | an index-info block's `+0`, an index-data block's `+0` | never checked | refused above `0x2649` once a write reaches the index; a read is not |
 >
-> A refused table still lets the database open; the first statement that reaches it — through ACE or DAO —
-> fails with *"This object requires a newer version of the Microsoft Access database engine."* The bound is the
-> **engine's** build, not the file's: it equals the 4518 ACE stamps at page 0 `0x6A`, but does not follow that
-> byte — with `0x6A` at `0x2000` or `0x700` the bound is still `0x11A6`. Zero is accepted everywhere, and ACE
-> keeps it when it next rewrites the definition. LibRed's reader ignores all four; its writer
-> emits ACE's values, so the definition matches byte for byte. `0x0C` is **not** the code page — that is a
-> database-wide value on page 0, not per-table.
+> A refused table still lets the database open; the first statement that reaches it fails with *"This object
+> requires a newer version of the Microsoft Access database engine."* (Jet 4.0: *"… Microsoft Jet database
+> engine."*). The bound is the **engine's** build, not the file's — the very number each engine stamps at page 0
+> `0x6A`, but it does not follow that byte: with `0x6A` at `0x2000` or `0x700` ACE's bound is still `0x11A6`.
+> Both engines write the same markers, and both write them afresh on any design change, whatever they held —
+> `0x659`, and `0x783` in an index-data block. LibRed's reader ignores all four; its writer emits these values,
+> on a new definition and a rewritten one alike, so the definition matches byte for byte. `0x0C` is **not** the
+> code page — that is a database-wide value on page 0, not per-table.
 >
 > **`0x659` is a fixed constant, not a per-TDEF "definition id".** mdbtools labels the `0x0C` word
 > (and the column-descriptor `+0x01` / index-info `+0x00` markers) *"Matches definition block
@@ -274,8 +276,8 @@ the documented 255-column, 32-index, and 64-character-name limits.
 Every field documented above is part of the format and must be written — **including the constants
 and markers the reader ignores** (`0x01` flags, the `0x0659`/`0x0783` markers, each column's collation
 bytes, the `0x80`/`0x08` index-flag bits, …). The reader being lenient about a field does **not**
-make it optional on write. (Of these, the `0x0659`/`0x0783` markers are known field by field, §3.1: ACE and
-DAO accept zero in all of them, and refuse a header or column value above their own build, 4518.) With every documented
+make it optional on write. (Of these, the `0x0659`/`0x0783` markers are known field by field, §3.1: every engine
+accepts zero in all of them, and refuses a header or column value above its own build — ACE 4518, Jet 4.0 9801.) With every documented
 field populated, a LibRed-written TDEF matches an ACE-created one **byte-for-byte** (verified by
 diffing; only page numbers and the auto-generated index name differ).
 

@@ -113,8 +113,9 @@ character at both ends, 536,870,911 accepted and 536,870,912 refused.
 > **3816 is not the same number as the 4076-byte chunk row**: a writer that uses 4076 as its single-page
 > threshold keeps 3817–4076 byte values on one page where ACE chains them. A plain `LONGCHAR` and a
 > `WITH COMP` one behave identically, 1908 characters (3816 bytes) staying single-page and 1909 (3818)
-> chaining. What fixes the boundary at 3816, rather than the 4076 a row can actually hold, is **not
-> established**; the ~260-byte margin is unexplained.
+> chaining. **The boundary is a constant, not a budget** (verified): it does not move with the rest of the row —
+> other columns, other long values — or with what is already on the column's LVAL page. Why it is 3816, rather
+> than the 4076 a row can actually hold, is **not established**.
 
 LVAL pages are data pages (type `0x0101`) whose owner field (`0x04`) is the ASCII marker `LVAL`.
 

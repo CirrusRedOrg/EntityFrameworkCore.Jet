@@ -1055,6 +1055,11 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     {
         foreach (ColumnDef column in _table.Columns)
         {
+            // A write-once column takes its value on INSERT and refuses it on UPDATE, as ACE does (verified).
+            if (column.IsWriteOnce && changedColumns?.Contains(column.Index) == true)
+                throw new InvalidOperationException(
+                    $"Cannot update '{column.Name}'; field not updateable. It is a write-once column, set only when "
+                    + "its row is inserted.");
             if (!column.IsCalculated) continue;
             bool written = changedColumns is null
                 ? values[column.Index] is not null

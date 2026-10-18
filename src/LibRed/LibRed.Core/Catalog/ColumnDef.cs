@@ -67,10 +67,19 @@ public sealed class ColumnDef
     /// <summary>The column can store compressed Unicode text (§7) — extended-flag bit 0x10/0x01.</summary>
     public bool SupportsCompressedUnicode { get; init; }
 
-    /// <summary>A calculated (computed) column (ACE 14+) — extended-flag bits 0x10/0xC0. LibRed reads the
+    /// <summary>A calculated (computed) column (ACE 14+) — extended-flag bit 0x10/0x40, written with 0x80 beside it. LibRed reads the
     /// flag, preserves it, and decodes the cached result ACE stores for the column; evaluating the
     /// expression itself is separate (see the format spec).</summary>
     public bool IsCalculated { get; init; }
+
+    /// <summary>Whether a calculated column's expression may be evaluated — extended-flag bit 0x10/0x80, which ACE
+    /// writes with <see cref="IsCalculated"/> on every TDEF write. Without it ACE evaluates nothing and refuses
+    /// every read of the column as an invalid expression, and so does LibRed.</summary>
+    public bool EvaluatesExpression { get; init; } = true;
+
+    /// <summary>A write-once column — bit 0x01 of the descriptor byte at 0x11: an INSERT may set it, an UPDATE is
+    /// refused (<i>"Cannot update 'x'; field not updateable."</i>, verified). Read only: LibRed creates none.</summary>
+    public bool IsWriteOnce { get; init; }
 
     /// <summary>A table's version-history column — the hidden complex column an append-only memo gives its table —
     /// extended-flag bit 0x10/0x20. Read only: LibRed creates no version history, and edits keep the bit in place.</summary>

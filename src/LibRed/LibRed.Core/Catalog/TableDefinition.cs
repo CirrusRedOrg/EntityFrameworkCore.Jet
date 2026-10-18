@@ -547,7 +547,9 @@ public sealed class TableDefinition : Page
                 IsHyperlink = (d.Flags & ColumnFlags.Hyperlink) != 0,
                 SupportsCompressedUnicode = (d.ExtFlags & ColumnExtendedFlags.CompressedUnicode) != 0,
                 IsCalculated = (d.ExtFlags & ColumnExtendedFlags.Calculated) != 0,
+                EvaluatesExpression = (d.ExtFlags & ColumnExtendedFlags.EvaluatesExpression) != 0,
                 IsVersionHistory = (d.ExtFlags & ColumnExtendedFlags.VersionHistory) != 0,
+                IsWriteOnce = (buffer.ReadByte(columnBlock + i * format.ColumnDescriptorSize + format.ColumnWriteOnceOffset) & 0x01) != 0,
                 Precision = d.Precision,
                 Scale = d.Scale,
                 Collation = d.Collation,
@@ -1170,7 +1172,7 @@ public sealed class TableDefinition : Page
 
         ColumnExtendedFlags extFlags =
             (c.SupportsCompressedUnicode ? ColumnExtendedFlags.CompressedUnicode : ColumnExtendedFlags.None)
-            | (c.IsCalculated ? ColumnExtendedFlags.Calculated : ColumnExtendedFlags.None)
+            | (c.IsCalculated ? ColumnExtendedFlags.Calculated | ColumnExtendedFlags.EvaluatesExpression : ColumnExtendedFlags.None)
             | (ColumnExtendedFlags)c.ExtendedFlags;
         d[format.ColumnExtendedFlagsOffset] = (byte)extFlags;
 
@@ -1464,12 +1466,30 @@ public sealed class TableDefinition : Page
     {
         JetFormatBase format = channel.Format;
         var body = new List<byte>(format.PageSize);
+        // A design change rewrites every record, and ACE writes its markers afresh — the minimum-build ones as
+        // 0x659 and the index-data one as 0x783, whatever they held, a zero included (verified).
+        BinaryPrimitives.WriteUInt32LittleEndian(parts.Header.AsSpan(format.TdefRecordMarkerOffset, 4), JetFormatBase.TdefRecordMarker);
         body.AddRange(parts.Header);
         foreach (byte[] s in parts.Stats) body.AddRange(s);
-        foreach ((byte[] descriptor, _) in parts.Columns) body.AddRange(descriptor);
+        foreach ((byte[] descriptor, _) in parts.Columns)
+        {
+            BinaryPrimitives.WriteUInt32LittleEndian(descriptor.AsSpan(format.ColumnRecordMarkerOffset, 4), JetFormatBase.TdefRecordMarker);
+            // ACE keeps only the write-once bit of this field (verified).
+            descriptor[format.ColumnWriteOnceOffset] &= 0x01;
+            descriptor.AsSpan(format.ColumnWriteOnceOffset + 1, 3).Clear();
+            body.AddRange(descriptor);
+        }
         foreach ((_, byte[] name) in parts.Columns) body.AddRange(name);
-        foreach (byte[] d in parts.DataBlocks) body.AddRange(d);
-        foreach ((byte[] info, _) in parts.Logical) body.AddRange(info);
+        foreach (byte[] d in parts.DataBlocks)
+        {
+            BinaryPrimitives.WriteUInt32LittleEndian(d, JetFormatBase.IndexDataMarker);
+            body.AddRange(d);
+        }
+        foreach ((byte[] info, _) in parts.Logical)
+        {
+            BinaryPrimitives.WriteUInt32LittleEndian(info.AsSpan(format.IndexInfoMarkerOffset, 4), JetFormatBase.TdefRecordMarker);
+            body.AddRange(info);
+        }
         foreach ((_, byte[] nm) in parts.Logical) body.AddRange(nm);
         body.AddRange(parts.Lval);
         byte[] def = [.. body];

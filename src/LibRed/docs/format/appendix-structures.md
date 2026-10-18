@@ -27,12 +27,12 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 2 | Page type `0x0100` |
-| `0x02` | 2 | Unknown (zero) |
+| `0x02` | 2 | Unknown; non-zero makes ACE refuse the file — write zero |
 | `0x04` | 15 | Format id ASCII: `Standard Jet DB` (`0x00`/`0x01`) / `Jet System DB` (`0x01`) / `Standard ACE DB` (`0x02`+) |
 | `0x13` | 1 | NUL terminator of the id string |
 | `0x14` | 1 | Version byte (`0x00` Jet3, `0x01` Jet4, `0x02` ACE12, `0x03` ACE14, `0x04` ACE15/2013 never emitted and refused by ACE, `0x05` ACE16, `0x06` ACE17) |
 | `0x15` | 1 | Version minor byte (`0x01` on a file created as ACE14/Access 2010, else `0x00`; a version raise writes `0x00`) |
-| `0x16` | 2 | Unknown (zero) |
+| `0x16` | 2 | Unknown; ignored by ACE, zeroed by a compact |
 | `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with the RC4 keystream of the key `C7 DA 39 6B`; the `0x18`–`0x72` fields below are offsets into it (Jet3 masks 126) |
 | `0x18` | 4 | Global free-pages map pointer `[row:1][page:3]` (`0x00000100` = page 1 row 0 where ACE creates it) |
 | `0x1C` | 4 | Global released-pages map pointer `[row:1][page:3]` (`0x00000101` = page 1 row 1 where ACE creates it) |
@@ -44,7 +44,7 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 | `0x6A` | 4 | Creating engine's build number (`0x000011A6` = 4518 on everything ACE writes; Jet 4 files carry their `msjet40.dll` build) |
 | `0x6E` | 4 | Collation, a 32-bit LCID with the version in its top byte: LANGID (2, LE), sort id at `0x70`, sort-order version at `0x71` (`0` legacy table, `1` Access-2010) |
 | `0x72` | 8 | Creation timestamp — OLE `double` (days from 1899-12-30) |
-| `0x98` | 4 | Fixed constant `0x00000654` (past the masked window) |
+| `0x98` | 4 | Fixed constant `0x00000654` (past the masked window); not read by ACE, rewritten by a compact |
 | `0x9C` | 4 | Engine version string `"4.0"` (ASCII, NUL-term) |
 | `0xA0`–`0x298` | … | Zero padding |
 | `0x299` | 2 | `EncryptionInfo` blob length (LE) — nonzero ⇒ ACE encrypted, `0` ⇒ not |
@@ -83,12 +83,12 @@ Variable section (`varOffsetTable`+`numVar`) omitted only when the table has nev
 | `0x02` | 2 | Free-space count — bytes still free on the page |
 | `0x04` | 4 | Next TDEF page (0 = single page) |
 | `0x08` | 4 | TDEF length (total logical bytes) |
-| `0x0C` | 4 | Minimum engine build, `0x00000659` as ACE writes it (refused above 4518) |
+| `0x0C` | 4 | Minimum engine build, `0x00000659` (refused above the engine's build: ACE 4518, Jet 4.0 9801) |
 | `0x10` | 4 | Row count |
 | `0x14` | 4 | AutoNumber high-water = last assigned id (assignment rules: [page-02a](page-02a-tdef.md) §3.1) |
 | `0x18` | 4 | AutoNumber increment (signed int32; default 1) |
 | `0x1C` | 4 | Complex-type AutoNumber high-water |
-| `0x20` | 8 | Uninitialised — whatever ACE's write buffer held, often non-zero; preserve verbatim ([page-02a](page-02a-tdef.md)) |
+| `0x20` | 8 | Uninitialised — whatever ACE's write buffer held, often non-zero; not read by ACE; preserve verbatim ([page-02a](page-02a-tdef.md)) |
 | `0x28` | 1 | Table type: `0x4E` 'N' user / `0x53` 'S' system |
 | `0x29` | 2 | Maximum column count (id high-water; lifetime cap 255) |
 | `0x2B` | 2 | Variable-length column count (high-water) |
@@ -110,8 +110,8 @@ Variable section (`varOffsetTable`+`numVar`) omitted only when the table has nev
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 1 | Data type (see codes below) |
-| `0x01` | 2 | Minimum engine build, `0x0659` as ACE writes it (refused above 4518) |
-| `0x03` | 2 | Unknown (zero) |
+| `0x01` | 2 | Minimum engine build, `0x0659`, low half of 32 bits (refused above the engine's build: ACE 4518, Jet 4.0 9801) |
+| `0x03` | 2 | High half of the 32-bit minimum build at `0x01`; non-zero makes ACE refuse the table — write zero |
 | `0x05` | 2 | Column id |
 | `0x07` | 2 | Variable-table index — on a **fixed** column the running count of preceding variable columns, dropped ones included (so the `0x2B` high-water for an added column), **NOT `0`**; on a variable column its own slot index, which follows the `0x2B` high-water ([page-02b §3.4](page-02b-columns.md)) |
 | `0x09` | 2 | Ordinal position (DAO `Field.OrdinalPosition`), ties allowed; the engine presents columns in descriptor order, which DAO keeps in step by moving the descriptor when it sets this. A second copy of the id `0x05` at creation on a **user** table, but **`0`** on the tables the engine writes for itself and the position from **`1`** on a `SELECT … INTO` make-table; unchanged by `DROP COLUMN` and by an `ALTER COLUMN` that burns a new id at `0x05`, ranked by `ADD COLUMN` ([page-02b §3.4](page-02b-columns.md)) |
@@ -120,8 +120,8 @@ Variable section (`varOffsetTable`+`numVar`) omitted only when the table has nev
 | `0x0D` | 1 | Collation sort id — the LCID's high word (`0x01` = an alternate sort order, e.g. Hungarian Technical) |
 | `0x0E` | 1 | Sort-order version (`0` legacy table, `1` Access-2010) |
 | `0x0F` | 1 | Flags: `0x01` fixed, `0x02` updatable, `0x04` auto-number, `0x10` system-catalog column, `0x20` security-identifier column, `0x40` auto-number GUID, `0x80` hyperlink |
-| `0x10` | 1 | Extended flags: `0x01` compressed-Unicode capable, `0x10` attachment value column, `0xC0` calculated; `0x04`/`0x08` on a complex flat table's columns |
-| `0x11` | 4 | Unknown (zero) |
+| `0x10` | 1 | Extended flags: `0x01` compressed-Unicode capable, `0x10` attachment value column, `0x40` calculated, `0x80` its expression evaluated (always written together), `0x20` version history; `0x04`/`0x08` on a complex flat table's columns |
+| `0x11` | 4 | First byte's `0x01` bit: write-once (INSERT sets, UPDATE refused). The rest unread. A design change keeps only that bit under ACE, and zeroes all four under Jet 4.0 |
 | `0x15` | 2 | Fixed-data offset within the row's fixed region |
 | `0x17` | 2 | Length (bytes) |
 
@@ -134,7 +134,7 @@ Nullability is **not** in the descriptor — it's the `Required` property in `Lv
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 4 | VBA error number, little-endian — `0` for a value or Null; an error envelope is the 39-byte declared length, zero after the status |
-| `0x04` | 12 | Reserved (zero) |
+| `0x04` | 12 | Reserved (zero); not read, zeroed on a recompute |
 | `0x10` | 4 | Payload length, little-endian |
 | `0x14` | *n* | Payload — the value in its ordinary encoding |
 | `0x14`+*n* | 3 | Padding (zero) |
@@ -153,7 +153,7 @@ descriptor.
 | --- | --- | --- |
 | `0x00` | 4 | Total entry count — set when the index is built or the file compacted; lowered by a delete and by an update that moves the entry, never raised by an insert; `0` after a `DELETE` with no `WHERE` |
 | `0x04` | 4 | Unique entry count — raised by an insert bringing a new key; lowered by a delete of a key's last holder, and held to the total by a delete and an update; `0` after a `DELETE` with no `WHERE` |
-| `0x08` | 4 | Reserved (zero) |
+| `0x08` | 4 | Reserved (zero); not read, zeroed on a TDEF rewrite |
 
 ## Index-data block — 52 bytes, one per real index → [page-02d](page-02d-constraints.md)
 
@@ -164,9 +164,9 @@ descriptor.
 | `0x22` | 1 | Usage-map row |
 | `0x23` | 3 | Usage-map page |
 | `0x26` | 4 | B-tree root page |
-| `0x2A` | 4 | Unknown / reserved (zero) |
+| `0x2A` | 4 | Unknown / reserved (zero); not read, zeroed on a TDEF rewrite |
 | `0x2E` | 2 | Flags: `0x01` unique (on a foreign key's child block: the relationship is one-to-one), `0x02` ignore-nulls, `0x08` required, `0x80` always-set, `0x0200` complex column (always `0x0289` on one) |
-| `0x30` | 4 | Unknown / reserved (zero) — trailing bytes of the 52-byte block |
+| `0x30` | 4 | Unknown / reserved (zero) — trailing bytes of the 52-byte block; not read, zeroed on a TDEF rewrite |
 
 ## Index-info block — 28 bytes, one per logical index → [page-02d](page-02d-constraints.md)
 
@@ -181,7 +181,7 @@ descriptor.
 | `0x15` | 1 | Update action: `0x04` plain, `0x00`/`0x01` no-cascade/cascade |
 | `0x16` | 1 | Delete action: the same, plus `0x02` set null ([page-02d](page-02d-constraints.md)) |
 | `0x17` | 1 | Index type: `0x00` secondary, `0x01` primary, `0x02` foreign |
-| `0x18` | 4 | Unknown / reserved (zero) — trailing bytes of the 28-byte block |
+| `0x18` | 4 | Unknown / reserved (zero) — trailing bytes of the 28-byte block; not read, zeroed on a TDEF rewrite |
 
 ---
 
@@ -222,7 +222,7 @@ creates it) — set bit = freed, not reusable until close.
 | `0x00` | 2 | Page type `0x0103` node / `0x0104` leaf |
 | `0x02` | 2 | Free-space count — bytes still free on the page |
 | `0x04` | 4 | Owning TDEF page |
-| `0x08` | 4 | Jet4-inserted field (zero); shifts the following fields +4 vs Jet3 |
+| `0x08` | 4 | Jet4-inserted field (zero; not read by ACE, zeroed by a compact); shifts the following fields +4 vs Jet3 |
 | `0x0C` | 4 | Previous leaf page (0 = leftmost); a split node's left sibling |
 | `0x10` | 4 | Next leaf page (0 = rightmost) — load-bearing for Access's scan; a split node's right sibling |
 | `0x14` | 4 | Child-tail page (node: rightmost child) |

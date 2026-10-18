@@ -268,9 +268,11 @@ cached value.
 
 **ACE has no route to change an existing calculated column's expression.** DAO refuses to mutate any field
 of a *saved* `TableDefinition` — *"Operation is not supported for this type of object."* — and that refusal is
-generic: an ordinary column gets it too, so it says nothing about calculated columns specifically. Access's
-own designer must reach it by a path DAO does not expose. There is therefore no oracle for "alter the expression", and anything LibRed offers there is its own extension rather than
-ACE-matching behaviour.
+generic: an ordinary column gets it too, so it says nothing about calculated columns specifically. Access
+itself refuses too: setting the saved field's `Expression` property through its own `CurrentDb` fails with
+*"Cannot define field more than once."* and leaves the expression and every cached value as they were
+(verified). Only the table designer's UI offers the change. There is therefore no oracle for "alter the
+expression", and anything LibRed offers there is its own extension rather than ACE-matching behaviour.
 
 **ACE does not protect a reference; every ALTER is accepted, two of them destructively.** Measured through
 ACE SQL, each on its own table:
@@ -316,11 +318,12 @@ cannot construct this state by clicking, only by writing SQL — exactly where L
 every route: `CREATE INDEX`, `CREATE UNIQUE INDEX`, a composite that merely includes one, a table-level
 `CONSTRAINT … PRIMARY KEY`/`UNIQUE`, and the inline `col type PRIMARY KEY` form.
 
-**Indexing a calculated column is a trap, not a feature.** ACE accepts `CREATE INDEX` and even
-`CREATE UNIQUE INDEX` on one — and then refuses every `INSERT` into the table with *"Operation is not
-supported for this type of object."* Measured for Int16 and Int32 result types, and with the index created
-both before and after rows exist. So there is no index-key encoding to define: such an index can never be
-populated.
+**Indexing a calculated column is a trap, not a feature.** On an empty table ACE accepts `CREATE INDEX` and
+even `CREATE UNIQUE INDEX` on one — and then refuses every `INSERT` into the table with *"Operation is not
+supported for this type of object."* Once the table has rows, the `CREATE INDEX` itself is refused with that
+message. Verified for every value result type; a Memo result is refused at `CREATE INDEX` as any Memo column
+is (*"Invalid field definition 'C' in definition of index or relationship."*). So there is no index-key
+encoding to define: such an index can never be populated.
 
 **Declared length is a constant, and the requested size is discarded.** `39` for every value type, `509` for
 Text whatever size was asked for (10, 60 and 255 all give 509), `0` plus a long-value map for Memo. `39` is
@@ -406,7 +409,8 @@ is more permissive than ACE**, which refuses such a column outright; whether Lib
 
    **Reading** is settled: a non-zero status throws rather than decoding as Null, naming the VBA error and
    the expression that raised it. Zero is that field's success code, so a value and a propagated Null both
-   read exactly as before.
+   read exactly as before. An update or delete does not read the result, so such a row can still be rewritten,
+   and an update of a column the expression reads recomputes it — the repair ACE allows.
 
    **Writing** is settled too, and diverges deliberately: **LibRed refuses the row.** For a Text or Memo
    result that is what ACE does as well — it refuses the insert with *"Error evaluating CHECK constraint."*

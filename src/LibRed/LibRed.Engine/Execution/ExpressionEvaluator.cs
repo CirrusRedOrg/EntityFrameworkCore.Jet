@@ -306,11 +306,13 @@ internal sealed partial class ExpressionEvaluator(
             "CLNGLNG" => Convert1(f, v => AsLongLong(v)),
             "CSNG" => Convert1(f, v => Finite(Sng(ConversionNumber(v)))),
             "CDBL" => Convert1(f, v => Dbl(ConversionNumber(v))),
-            // CDec has no ACE equivalent — the Jet Expression Service has no such function — so this is a
-            // LibRed extension with no parity contract to honour. CCur is ACE's route to a decimal.
+            // CDec has no working ACE equivalent — the Jet Expression Service's takes exactly two arguments and gives a
+            // Long 0 whatever they are (verified) — so this is a LibRed extension with no parity contract to honour.
+            // CCur is ACE's route to a decimal.
             "CDEC" => DecimalArgument(f, number => number),
             "CSTR" => Convert1(f, ConcatText),
-            "CDATE" => Convert1(f, v => ToDate(v)),
+            // CVDate is VBA's older name for CDate, and in ACE it is CDate: a Date, not a Variant (verified).
+            "CDATE" or "CVDATE" => Convert1(f, v => ToDate(v)),
             "CVAR" => Evaluate(f.Arguments[0]),
 
             // VBA/Access string functions (verified vs ACE). A value that is not text is read as CStr writes it
@@ -423,11 +425,14 @@ internal sealed partial class ExpressionEvaluator(
             "TIMER" => (DateTime.Now - DateTime.Today).TotalSeconds,
             "RND" => Rnd(f),
             // Predicates / type inspection. IsError is always false — LibRed has no error-value type — but its argument
-            // is still evaluated, so an error in it is raised (verified vs ACE: IsError(1/0) fails). ISNULL returns a
-            // Boolean (ACE reports it as -1/0); both print as a boolean here.
+            // is still evaluated, so an error in it is raised (verified vs ACE: IsError(1/0) fails). IsEmpty, IsMissing
+            // and IsObject are always false too, Null included: no query value is Empty, a missing argument or an
+            // object (verified vs ACE). ISNULL returns a Boolean (ACE reports it as -1/0); all print as a boolean here.
             "ISNULL" => Evaluate(f.Arguments[0]) is null,
             "ISNUMERIC" => IsNumericValue(Evaluate(f.Arguments[0])),
-            "ISERROR" => IsError(f),
+            "ISERROR" or "ISEMPTY" or "ISMISSING" or "ISOBJECT" => IsError(f),
+            // IMEStatus() is the input-method mode, and ACE answers 0 (vbIMENoOp), a Long (verified).
+            "IMESTATUS" => 0,
             "TYPENAME" => TypeNameOf(Evaluate(f.Arguments[0]), f.Arguments[0]),
             "VARTYPE" => VarTypeOf(Evaluate(f.Arguments[0]), f.Arguments[0]),
             "STRCONV" => StrConv(f),
@@ -488,7 +493,7 @@ internal sealed partial class ExpressionEvaluator(
         {
             // Conversion, unary numeric/string/date/inspection functions and single-argument aliases.
             "CBOOL" or "CBYTE" or "CINT" or "CLNG" or "CLNGLNG" or "CSNG" or "CDBL" or "CCUR" or "CDEC"
-                or "CSTR" or "CDATE" or "CVAR"
+                or "CSTR" or "CDATE" or "CVDATE" or "CVAR"
                 or "ABS" or "SGN" or "INT" or "FIX" or "SQR" or "EXP" or "SIN" or "COS"
                 or "TAN" or "ATN"
                 or "FLOOR" or "CEILING" or "CEIL" or "SIGN" or "SQRT" or "LN" or "LOG10" or "ASIN" or "ACOS"
@@ -496,7 +501,8 @@ internal sealed partial class ExpressionEvaluator(
                 or "LEN" or "LCASE" or "UCASE" or "TRIM" or "SPACE"
                 or "STRREVERSE" or "STR" or "VAL" or "CHR" or "ASC" or "HEX" or "OCT"
                 or "DATEVALUE" or "TIMEVALUE" or "YEAR" or "MONTH" or "DAY" or "HOUR" or "MINUTE"
-                or "SECOND" or "ISDATE" or "ISNULL" or "ISNUMERIC" or "ISERROR" or "TYPENAME" or "VARTYPE"
+                or "SECOND" or "ISDATE" or "ISNULL" or "ISNUMERIC" or "ISERROR" or "ISEMPTY" or "ISMISSING"
+                or "ISOBJECT" or "TYPENAME" or "VARTYPE"
                 or "QBCOLOR" or "ASCW" or "CHRW" or "ASCB" or "LENB" or "DATALENGTH" => (1, 1),
 
             "LEFT" or "RIGHT" or "STRING" or "LEFTB" or "RIGHTB" => (2, 2),
@@ -515,7 +521,7 @@ internal sealed partial class ExpressionEvaluator(
             // GREATEST/LEAST(expression [, ...n]), as SQL Server and PostgreSQL take them: one argument or more.
             "GREATEST" or "LEAST" => (1, int.MaxValue),
 
-            "NOW" or "DATE" or "TIME" or "TIMER" or "GENUNIQUEID" or "GENGUID"
+            "NOW" or "DATE" or "TIME" or "TIMER" or "IMESTATUS" or "GENUNIQUEID" or "GENGUID"
                 or "GETUTCDATE" or "SYSDATETIME" or "SYSUTCDATETIME" => (0, 0),
             "DATEADD" => (3, 3),
             "DATEDIFF" or "DATEDIFF_BIG" => (3, 5),

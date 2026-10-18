@@ -7,8 +7,8 @@
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 1 | Data type (see §6) |
-| `0x01` | 2 | Minimum engine build for the column — `0x0659` as ACE writes it; ACE refuses the table when it exceeds its own build, 4518 ([page-02a §3.1](page-02a-tdef.md) note) |
-| `0x03` | 2 | Unknown (zero observed) |
+| `0x01` | 2 | Minimum engine build for the column, the low half of a 32-bit value (`0x03` is the high half) — `0x0659` as ACE and Jet 4.0 write it; each refuses the table when it exceeds its own build, 4518 and 9801 ([page-02a §3.1](page-02a-tdef.md) note) |
+| `0x03` | 2 | The high half of the minimum-build field at `0x01`, which is 32 bits: non-zero here puts the build past ACE's, and ACE refuses the table — *"This object requires a newer version of the Microsoft Access database engine"* (verified). Write zero |
 | `0x05` | 2 | Column id |
 | `0x07` | 2 | Variable-table index. For a **fixed** column it is the running count of variable columns with a smaller id (**not** `0`), dropped ones included — ACE's own `ADD COLUMN` writes `2` for a LONG added to `(K LONG, A TEXT, B TEXT)`, and still `2` when `B` was dropped first: an added column's count is the `0x2B` high-water. For a **variable** column it is that column's own slot index, which is the `0x2B` **high-water** and *not* the count of live variable columns: after a variable column is dropped the next one goes above the abandoned slot, so the two part company. Verified byte-for-byte against DAO-written system tables and against ACE performing the same DDL. |
 | `0x09` | 2 | Ordinal position — DAO's `Field.OrdinalPosition`. The engine presents columns in descriptor order, not by this; DAO keeps the two in step by moving the descriptor when it sets it. At creation a second copy of the column id `0x05` on a **user** table, but **zero** on the tables the engine writes for itself (see the note below). It **diverges** after an `ALTER COLUMN` type change, which burns a new id into `0x05` yet leaves `0x09` alone (§3.8), after a `DROP COLUMN`, whose gap the next `ADD COLUMN` closes by ranking the values, and whenever DAO sets it |
@@ -17,14 +17,15 @@
 | `0x0D` | 1 | Collation **sort id** — the LCID's high word; `0` except for an alternate sort order (see the note below) |
 | `0x0E` | 1 | Collation **sort-order version**: `0` = General Legacy (Access 2000–2007), `1` = the "General" order Access 2010+ made default (a different key encoding, §10.4) |
 | `0x0F` | 1 | Flags (see below) |
-| `0x10` | 1 | Extended flags: `0x01` compressed-Unicode capable, `0x10` attachment value column, `0xC0` calculated column; a complex column's flat table also sets `0x04` and `0x08` (see below) |
-| `0x11` | 4 | Unknown (zero observed) |
+| `0x10` | 1 | Extended flags: `0x01` compressed-Unicode capable, `0x10` attachment value column, `0x40` calculated column, `0x80` its expression evaluated (always written together); a complex column's flat table also sets `0x04` and `0x08` (see below) |
+| `0x11` | 4 | **Bit `0x01` of the first byte makes the column write-once** (verified): an `INSERT` may set it, an `UPDATE` is refused — *"Cannot update 'x'; field not updateable."*, as for a calculated column. OLE DB's metadata presents the column read-only, as it does a calculated one; ODBC's and DAO's do not show it. Neither DAO nor ADOX creates such a column, and what does is unknown. Nothing else in the field is read. Every design change (`ADD`/`DROP`/`ALTER COLUMN`, `CREATE`/`DROP INDEX`) keeps only that bit under ACE, zeroing the rest, and zeroes all four bytes under Jet 4.0; a row write leaves the field alone (verified). LibRed reduces it as ACE does on its own design changes, and refuses an `UPDATE` of a write-once column (`ColumnDef.IsWriteOnce`) |
 | `0x15` | 2 | Fixed-data offset within the row's fixed region |
 | `0x17` | 2 | Length (bytes) |
 
 **Flags (`0x0F`):** `0x01` fixed-length, `0x02` updatable, `0x04` auto-number,
 `0x10` system-catalog column, `0x20` security-identifier column, `0x40` auto-number GUID, `0x80` hyperlink
-(on a Memo column). `0x08` is set on no column seen.
+(on a Memo column). `0x08` is set on no column seen, and must not be: ACE reads and writes such a table
+normally, but a compact drops the column, every column after it and every row of the table (verified).
 
 > **`0x10` and `0x20` mark the engine's own catalog (verified).** `0x10` is set on every column of
 > `MSysObjects`, `MSysACEs`, `MSysQueries`, `MSysRelationships` and `MSysComplexColumns`, and on no other —
@@ -33,6 +34,22 @@
 > two columns that hold a Windows SID, `MSysObjects.Owner` and `MSysACEs.SID`, always together with `0x10`.
 > mdbtools also gives `0x10` to replication columns (`s_…`, `Gen_…`), which no file seen has (unverified).
 
+> **`0x40` makes a column calculated; `0x80` lets its expression be evaluated** (verified). ACE writes both, `0xC0`,
+> on every calculated column, and writes them again whenever it rewrites the TDEF. `0x40` alone still makes the
+> column calculated, with its expression and result type, but ACE will not read it: every read is *"This
+> calculated column contains an invalid expression"*. Writes split by result type: a value result is still
+> computed and stored, on an insert and on an update of a column it reads, while a Text or Memo one refuses both
+> (*"Error evaluating CHECK constraint."*). An update that touches none of its inputs, and a delete, go through
+> either way. A column with `0x40` and no expression at all fails before that, the table refusing to open
+> (*"Property not found"*), and a compact drops it. `0x80` alone does nothing: the column is an ordinary one, and
+> the bit goes at the next TDEF rewrite. A broken expression does not clear `0x80` — after `DROP COLUMN` of a
+> column it reads, the flags stay `0xC0` and the error comes from the expression itself. Extended bit `0x02` is
+> ignored and kept, through a rewrite and a compact alike.
+>
+> LibRed reads `0x40` as calculated and writes `0xC0`, as ACE does, and over `0x40` alone reads, writes, updates
+> and deletes as ACE does (`ColumnDef.EvaluatesExpression`). An update or delete never reads a calculated
+> result, which is also what lets it rewrite a row whose result is a cached error.
+>
 > **Extended flags beyond `0x01`/`0xC0` belong to the complex columns (verified where set).** `0x10` is set on
 > exactly the six attachment value columns — `FileData`, `FileFlags`, `FileName`, `FileTimeStamp`, `FileType`,
 > `FileURL` — in the `MSysComplexType_Attachment` template and in every attachment flat table, and on no other
@@ -170,10 +187,10 @@ variable-length**, and its slot holds a fixed envelope around the result ACE las
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 4 | **VBA error number**, little-endian — zero when the expression produced a value (or Null) |
-| `0x04` | 12 | Reserved; zero in every row measured |
+| `0x04` | 12 | Reserved; zero in every row measured. ACE does not read it, and writes zero when it recomputes the value (verified) |
 | `0x10` | 4 | Payload length, little-endian |
 | `0x14` | *n* | Payload — the value in its ordinary on-disk encoding for its type |
-| `0x14`+*n* | 3 | Padding; zero in every row measured |
+| `0x14`+*n* | 3 | Padding; zero in every row measured. Not read, and zeroed on a recompute (verified) |
 
 > **An error is stored, and it is not the same as Null.** The expression service raises rather than
 > propagating in some cases — notably the conversions, which is why `CDbl(Null)` is an error and not a Null

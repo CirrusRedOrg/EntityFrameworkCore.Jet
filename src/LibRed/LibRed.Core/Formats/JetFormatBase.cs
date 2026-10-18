@@ -421,6 +421,11 @@ public abstract class JetFormatBase
     /// <summary>The extended column flag byte — <see cref="ColumnExtendedFlags"/>.</summary>
     public abstract int ColumnExtendedFlagsOffset { get; }
 
+    /// <summary>Four bytes whose first byte's <c>0x01</c> bit makes the column <b>write-once</b>: an INSERT may set
+    /// it, an UPDATE may not. Nothing else in them is read, and whenever ACE rewrites a definition — any change to a
+    /// table's design, not a row write — it keeps that bit and zeroes the rest. Jet 4.0 zeroes all four.</summary>
+    public abstract int ColumnWriteOnceOffset { get; }
+
     public abstract int ColumnFixedOffsetOffset { get; }
     public abstract int ColumnLengthOffset { get; }
 

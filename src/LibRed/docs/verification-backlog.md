@@ -21,6 +21,15 @@ Items marked ✔ were re-checked by reading the cited code/test; the rest are as
 | DefaultValue/Required without the DDL flag (system-catalog) | **LibRed bug, fixed:** its reader applied them whatever the entry flag; ACE ignores them at `0x00`. | `PropertyBlobTests.Default_and_required_without_the_ddl_flag_are_not_read` |
 | Retiring a long value with no free map (long-values) | **LibRed bug, fixed:** an emptied single-page value's page stays owned and allocated in ACE (typed `0x09`, never reused); LibRed cleared the owned bit and freed it. Chained values already matched. | `LongValueNoFreeMapAccessTests` (ACE and LibRed twins byte-identical past page 0) |
 | Error envelope (page-02b) | 39 bytes, not 38: the column's declared length, zero after the status, length 0 — every value result type, errors 94 and 13. A Text/Memo result caches none: ACE refuses the insert (*"Error evaluating CHECK constraint."*). LibRed reads by status and refuses every such write. No code change. | measured once (probe not kept) |
+| Function list (functions.md) | All 138 functions of the VBA 7.1 type library called through ACE and LibRed. **LibRed gaps, fixed:** `CVDate` (= `CDate`), `IsEmpty`/`IsMissing`/`IsObject` (always False), `IMEStatus()` (0, Long). ACE's `CDec` takes exactly two arguments and gives a Long 0 (LibRed's one-argument `CDec` stays an extension); `Array()` crashes the provider; `MsgBox`/`InputBox` are refused. | `AddedFunctionsTests` |
+| Calculated-column index (page-02e) | Same for every value result type. **Doc corrected:** the trap is an empty table only — once rows exist ACE refuses the `CREATE INDEX` itself (DAO- and LibRed-created columns alike). A Memo result is refused at `CREATE INDEX`. LibRed refuses every route; no code change. | measured once (probe not kept) |
+| Irish 1084 (btree) | In a fresh DAO-only process ACE creates the database, tables and indexes, then refuses every row insert — indexed text, unindexed text, Long-indexed — with *"Selected collating sequence not supported by the operating system"* (and once the process has indexed rows in another order, refuses even the create). No keys exist to match; LibRed stays refusing. Czech control departed (35), harness check clean. | measured once (probe not kept) |
+| Changing a saved expression (page-02e) | Access's own `CurrentDb` refuses `Fields("C").Properties("Expression") = …` with *"Cannot define field more than once."*; LvProp and cached values untouched. Only the designer UI remains, which no automation reaches. LibRed's out-of-scope decision stands; no code change. | measured once (probe not kept) |
+| Single-page/chain boundary (long-values) | A constant: 3816 single-page, 3817 chained, in a bare row, beside a full `TEXT(255)`, beside a second 3000-byte long value, and with a value already on the LVAL page. LibRed's constant already matches; why 3816 stays unexplained. | measured once (probe not kept) |
+| Page 0 `0x6A` (page-00) | A per-engine constant: 32-bit `DAO.DBEngine.36` over `msjet40.dll` 10.0.28000 stamps 9801, ACE 16.0.20430 stamps 4518 — neither is the running DLL's version. LibRed writes both already; that they are build numbers stays inferred. | measured once (probe not kept) |
+| Property flag `0x01` protection (system-catalog) | In a secured workgroup (a copy of System.mdw, user `u1` in Users, table permissions without `dbSecWriteDef`), `u1` changes and deletes a `0x00` column property but is refused on a `0x01` one, as on adding a field. LibRed has no user-level security; doc only. | measured once (probe not kept) |
+| Reserved-field poke ladder (§3) | **Rejected** (write zero): page 0 `0x02`; page 0 `0x15` = `0x05` (newer version); column `0x03` — the high half of the 32-bit minimum build at `0x01`. **Ignored, zeroed on a TDEF rewrite:** TDEF `0x20`, index stats `+0x08`, index-data `0x2A`/`0x30`, index-info `0x18`, extended `0x80` alone. **Ignored, zeroed on a recompute:** envelope `0x04` and tail. **Ignored, rewritten by a compact:** page 0 `0x16`, `0x98`, index page `0x08`. **Kept through everything:** extended `0x02`. **Behaviour:** column `0x11` bit `0x01` = write-once (INSERT sets, UPDATE refused; what creates one is open — not DAO, not ADOX); a design change keeps only that bit (Jet 4.0 zeroes all four bytes). Extended `0x40` = calculated, `0x80` = its expression may be evaluated (without it every read fails; a value result is still written, a Text/Memo one refused). Column flag `0x08` = a compact drops that column, those after it and every row. **LibRed bugs, fixed:** it took `0x80` alone for calculated, carried all of `0x11` over a rewrite, and read the calculated result on an update or delete — LibRed now matches ACE on all of it, write-once UPDATE refusal included. | `ColumnDescriptorFlagTests`, `CalculatedEvaluateBitTests` |
+| `0x659`/`0x783` markers under Jet 4.0 (page-02a) | Jet 4.0 (32-bit `Microsoft.Jet.OLEDB.4.0`) writes the same markers and bounds header `0x0C` and column `+1` at its own build, **9801** (= its page 0 `0x6A`), as ACE does at 4518. Unlike ACE it also checks the index-info and index-data markers, once a write reaches the index. **Doc corrected:** ACE does not keep a zero marker on a rewrite — both engines write the markers afresh on any design change. **LibRed bug, fixed:** its rewrite carried them over. | `ColumnDescriptorFlagTests.A_design_change_writes_the_record_markers_afresh` |
 | Type codes `0x0D`/`0x0E` (data-types) | In no corpus file. Patched in, ACE opens the table but refuses the column's value, predicates and writes; DAO refuses the table. LibRed matches on writes (Null accepted, a value refused) and reads raw bytes by decision. No code change. | measured once (probe not kept) |
 
 ## Settled 2026-10-17
@@ -29,10 +38,10 @@ Items marked ✔ were re-checked by reading the cited code/test; the rest are as
 |---|---|---|
 | Hidden `.r` name past `Z` (page-02d) | **LibRed bug, fixed.** ACE writes index_num in base 16 with digits `A`–`P`, least significant first (`.rP` = 15, `.rAB` = 16, `.rOB` = 30). LibRed was wrong from 16 (`.rQ`…, then random hex). | `ForeignKeyLinkageTests.Incoming_blocks_past_fifteen_take_two_letter_names_as_ace_writes_them` (ACE's names and order for 1–30) |
 | ComplexID width (page-02b) | Full Int32: id 300 → `2C 01 00 00`, 70000 → `70 11 01 00`; ACE and LibRed resolve both. No code change. | `ComplexColumnCreationAccessTests.A_complex_id_past_one_byte_reads_as_dao_assigned_it` |
-| `0x659`/`0x783` markers (page-02a) | The header `0x0C` and column `+1` ones are a **minimum engine build**: 0 … 4518 accepted, 4519+ refused (*"requires a newer version of the … engine"*), bound to the engine's own build, not page 0's `0x6A`. The index-data and index-info ones are not read at all. | measured once (no LibRed behaviour to pin) |
+| `0x659`/`0x783` markers (page-02a) | The header `0x0C` and column `+1` ones are a **minimum engine build**: 0 … 4518 accepted, 4519+ refused (*"requires a newer version of the … engine"*), bound to the engine's own build, not page 0's `0x6A`. ACE does not read the index-data and index-info ones at all (Jet 4.0 does — see 2026-10-18). | measured once (no LibRed behaviour to pin) |
 | CHECK placement (page-00) | LibRed = ACE byte for byte, CHECK before/after a table-level UNIQUE and before a table-level PK. | `WholeFileParityProbeTest` #356–358 |
 | `CREATE TABLE` on a reused TDEF page (page-02a) | ACE writes it onto a wholly zeroed page; LibRed byte-identical. | `WholeFileParityProbeTest` #359–361 |
-| Property flag `0x01` classification (system-catalog) | = DAO's `DDL` argument: built-in ValidationRule/Text, DefaultValue, Required, AllowZeroLength → `0x01`; `CreateProperty` with DDL default (Caption, Description) → `0x00`. Protection/recognition halves still open (§1). | measured once (probe not kept) |
+| Property flag `0x01` classification (system-catalog) | = DAO's `DDL` argument: built-in ValidationRule/Text, DefaultValue, Required, AllowZeroLength → `0x01`; `CreateProperty` with DDL default (Caption, Description) → `0x00`. Its effect and its protection are settled separately. | measured once (probe not kept) |
 | Index-owned LvProp block (system-catalog, appendix) | Type `0x0002`, owner = the index's name. | measured once (probe not kept) |
 | Random backfill into packed leaves (btree) | LibRed = ACE byte for byte. | `WholeFileParityProbeTest` #373–376 |
 | No-WHERE DELETE of a compressed root (page-09) | ACE resets the count to 0 (9 → 0); LibRed matches. | `WholeFileParityProbeTest` #380 |
@@ -71,27 +80,20 @@ location, and four mdbtools-TODO entries (`0x1C`, v1 collation, the index header
 
 ## 1. Affects what LibRed writes — probe first
 
-| where | claim | instrument | probe |
-|---|---|---|---|
-| system-catalog:114 | A set `0x01` makes a property definition-protected (its effect on DEFAULT/Required/CHECK is settled above). | DAO with a secured workgroup | Under a secured `.mdw`, try deleting a `0x01` vs a `0x00` property as a user without `dbSecWriteDef`. |
+Nothing open.
 
 ## 2. Engine/catalog surface — ACE answers in one statement each
 
 | where | claim | instrument | probe |
 |---|---|---|---|
-| functions.md:57 | Function list "not proven exhaustive". | ACE OLE DB | Every member of the VBA type library modules → `SELECT fn(<args>) FROM MSysObjects WHERE 1=0`; bucket "Undefined function" vs anything else; diff with `ExpressionEvaluator`'s dispatch. Commit as the missing `FunctionWhitelist*ProbeTest`. |
 | page-02c:151 | Create-time DEFAULT validation (LibRed rejects at INSERT). | measured, not yet implemented | ACE at CREATE / ADD COLUMN: `[A]` → "The database engine does not recognize either the field 'A' in a validation expression, or the default value in the table 'T'."; bare `A` into a LONG → "Type mismatch"; `Sum(1)`, `Count(*)`, `Foo()` (and `DCount(…)` in ADD COLUMN) → "Unknown function 'Sum' in validation expression or default value on 'T.C'."; a subquery, and `DCount('*','X')` in CREATE (its comma, inferred), → "Syntax error in CREATE/ALTER TABLE statement." Needs the evaluator to answer "is this function known" without running it. |
 | transactions:347 | `.laccdb` lifecycle (create on first open, delete on last close). | ACE OLE DB | `File.Exists` before/during/after two overlapping connections, and after a killed child process. |
-| btree:913 | Irish 1084 unmeasured — ACE OLE DB refuses it in-process. | DAO only, **child process** | Fresh process doing nothing else first: DAO creates the db, an indexed `TEXT`, the Latin blocks + 193 samples; LibRed reads `RawEntries()` and diffs against General v0. The survey notes the refusal depends on what the process did first — confirm the child gets past `CREATE INDEX`. |
-| page-02e:322 | Calculated-index trap measured for Int16/Int32 only. | DAO + ACE | Text/Double/Date/Memo calculated columns; `CREATE INDEX` + `INSERT` through ACE. Low value — LibRed refuses every route. |
-| page-02e:269 | Access's designer changes an expression by a path DAO lacks (inferred). | Access.Application | Inside Access: `CurrentDb.TableDefs("T").Fields("C").Properties("Expression") = "[Qty]*3"`; diff LvProp and row envelopes — does Access recompute rows? |
 
 ## 3. Reserved / undecoded fields — one parameterised poke probe
 
-Fields: page 0 `0x02`, `0x15` (minor — purpose), `0x16`, `0x98` (also 0 and `0x655`); bitmap page `[2..3]`; TDEF
-`0x20`; column descriptor `0x03`, `0x11`, flag `0x0F` bit `0x08`, extended `0x02`/`0x20`/one of `0x40`/`0x80` alone;
-calculated envelope `0x04` (12) and its 3-byte tail; index stats `+0x08`; index-data `0x2A`, `0x30`; index-info
-`0x18`; index page `0x08`; page types `0x0106`/`0x0107` (corpus scan first).
+Every other field was run 2026-10-18 (results in the settled table). Open: the reference-map bitmap page
+`[2..3]` (only a file large enough to need one has it), and page types `0x0106`/`0x0107`, which occur in no
+corpus file.
 
 **Probe.** One DAO-built fixture (PK, secondary index, FK, memo, calculated column). Per field, a copy with a
 distinctive pattern (`A5 5A …`, or the single bit for flags) in that field only. Each copy runs one ladder: ACE open
@@ -110,13 +112,11 @@ column's input (rewrites the envelope) → DAO `CompactDatabase`; re-read the by
 | page-05:316 | A second handle and another handle's past-EOF reservation; multi-user allocation. | Two processes (ACE shares one engine per process). Deferred with multi-writer. |
 | page-00:355; transactions:55, 154, 323 | The two commit-slot values; page-0 byte-range lock; lock bands, poll interval, `.ldb` record shape. | Frida on `NtWriteFile`/`NtLockFile`, ProcMon for lock offsets (user-run). `.ldb` shape: share-read the lock file while ACE holds it. |
 | page-00:457 | Creating under a non-default workgroup (Access desktop's open of a default-workgroup file is now verified). | DAO `SystemDB` + `CreateUser` on a copied System.mdw, then `Access.Application` under that user. OLE DB does not check SIDs. |
-| page-00:201 | `0x6A` is the creating engine's build (inferred). | 32-bit process with `DAO.DBEngine.36`: create an `.mdb`, compare with `msjet40.dll`'s `FileVersionInfo`. |
-| page-00:14 | `0x15` minor byte's purpose. | In the §3 ladder; plus whether it changes how ACE raises the version. |
+| page-00:14 | `0x15` minor byte's purpose. | The §3 ladder found only that `0x05` is refused as a newer version; try whether it changes how ACE raises the version. |
 | page-01:95 | 20 bytes between 4060 and 4080 — row-lock bookkeeping? | LibRed writes 4061/4070/4080-byte rows; ACE reads them exclusive vs shared at locking modes 0/1. |
 | page-01:160 | What writes overflow slots wider than 4 bytes (`MSysAccessStorage`). | `Access.Application`: save/resize forms and modules; scan for live `0x4000` slots > 4 bytes. |
 | page-05:265 | A non-empty released map = a release cut off before close (inferred). | Child process `DROP TABLE` then `TerminateProcess`; read the map; reopen with ACE. |
-| long-values:115 | Why the single-page/chain boundary is 3816. | Whether it moves with other long values in the row or LVAL tenants (a moving number = a budget). |
-| system-catalog:120 | Entry flag `0x80` set by Access, by no DAO call. | Same property through `Access.Application`'s `CurrentDb` vs standalone DAO; diff flags; repeat for a saved query. |
+| system-catalog:120 | Entry flag `0x80` (only ever on a query's `ReplicableBool`) comes from replication or an `.mdb` conversion (inferred). | DAO and Access's `CurrentDb` both write it `0x00`. Needs a replicated Jet 4 `.mdb` converted to `.accdb` — 32-bit `DAO.DBEngine.36` replication. LibRed preserves the byte. |
 | system-catalog:622, 635, 640 | The `Lv` query image (sort-order array, join layout, field meanings). | ACE stored queries varied one feature at a time; low value (LibRed never writes `Lv`). |
 | system-catalog:902–915 | `MSysNameMap` Id, record kind, GUID slot. | `Access.Application` with Name AutoCorrect: create/rename/drop; diff. LibRed preserves the bytes. |
 | btree:555, 685 | The kana constant `02 80 FF 80`; per-locale sub-position bytes. | `LCMapStringEx(LCMAP_SORTKEY)` alignment / NLS tables. No correctness value while the literal matches. |

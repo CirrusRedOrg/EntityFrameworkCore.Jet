@@ -106,8 +106,8 @@ public sealed class Table
 
     /// <summary>Decodes the row at <paramref name="id"/> (following an overflow forward-pointer to a
     /// relocated row), or <see langword="null"/> if the slot is empty/deleted. Used by an index seek, which
-    /// yields row ids.</summary>
-    public object?[]? GetRow(RowId id) => GetRow(id, NewDecoder());
+    /// yields row ids. <paramref name="decode"/> is as for <see cref="Rows"/>.</summary>
+    public object?[]? GetRow(RowId id, bool[]? decode = null) => GetRow(id, NewDecoder(decode));
 
     private object?[]? GetRow(RowId id, RowCodec decoder)
     {
@@ -179,6 +179,12 @@ public sealed class Table
     public void Insert(object?[] values, object?[]? defaults = null, IReadOnlyList<int>? order = null) =>
         Write(() => new RowInserter(Channel, Definition).Insert(values, updateIndexes: true, defaults, order));
 
+    /// <summary>Every column but the calculated ones — what rewriting or deleting a row reads of it. A calculated
+    /// result is never a key and never the caller's to change, and the rewrite carries it over or recomputes it
+    /// from the stored bytes; reading it would only refuse a row whose result cannot be read, which ACE still
+    /// updates and deletes.</summary>
+    private bool[] StoredColumns => DecodeOnly(Definition.Columns.Where(c => !c.IsCalculated).Select(c => c.Index));
+
     /// <summary>Rewrites the row at <paramref name="id"/> in place with new values (row id preserved).
     /// <paramref name="changedColumns"/> are the columns that actually changed — an unchanged memo/OLE column
     /// keeps its stored descriptor (no re-materialise), a changed one has its old LVAL pages reclaimed. Every row
@@ -188,10 +194,12 @@ public sealed class Table
     {
         Write(() =>
         {
-            object?[] original = GetRow(id) ?? throw new InvalidOperationException($"Row '{id}' does not exist.");
+            bool[] stored = StoredColumns;
+            object?[] original = GetRow(id, stored) ?? throw new InvalidOperationException($"Row '{id}' does not exist.");
             var changed = new HashSet<int>(changedColumns);
             for (int i = 0; i < values.Length; i++)
-                if (original[i] is byte[] oldBytes && values[i] is byte[] newBytes
+                if (i < stored.Length && !stored[i]) continue;   // a calculated result: never read
+                else if (original[i] is byte[] oldBytes && values[i] is byte[] newBytes
                     ? !oldBytes.AsSpan().SequenceEqual(newBytes) : !Equals(original[i], values[i]))
                     changed.Add(i);
 
@@ -229,7 +237,7 @@ public sealed class Table
     {
         Write(() =>
         {
-            object?[] values = GetRow(id) ?? throw new InvalidOperationException($"Row '{id}' does not exist.");
+            object?[] values = GetRow(id, StoredColumns) ?? throw new InvalidOperationException($"Row '{id}' does not exist.");
             foreach (ComplexColumn complex in _catalog.ComplexColumns)
             {
                 if (complex.OwnerTable.DefinitionPage != Definition.DefinitionPage) continue;

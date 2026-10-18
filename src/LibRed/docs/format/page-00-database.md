@@ -7,12 +7,12 @@
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 2 | Page type `0x0100` (bytes `00 01`) — the 16-bit type every page starts with ([README](README.md)) |
-| `0x02` | 2 | Unknown (zero on every file examined; not decoded) |
+| `0x02` | 2 | Unknown, and **validated**: any non-zero value makes ACE refuse the file (*"Unrecognized database format"*; verified). Write zero |
 | `0x04` | 15 | Format identifier ASCII: `Standard Jet DB` or `Standard ACE DB` |
 | `0x13` | 1 | NUL terminator of the identifier string |
 | `0x14` | 1 | Version byte (see below). mdbtools reads `jet_version` as a 4-byte word at `0x14`; the version is its low byte |
-| `0x15` | 1 | Version **minor** byte: **`0x01` on a database created in the 2010 format (version `0x03`)**, `0x00` when created in any other. **A version raise writes `0x00`** whatever the target — including a raise *onto* `0x03`. Purpose otherwise unknown |
-| `0x16` | 2 | Unknown (zero observed) |
+| `0x15` | 1 | Version **minor** byte: **`0x01` on a database created in the 2010 format (version `0x03`)**, `0x00` when created in any other. **A version raise writes `0x00`** whatever the target — including a raise *onto* `0x03`. ACE validates it: `0x05` makes it refuse the file as needing a newer version (verified). Purpose otherwise unknown |
+| `0x16` | 2 | Unknown. ACE ignores a non-zero value and keeps it; a compact writes zero (verified) |
 | `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with the RC4 keystream of the key `C7 DA 39 6B` (§2.1). Jet 3 masks 126 bytes. Fields below are offsets into it. |
 | `0x18` | 4 | **Global free-pages map pointer** — `[row:1][page:3]`; `0x00000100` = page 1 row 0 where ACE creates it; ACE follows the pointer wherever it points ([page-05 §9.1](page-05-usage-maps.md)) |
 | `0x1C` | 4 | **Global released-pages map pointer** — `[row:1][page:3]`; `0x00000101` = page 1 row 1 where ACE creates it ([page-05 §9.1](page-05-usage-maps.md)) |
@@ -24,7 +24,7 @@
 | `0x6A` | 4 | **Creating engine's build number** — `0x000011A6` (4518) on everything ACE writes, but **not a constant**: Jet-4-authored files carry the build of the `msjet40.dll` that created them (see below) |
 | `0x6E` | 4 | **Default text collating sort order** — a 32-bit LCID with the version in its unused top byte: LANGID (2, LE, `0x0409` = 1033 en-US), **sort id** at `0x70`, **sort-order version** at `0x71` (0 = legacy table, 1 = the Access-2010 order). Byte-for-byte the same layout as a column descriptor's `0x0B`–`0x0E` |
 | `0x72` | 8 | **Database creation timestamp** — OLE automation `double` (days from 1899-12-30) |
-| `0x98` | 4 | **Past the masked window** (cleartext). Fixed constant `0x00000654` (1620), undecoded |
+| `0x98` | 4 | **Past the masked window** (cleartext). Fixed constant `0x00000654` (1620), undecoded. ACE does not read it, and a compact writes `0x654` back (verified) |
 | `0x9C` | 4 | ASCII **engine/format version string `"4.0"`** (NUL-terminated) — the Jet **4.0** version, present in both `.mdb` (Jet 4) and `.accdb` (ACE, which is Jet-4-based) |
 | `0xA0`–`0x298` | … | Zero padding |
 | `0x299` | 2 | **`EncryptionInfo` blob length** (LE) — Access's *"is this file encrypted?"* signal; `0` when unencrypted. Only meaningful for ACE `.accdb` (§2.5/§2.6) |
@@ -199,9 +199,6 @@ Observed values:
 **ACE writes 4518 unconditionally** — every ACE version (12/14/16/17) stamps its own RTM build, including when
 writing a Jet 4 `.mdb`. A Jet 4 build is stamped by `msjet40.dll`, and is that engine's service-pack build.
 
-> That the value *is* an engine build is **inferred** — from the observed values coinciding with shipped build
-> numbers — not measured. That the field varies, and varies only across Jet 4 files of differing vintage, is
-> measured. LibRed writes `0x2649` (9801) when it creates a Jet 4 `.mdb` and 4518 when it creates an ACCDB.
 
 ### 2.1 The obfuscated header (`0x18`–`0x98`)
 

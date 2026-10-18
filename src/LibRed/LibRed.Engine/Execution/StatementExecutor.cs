@@ -1939,19 +1939,24 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// names, which is all that choosing the rows and evaluating the SETs look at — but a row is rewritten, its
     /// constraints checked and its index entries moved from all of its values. The rest are filled into the same
     /// array, which every joined row of that physical row shares, before any of it is read.
+    /// <para>All but a calculated column the statement does not name: the rewrite carries its stored result over,
+    /// or recomputes it, without ever reading it — so a row whose result cannot be read, a cached error or one ACE
+    /// will not evaluate, can still be updated or deleted, as in ACE.</para>
     /// </summary>
     private void CompleteRows(List<(RowId Id, object?[] Values)[]> joinRows, List<SourceTable> tables, IEnumerable<int> targets)
     {
         int[] pruned = [.. targets.Distinct().Where(t =>
             tables[t].Table is { } table && Planning.ColumnPruning.Mask(table.Definition, _readNames) is not null)];
         if (pruned.Length == 0) return;
+        Dictionary<int, bool[]> written = pruned.ToDictionary(ti => ti, ti => tables[ti].Table!.DecodeOnly(
+            tables[ti].Table!.Definition.Columns.Where(c => !c.IsCalculated || _readNames!.Contains(c.Name)).Select(c => c.Index)));
 
         var done = new HashSet<object?[]>(ReferenceEqualityComparer.Instance);
         foreach (var combo in joinRows)
             foreach (int ti in pruned)
             {
                 if (IsNullExtended(combo[ti]) || !done.Add(combo[ti].Values)) continue;
-                object?[] full = tables[ti].Table!.GetRow(combo[ti].Id)
+                object?[] full = tables[ti].Table!.GetRow(combo[ti].Id, written[ti])
                     ?? throw new InvalidOperationException($"Row {combo[ti].Id} of '{tables[ti].Table!.Name}' vanished while it was being read.");
                 Array.Copy(full, combo[ti].Values, full.Length);
             }

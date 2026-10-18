@@ -11,7 +11,7 @@
 | `0x00` | 2 | Page type (`0x0103` node / `0x0104` leaf; bytes `03 01` / `04 01`) |
 | `0x02` | 2 | Free-space count — bytes still free on the page |
 | `0x04` | 4 | Owning table TDEF page |
-| `0x08` | 4 | **The 4-byte field Jet4 inserted** right after the owner — purpose unknown, **`0` observed** on every ACE- and LibRed-written index page. Inserting it here is what pushes prev/next/tail/compress down by 4 vs Jet3 (see the Jet3→Jet4 note under `0x1B`). |
+| `0x08` | 4 | **The 4-byte field Jet4 inserted** right after the owner — purpose unknown, **`0` observed** on every ACE- and LibRed-written index page. ACE does not read it, and a compact writes zero (verified). Inserting it here is what pushes prev/next/tail/compress down by 4 vs Jet3 (see the Jet3→Jet4 note under `0x1B`). |
 | `0x0C` | 4 | **Previous leaf page** (`0` on the first/leftmost leaf), little-endian. **Verified against ACE:** on an ACE-built split index the higher-key leaf's `0x0C` points back at the lower-key leaf. A node that has split carries the same link to its left sibling at the same level (§10.5); the root never has one. |
 | `0x10` | 4 | **Next leaf page** (`0` on the last/rightmost leaf), little-endian; on a split node, its right sibling. **Verified against ACE — and load-bearing:** Access's full-table `COUNT(*)`/scan descends to the leftmost leaf and walks this forward chain. If it is wrong (e.g. `next` written at `0x0C`), Access stops after the first leaf and **silently sees only those rows** — a data-loss/corruption hazard, since it then treats the rest of the table's space as free. LibRed maintains `0x0C`/`0x10` across splits (§10.5). (This is **Jet3's `0x0C` next-pointer shifted +4**; the child-tail that mdbtools lists at `0x10` is the *Jet3* tail position — in Jet4 it too shifted to `0x14`.) |
 | `0x14` | 4 | **Child-tail** page (node pages: the rightmost child, referenced by no entry). **Verified** for Jet4/ACE: the tail pointer read here drives correct multi-level traversal. This is **Jet3's `0x10` tail shifted +4** by the `0x08` insertion, which is exactly why mdbtools (Jet3) documents the tail at `0x10`. |
@@ -913,18 +913,21 @@ to `n` bytes, as page-01 stores it. LibRed builds the row and every key from one
   supported by the operating system"*, because Windows no longer supports those alternate sorts. With no
   engine to measure against, they stay refused.
 
-  What remains: **Irish 1084**, unmeasured — Jet accepts it, but not in a process that has loaded the ACE
-  OLE DB provider, so its ACE keys are unknown; and the two **Unicode** CJK orders above. Three
-  orders — Serbian Latin 2074, Bosnian Latin 5146 and Hindi 1081 — are unreachable at version 0 by construction: Jet refuses them with *"Incorrect collating
-  sequence."*, and they are exactly the three already implemented at version 1.
+  **Irish 1084 cannot be measured either** (verified). ACE creates a database in it, and tables and indexes in
+  that database, but refuses every row written into any of its tables, indexed or not, with *"Selected collating
+  sequence not supported by the operating system"*. So ACE never writes a key in it, and it stays refused.
+
+  Three orders — Serbian Latin 2074, Bosnian Latin 5146 and Hindi 1081 — are unreachable at version 0 by
+  construction: Jet refuses them with *"Incorrect collating sequence."*, and they are exactly the three already
+  implemented at version 1.
 
   > **Everything above is verified by creation too.** For every combination `IsIndexKeyEncodable` accepts —
   > every accepted order at version 0 plus every order with a version-1 table — a database LibRed
   > synthesises in that order, indexed by ACE, holds keys matching LibRed's byte for byte. A wrong LCID
   > cannot pass quietly: ACE indexes with whatever order that LCID really names.
 
-  *Not yet handled:* **Irish 1084** and the two **Unicode** CJK orders (above). **Six** version-1 collations
-  besides the CJK ones are implemented — General v1, Indic v1, Romanian v1, and Croatian / Bosnian / Serbian
+  *Not handled, because ACE writes no keys in them:* **Irish 1084** and the two **Unicode** CJK orders (above).
+  **Six** version-1 collations besides the CJK ones are implemented — General v1, Indic v1, Romanian v1, and Croatian / Bosnian / Serbian
   v1 sharing one table. Any other LANGID at version 1 is refused rather than encoded as General v1, which ACE
   does not do either: it resolves the declaration to a version-0 order
   ([§3.4](page-02b-columns.md#34-column-descriptor-25-bytes)). DAO writes version 0 for every LANGID it accepts,

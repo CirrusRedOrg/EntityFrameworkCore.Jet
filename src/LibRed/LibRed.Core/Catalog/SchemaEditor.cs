@@ -695,9 +695,9 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// Access's <b>designer</b> does not offer a calculated column in the Indexes dialog at all and will not
     /// let it be the primary key; the <b>storage engine</b> agrees, refusing every INSERT into a table whose
     /// calculated column is indexed — <i>"Operation is not supported for this type of object."</i> Only
-    /// <b>ACE via SQL</b> accepts <c>CREATE INDEX</c> (and even <c>CREATE UNIQUE INDEX</c>) on one, and what
-    /// it produces is a table into which no row can ever be written. Measured for Int16 and Int32 results,
-    /// with the index created both before and after rows exist (page-02e-calculated-columns).</para></summary>
+    /// <b>ACE via SQL</b> accepts <c>CREATE INDEX</c> (and even <c>CREATE UNIQUE INDEX</c>) on one while the
+    /// table is empty, and what it produces is a table into which no row can ever be written; once rows exist
+    /// it refuses the <c>CREATE INDEX</c> itself (page-02e-calculated-columns).</para></summary>
     private static void RejectCalculatedIndexColumns(
         string indexName, IEnumerable<string> columnNames, Func<string, string?> findCalculated)
     {

@@ -785,6 +785,14 @@ public sealed class JetCatalog
         if (kind == QueryOperation.Ddl)
             // The whole DDL statement is in Expression (Access stored it with a leading space).
             return new StoredQuery((action[expr] as string)?.TrimStart(), null);
+        if (kind == QueryOperation.PassThrough)
+            // The connection string is the operation row's Name1 and the server's SQL its Expression, with no other
+            // row (verified vs DAO). Read, but not run: the SQL is not Jet's.
+            return new StoredQuery(null, "Pass-through stored queries are not executed by LibRed yet.")
+            {
+                Connect = action[n1] as string,
+                PassThroughSql = action[expr] as string,
+            };
 
         // Every remaining kind keeps its sources, predicate and declared parameters where a SELECT keeps them,
         // so they are read the same way. A query with no FROM source at all is an INSERT … VALUES, which has
@@ -799,8 +807,8 @@ public sealed class JetCatalog
         // it ends a SELECT.
         (string selecting, string owner, QueryOptions options) = SelectOptions(rows, attr, flag, n1, order);
         // An append's or a make-table's IN externaldatabase is on its operation row: the path in Name2, a type or
-        // connect string in Expression (verified vs ACE).
-        string into = action[n2] is not null || action[expr] is not null
+        // connect string in Expression (verified vs ACE). No other kind keeps one there.
+        string Into() => action[n2] is not null || action[expr] is not null
             ? $" {new ExternalDatabaseSpec(action[n2] as string, action[expr] as string).Text}" : "";
 
         switch (kind)
@@ -817,7 +825,7 @@ public sealed class JetCatalog
                     // them.
                     // The IN externaldatabase follows the column list; ACE refuses it before one.
                     string targetColumns = (columns.Any(r => r[n2] is not null)
-                        ? $" ({string.Join(", ", columns.Select(r => Quote(r[n2] as string ?? "")))})" : "") + into;
+                        ? $" ({string.Join(", ", columns.Select(r => Quote(r[n2] as string ?? "")))})" : "") + Into();
 
                     if (columns.Count > 0 && columns.All(r => r[flag] is short cf && cf == StoredQuery.AppendValueFlag))
                         return source is null
@@ -853,7 +861,7 @@ public sealed class JetCatalog
             // The target is on the action row, with the IN externaldatabase it is made in.
             case QueryOperation.MakeTable when source is not null:
                 return new StoredQuery(
-                    $"{declared}{SelectText(rows, attr, expr, flag, n1, n2, order, into: $" INTO {Quote(action[n1] as string ?? "")}{into}")}", null);
+                    $"{declared}{SelectText(rows, attr, expr, flag, n1, n2, order, into: $" INTO {Quote(action[n1] as string ?? "")}{Into()}")}", null);
 
             case QueryOperation.Crosstab when source is { } crosstabSource:
                 {
@@ -895,7 +903,6 @@ public sealed class JetCatalog
             QueryOperation.Update or QueryOperation.Delete or QueryOperation.MakeTable =>
                 "The stored action query names no table.",
             QueryOperation.Crosstab => "The stored crosstab query names no table.",
-            QueryOperation.PassThrough => "Pass-through stored queries are not executed by LibRed yet.",
             _ => $"Kind-{(short)kind} stored queries are not executed by LibRed yet.",
         };
         return new StoredQuery(null, reason);

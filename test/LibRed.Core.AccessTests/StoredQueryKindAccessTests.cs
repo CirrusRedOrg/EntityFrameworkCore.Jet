@@ -168,6 +168,34 @@ public class StoredQueryKindAccessTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // DAO keeps a pass-through's connection string in its operation row's Name1 and the SQL in Expression, with no
+    // 0x04 row: LibRed reads both back, and runs neither.
+    [Fact]
+    public void A_dao_written_pass_through_reads_back_its_connect_string_and_sql()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "qkind-passthrough-");
+        try
+        {
+            object? engine = AceTestDatabase.CreateDaoEngine();
+            if (engine is null) return;
+            object database = Invoke(engine, "OpenDatabase", path, false, false, "")!;
+            // A named QueryDef is saved as it is created; Connect first, so DAO does not parse the SQL as Jet SQL.
+            object query = Invoke(database, "CreateQueryDef", "PassQ")!;
+            query.GetType().InvokeMember("Connect", BindingFlags.SetProperty, null, query, ["ODBC;DSN=none;"]);
+            query.GetType().InvokeMember("SQL", BindingFlags.SetProperty, null, query, ["SELECT 1"]);
+            Invoke(database, "Close");
+
+            using var db = JetDatabase.Open(path);
+            Assert.Equal((short)8, OperationFlag(db, "PassQ"));
+            StoredQuery q = db.Catalog.FindQuery("PassQ")!;
+            Assert.Equal("ODBC;DSN=none;", q.Connect);
+            Assert.Equal("SELECT 1", q.PassThroughSql);
+            Assert.Null(q.Sql);
+            Assert.NotNull(q.UnsupportedReason);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     /// <summary>The <c>MSysObjects.Id</c> of a stored query (Type 5) by name.</summary>
     private static int QueryObjectId(JetDatabase db, string queryName)
     {

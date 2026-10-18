@@ -2885,11 +2885,8 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         return true;
     }
 
-    /// <summary>The element type of a table's version-history column: a per-table template named
-    /// <c>MSysComplexTypeVH_&lt;GUID&gt;</c>, holding one value column per append-only memo, named for the memo, and
-    /// a <c>Modified_&lt;GUID&gt;</c> timestamp.</summary>
-    private const string VersionHistoryTemplatePrefix = "MSysComplexTypeVH_";
-
+    /// <summary>A version-history template's timestamp column, <c>Modified_&lt;GUID&gt;</c>, beside the value column
+    /// it holds for each append-only memo.</summary>
     private const string VersionHistoryTimestampPrefix = "Modified_";
 
     /// <summary>The table-level property Access sets while a table has an append-only memo.</summary>
@@ -2900,13 +2897,13 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     private sealed record VersionHistory(string ColumnName, int ComplexId, string FlatTable, string Template, bool IsLast);
 
     /// <summary>The version history keeping <paramref name="memoName"/>'s history, or null when the column is not an
-    /// append-only memo. A table has at most one version-history column; its template carries a value column named
-    /// for each append-only memo.</summary>
+    /// append-only memo. A table has at most one version-history column, the one its descriptor's extended flag
+    /// <c>0x20</c> marks; its template carries a value column named for each append-only memo.</summary>
     private VersionHistory? VersionHistoryOf(string tableName, string memoName)
     {
         if (_catalog.ComplexColumns.FirstOrDefault(c =>
                 string.Equals(c.OwnerTable.Name, tableName, StringComparison.OrdinalIgnoreCase)
-                && c.ElementTypeName?.StartsWith(VersionHistoryTemplatePrefix, StringComparison.Ordinal) == true) is not { } history)
+                && c.OwnerTable.FindColumn(c.ColumnName)?.IsVersionHistory == true) is not { } history)
             return null;
         var values = _catalog.RequireTable(history.ElementTypeName!).Columns
             .Where(c => !c.Name.StartsWith(VersionHistoryTimestampPrefix, StringComparison.Ordinal)).ToList();

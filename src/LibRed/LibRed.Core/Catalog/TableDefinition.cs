@@ -540,12 +540,14 @@ public sealed class TableDefinition : Page
                 IsFixedLength = isFixed,
                 IsAutoNumber = (d.Flags & ColumnFlags.AutoNumber) != 0,
                 // The user-column flag bits (0x0F: updatable/GUID-autonumber/hyperlink; 0x10: compressed-Unicode /
-                // calculated). The catalog and attachment bits are only ever written, from a created column's spec.
+                // calculated / version history). The catalog and attachment bits are only ever written, from a created
+                // column's spec.
                 IsUpdatable = (d.Flags & ColumnFlags.Updatable) != 0,
                 IsGuidAutoNumber = (d.Flags & ColumnFlags.GuidAutoNumber) != 0,
                 IsHyperlink = (d.Flags & ColumnFlags.Hyperlink) != 0,
                 SupportsCompressedUnicode = (d.ExtFlags & ColumnExtendedFlags.CompressedUnicode) != 0,
                 IsCalculated = (d.ExtFlags & ColumnExtendedFlags.Calculated) != 0,
+                IsVersionHistory = (d.ExtFlags & ColumnExtendedFlags.VersionHistory) != 0,
                 Precision = d.Precision,
                 Scale = d.Scale,
                 Collation = d.Collation,

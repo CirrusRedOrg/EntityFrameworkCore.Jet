@@ -43,7 +43,8 @@
 > (verified): without it DAO and ACE still read every value, DAO still adds one, and neither restores the bit.
 > Writers set both, as ACE does. **`0x20` marks a table's version-history column** (verified): the hidden
 > `VersionHistory_<GUID>` complex column an append-only memo gives its table carries it, and nothing else does —
-> not the memo, the `MSysComplexTypeVH_` template, the flat table, nor an attachment's complex column.
+> not the memo, the `MSysComplexTypeVH_` template, the flat table, nor an attachment's complex column. LibRed
+> finds a table's version history by it.
 
 > **A `Complex` column (type `0x12`) is an AutoNumber, and its `0x0B` names its `MSysComplexColumns` row.**
 > Verified on every complex column: `0x0F` = `0x07` on every one — fixed `0x01`,

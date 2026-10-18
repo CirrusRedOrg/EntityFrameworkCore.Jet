@@ -817,7 +817,8 @@
   > UPDATE (joins included), DELETE, make-table, UNION and crosstab, the last two returning rows — rebuilt with a
   > leading `PARAMETERS` clause when the query declares parameters, so `EXECUTE name arg, …` binds them. A UNION
   > is its two segments joined by the operator its option row records, then its `ORDER BY`. Pass-through reads
-  > back with an "unsupported" reason naming the kind, and throws when executed.
+  > back its connection string and its SQL, kept apart from executable SQL since the server's dialect is not Jet's,
+  > with an "unsupported" reason naming the kind, and throws when executed.
 
 - **MSysRelationships** defines foreign keys (one row per relationship column): `szRelationship`
   (name), `szObject` (child/referencing table), `szColumn` (child column), `szReferencedObject`

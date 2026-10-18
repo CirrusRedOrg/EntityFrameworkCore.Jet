@@ -72,6 +72,10 @@ public sealed class ColumnDef
     /// expression itself is separate (see the format spec).</summary>
     public bool IsCalculated { get; init; }
 
+    /// <summary>A table's version-history column — the hidden complex column an append-only memo gives its table —
+    /// extended-flag bit 0x10/0x20. Read only: LibRed creates no version history, and edits keep the bit in place.</summary>
+    public bool IsVersionHistory { get; init; }
+
     /// <summary>The column owns a long-value (LVAL) map in the TDEF, so its stored chunk is a long-value
     /// descriptor rather than the value itself. True for Memo/OLE — and for a calculated column whose
     /// result can outgrow the row, which ACE gives a map whatever the column's declared type.</summary>

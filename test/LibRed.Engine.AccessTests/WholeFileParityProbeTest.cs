@@ -23,9 +23,10 @@ namespace LibRed.Engine.Tests;
 /// same file — ACE's result of the step before — so each statement is compared on its own, and it asserts that
 /// every statement leaves identical files.
 /// <para>Only what differs for reasons other than the format is masked: page 0's user commit-byte table, which
-/// counts a lock-file user's writes and LibRed does not keep; the wall-clock DateCreate and DateUpdate of each
-/// MSysObjects row; a data page's write stamp at 0x08, with the copy of it a chained long value's descriptor
-/// carries; and a stored query's WHERE-row LvExtra, which ACE can leave uninitialised. A query's compiled plan
+/// counts a lock-file user's writes and LibRed does not keep; the clock values stamped during the run, wherever they
+/// lie, dead bytes included — the wall-clock DateCreate and DateUpdate of MSysObjects rows, a data page's write
+/// stamp at 0x08, and the tick-count copy of it a chained long value's descriptor carries; and a stored query's
+/// WHERE-row LvExtra, which ACE can leave uninitialised. A query's compiled plan
 /// (MSysObjects.Lv) is copied from ACE's file into LibRed's before comparing. A copy opened and closed through ACE with nothing
 /// done to it shows what ACE writes merely for holding a session; a byte that alone changes is counted apart rather
 /// than as a difference. Calculated and complex columns are left out — ACE's OLE DB DDL cannot create either.</para>
@@ -142,6 +143,38 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
                 }
             }
             output.WriteLine(report.ToString());
+        }
+        finally
+        {
+            foreach (string path in new[] { origin, ace, noise, libred }) TemporaryDatabase.Delete(path);
+        }
+    }
+
+    /// <summary>The whole run without the statements that create, run or drop a stored query, which asserts the two
+    /// files match: those leave ACE's compiled plan in MSysObjects.Lv, a memory image LibRed does not write, and the
+    /// pages it takes shift every later allocation.</summary>
+    [Fact]
+    public void The_whole_run_without_stored_queries_leaves_libred_and_ace_with_the_same_file()
+    {
+        string[] statements = [.. Statements().Where(s => !s.StartsWith("CREATE VIEW", StringComparison.Ordinal)
+            && !s.StartsWith("CREATE PROCEDURE", StringComparison.Ordinal) && !s.StartsWith("EXECUTE", StringComparison.Ordinal)
+            && !s.StartsWith("DROP VIEW", StringComparison.Ordinal) && !s.StartsWith("DROP PROCEDURE", StringComparison.Ordinal))];
+        string? origin = CreateEmptyThroughDao();
+        Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
+        string ace = TemporaryDatabase.CopyPath(origin, "wholefile-ace-");
+        string noise = TemporaryDatabase.CopyPath(origin, "wholefile-noise-");
+        string libred = TemporaryDatabase.CopyPath(origin, "wholefile-libred-");
+        try
+        {
+            string?[] aceErrors = RunThroughAce(ace, statements);
+            using (AceTestDatabase.Open(noise)) { }
+            string?[] libredErrors = RunThroughLibRed(libred, statements);
+
+            for (int i = 0; i < statements.Length; i++)
+                Assert.True(aceErrors[i] == libredErrors[i],
+                    $"#{i + 1} {statements[i]}\n  ACE: {aceErrors[i] ?? "ok"}\n  LibRed: {libredErrors[i] ?? "ok"}");
+            (string report, int pages) = Compare(origin, ace, noise, libred);
+            Assert.True(pages == 0, report);
         }
         finally
         {
@@ -1553,8 +1586,10 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
 
     /// <summary>Masks the bytes known to differ for reasons other than the format: page 0's user commit-byte table,
     /// a count of each lock-file user's committed writes that LibRed, keeping no lock file, leaves alone
-    /// (page-00-database.md §2.2); each MSysObjects row's wall-clock DateCreate and DateUpdate; every data page's
-    /// write stamp; and a stored query's WHERE-row LvExtra.</summary>
+    /// (page-00-database.md §2.2); the clock values either engine stamps during the run — the wall-clock DateCreate
+    /// and DateUpdate on MSysObjects pages, every data page's write stamp, and a chained long value's tick-count
+    /// chain stamp — wherever they lie, a record's dead bytes and the free space below the rows included; and a
+    /// stored query's WHERE-row LvExtra.</summary>
     private static void Mask(string path, byte[] file, HashSet<int>[] masks)
     {
         using var database = JetDatabase.Open(path, readOnly: true);
@@ -1563,67 +1598,54 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
 
         for (int i = format.CommitByteTableOffset; i < pageSize; i++) masks[0].Add(i);
 
-        TableDefinition objects = database.Catalog.FindTable("MSysObjects")!;
-        int[] dates = [.. new[] { "DateCreate", "DateUpdate" }.Select(c => objects.FindColumn(c)!.FixedOffset)];
+        // The run's clocks: everything either engine stamps happens while this process lives — ACE runs in it.
+        DateTime started = System.Diagnostics.Process.GetCurrentProcess().StartTime, now = DateTime.Now;
+        double earliest = started.ToOADate(), latest = now.ToOADate();
+        uint firstTick = (uint)Environment.TickCount - (uint)(now - started).TotalMilliseconds;
+        uint ticks = (uint)Environment.TickCount - firstTick;
 
+        int objects = database.Catalog.FindTable("MSysObjects")!.DefinitionPage;
+        int stampAt = format.LongValueDescriptorChainStampOffset;
         for (int page = 1; page < file.Length / pageSize; page++)
         {
             int at = page * pageSize;
             if (PageHeader.ReadType(file.AsSpan(at)) != PageType.DataPage) continue;
             for (int i = format.DataChainStampOffset; i < format.DataChainStampOffset + sizeof(int); i++) masks[page].Add(i);
             ReadOnlySpan<byte> bytes = file.AsSpan(at, pageSize);
-            if ((int)DataPage.ReadOwner(bytes, format) != objects.DefinitionPage) continue;
+            int from = DataPage.DirectoryEnd(format, DataPage.ReadRowCount(bytes, format));
 
-            // Every record on the page, a relocated row's hidden target included (flagged deleted but not empty) —
-            // only a forwarding pointer and a zero-length tombstone hold no row.
-            int rows = DataPage.ReadRowCount(bytes, format);
-            int end = pageSize;
-            var stamps = new List<byte[]>();
-            for (int row = 0; row < rows; row++)
+            // A chained long value's descriptor — bytes 8–11 of its twelve the tick count the chain's first page
+            // carries at 0x08 (long-values.md) — in a live record or in the bytes an old one left behind.
+            for (int d = from; d + format.LongValueDescriptorSize <= pageSize; d++)
             {
-                (int start, RowSlotFlags flags) = DataPage.ReadSlot(bytes, format, row);
-                int length = end - start;
-                if (start < end) end = start;
-                if ((flags & RowSlotFlags.Overflow) != 0 || length <= 0) continue;
-                foreach (int offset in dates)
-                {
-                    int date = start + format.RowColumnCountSize + offset;
-                    stamps.Add(bytes.Slice(date, 8).ToArray());
-                    for (int i = 0; i < 8; i++) masks[page].Add(date + i);
-                }
+                uint head = BinaryPrimitives.ReadUInt32LittleEndian(bytes[d..]);
+                uint stamp = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(d + stampAt)..]);
+                if ((head & ~(uint)format.LongValueLengthMask) != (uint)LongValueStore.StorageKind.Chained
+                    || stamp - firstTick > ticks) continue;
+                for (int i = 0; i < sizeof(uint); i++) masks[page].Add(d + stampAt + i);
             }
 
-            // And the stale copy of a record a rewrite left in the free space below the rows: both engines leave the
-            // same image there, the clock in it as in the live row it came from.
-            int freeStart = DataPage.DirectoryEnd(format, rows);
-            for (int p = freeStart; p + 8 <= end; p++)
-                foreach (byte[] stamp in stamps)
-                    if (bytes.Slice(p, 8).SequenceEqual(stamp))
-                        for (int i = 0; i < 8; i++) masks[page].Add(p + i);
-        }
+            if ((int)DataPage.ReadOwner(bytes, format) != objects) continue;
 
-        // A chained long value's descriptor carries the same write stamp as the chain's first page, bytes 8–11 of
-        // its twelve (long-values.md).
-        foreach (TableDefinition definition in database.Catalog.Tables)
-        {
-            if (!definition.Columns.Any(c => c.Type is JetDataType.Memo or JetDataType.Ole)) continue;
-            Table table = database.OpenTable(definition.Name);
-            foreach ((RowId id, _) in table.Rows().WithIds())
+            // An MSysObjects row's DateCreate and DateUpdate, live or in an old record's image.
+            var dates = new List<byte[]>();
+            for (int p = from; p + sizeof(double) <= pageSize; p++)
             {
-                var page = new DataPage();
-                page.Read(table.Channel.ReadPageShared(id.Page), table.Channel.Format);
-                if (page.Rows[id.Row] is not { IsDeleted: false, HasOverflow: false } slot) continue;
-                ReadOnlySpan<byte> row = page.GetRow(id.Row);
-                foreach (byte[] descriptor in RowCodec.LongValueDescriptors(definition, table.Channel.Format, row).Values)
-                {
-                    if (descriptor.Length < format.LongValueDescriptorSize
-                        || LongValueStore.Read(descriptor, format).Storage != LongValueStore.StorageKind.Chained) continue;
-                    int at = row.IndexOf(descriptor);
-                    int stamp = format.LongValueDescriptorChainStampOffset;
-                    if (at >= 0)
-                        for (int i = stamp; i < stamp + sizeof(int); i++) masks[id.Page].Add(slot.Offset + at + i);
-                }
+                double date = BinaryPrimitives.ReadDoubleLittleEndian(bytes[p..]);
+                if (date < earliest || date > latest) continue;
+                dates.Add(bytes.Slice(p, sizeof(double)).ToArray());
+                for (int i = 0; i < sizeof(double); i++) masks[page].Add(p + i);
             }
+
+            // And an old record's image the next record cut short keeps only the front of its last date — the low
+            // bytes, where the clocks differ.
+            for (int p = from; p < pageSize; p++)
+                foreach (byte[] date in dates)
+                {
+                    int kept = bytes[p..].CommonPrefixLength(date);
+                    if (kept >= sizeof(uint))
+                        for (int i = 0; i < kept; i++) masks[page].Add(p + i);
+                }
         }
 
         // A WHERE row's LvExtra, which ACE can fill with an uninitialised value that changes from one ACE process to

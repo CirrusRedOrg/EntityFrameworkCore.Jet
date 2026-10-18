@@ -1522,7 +1522,7 @@ public sealed class TableDefinition : Page
         int headerSize = format.TdefContinuationHeaderSize;
 
         foreach (int old in oldContinuations)
-            allocator.Release(old);   // reusable only after this handle closes, as ACE holds them
+            allocator.Release(old, untilCommit: true);   // reusable once the statement commits, as ACE frees them
 
         if (def.Length + headerSize <= ps)
         {

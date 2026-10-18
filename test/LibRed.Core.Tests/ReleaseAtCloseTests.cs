@@ -7,10 +7,11 @@ using Xunit;
 
 namespace LibRed.Core.Tests;
 
-// ACE holds the pages a session frees — a deleted row's long values, a dropped index, a dropped table — until the
-// session closes, then returns them and anything in the global released-pages map to the global free map and
+// ACE holds the pages a session frees — a deleted row's packed long value, a dropped index, a dropped table — until
+// the session closes, then returns them and anything in the global released-pages map to the global free map and
 // clears the released map, lengthening it to cover the highest page released (docs/format/page-05-usage-maps.md
-// §9.1). The long value an UPDATE replaces is the exception: its pages are free at once. Both maps are found through
+// §9.1). Two kinds are freed sooner: a chained long value an UPDATE replaces or a DELETE removes is free at once, and
+// a rewritten definition's old continuation pages are free when the statement commits. Both maps are found through
 // page 0's pointers; Northwind's free map has 310 and 329 inside the file, and its released map is empty.
 public class ReleaseAtCloseTests
 {
@@ -191,6 +192,113 @@ public class ReleaseAtCloseTests
             Assert.Equal(384, channel.PageCount);
             (int Row, int Page) chain = Assert.Single(table.Definition.LongValueOwnedMaps.Values);
             Assert.Contains(354, new UsageMap(channel, table.Definition).PagesInMap(chain.Row, chain.Page));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    [Fact]
+    public void A_deleted_rows_chained_long_value_is_free_at_once_and_a_packed_one_is_held()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "release-delete-");
+        try
+        {
+            int packedPage;
+            int[] chain;
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("Doc",
+                    [new("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                     new("M", JetDataType.Memo, 0, IsFixedLength: false)]);
+                Table table = db.OpenTable("Doc");
+                PageChannel channel = table.Channel;
+                table.Insert([1, new string('a', 20000)]);
+                (int Row, int Page) owned = Assert.Single(table.Definition.LongValueOwnedMaps.Values);
+                chain = [.. new UsageMap(channel, table.Definition).PagesInMap(owned.Row, owned.Page)];
+                table.Insert([2, new string('b', 1000)]);
+                packedPage = new UsageMap(channel, table.Definition).PagesInMap(owned.Row, owned.Page).Except(chain).Single();
+
+                List<(RowId Id, object?[] Values)> rows = [.. table.Rows().WithIds()];
+                table.Delete(rows.Single(r => (int)r.Values[0]! == 1).Id);
+                Assert.All(chain, page => Assert.True(FreeMapBit(channel, page)));
+
+                table.Delete(rows.Single(r => (int)r.Values[0]! == 2).Id);
+                Assert.False(FreeMapBit(channel, packedPage));
+            }
+
+            using (var db = JetDatabase.Open(path))
+                Assert.True(FreeMapBit(db.OpenTable("MSysObjects").Channel, packedPage));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // An UPDATE replacing a chained value with one that does not chain takes the long-value page the next request
+    // would get, before writing anything, and frees it unwritten with the old chain; an UPDATE emptying a packed
+    // value's page holds it, as a delete does. Measured through ACE: on one connection, after a 5000-character value
+    // went to pages 45-47 of a 48-page file, setting it to 'small' freed 45-48 and left the file at 48 pages.
+    [Fact]
+    public void Replacing_a_chained_value_frees_an_unwritten_page_and_emptying_a_packed_page_holds_it()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "release-update-");
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            db.CreateTable("Doc",
+                [new("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                 new("M", JetDataType.Memo, 0, IsFixedLength: false)]);
+            Table table = db.OpenTable("Doc");
+            PageChannel channel = table.Channel;
+            (int Row, int Page) Owned() => Assert.Single(db.OpenTable("Doc").Definition.LongValueOwnedMaps.Values);
+
+            table.Insert([1, new string('a', 5000)]);
+            int[] chain = [.. new UsageMap(channel, table.Definition).PagesInMap(Owned().Row, Owned().Page)];
+            int pages = channel.PageCount;
+            (RowId id, object?[] values) = table.Rows().WithIds().Single();
+            values[1] = "small";
+            table.Update(id, values, new HashSet<int> { 1 });
+            Assert.Equal(pages, channel.PageCount);                    // the page taken is not written
+            Assert.All(chain, page => Assert.True(FreeMapBit(channel, page)));
+            Assert.True(FreeMapBit(channel, pages));                   // the next page, taken and freed unwritten
+
+            table.Insert([2, new string('b', 1000)]);
+            int packed = new UsageMap(channel, table.Definition).PagesInMap(Owned().Row, Owned().Page).Except(chain).Single();
+            (id, values) = table.Rows().WithIds().Single(r => (int)r.Values[0]! == 2);
+            values[1] = null;
+            table.Update(id, values, new HashSet<int> { 1 });
+            Assert.False(FreeMapBit(channel, packed));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    [Fact]
+    public void A_rewritten_definitions_old_continuation_pages_are_free_when_the_statement_commits()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "release-rewrite-");
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var specs = new List<ColumnSpec> { new("Id", JetDataType.Int32, 4, IsFixedLength: true) };
+            for (int i = 1; i <= 252; i++) specs.Add(new($"C{i:D3}", JetDataType.Text, 40, IsFixedLength: false));
+            db.CreateTable("Wide", specs);
+            PageChannel channel = db.OpenTable("Wide").Channel;
+            int[] Continuations() =>
+                [.. TableDefinition.ReadChain(channel, db.Catalog.FindTable("Wide")!.DefinitionPage).ContinuationPages];
+
+            // Rolled back, the rewrite frees nothing.
+            int[] original = Continuations();
+            Assert.NotEmpty(original);
+            db.BeginTransaction();
+            Assert.True(db.DropColumn("Wide", "C005"));
+            db.Rollback();
+            Assert.Equal(original, Continuations());
+            Assert.All(original, page => Assert.False(FreeMapBit(channel, page)));
+
+            // Committed, the old continuations are held through the statement and free once it commits.
+            db.BeginTransaction();
+            Assert.True(db.DropColumn("Wide", "C005"));
+            Assert.All(original, page => Assert.False(FreeMapBit(channel, page)));
+            Assert.Empty(Continuations().Intersect(original));
+            db.Commit(flush: false);
+            Assert.All(original, page => Assert.True(FreeMapBit(channel, page)));
         }
         finally { TemporaryDatabase.Delete(path); }
     }

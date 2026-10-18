@@ -228,9 +228,9 @@ the documented 255-column, 32-index, and 64-character-name limits.
 
 > **Rewriting a multi-page TDEF (verified vs ACE: `ADD COLUMN`, `DROP COLUMN`, `CREATE INDEX`).** Growing or
 > shrinking, ACE rewrites the **first page in place** but writes the continuation data to **newly allocated
-> pages**, and releases the old continuation pages without touching a byte of them (they keep type `0x0102`);
-> they are back in the global free-pages map once the session closes. The new last page is zero past its
-> data. The **last continuation is allocated first**, each allocation taking the lowest free page: from free
+> pages**, and frees the old continuation pages without touching a byte of them (they keep type `0x0102`);
+> they are back in the global free-pages map once the rewriting statement ends ([page-05](page-05-usage-maps.md)).
+> The new last page is zero past its data. The **last continuation is allocated first**, each allocation taking the lowest free page: from free
 > pages `354…` a two-continuation chain became `first → 355 → 354`, and from the end of a file
 > `first → n+1 → n` (a `CREATE TABLE`'s chain runs the same way). When a definition falls back to one page,
 > the first page's `0x04` next pointer is zeroed and it follows the single-page rule below (8 bytes zeroed

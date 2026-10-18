@@ -223,17 +223,26 @@ A far larger page number is refused on the first open — from page 524,289 exac
 Only the page is checked on open — any row byte passes — but a `0x18` naming a record that is not a usage
 map (page 0, a TDEF page, an ordinary data page) fails at the first allocation and damages the database.
 
-**Freed pages are released at close, through the released-pages map.** Pages freed during a session are not
-reusable on the same connection: later allocations in that session grow the file instead, and the free map on
+**Freed pages are released at close, through the released-pages map.** Most pages freed during a session are
+not reusable on the same connection: later allocations in that session grow the file instead, and the free map on
 disk does not change until the file closes (verified). A handle's freed pages are its own business until then:
-on disk they are in neither map, and only the close moves them into the free map. At close ACE moves them into the free map. This holds for the
-long-value pages of a deleted row, the pages of a dropped index — by `DROP INDEX`, by `DROP CONSTRAINT` on a
-foreign key, or by the index rebuild of an `ALTER COLUMN` — and every page of a dropped table. A free made in a
-transaction that rolls back frees nothing; one that commits stays released even if a later transaction on the
-connection rolls back.
+on disk they are in neither map, and only the close moves them into the free map. This holds for the data and
+index pages a delete empties, every page of a `DELETE` with no `WHERE` (its long values included), a packed long
+value's page a deleted row or an `UPDATE` empties, a dropped Memo column's long values, the pages of a dropped index — by
+`DROP INDEX`, by `DROP CONSTRAINT` on a foreign key, or by the index rebuild of an `ALTER COLUMN` — and every page
+of a dropped table (verified). A free
+made in a transaction that rolls back frees nothing; one that commits stays released even if a later transaction
+on the connection rolls back.
 
-The exception is the long value an `UPDATE` replaces: its pages are set in the free map at once, and later
-statements on the same connection reuse them; the `UPDATE` that frees them does not.
+Two kinds of page are freed sooner (verified):
+
+- A **chained long value's** pages, when an `UPDATE` replaces the value or a `DELETE … WHERE` removes its row,
+  are set in the free map at once, and later statements on the same connection reuse them; the `UPDATE` that frees
+  them does not. An `UPDATE` replacing a chained value with one that does not chain — null, inline or single-page —
+  first takes the long-value page the next request would get, opening a shared reservation if there is none, and
+  frees it with the old chain without writing it: a page past the end of the file stays unwritten.
+- A rewritten definition's **old continuation pages** are set in the free map when the rewriting statement ends,
+  so the statement itself does not reuse them and the next one may.
 
 Any page set in the released-pages map is likewise **never allocated**, and at close its pages are merged into
 the free map and the map is left empty. Before that merge, the close sizes the map to cover every page released.
@@ -359,7 +368,7 @@ This is allocation policy, not an on-disk requirement; the measurements behind i
 >
 > **Allocator mutation guardrails.** Both page-0 pointers must name distinct, live, non-overflow rows on
 > data pages inside the file, each an inline record with its complete header or a reference record of
-> exactly 69 bytes with unique in-file bitmap pointers and the complete `[05 01 00 00]` header. A writable
+> exactly 69 bytes with unique in-file bitmap pointers to pages of type `0x0105`. A writable
 > open checks this before anything else; a read-only open, which never allocates, does not. Page 0, the
 > map holder pages, bitmap pages themselves, out-of-file free targets, and non-contiguous growth targets are
 > rejected before a free bit is cleared or set.

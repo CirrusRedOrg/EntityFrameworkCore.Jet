@@ -30,15 +30,17 @@ internal sealed class PageAllocator
     private Dictionary<(int Row, int Page), (int Start, byte Bits)> _groups = [];
     private Dictionary<(int Row, int Page), int> _otherGroups = [];
     private Dictionary<(int Row, int Page), (int Page, int Held)> _dataGroups = [];
+    private List<int> _heldUntilCommit = [];
 
     /// <summary>Session allocation state captured with a transaction or savepoint's page images.</summary>
     internal sealed record AllocationState(int Start, uint Bits, int BitmapSlot, Dictionary<(int Row, int Page), int> Owners,
         Dictionary<(int Row, int Page), (int Start, byte Bits)> Groups, Dictionary<(int Row, int Page), int> OtherGroups,
-        Dictionary<(int Row, int Page), (int Page, int Held)> DataGroups);
+        Dictionary<(int Row, int Page), (int Page, int Held)> DataGroups, List<int> HeldUntilCommit);
 
     internal AllocationState State
     {
-        get => new(_reservationStart, _reservationBits, _bitmapSlot, new(_owners), new(_groups), new(_otherGroups), new(_dataGroups));
+        get => new(_reservationStart, _reservationBits, _bitmapSlot, new(_owners), new(_groups), new(_otherGroups), new(_dataGroups),
+            [.. _heldUntilCommit]);
         set
         {
             _reservationStart = value.Start;
@@ -48,6 +50,7 @@ internal sealed class PageAllocator
             _groups = new(value.Groups);
             _otherGroups = new(value.OtherGroups);
             _dataGroups = new(value.DataGroups);
+            _heldUntilCommit = [.. value.HeldUntilCommit];
         }
     }
 
@@ -76,7 +79,7 @@ internal sealed class PageAllocator
     }
 
     public int Allocate((int Row, int Page)? owner = null, int previousPage = -1, (int Row, int Page)? data = null,
-        bool leaf = false)
+        bool leaf = false, bool materialize = true)
     {
         (MapRecord free, MapRecord released) = ReadGlobalMaps();
         var releasedPages = new ReleasedPages(this, released);
@@ -128,7 +131,7 @@ internal sealed class PageAllocator
 
         if (_reservationBits != 0)
             return TakeReserved(_reservationStart + BitOperations.TrailingZeroCount(_reservationBits), free, released,
-                releasedPages, owner);
+                releasedPages, owner, materialize);
 
         bool groups = false;
         if (owner is { } pointer)
@@ -163,7 +166,7 @@ internal sealed class PageAllocator
             }
         }
         if (free.Type == UsageMapType.Reference)
-            return AllocateFromReferenceMap(free, released, releasedPages, owner, groups);
+            return AllocateFromReferenceMap(free, released, releasedPages, owner, groups, materialize);
 
         JetFormatBase format = _channel.Format;
         int startPage = UsageMap.StartPage(free.Record, format);
@@ -174,7 +177,7 @@ internal sealed class PageAllocator
             if (releasedPages.Contains(allocated)) continue; // released, not yet reusable
             if (groups && (allocated % 8 != 0 || bit % 8 != 0 || bitmap[bit / 8] != byte.MaxValue
                 || Enumerable.Range(allocated, 8).Any(releasedPages.Contains))) continue;
-            return TakePage(allocated, free, released, releasedPages, owner, reserve: !groups);
+            return TakePage(allocated, free, released, releasedPages, owner, reserve: !groups, materialize);
         }
 
         if (groups)
@@ -205,7 +208,7 @@ internal sealed class PageAllocator
 
     /// <summary>Takes one page or the free portion of its four-group reservation, using either global map form.</summary>
     private int TakePage(int page, MapRecord free, MapRecord released, ReleasedPages releasedPages,
-        (int Row, int Page)? owner, bool reserve)
+        (int Row, int Page)? owner, bool reserve, bool materialize = true)
     {
         JetFormatBase format = _channel.Format;
         int start;
@@ -241,7 +244,7 @@ internal sealed class PageAllocator
             reservation |= 1u << (candidate - first);
         }
         // Validate/materialize before changing any free bits.
-        EnsurePhysicalAllocation(page);
+        if (materialize) EnsurePhysicalAllocation(page);
         for (int candidate = first; candidate < end; candidate++)
             if ((reservation & (1u << (candidate - first))) != 0)
                 BitmapBits.Set(bits, candidate - start, false);
@@ -257,13 +260,16 @@ internal sealed class PageAllocator
         return page;
     }
 
-    /// <summary>Returns unused owner-private group pages at statement commit; shared reservations survive.</summary>
+    /// <summary>Returns unused owner-private group pages, and the pages held until commit, at statement commit;
+    /// shared reservations survive.</summary>
     internal void ReturnGroups()
     {
         foreach (var group in _groups.Values) ReturnGroup(group, toReservation: false);
         _groups.Clear();
         _otherGroups.Clear();
         _dataGroups.Clear();
+        foreach (int page in _heldUntilCommit) Free(page);
+        _heldUntilCommit.Clear();
     }
 
     /// <summary>Returns an owner group's held pages to the free map — or, with <paramref name="toReservation"/>, to
@@ -286,27 +292,31 @@ internal sealed class PageAllocator
 
     /// <summary>Takes <paramref name="page"/> out of the shared reservation.</summary>
     private int TakeReserved(int page, MapRecord free, MapRecord released, ReleasedPages releasedPages,
-        (int Row, int Page)? owner)
+        (int Row, int Page)? owner, bool materialize = true)
     {
         ValidateReusablePage(page, "session reservation", free, released, Math.Max(page, _channel.PageCount));
         if (releasedPages.Contains(page))
             throw new InvalidDataException($"Reserved page {page} is also released.");
-        EnsurePhysicalAllocation(page);
+        if (materialize) EnsurePhysicalAllocation(page);
         _reservationBits &= ~(1u << (page - _reservationStart));
         if (owner is { } reservedOwner) _owners[reservedOwner] = page;
         return page;
     }
 
     /// <summary>Returns a page to the global free-pages map now (sets its bit), so it can be reused — the
-    /// inverse of <see cref="Allocate"/>. ACE frees this way only the pages of a long value an UPDATE replaces;
-    /// every other freed page is held until the session closes, through <see cref="Release"/>.</summary>
+    /// inverse of <see cref="Allocate"/>. ACE frees this way only a chained long value's pages, when an UPDATE
+    /// replaces the value or a DELETE removes its row, and the page such an UPDATE takes unwritten; every other
+    /// freed page is held, through <see cref="Release"/>.</summary>
     public void Free(int page)
     {
         (MapRecord free, MapRecord released) = ReadGlobalMaps();
         bool reserved = Reserved(page);
         reserved |= _groups.Values.Any(g => page >= g.Start && page < g.Start + 8
             && (g.Bits & (1 << (page - g.Start))) != 0);
-        ValidateReusablePage(page, "page being freed", free, released, reserved ? Math.Max(page, _channel.PageCount - 1) : _channel.PageCount - 1);
+        // A page past the end of the file is one taken unwritten (Allocate without materialize); its free bit is the growth
+        // region's, as a reserved page's is.
+        ValidateReusablePage(page, "page being freed", free, released,
+            reserved || page >= _channel.PageCount ? Math.Max(page, _channel.PageCount - 1) : _channel.PageCount - 1);
 
         if (free.Type == UsageMapType.Reference)
         {
@@ -333,16 +343,19 @@ internal sealed class PageAllocator
     }
 
     /// <summary>
-    /// Frees a page the way ACE frees the pages of a deleted row's long values, a dropped index and a dropped
-    /// table: it is not reusable while this handle stays open, and goes back to the global free map only when
-    /// <see cref="ReturnReleasedPages"/> runs at close. Inside a transaction it is released only if the
-    /// transaction commits.
+    /// Frees a page the way ACE frees a dropped table, a dropped index, a deleted row's packed long value and
+    /// the pages a delete empties: it is not reusable while this handle stays open, and goes back to the global
+    /// free map only when <see cref="ReturnReleasedPages"/> runs at close. Inside a transaction it is released
+    /// only if the transaction commits. With <paramref name="untilCommit"/> it is held only until the statement's
+    /// transaction commits, as ACE holds a rewritten definition's old continuation pages — or, outside one, until
+    /// close.
     /// </summary>
-    public void Release(int page)
+    public void Release(int page, bool untilCommit = false)
     {
         (MapRecord free, MapRecord released) = ReadGlobalMaps();
         ValidateReusablePage(page, "page being released", free, released, _channel.PageCount - 1);
-        _channel.ReleaseAtClose(page);
+        if (untilCommit) _heldUntilCommit.Add(page);
+        else _channel.ReleaseAtClose(page);
     }
 
     /// <summary>
@@ -524,7 +537,7 @@ internal sealed class PageAllocator
     /// per-table owned map). Finds the first free page, clears its bit on the bitmap page, and returns it;
     /// grows the file when no bitmap records a free page.</summary>
     private int AllocateFromReferenceMap(MapRecord free, MapRecord released, ReleasedPages releasedPages,
-        (int Row, int Page)? owner, bool groups)
+        (int Row, int Page)? owner, bool groups, bool materialize)
     {
         JetFormatBase format = _channel.Format;
         ReadOnlySpan<byte> map = free.Record;
@@ -546,7 +559,7 @@ internal sealed class PageAllocator
                     || Enumerable.Range(allocated, 8).Any(releasedPages.Contains))) continue;
                 if (bitmapPages.Contains(allocated))
                     throw new InvalidDataException($"Global free map marks bitmap page {allocated} itself as free.");
-                return TakePage(allocated, free, released, releasedPages, owner, reserve: !groups);
+                return TakePage(allocated, free, released, releasedPages, owner, reserve: !groups, materialize);
             }
         }
 

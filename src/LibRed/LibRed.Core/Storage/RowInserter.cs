@@ -170,9 +170,13 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
                 FreeLongValue(column, stale, releaseAtClose: false);
         }
 
-        MaterializeLongValues(storage);
+        List<int> unwritten = MaterializeLongValues(storage, [.. replaced
+            .Where(r => LongValueStore.Read(r.Descriptor, format).Storage == LongValueStore.StorageKind.Chained)
+            .Select(r => r.Column.Index)]);
+        // A chain goes back at once; a single-page value's page this empties is held, as a delete holds it (measured).
         foreach ((ColumnDef column, byte[] descriptor) in replaced)
-            FreeLongValue(column, descriptor, releaseAtClose: false);
+            FreeLongValue(column, descriptor, releaseAtClose: true);
+        foreach (int page in unwritten) _channel.Allocator.Free(page);
 
         byte[] srcPage = _channel.ReadPageShared(id.Page).Span.ToArray();
         // Written over the old row, as ACE writes it: its fixed bytes, its dropped columns' chunks and their bits
@@ -342,7 +346,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     /// <summary>
     /// Deletes the row at <paramref name="id"/> and reclaims its space, then decrements the TDEF row count
     /// (0x10). The caller removes the row's index entries first. A relocated row's hidden target is reclaimed
-    /// too, and its LVAL pages are freed — held until the connection closes, as ACE holds a delete's. A page
+    /// too, and its long values are freed as ACE frees a delete's (see <see cref="FreeLongValue"/>). A page
     /// whose last live row this was is released outright (<see cref="WriteReclaimedPage"/>).
     /// </summary>
     public void Delete(RowId id)
@@ -350,7 +354,8 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         JetFormatBase format = _channel.Format;
         bool released;
 
-        // Free the deleted row's chained long-value pages — held until close, as ACE holds them.
+        // Free the deleted row's long values — a chained value's pages at once, a packed value held until close,
+        // as ACE frees them.
         byte[] rowBytes = ReadRowBytes(id);
         var oldDescriptors = RowCodec.LongValueDescriptors(_table, format, rowBytes);
 
@@ -675,13 +680,13 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     /// <summary>
     /// Reclaims the LVAL pages of a replaced/deleted long value. A <b>chained</b> value owns dedicated pages
     /// (one chunk per page): each is freed to the global map and cleared from the column's owned/free maps.
-    /// Inline (0x80) values have no pages; single-page (0x40) values share a page with others, so reclaiming
-    /// their row is deferred (they are left in place — a small, shared-page leak).
+    /// Inline (0x80) values have no pages; a single-page (0x40) value shares its page, which goes back only with
+    /// the last value on it (<see cref="ReleasePackedValue"/>).
     /// </summary>
     /// <remarks>
-    /// Measured against ACE on one connection: the pages of a value an UPDATE replaces are set in the global
-    /// free map at once, while a DELETE's are not reusable until the connection closes
-    /// (<paramref name="releaseAtClose"/>, see <see cref="PageAllocator.Release"/>).
+    /// Measured against ACE on one connection: a chained value's pages are set in the global free map at once,
+    /// whether an UPDATE replaced the value or a DELETE removed its row. A packed value's page an UPDATE or a DELETE
+    /// empties is held until close (<paramref name="releaseAtClose"/>, see <see cref="PageAllocator.Release"/>).
     /// </remarks>
     private void FreeLongValue(ColumnDef column, byte[] descriptor, bool releaseAtClose)
     {
@@ -717,7 +722,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         // partially free. The writes themselves are atomic under the caller's transaction (the engine opens
         // one per statement); a direct Core caller without one gets no more than any other multi-page write.
         foreach (int page in pages)
-            ReleaseLongValuePage(page, owned, free, releaseAtClose);
+            ReleaseLongValuePage(page, owned, free, releaseAtClose: false);
     }
 
     /// <summary>Gives a long-value page back — held until close or free at once — and clears it from the
@@ -981,16 +986,25 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     }
 
     /// <inheritdoc cref="ToStorageValues"/>
-    private void MaterializeLongValues(object?[] values)
+    /// <param name="values">The row, its long values replaced by their descriptors as they are written.</param>
+    /// <param name="replacingChains">For an UPDATE, the columns whose old value is chained. Before anything is
+    /// written ACE takes a long-value page for each whose new value does not chain — null, inline or single-page —
+    /// and writes nothing to it (measured); those pages are returned for the caller to free with the old chains.</param>
+    private List<int> MaterializeLongValues(object?[] values, IReadOnlyCollection<int>? replacingChains = null)
     {
+        var unwritten = new List<int>();
+        int maxSinglePage = _channel.Format.LongValueMaxSinglePage;
+        foreach (int column in replacingChains ?? [])
+            if (!Chains(values[column])) unwritten.Add(_channel.Allocator.Allocate(materialize: false));
+
         // ACE writes a row's chained values first and its single-page values after, each in column order
         // (measured), so a single-page value in an earlier column takes the page after the chains, not before.
         LongValueStore? writer = null;
-        int maxSinglePage = _channel.Format.LongValueMaxSinglePage;
         foreach (bool chained in new[] { true, false })
             foreach (ColumnDef column in _table.Columns)
                 if (column.Type is JetDataType.Memo or JetDataType.Ole && Chains(values[column.Index]) == chained)
                     values[column.Index] = MaterializeLongValue(column, values[column.Index], ref writer);
+        return unwritten;
 
         // The storage form follows the uncompressed length, as MaterializeLongValue decides it.
         bool Chains(object? value) => value switch

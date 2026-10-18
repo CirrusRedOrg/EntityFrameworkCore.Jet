@@ -401,13 +401,16 @@ is more permissive than ACE**, which refuses such a column outright; whether Lib
 
    The bytes settle what "an error" means on disk, and it is **not** the same as Null: the envelope's leading
    field holds the **VBA error number** (94 "Invalid use of Null", 13 "Type mismatch"), and an error envelope
-   is 38 bytes against 23 for a Null — see [page-02b §3.4a](page-02b-columns.md).
+   fills the 39-byte declared length with zeros after the status, against 23 bytes for a Null — see
+   [page-02b §3.4a](page-02b-columns.md).
 
    **Reading** is settled: a non-zero status throws rather than decoding as Null, naming the VBA error and
    the expression that raised it. Zero is that field's success code, so a value and a propagated Null both
    read exactly as before.
 
-   **Writing** is settled too, and diverges deliberately: **LibRed refuses the row.** ACE accepts the insert
+   **Writing** is settled too, and diverges deliberately: **LibRed refuses the row.** For a Text or Memo
+   result that is what ACE does as well — it refuses the insert with *"Error evaluating CHECK constraint."*
+   (verified). For a value result ACE accepts the insert
    and caches the failure, after which its own reader rejects that row — and the state is **sticky**: a
    compact-and-repair does *not* clear it (still error 94 afterwards, rows intact); the only thing that does
    is an `UPDATE` writing a column the expression reads, forcing a recompute — which needs a value for the

@@ -133,7 +133,7 @@ Nullability is **not** in the descriptor — it's the `Required` property in `Lv
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 4 | VBA error number, little-endian — `0` for a value or Null; an error envelope is 38 bytes |
+| `0x00` | 4 | VBA error number, little-endian — `0` for a value or Null; an error envelope is the 39-byte declared length, zero after the status |
 | `0x04` | 12 | Reserved (zero) |
 | `0x10` | 4 | Payload length, little-endian |
 | `0x14` | *n* | Payload — the value in its ordinary encoding |

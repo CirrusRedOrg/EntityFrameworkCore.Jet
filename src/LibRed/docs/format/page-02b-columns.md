@@ -182,11 +182,15 @@ variable-length**, and its slot holds a fixed envelope around the result ACE las
 > | expression, over the bad input | envelope |
 > | --- | --- |
 > | `[Qty]/3` over Null (propagates) | all 23 bytes zero — a zero-length payload, i.e. Null |
-> | `CDbl([Qty])/3` over Null | starts `5E 00 00 00`, 38 bytes — **94**, VBA "Invalid use of Null" |
-> | `CDbl([A])` over `'hello'` | starts `0D 00 00 00`, 38 bytes — **13**, VBA "Type mismatch" |
+> | `CDbl([Qty])/3` over Null | starts `5E 00 00 00`, 39 bytes — **94**, VBA "Invalid use of Null" |
+> | `CDbl([A])` over `'hello'` | starts `0D 00 00 00`, 39 bytes — **13**, VBA "Type mismatch" |
 >
-> So the leading field is the VBA runtime error number, and an error envelope is 38 bytes against 23 for a
-> Null. Reading such a column through OLE DB fails with *"Multiple-step OLE DB operation generated errors"* —
+> So the leading field is the VBA runtime error number. **An error envelope fills the column's declared
+> length** — 39 bytes, the constant every value-type result declares (below), whatever the result type and
+> whatever the error — and every byte after the status is zero, the payload length included: no payload, and
+> nothing else recorded. A **Text** or **Memo** result never caches one: ACE refuses the `INSERT` instead,
+> with *"Error evaluating CHECK constraint."* Reading such a column through OLE DB fails with
+> *"Multiple-step OLE DB operation generated errors"* —
 > ACE will not hand back a row whose calculated column is in an error state. Anything decoding the payload
 > alone would read it as Null — a silent disagreement, since the payload is empty both ways — so LibRed reads
 > the status and refuses the row as ACE does, with the VBA error it names (`CalculatedExpressionException`,

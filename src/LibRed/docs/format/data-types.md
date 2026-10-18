@@ -25,11 +25,20 @@
 | `0x13` | Int64 — **BIGINT** (ACE 16 / Access 2016) | 8-byte little-endian signed integer. Stored as a *variable*-length column (see below) |
 | `0x14` | DateTimeExtended — **DATETIME2** (ACE 17 / Access 2019+) | fixed 42-byte ASCII `<day>:<time>:<precision>` (see below) |
 
-> **Unmodelled codes are read, not refused.** `0x0D` and `0x0E` are held open in `JetDataType` as
-> `Unknown*` placeholders: a TDEF carrying one still parses, the column decodes to its **raw bytes**, and only
-> *writing* such a column is refused. This is not tidiness — the catalog reads **every** table's definition,
-> so a reader that refuses one unrecognised column cannot open the database at all. Neither has ever been
-> observed.
+> **`0x0D` and `0x0E` are not types ACE has** (verified). ACE treats a column carrying either as present but
+> unusable, not as a damaged table: the database and the table open, the other columns read and take inserts —
+> the column left Null — and OLE DB lists the column as binary (`DBTYPE_BYTES`) at its declared length. But ACE
+> will not hand back its value (*"Multiple-step OLE DB operation generated errors"*), evaluate a predicate over
+> it (*"Cannot perform this operation."*) or write a value to it (*"Cannot update '(expression)'; field not
+> updateable."*), and DAO refuses the table's definition (*"Operation is not supported for this type of
+> object."*).
+>
+> LibRed holds both open in `JetDataType` as `Unknown*` placeholders so that a TDEF carrying one still
+> parses — the catalog reads **every** table's definition, so refusing one unrecognised column would make the
+> whole database unopenable. As in ACE, a row may leave the column Null and writing a value to it is refused.
+> **Reading differs deliberately:** LibRed hands back the stored **raw bytes** where ACE refuses the value,
+> because its row reader decodes every column, and refusing the one column would make the rest of the table
+> unreadable too.
 
 **`0x11` is BigBinary — a binary value bounded by a single data page.** It holds up to 4000 bytes, which sits
 just inside the 4060-byte record cap ([page-01 §5](page-01-data-and-rows.md)), and the value is always stored

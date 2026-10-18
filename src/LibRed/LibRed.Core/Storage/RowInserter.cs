@@ -735,7 +735,8 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     /// deleted+overflow tombstone</b> and the page is re-laid, the surviving records packing from the page end
     /// in slot order so the freed space is reclaimed. When nothing live is left the page is given back — its
     /// type set to <see cref="PageType.ReleasedDataPage"/>, its bit cleared from the column's owned
-    /// and free maps, and the page returned to the global allocator.
+    /// and free maps, and the page returned to the global allocator — unless the column has no free-pages map,
+    /// where the released page stays owned and allocated.
     /// </summary>
     /// <remarks>
     /// Measured against ACE, deleting 4 of 12 rows whose 400-character memos shared one page, then all 12:
@@ -790,6 +791,11 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             if (free.Page != 0) _usageMaps.SetBit(free.Row, free.Page, pageNumber, set: true, movableWindow: true);
             return;
         }
+
+        // Without a free-pages map even an emptied page is kept: ACE marks it released but leaves it in the owned
+        // map and allocated in the global one, and the column's next value takes a fresh page all the same
+        // (measured). A chained value's pages are freed as usual — ACE does that for such a column too.
+        if (free.Page == 0) return;
         ReleaseLongValuePage(pageNumber, owned, free, releaseAtClose);
     }
 

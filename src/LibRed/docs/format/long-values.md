@@ -277,9 +277,11 @@ remainder and continue into a reservation from the next bitmap. The bitmap selec
 > column examined has both. Such a column **never shares a page**: each value over 64 bytes is on an LVAL
 > page of its own, recorded in the owned map alone.
 > LibRed writes to one the same way — a fresh page per value, owned bit only, nothing packed — and ACE reads
-> the result back and keeps it through a compact (verified, single-page and chained values). LibRed retires a
-> value from one by clearing its owned bit and releasing the page, there being no free map to update — not
-> measured against ACE.
+> the result back and keeps it through a compact (verified, single-page and chained values). Retiring a value
+> differs by form (verified). A **single-page** value's page is re-laid and,
+> once empty, typed `0x09` as released — but it **stays in the owned map and stays allocated** in the global
+> map, and the column's next value still takes a fresh page rather than reusing it. A **chained** value's pages
+> are freed as in any other column: cleared from the owned map and released.
 >
 > The §3.3.2 entry is only strictly *required* once a value spills to LVAL pages — an entry-less table
 > still round-trips inline values through both LibRed and Access, but Access fails *"Not a valid bookmark"*

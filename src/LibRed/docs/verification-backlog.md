@@ -19,6 +19,9 @@ Items marked ✔ were re-checked by reading the cited code/test; the rest are as
 | Blocked attachment types (system-catalog) | **The engine refuses them through DAO** (`0x800C000E`, any case) — a wide list, inferred to be Windows' dangerous file types. **LibRed now refuses the measured set** under `enforceAccessLimits`. | `ComplexColumnTests.Attachment_types_ace_refuses_are_refused` |
 | Type-name spellings (data-types) | Three-word names already parsed and mapped as ACE maps them. **LibRed bug, fixed:** `NATIONAL TEXT` (bare Memo, sized variable Text) was refused. The unmapped names are refused by both. | `TypeAliasTests.Alias_maps_to_ace_storage` |
 | DefaultValue/Required without the DDL flag (system-catalog) | **LibRed bug, fixed:** its reader applied them whatever the entry flag; ACE ignores them at `0x00`. | `PropertyBlobTests.Default_and_required_without_the_ddl_flag_are_not_read` |
+| Retiring a long value with no free map (long-values) | **LibRed bug, fixed:** an emptied single-page value's page stays owned and allocated in ACE (typed `0x09`, never reused); LibRed cleared the owned bit and freed it. Chained values already matched. | `LongValueNoFreeMapAccessTests` (ACE and LibRed twins byte-identical past page 0) |
+| Error envelope (page-02b) | 39 bytes, not 38: the column's declared length, zero after the status, length 0 — every value result type, errors 94 and 13. A Text/Memo result caches none: ACE refuses the insert (*"Error evaluating CHECK constraint."*). LibRed reads by status and refuses every such write. No code change. | measured once (probe not kept) |
+| Type codes `0x0D`/`0x0E` (data-types) | In no corpus file. Patched in, ACE opens the table but refuses the column's value, predicates and writes; DAO refuses the table. LibRed matches on writes (Null accepted, a value refused) and reads raw bytes by decision. No code change. | measured once (probe not kept) |
 
 ## Settled 2026-10-17
 
@@ -70,10 +73,7 @@ location, and four mdbtools-TODO entries (`0x1C`, v1 collation, the index header
 
 | where | claim | instrument | probe |
 |---|---|---|---|
-| long-values:275 | Retiring a value from a column with an owned map but no free map — not measured against ACE. | ACE OLE DB + patch | Patch a table's §3.3.2 free pointer to 0; insert >64-byte values through LibRed; delete one through ACE and one through LibRed on twins; diff owned map, page type, global free bit. |
 | system-catalog:114 | A set `0x01` makes a property definition-protected (its effect on DEFAULT/Required/CHECK is settled above). | DAO with a secured workgroup | Under a secured `.mdw`, try deleting a `0x01` vs a `0x00` property as a user without `dbSecWriteDef`. |
-
-long-values:275 needs the §3.3.2 free pointer patched to 0.
 
 ## 2. Engine/catalog surface — ACE answers in one statement each
 
@@ -81,8 +81,6 @@ long-values:275 needs the §3.3.2 free pointer patched to 0.
 |---|---|---|---|
 | functions.md:57 | Function list "not proven exhaustive". | ACE OLE DB | Every member of the VBA type library modules → `SELECT fn(<args>) FROM MSysObjects WHERE 1=0`; bucket "Undefined function" vs anything else; diff with `ExpressionEvaluator`'s dispatch. Commit as the missing `FunctionWhitelist*ProbeTest`. |
 | page-02c:151 | Create-time DEFAULT validation (LibRed rejects at INSERT). | measured, not yet implemented | ACE at CREATE / ADD COLUMN: `[A]` → "The database engine does not recognize either the field 'A' in a validation expression, or the default value in the table 'T'."; bare `A` into a LONG → "Type mismatch"; `Sum(1)`, `Count(*)`, `Foo()` (and `DCount(…)` in ADD COLUMN) → "Unknown function 'Sum' in validation expression or default value on 'T.C'."; a subquery, and `DCount('*','X')` in CREATE (its comma, inferred), → "Syntax error in CREATE/ALTER TABLE statement." Needs the evaluator to answer "is this function known" without running it. |
-| page-02b:180 | Error envelope is 38 bytes vs 23 for Null; the extra 15 undescribed. | DAO, existing fixture | From `Records_what_ace_stores_for_a_conversion_over_null`: diff error-94 vs error-13 envelopes under Text and Long result types; decode the length field and the 15 bytes. |
-| data-types:28 | Type codes `0x0D`/`0x0E` never observed. | corpus + patch | Scan corpus TDEFs; patch a Binary column's type to `0x0D`; ACE open/select, DAO `Field.Type`. |
 | transactions:347 | `.laccdb` lifecycle (create on first open, delete on last close). | ACE OLE DB | `File.Exists` before/during/after two overlapping connections, and after a killed child process. |
 | btree:913 | Irish 1084 unmeasured — ACE OLE DB refuses it in-process. | DAO only, **child process** | Fresh process doing nothing else first: DAO creates the db, an indexed `TEXT`, the Latin blocks + 193 samples; LibRed reads `RawEntries()` and diffs against General v0. The survey notes the refusal depends on what the process did first — confirm the child gets past `CREATE INDEX`. |
 | page-02e:322 | Calculated-index trap measured for Int16/Int32 only. | DAO + ACE | Text/Double/Date/Memo calculated columns; `CREATE INDEX` + `INSERT` through ACE. Low value — LibRed refuses every route. |

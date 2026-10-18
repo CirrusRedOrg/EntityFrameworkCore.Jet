@@ -233,17 +233,12 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
     private static int ReferencePointerOffset(int slot, JetFormatBase format) =>
         format.UsageMapReferencePointersOffset + slot * sizeof(int);
 
-    /// <summary>Whether <paramref name="page"/> carries a dedicated bitmap page's complete
-    /// <c>[05 01 00 00]</c> header — the check every reader and writer makes before trusting a pointer to one.</summary>
-    private static bool IsBitmapPage(ReadOnlySpan<byte> page, JetFormatBase format) =>
-        PageHeader.ReadType(page) == PageType.PageUsageBitmap
-        && !page[sizeof(ushort)..format.UsageMapBitmapPageHeaderSize].ContainsAnyExcept((byte)0); // past the type: zero
-
     /// <summary>
     /// The dedicated bitmap page (type 0x0105) a reference record's pointer names, after proving it is one: inside the
-    /// file and carrying the complete bitmap-page header. The pointer comes out of the file, so this is the one check
-    /// every reader and writer makes before trusting it — the spec states it as mandatory "before any bitmap is
-    /// expanded into page numbers", and a writer that skipped it OR'd a bit into an ordinary data, TDEF or index page.
+    /// file and carrying the bitmap page type. The pointer comes out of the file, so this is the one check every
+    /// reader and writer makes before trusting it — the spec states it as mandatory "before any bitmap is expanded
+    /// into page numbers", and a writer that skipped it OR'd a bit into an ordinary data, TDEF or index page. Bytes
+    /// 2..3 are not checked: ACE does not read them, and keeps whatever they hold (verified).
     /// The bytes are the channel's shared copy; a writer copies them before changing any.
     /// </summary>
     internal static PageBuffer ReadBitmapPage(PageChannel channel, int pageNumber)
@@ -252,9 +247,9 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
             throw new InvalidDataException(
                 $"Usage map names bitmap page {pageNumber}, outside the file's 1..{channel.PageCount - 1} range.");
         PageBuffer page = channel.ReadPageShared(pageNumber);
-        if (!IsBitmapPage(page.Span, channel.Format))
+        if (PageHeader.ReadType(page.Span) != PageType.PageUsageBitmap)
             throw new InvalidDataException(
-                $"Page {pageNumber} is named as a usage bitmap but does not carry the [05 01 00 00] header.");
+                $"Page {pageNumber} is named as a usage bitmap but is not a bitmap page (type 0x0105).");
         return page;
     }
 

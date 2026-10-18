@@ -8,11 +8,12 @@ public class VersionByteDetectTests
 {
     // A minimal page-0 header: ACE identifier at 0x04, a given version byte at 0x14, and an engine-version
     // string at 0x9C. Enough for JetFormatBase.Detect (which reads through 0x9C).
-    private static MemoryStream Header(byte versionByte, string engine = "4.0", string identifier = "Standard ACE DB")
+    private static MemoryStream Header(byte versionByte, string engine = "4.0", string identifier = "Standard ACE DB", byte minor = 0)
     {
         byte[] page = new byte[4096];
         Encoding.ASCII.GetBytes(identifier).CopyTo(page, JetFormatBase.FormatIdentifierOffset);
         page[JetFormatBase.VersionOffset] = versionByte;
+        page[JetFormatBase.VersionOffset + 1] = minor;
         Encoding.ASCII.GetBytes(engine).CopyTo(page, JetFormatBase.EngineVersionOffset);
         return new MemoryStream(page, writable: false);
     }
@@ -49,6 +50,29 @@ public class VersionByteDetectTests
         Assert.Equal(JetVersion.Version12_2007, JetFormatBase.Detect(Header(0x02)).Version);
         Assert.Equal(JetVersion.Version16_2016, JetFormatBase.Detect(Header(0x05)).Version);
         Assert.Equal(JetVersion.Version17_2019, JetFormatBase.Detect(Header(0x06)).Version);
+    }
+
+    // The minor byte at 0x15, as ACE validates it on open: 0 only on Jet 4 and ACE 12 ("Unrecognized database
+    // format"), up to 2 as a signed byte on ACE 14 ("requires a newer version"), anything on ACE 16 and 17.
+    [Theory]
+    [InlineData(0x01, 0x00, null)]
+    [InlineData(0x01, 0x01, typeof(InvalidDataException))]
+    [InlineData(0x01, 0xFF, typeof(InvalidDataException))]
+    [InlineData(0x02, 0x00, null)]
+    [InlineData(0x02, 0x01, typeof(InvalidDataException))]
+    [InlineData(0x02, 0x80, typeof(InvalidDataException))]
+    [InlineData(0x03, 0x01, null)]
+    [InlineData(0x03, 0x02, null)]
+    [InlineData(0x03, 0x80, null)]
+    [InlineData(0x03, 0x03, typeof(NotSupportedException))]
+    [InlineData(0x03, 0x7F, typeof(NotSupportedException))]
+    [InlineData(0x05, 0x7F, null)]
+    [InlineData(0x06, 0xFF, null)]
+    public void The_minor_version_byte_is_validated_as_ace_validates_it(byte version, byte minor, Type? refusal)
+    {
+        MemoryStream header = Header(version, identifier: version == 0x01 ? "Standard Jet DB" : "Standard ACE DB", minor: minor);
+        Exception? thrown = Record.Exception(() => JetFormatBase.Detect(header));
+        Assert.Equal(refusal, thrown?.GetType());
     }
 
     [Theory]

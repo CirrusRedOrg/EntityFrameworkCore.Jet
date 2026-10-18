@@ -403,6 +403,12 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
             if (_decode is not null && !_decode[column.Index])
                 continue;
 
+            // A record past the cap fits its page but ACE reads no value from it — not even its key — so a reader
+            // that wants one is refused, while one that only counts rows still passes (verified).
+            if (row.Length > _format.MaxRecordSize)
+                throw new InvalidDataException(
+                    $"Record is too large to read: {row.Length} bytes, and a record holds at most {_format.MaxRecordSize}.");
+
             bool present = layout.IsPresent(column.ColumnId);
 
             // Jet stores Boolean (YesNo) columns with no fixed/variable data: the value

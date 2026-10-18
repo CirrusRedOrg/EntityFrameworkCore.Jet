@@ -11,7 +11,7 @@
 | `0x04` | 15 | Format identifier ASCII: `Standard Jet DB` or `Standard ACE DB` |
 | `0x13` | 1 | NUL terminator of the identifier string |
 | `0x14` | 1 | Version byte (see below). mdbtools reads `jet_version` as a 4-byte word at `0x14`; the version is its low byte |
-| `0x15` | 1 | Version **minor** byte: **`0x01` on a database created in the 2010 format (version `0x03`)**, `0x00` when created in any other. **A version raise writes `0x00`** whatever the target — including a raise *onto* `0x03`. ACE validates it: `0x05` makes it refuse the file as needing a newer version (verified). Purpose otherwise unknown |
+| `0x15` | 1 | Version **minor** byte, signed. **`0x01` on a database created in the 2010 format (version `0x03`)**, `0x00` when created in any other; writes keep it, and **a version raise writes `0x00`** whatever the target — including a raise *onto* `0x03`. ACE validates it on open (verified): at version `0x01` or `0x02` it must be `0x00` (*"Unrecognized database format"*), at `0x03` at most `0x02` (*"requires a newer version"*), at `0x05` and `0x06` anything. A compact writes `0x01` at version `0x03` and `0x00` at any other, and refuses `0x02`–`0x7F` at `0x03` or `0x05`. LibRed refuses on open what ACE refuses (`JetFormatBase.Detect`). Purpose otherwise unknown |
 | `0x16` | 2 | Unknown. ACE ignores a non-zero value and keeps it; a compact writes zero (verified) |
 | `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with the RC4 keystream of the key `C7 DA 39 6B` (§2.1). Jet 3 masks 126 bytes. Fields below are offsets into it. |
 | `0x18` | 4 | **Global free-pages map pointer** — `[row:1][page:3]`; `0x00000100` = page 1 row 0 where ACE creates it; ACE follows the pointer wherever it points ([page-05 §9.1](page-05-usage-maps.md)) |

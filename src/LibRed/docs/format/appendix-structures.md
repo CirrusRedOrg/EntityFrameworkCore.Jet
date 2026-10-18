@@ -31,7 +31,7 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 | `0x04` | 15 | Format id ASCII: `Standard Jet DB` (`0x00`/`0x01`) / `Jet System DB` (`0x01`) / `Standard ACE DB` (`0x02`+) |
 | `0x13` | 1 | NUL terminator of the id string |
 | `0x14` | 1 | Version byte (`0x00` Jet3, `0x01` Jet4, `0x02` ACE12, `0x03` ACE14, `0x04` ACE15/2013 never emitted and refused by ACE, `0x05` ACE16, `0x06` ACE17) |
-| `0x15` | 1 | Version minor byte (`0x01` on a file created as ACE14/Access 2010, else `0x00`; a version raise writes `0x00`) |
+| `0x15` | 1 | Version minor byte, signed (`0x01` on a file created as ACE14/Access 2010, else `0x00`; a version raise writes `0x00`). Must be `0x00` at versions `0x01`/`0x02`; at most `0x02` at `0x03`; any value at `0x05`/`0x06` |
 | `0x16` | 2 | Unknown; ignored by ACE, zeroed by a compact |
 | `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with the RC4 keystream of the key `C7 DA 39 6B`; the `0x18`–`0x72` fields below are offsets into it (Jet3 masks 126) |
 | `0x18` | 4 | Global free-pages map pointer `[row:1][page:3]` (`0x00000100` = page 1 row 0 where ACE creates it) |
@@ -208,7 +208,7 @@ descriptor.
 
 **Inline (type `0x00`):** `[0x00][startPage:4][bitmap…]` — bit `i` ⇒ page `startPage+i` owned.
 **Reference (type `0x01`, 69 bytes):** `[0x01][17 × 4-byte bitmap-page pointers]`.
-**Bitmap page (page type `0x0105`):** header `[05 01][00 00]` — the type word, then two zero bytes — bitmap from offset 4.
+**Bitmap page (page type `0x0105`):** header `[05 01][00 00]` — the type word, then two bytes written zero at creation, never read or rewritten — bitmap from offset 4.
 Global maps, located by page 0's pointers wherever they point: free pages at `0x18` (page 1 row 0 where ACE
 creates it) — set bit = **free** (opposite of a table map); released pages at `0x1C` (page 1 row 1 where ACE
 creates it) — set bit = freed, not reusable until close.

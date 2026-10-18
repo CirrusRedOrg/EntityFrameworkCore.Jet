@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed.Catalog;
 using LibRed.Storage;
@@ -248,6 +249,105 @@ public class RecordSizeAccessTests(ITestOutputHelper output) : TempDatabaseTest
         Assert.Contains("Record is too large", thrown.Message);
 
         Assert.Equal("seed", Assert.IsType<string>(table.Rows().Single()[1]));
+    }
+
+    // A record past the cap, which only another writer can leave: ACE reads no value from it, not even its key, so
+    // a scan, a seek, an UPDATE of it and a DELETE that finds it by key all fail, while COUNT(*) counts it, a
+    // DELETE with no WHERE empties the table, and the table's other rows read and update as ever. LibRed refuses
+    // and allows the same, through the Table operation each statement comes down to.
+    [Fact]
+    public void A_record_past_the_cap_is_counted_and_truncated_but_never_read()
+    {
+        const int columns = 12;
+        string origin = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "recsize-overcap-");
+        (RowId big, RowId small) = PlantOverCapRecord(origin, columns, 4070);
+
+        foreach ((string sql, bool fails) in new[]
+        {
+            ("SELECT Id FROM WideRow", true),
+            ("SELECT Id FROM WideRow WHERE Id = 1", true),
+            ("UPDATE WideRow SET Id = 3 WHERE Id = 1", true),
+            ("DELETE FROM WideRow WHERE Id = 1", true),
+            ("SELECT COUNT(*) FROM WideRow", false),
+            ("UPDATE WideRow SET C0 = 'y' WHERE Id = 2", false),
+            ("DELETE FROM WideRow", false),
+        })
+        {
+            string copy = TemporaryDatabase.CopyPath(origin, "recsize-overcap-ace-");
+            using OleDbConnection connection = AceTestDatabase.Open(copy);
+            using OleDbCommand command = connection.CreateCommand();
+            command.CommandText = sql;
+            Exception? failure = Record.Exception(() =>
+            {
+                using OleDbDataReader reader = command.ExecuteReader();
+                // The provider fetches a value only when it is asked for, and that fetch is what fails.
+                while (reader.Read())
+                    for (int i = 0; i < reader.FieldCount; i++) reader.GetValue(i);
+            });
+            output.WriteLine($"ACE {sql}: {failure?.Message.Trim() ?? "ran"}");
+            Assert.Equal(fails, failure is not null);
+        }
+
+        using var database = JetDatabase.Open(origin, readOnly: false);
+        Table table = database.OpenTable("WideRow");
+        Assert.Throws<InvalidDataException>(() => table.Rows().ToList());
+        Assert.Throws<InvalidDataException>(() => table.Rows(table.DecodeOnly([0])).ToList());
+        Assert.Throws<InvalidDataException>(() => table.GetRow(big));
+        Assert.Throws<InvalidDataException>(() => table.Update(big, new object?[columns + 1], new HashSet<int> { 0 }));
+        Assert.Throws<InvalidDataException>(() => table.Delete(big));
+        Assert.Equal(2, table.Rows(table.DecodeOnly([])).Count());
+
+        object?[] other = table.GetRow(small)!;
+        other[1] = "y";
+        table.Update(small, other, new HashSet<int> { 1 });
+        Assert.Equal("y", table.GetRow(small)![1]);
+
+        table.Truncate();
+        Assert.Empty(table.Rows());
+    }
+
+    /// <summary>Table WideRow with two rows: Id 2 a small one, and Id 1 a record of exactly <paramref name="size"/>
+    /// bytes, past the cap, written by hand onto its own page in place of a full-width seed — LibRed itself refuses
+    /// to write one.</summary>
+    private static (RowId Big, RowId Small) PlantOverCapRecord(string path, int columns, int size)
+    {
+        RowId big, small;
+        TableDefinition definition;
+        using (var database = JetDatabase.Open(path, readOnly: false))
+        {
+            database.CreateTable("WideRow", Specs(columns), primaryKey: ["Id"]);
+            Table table = database.OpenTable("WideRow");
+            var seed = new object?[columns + 1];
+            seed[0] = 1;
+            for (int i = 0; i < 7; i++) seed[i + 1] = new string('a', 255);
+            table.Insert(seed);
+            var other = new object?[columns + 1];
+            other[0] = 2;
+            other[1] = "small";
+            table.Insert(other);
+            List<(RowId Id, object?[] Values)> rows = [.. table.Rows().WithIds()];
+            big = rows.Single(r => (int)r.Values[0]! == 1).Id;
+            small = rows.Single(r => (int)r.Values[0]! == 2).Id;
+            definition = table.Definition;
+        }
+
+        var values = new object?[columns + 1];
+        values[0] = 1;
+        for (int i = 0; i < 7; i++) values[i + 1] = new string('a', 255);
+        values[8] = new string('b', (size - 7 * 510 - Overhead(columns)) / 2);
+        byte[] record = new RowCodec(definition.Columns, TestDatabases.FormatOf(path), definition.VariableColumnCount,
+            columnIdHighWater: definition.ColumnIdHighWater).Encode(values);
+        Assert.Equal(size, record.Length);
+
+        byte[] page = TestDatabases.ReadPage(path, big.Page);
+        Assert.Equal(1, BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(0x0C)));   // alone on its page
+        int offset = page.Length - size;
+        Array.Clear(page, 0x10, page.Length - 0x10);
+        record.CopyTo(page, offset);
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(0x0E), (ushort)offset);
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(0x02), (ushort)(page.Length - 0x10 - size));
+        TestDatabases.WritePage(path, big.Page, page);
+        return (big, small);
     }
 
     [Fact]

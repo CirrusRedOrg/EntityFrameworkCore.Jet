@@ -93,28 +93,25 @@ hundreds of bytes against the pointer's four.
 > too large."*
 >
 > **The cap is ACE's, not the page's.** A page holds 4080 (4096 less the 14-byte header and a 2-byte slot),
-> and the 20-byte reserve below that is measured, not explained. It is also not derived from the row's
-> shape: three tables whose overhead differs by 23 bytes — 9, 12 and 20 text columns — all stop at the same
-> 4060.
+> and ACE fills a page with records under the cap to within a few bytes of that, so the 20 bytes are a limit on
+> the single record, not space kept on the page. 4060 is a constant in the engine, for adding a record and
+> replacing one alike, not derived from the page or the row (verified). It does not depend on the row's shape, it is Jet 4.0's on a Jet 4 `.mdb` as well as ACE's, and it is **the same under page-level and
+> row-level locking** (`Jet OLEDB:Database Locking Mode` 0 and 1), as it must be — a limit that moved with the
+> connection would make a file written by one client unreadable by another opening it differently (verified). That independence is also what lets LibRed,
+> which has no locking mode at all, enforce one constant for every caller.
 >
-> It is **the same 4060 under page-level and row-level locking** (`Jet OLEDB:Database Locking Mode` 0 and 1),
-> which is what it must be — a limit that moved with the connection would make a file written by one client
-> unreadable by another opening it differently. That independence is also what lets LibRed, which has no
-> locking mode at all, enforce one constant for every caller.
->
-> *Unverified:* the 20 bytes may be space the engine always keeps for row-lock bookkeeping, whether or not
-> the connection uses it. Two things point that way. Row-level locking arrived in Jet 4, the same generation
-> as this reserve. And the **class** of error is wrong for corruption: a malformed row reads as
-> "Unrecognized database format" or a decode failure, whereas this one reports a concurrent edit — so ACE
-> parsed the row and then its multi-user layer objected, meaning something is *interpreting* those bytes
-> rather than merely running past them. The mode-independence above is equally consistent with the reserve
-> being something else.
->
-> **Writing into the 4061–4080 band is worse than writing past it.** It fits the page, so nothing fails at
-> write time, and ACE then cannot materialise the row — it reports *"you and another user are attempting to
-> change the same data at the same time"*, naming a concurrency problem that does not exist. Only above 4080
-> does anything complain locally. A writer must therefore enforce 4060 rather than the page geometry;
-> LibRed does so in `RowInserter` from `JetFormatBase.MaxRecordSize`.
+> **A record in the 4061–4080 band is worse than one past it.** It fits the page, so nothing fails at write
+> time, but the engine reads no value from it — not even its key — whatever the connection's locking or share
+> mode. Reading it, updating it, or deleting it through a `WHERE` that reads a column fails with *"you and
+> another user are attempting to change the same data at the same time"*, naming a concurrency problem that
+> does not exist; `COUNT(*)` counts it, a `DELETE` with no `WHERE` empties the table with it, and the table's
+> other rows are unaffected. A `DELETE` that finds it through an index fails as well on an `.accdb`; on a Jet 4
+> `.mdb` it removes the row — under ACE and Jet 4.0 alike — when that index is the table's only one, and fails
+> with *"Cannot open database ''"* when another index needs a key from the record (verified). Past 4080 the row does
+> not fit the page at all. A writer must therefore enforce 4060 rather than the page geometry; LibRed does so in
+> `RowInserter` from `JetFormatBase.MaxRecordSize`, and its reader refuses such a record wherever a value is
+> read from it (`RowCodec.Decode`), so it counts and truncates one as the engine does — and refuses the index
+> delete on a `.mdb` too.
 
 > **Reader guardrails.** LibRed requires an exact format-sized type-`0x0101` page before either a full
 > scan or the O(1) index-seek slot path. The declared slot directory must fit before the heap; every

@@ -27,15 +27,15 @@ begins at **offset 4**.
 
 The record is exactly **69 bytes** (`1 + 17 × 4`). Seventeen slots is not arbitrary: each bitmap page
 covers `(4096 − 4) × 8 = 32,736` pages ≈ 134 MB, so 17 slots span ≈ 2.28 GB — just past Jet's 2 GB
-file ceiling. A bitmap page's header is the page type `0x0105` (bytes `05 01`) then `[2..3]=0`, bitmap from
-offset 4.
+file ceiling. A bitmap page's header is the page type `0x0105` (bytes `05 01`) then two bytes ACE writes as
+zero when it creates the page and never reads or rewrites (verified); the bitmap starts at offset 4.
 Bitmap pages are allocated **lazily**, only when a bit in their range is first set, and are *not*
 themselves marked as owned by the table.
 
 LibRed treats this geometry as mandatory on read: a type-`0x01` record must be exactly 69 bytes,
-each nonzero pointer must be within the physical file, and its target must carry the complete verified
-`[05 01 00 00]` bitmap-page header. This validation happens before any bitmap is expanded into page
-numbers, so appended pointer-shaped bytes or pointers to ordinary data pages cannot become ownership data.
+each nonzero pointer must be within the physical file, and its target must carry the bitmap page type `0x0105`.
+This validation happens before any bitmap is expanded into page numbers, so appended pointer-shaped bytes or
+pointers to ordinary data pages cannot become ownership data.
 
 > Verified against an ACE-built table large enough to need one: owned map record
 > `01 017D0000 E17F0000 00…` — type `0x01`, slot 0 → page 32,001, slot 1 → page 32,737, remaining
@@ -260,7 +260,7 @@ An inline record that already covers them stays as it is. Otherwise, in order of
 
 A map already in reference form gains a bitmap page, allocated the same way, for each range holding a released
 page that it has none for — a released table-definition page among the free pages is taken like any other, its
-type becoming `0x0105`. The merge then clears every bitmap page, each keeping its `05 01 00 00` header.
+type becoming `0x0105`. The merge then clears every bitmap page, each keeping its 4-byte header.
 
 So at rest the released-pages map has no bits set, though it may have grown, moved its start page or converted
 to reference form. A non-empty one is *inferred* to be a release interrupted before close.
@@ -402,7 +402,7 @@ record leaves a copy of itself behind. The order is therefore visible on disk, a
 3. the table's own data owned map — bits cleared — then its free map — bits left set.
 
 A map in reference form has its record retired in the same order; each of its bitmap pages has its bitmap
-zeroed and is freed, its `05 01 00 00` header left in place.
+zeroed and is freed, its 4-byte header left in place.
 
 > Measured against an ACE drop, page by page. ACE clears the bitmap bytes of the record as it frees each
 > page (the zeroing is visible inside the space the row then gives up), tombstones each 69-byte map record

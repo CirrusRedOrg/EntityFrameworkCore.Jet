@@ -1123,8 +1123,11 @@ The split mechanics:
   | 91 entries of 38–40 bytes | position 52 | **45** — a count would keep 46 |
 
   **A new *first* entry is the exception**: then the entries *including* it are halved by count, rounding up
-  — 9 of 18 (keys of 207 and 211 bytes alike) and 302 of 603. Whether the parent node splits in the same
-  insert makes no difference. The doubly-linked leaf chain is maintained — the
+  — 9 of 18 (keys of 207 and 211 bytes alike) and 302 of 603 — **but no more stay left than fit there whole**,
+  since that half is written at prefix 0 (below): a leaf of 1,804 entries of one duplicated key, stored at
+  prefix 7 in two bytes each, takes a smaller key by keeping 401 whole 9-byte entries left (7 bytes free) and
+  moving 1,404 right, at prefix 7 (verified). Whether the parent node splits in the same insert makes no
+  difference. The doubly-linked leaf chain is maintained — the
   new right page's *prev* (`0x0C`) points at the left, its *next* (`0x10`) inherits the left's old
   next, the left's *next* becomes the right, and the old next leaf's *prev* is repointed to the
   right. **Getting these offsets right is essential** — Access's scan walks the `0x10` next-chain

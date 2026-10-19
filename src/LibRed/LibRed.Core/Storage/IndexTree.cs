@@ -449,10 +449,17 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
         // 10 for a key at any position from 1 to 8 and 9 from 9 to 16, and a 602-entry one keeps 302 for a key at
         // 1 or 50 and 301 at 301, 302 or 400. It is bytes, not entries, when keys differ in length: a 91-entry
         // leaf of 38- to 40-byte entries keeps 45, not 46. A new FIRST entry is the exception: then the entries
-        // including it are halved by count, rounding up — 9 of 18, 302 of 603 (§10.5).
+        // including it are halved by count, rounding up — 9 of 18, 302 of 603 — but no more stay left than fit
+        // there whole, which is how that half is written: a leaf of one duplicated key, compressed to two bytes an
+        // entry, keeps 401 of 1,805 (§10.5).
         int splitAt;
         if (pos == entries.Count - 1) splitAt = entries.Count - 1;
-        else if (pos == 0) splitAt = (entries.Count + 1) / 2;
+        else if (pos == 0)
+        {
+            splitAt = (entries.Count + 1) / 2;
+            long keyBytes = entries.Take(splitAt).Sum(e => (long)e.Key.Length);
+            while (!LeafFits(splitAt, keyBytes, 0)) keyBytes -= entries[--splitAt].Key.Length;
+        }
         else
         {
             long total = -(long)stored * (old.Count - 1);

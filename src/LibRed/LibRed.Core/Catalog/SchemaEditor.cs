@@ -1307,9 +1307,15 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             // A reference-form record keeps its bitmap on dedicated pages, which go with it, zeroed.
             owned.UnionWith(usageMaps.ClearBitmapPages(maps.ReadRecordAt(map.Row, map.Page)));
 
+            // In a user transaction ACE takes the record's bytes back only when it commits: until then its slot is
+            // flagged and a record written meanwhile goes below it, to slide up at the commit (measured: a CREATE
+            // INDEX after a DROP INDEX in one transaction leaves the new record's first image in the holder's free
+            // space). A statement on its own takes them back at once.
             byte[] holderBytes = _channel.ReadPage(map.Page).Span.ToArray();
-            DataPage.ReclaimRow(holderBytes, _channel.Format, map.Row);
+            DataPage.WriteSlot(holderBytes, _channel.Format, map.Row,
+                DataPage.ReadSlot(holderBytes, _channel.Format, map.Row).Offset, RowSlotFlags.Deleted);
             _channel.WritePage(map.Page, holderBytes);
+            _channel.ReclaimAtCommit(map.Page, map.Row);
             if (!holders.Contains(map.Page)) holders.Add(map.Page);
         }
 

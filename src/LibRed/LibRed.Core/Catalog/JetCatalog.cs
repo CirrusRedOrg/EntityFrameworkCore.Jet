@@ -562,13 +562,16 @@ public sealed class JetCatalog
         {
             IReadOnlyList<PropertyBlob.Property> properties = PropertyBlob.Read(blob);
             var defaults = PropertyBlob.ReadColumnDefaults(properties);
-            var required = PropertyBlob.ReadRequiredColumns(properties);
+            var required = PropertyBlob.ReadColumnsWith(properties, PropertyBlob.RequiredProperty, true);
+            var noZeroLength = PropertyBlob.ReadColumnsWith(properties, PropertyBlob.AllowZeroLengthProperty, false);
             foreach (ColumnDef column in definition.Columns)
             {
                 if (defaults.TryGetValue(column.Name, out string? value))
                     column.DefaultValue = value;
                 if (required.Contains(column.Name))
                     column.IsNullable = false;
+                if (noZeroLength.Contains(column.Name))
+                    column.AllowZeroLength = false;
                 (column.ValidationRule, column.ValidationText) = PropertyBlob.ReadValidation(properties, column.Name);
                 // A calculated column's expression and REAL result type live here, not in the descriptor
                 // (§3.4a). Without them the stored payload can only be guessed from its width, which is

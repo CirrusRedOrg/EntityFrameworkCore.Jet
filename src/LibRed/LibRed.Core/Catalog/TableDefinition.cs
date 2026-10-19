@@ -279,7 +279,7 @@ public sealed class TableDefinition : Page
 
     /// <summary>Where real index <paramref name="ordinal"/>'s entry starts in the real-index block that opens the
     /// definition.</summary>
-    private static int RealIndexEntry(JetFormatBase format, int ordinal) =>
+    internal static int RealIndexEntry(JetFormatBase format, int ordinal) =>
         format.TdefRealIndexBlockOffset + ordinal * format.RealIndexEntrySize;
 
     /// <summary>Real index <paramref name="ordinal"/>'s two statistics: its total entry count, and its unique count —

@@ -176,8 +176,14 @@ public sealed class Table
     /// <paramref name="order"/>, the columns the statement names in its own order — together what decides the
     /// record's slack (spec §5). Both null for a row written with no defaults.</param>
     /// <param name="order">See <paramref name="defaults"/>.</param>
-    public void Insert(object?[] values, object?[]? defaults = null, IReadOnlyList<int>? order = null) =>
-        Write(() => new RowInserter(Channel, Definition).Insert(values, updateIndexes: true, defaults, order));
+    /// <param name="validate">The caller's own checks of the row, run once its ids are drawn and before anything is
+    /// written — so a row they refuse still uses up its AutoNumber, as ACE's does (measured).</param>
+    /// <param name="reference">The caller's check of the row's references to other tables' rows, run once the row is
+    /// written and before its keys go into the indexes, where ACE refuses a missing parent (measured: the refused row
+    /// has taken its page).</param>
+    public void Insert(object?[] values, object?[]? defaults = null, IReadOnlyList<int>? order = null,
+        Action<object?[]>? validate = null, Action<object?[]>? reference = null) =>
+        Write(() => new RowInserter(Channel, Definition).Insert(values, updateIndexes: true, defaults, order, validate, reference));
 
     /// <summary>Every column but the calculated ones — what rewriting or deleting a row reads of it. A calculated
     /// result is never a key and never the caller's to change, and the rewrite carries it over or recomputes it
@@ -262,6 +268,10 @@ public sealed class Table
     /// its parent and that hold no CHECK constraint.</summary>
     public void Truncate() => Write(() => new RowInserter(Channel, Definition).Truncate());
 
+    /// <inheritdoc cref="RowInserter.CountKeysBeforeRefusal"/>
+    public void CountKeysBeforeRefusal(IndexDef refusing, object?[] values) =>
+        new RowInserter(Channel, Definition).CountKeysBeforeRefusal(refusing, values);
+
     private void Write(Action action)
     {
         // A read-only database refuses a row written through this API as ACE refuses a DAO recordset's (verified).
@@ -276,7 +286,7 @@ public sealed class Table
         }
         catch
         {
-            if (ownTransaction) Channel.RollbackTransaction();
+            if (ownTransaction) Channel.RollbackTransaction(failed: true);
             throw;
         }
     }

@@ -441,7 +441,7 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
         if (bitmapPage == 0)
         {
             if (!set) return; // the bit is already clear — no need to materialize the bitmap page
-            bitmapPage = AllocateBitmapPage();
+            bitmapPage = AllocateBitmapPage(slot);
             WriteReferencePointer(record, slot, format, bitmapPage);
             _channel.WritePage(mapPage, page);
         }
@@ -473,10 +473,15 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
         return pages;
     }
 
-    /// <summary>Allocates and initialises an empty dedicated usage-bitmap page (type 0x0105).</summary>
-    private int AllocateBitmapPage()
+    /// <summary>Allocates and initialises an empty dedicated usage-bitmap page (type 0x0105) for reference slot
+    /// <paramref name="slot"/>: the shared reservation's next page; with none, the lowest page not in use — free in the
+    /// global map, or held by an owner's group — from the slot's range on (measured: a table's owned map turned
+    /// reference form takes the lowest free page; with none free, the page an index's group holds; its second range's
+    /// bitmap, the first page of that range not in use; a DELETE's free-pages map, the reservation's pages). A free page
+    /// opens the reservation round it, whose pages the next rows take.</summary>
+    private int AllocateBitmapPage(int slot)
     {
-        int pageNumber = _channel.Allocator.Allocate();
+        int pageNumber = _channel.Allocator.Allocate(rangeStart: slot * _channel.Format.UsageMapPagesPerBitmapPage);
         _channel.WritePage(pageNumber, NewBitmapPage(_channel.Format));
         return pageNumber;
     }
@@ -509,7 +514,7 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
                 throw new NotSupportedException(
                     $"Page {group.First()} lies past the {format.UsageMapReferenceSlots} bitmap slots a usage map can address (Jet's 2 GB file limit).");
 
-            int bitmapPage = AllocateBitmapPage();
+            int bitmapPage = AllocateBitmapPage(group.Key);
             byte[] bits = _channel.ReadPage(bitmapPage).Span.ToArray();
             foreach (int ownedPage in group)
                 BitmapBits.Set(BitmapPageBits(bits, format), ownedPage % pagesPerBitmap, true);

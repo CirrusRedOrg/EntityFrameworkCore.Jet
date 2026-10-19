@@ -19,19 +19,28 @@ public class ColumnIdBoundaryAccessTests : TempDatabaseTest
         object payload = type == "LONGCHAR" ? new string('x', 8000) : Enumerable.Range(0, 8000).Select(i => (byte)i).ToArray();
         if (libred)
         {
-            using var db = JetDatabase.Open(path, readOnly: false);
-            var engine = new LibRed.Engine.QueryEngine(db);
-            engine.ExecuteNonQuery(create);
-            engine.ExecuteNonQuery("INSERT INTO ColumnBoundary (C0, C1) VALUES (@p, 7)", new Dictionary<string, object?> { ["p"] = payload });
+            // Each step in a session of its own, so both engines start from a closed file: a snapshot taken
+            // mid-session carries LibRed's reservation, which ACE opening the copy can only see as lost pages.
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                var engine = new LibRed.Engine.QueryEngine(db);
+                engine.ExecuteNonQuery(create);
+                engine.ExecuteNonQuery("INSERT INTO ColumnBoundary (C0, C1) VALUES (@p, 7)", new Dictionary<string, object?> { ["p"] = payload });
+            }
             byte[] original = Snapshot(path);
-            db.BeginTransaction();
-            engine.ExecuteNonQuery(alter);
-            db.Rollback();
-            Assert.Equal(original, Snapshot(path));
-            engine.ExecuteNonQuery(alter);
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.BeginTransaction();
+                new LibRed.Engine.QueryEngine(db).ExecuteNonQuery(alter);
+                db.Rollback();
+            }
+            AssertSameAsAce(original, Snapshot(path), ["BEGIN TRANSACTION", alter, "ROLLBACK TRANSACTION"], aceRefuses: false);
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                new LibRed.Engine.QueryEngine(db).ExecuteNonQuery(alter);
             byte[] before = Snapshot(path);
-            Assert.Throws<NotSupportedException>(() => engine.ExecuteNonQuery(alter));
-            Assert.Equal(before, Snapshot(path));
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                Assert.Throws<NotSupportedException>(() => new LibRed.Engine.QueryEngine(db).ExecuteNonQuery(alter));
+            AssertSameAsAce(before, Snapshot(path), [alter], aceRefuses: true);
         }
         else
         {
@@ -163,6 +172,35 @@ public class ColumnIdBoundaryAccessTests : TempDatabaseTest
         "DECIMAL(10,2)" => "1.25",
         _ => "1",
     };
+
+    /// <summary>Asserts that LibRed's file after its statements is ACE's after the same ones from the same file:
+    /// a rolled-back or refused ALTER is not a byte-for-byte restore in ACE either — the session's reservation
+    /// outlives it (page-05-usage-maps.md). <paramref name="aceRefuses"/> says the last statement fails in ACE, as
+    /// in LibRed.</summary>
+    private static void AssertSameAsAce(byte[] before, byte[] libred, string[] statements, bool aceRefuses)
+    {
+        string origin = Write(before), ace = Write(before), noise = Write(before), lib = Write(libred);
+        try
+        {
+            string?[] errors = WholeFileParityProbeTest.RunThroughAce(ace, statements);
+            Assert.True(errors.Take(errors.Length - 1).All(e => e is null) && errors[^1] is null != aceRefuses,
+                string.Join("; ", errors.Select(e => e ?? "ok")));
+            WholeFileParityProbeTest.RunThroughAce(noise, []);
+            (string report, int pages) = WholeFileParityProbeTest.Compare(origin, ace, noise, lib);
+            Assert.True(pages == 0, report);
+        }
+        finally
+        {
+            foreach (string file in new[] { origin, ace, noise, lib }) TemporaryDatabase.Delete(file);
+        }
+
+        static string Write(byte[] bytes)
+        {
+            string file = TemporaryDatabase.CreatePath("long-column-id-compare-");
+            File.WriteAllBytes(file, bytes);
+            return file;
+        }
+    }
 
     private static byte[] Snapshot(string path)
     {

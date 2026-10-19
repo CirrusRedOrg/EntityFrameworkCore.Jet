@@ -26,6 +26,18 @@
 | `0x3B` | 4 | Free-space-pages usage-map pointer |
 | `0x3F` | — | Start of the real-index block (precedes column descriptors) |
 
+> **What a rollback and a failed statement leave of the header counters (measured).** `0x14` and `0x1C` never go
+> back: an id an insert draws stays used whether the insert commits, fails — a required column, a missing parent,
+> a duplicate key, a CHECK, another connection's lock — or is rolled back, on disk and in the next session; with two
+> connections, the next id after one's rollback follows the ids both drew. A **failed statement** keeps the
+> row count and the real-index counts as the rows it finished left them, plus the counting of the row it was
+> refused on: an inserted row is written first, taking a page if it needs one, and then gives each real index its
+> key in real-index order, each counting a key it does not hold yet, until one refuses it — a missing parent at
+> the relationship's index, a duplicate key at its unique index. A row refused before its keys — a required
+> column, a CHECK — counts nothing and takes no page. A **ROLLBACK** takes an ordinary table's row count and index
+> counts back with its rows, and MSysRelationships', but not MSysObjects' or MSysACEs': a rolled-back
+> `CREATE TABLE`'s catalog rows go, their counting stays, written with the next write of that definition or at close.
+
 > **The `0x659` / `0x783` record markers.** `0x0C` holds `0x659` (1625) in every file. This is
 > not isolated: `0x659` recurs as a fixed marker at the start of each repeating TDEF record —
 > column descriptor `+1` (2 bytes, §3.4), index-info block `+0` (4 bytes, §3.6), and this header

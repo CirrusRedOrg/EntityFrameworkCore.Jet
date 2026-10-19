@@ -114,7 +114,21 @@ free = row 1); an index's map spills the same way rather than being squeezed in.
 >   by a fixed page-count threshold. LibRed applies the same rule: grow inline while the repacked record
 >   fits, otherwise convert — re-marking every previously-owned page into freshly allocated bitmap pages
 >   (grouped by slot, one write per bitmap page) and shrinking the record to the fixed 69 bytes.
->   ACE reads a LibRed-written reference map and counts every row back.
+>   ACE reads a LibRed-written reference map and counts every row back. **Where a bitmap page goes:** the
+>   session's shared reservation's next page, if it holds one; otherwise, for range *k*, the lowest page not in use —
+>   free in the global map, or held by an owner's group — from range *k*'s first page on; with the global map in
+>   reference form, its search starts no earlier than the selected bitmap, as a new reservation's does (below), so a
+>   free page in an earlier range is passed over (measured: a DELETE's free-pages map, with the selected bitmap at
+>   range 1, took the free pages past the end of the file over free pages in range 0, and took those in a new
+>   session, where the selection starts again at range 0). A free page is taken as any free page is: the free pages
+>   round it become the session's reservation, and the next rows take them before their own group's pages; a held
+>   page is taken from its group. Measured with a primary-keyed table whose owned map converted at page ~17,990, with
+>   no reservation open: the range-0 bitmap went on page 45, the lowest of the free pages a
+>   dropped table had left, and the next rows on 46 onward; with no page free, on 13,927, the page the primary key's
+>   group still held from earlier in the same statement. The table's range-1 bitmap went on 32,737, the first page of
+>   that range the global map's own bitmap (32,736) left, though a group held pages from 32,625, and the next rows on
+>   32,738 onward. The primary key's own map, converting with the global map's range-0 bitmap on 32,000, put its
+>   bitmap on 32,001, and the next rows went on 32,002–32,007 before the data group's held pages.
 > - **An empty map is re-based, not grown.** Every inline map a table owns — owned and free, data, index and
 >   long-value — starts at `startPage = 0` with a 64-byte bitmap and no bit set. Asked to mark a page outside
 >   its window while it marks **no** page, ACE moves `startPage` to that page rounded down to 8 and keeps the
@@ -311,6 +325,12 @@ these that applies:
 
 Unused shared-reservation pages return to the free map at close; an owner's unused group pages return at
 statement commit. A reference-form global map's selected bitmap is kept across requests and reset at reopen.
+
+**A rollback keeps the shared reservation (measured).** When a transaction, a nested transaction or a failed
+statement is rolled back, its writes go but the session's reservation stays, cleared bits and all, and is not
+refilled: the pages the undone writes took from it go to the free map, and the next request takes the
+reservation's next page. Those pages are left free below it, as zero pages once the file has grown past them. The
+undone writes are never on disk — inside a transaction ACE writes only the reservation's bits to the free map.
 This is allocation policy, not an on-disk requirement; the measurements behind it are in
 `docs/design/page-allocation.md`.
 
@@ -318,8 +338,10 @@ This is allocation policy, not an on-disk requirement; the measurements behind i
 > pointer, row included — and never takes a page set in the released-pages map named at `0x1C`. A released
 > page at the end of the file is materialized, so the file stays contiguous, but not handed out. It takes a
 > free page using the shared-reservation and owner-group policy above, growing when no eligible page
-> or group is found. Reservation masks, owner positions and the selected global bitmap participate in
-> transaction and savepoint rollback. Free bits at the current file end are the pre-allocated growth region; LibRed materializes
+> or group is found. Owner positions, groups and the selected global bitmap participate in transaction and
+> savepoint rollback; the shared reservation is kept as above, its bits cleared again over the restored map —
+> unless it lies in pages that map has no bit for, having come with map growth the rollback undid, when it goes
+> too (*unverified* against ACE). Free bits at the current file end are the pre-allocated growth region; LibRed materializes
 > intervening pages contiguously before returning the selected page — free, released, or reserved, its own
 > session's or, with the free bit clear, another handle's. A session's reservation and an owner's group take
 > pages from the map before they are written (measured: a reservation opened at the end of the file clears its
@@ -401,6 +423,13 @@ nothing live is left on it. The record's row **number** is not reused afterwards
 appends past it ([long-values](long-values.md)). `DROP CONSTRAINT` additionally deletes the relationship's
 `MSysRelationships` rows outright — the row's space returns to its page and the table's row count falls —
 rather than only flagging the slots.
+
+**Inside a user transaction the tombstone waits for the commit (verified).** A statement on its own retires each
+record at once, as above. Within a transaction of several statements the record's row is flagged but keeps its
+bytes until the transaction commits: a record written meanwhile on the same holder goes below it, and at the commit
+the retired record is reclaimed, the newer one sliding up over it and leaving its first image behind in free space
+— a `DROP INDEX` then `CREATE INDEX` in one transaction leaves the new index's map record, as it stood when
+created, below the live records, where the same two statements on their own leave nothing.
 
 Each tombstone slides the records below it up the page, and the bytes they vacate are not cleared, so a moved
 record leaves a copy of itself behind. The order is therefore visible on disk, and ACE's is fixed:

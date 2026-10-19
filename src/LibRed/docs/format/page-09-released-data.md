@@ -32,7 +32,11 @@ was.
 
 Deleting the **last live row** on the page. Each delete tombstones that row and slides the rows below it up;
 the type changes only once nothing live is left. The page is then taken out of **both** of the table's
-maps — owned and free — and released. Exactly one page is released per page emptied.
+maps — owned and free — and released. Exactly one page is released per page emptied. The free-pages map is
+given the page's bit first, as for any page a delete frees space on, and loses it with the release: so a free-pages
+map that cannot take the bit inline — not empty, the page outside the window it can slide to — turns reference
+form, though the bit then goes (measured: deleting every seventh row of a one-row-a-page table spanning two
+ranges leaves its free-pages map in reference form with a bitmap for each; the order is inferred from that).
 
 **A table always keeps its first data page.** It is never stamped and never given back, however empty it
 gets, and stays in both of the table's maps with all its slots tombstoned like any other emptied page. This

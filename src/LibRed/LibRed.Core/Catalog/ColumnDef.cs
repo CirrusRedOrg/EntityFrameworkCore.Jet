@@ -51,6 +51,10 @@ public sealed class ColumnDef
     /// the descriptors are decoded (like <see cref="DefaultValue"/>, the flag lives outside the TDEF).</summary>
     public bool IsNullable { get; internal set; } = true;
 
+    /// <summary>Whether a Text or Memo column takes a zero-length string. False where its <c>AllowZeroLength</c>
+    /// property is cleared — set by the catalog from the <c>LvProp</c> blob, like <see cref="IsNullable"/>.</summary>
+    public bool AllowZeroLength { get; internal set; } = true;
+
     public bool IsAutoNumber { get; init; }
 
     /// <summary>The column's <c>updatable</c> flag bit (0x0F bit 0x02) — set on essentially every column.

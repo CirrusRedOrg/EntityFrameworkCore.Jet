@@ -322,7 +322,6 @@ Format-level detail on each on-disk gap lives in `docs/format/`.
   in Access (the unique index still enforces uniqueness).
 - **`ValidationRule`/`ValidationText` are not enforced** — UI-authored validation, distinct from a SQL `CHECK`:
   a row violating an Access-authored rule is accepted where ACE would refuse it.
-- **`AllowZeroLength` not modelled.**
 - **A column-level `CHECK`** (`Col LONG CHECK (Col > 0)`) is parsed and silently dropped — neither stored nor
   enforced. Its ACE storage differs from the table-level form and is unprobed; a table-level `CHECK` over the
   same column is the working route.

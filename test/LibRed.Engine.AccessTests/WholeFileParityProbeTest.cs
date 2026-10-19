@@ -99,7 +99,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
         }
         else if (bulkRows != 1000)
             statements[117] = statements[117].Replace("ORDER BY 1", $"WHERE a.D * 100 + b.D * 10 + c.D < {bulkRows} ORDER BY 1", StringComparison.Ordinal);
-        string? origin = CreateEmptyThroughDao();
+        string? origin = CreateThroughDao();
         Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
         string ace = TemporaryDatabase.CopyPath(origin, "wholefile-ace-");
         string noise = TemporaryDatabase.CopyPath(origin, "wholefile-noise-");
@@ -152,28 +152,352 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
 
     /// <summary>The whole run without the statements that create, run or drop a stored query, which asserts the two
     /// files match: those leave ACE's compiled plan in MSysObjects.Lv, a memory image LibRed does not write, and the
-    /// pages it takes shift every later allocation.</summary>
-    [Fact]
-    public void The_whole_run_without_stored_queries_leaves_libred_and_ace_with_the_same_file()
+    /// pages it takes shift every later allocation. On an ACE 12 file and on a Jet 4 one; and with the statements in
+    /// transactions, every other group rolled back and then run again, the rest committed.</summary>
+    [Theory]
+    [InlineData(Ace12, false)]
+    // Open: a Jet 4 file differs at three statements (see the Jet 4 step run), and a run in transactions past its
+    // first 96 statements.
+    [InlineData(Jet4, false, Explicit = true)]
+    [InlineData(Ace12, true, Explicit = true)]
+    [InlineData(Ace12, true, 12, Explicit = true)] // prefixes locate where a run in transactions diverges
+    [InlineData(Ace12, true, 24, Explicit = true)]
+    [InlineData(Ace12, true, 28, Explicit = true)]
+    [InlineData(Ace12, true, 32, Explicit = true)]
+    [InlineData(Ace12, true, 33, Explicit = true)]
+    [InlineData(Ace12, true, 34, Explicit = true)]
+    [InlineData(Ace12, true, 35, Explicit = true)]
+    [InlineData(Ace12, true, 36, Explicit = true)]
+    [InlineData(Ace12, true, 40, Explicit = true)]
+    [InlineData(Ace12, true, 44, Explicit = true)]
+    [InlineData(Ace12, true, 48, Explicit = true)]
+    [InlineData(Ace12, true, 72, Explicit = true)]
+    [InlineData(Ace12, true, 76, Explicit = true)]
+    [InlineData(Ace12, true, 80, Explicit = true)]
+    [InlineData(Ace12, true, 84, Explicit = true)]
+    [InlineData(Ace12, true, 85, Explicit = true)]
+    [InlineData(Ace12, true, 86, Explicit = true)]
+    [InlineData(Ace12, true, 87, Explicit = true)]
+    [InlineData(Ace12, true, 88, Explicit = true)]
+    [InlineData(Ace12, true, 92, Explicit = true)]
+    [InlineData(Ace12, true, 96, Explicit = true)]
+    public void The_whole_run_without_stored_queries_leaves_libred_and_ace_with_the_same_file(int version, bool transactions, int count = 0)
     {
         string[] statements = [.. Statements().Where(s => !s.StartsWith("CREATE VIEW", StringComparison.Ordinal)
             && !s.StartsWith("CREATE PROCEDURE", StringComparison.Ordinal) && !s.StartsWith("EXECUTE", StringComparison.Ordinal)
             && !s.StartsWith("DROP VIEW", StringComparison.Ordinal) && !s.StartsWith("DROP PROCEDURE", StringComparison.Ordinal))];
-        string? origin = CreateEmptyThroughDao();
+        if (count > 0) statements = statements[..count];
+        if (transactions)
+        {
+            // Groups of up to four, an ALTER or DROP always opening one: ACE cannot lock a table for either once
+            // the transaction has used it, a limit of its locking LibRed does not copy.
+            var groups = new List<List<string>>();
+            foreach (string statement in statements)
+            {
+                if (groups.Count == 0 || groups[^1].Count == 4
+                    || statement.StartsWith("ALTER", StringComparison.Ordinal) || statement.StartsWith("DROP", StringComparison.Ordinal))
+                    groups.Add([]);
+                groups[^1].Add(statement);
+            }
+            statements = [.. groups.SelectMany((group, i) => i % 2 == 0
+                ? (string[])["BEGIN TRANSACTION", .. group, "ROLLBACK TRANSACTION", .. group]
+                : ["BEGIN TRANSACTION", .. group, "COMMIT TRANSACTION"])];
+        }
+        AssertSameFile(CreateThroughDao(version), statements);
+    }
+
+    /// <summary>A key smaller than every key of a leaf full of one duplicated key: the new entry is the leaf's first,
+    /// so it splits there, its entries compressed to a byte or two.</summary>
+    [Fact]
+    public void A_new_first_key_on_a_leaf_of_duplicates_leaves_libred_and_ace_with_the_same_file() =>
+        AssertSameFile(CreateThroughDao(Ace12),
+        [
+            "CREATE TABLE Digit (D INTEGER)",
+            .. Enumerable.Range(0, 10).Select(d => $"INSERT INTO Digit (D) VALUES ({d})"),
+            "CREATE TABLE T (Id LONG, G LONG)",
+            "CREATE INDEX ixG ON T (G)",
+            "INSERT INTO T (Id, G) SELECT a.D * 100 + b.D * 10 + c.D, 2 FROM Digit a, Digit b, Digit c ORDER BY 1",
+            "INSERT INTO T (Id, G) SELECT 1000 + a.D * 100 + b.D * 10 + c.D, 2 FROM Digit a, Digit b, Digit c ORDER BY 1",
+            "INSERT INTO T (Id, G) VALUES (5000, 1)",
+        ]);
+
+    /// <summary>An index dropped and another created on the same table — or a row deleted and another inserted — on
+    /// their own and in one transaction.</summary>
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void An_index_swapped_leaves_libred_and_ace_with_the_same_file(bool inTransaction, bool rows = false)
+    {
+        string[] swap = rows
+            ? ["DELETE FROM C WHERE Id = 3", "INSERT INTO C (Name, City) VALUES ('Customer 99', 'City 9')"]
+            : ["DROP INDEX ixCity ON C", "CREATE INDEX ixName ON C (Name)"];
+        AssertSameFile(CreateThroughDao(Ace12),
+        [
+            "CREATE TABLE C (Id COUNTER CONSTRAINT pkC PRIMARY KEY, Name TEXT(50), City TEXT(50))",
+            "CREATE INDEX ixCity ON C (City)",
+            .. Enumerable.Range(1, 12).Select(i => $"INSERT INTO C (Name, City) VALUES ('Customer {i:00}', 'City {i % 5}')"),
+            .. inTransaction ? ["BEGIN TRANSACTION", .. swap, "COMMIT TRANSACTION"] : swap,
+        ]);
+    }
+
+    /// <summary>Writes to calculated and complex columns, which ACE's DDL cannot create: DAO creates them, with a
+    /// complex column's first values, in the file both engines start from — the calculated column raising it to the
+    /// 2010 format — and the statements insert, update and delete through them, run through DAO.</summary>
+    // Open: the owner table's rows land on other pages through DAO's INSERT than LibRed places them.
+    [Fact(Explicit = true)]
+    public void Writes_to_calculated_and_complex_columns_leave_libred_and_ace_with_the_same_file()
+    {
+        string attachment = TemporaryDatabase.CreatePath("wholefile-attachment-") + ".txt";
+        File.WriteAllText(attachment, new string('a', 3000));
+        try
+        {
+            string? origin = CreateThroughDao(Ace12, database =>
+            {
+                object calculated = Invoke(database, "CreateTableDef", "Calc")!;
+                object fields = Get(calculated, "Fields");
+                Invoke(fields, "Append", Invoke(calculated, "CreateField", "Id", DaoLong)!);
+                Invoke(fields, "Append", Invoke(calculated, "CreateField", "Qty", DaoLong)!);
+                Invoke(fields, "Append", Invoke(calculated, "CreateField", "Txt", DaoText, 255)!);
+                foreach ((string name, int type, string expression) in new[]
+                {
+                    ("Twice", DaoLong, "[Qty]*2"), ("Label", DaoText, "\"n=\" & [Qty]"), ("Long", DaoMemo, "[Txt] & [Txt] & [Txt] & [Txt]"),
+                })
+                {
+                    object field = Invoke(calculated, "CreateField", name, type)!;
+                    Set(field, "Expression", expression);
+                    Invoke(fields, "Append", field);
+                }
+                Invoke(Get(database, "TableDefs"), "Append", calculated);
+
+                object owner = Invoke(database, "CreateTableDef", "Owner")!;
+                fields = Get(owner, "Fields");
+                Invoke(fields, "Append", Invoke(owner, "CreateField", "Id", DaoLong)!);
+                Invoke(fields, "Append", Invoke(owner, "CreateField", "Txt", DaoText, 255)!);
+                Invoke(fields, "Append", Invoke(owner, "CreateField", "Numbers", DaoMultiValueLong)!);
+                Invoke(fields, "Append", Invoke(owner, "CreateField", "Words", DaoMultiValueText)!);
+                Invoke(fields, "Append", Invoke(owner, "CreateField", "Files", DaoAttachment)!);
+                Invoke(Get(database, "TableDefs"), "Append", owner);
+
+                object rows = Invoke(database, "OpenRecordset", "Owner")!;
+                for (int id = 1; id <= 40; id++)
+                {
+                    Invoke(rows, "AddNew");
+                    Set(Item(Get(rows, "Fields"), "Id"), "Value", id);
+                    Set(Item(Get(rows, "Fields"), "Txt"), "Value", new string('t', id * 5));
+                    foreach ((string column, object[] values) in new[]
+                    {
+                        ("Numbers", Enumerable.Range(0, id % 4 + 1).Select(v => (object)(id * 10 + v)).ToArray()),
+                        ("Words", Enumerable.Range(0, id % 3).Select(v => (object)new string((char)('a' + v), 40 + id)).ToArray()),
+                    })
+                    {
+                        object child = Get(Item(Get(rows, "Fields"), column), "Value");
+                        foreach (object value in values)
+                        {
+                            Invoke(child, "AddNew");
+                            Set(Item(Get(child, "Fields"), "Value"), "Value", value);
+                            Invoke(child, "Update");
+                        }
+                        Invoke(child, "Close");
+                    }
+                    if (id % 5 == 0)
+                    {
+                        object files = Get(Item(Get(rows, "Fields"), "Files"), "Value");
+                        Invoke(files, "AddNew");
+                        Invoke(Item(Get(files, "Fields"), "FileData"), "LoadFromFile", attachment);
+                        Invoke(files, "Update");
+                        Invoke(files, "Close");
+                    }
+                    Invoke(rows, "Update");
+                }
+                Invoke(rows, "Close");
+            });
+            AssertSameFile(origin,
+            [
+                "CREATE TABLE Digit (D INTEGER)",
+                .. Enumerable.Range(0, 10).Select(d => $"INSERT INTO Digit (D) VALUES ({d})"),
+                "INSERT INTO Calc (Id, Qty, Txt) SELECT a.D * 10 + b.D, a.D + b.D, String(a.D * 20 + b.D, 'x') FROM Digit a, Digit b ORDER BY 1",
+                "UPDATE Calc SET Qty = Qty + 7 WHERE Id MOD 3 = 0",
+                "UPDATE Calc SET Txt = String(250, 'y') WHERE Id MOD 4 = 0",
+                "UPDATE Calc SET Txt = 'short' WHERE Id MOD 6 = 0",
+                "DELETE FROM Calc WHERE Id MOD 5 = 0",
+                "ALTER TABLE Calc ADD COLUMN Extra LONG",
+                "CREATE INDEX ixCalcQty ON Calc (Qty)",
+                "INSERT INTO Calc (Id, Qty, Txt) SELECT 100 + a.D * 10 + b.D, b.D, String(a.D * 25, 'z') FROM Digit a, Digit b ORDER BY 1",
+                "DELETE FROM Owner WHERE Id MOD 4 = 0",
+                "UPDATE Owner SET Txt = String(200, 'u') WHERE Id MOD 3 = 0",
+                "INSERT INTO Owner (Id, Txt) SELECT 100 + D, 'new' FROM Digit ORDER BY 1",
+                "DELETE FROM Owner WHERE Id > 30",
+                "DELETE FROM Calc WHERE Id < 50",
+                "DELETE FROM Owner",
+                "DROP TABLE Calc",
+            ], dao: true);
+        }
+        finally { TemporaryDatabase.Delete(attachment); }
+    }
+
+    /// <summary>A file grown past the 32,000 pages ACE's inline global free map covers, so the map turns to bitmap
+    /// pages and a second bitmap's range is reached, then rows deleted, updated, indexed and added again.</summary>
+    [Theory]
+    // Open: from 16 statements on, stale bytes in map holders' free space — on page 1 one bit of the inline global map
+    // left by its promotion, then on the table's holder what its free-pages map's conversion leaves — and from 19 on
+    // the CREATE INDEX over a much-duplicated key builds three fewer index pages than ACE's.
+    [InlineData(0, Explicit = true)]
+    [InlineData(13)] // prefixes locate where the large file diverges
+    [InlineData(14)]
+    [InlineData(15)]
+    [InlineData(16, Explicit = true)]
+    [InlineData(17, Explicit = true)]
+    [InlineData(18, Explicit = true)]
+    [InlineData(19, Explicit = true)]
+    [InlineData(20, Explicit = true)]
+    public void A_file_past_the_inline_free_map_leaves_libred_and_ace_with_the_same_file(int count)
+    {
+        string[] statements = LargeFileStatements();
+        AssertSameFile(CreateThroughDao(Ace12), count > 0 ? statements[..count] : statements);
+    }
+
+    /// <summary>The large-file run: <paramref name="secondRows"/> rows in the second insert and
+    /// <paramref name="fourthRows"/> in the fourth, one row to a data page.</summary>
+    private static string[] LargeFileStatements(int secondRows = 10000, int fourthRows = 3000)
+    {
+        // Seven uncompressed 255-character texts make a row of over 3,500 bytes: one row to a data page.
+        static string Insert(int from, int rows) =>
+            "INSERT INTO Wide (Id, Grp, A, B, C, E, F, G, H) SELECT " +
+            $"{from} + a.D * 1000 + b.D * 100 + c.D * 10 + d.D, d.D, " +
+            string.Join(", ", Enumerable.Repeat("String(255, 'w')", 7)) +
+            $" FROM Digit a, Digit b, Digit c, Digit d WHERE a.D * 1000 + b.D * 100 + c.D * 10 + d.D < {rows} ORDER BY 1";
+        return
+        [
+            "CREATE TABLE Digit (D INTEGER)",
+            .. Enumerable.Range(0, 10).Select(d => $"INSERT INTO Digit (D) VALUES ({d})"),
+            "CREATE TABLE Wide (Id LONG CONSTRAINT pkWide PRIMARY KEY, Grp LONG, A TEXT(255), B TEXT(255), C TEXT(255), "
+                + "E TEXT(255), F TEXT(255), G TEXT(255), H TEXT(255))",
+            Insert(0, 10000), Insert(10000, secondRows), Insert(20000, 10000), Insert(30000, fourthRows),
+            "DELETE FROM Wide WHERE Id MOD 7 = 0",
+            "UPDATE Wide SET A = 'short' WHERE Id MOD 11 = 0",
+            "CREATE INDEX ixWideGrp ON Wide (Grp)",
+            Insert(40000, 1500),
+            "DELETE FROM Wide WHERE Id >= 31000 AND Id < 32000",
+            Insert(50000, 500),
+        ];
+    }
+
+    // PROBE: the global maps and Wide's usage maps after the first count statements of the large-file run, in each
+    // engine — where each map turns reference form and where its bitmap pages go — with the last pages' layout.
+    // With lowFree, a dropped table leaves free pages low in the file and the second insert runs in a session of its
+    // own: whether the bitmap page takes one of those or the index group's held page. With splitAt, the statements from
+    // there on run in a session of their own.
+    [Theory(Explicit = true)]
+    [InlineData(10000, false, 19)]
+    public void Probe_large_file_usage_maps(int rows, bool lowFree, int count = 14, int fourthRows = 3000, int splitAt = 0)
+    {
+        string[] statements = LargeFileStatements(rows, fourthRows)[..count];
+        string[][] sessions = splitAt > 0 ? [statements[..splitAt], statements[splitAt..]] : lowFree
+            ?
+            [
+                [
+                    .. statements[..11],
+                    "CREATE TABLE Filler (Id LONG, A TEXT(255), B TEXT(255), C TEXT(255), E TEXT(255), F TEXT(255), G TEXT(255), H TEXT(255))",
+                    "INSERT INTO Filler (Id, A, B, C, E, F, G, H) SELECT D, " + string.Join(", ", Enumerable.Repeat("String(255, 'f')", 7)) + " FROM Digit",
+                    .. statements[11..13],
+                    "DROP TABLE Filler",
+                ],
+                [statements[13]],
+            ]
+            : [statements];
+        string? origin = CreateThroughDao(Ace12);
+        Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
+        string ace = TemporaryDatabase.CopyPath(origin, "largemaps-ace-"), libred = TemporaryDatabase.CopyPath(origin, "largemaps-libred-");
+        try
+        {
+            foreach (string[] session in sessions)
+            {
+                Assert.All(RunThroughAce(ace, session), e => Assert.Null(e));
+                Assert.All(RunThroughLibRed(libred, session), e => Assert.Null(e));
+                if (lowFree) output.WriteLine($"ACE free below the end after a session: {FreeBelowEnd(ace)}");
+            }
+            output.WriteLine($"ACE:    {Maps(ace)}");
+            output.WriteLine($"LibRed: {Maps(libred)}");
+            output.WriteLine($"ACE free below the end:    {FreeBelowEnd(ace)}");
+            output.WriteLine($"LibRed free below the end: {FreeBelowEnd(libred)}");
+            foreach ((string name, string path) in new[] { ("ACE", ace), ("LibRed", libred) })
+                output.WriteLine($"{name}: {RollbackAllocationProbeTest.Describe(path, 33100)}");
+        }
+        finally
+        {
+            foreach (string path in new[] { origin, ace, libred }) TemporaryDatabase.Delete(path);
+        }
+
+        static string FreeBelowEnd(string path)
+        {
+            using var db = JetDatabase.Open(path, readOnly: true);
+            int pages = db.Channel.PageCount;
+            return string.Join(",", PageGroupProbeTest.GlobalFree(db.OpenTable("MSysObjects"), pages).Where(p => p < pages).Order());
+        }
+
+        static string Maps(string path)
+        {
+            using var db = JetDatabase.Open(path, readOnly: true);
+            JetFormatBase format = db.Format;
+            Catalog.TableDefinition wide = db.Catalog.FindTable("Wide")!;
+            IO.PageBuffer tdef = db.Channel.ReadPage(wide.DefinitionPage);
+            var maps = new Storage.UsageMap(db.Channel, wide);
+            var text = new StringBuilder($"{db.Channel.PageCount} pages");
+            var page0 = new DatabaseDefinitionPage();
+            page0.Read(db.Channel.ReadPageShared(0), format);
+            foreach ((string name, (int row, int page)) in new[]
+                {
+                    ("global free", page0.FreePagesMap),
+                    ("global released", page0.ReleasedPagesMap),
+                    ("owned", tdef.ReadRecordPointer(format.TdefOwnedPagesOffset)),
+                    ("free", tdef.ReadRecordPointer(format.TdefFreePagesOffset)),
+                }.Concat(wide.Indexes.GroupBy(i => i.RealIndexOrdinal).Select(g => (g.First().Name, g.First().UsageMap))))
+            {
+                (IO.PageBuffer holder, _, DataPage.RowSlot slot) = Storage.UsageMap.ReadRecord(db.Channel, row, page, name);
+                byte[] record = holder.Span.Slice(slot.Offset, slot.Length).ToArray();
+                text.Append($"; {name} @{page}/{row} free {DataPage.ReadFreeSpace(db.Channel.ReadPage(page).Span, format)}: ");
+                if (Storage.UsageMap.RecordType(record) == UsageMapType.Inline)
+                    text.Append($"inline start {Storage.UsageMap.StartPage(record, format)} length {record.Length}");
+                else
+                    text.Append("reference [" + string.Join(",", Enumerable.Range(0, format.UsageMapReferenceSlots)
+                        .Select(s => Storage.UsageMap.ReferencePointer(record, s, format)).Where(p => p != 0)) + "]");
+            }
+            return text.ToString();
+        }
+    }
+
+    /// <summary>Runs <paramref name="statements"/> through ACE — over OLE DB, or through DAO with
+    /// <paramref name="dao"/> — and through LibRed, each in one session on a copy of <paramref name="origin"/>, and
+    /// asserts each statement succeeds or fails in both and the files match.</summary>
+    private static void AssertSameFile(string? origin, string[] statements, bool dao = false)
+    {
         Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
         string ace = TemporaryDatabase.CopyPath(origin, "wholefile-ace-");
         string noise = TemporaryDatabase.CopyPath(origin, "wholefile-noise-");
         string libred = TemporaryDatabase.CopyPath(origin, "wholefile-libred-");
         try
         {
-            string?[] aceErrors = RunThroughAce(ace, statements);
-            using (AceTestDatabase.Open(noise)) { }
+            string?[] aceErrors = RunThroughAce(ace, statements, dao: dao);
+            RunThroughAce(noise, [], dao: dao);
             string?[] libredErrors = RunThroughLibRed(libred, statements);
 
-            for (int i = 0; i < statements.Length; i++)
-                Assert.True(aceErrors[i] == libredErrors[i],
-                    $"#{i + 1} {statements[i]}\n  ACE: {aceErrors[i] ?? "ok"}\n  LibRed: {libredErrors[i] ?? "ok"}");
+            string outcomes = string.Concat(Enumerable.Range(0, statements.Length)
+                .Where(i => aceErrors[i] is null != libredErrors[i] is null)
+                .Select(i => $"\n#{i + 1} {statements[i]}\n  ACE: {aceErrors[i] ?? "ok"}\n  LibRed: {libredErrors[i] ?? "ok"}"));
+            Assert.True(outcomes.Length == 0, outcomes);
             (string report, int pages) = Compare(origin, ace, noise, libred);
+            // Each engine's layout — a small file's whole, a large one's around where the pages first differ — shows
+            // where an allocation went its own way.
+            if (pages > 0)
+            {
+                int first = System.Text.RegularExpressions.Regex.Matches(report, @"page (\d+):")
+                    .Select(m => int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture)).Where(p => p > 100).DefaultIfEmpty(38).Min();
+                (int from, int to) = new FileInfo(ace).Length < 200 * 4096 ? (38, int.MaxValue) : (Math.Max(38, first - 40), first + 60);
+                report += $"\nACE layout: {RollbackAllocationProbeTest.Describe(ace, from, to)}" +
+                    $"\nLibRed layout: {RollbackAllocationProbeTest.Describe(libred, from, to)}";
+            }
             Assert.True(pages == 0, report);
         }
         finally
@@ -186,10 +510,12 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     [InlineData(0)]
     [InlineData(138)]
     [InlineData(-1)] // The bulk-allocation statement, independent of corpus numbering.
-    public void Each_statement_leaves_libred_and_ace_with_the_same_file(int statement)
+    // Open on a Jet 4 file: #230 and #231 (CREATE TABLE with constraints) and #473 (the Late table's long values).
+    [InlineData(0, Jet4, Explicit = true)]
+    public void Each_statement_leaves_libred_and_ace_with_the_same_file(int statement, int version = Ace12)
     {
         string[] statements = Statements();
-        string? origin = CreateEmptyThroughDao();
+        string? origin = CreateThroughDao(version);
         Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
         string current = origin;
         var summary = new StringBuilder();
@@ -267,7 +593,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     public void Ace_against_itself(int statement, int page)
     {
         string[] statements = Statements();
-        string? origin = CreateEmptyThroughDao();
+        string? origin = CreateThroughDao();
         Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
         string current = origin;
         var runs = new List<string>();
@@ -839,7 +1165,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     [InlineData(150, 4)]
     public void Bulk_insert_page_timeline(int payloadLength, int filler)
     {
-        string? origin = CreateEmptyThroughDao();
+        string? origin = CreateThroughDao();
         Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
         try
         {
@@ -916,7 +1242,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     [InlineData(200)]
     public void Indexed_append_timeline(int padding)
     {
-        string? origin = CreateEmptyThroughDao();
+        string? origin = CreateThroughDao();
         Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
         try
         {
@@ -980,7 +1306,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     [Fact(Explicit = true)]
     public void Two_indexes_on_one_column()
     {
-        string? origin = CreateEmptyThroughDao();
+        string? origin = CreateThroughDao();
         Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
         string[] ddl =
         [
@@ -1038,7 +1364,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     [Fact(Explicit = true)]
     public void Owned_map_given_a_page_below_its_start()
     {
-        string? origin = CreateEmptyThroughDao();
+        string? origin = CreateThroughDao();
         Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
         const string Wide = "W1 TEXT(255), W2 TEXT(255), W3 TEXT(255), W4 TEXT(255), W5 TEXT(255), W6 TEXT(255), W7 TEXT(255)";
         const string WideValues = "String(255,'a'), String(255,'b'), String(255,'c'), String(255,'d'), String(255,'e'), String(255,'f'), String(255,'g')";
@@ -1082,7 +1408,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     [InlineData(150)]
     public void Bulk_insert_alignment_map(int payloadLength)
     {
-        string? origin = CreateEmptyThroughDao();
+        string? origin = CreateThroughDao();
         Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
         try
         {
@@ -1156,7 +1482,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     {
         foreach (bool chained in new[] { false, true })
         {
-            string? origin = CreateEmptyThroughDao();
+            string? origin = CreateThroughDao();
             Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
             try
             {
@@ -1183,7 +1509,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     [InlineData(150)]
     public void Bulk_insert_holes_pair(int payloadLength)
     {
-        string? origin = CreateEmptyThroughDao();
+        string? origin = CreateThroughDao();
         Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
         string filled = "";
         try
@@ -1283,7 +1609,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     [InlineData(150, new[] { 500, 510, 520, 530, 540, 545, 546, 547, 590, 591, 602, 603 }, 2)]
     public void Bulk_insert_held_pages(int payloadLength, int[] rows, int filler)
     {
-        string? origin = CreateEmptyThroughDao();
+        string? origin = CreateThroughDao();
         Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
         try
         {
@@ -1432,9 +1758,30 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
 
     private static string Abbreviate(string statement) => statement.Length <= 90 ? statement : statement[..87] + "...";
 
-    private static string?[] RunThroughAce(string path, string[] statements, Action? beforeClose = null)
+    internal static string?[] RunThroughAce(string path, string[] statements, Action? beforeClose = null, bool dao = false)
     {
         var errors = new string?[statements.Length];
+        if (dao)
+        {
+            // Through DAO, as Access runs SQL: OLE DB sees a complex column only as Jet 4 did, and leaves its values
+            // behind when it deletes the row that owns them.
+            object database = Invoke(AceTestDatabase.CreateDaoEngine()!, "OpenDatabase", path)!;
+            try
+            {
+                for (int i = 0; i < statements.Length; i++)
+                {
+                    try { Invoke(database, "Execute", statements[i], 128); }   // dbFailOnError
+                    catch (TargetInvocationException e) { errors[i] = e.InnerException?.Message ?? e.Message; }
+                }
+                beforeClose?.Invoke();
+            }
+            finally
+            {
+                Invoke(database, "Close");
+                AceTestDatabase.ReleaseAbandonedComObjects();
+            }
+            return errors;
+        }
         using OleDbConnection connection = AceTestDatabase.Open(path);
         for (int i = 0; i < statements.Length; i++)
         {
@@ -1469,7 +1816,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     /// <summary>Compares the two results of the same statements applied to <paramref name="originPath"/>: page
     /// counts, then every differing page — page 0 on its own, the rest grouped by page type and owner — with its
     /// differing byte count and the first few differences. Returns the report and how many pages differ.</summary>
-    private static (string Report, int Pages) Compare(string originPath, string acePath, string noisePath, string libredPath)
+    internal static (string Report, int Pages) Compare(string originPath, string acePath, string noisePath, string libredPath)
     {
         byte[] origin = File.ReadAllBytes(originPath), ace = File.ReadAllBytes(acePath),
                noise = File.ReadAllBytes(noisePath), libred = File.ReadAllBytes(libredPath);
@@ -1697,18 +2044,37 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             .Select(r => ((string)r.Values[name]!, r.Values[lv] as byte[], r.Id, r.Values))];
     }
 
-    /// <summary>An empty ACE 12 database made by DAO, the path Access itself takes; null where DAO is missing.</summary>
-    private static string? CreateEmptyThroughDao()
+    // DAO's CreateDatabase format options and field types.
+    private const int Jet4 = 64, Ace12 = 128;
+    private const int DaoLong = 4, DaoText = 10, DaoMemo = 12, DaoAttachment = 101, DaoMultiValueLong = 104, DaoMultiValueText = 109;
+
+    /// <summary>A database made by DAO, the path Access itself takes, in <paramref name="version"/>'s format — empty,
+    /// or holding what <paramref name="prepare"/> adds through the open DAO database; null where DAO is missing.</summary>
+    private static string? CreateThroughDao(int version = Ace12, Action<object>? prepare = null)
     {
         object? engine = AceTestDatabase.CreateDaoEngine();
         if (engine is null) return null;
         string path = TemporaryDatabase.CreatePath("wholefile-origin-");
         object workspace = Invoke(engine, "CreateWorkspace", "", "admin", "", 2)!;
-        object database = Invoke(workspace, "CreateDatabase", path, ";LANGID=0x0409;CP=1252;COUNTRY=0", 128)!;
-        Invoke(database, "Close");
+        object database = Invoke(workspace, "CreateDatabase", path, ";LANGID=0x0409;CP=1252;COUNTRY=0", version)!;
+        try { prepare?.Invoke(database); }
+        finally
+        {
+            Invoke(database, "Close");
+            AceTestDatabase.ReleaseAbandonedComObjects();
+        }
         return path;
     }
 
     private static object? Invoke(object target, string member, params object?[] args) =>
         target.GetType().InvokeMember(member, BindingFlags.InvokeMethod, null, target, args);
+
+    private static object Get(object target, string member) =>
+        target.GetType().InvokeMember(member, BindingFlags.GetProperty, null, target, null)!;
+
+    private static void Set(object target, string member, object value) =>
+        target.GetType().InvokeMember(member, BindingFlags.SetProperty, null, target, [value]);
+
+    private static object Item(object collection, object key) =>
+        collection.GetType().InvokeMember("Item", BindingFlags.GetProperty, null, collection, [key])!;
 }

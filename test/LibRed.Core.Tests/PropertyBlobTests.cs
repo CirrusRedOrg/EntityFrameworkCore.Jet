@@ -99,6 +99,6 @@ public class PropertyBlobTests
         ]);
         IReadOnlyList<PropertyBlob.Property> read = PropertyBlob.Read(blob);
         Assert.Equal(["B"], PropertyBlob.ReadColumnDefaults(read).Keys);
-        Assert.Equal(["B"], PropertyBlob.ReadRequiredColumns(read));
+        Assert.Equal(["B"], PropertyBlob.ReadColumnsWith(read, PropertyBlob.RequiredProperty, true));
     }
 }

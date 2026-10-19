@@ -8,22 +8,35 @@ namespace LibRed.Core.Tests;
 
 public class GlobalMapGrowthTests : TempDatabaseTest
 {
+    // ACE keeps the session's reservation through a rollback — to a savepoint (a nested transaction, a failed
+    // statement) as of the transaction — and puts the pages the undone writes took from it in the free map rather
+    // than back into it, so the next page is the reservation's next (measured: RollbackAllocationProbeTest).
     [Fact]
-    public void Rollback_restores_reserved_page_selection_at_transaction_and_savepoint_boundaries()
+    public void Rollback_keeps_the_reservation_and_frees_the_pages_it_took()
     {
-        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "allocation-rollback-");
+        // A fresh file, so the reservation the first page opens holds the pages after it, as in every case measured.
+        string path = TemporaryDatabase.CreatePath("allocation-rollback-");
+        JetDatabase.Create(path);
         using var channel = PageChannel.Open(path, readOnly: false);
         channel.BeginTransaction();
         int first = channel.Allocator.Allocate();
         var savepoint = channel.CreateSavepoint();
         int second = channel.Allocator.Allocate();
         channel.RollbackToSavepoint(savepoint);
-        Assert.Equal(second, channel.Allocator.Allocate());
+        Assert.Contains(second, GlobalFree(channel));
+        Assert.Equal(second + 1, channel.Allocator.Allocate());
         channel.RollbackTransaction();
+        HashSet<int> free = GlobalFree(channel);
+        Assert.True(free.Contains(first) && free.Contains(second) && free.Contains(second + 1), $"free [{string.Join(",", free.Order())}]");
         channel.BeginTransaction();
-        Assert.Equal(first, channel.Allocator.Allocate());
-        Assert.Equal(second, channel.Allocator.Allocate());
+        Assert.Equal(second + 2, channel.Allocator.Allocate());
         channel.CommitTransaction();
+    }
+
+    private static HashSet<int> GlobalFree(PageChannel channel)
+    {
+        (_, _, byte[] holder, DataPage.RowSlot slot) = TestDatabases.GlobalMap(channel, channel.Format.FreePagesMapPointerOffset);
+        return [.. UsageMap.PagesInRecord(channel, holder.AsSpan(slot.Offset, slot.Length), null, "The global free map")];
     }
 
     [Theory]

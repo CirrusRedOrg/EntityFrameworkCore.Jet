@@ -63,6 +63,7 @@ public static class PropertyBlob
     public const string DefaultValueProperty = "DefaultValue";
     public const string CheckConstraintsProperty = "CheckConstraints";
     public const string RequiredProperty = "Required";
+    public const string AllowZeroLengthProperty = "AllowZeroLength";
     public const string ValidationRuleProperty = "ValidationRule";
     public const string ValidationTextProperty = "ValidationText";
 
@@ -363,14 +364,17 @@ public static class PropertyBlob
         return result;
     }
 
-    /// <summary>The set of columns marked <c>Required</c> (NOT NULL) — a column has the property
-    /// only when it is required (Access omits it for a nullable column). An entry without the DDL flag is not
-    /// enforced: ACE ignores it (verified).</summary>
-    public static IReadOnlySet<string> ReadRequiredColumns(IReadOnlyList<Property> properties)
+    /// <summary>The set of columns whose boolean property <paramref name="name"/> reads <paramref name="value"/>:
+    /// <c>Required</c> set (NOT NULL — Access omits the property for a nullable column), or <c>AllowZeroLength</c>
+    /// cleared (DAO writes it on every text field it creates, 0 unless asked; a column SQL DDL creates carries none and
+    /// takes a zero-length string — measured). An entry without the DDL flag is not enforced: ACE ignores it (verified
+    /// for <c>Required</c>).</summary>
+    public static IReadOnlySet<string> ReadColumnsWith(IReadOnlyList<Property> properties, string name, bool value)
     {
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        string text = value ? "1" : "0";
         foreach (Property p in properties)
-            if (p.BlockType == ColumnBlock && p.Name == RequiredProperty && p.Value == "1" && (p.Flags & DdlFlag) != 0)
+            if (p.BlockType == ColumnBlock && p.Name == name && p.Value == text && (p.Flags & DdlFlag) != 0)
                 result.Add(p.Owner);
         return result;
     }

@@ -36,7 +36,10 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     /// none — that ACE writes a new row over; with <paramref name="order"/> it decides the record's slack (spec §5).
     /// Null for a row written with no defaults.</param>
     /// <param name="order">The columns the statement names, in the order it names them.</param>
-    public void Insert(object?[] values, bool updateIndexes, object?[]? defaults = null, IReadOnlyList<int>? order = null)
+    /// <param name="validate">The caller's checks of the row, run once its ids are drawn (see <see cref="Table.Insert"/>).</param>
+    /// <param name="reference">The caller's check of the row's references (see <see cref="Table.Insert"/>).</param>
+    public void Insert(object?[] values, bool updateIndexes, object?[]? defaults = null, IReadOnlyList<int>? order = null,
+        Action<object?[]>? validate = null, Action<object?[]>? reference = null)
     {
         JetFormatBase format = _channel.Format;
         RejectExplicitCalculatedValues(values, null);
@@ -45,13 +48,11 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         // Assign AutoNumber ids for any AutoNumber column the caller left unset (the usual case —
         // Jet SQL omits the AutoNumber column from the insert). An explicitly supplied value is kept
         // as-is (Jet, unlike SQL Server, permits explicit AutoNumber values); either way the row's
-        // final id drives both the row encoding and the high-water update below.
+        // final id drives both the row encoding and the high-water update below. A row refused from here on
+        // keeps its drawn ids used, which a rollback writes back (PageChannel.KeepThroughRollback).
         bool[]? generatedAutoNumbers = AssignAutoNumbers(format, values);
-        if (updateIndexes)
-        {
-            EnforceNonNullKeys(values);   // after AssignAutoNumbers, so a counter key has its value
-            EnforceUniqueIndexes(values); // reject a duplicate before writing anything
-        }
+        validate?.Invoke(values);
+        if (updateIndexes) EnforceNonNullKeys(values);   // after AssignAutoNumbers, so a counter key has its value
 
         // From here the row exists in two forms, and they are two ARRAYS. `values` stays as the caller gave
         // it — the logical row — and `storage` is the copy long values are materialised into, where a memo
@@ -73,6 +74,14 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         (int pageNumber, byte[] page) = FindPageWithRoom(format, record.Length + format.DataRowDirectoryEntrySize);
         int rowCount = AppendRow(format, pageNumber, page, record, RowSlotFlags.None);
         _channel.WritePage(pageNumber, page);
+
+        // ACE writes the row before it gives the indexes its keys, and refuses a missing parent or a duplicate key
+        // only there — the refused row has taken its page by then (measured), which the statement's rollback frees.
+        if (updateIndexes)
+        {
+            reference?.Invoke(values);
+            EnforceUniqueIndexes(values);
+        }
 
         // Asked before the row's own entries go in, so an index "already has" a key only through another row.
         HashSet<int> newKeys = updateIndexes ? IndexesGainingANewKey(values) : [];
@@ -108,7 +117,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         }
         catch when (ownTransaction)
         {
-            _channel.RollbackTransaction();
+            _channel.RollbackTransaction(failed: true);
             throw;
         }
     }
@@ -352,7 +361,6 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     public void Delete(RowId id)
     {
         JetFormatBase format = _channel.Format;
-        bool released;
 
         // Free the deleted row's long values — a chained value's pages at once, a packed value held until close,
         // as ACE frees them.
@@ -392,16 +400,17 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             }
 
             DataPage.ReclaimRow(page.AsSpan(0, format.PageSize), format, id.Row);
-            released = WriteReclaimedPage(format, page, id.Page);
+            // The page has room again, so its bit goes back into the table's free-pages map — the mirror of the
+            // insert path clearing it when the page filled (AllocateDataPage). Without this the space a delete
+            // frees in a full page is space no later insert ever looks at, and ACE sets the bit here too
+            // (measured: deleting a row from the first of many pages, ACE writes the map holder and LibRed did not).
+            // A page the delete empties gets it too, before its release takes it out again: a map that cannot take
+            // the bit turns reference form on the way, as ACE's does (measured: deleting every seventh row of a
+            // one-row-a-page table gives its free-pages map a bitmap for each range).
+            UpdateUsageBit(format.TdefFreePagesOffset, id.Page, set: true);
+            WriteReclaimedPage(format, page, id.Page);
         }
         finally { ArrayPool<byte>.Shared.Return(page); }
-
-        // The page has room again, so its bit goes back into the table's free-pages map — the mirror of the
-        // insert path clearing it when the page filled (AllocateDataPage). Without this the space a delete
-        // frees in a full page is space no later insert ever looks at, and ACE sets the bit here too
-        // (measured: deleting a row from the first of many pages, ACE writes the map holder and LibRed did not).
-        // A released page is the exception: it has already left both of the table's maps.
-        if (!released) UpdateUsageBit(format.TdefFreePagesOffset, id.Page, set: true);
 
         byte[] tdef = ArrayPool<byte>.Shared.Rent(format.PageSize);
         try
@@ -434,7 +443,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
                     Math.Min(lastKeyLost.Contains(index.RealIndexOrdinal) ? unique - 1 : unique, total - 1));
             }
 
-            _channel.WritePage(_table.DefinitionPage, tdef.AsSpan(0, format.PageSize));
+            WriteDefinitionCounters(tdef.AsSpan(0, format.PageSize));
         }
         finally { ArrayPool<byte>.Shared.Return(tdef); }
     }
@@ -483,7 +492,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             TableDefinition.WriteRowCount(tdef, format, 0);
             foreach (IndexDef index in realIndexes)
                 TableDefinition.WriteIndexCounts(tdef, format, index.RealIndexOrdinal, 0, 0);
-            _channel.WritePage(_table.DefinitionPage, tdef.AsSpan(0, format.PageSize));
+            WriteDefinitionCounters(tdef.AsSpan(0, format.PageSize));
         }
         finally { ArrayPool<byte>.Shared.Return(tdef); }
     }
@@ -502,7 +511,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             (int total, int unique) = TableDefinition.ReadIndexCounts(tdef, format, index.RealIndexOrdinal);
             if (total == 0) return;
             TableDefinition.WriteIndexCounts(tdef, format, index.RealIndexOrdinal, total - 1, Math.Min(unique, total - 1));
-            _channel.WritePage(_table.DefinitionPage, tdef.AsSpan(0, format.PageSize));
+            WriteDefinitionCounters(tdef.AsSpan(0, format.PageSize));
         }
         finally { ArrayPool<byte>.Shared.Return(tdef); }
     }
@@ -562,7 +571,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
 
     /// <summary>
     /// Writes back the page a DELETE has just reclaimed a row from, and gives the page away when that row was
-    /// the last live one on it. Returns whether it was released. Only the delete path: a page emptied by
+    /// the last live one on it. Only the delete path: a page emptied by
     /// reclaiming a hidden relocation target is kept, as ACE keeps it (see <see cref="ReclaimRelocationTarget"/>).
     /// </summary>
     /// <remarks>
@@ -582,15 +591,12 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     /// <para>The table's <b>first</b> data page is the exception and is kept whatever happens to it — see
     /// <see cref="IsFirstDataPage"/>.</para>
     /// </remarks>
-    private bool WriteReclaimedPage(JetFormatBase format, byte[] page, int pageNumber)
+    private void WriteReclaimedPage(JetFormatBase format, byte[] page, int pageNumber)
     {
         bool release = IsEmptied(format, page) && !IsFirstDataPage(pageNumber);
         if (release) DataPage.MarkReleased(page);
         _channel.WritePage(pageNumber, page.AsSpan(0, format.PageSize));
-        if (!release) return false;
-
-        ReleaseDataPage(format, pageNumber);
-        return true;
+        if (release) ReleaseDataPage(format, pageNumber);
     }
 
     /// <summary>Takes a data page out of the table's owned and free maps and releases it — held until this handle
@@ -820,7 +826,8 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
 
     /// <summary>Rejects the insert if a UNIQUE or PRIMARY index would gain a duplicate key. A row with a
     /// null in any of a unique index's columns is skipped — Jet treats nulls as distinct, so a unique index
-    /// allows multiple nulls (verified vs ACE). Runs before the row is written so nothing is half-inserted.</summary>
+    /// allows multiple nulls (verified vs ACE). An insert's runs once its row is written, before its index entries,
+    /// as ACE's does; the statement's transaction undoes the row.</summary>
     private void EnforceUniqueIndexes(object?[] values, int? excludePointer = null, IReadOnlySet<int>? changedColumns = null)
     {
         IndexTree? writer = null;
@@ -829,12 +836,13 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             if (changedColumns is not null && !index.Columns.Any(c => changedColumns.Contains(c.Column.Index))) continue;
             if (HasNullKey(index, values)) continue; // nulls are distinct — multiple allowed
             writer ??= new IndexTree(_channel, _table);
-            if (writer.KeyExists(index, values, excludePointer))
-                throw new ConstraintViolationException(
-                    $"Cannot {(excludePointer is null ? "insert into" : "update")} '{_table.Name}': a row with the same {(index.IsPrimaryKey ? "primary key" : "unique key")} " +
-                    $"already exists (index '{index.Name}').",
-                    index.Name,
-                    index.IsPrimaryKey);
+            if (!writer.KeyExists(index, values, excludePointer)) continue;
+            if (excludePointer is null) CountKeysBeforeRefusal(index, values);
+            throw new ConstraintViolationException(
+                $"Cannot {(excludePointer is null ? "insert into" : "update")} '{_table.Name}': a row with the same {(index.IsPrimaryKey ? "primary key" : "unique key")} " +
+                $"already exists (index '{index.Name}').",
+                index.Name,
+                index.IsPrimaryKey);
         }
     }
 
@@ -858,23 +866,31 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     /// which does not hold it). A unique index is no exception: it may hold a key with a Null in it more than
     /// once, and a repeat adds nothing (measured, whole-file diff — WholeFileParityProbeTest: two more rows with a
     /// Null in a unique index's column left its count at 1). A unique key without a Null cannot be there already,
-    /// so only one with a Null is looked up.
+    /// so only one with a Null is looked up — unless the row is <paramref name="refusedAt"/> an index: then only the
+    /// indexes ACE gives the key before refusing it count, the real indexes taken in order up to that one, or to an
+    /// earlier one that refuses it first — a unique index holding the key, or a primary or required one meeting a
+    /// Null (measured: a missing parent counts the primary key ahead of the relationship's index; a duplicate key
+    /// counts nothing ahead of the primary key it fails at).
     /// </summary>
-    private HashSet<int> IndexesGainingANewKey(object?[] values)
+    private HashSet<int> IndexesGainingANewKey(object?[] values, IndexDef? refusedAt = null)
     {
         var gaining = new HashSet<int>();
         IndexTree? writer = null;
-        foreach (IndexDef index in _table.RealIndexes)
+        foreach (IndexDef index in refusedAt is null ? _table.RealIndexes : _table.RealIndexes.OrderBy(i => i.RealIndexOrdinal))
         {
             bool nullKey = HasNullKey(index, values);
+            if (refusedAt is not null
+                && (index.RealIndexOrdinal >= refusedAt.RealIndexOrdinal || nullKey && (index.IsPrimaryKey || index.Required)))
+                break;
             if (index.IgnoreNulls && nullKey) continue;
-            if (index.IsUnique && !nullKey)
+            if (index.IsUnique && !nullKey && refusedAt is null)
             {
                 gaining.Add(index.RootPage);
                 continue;
             }
             writer ??= new IndexTree(_channel, _table);
             if (!writer.KeyExists(index, values)) gaining.Add(index.RootPage);
+            else if (index.IsUnique && !nullKey) break;
         }
         return gaining;
     }
@@ -1232,6 +1248,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
                     // is exactly what ACE does (no overflow error exists — see AceAutoNumberOverflowProbeTest).
                     values[column.Index] = highWater = unchecked(highWater + column.Increment);
                     generated[column.Index] = true;
+                    _channel.KeepThroughRollback(_table.DefinitionPage, format.TdefLastAutoNumberOffset, highWater);
                 }
             }
         return generated;
@@ -1254,6 +1271,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
 
         int next = unchecked(TableDefinition.ReadComplexAutoNumber(tdef, format) + 1);
         foreach (ColumnDef column in complex) values[column.Index] = next;
+        _channel.KeepThroughRollback(_table.DefinitionPage, format.TdefComplexAutoNumberOffset, next);
     }
 
     /// <summary>A random non-zero signed Int32 for a "Random" AutoNumber, mirroring Access's <c>GenUniqueID()</c>.</summary>
@@ -1342,6 +1360,13 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             column.Seed = unchecked(newHighWater + column.Increment);
         }
 
+        WriteNewKeyCounts(tdef, newKeys);
+    }
+
+    /// <summary>Counts a new key on each real index in <paramref name="newKeys"/> and writes the definition page.</summary>
+    private void WriteNewKeyCounts(byte[] tdef, HashSet<int> newKeys)
+    {
+        JetFormatBase format = _channel.Format;
         // One count per real index, so a relationship's logical index sharing a real one does not advance it twice.
         foreach (IndexDef index in _table.Indexes.GroupBy(i => i.RealIndexOrdinal).Select(g => g.First()))
         {
@@ -1350,6 +1375,40 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             TableDefinition.WriteIndexCounts(tdef, format, index.RealIndexOrdinal, total, unique + 1);
         }
 
+        WriteDefinitionCounters(tdef);
+    }
+
+    /// <summary>Writes the table's definition page once a row has changed its counters, which a rollback then keeps
+    /// as ACE keeps them (measured): a statement that fails leaves every table's row and index counts as the rows it
+    /// accepted took them (<see cref="PageChannel.AcceptCounters"/>), with a refused row's counting up to the index
+    /// that refused it; a ROLLBACK takes an ordinary table's back with the rows, and MSysRelationships', but not
+    /// MSysObjects' or MSysACEs' — a rolled-back CREATE TABLE's catalog rows go, their counting stays.</summary>
+    private void WriteDefinitionCounters(ReadOnlySpan<byte> tdef)
+    {
         _channel.WritePage(_table.DefinitionPage, tdef);
+        JetFormatBase format = _channel.Format;
+        bool failedOnly = !(_table.IsSystem && (_table.Name.Equals("MSysObjects", StringComparison.OrdinalIgnoreCase)
+            || _table.Name.Equals("MSysACEs", StringComparison.OrdinalIgnoreCase)));
+        _channel.KeepThroughRollback(_table.DefinitionPage, format.TdefRowCountOffset, TableDefinition.ReadRowCount(tdef, format), failedOnly);
+        foreach (int ordinal in _table.Indexes.Select(i => i.RealIndexOrdinal).Distinct())
+        {
+            int entry = TableDefinition.RealIndexEntry(format, ordinal);
+            (int total, int unique) = TableDefinition.ReadIndexCounts(tdef, format, ordinal);
+            _channel.KeepThroughRollback(_table.DefinitionPage, entry + format.RealIndexRowCountOffset, total, failedOnly);
+            _channel.KeepThroughRollback(_table.DefinitionPage, entry + format.RealIndexUniqueCountOffset, unique, failedOnly);
+        }
+    }
+
+    /// <summary>
+    /// Counts what ACE counts of a row it refuses at <paramref name="refusing"/> — the new keys it gave the indexes
+    /// ahead of that one (<see cref="IndexesGainingANewKey"/>) — and keeps the count, as a failed statement keeps
+    /// its counters.
+    /// </summary>
+    public void CountKeysBeforeRefusal(IndexDef refusing, object?[] values)
+    {
+        HashSet<int> gaining = IndexesGainingANewKey(values, refusing);
+        if (gaining.Count == 0) return;
+        WriteNewKeyCounts(_channel.ReadPageShared(_table.DefinitionPage).Span.ToArray(), gaining);
+        _channel.AcceptCounters();
     }
 }

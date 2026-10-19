@@ -250,21 +250,25 @@ public sealed class JetDatabase : IDisposable
 
     /// <summary>
     /// Rolls the current transaction back, restoring every touched page and dropping any pages the
-    /// transaction allocated.
+    /// transaction allocated. <paramref name="failed"/> says a statement failed, rather than a ROLLBACK asked
+    /// for it: ACE keeps the table counters a failed statement left.
     /// </summary>
-    public void Rollback()
+    public void Rollback(bool failed = false)
     {
         if (!_channel.InTransaction) return;
-        _channel.RollbackTransaction();
+        _channel.RollbackTransaction(failed);
     }
+
+    /// <inheritdoc cref="IO.PageChannel.AcceptCounters"/>
+    public void AcceptCounters() => _channel.AcceptCounters();
 
     /// <summary>Opens a savepoint within the current transaction (used to make a single statement atomic
     /// inside a larger user transaction). Requires a transaction to be open.</summary>
     public Savepoint CreateSavepoint() => _channel.CreateSavepoint();
 
     /// <summary>Rolls back to <paramref name="savepoint"/>, undoing writes made since it was created; the
-    /// transaction (and savepoint) stay open.</summary>
-    public void RollbackToSavepoint(Savepoint savepoint) => _channel.RollbackToSavepoint(savepoint);
+    /// transaction (and savepoint) stay open. <paramref name="failed"/> as for <see cref="Rollback"/>.</summary>
+    public void RollbackToSavepoint(Savepoint savepoint, bool failed = false) => _channel.RollbackToSavepoint(savepoint, failed);
 
     /// <summary>Releases <paramref name="savepoint"/>, merging its writes into the enclosing scope.</summary>
     public void ReleaseSavepoint(Savepoint savepoint) => _channel.ReleaseSavepoint(savepoint);

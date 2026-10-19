@@ -208,12 +208,17 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     /// <summary>Rejects an insert that leaves a NOT NULL (Required) column null after defaults are applied —
     /// matching Access, which raises "You must enter a value in the 'Table.Column' field." AutoNumber columns
-    /// are exempt: they are assigned during the write, not supplied here.</summary>
+    /// are exempt: they are assigned during the write, not supplied here. And one that gives a column whose
+    /// AllowZeroLength is cleared a zero-length string, in ACE's words for it (measured).</summary>
     private static void EnforceRequired(string table, IReadOnlyList<ColumnDef> columns, object?[] values)
     {
         foreach (ColumnDef column in columns)
+        {
             if (!column.IsNullable && !column.IsAutoNumber && values[column.Index] is null)
                 throw new InvalidOperationException($"You must enter a value in the '{table}.{column.Name}' field.");
+            if (!column.AllowZeroLength && values[column.Index] is string { Length: 0 })
+                throw new InvalidOperationException($"Field '{table}.{column.Name}' cannot be a zero-length string.");
+        }
     }
 
     /// <summary>Rejects a row written against any of the table's CHECK constraints. Called once the row is written, so
@@ -305,9 +310,15 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 continue;
 
             if (partialNull || !ParentRowExists(ends, target))
+            {
+                // ACE refuses the row at the relationship's index, the keys it gave the indexes ahead of it counted.
+                if (!update && table.Definition.Indexes.FirstOrDefault(i => i.Name.Equals(fk.Name, StringComparison.OrdinalIgnoreCase))
+                    is { } refusing)
+                    table.CountKeysBeforeRefusal(refusing, values);
                 throw new InvalidOperationException(
                     $"{(update ? "UPDATE of" : "INSERT into")} '{childTable}' violates foreign key '{fk.Name}': "
                     + $"no matching row in '{fk.ReferencedTable}'.");
+            }
 
             // Inside a transaction, finding the parent now is not enough: reading it writes no page, so the
             // commit's page-conflict check cannot see the dependency, and a concurrent transaction is free to
@@ -1128,7 +1139,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             }
             catch
             {
-                into.Rollback();
+                into.Rollback(failed: true);
                 throw;
             }
             return 0;
@@ -1274,10 +1285,14 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             if (!supplied) values[index] = value;
         }
 
-        EnforceRequired(tableName, table.Definition.Columns, values);
-        EnforceReferentialIntegrity(tableName, table, values);
-        table.Insert(values, defaultRecord, provided); // fills values[autoNumber.Index] with the generated id (array mutated in place)
+        // Checked as ACE checks them: a required column once the row's ids are drawn, so a refused row uses up its
+        // AutoNumber; a reference once the row is written. Insert fills values[autoNumber.Index] with the generated
+        // id (array mutated in place).
+        table.Insert(values, defaultRecord, provided,
+            validate: row => EnforceRequired(tableName, table.Definition.Columns, row),
+            reference: row => EnforceReferentialIntegrity(tableName, table, row));
         EnforceCheckConstraints(table.Definition, values, cascaded: false);
+        _database.AcceptCounters();   // the row stands: a later failure of the statement keeps its counting, as ACE's does
         return defaults.AutoNumber is { } autoNumber ? values[autoNumber.Index] : null;
     }
 

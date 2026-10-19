@@ -73,16 +73,18 @@ public class ConcurrentAllocationTests
         Assert.Single(second.ExecuteQuery("SELECT Id FROM ConcurrentAlloc WHERE K = 'first'").Rows);
         Assert.Empty(second.ExecuteQuery("SELECT Id FROM ConcurrentAlloc WHERE K = 'stale'").Rows);
 
+        // The rolled-back insert's id stays drawn: ACE's retry after the same sequence gets 3 (measured —
+        // RollbackCounterProbeTest.Probe_ids_of_two_connections_when_one_rolls_back).
         second.ExecuteNonQuery("BEGIN TRANSACTION");
         second.ExecuteNonQuery(
             $"INSERT INTO ConcurrentAlloc (K, M) VALUES ('retry', '{retryMemo}')");
-        Assert.Equal(2, Identity(second));
+        Assert.Equal(3, Identity(second));
         second.ExecuteNonQuery("COMMIT");
 
         var rows = first.ExecuteQuery("SELECT Id, K FROM ConcurrentAlloc ORDER BY Id").Rows.ToArray();
         Assert.Equal(2, rows.Length);
         Assert.Equal((1, "first"), (Convert.ToInt32(rows[0][0]), (string)rows[0][1]!));
-        Assert.Equal((2, "retry"), (Convert.ToInt32(rows[1][0]), (string)rows[1][1]!));
+        Assert.Equal((3, "retry"), (Convert.ToInt32(rows[1][0]), (string)rows[1][1]!));
     }
 
     private static void CreateTable(string path)
@@ -99,7 +101,7 @@ public class ConcurrentAllocationTests
         var e = new QueryEngine(db);
         Assert.Equal(2, Convert.ToInt32(e.ExecuteQuery("SELECT COUNT(*) FROM ConcurrentAlloc").Rows.Single()[0]));
         Assert.Equal(24000, ((string)e.ExecuteQuery("SELECT M FROM ConcurrentAlloc WHERE Id = 1").Rows.Single()[0]!).Length);
-        Assert.Equal(32000, ((string)e.ExecuteQuery("SELECT M FROM ConcurrentAlloc WHERE Id = 2").Rows.Single()[0]!).Length);
+        Assert.Equal(32000, ((string)e.ExecuteQuery("SELECT M FROM ConcurrentAlloc WHERE Id = 3").Rows.Single()[0]!).Length);
         Assert.Empty(e.ExecuteQuery("SELECT Id FROM ConcurrentAlloc WHERE K = 'stale'").Rows);
     }
 
@@ -108,10 +110,10 @@ public class ConcurrentAllocationTests
         using var connection = AceTestDatabase.Open(path, password);
         AssertScalar(connection, "SELECT COUNT(*) FROM ConcurrentAlloc", 2);
         AssertScalar(connection, "SELECT COUNT(*) FROM ConcurrentAlloc WHERE Id = 1 AND K = 'first'", 1);
-        AssertScalar(connection, "SELECT COUNT(*) FROM ConcurrentAlloc WHERE Id = 2 AND K = 'retry'", 1);
+        AssertScalar(connection, "SELECT COUNT(*) FROM ConcurrentAlloc WHERE Id = 3 AND K = 'retry'", 1);
         AssertScalar(connection, "SELECT COUNT(*) FROM ConcurrentAlloc WHERE K = 'stale'", 0);
         Assert.Equal(24000, ((string)ExecuteScalar(connection, "SELECT M FROM ConcurrentAlloc WHERE Id = 1")!).Length);
-        Assert.Equal(32000, ((string)ExecuteScalar(connection, "SELECT M FROM ConcurrentAlloc WHERE Id = 2")!).Length);
+        Assert.Equal(32000, ((string)ExecuteScalar(connection, "SELECT M FROM ConcurrentAlloc WHERE Id = 3")!).Length);
     }
 
     private static int Identity(QueryEngine engine) =>

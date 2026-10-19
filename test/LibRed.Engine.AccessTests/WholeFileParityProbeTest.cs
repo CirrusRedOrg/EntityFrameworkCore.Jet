@@ -772,6 +772,53 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
         }
     }
 
+    /// <summary>A statement whose MSysObjects row is the one that does not fit, so the catalog takes a new page during it
+    /// and that page's place among what the statement allocates alongside it — index roots, definition continuations,
+    /// long-value maps, the parent's side of a relationship — is compared. Filler tables go in through ACE until the
+    /// statement, tried on a copy, takes the catalog a new page; the corpus runs reach that state only by chance.</summary>
+    [Theory]
+    [InlineData(Ace12, "CREATE TABLE Probe (Id LONG CONSTRAINT pkProbe PRIMARY KEY, Name TEXT(20))")]
+    [InlineData(Jet4, "CREATE TABLE Probe (Id LONG CONSTRAINT pkProbe PRIMARY KEY, Name TEXT(20))")]
+    [InlineData(Ace12, "CREATE TABLE Probe (Id LONG CONSTRAINT pkProbe PRIMARY KEY, Code TEXT(10) CONSTRAINT uqProbe UNIQUE, ParentId LONG CONSTRAINT fkProbe REFERENCES Parent (Id))")]
+    [InlineData(Jet4, "CREATE TABLE Probe (Id LONG CONSTRAINT pkProbe PRIMARY KEY, Code TEXT(10) CONSTRAINT uqProbe UNIQUE, ParentId LONG CONSTRAINT fkProbe REFERENCES Parent (Id))")]
+    [InlineData(Ace12, "CREATE TABLE Probe (A TEXT(10) DEFAULT 'x', Id LONG CONSTRAINT pkProbe PRIMARY KEY)")]
+    [InlineData(Jet4, "CREATE TABLE Probe (A TEXT(10) DEFAULT 'x', Id LONG CONSTRAINT pkProbe PRIMARY KEY)")]
+    [InlineData(Ace12, "CREATE TABLE Probe (Id LONG CONSTRAINT pkProbe PRIMARY KEY, M1 MEMO, M2 MEMO)")]
+    [InlineData(Jet4, "CREATE TABLE Probe (Id LONG CONSTRAINT pkProbe PRIMARY KEY, M1 MEMO, M2 MEMO)")]
+    [InlineData(Ace12, "wide")]
+    [InlineData(Jet4, "wide")]
+    public void A_statement_that_fills_the_catalog_page_leaves_libred_and_ace_with_the_same_file(int version, string statement)
+    {
+        if (statement == "wide")
+            statement = "CREATE TABLE Probe (Id LONG CONSTRAINT pkProbe PRIMARY KEY, "
+                + string.Join(", ", Enumerable.Range(1, 120).Select(i => $"C{i:D3} TEXT(10)")) + ")";
+        string? origin = CreateThroughDao(version);
+        Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
+        Assert.All(RunThroughAce(origin, ["CREATE TABLE Parent (Id LONG CONSTRAINT pkParent PRIMARY KEY)"]), Assert.Null);
+
+        static int CatalogPages(string path)
+        {
+            using var db = JetDatabase.Open(path, readOnly: true);
+            return new UsageMap(db.Channel, db.Catalog.FindTable("MSysObjects")!).DataPages().Count();
+        }
+        int fillers = 0;
+        while (true)
+        {
+            string trial = TemporaryDatabase.CopyPath(origin, "catalogfill-trial-");
+            try
+            {
+                int before = CatalogPages(trial);
+                Assert.Null(RunThroughAce(trial, [statement])[0]);
+                if (CatalogPages(trial) > before) break;
+            }
+            finally { TemporaryDatabase.Delete(trial); }
+            Assert.True(fillers < 400, "The catalog never took a new page.");
+            Assert.Null(RunThroughAce(origin, [$"CREATE TABLE Fill{fillers++} (Id LONG)"])[0]);
+        }
+        output.WriteLine($"{fillers} filler table(s) before the statement fills the catalog page.");
+        AssertSameFile(origin, [statement]);
+    }
+
     /// <summary>One statement run through ACE three times from the same file: every byte where ACE does not agree
     /// with itself, which no engine could be expected to reproduce.</summary>
     [Theory(Explicit = true)]

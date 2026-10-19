@@ -219,6 +219,10 @@ no definition**. The page count is therefore set by `length + 8`, not by the len
 
 Each page's free space is what it has left once its definition and reserve bytes are placed.
 
+A `CREATE TABLE`'s continuation pages come after the pages it takes for the table's `MSysObjects` row and its index
+roots, in that order: a new `MSysObjects` data page the row needs comes before the primary key's root (measured on a
+Jet 4 file), and a wide table's primary-key root before its definition's continuations (measured on ACE 12 and Jet 4).
+
 LibRed uses one shared reader for catalog parsing, index-root updates, and DDL surgery. It treats the
 `0x08` definition length as authoritative: `length + 8` determines the exact number of continuation
 pages, and the length the exact number of bytes copied from the final page. Every page number must be in-file,

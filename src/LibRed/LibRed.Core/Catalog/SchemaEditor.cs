@@ -263,25 +263,11 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             }
         }
 
-        // Each index is an empty leaf root, populated as rows are inserted. Its usage map is on the primary
-        // page, at the row the declaration order above gave it. A key declared after a column with extended
-        // properties gets its root after those properties are written, and a foreign key's after its
-        // relationship's rows (both below); until then the definition names page 0.
-        bool HasProperties(ColumnSpec c) => defaults.ContainsKey(c.Name) || !c.IsNullable || c.CalculatedExpression is not null;
-        bool[] afterProperties = [.. columnsBefore.Select(n => columns.Take(n).Any(HasProperties))];
-        var indexes = new List<IndexSpec>(owners.Count);
-        foreach (int i in owners)
-        {
-            var plan = indexPlans[i];
-            int rootPage = 0;
-            if (plan.Fk is null && !afterProperties[i])
-            {
-                rootPage = AllocateIndexRoot(format, tdefPage);
-                new UsageMap(_channel).SetBit(indexRows[i], usageMapPage, rootPage, set: true);
-            }
-            indexes.Add(new IndexSpec(plan.Name, plan.Columns, plan.IsPk, plan.IsUnique,
-                rootPage, UsageMapRow: indexRows[i], UsageMapPage: usageMapPage));
-        }
+        // Each index is an empty leaf root, populated as rows are inserted; its root is allocated below, once the
+        // definition has been built and the catalog row written. Its usage map is on the primary page, at the row the
+        // declaration order above gave it.
+        var indexes = owners.Select(i => new IndexSpec(indexPlans[i].Name, indexPlans[i].Columns, indexPlans[i].IsPk,
+            indexPlans[i].IsUnique, RootPage: 0, UsageMapRow: indexRows[i], UsageMapPage: usageMapPage)).ToList();
 
         // Build the child's logical index-info blocks, one per plan, each naming its plan's data block. A plain
         // index's (PK's) is a plain block; a foreign key's instead carries the *outgoing* relationship block (§3.6), linked
@@ -345,19 +331,40 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         JetTextComparer names = JetTextComparer.For(_collation);
         childLogical.Sort((a, b) => names.Compare(a.Name, b.Name));
 
-        // Build the definition, pointed at the usage maps on the usage-map page.
-        byte[] tdef = TableDefinition.Build(format, tableType, columns, _collation, indexes, longValueSpecs, childLogical,
+        // Build the definition, pointed at the usage maps on the usage-map page — before the catalog row is written,
+        // since the build refuses a declaration ACE refuses (a NUMERIC precision, a record too wide).
+        byte[] Build() => TableDefinition.Build(format, tableType, columns, _collation, indexes, longValueSpecs, childLogical,
             usageMapPage).Page;
-        // A wide table's definition can exceed one page; write it split across continuation pages if needed.
-        int defEnd = TableDefinition.ReadLength(tdef, format);
-        TableDefinition.WriteChain(_channel, _allocator, tdefPage, tdef[..defEnd], [], rewrite: false);
+        Build();
 
-        // The table's MSysObjects row, with no extended properties yet (they are written below, one at a time). A
-        // table owning a complex column is flagged so — Access marks every one it writes.
+        // The table's MSysObjects row, with no extended properties yet (they are written below, one at a time), comes
+        // before the index roots, which come before the definition's continuation pages (measured: a CREATE TABLE whose
+        // row took a new MSysObjects page put that page before the primary key's root; a wide table's root comes before
+        // its definition's continuations). A table owning a complex column is flagged so — Access marks every one it
+        // writes.
         ObjectAttributes objectFlags = flatTable ? ObjectAttributes.System | ObjectAttributes.ComplexFlatTable
             : columns.Any(c => c.Type == JetDataType.Complex) ? ObjectAttributes.OwnsComplexColumns
             : ObjectAttributes.None;
         _catalog.AddObjectRow(name, tdefPage, ObjectType.Table, JetCatalog.ObjectContainerParentId, flags: unchecked((int)objectFlags));
+
+        // A key declared after a column with extended properties gets its root after those properties are written, and
+        // a foreign key's after its relationship's rows (both below); until then the definition names page 0.
+        bool HasProperties(ColumnSpec c) => defaults.ContainsKey(c.Name) || !c.IsNullable || c.CalculatedExpression is not null;
+        bool[] afterProperties = [.. columnsBefore.Select(n => columns.Take(n).Any(HasProperties))];
+        for (int k = 0; k < owners.Count; k++)
+        {
+            int i = owners[k];
+            if (indexPlans[i].Fk is not null || afterProperties[i]) continue;
+            int rootPage = AllocateIndexRoot(format, tdefPage);
+            new UsageMap(_channel).SetBit(indexRows[i], usageMapPage, rootPage, set: true);
+            indexes[k] = indexes[k] with { RootPage = rootPage };
+        }
+
+        byte[] tdef = Build();
+        // A wide table's definition can exceed one page; write it split across continuation pages if needed.
+        int defEnd = TableDefinition.ReadLength(tdef, format);
+        TableDefinition.WriteChain(_channel, _allocator, tdefPage, tdef[..defEnd], [], rewrite: false);
+
         // A new table's permission rows: what the Tables container grants what it creates (system-catalog §11).
         _catalog.AddPermissionRows(tdefPage, JetCatalog.ObjectContainerParentId, inheritable: flatTable);
 

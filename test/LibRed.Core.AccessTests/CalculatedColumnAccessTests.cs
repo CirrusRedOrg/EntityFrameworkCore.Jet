@@ -533,6 +533,10 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
     {
         object? engine = CreateDbEngine();
         Assert.SkipWhen(engine is null, "DAO is unavailable in this process; it authors the fixture.");
+        if (resultType == JetDataType.Int64)
+            Assert.SkipUnless(
+                AceTestDatabase.SupportsColumnType(TestDatabases.NorthwindAccdb, "BIGINT"),
+                AceTestDatabase.UnsupportedColumnTypeReason("BIGINT"));
 
         string basePath = TemporaryDatabase.CreatePath("calc-raise-base-");
         string acePath = TemporaryDatabase.CreatePath("calc-raise-ace-");

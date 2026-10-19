@@ -34,6 +34,12 @@ public class AceCoreApiShapeProbeTests(ITestOutputHelper output) : TempDatabaseT
     {
         Shape definition = Shapes[shape];
         output.WriteLine($"{shape}: {definition.Why}");
+        // These two are only about the file ACE is handed if the installed ACE knows the type at all.
+        string? newerType = shape switch { "bigint-in-ace12" => "BIGINT", "datetime2-in-ace12" => "DATETIME2", _ => null };
+        if (newerType is not null)
+            Assert.SkipUnless(
+                AceTestDatabase.SupportsColumnType(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), newerType),
+                AceTestDatabase.UnsupportedColumnTypeReason(newerType));
 
         string path = TemporaryDatabase.CreatePath("libred-coreshape-");
         File.Delete(path);

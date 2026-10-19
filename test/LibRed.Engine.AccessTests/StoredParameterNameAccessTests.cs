@@ -65,6 +65,11 @@ public class StoredParameterNameAccessTests
     [InlineData("CREATE PROCEDURE P (p BIGINT) AS DELETE FROM T WHERE K = p")]
     public void A_parameter_of_a_newer_type_is_stored_on_an_older_file_as_ace_stores_it(string sql)
     {
+        string newerType = sql.Contains("DATETIME2", StringComparison.Ordinal) ? "DATETIME2" : "BIGINT";
+        Assert.SkipUnless(
+            AceTestDatabase.SupportsColumnType(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), newerType),
+            AceTestDatabase.UnsupportedColumnTypeReason(newerType));
+
         string basePath = TemporaryDatabase.CreatePath("stored-param-type-base-");
         string acePath = TemporaryDatabase.CreatePath("stored-param-type-ace-");
         string libredPath = TemporaryDatabase.CreatePath("stored-param-type-libred-");

@@ -186,7 +186,11 @@ internal sealed class PageAllocator
             }
             if (_owners.TryGetValue(pointer, out int last)) previousPage = last;
             else if (previousPage < 0) previousPage = maps.PagesInMap(pointer.Row, pointer.Page).LastOrDefault(-1);
-            if (groups && previousPage >= 0)
+            // The owner continues in the group of its last page — unless the global map is in reference form and that
+            // group lies before the selected bitmap, which no search goes back to (measured: an index whose last page
+            // sat in range 0 took its next statement's pages past range 1's start, its old group's pages still free).
+            if (groups && previousPage >= 0 && (free.Type == UsageMapType.Inline
+                || previousPage / _channel.Format.UsageMapPagesPerBitmapPage >= _bitmapSlot))
             {
                 int first = previousPage & ~7;
                 for (int page = first; page < first + 8; page++)
@@ -230,13 +234,23 @@ internal sealed class PageAllocator
     }
 
     /// <summary>Takes <paramref name="page"/>, which the group of <paramref name="holder"/> holds, for
-    /// <paramref name="owner"/>.</summary>
+    /// <paramref name="owner"/> — or, with none, for a usage map's bitmap page.</summary>
     private int TakeHeld((int Row, int Page) holder, int page, (int Row, int Page)? owner)
     {
         (int start, byte bits) = _groups[holder];
+        // A bitmap page — no owner — gives the holder's group back and takes the page as any free page is taken, the
+        // free pages round it becoming the reservation the next rows take (measured: an index's held pages 33165-33167,
+        // the bitmap on 33165, then the rows on 33166, 33167 and the free pages after the next group's first page).
+        if (owner is null)
+        {
+            ReturnGroup((start, bits), toReservation: false);
+            _groups.Remove(holder);
+            (MapRecord free, MapRecord released) = ReadGlobalMaps();
+            return TakePage(page, free, released, new ReleasedPages(this, released), owner: null, reserve: true);
+        }
         EnsurePhysicalAllocation(page);
         _groups[holder] = (start, (byte)(bits & ~(1 << (page - start))));
-        if (owner is { } pointer) _owners[pointer] = page;
+        _owners[owner.Value] = page;
         return page;
     }
 

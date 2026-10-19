@@ -38,6 +38,15 @@ map that cannot take the bit inline — not empty, the page outside the window i
 form, though the bit then goes (measured: deleting every seventh row of a one-row-a-page table spanning two
 ranges leaves its free-pages map in reference form with a bitmap for each; the order is inferred from that).
 
+**ACE keeps other emptied pages too, by a rule not yet settled (measured, LibRed releases them).** Over 30 one-row
+pages (Id *n* on page 48 + *n*), deleting Ids 10–19 keeps page 58 — the first page it empties — and releases the
+rest; then deleting Ids 20–24 releases all of theirs. Deleting 20–24 first keeps 68, and then 10–19 keeps 58 as
+well; deleting 10–24 in one statement keeps 58 only; deleting 0–4 and then 10–19 keeps only the lowest page, 48;
+deleting 10–19 and then 0–4 keeps 58 and 48. So within these, a DELETE keeps the first page it empties when that
+lies below every emptied page kept so far, the lowest data page included. But in a longer session — every seventh
+row deleted, then an UPDATE shortening rows, an index created and rows added — a later DELETE of Ids 31,000–31,999
+kept its first emptied page though the lowest page was kept before it; what in between reset that is not known.
+
 **A table always keeps its first data page.** It is never stamped and never given back, however empty it
 gets, and stays in both of the table's maps with all its slots tombstoned like any other emptied page. This
 is not "a table keeps one page": it is kept even while later pages still hold live rows. It is **the lowest

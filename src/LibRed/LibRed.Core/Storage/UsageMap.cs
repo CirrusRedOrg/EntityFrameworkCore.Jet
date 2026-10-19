@@ -291,15 +291,10 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
     /// <paramref name="mapRow"/> on <paramref name="mapPage"/>.</summary>
     /// <remarks>
     /// Handles both map types. An inline map is grown in place while its record still fits the page; once it
-    /// cannot, the map is converted to a reference map — exactly Access's own threshold.
-    /// <para>
-    /// <paramref name="movableWindow"/> marks a map whose set bits stay clustered near the append tail — a
-    /// free-pages map. Rather than growing a bitmap from <c>startPage = 0</c> all the way out to the tail,
-    /// such a map slides a fixed full-width window, as Access does, so its record stays full-width forever.
-    /// An owned-pages map cannot do this: it must retain every page it has ever taken.
-    /// </para>
+    /// cannot, the map is converted to a reference map — exactly Access's own threshold. A free-pages map is no
+    /// different from an owned one here (measured).
     /// </remarks>
-    public void SetBit(int mapRow, int mapPage, int targetPage, bool set, bool movableWindow = false)
+    public void SetBit(int mapRow, int mapPage, int targetPage, bool set)
     {
         JetFormatBase format = _channel.Format;
         // The pointer comes out of the file, so the record is located as every reader locates it: a live, non-empty
@@ -336,17 +331,11 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
                     page.AsSpan(mapOffset + format.UsageMapStartPageOffset, sizeof(int)), targetPage / 8 * 8);
                 bitIndex = targetPage % 8;
             }
-            // A free-pages map slides its window onto the target instead of growing (and can therefore also
-            // move *backwards*, which a grown map could never do). Where the window cannot take every page it
-            // already marks as well, ACE neither widens the record nor drops a page: it converts the map to a
-            // reference map (verified: a table grown to page ~1140, marking its tail, asked for a page near 340).
-            else if (movableWindow)
-            {
-                if (!TryRepositionWindow(page, holder, format, mapPage, mapRow, targetPage)) SetAsReference();
-                return;
-            }
-            // An owned map cannot slide, and one asked for a page below its start converts the same way (verified: a
-            // table whose owned map was re-based on 600, given 42, 44 and 45, holds them in a reference map).
+            // A map that marks a page cannot slide: asked for a page below its start, it converts to a reference
+            // map (verified: a table whose owned map was re-based on 600, given 42, 44 and 45, holds them in a
+            // reference map; a free-pages map at a table's tail near page 1140, given a page near 340, likewise).
+            // Asked for one past its end, it grows, a free-pages map too (measured: a DELETE of every seventh row
+            // of a one-row-a-page table grows the free-pages map from start page 0, 69 to 77, 89 and 477 bytes).
             else if (bitIndex < 0)
             {
                 SetAsReference();
@@ -384,44 +373,6 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
             (PageBuffer converted, _, DataPage.RowSlot reference) = ReadRecord(_channel, mapRow, mapPage, "Usage-map pointer");
             SetReferenceBit(converted.Span.ToArray(), mapPage, reference.Offset, targetPage, set);
         }
-    }
-
-    /// <summary>
-    /// Slides an inline map's window onto <paramref name="targetPage"/>: a full-width bitmap starting at the
-    /// window boundary below the target, carrying over every bit already set and adding the target's.
-    /// Returns <see langword="false"/> — leaving the map untouched — when some page already marked would
-    /// fall outside the new window, since moving would silently forget it; the caller then converts the map
-    /// to a reference map, as ACE does.
-    /// </summary>
-    private bool TryRepositionWindow(byte[] page, DataPage holder, JetFormatBase format, int mapPage, int mapRow, int targetPage)
-    {
-        DataPage.RowSlot slot = holder.Rows[mapRow];
-        int headerSize = format.UsageMapInlineHeaderSize;
-        int startPage = StartPage(page.AsSpan(slot.Offset), format);
-        ReadOnlySpan<byte> bitmap = page.AsSpan(slot.Offset + headerSize, slot.Length - headerSize);
-
-        int windowPages = format.UsageMapInlineBitmapSize * 8;
-        int newStart = targetPage / windowPages * windowPages;
-        int newEnd = newStart + windowPages;
-
-        var marked = new List<int>();
-        BitmapBits.AppendPages(marked, bitmap, startPage, rejectBeyond: null, "A free-pages map");
-        // A window that has already moved above the target cannot slide back down without dropping the pages it
-        // still advertises. Dropping one leaves reusable space invisible, and throwing failed an ordinary DROP
-        // TABLE on a real file (complex1.accdb, whose MSysObjects free map sits at page 2288 while its catalog
-        // rows live at page 17) — so the caller converts instead.
-        if (!marked.TrueForAll(p => p >= newStart && p < newEnd)) return false;
-
-        byte[] record = NewInlineRecord(format, newStart, format.UsageMapInlineBitmapSize);
-        marked.Add(targetPage);
-        foreach (int markedPage in marked)
-            BitmapBits.Set(InlineBits(record, format), markedPage - newStart, true);
-
-        byte[]? rewritten = ReplaceMapRecord(page, holder, format, mapRow, record, out _);
-        if (rewritten is null) return false; // shrinking or same size, so effectively unreachable
-
-        _channel.WritePage(mapPage, rewritten);
-        return true;
     }
 
     /// <summary>Sets or clears <paramref name="targetPage"/>'s bit in a reference map: pointer slot

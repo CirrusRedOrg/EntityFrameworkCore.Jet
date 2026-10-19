@@ -121,8 +121,10 @@ free = row 1); an index's map spills the same way rather than being squeezed in.
 >   free page in an earlier range is passed over (measured: a DELETE's free-pages map, with the selected bitmap at
 >   range 1, took the free pages past the end of the file over free pages in range 0, and took those in a new
 >   session, where the selection starts again at range 0). A free page is taken as any free page is: the free pages
->   round it become the session's reservation, and the next rows take them before their own group's pages; a held
->   page is taken from its group. Measured with a primary-keyed table whose owned map converted at page ~17,990, with
+>   round it become the session's reservation, and the next rows take them before their own group's pages. A held
+>   page is taken the same way once its group is given back: the group's other pages go free with it, and so into
+>   that reservation (measured: an index holding 33,165–33,167, a primary key's range-1 bitmap on 33,165, then the
+>   rows on 33,166, 33,167 and the free pages after the next group's first page). Measured with a primary-keyed table whose owned map converted at page ~17,990, with
 >   no reservation open: the range-0 bitmap went on page 45, the lowest of the free pages a
 >   dropped table had left, and the next rows on 46 onward; with no page free, on 13,927, the page the primary key's
 >   group still held from earlier in the same statement. The table's range-1 bitmap went on 32,737, the first page of
@@ -141,16 +143,14 @@ free = row 1); an index's map spills the same way rather than being squeezed in.
 >   Access never grows it: the page an insert finds full leaves the map before the next tail is marked, so the
 >   map is empty at that moment and re-based on the new tail by the rule above. Its window therefore moves to
 >   the new tail's page rounded down to 8 — not to a 512-page boundary: a free map starting at 600 moved to
->   1112, one at 1152 to 1664, and a long-value free map at 1152 to 1672 (verified). An owned map cannot
->   slide: it must retain every page it has ever taken. LibRed re-bases an empty map the same way. A non-empty
->   free-pages map asked for a page outside its window LibRed slides to the 512-page window holding the target
->   when every page it marks fits there; what ACE does in that case is **not measured**. The window can
->   already sit **above** the page being marked, since it follows the append tail while
->   a table's older pages stay where they are. There ACE neither widens the record nor re-bases the window:
->   it **converts the free-pages map to a reference map** (type `0x01`), allocating a fresh bitmap page for it,
->   so no page it advertised is dropped (verified: a table grown to page ~1140, its free map marking the tail, a row
->   deleted on page ~340). LibRed converts likewise whenever a page already marked would fall outside the
->   window the target needs, and is byte-identical in that case.
+>   1112, one at 1152 to 1664, and a long-value free map at 1152 to 1672 (verified). LibRed re-bases an empty
+>   map the same way. A **non-empty** free-pages map does not slide: it is grown and converted exactly as an
+>   owned map is. Asked for a page past its end, it grows in place from its start page (measured: a DELETE of
+>   every seventh row of a one-row-a-page table grows a table's free-pages map from start page 0, 69 bytes to 77,
+>   89 and 477, and it turns reference form only when its page cannot hold it). Asked for a page below its start
+>   — its window follows the append tail while a table's older pages stay where they are — it **converts to a
+>   reference map** (type `0x01`), so no page it advertised is dropped (verified: a table grown to page ~1140,
+>   its free map marking the tail, a row deleted on page ~340). LibRed does both, and is byte-identical in each.
 > - **The conversion point is a page-budget calculation, not a constant.** The owned map converts as soon as
 >   its next grown record would not fit the usage-map page alongside the page header (14 bytes), the row
 >   directory (2 bytes/record) and the *other* records sharing that page. So the threshold moves with the

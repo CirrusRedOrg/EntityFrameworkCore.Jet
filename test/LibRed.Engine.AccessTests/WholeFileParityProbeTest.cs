@@ -340,34 +340,30 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     /// <summary>A file grown past the 32,000 pages ACE's inline global free map covers, so the map turns to bitmap
     /// pages and a second bitmap's range is reached, then rows deleted, updated, indexed and added again.</summary>
     [Theory]
-    // Open: from 16 statements on, stale bytes in map holders' free space — on page 1 one bit of the inline global map
-    // left by its promotion, then on the table's holder what its free-pages map's conversion leaves — and from 19 on
-    // the CREATE INDEX over a much-duplicated key builds three fewer index pages than ACE's.
+    // Open: at 16 one stale bit on page 1, in the inline global map its promotion leaves behind: ACE's primary key had let
+    // go of page 27,799 by then, LibRed's still held it. The whole run: its last DELETE keeps a page ACE keeps and
+    // LibRed releases (page-09-released-data.md), so the last insert's first row lands one page apart.
     [InlineData(0, Explicit = true)]
     [InlineData(13)] // prefixes locate where the large file diverges
     [InlineData(14)]
     [InlineData(15)]
     [InlineData(16, Explicit = true)]
-    [InlineData(17, Explicit = true)]
-    [InlineData(18, Explicit = true)]
-    [InlineData(19, Explicit = true)]
-    [InlineData(20, Explicit = true)]
+    [InlineData(17)]
+    [InlineData(18)]
+    [InlineData(19)]
+    [InlineData(20)]
     public void A_file_past_the_inline_free_map_leaves_libred_and_ace_with_the_same_file(int count)
     {
         string[] statements = LargeFileStatements();
         AssertSameFile(CreateThroughDao(Ace12), count > 0 ? statements[..count] : statements);
     }
 
-    /// <summary>The large-file run: <paramref name="secondRows"/> rows in the second insert and
-    /// <paramref name="fourthRows"/> in the fourth, one row to a data page.</summary>
-    private static string[] LargeFileStatements(int secondRows = 10000, int fourthRows = 3000)
+    /// <summary>The large-file run: <paramref name="secondRows"/> rows in the second insert,
+    /// <paramref name="fourthRows"/> in the fourth and <paramref name="fifthRows"/> in the fifth, one row to a data
+    /// page.</summary>
+    private static string[] LargeFileStatements(int secondRows = 10000, int fourthRows = 3000, int fifthRows = 1500)
     {
-        // Seven uncompressed 255-character texts make a row of over 3,500 bytes: one row to a data page.
-        static string Insert(int from, int rows) =>
-            "INSERT INTO Wide (Id, Grp, A, B, C, E, F, G, H) SELECT " +
-            $"{from} + a.D * 1000 + b.D * 100 + c.D * 10 + d.D, d.D, " +
-            string.Join(", ", Enumerable.Repeat("String(255, 'w')", 7)) +
-            $" FROM Digit a, Digit b, Digit c, Digit d WHERE a.D * 1000 + b.D * 100 + c.D * 10 + d.D < {rows} ORDER BY 1";
+        string Insert(int from, int rows) => WideInsert(from, rows);
         return
         [
             "CREATE TABLE Digit (D INTEGER)",
@@ -378,10 +374,101 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             "DELETE FROM Wide WHERE Id MOD 7 = 0",
             "UPDATE Wide SET A = 'short' WHERE Id MOD 11 = 0",
             "CREATE INDEX ixWideGrp ON Wide (Grp)",
-            Insert(40000, 1500),
+            Insert(40000, fifthRows),
             "DELETE FROM Wide WHERE Id >= 31000 AND Id < 32000",
             Insert(50000, 500),
         ];
+    }
+
+    /// <summary>Inserts <paramref name="rows"/> rows into the large-file run's Wide from Id <paramref name="from"/>,
+    /// Grp the Id's last digit. Seven uncompressed 255-character texts make a row of over 3,500 bytes: one row to a
+    /// data page.</summary>
+    private static string WideInsert(int from, int rows) =>
+        "INSERT INTO Wide (Id, Grp, A, B, C, E, F, G, H) SELECT " +
+        $"{from} + a.D * 1000 + b.D * 100 + c.D * 10 + d.D, d.D, " +
+        string.Join(", ", Enumerable.Repeat("String(255, 'w')", 7)) +
+        $" FROM Digit a, Digit b, Digit c, Digit d WHERE a.D * 1000 + b.D * 100 + c.D * 10 + d.D < {rows} ORDER BY 1";
+
+    // PROBE: a CREATE INDEX on Wide's Grp — ten keys, each held by a tenth of the rows — over rows inserted in one go.
+    // After the large-file run's first count statements. With delete, every seventh row goes first; with update, every
+    // eleventh row's A is shortened first.
+    // PROBE: DELETEs that empty one-row pages away from the table's lowest page — which emptied page each keeps.
+    // Each case a sequence of Id ranges deleted, one DELETE a range, over 30 one-row pages (Id n on page 48 + n).
+    [Theory(Explicit = true)]
+    [InlineData("0-4,10-19")]
+    [InlineData("10-24")]
+    [InlineData("20-24,10-19")]
+    [InlineData("10-19,0-4")]
+    public void Probe_the_page_a_delete_keeps(string ranges) =>
+        AssertSameFile(CreateThroughDao(Ace12),
+        [
+            .. LargeFileStatements()[..12], WideInsert(0, 30),
+            .. ranges.Split(',').Select(r => r.Split('-')).Select(r => $"DELETE FROM Wide WHERE Id >= {r[0]} AND Id <= {r[1]}"),
+        ]);
+
+    // PROBE: rows inserted in key order, zeros of key 0 then 300 of key 1, into an index made before (indexFirst) or
+    // after: whether a leaf the new key would store at a smaller prefix takes it or splits.
+    [Theory(Explicit = true)]
+    [InlineData(2304, true)]
+    [InlineData(2304, false)]
+    [InlineData(2604, true)]
+    [InlineData(2604, false)]
+    public void Probe_a_new_key_at_the_right_edge_of_a_leaf_of_duplicates(int zeros, bool indexFirst)
+    {
+        const string n = "a.D * 1000 + b.D * 100 + c.D * 10 + d.D";
+        string insert = $"INSERT INTO T (Id, G) SELECT {n}, IIf({n} < {zeros}, 0, 1) FROM Digit a, Digit b, Digit c, Digit d "
+            + $"WHERE {n} < {zeros + 300} ORDER BY 2, 1";
+        AssertSameFile(CreateThroughDao(Ace12),
+        [
+            .. LargeFileStatements()[..11],
+            "CREATE TABLE T (Id LONG, G LONG)",
+            .. indexFirst ? ["CREATE INDEX ixG ON T (G)", insert] : new[] { insert, "CREATE INDEX ixG ON T (G)" },
+        ]);
+    }
+
+    // Lists the new index's leaves in page order — entries, compressed bytes, first and last trailer — where they differ.
+    [Theory(Explicit = true)]
+    [InlineData(15)]
+    public void Probe_create_index_on_a_duplicated_key(int count, bool delete = false, bool update = false)
+    {
+        string[] statements = [.. LargeFileStatements()[..count],
+            .. delete ? ["DELETE FROM Wide WHERE Id MOD 7 = 0"] : Array.Empty<string>(),
+            .. update ? ["UPDATE Wide SET A = 'short' WHERE Id MOD 11 = 0"] : Array.Empty<string>(),
+            "CREATE INDEX ixWideGrp ON Wide (Grp)"];
+        string? origin = CreateThroughDao(Ace12);
+        Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
+        string ace = TemporaryDatabase.CopyPath(origin, "dupindex-ace-"), libred = TemporaryDatabase.CopyPath(origin, "dupindex-libred-");
+        try
+        {
+            RunThroughAce(ace, statements);
+            RunThroughLibRed(libred, statements);
+            string[] a = Leaves(ace), l = Leaves(libred);
+            output.WriteLine($"leaves: ACE {a.Length}, LibRed {l.Length}");
+            for (int i = 0; i < Math.Max(a.Length, l.Length); i++)
+                if (i >= a.Length || i >= l.Length || a[i] != l[i])
+                    output.WriteLine($"#{i}: ACE {(i < a.Length ? a[i] : "-")} | LibRed {(i < l.Length ? l[i] : "-")}");
+        }
+        finally
+        {
+            foreach (string path in new[] { origin, ace, libred }) TemporaryDatabase.Delete(path);
+        }
+
+        static string[] Leaves(string path)
+        {
+            using var db = JetDatabase.Open(path, readOnly: true);
+            Catalog.TableDefinition wide = db.Catalog.FindTable("Wide")!;
+            IndexDef grp = wide.Indexes.Single(i => i.Name == "ixWideGrp");
+            var result = new List<string>();
+            foreach (int number in new Storage.UsageMap(db.Channel, wide).PagesInMap(grp.UsageMap.Row, grp.UsageMap.Page).Order())
+            {
+                IndexTree.CheckedPage page = IndexTree.Read(db.Channel, number, wide.DefinitionPage);
+                if (PageHeader.ReadType(db.Channel.ReadPage(number).Span) != PageType.LeafIndexPage) continue;
+                var entries = IndexTree.DecodeEntries(page).ToList();
+                result.Add($"{number}: {entries.Count} at {IndexTree.ReadCompressedByteCount(db.Channel.ReadPage(number).Span, db.Format)}, "
+                    + $"{entries[0].Trailer:X8}..{entries[^1].Trailer:X8}");
+            }
+            return [.. result];
+        }
     }
 
     // PROBE: the global maps and Wide's usage maps after the first count statements of the large-file run, in each
@@ -390,10 +477,13 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     // own: whether the bitmap page takes one of those or the index group's held page. With splitAt, the statements from
     // there on run in a session of their own.
     [Theory(Explicit = true)]
-    [InlineData(10000, false, 19)]
-    public void Probe_large_file_usage_maps(int rows, bool lowFree, int count = 14, int fourthRows = 3000, int splitAt = 0)
+    [InlineData(10000, false, 20, 3000, 0, 0, 200)]
+    public void Probe_large_file_usage_maps(int rows, bool lowFree, int count = 14, int fourthRows = 3000, int splitAt = 0,
+        int deleteBelow = 0, int fifthRows = 1500)
     {
-        string[] statements = LargeFileStatements(rows, fourthRows)[..count];
+        // deleteBelow: the run's DELETE of every seventh row, only below that Id, after the first count statements.
+        string[] statements = [.. LargeFileStatements(rows, fourthRows, fifthRows)[..count],
+            .. deleteBelow > 0 ? [$"DELETE FROM Wide WHERE Id MOD 7 = 0 AND Id < {deleteBelow}"] : Array.Empty<string>()];
         string[][] sessions = splitAt > 0 ? [statements[..splitAt], statements[splitAt..]] : lowFree
             ?
             [
@@ -423,11 +513,35 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
             output.WriteLine($"ACE free below the end:    {FreeBelowEnd(ace)}");
             output.WriteLine($"LibRed free below the end: {FreeBelowEnd(libred)}");
             foreach ((string name, string path) in new[] { ("ACE", ace), ("LibRed", libred) })
-                output.WriteLine($"{name}: {RollbackAllocationProbeTest.Describe(path, 33100)}");
+            {
+                output.WriteLine($"{name} page 1 below its records: {NonZero(path, 1)[..Math.Min(400, NonZero(path, 1).Length)]}");
+                output.WriteLine($"{name} layout: {RollbackAllocationProbeTest.Describe(path, 33148, 33200)}");
+            }
         }
         finally
         {
             foreach (string path in new[] { origin, ace, libred }) TemporaryDatabase.Delete(path);
+        }
+
+        // The page's slot entries, then each run of non-zero bytes between its slot directory and its lowest record.
+        static string NonZero(string path, int number)
+        {
+            using var db = JetDatabase.Open(path, readOnly: true);
+            JetFormatBase format = db.Format;
+            byte[] page = db.Channel.ReadPage(number).Span.ToArray();
+            int rows = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(0x0C));
+            var slots = Enumerable.Range(0, rows).Select(r => DataPage.ReadSlot(page, format, r)).ToArray();
+            int from = 0x0E + 2 * rows, to = slots.Min(s => s.Offset);
+            var text = new StringBuilder(string.Join(" ", slots.Select(s => $"{s.Offset:X3}/{(int)s.Flags:X4}")) + " |");
+            for (int i = from; i < to; i++)
+            {
+                if (page[i] == 0) continue;
+                int end = i;
+                while (end < to && page[end] != 0) end++;
+                text.Append($" {i:X3}:{Convert.ToHexString(page, i, end - i)}");
+                i = end;
+            }
+            return text.ToString();
         }
 
         static string FreeBelowEnd(string path)

@@ -799,7 +799,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         // free-pages map packs nothing, so there it simply stays owned.
         if (!emptied)
         {
-            if (free.Page != 0) _usageMaps.SetBit(free.Row, free.Page, pageNumber, set: true, movableWindow: true);
+            if (free.Page != 0) _usageMaps.SetBit(free.Row, free.Page, pageNumber, set: true);
             return;
         }
 
@@ -969,8 +969,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     private void UpdateUsageBit(int tdefPointerOffset, int targetPage, bool set)
     {
         (int row, int page) = _channel.ReadPageShared(_table.DefinitionPage).ReadRecordPointer(tdefPointerOffset);
-        _usageMaps.SetBit(row, page, targetPage, set,
-            movableWindow: tdefPointerOffset == _channel.Format.TdefFreePagesOffset);
+        _usageMaps.SetBit(row, page, targetPage, set);
     }
 
 
@@ -1162,7 +1161,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             (byte[] Descriptor, IReadOnlyList<int> OwnedPages, int FreePage) chained = writer.Write(payload);
             foreach (int page in chained.OwnedPages) _usageMaps.SetBit(owned.Row, owned.Page, page, set: true);
             if (chained.FreePage != 0 && free.Page != 0)
-                _usageMaps.SetBit(free.Row, free.Page, chained.FreePage, set: true, movableWindow: true);
+                _usageMaps.SetBit(free.Row, free.Page, chained.FreePage, set: true);
             return chained.Descriptor;
         }
 
@@ -1180,7 +1179,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         int newPage = writer.WriteNewPage(payload, uncompressed);
         _usageMaps.SetBit(owned.Row, owned.Page, newPage, set: true);
         if (free.Page != 0)
-            _usageMaps.SetBit(free.Row, free.Page, newPage, set: true, movableWindow: true);
+            _usageMaps.SetBit(free.Row, free.Page, newPage, set: true);
         return LongValueStore.Descriptor(format, payload.Length, LongValueStore.StorageKind.SinglePage, newPage);
     }
 

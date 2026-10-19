@@ -139,6 +139,14 @@ omits. Reconstruct: `fullEntry = prefix ++ stored`.
 > prefix on split while keeping it on append is wrong — pages then fill uncompressed and split without ever
 > being compressed, giving 4 leaves and 11,820 bytes against ACE's 3 and 11,334.
 >
+> **A new maximum that would lower a compressed leaf's prefix splits it.** Once a leaf is compressed, an entry
+> appended at its right edge that shares less with its first entry than the stored prefix does not bring the
+> page down to the shorter prefix, even where every entry would fit there: the page keeps its entries at its
+> prefix and the right-edge split starts the next page with the new entry (measured: a leaf of one key at
+> prefix 7, given the next key, ends at the old key's last entry; on a one-row-a-page table, a leaf at prefix 6
+> holding 594 entries of one key does the same, where prefix 4 would have taken 128 more). Where the shorter
+> prefix would not fit either, the split falls in the same place, so this only shows when it would.
+>
 > **Building an index follows the same rule** (verified): `CREATE INDEX` over a table's rows writes each leaf
 > at the prefix its filling reached, so an index whose entries all fit one page uncompressed is written
 > uncompressed — eleven text keys sharing ten bytes land at prefix `0` — however much they share. The whole
@@ -1197,6 +1205,9 @@ The split mechanics:
   leaf fills uncompressed, is compressed in place when full and splits at the right edge, the nodes above do
   the same, and pages are allocated in the order those splits happen, leaves and nodes interleaved. Verified
   byte for byte, dead bytes included, on a tree of one node over three leaves and on one of two node levels.
+  The build takes its pages as an owner continuing in its own group does, in order: not by the two groups an
+  insert's B-tree works against the table's data ([page-05](page-05-usage-maps.md)) — measured on an index of
+  ten keys over 20,000 one-row pages, whose leaves ACE numbers one after another.
 
 > Newly allocated split pages are taken from the global free-page map ([page-05 §9.1](page-05-usage-maps.md)) and are registered in the
 > *index's own* owned-pages usage map as Access does — `IndexTree.AllocateIndexPage` sets the bit for

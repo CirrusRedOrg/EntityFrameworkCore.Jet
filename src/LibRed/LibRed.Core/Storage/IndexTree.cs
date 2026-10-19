@@ -406,7 +406,11 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
         int share = Share(entries);
         int keep = Math.Min(page.Compressed, share);            // the new key may not share the old prefix
 
-        if (Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries, keep) is { } asIs)
+        // Except that a new maximum the page cannot keep its prefix for starts a page of its own: ACE splits rather
+        // than store the page at the shorter prefix, though it would fit (measured: a leaf of one key at prefix 7,
+        // given the next key, keeps its entries at 7 and the new key goes right).
+        if ((pos < entries.Count - 1 || share >= page.Compressed)
+            && Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries, keep) is { } asIs)
         {
             _channel.WritePage(leafPage, KeepTail(leafPage, asIs), AsBuilt(page, entries, keep));
             return;
@@ -770,10 +774,13 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
     /// <summary>Allocates a fresh B-tree page for <paramref name="index"/> and records it in the index's own
     /// pages usage map, exactly as Access does — the map then covers every page of the index's B-tree, not
     /// just the root. (Reads use the B-tree's own links, so this is for byte-faithfulness and to feed Access's
-    /// own maintenance, not for LibRed's own traversal.)</summary>
-    private int AllocateIndexPage(IndexDef index, bool leaf)
+    /// own maintenance, not for LibRed's own traversal.) A row's insert works the B-tree's two groups against the
+    /// table's data (page-05-usage-maps.md); a build — <paramref name="build"/> — takes its pages in order from the
+    /// index's own group, as ACE's CREATE INDEX does (measured).</summary>
+    private int AllocateIndexPage(IndexDef index, bool leaf, bool build = false)
     {
-        var data = _channel.ReadPageShared(_table.DefinitionPage).ReadRecordPointer(_channel.Format.TdefOwnedPagesOffset);
+        (int Row, int Page)? data = build ? null
+            : _channel.ReadPageShared(_table.DefinitionPage).ReadRecordPointer(_channel.Format.TdefOwnedPagesOffset);
         int page = _allocator.Allocate(index.UsageMap, data: data, leaf: leaf);
         _usageMaps.SetBit(index.UsageMap.Row, index.UsageMap.Page, page, set: true);
         return page;
@@ -950,7 +957,8 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
 
         int share = Share(page.Entries);
         int keep = Math.Min(page.Stored, share);
-        if (LeafFits(page.Entries.Count, page.KeyBytes, keep)) { StoreAt(page, level, keep); return; }
+        // A leaf the new maximum cannot keep its prefix for splits, as InsertIntoLeaf's does.
+        if ((level > 0 || share >= page.Stored) && LeafFits(page.Entries.Count, page.KeyBytes, keep)) { StoreAt(page, level, keep); return; }
         if (share > keep && LeafFits(page.Entries.Count, page.KeyBytes, share)) { StoreAt(page, level, share); return; }
 
         // Full: the page as it stood, compressed in place when its entries share more than it is stored at, and
@@ -993,8 +1001,8 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
     {
         SpinePage page = spine[level];
         bool root = level == spine.Count - 1;
-        int left = root ? AllocateIndexPage(index, level == 0) : page.Number;
-        int right = AllocateIndexPage(index, level == 0);
+        int left = root ? AllocateIndexPage(index, level == 0, build: true) : page.Number;
+        int right = AllocateIndexPage(index, level == 0, build: true);
 
         byte[] leftBytes, promoted;
         int rightTail;

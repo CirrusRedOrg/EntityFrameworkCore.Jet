@@ -49,23 +49,24 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
     public IEnumerable<int> FreeDataPages() => PagesAt(_channel.Format.TdefFreePagesOffset);
 
     /// <summary>The highest-numbered data page the table owns, or -1 when it owns none.</summary>
-    public int MaxDataPage() => EdgeDataPage(fromEnd: true);
+    public int MaxDataPage() => EdgeDataPage(_channel.Format.TdefOwnedPagesOffset, fromEnd: true);
 
-    /// <summary>The lowest-numbered data page the table owns, or -1 when it owns none.</summary>
-    public int MinDataPage() => EdgeDataPage(fromEnd: false);
+    /// <summary>The lowest-numbered page the table's free-pages map marks, or -1 when it marks none.</summary>
+    public int MinFreeDataPage() => EdgeDataPage(_channel.Format.TdefFreePagesOffset, fromEnd: false);
 
-    /// <summary>The owned-pages map's last (<paramref name="fromEnd"/>) or first page.</summary>
+    /// <summary>The last (<paramref name="fromEnd"/>) or first page of the TDEF's map at
+    /// <paramref name="pointerOffset"/>.</summary>
     /// <remarks>
     /// Scans the bitmap from one end rather than enumerating <see cref="DataPages"/> and taking the extreme:
     /// callers ask this on every page allocation and on every delete that empties a page, and materializing
     /// every owned page each time would make a bulk load quadratic. Cost here is bounded by the bitmap size,
     /// not the table's page count. Both ends share this walk so only the scan direction differs.
     /// </remarks>
-    private int EdgeDataPage(bool fromEnd)
+    private int EdgeDataPage(int pointerOffset, bool fromEnd)
     {
         JetFormatBase format = _channel.Format;
         PageBuffer tdef = _channel.ReadPage(DefinitionPage);
-        (int row, int page) = tdef.ReadRecordPointer(format.TdefOwnedPagesOffset);
+        (int row, int page) = tdef.ReadRecordPointer(pointerOffset);
         ReadOnlySpan<byte> record = ReadRecordAt(row, page);
 
         if (RecordType(record) == UsageMapType.Inline)

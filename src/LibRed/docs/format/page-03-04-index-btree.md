@@ -109,7 +109,10 @@ omits. Reconstruct: `fullEntry = prefix ++ stored`.
 > **A leaf with ≤ 1 entry writes `0x18 = 0`.** Prefix compression describes a prefix *shared across
 > entries*, so with zero or one entry there is nothing to share — ACE writes `compressedByteCount = 0`,
 > not the sole key's whole length (which is what a naive `CommonPrefixLength(key, key)` gives). Verified vs
-> ACE on a fresh root leaf holding a single key (e.g. the rebuild in §3.8).
+> ACE on a fresh root leaf holding a single key (e.g. the rebuild in §3.8). A **delete** is different: a leaf
+> keeps the prefix it is stored at however few entries are left, and one a delete empties is written once more,
+> holding none, before it leaves the tree (measured: a range DELETE leaves a leaf of a 2,000-row primary key at
+> prefix 3 with one entry, and an emptied one, freed, at prefix 3 with no entry and its mask clear).
 >
 > **A leaf is compressed only when it fills, and split only when compressing is not enough.** The prefix is
 > not a property recomputed on every write; it is applied once, in place, at the moment the page can no

@@ -179,22 +179,25 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
                 $"Index '{index.Name}': entry for row {rowId.Page}:{rowId.Row} was not found on leaf {leafPage}.");
         entries.RemoveAt(idx);
 
-        if (entries.Count == 0 && UnlinkEmptyLeaf(index, path, page)) return;
-
         // Removing only shrinks the page, so Build never overflows. The page keeps the prefix length it was
         // already stored at: ACE re-compresses a leaf only when it must (see InsertIntoLeaf), and a delete
         // never must. Letting Build pick the largest prefix now available instead repacks entries ACE left
         // alone — measured as a 4-byte-shorter live region on every leaf a cascading delete touched.
-        // Dropping an entry can only keep or widen what the rest share, so the stored length stays valid.
+        // Dropping an entry can only keep or widen what the rest share, so the stored length stays valid. It keeps
+        // it down to one entry, and is written even when emptied, before it leaves the tree (measured: a range
+        // DELETE leaves a leaf at prefix 3 with one entry, and an emptied one, freed, holding none at prefix 3). An
+        // emptied leaf that stays in the tree is an empty index page, which carries no prefix.
         WriteOrThrow(leafPage,
             Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries,
                 page.CompressedByteCount));
+        if (entries.Count == 0 && !UnlinkEmptyLeaf(index, path, page))
+            WriteOrThrow(leafPage, Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries, 0));
     }
 
     /// <summary>
     /// Takes a leaf whose last entry has just been removed out of the tree: past it in the leaf chain, its
-    /// separator gone from the parent node, and the page itself back to the allocator. Returns false when the
-    /// leaf has to stay, and the caller writes it back empty instead.
+    /// separator gone from the parent node, and the page itself back to the allocator — written empty by the caller
+    /// first. Returns false when the leaf has to stay.
     /// </summary>
     /// <remarks>
     /// <para>This is what ACE does. Measured on a two-leaf tree whose low leaf was emptied by a range delete:
@@ -697,10 +700,11 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
         WriteInt32Le(page, format.IndexNextPageOffset, next);
         WriteInt32Le(page, format.IndexChildTailOffset, tail);
 
-        // A single entry has no common-prefix compression — ACE writes 0 here (the whole key with itself would
-        // otherwise "compress" to its full length, which ACE does not do for one entry). Otherwise the caller
-        // chooses, for a node as for a leaf: see InsertIntoLeaf for when a page is compressed at all.
-        int compress = entries.Count <= 1 ? 0 : prefix ?? Share(entries);
+        // The caller chooses, for a node as for a leaf: see InsertIntoLeaf for when a page is compressed at all, and
+        // RemoveEntry for a page that keeps its prefix down to one entry or none (measured). Left to Share, a single
+        // entry has no common-prefix compression — ACE writes 0 here (the whole key with itself would otherwise
+        // "compress" to its full length, which ACE does not do for one entry).
+        int compress = prefix ?? (entries.Count <= 1 ? 0 : Share(entries));
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.IndexCompressedByteCountOffset, 2), (ushort)compress);
 
         int pos = format.IndexEntryDataOffset;

@@ -341,9 +341,8 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     /// pages and a second bitmap's range is reached, then rows deleted, updated, indexed and added again.</summary>
     [Theory]
     // Open: at 16 one stale bit on page 1, in the inline global map its promotion leaves behind: ACE's primary key had let
-    // go of page 27,799 by then, LibRed's still held it. The whole run: its last DELETE keeps a page ACE keeps and
-    // LibRed releases (page-09-released-data.md), so the last insert's first row lands one page apart.
-    [InlineData(0, Explicit = true)]
+    // go of page 27,799 by then, LibRed's still held it. Later statements write over it.
+    [InlineData(0)]
     [InlineData(13)] // prefixes locate where the large file diverges
     [InlineData(14)]
     [InlineData(15)]
@@ -393,18 +392,88 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     // After the large-file run's first count statements. With delete, every seventh row goes first; with update, every
     // eleventh row's A is shortened first.
     // PROBE: DELETEs that empty one-row pages away from the table's lowest page — which emptied page each keeps.
-    // Each case a sequence of Id ranges deleted, one DELETE a range, over 30 one-row pages (Id n on page 48 + n).
-    [Theory(Explicit = true)]
+    /// <summary>A sequence of Id ranges deleted, one DELETE a range, over 30 one-row pages (Id n on page 48 + n): each
+    /// keeps an emptied page only where the free-pages map marks nothing below it.</summary>
+    [Theory]
     [InlineData("0-4,10-19")]
     [InlineData("10-24")]
     [InlineData("20-24,10-19")]
     [InlineData("10-19,0-4")]
-    public void Probe_the_page_a_delete_keeps(string ranges) =>
+    [InlineData("10-19,20-24")]
+    public void A_delete_keeps_an_emptied_page_with_none_lower_in_the_free_map(string ranges) =>
         AssertSameFile(CreateThroughDao(Ace12),
         [
             .. LargeFileStatements()[..12], WideInsert(0, 30),
             .. ranges.Split(',').Select(r => r.Split('-')).Select(r => $"DELETE FROM Wide WHERE Id >= {r[0]} AND Id <= {r[1]}"),
         ]);
+
+    /// <summary>A range DELETE that empties a middle leaf of a 2,000-row primary key — or, with
+    /// <paramref name="keepOne"/>, leaves it one entry: the leaf keeps its prefix, and an emptied one is written
+    /// empty before it is freed.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_delete_keeps_an_index_leafs_prefix_down_to_none(bool keepOne)
+    {
+        const string n = "a.D * 1000 + b.D * 100 + c.D * 10 + d.D";
+        AssertSameFile(CreateThroughDao(Ace12),
+        [
+            .. LargeFileStatements()[..11],
+            "CREATE TABLE T (Id LONG CONSTRAINT pkT PRIMARY KEY, X LONG)",
+            $"INSERT INTO T (Id, X) SELECT {n}, 1 FROM Digit a, Digit b, Digit c, Digit d WHERE {n} < 2000 ORDER BY 1",
+            "DELETE FROM T WHERE Id BETWEEN 500 AND 1400" + (keepOne ? " AND Id <> 900" : ""),
+        ]);
+    }
+
+    // PROBE: ACE alone, statement by statement: Wide's free-pages map (form, start, the pages it marks) and pages 48-82
+    // (type and row count), after each of a sequence of statements over 30 one-row pages.
+    [Theory(Explicit = true)]
+    [InlineData("D10-19|D20-24")]
+    [InlineData("D20-24|D10-19")]
+    [InlineData("D10-19|I200|D20-24")]
+    [InlineData("D0-4|D10-19")]
+    public void Probe_the_free_map_through_deletes(string steps)
+    {
+        string? origin = CreateThroughDao(Ace12);
+        Assert.SkipWhen(origin is null, "DAO is not registered in this bitness.");
+        string path = TemporaryDatabase.CopyPath(origin, "freemap-");
+        try
+        {
+            RunThroughAce(path, [.. LargeFileStatements()[..12], WideInsert(0, 30)]);
+            output.WriteLine($"start: {State(path)}");
+            foreach (string step in steps.Split('|'))
+            {
+                string sql = step[0] == 'D'
+                    ? $"DELETE FROM Wide WHERE Id >= {step[1..].Split('-')[0]} AND Id <= {step[1..].Split('-')[1]}"
+                    : WideInsert(int.Parse(step[1..], CultureInfo.InvariantCulture), 1);
+                Assert.All(RunThroughAce(path, [sql]), e => Assert.Null(e));
+                output.WriteLine($"{step}: {State(path)}");
+            }
+        }
+        finally
+        {
+            TemporaryDatabase.Delete(origin);
+            TemporaryDatabase.Delete(path);
+        }
+
+        static string State(string path)
+        {
+            using var db = JetDatabase.Open(path, readOnly: true);
+            Catalog.TableDefinition wide = db.Catalog.FindTable("Wide")!;
+            (int row, int page) = db.Channel.ReadPage(wide.DefinitionPage).ReadRecordPointer(db.Format.TdefFreePagesOffset);
+            (IO.PageBuffer holder, _, DataPage.RowSlot slot) = Storage.UsageMap.ReadRecord(db.Channel, row, page, "free");
+            byte[] record = holder.Span.Slice(slot.Offset, slot.Length).ToArray();
+            string form = Storage.UsageMap.RecordType(record) == UsageMapType.Inline
+                ? $"inline start {Storage.UsageMap.StartPage(record, db.Format)}" : "reference";
+            var marked = new Storage.UsageMap(db.Channel, wide).FreeDataPages().Order();
+            var pages = Enumerable.Range(48, 35).Where(p => p < db.Channel.PageCount).Select(p =>
+            {
+                ReadOnlySpan<byte> bytes = db.Channel.ReadPage(p).Span;
+                return $"{p}:{bytes[0]:X2}{bytes[1]:X2}/{BinaryPrimitives.ReadUInt16LittleEndian(bytes[0x0C..])}";
+            });
+            return $"free map {form} [{string.Join(",", marked)}]; {string.Join(" ", pages)}";
+        }
+    }
 
     // PROBE: rows inserted in key order, zeros of key 0 then 300 of key 1, into an index made before (indexFirst) or
     // after: whether a leaf the new key would store at a smaller prefix takes it or splits.
@@ -477,7 +546,9 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     // own: whether the bitmap page takes one of those or the index group's held page. With splitAt, the statements from
     // there on run in a session of their own.
     [Theory(Explicit = true)]
-    [InlineData(10000, false, 20, 3000, 0, 0, 200)]
+    [InlineData(10000, false, 17)]
+    [InlineData(10000, false, 18)]
+    [InlineData(10000, false, 20)]
     public void Probe_large_file_usage_maps(int rows, bool lowFree, int count = 14, int fourthRows = 3000, int splitAt = 0,
         int deleteBelow = 0, int fifthRows = 1500)
     {
@@ -577,6 +648,9 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
                 else
                     text.Append("reference [" + string.Join(",", Enumerable.Range(0, format.UsageMapReferenceSlots)
                         .Select(s => Storage.UsageMap.ReferencePointer(record, s, format)).Where(p => p != 0)) + "]");
+                if (name == "free")
+                    text.Append($" marking {string.Join(",", maps.FreeDataPages().Order().Take(8))}"
+                        + $" ({maps.FreeDataPages().Count()} pages)");
             }
             return text.ToString();
         }

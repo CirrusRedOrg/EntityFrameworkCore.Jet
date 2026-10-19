@@ -38,21 +38,16 @@ map that cannot take the bit inline — not empty, the page outside the window i
 form, though the bit then goes (measured: deleting every seventh row of a one-row-a-page table spanning two
 ranges leaves its free-pages map in reference form with a bitmap for each; the order is inferred from that).
 
-**ACE keeps other emptied pages too, by a rule not yet settled (measured, LibRed releases them).** Over 30 one-row
-pages (Id *n* on page 48 + *n*), deleting Ids 10–19 keeps page 58 — the first page it empties — and releases the
-rest; then deleting Ids 20–24 releases all of theirs. Deleting 20–24 first keeps 68, and then 10–19 keeps 58 as
-well; deleting 10–24 in one statement keeps 58 only; deleting 0–4 and then 10–19 keeps only the lowest page, 48;
-deleting 10–19 and then 0–4 keeps 58 and 48. So within these, a DELETE keeps the first page it empties when that
-lies below every emptied page kept so far, the lowest data page included. But in a longer session — every seventh
-row deleted, then an UPDATE shortening rows, an index created and rows added — a later DELETE of Ids 31,000–31,999
-kept its first emptied page though the lowest page was kept before it; what in between reset that is not known.
-
-**A table always keeps its first data page.** It is never stamped and never given back, however empty it
-gets, and stays in both of the table's maps with all its slots tombstoned like any other emptied page. This
-is not "a table keeps one page": it is kept even while later pages still hold live rows. It is **the lowest
-page in the table's owned map**, not the page the table was created with: a table that has grown into pages
-below the one it started on keeps the lowest of them and releases its original first page when every row is
-deleted (verified; LibRed agrees byte for byte).
+**An emptied page the free-pages map marks nothing below is kept.** It is never stamped and never given back,
+however empty it gets, and stays in both of the table's maps with all its slots tombstoned like any other emptied
+page; every other emptied page is released. So deleting every row of a table keeps its lowest page, the first
+the delete empties — even a table that has grown into pages below the one it started on keeps the lowest of them
+and releases its original first page (verified). It is not "a table keeps its first page", though: over 30 one-row
+pages none of which the free-pages map marks (Id *n* on page 48 + *n*), deleting Ids 10–19 keeps page 58, the
+first it empties, and releases the rest; deleting 20–24 after that keeps none, the map marking 58 below them;
+deleting 20–24 first keeps 68, and 10–19 after it keeps 58 as well; deleting 0–4 and then 10–19 keeps only 48.
+A kept page that rows fill again leaves the map, and the next DELETE then keeps the first page it empties once
+more (measured, each byte for byte against ACE, on a file of 35,165 pages too).
 
 All of this is the **row-by-row** delete. A `DELETE` with no `WHERE` takes the other route below, and keeps
 nothing.

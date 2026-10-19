@@ -588,12 +588,12 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     /// signature.</para>
     /// <para>"Emptied" is every slot deleted <b>and</b> zero-length, not merely every slot deleted: a hidden
     /// relocation target is a live row carrying the deleted flag, so a page holding one is not empty.</para>
-    /// <para>The table's <b>first</b> data page is the exception and is kept whatever happens to it — see
-    /// <see cref="IsFirstDataPage"/>.</para>
+    /// <para>A page no lower page of the free-pages map stands before is the exception and is kept — see
+    /// <see cref="IsLowestFreePage"/>.</para>
     /// </remarks>
     private void WriteReclaimedPage(JetFormatBase format, byte[] page, int pageNumber)
     {
-        bool release = IsEmptied(format, page) && !IsFirstDataPage(pageNumber);
+        bool release = IsEmptied(format, page) && !IsLowestFreePage(pageNumber);
         if (release) DataPage.MarkReleased(page);
         _channel.WritePage(pageNumber, page.AsSpan(0, format.PageSize));
         if (release) ReleaseDataPage(format, pageNumber);
@@ -609,15 +609,16 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     }
 
     /// <summary>
-    /// The first page of the table's owned-pages map — the one data page a row-by-row delete never gives back,
-    /// however empty it gets (a <c>DELETE</c> with no <c>WHERE</c> takes it with the rest: <see cref="Truncate"/>). Measured: deleting every row of a 35-page table releases 34 of them and leaves this one at
-    /// <c>0x01</c>, still in both of the table's maps, with all its slots tombstoned like the rest. It is not
-    /// "keep one page": it stays even while later pages still hold live rows.
+    /// Whether <paramref name="pageNumber"/>, just emptied and given its free-pages bit, is the lowest page that map
+    /// marks — the page a row-by-row delete keeps, however empty it gets (a <c>DELETE</c> with no <c>WHERE</c> takes
+    /// it with the rest: <see cref="Truncate"/>). Measured: deleting every row of a 35-page table releases 34 of them
+    /// and leaves the lowest at <c>0x01</c>, still in both of the table's maps; over one-row pages with none marked
+    /// free, deleting Ids 10–19 keeps the first page it empties, a later DELETE of 20–24 keeps none, and one of 0–4
+    /// keeps its first again, below it — and rows added since that fill the kept page take it out of the map, so the
+    /// next DELETE keeps its first emptied page once more.
     /// </summary>
-    /// <remarks>Read as the lowest page in the owned map, which in every file measured is also the page the
-    /// table was created with — the two readings are not distinguished here.</remarks>
-    private bool IsFirstDataPage(int pageNumber) =>
-        new UsageMap(_channel, _table).MinDataPage() == pageNumber;
+    private bool IsLowestFreePage(int pageNumber) =>
+        new UsageMap(_channel, _table).MinFreeDataPage() == pageNumber;
 
     /// <summary>True when no live row is left on the page: every slot a zero-length deleted tombstone. Slot
     /// offsets are non-increasing, so a slot is zero-length exactly when it repeats the previous one's offset

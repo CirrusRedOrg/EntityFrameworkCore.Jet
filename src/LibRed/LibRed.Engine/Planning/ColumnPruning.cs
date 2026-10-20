@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using LibRed.Engine.Plan;
 using LibRed.Sql.Ast;
 using Linq = System.Linq.Expressions;
@@ -28,12 +29,19 @@ namespace LibRed.Engine.Planning;
 /// </remarks>
 internal static class ColumnPruning
 {
+    // Pruning depends only on the immutable plan's references and visibility. A prepared plan should
+    // pay for that walk once; weak keys keep this derived shape alive only while its plan is in use.
+    private static readonly ConditionalWeakTable<PlanNode, PlanNode> Pruned = new();
+
     public static PlanNode Apply(PlanNode plan)
     {
         if (!HasHiddenRead(plan, visible: true))
             return plan;
-        HashSet<string>? names = ReferencedNames(plan);
-        return names is null ? plan : Rewrite(plan, visible: true, names);
+        return Pruned.GetValue(plan, static input =>
+        {
+            HashSet<string>? names = ReferencedNames(input);
+            return names is null ? input : Rewrite(input, visible: true, names);
+        });
     }
 
     /// <summary>Whether any table read sits where pruning could apply — so a plan with none is not walked. Its

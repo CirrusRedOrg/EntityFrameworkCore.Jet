@@ -1,5 +1,6 @@
 using LibRed.Catalog;
 using LibRed.Sql.Binding;
+using System.Runtime.CompilerServices;
 
 namespace LibRed.Engine.Schema;
 
@@ -11,6 +12,7 @@ namespace LibRed.Engine.Schema;
 public sealed class CatalogSchemaProvider(JetCatalog catalog) : ISchemaProvider
 {
     private readonly JetCatalog _catalog = catalog;
+    private readonly ConditionalWeakTable<TableDefinition.DdlMetadata, TableSchema> _tables = new();
 
     public ITableSchema? GetTable(string name)
     {
@@ -20,7 +22,8 @@ public sealed class CatalogSchemaProvider(JetCatalog catalog) : ISchemaProvider
             return new InformationSchemaTable(name);
 
         TableDefinition? def = _catalog.FindTable(name);
-        return def is null ? null : new TableSchema(def);
+        return def is null ? null
+            : _tables.GetValue(def.Metadata!, static ddl => new TableSchema(ddl));
     }
 
     private sealed class InformationSchemaTable(string name) : ITableSchema
@@ -40,11 +43,11 @@ public sealed class CatalogSchemaProvider(JetCatalog catalog) : ISchemaProvider
         public Type ClrType => clrType;
     }
 
-    private sealed class TableSchema(TableDefinition def) : ITableSchema
+    private sealed class TableSchema(TableDefinition.DdlMetadata def) : ITableSchema
     {
         public string Name => def.Name;
-        public IReadOnlyList<IColumnSchema> Columns { get; } =
-            def.Columns.Select(c => (IColumnSchema)new ColumnSchema(c)).ToList();
+        public IReadOnlyList<IColumnSchema> Columns => field ??=
+            Array.AsReadOnly(def.Columns.Select(c => (IColumnSchema)new ColumnSchema(c)).ToArray());
 
         public IColumnSchema? FindColumn(string name) =>
             Columns.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
@@ -52,8 +55,8 @@ public sealed class CatalogSchemaProvider(JetCatalog catalog) : ISchemaProvider
 
     private sealed class ColumnSchema(ColumnDef col) : IColumnSchema
     {
-        public string Name => col.Name;
-        public bool IsNullable => col.IsNullable;
-        public Type ClrType => JetClrTypeMap.ToClrType(col.Type);
+        public string Name { get; } = col.Name;
+        public bool IsNullable { get; } = col.IsNullable;
+        public Type ClrType { get; } = JetClrTypeMap.ToClrType(col.Type);
     }
 }

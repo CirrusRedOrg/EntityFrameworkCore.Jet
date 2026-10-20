@@ -21,6 +21,7 @@ public sealed class AntlrSqlParser : ISqlParser
         lexer.AddErrorListener(errors);
 
         var parser = new AccessSqlParser(new CommonTokenStream(lexer));
+        parser.ErrorHandler = errors;
         parser.RemoveErrorListeners();
         parser.AddErrorListener(errors);
 
@@ -59,14 +60,19 @@ public sealed class AntlrSqlParser : ISqlParser
         lexer.AddErrorListener(errors);
 
         var parser = new AccessSqlParser(new CommonTokenStream(lexer));
+        parser.ErrorHandler = errors;
         parser.RemoveErrorListeners();
         parser.AddErrorListener(errors);
 
         return parser.standaloneExpression().expression();
     }
 
-    private sealed class ThrowingErrorListener : IAntlrErrorListener<int>, IAntlrErrorListener<IToken>
+    private sealed class ThrowingErrorListener : DefaultErrorStrategy, IAntlrErrorListener<int>, IAntlrErrorListener<IToken>
     {
+        // Parsing already stops at the first reported error. ANTLR's eager loop/optional-rule
+        // recovery checks do no useful recovery here; normal matching/prediction still reports errors.
+        public override void Sync(Parser recognizer) { }
+
         public void SyntaxError(TextWriter output, IRecognizer recognizer, int offendingSymbol,
             int line, int charPositionInLine, string msg, RecognitionException e) =>
             throw new SqlParseException(msg, line, charPositionInLine);

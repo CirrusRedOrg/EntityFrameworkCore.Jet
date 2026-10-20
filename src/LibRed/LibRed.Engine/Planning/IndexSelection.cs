@@ -81,13 +81,21 @@ internal static class IndexSelection
                 equalities.TryAdd(m.col.Column, m.value);
         }
         if (equalities.Count > 0)
+        {
             // Most columns first, so a correlated composite PK match is preferred over a single-column index.
-            foreach (IndexDef index in def.Indexes.OrderByDescending(i => i.Columns.Count))
-                if (index.Columns.All(c => equalities.ContainsKey(c.Column.Name)))
-                {
-                    var keys = index.Columns.Select(c => equalities[c.Column.Name]).ToList();
-                    return filter with { Input = new IndexSeekNode(scan.Table, scan.Alias, index, keys, scan.Database) };
-                }
+            // Select the widest match without sorting every index. Keep the first on a tie, as the
+            // stable ordering did, and retain every index column in its declared key order.
+            IndexDef? chosen = null;
+            foreach (IndexDef index in def.Indexes)
+                if ((chosen is null || index.Columns.Count > chosen.Columns.Count)
+                    && index.Columns.All(c => equalities.ContainsKey(c.Column.Name)))
+                    chosen = index;
+            if (chosen is not null)
+            {
+                var keys = chosen.Columns.Select(c => equalities[c.Column.Name]).ToList();
+                return filter with { Input = new IndexSeekNode(scan.Table, scan.Alias, chosen, keys, scan.Database) };
+            }
+        }
 
         // 2. Range comparison(s) on a single-column index → a range scan (lower and/or upper bound).
         foreach (IndexDef index in def.Indexes.Where(i => i.Columns.Count == 1))

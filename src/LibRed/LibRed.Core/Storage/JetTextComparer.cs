@@ -27,11 +27,13 @@ public sealed class JetTextComparer : IEqualityComparer<string>
 
     private readonly LocaleTailoring? _tailoring;
     private readonly bool _version1;
+    private readonly bool _encodable;
 
     private JetTextComparer(Collation collation)
     {
         Collation = collation;
-        _tailoring = collation.IsIndexKeyEncodable ? JetLocaleTailoring.For(collation) : null;
+        _encodable = collation.IsIndexKeyEncodable;
+        _tailoring = _encodable ? JetLocaleTailoring.For(collation) : null;
         _version1 = collation.Version == Collation.GeneralVersion;
     }
 
@@ -42,7 +44,7 @@ public sealed class JetTextComparer : IEqualityComparer<string>
     /// accents — so plain ASCII compares as it does in General (see <c>PlainTextCollationTests</c>). A locale
     /// that tailors nothing counts: its keys are General's.</summary>
     public bool IsUntailoredGeneral =>
-        Collation.IsIndexKeyEncodable && _tailoring is null or { Entries.Count: 0, ReverseDiacritics: false };
+        _encodable && _tailoring is null or { Entries.Count: 0, ReverseDiacritics: false };
 
     // Both sides are encoded into this thread's buffers: a comparison is made per row, or per pair in a sort,
     // and fresh lists each time were most of what a text GROUP BY allocated.
@@ -97,7 +99,7 @@ public sealed class JetTextComparer : IEqualityComparer<string>
 
     private void Encode(string text, List<byte> output)
     {
-        if (!Collation.IsIndexKeyEncodable)
+        if (!_encodable)
             throw new NotSupportedException(
                 $"Text is compared in the database's collation, {Collation.Order} version {Collation.Version}" +
                 (Collation.SortId == 0 ? "" : $" sort id {Collation.SortId}") + ", which is not implemented yet.");

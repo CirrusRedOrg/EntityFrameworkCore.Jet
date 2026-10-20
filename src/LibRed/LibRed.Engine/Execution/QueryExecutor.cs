@@ -59,18 +59,8 @@ internal readonly record struct OutputColumn(
     /// reports the ambiguous reference).</summary>
     public static OutputColumn? Find(IReadOnlyList<OutputColumn> columns, ColumnReference reference)
     {
-        OutputColumn? result = null;
-        foreach (OutputColumn column in columns)
-        {
-            if (!string.Equals(column.Name, reference.Column, StringComparison.OrdinalIgnoreCase)
-                || reference.Table is not null
-                && !string.Equals(column.Qualifier, reference.Table, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            if (result is not null) return null;
-            result = column;
-        }
-        return result;
+        int slot = EvalScope.Locate(columns, reference, throwIfAmbiguous: false);
+        return slot >= 0 ? columns[slot] : null;
     }
 }
 
@@ -113,6 +103,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     // it must be built ONCE. Rebuilding it per row re-ran DeclaredType (linear column scans, string allocation)
     // for every outer row of a correlated subquery / nested-loop inner.
     private Dictionary<ProjectNode, ProjectionSchema> ProjectionSchemas => field ??= new(ReferenceEqualityComparer.Instance);
+    private (ProjectNode Node, ProjectionSchema Schema)? _firstProjection;
 
     // COUNT(*)'s output shape is fixed for a plan, including when a correlated count is executed per outer row.
     private Dictionary<AggregateNode, IReadOnlyList<OutputColumn>> CountColumns => field ??= new(ReferenceEqualityComparer.Instance);
@@ -185,6 +176,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     public ResultSet ExecuteQuery(PlanNode plan)
     {
+        // Prepared plans enter here too. Prune at the shared execution boundary so every root query
+        // decodes only its referenced columns, regardless of which caller built the plan.
+        plan = ColumnPruning.Apply(plan);
         var (columns, rows) = Execute(plan, null);
         // A result writes its Variants out as text, as ACE's expression service does (verified vs ACE).
         if (columns.Any(c => c.Variant))
@@ -1173,14 +1167,16 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// <see cref="OutputNames"/> has them.</summary>
     private ProjectionSchema ProjectionSchemaFor(ProjectNode project, IReadOnlyList<OutputColumn> columns)
     {
-        if (ProjectionSchemas.TryGetValue(project, out ProjectionSchema? cached))
+        if (_firstProjection is { } first && ReferenceEquals(first.Node, project))
+            return first.Schema;
+        if (_firstProjection is not null && ProjectionSchemas.TryGetValue(project, out ProjectionSchema? cached))
             return cached;
 
         // Metadata belongs in Columns, not in every per-row instruction: OutputColumn carries the stored
         // source and numeric facets, none of which the hot projection loop reads or needs to copy.
-        var plan = new List<(int InputIndex, Expression? Expr, NumberType Type, Type? ConvertTo, int Slot)>();
-        var outputColumns = new List<OutputColumn>();
-        var outputs = new List<OutputNames.Output>();
+        var plan = new List<(int InputIndex, Expression? Expr, NumberType Type, Type? ConvertTo, int Slot)>(project.Projection.Count);
+        var outputColumns = new List<OutputColumn>(project.Projection.Count);
+        var outputs = new List<OutputNames.Output>(project.Projection.Count);
         var returned = new HashSet<int>();
         bool allFields = false;
         int index = 0;
@@ -1213,12 +1209,21 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 int slot = item.Value is ColumnReference own ? EvalScope.Locate(columns, own, throwIfAmbiguous: false) : -1;
                 OutputColumn? referenced = slot >= 0 ? columns[slot] : null;
                 outputs.Add(OutputNames.For(item, index, referenced?.Qualifier));
-                (Type? convertTo, bool variant) = ItemConversion(item.Value, columns);
+                // A resolved column already carries its type/variance. Reading those fields avoids
+                // resolving the same reference again inside each expression-metadata walk.
+                (Type? convertTo, bool variant) = referenced is { } boundColumn
+                    ? (null, boundColumn.Variant) : ItemConversion(item.Value, columns);
+                Type? declared = referenced is { ClrType: not null, Variant: false } typedColumn
+                    ? typedColumn.ClrType : DeclaredType(item.Value, columns);
                 outputColumns.Add(
-                    OutputColumn.Computed("", DeclaredType(item.Value, columns), type, item.Value, referenced?.Source)
+                    OutputColumn.Computed("", declared, type, item.Value, referenced?.Source)
                         with
                     { Origin = referenced?.Origin ?? ColumnOrigin.Expression, Variant = variant });
-                plan.Add((-1, item.Value, type, convertTo, slot));
+                // The existing pass-through instruction also covers a resolved column whose two
+                // conversions are identities. Numeric result classes keep their precision/coercion path.
+                int input = slot >= 0 && convertTo is null
+                    && type.Class is not (NumberClass.Decimal or NumberClass.Double or NumberClass.Currency) ? slot : -1;
+                plan.Add((input, item.Value, type, convertTo, slot));
                 if (slot >= 0) returned.Add(slot);
             }
             index++;
@@ -1237,7 +1242,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         for (int i = 0; i < outputColumns.Count; i++)
             outputColumns[i] = outputColumns[i] with { Name = names[i] };
         var schema = new ProjectionSchema(plan, outputColumns);
-        ProjectionSchemas[project] = schema;
+        // A single projection needs no dictionary or identity hash. Additional nested projections
+        // retain the existing reference-keyed lookup and the same execution-scoped lifetime.
+        if (_firstProjection is null) _firstProjection = (project, schema);
+        else ProjectionSchemas[project] = schema;
         return schema;
     }
 
@@ -2583,6 +2591,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (single is not null) groupStates.Add(single);
         var byKey = new Dictionary<GroupKey, GroupState>();
         bool[] keyByText = ComparedAsText(node.GroupBy, inColumns);
+        int[] keySlots = [.. node.GroupBy.Select(key => key is ColumnReference reference
+            ? EvalScope.Locate(inColumns, reference, throwIfAmbiguous: false) : -1)];
         foreach (object?[] row in inRowsEnum)
         {
             rowEval.Rebind(row);
@@ -2594,7 +2604,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 var keyValues = new object?[keyCount];
                 for (int i = 0; i < keyValues.Length; i++)
                     keyValues[i] = ExpressionEvaluator.SortKey(
-                        Compared(rowEval.Evaluate(node.GroupBy[i]), keyByText[i]), TextComparer);
+                        Compared(keySlots[i] >= 0 ? row[keySlots[i]] : rowEval.Evaluate(node.GroupBy[i]), keyByText[i]), TextComparer);
                 var key = new GroupKey(keyValues, TextComparer);
                 ref GroupState? slot = ref CollectionsMarshal.GetValueRefOrAddDefault(byKey, key, out bool exists);
                 state = slot ??= NewGroupState(row);
@@ -2751,8 +2761,22 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     {
         private bool? _currency;
         private bool? _byText;
+        private bool _validated;
 
-        public FunctionCall Call => call;
+        public FunctionCall Call
+        {
+            get
+            {
+                // Arity is query shape, not group state. Keep validation lazy, as before, but do it
+                // only once after it succeeds rather than once for every group.
+                if (!_validated)
+                {
+                    ExpressionEvaluator.ValidateArity(Name, call.Arguments.Count);
+                    _validated = true;
+                }
+                return call;
+            }
+        }
         public string Name { get; } = call.Name.ToUpperInvariant();
 
         /// <summary>Min, Max, First and Last take a Variant's or a Mixed value's text (verified vs ACE: Max of 3, 10
@@ -2796,7 +2820,6 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             _executor = executor;
             _call = spec.Call;
             _name = spec.Name;
-            ExpressionEvaluator.ValidateArity(_name, _call.Arguments.Count);
             Expression? arg = _call.Arguments.Count > 0 ? _call.Arguments[0] : null;
 
             // COUNT(*) counts rows; DISTINCT is meaningless there (and EF never emits it).

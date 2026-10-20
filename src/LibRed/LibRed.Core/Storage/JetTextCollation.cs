@@ -466,7 +466,9 @@ internal static class JetTextCollation
             // remaining controls, which are word-sort ignorables too.
             // A locale that weighs one as a character of its own wins: the Japanese orders give U+2015 the
             // unweighted FF FF where General records it here.
-            if ((Ignorables.TryGetValue(c, out byte code) ||
+            // ASCII letters/digits have explicit weights below; none of these inline-code tables
+            // contains them. Keep locale tailoring in its existing position after this check.
+            if (!char.IsAsciiLetterOrDigit(c) && (Ignorables.TryGetValue(c, out byte code) ||
                  JetTextCollationTableV0.TryGetInlineCode(c, out code) ||
                  TryGetControlInlineCode(c, out code)) &&
                 tailoring?.TryMatchSingle(c, out _) != true)
@@ -587,12 +589,12 @@ internal static class JetTextCollation
             // contraction matcher: expand Ǳ in a Hungarian database and its "dz" digraph would otherwise
             // fire, giving 50 03 where ACE stores 4F 78. And this sits below the tailoring, because some
             // locales do not decompose at all — Icelandic's Ǣ is its own Æ plus a secondary.
-            else if (Ligatures.TryGetValue(u, out string? components))
+            else if (c > 0x7F && Ligatures.TryGetValue(u, out string? components))
             {
                 foreach (char component in components)
-                    if (!WeighCharacter(component)) return false;
+                    if (!WeighCharacter(component, char.ToUpperInvariant(component))) return false;
             }
-            else if (!WeighCharacter(c))
+            else if (!WeighCharacter(c, u))
                 return false; // not handled yet
         }
 
@@ -601,15 +603,16 @@ internal static class JetTextCollation
 
         // One character's weights, with no contraction and no tailoring: the path a ligature's components
         // take, and the tail of the ordinary path once a tailoring has declined the character.
-        bool WeighCharacter(char character)
+        bool WeighCharacter(char character, char upper)
         {
-            char upper = char.ToUpperInvariant(character);
             // The locale still applies to a single character — only the contraction matcher is bypassed.
             // A ligature's components take the locale's letters: Slovenian's Ǆ is D plus SLOVENIAN's ž.
             if (tailoring is not null && tailoring.TryMatchSingle(character, out TailoredWeight tailoredOne))
                 AddWeight(tailoredOne.Primaries, tailoredOne.Secondary, final: true);
-            else if (ExtraLetters.TryGetValue(character, out TailoredWeight own) ||
-                     ExtraLetters.TryGetValue(upper, out own))
+            // ExtraLetters contains only non-ASCII letters. Test the original character: a dotless i
+            // folds to ASCII I but must still take its own measured weight.
+            else if (character > 0x7F && (ExtraLetters.TryGetValue(character, out TailoredWeight own) ||
+                     ExtraLetters.TryGetValue(upper, out own)))
                 AddWeight(own.Primaries, own.Secondary);
             else if (upper is >= 'A' and <= 'Z')
                 Add(Letters[upper - 'A']);

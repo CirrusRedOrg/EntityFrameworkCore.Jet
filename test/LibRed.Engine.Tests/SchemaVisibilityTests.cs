@@ -1,5 +1,6 @@
 using LibRed;
 using LibRed.Engine;
+using LibRed.Engine.Schema;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -8,6 +9,45 @@ namespace LibRed.Engine.Tests;
 // creates can be found and read, and a table it drops stops being found.
 public class SchemaVisibilityTests
 {
+    [Fact]
+    public void Binder_schemas_reuse_ddl_across_row_writes_and_follow_alter_and_rollback()
+    {
+        string path = Fresh("schema-binder-");
+        try
+        {
+            using var writerDb = JetDatabase.Open(path, readOnly: false);
+            using var readerDb = JetDatabase.Open(path);
+            var writer = new QueryEngine(writerDb);
+            writer.ExecuteNonQuery("CREATE TABLE T (Id LONG PRIMARY KEY, V LONG)");
+            var provider = new CatalogSchemaProvider(readerDb.Catalog);
+            var before = provider.GetTable("T");
+            Assert.NotNull(before);
+
+            writer.ExecuteNonQuery("INSERT INTO T (Id, V) VALUES (1, 7)");
+            Assert.Same(before, provider.GetTable("T"));
+            writer.ExecuteNonQuery("UPDATE T SET V = 9 WHERE Id = 1");
+            Assert.Same(before, provider.GetTable("T"));
+            writer.ExecuteNonQuery("DELETE FROM T WHERE Id = 1");
+            Assert.Same(before, provider.GetTable("T"));
+
+            writer.ExecuteNonQuery("ALTER TABLE T ADD COLUMN Added LONG");
+            var changed = provider.GetTable("T");
+            Assert.NotSame(before, changed);
+            Assert.NotNull(changed!.FindColumn("Added"));
+            Assert.Null(before.FindColumn("Added"));
+
+            var local = new CatalogSchemaProvider(writerDb.Catalog);
+            Assert.Equal(typeof(int), local.GetTable("T")!.FindColumn("V")!.ClrType);
+            writerDb.BeginTransaction();
+            writer.ExecuteNonQuery("ALTER TABLE T ALTER COLUMN V TEXT(20)");
+            Assert.Equal(typeof(string), local.GetTable("T")!.FindColumn("V")!.ClrType);
+            Assert.Equal(typeof(int), provider.GetTable("T")!.FindColumn("V")!.ClrType);
+            writerDb.Rollback();
+            Assert.Equal(typeof(int), local.GetTable("T")!.FindColumn("V")!.ClrType);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     [Fact]
     public void A_table_created_on_one_connection_is_visible_to_another()
     {

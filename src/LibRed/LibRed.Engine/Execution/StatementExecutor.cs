@@ -1076,8 +1076,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // Run the query first — with INTO stripped, or planning would recurse back into this method — and
         // materialise it. The rows have to exist before the table does: the source may read a table this
         // statement is about to change, and the row count is not known until the read completes.
-        ResultSet source = _scalarRunner.ExecuteQuery(Planning.ColumnPruning.Apply(Planning.IndexSelection.Apply(
-            Planning.QueryPlanner.PlanSelect(statement with { Into = null }), _database)));
+        ResultSet source = _scalarRunner.ExecuteQuery(Planning.IndexSelection.Apply(
+            Planning.QueryPlanner.PlanSelect(statement with { Into = null }), _database));
         var rows = source.Rows.ToList();
 
         // A result column that IS a source column keeps that column's DEFINITION — its type, its declared
@@ -1322,8 +1322,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             // a table to itself otherwise feeds its own output back into the scan and never terminates.
             // Access's INSERT INTO t SELECT * FROM t doubles the table and stops, so the read completes
             // before the write begins.
-            ResultSet source = _scalarRunner.ExecuteQuery(Planning.ColumnPruning.Apply(
-                Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(statement.Source), _database)));
+            ResultSet source = _scalarRunner.ExecuteQuery(
+                Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(statement.Source), _database));
             rows = source.Rows.ToList();
 
             // With no column list the source's output NAMES choose the target columns — ACE resolves by name,
@@ -1778,8 +1778,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // PlanStatement, not PlanSelect: EF puts a set operation here for Union/Except/Intersect/Concat before
         // an ExecuteUpdate, and a table value constructor for an inline collection. Same widening as the
         // subquery predicates needed, for the same reason - a derived table is a query expression.
-        var plan = Planning.ColumnPruning.Apply(
-            Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(query), _database));
+        var plan = Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(query), _database);
         ResultSet result = _scalarRunner.ExecuteQuery(plan);
         var columns = result.ColumnNames.Select((name, i) => new OutputColumn(alias, name, result.ColumnTypes[i])).ToList();
         return (columns, result.Rows.ToList());
@@ -1977,9 +1976,17 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// <summary>Concatenates the value arrays of the first <paramref name="count"/> accumulated join rows.</summary>
     private static object?[] Flatten((RowId, object?[])[] acc, int count)
     {
-        var flat = new List<object?>();
-        for (int i = 0; i < count; i++) flat.AddRange(acc[i].Item2);
-        return [.. flat];
+        int length = 0;
+        for (int i = 0; i < count; i++) length += acc[i].Item2.Length;
+        var flat = new object?[length];
+        int offset = 0;
+        for (int i = 0; i < count; i++)
+        {
+            object?[] values = acc[i].Item2;
+            Array.Copy(values, 0, flat, offset, values.Length);
+            offset += values.Length;
+        }
+        return flat;
     }
 
     /// <summary>If table <paramref name="i"/>'s own join <paramref name="on"/> has an equality between one of its
@@ -2125,7 +2132,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         foreach (var combo in joinRows)
         {
             // Every SET of this joined row reads the row as it was before any of them.
-            object?[] flat = combo.SelectMany(c => c.Values).ToArray();
+            object?[] flat = Flatten(combo, combo.Length);
             var eval = new ExpressionEvaluator(new EvalScope(columns, flat, null), _scalarRunner, _parameters, _session);
             object?[] results = targets.Select(t => eval.Evaluate(t.Value)).ToArray();
 

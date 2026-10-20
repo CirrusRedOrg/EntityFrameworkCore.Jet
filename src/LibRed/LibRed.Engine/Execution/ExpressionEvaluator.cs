@@ -5,6 +5,7 @@ using LibRed.Sql.Ast;
 using LibRed.Storage;
 using LibRed.Storage.Types;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -70,24 +71,27 @@ internal sealed partial class ExpressionEvaluator(
     /// the written numbers beside which the result is a Double (<see cref="NumberTypeOf"/>): those are Doubles, so
     /// <c>F * 1.11</c> is 0.11100000000000002 there.
     /// </summary>
-    public object? Evaluate(Expression expression) => !_service && OpensService(expression) ? InService(expression) : expression switch
+    public object? Evaluate(Expression expression) => expression switch
     {
         LiteralExpression l => l.Value,
         ColumnReference c => scope.TryResolve(c, out object? v) ? v
             : IsNiladicFunction(c) ? Clock
             : throw new InvalidOperationException($"Column '{c.QualifiedName}' was not found."),
+        ParameterExpression p => parameters is not null
+            ? parameters.Resolve(p.Name)
+            : throw new InvalidOperationException($"No parameters were supplied for '{p.Name}'."),
+        // Leaves never open an expression-service boundary. Resolve them directly rather than
+        // testing every service-opening node type before each literal or column read.
+        _ when !_service && OpensService(expression) => InService(expression),
+        BinaryExpression b => EvaluateBinary(b),
+        FunctionCall f => EvaluateFunction(f),
         ScalarSubquery s => subqueries.ExecuteScalar(s.Query, scope),
         ExistsExpression e => subqueries.ExecuteExists(e.Query, scope),
         InSubqueryExpression i => EvaluateInSubquery(i),
         InListExpression i => EvaluateInList(i),
         BetweenExpression be => EvaluateBetween(be),
         CaseExpression c => EvaluateCase(c),
-        FunctionCall f => EvaluateFunction(f),
         UnaryExpression u => EvaluateUnary(u),
-        BinaryExpression b => EvaluateBinary(b),
-        ParameterExpression p => parameters is not null
-            ? parameters.Resolve(p.Name)
-            : throw new InvalidOperationException($"No parameters were supplied for '{p.Name}'."),
         SystemVariableExpression v => ResolveSystemVariable(v.Name),
         OutputColumnPosition p => scope.At(p.Position),
         _ => throw new NotSupportedException($"Cannot evaluate {expression.GetType().Name}."),
@@ -259,6 +263,8 @@ internal sealed partial class ExpressionEvaluator(
     // not a tab, CR, LF, no-break space, the other Unicode spaces or a zero-width one.
     private static readonly char[] TrimmedSpaces = [' ', '　'];
 
+    private Dictionary<FunctionCall, string>? _functions;
+
     private object? EvaluateFunction(FunctionCall f)
     {
         // Aggregate calls are precomputed per group and resolved by reference — including an outer
@@ -268,11 +274,20 @@ internal sealed partial class ExpressionEvaluator(
 
         // VBA "$" variants (Left$, UCase$, Chr$, …) return a String instead of a Variant but compute the same
         // value in the Jet expression service — so a trailing "$" is stripped and dispatched to the base name.
-        string name = f.Name.ToUpperInvariant();
-        if (name.Length > 1 && name[^1] == '$') name = name[..^1];
-        if (f.Filter is not null && !Planning.QueryPlanner.IsAggregate(name))
-            throw new InvalidOperationException($"{f.Name} takes no FILTER; only an aggregate does.");
-        ValidateArity(name, f.Arguments.Count);
+        // Names, FILTER eligibility and arity belong to the AST, not the current row. Validate on the
+        // first reached evaluation so lazy branches still defer their errors, then retain only that shape.
+#pragma warning disable IDE0028 // AST calls are keyed by identity, as in the other per-execution caches.
+        _functions ??= new Dictionary<FunctionCall, string>(ReferenceEqualityComparer.Instance);
+#pragma warning restore IDE0028
+        if (!_functions.TryGetValue(f, out string? name))
+        {
+            name = f.Name.ToUpperInvariant();
+            if (name.Length > 1 && name[^1] == '$') name = name[..^1];
+            if (f.Filter is not null && !Planning.QueryPlanner.IsAggregate(name))
+                throw new InvalidOperationException($"{f.Name} takes no FILTER; only an aggregate does.");
+            ValidateArity(name, f.Arguments.Count);
+            _functions[f] = name;
+        }
 
         return name switch
         {
@@ -1948,15 +1963,16 @@ internal sealed partial class ExpressionEvaluator(
             int century = latest - latest % 100;
             year += year <= latest % 100 ? century : century - 100;
         }
-        return InDateRange(() => new DateTime(year, month, 1).AddDays(day - 1));
+        return InDateRange((year, month, day), static parts =>
+            new DateTime(parts.year, parts.month, 1).AddDays(parts.day - 1));
     }
 
     /// <summary>A computed date, or an invalid procedure call when it falls outside 100-01-01 … 9999-12-31.</summary>
-    private static DateTime InDateRange(Func<DateTime> compute)
+    private static DateTime InDateRange<T>(T state, Func<T, DateTime> compute)
     {
         try
         {
-            DateTime date = compute();
+            DateTime date = compute(state);
             if (date.Year >= 100)
                 return date;
         }
@@ -1978,20 +1994,19 @@ internal sealed partial class ExpressionEvaluator(
             return null;
         double n = Math.Truncate(Dbl(ConversionNumber(number)));
         DateTime d = ToDate(date);
-        Func<DateTime> add = ConcatText(interval).ToLowerInvariant() switch
+        return InDateRange((d, n, interval), static parts => ConcatText(parts.interval).ToLowerInvariant() switch
         {
-            "yyyy" => () => d.AddYears(Int(n)),
-            "q" => () => d.AddMonths(checked(Int(n) * 3)),
-            "m" => () => d.AddMonths(Int(n)),
-            "y" or "d" or "w" => () => d.AddDays(n),
-            "ww" => () => d.AddDays(n * 7),
-            "h" => () => d.AddHours(n),
-            "n" => () => d.AddMinutes(n),
-            "s" => () => d.AddSeconds(n),
-            "ms" => () => d.AddMilliseconds(n),
-            _ => throw UnknownInterval(interval),
-        };
-        return InDateRange(add);
+            "yyyy" => parts.d.AddYears(Int(parts.n)),
+            "q" => parts.d.AddMonths(checked(Int(parts.n) * 3)),
+            "m" => parts.d.AddMonths(Int(parts.n)),
+            "y" or "d" or "w" => parts.d.AddDays(parts.n),
+            "ww" => parts.d.AddDays(parts.n * 7),
+            "h" => parts.d.AddHours(parts.n),
+            "n" => parts.d.AddMinutes(parts.n),
+            "s" => parts.d.AddSeconds(parts.n),
+            "ms" => parts.d.AddMilliseconds(parts.n),
+            _ => throw UnknownInterval(parts.interval),
+        });
     }
 
     /// <summary>
@@ -2131,7 +2146,7 @@ internal sealed partial class ExpressionEvaluator(
         // either is evaluated, so neither side is worked out twice; beside anything but a date, the span side is
         // evaluated as it always is — as the time on the epoch.
         object? left, right;
-        if (SpanSide(b) is { } spanOnRight)
+        if (b.Operator is BinaryOperator.Add or BinaryOperator.Subtract && SpanSide(b) is { } spanOnRight)
         {
             object? other = Evaluate(spanOnRight ? b.Left : b.Right);
             if (other is DateTime date)
@@ -2285,7 +2300,7 @@ internal sealed partial class ExpressionEvaluator(
     /// false for the left (only for <c>+</c>, since a span less a date is no date), null when neither.</summary>
     private bool? SpanSide(BinaryExpression b)
     {
-        if (parameters is not { HasDurations: true } || b.Operator is not (BinaryOperator.Add or BinaryOperator.Subtract))
+        if (parameters is not { HasDurations: true })
             return null;
 #pragma warning disable IDE0028 // Preserve reference identity for AST nodes, as in the numeric-class cache.
         _spanSides ??= new Dictionary<BinaryExpression, bool?>(ReferenceEqualityComparer.Instance);
@@ -2790,6 +2805,7 @@ internal sealed partial class ExpressionEvaluator(
     /// column takes a Decimal as a Double (DECIMAL 1.1 * 1.11 is 1.221); a Currency column takes a Double to four
     /// places (Currency 1.1 + Double 0.1 is 1.2).
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static object? ToResultPlaces(object? value, NumberType type) => (type.Class, value) switch
     {
         (NumberClass.Decimal, decimal d) =>
@@ -2806,6 +2822,7 @@ internal sealed partial class ExpressionEvaluator(
     /// number to a date as CDate reads it, anything to text as <c>&amp;</c> writes it, and anything to binary as its
     /// bytes (<see cref="ColumnBytes"/>). Null, or no <paramref name="type"/>, leaves the value as it is.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static object? AsColumnType(object? value, Type? type, bool currency)
     {
         if (value is null || type is null || value.GetType() == type)
@@ -3132,6 +3149,7 @@ internal sealed partial class ExpressionEvaluator(
 
     /// <summary>Orders two values for SORT (nulls first), using the same coercion as comparisons, and text in
     /// <paramref name="text"/>'s collation.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int CompareForSort(object? a, object? b, JetTextComparer text) => (a, b) switch
     {
         (null, null) => 0,

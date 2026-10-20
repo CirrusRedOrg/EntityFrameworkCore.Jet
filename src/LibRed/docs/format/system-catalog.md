@@ -18,6 +18,8 @@
   the indexed lookup again. When that row remains unchanged, a changed TDEF goes straight to the definition
   reader; its decoded layout can still be reused when only its counters differ (see
   [TDEF decoding](page-02a-tdef.md)) and its flags and `LvProp` bytes agree.
+  DDL property updates likewise seek LONG object ids through an available matching index, using the same
+  residual key check and materialising matches before writing. Other key kinds keep the coercing scan.
   A data write replacing the TDEF image therefore refreshes
   row counts and AutoNumber seeds without relying on a DDL notification. Continuation/schema changes
   invalidate through the shared schema generation; rollback exposes a different page image too.
@@ -31,6 +33,8 @@
   Both table definitions and relationship lookups are bounded to 64 entries. Adding a new key at capacity
   evicts one entry instead of clearing the cache; the bootstrap MSysObjects definition remains resident.
   Definitions are not shared between handles, because a writer updates its own counter seed in memory.
+  The SQL binder reuses schema wrappers by validated DDL identity. Their column names, nullability and
+  CLR types are materialised only when requested; row counts and AutoNumber state are not retained there.
   An unknown external ACE write must invalidate the **whole** page/parse pool and advance the shared
   invalidation generation: it cannot be treated as a change to a guessed-at table alone.
 
@@ -868,6 +872,9 @@
   identity, so replacing the raw page cache alone does not imply a schema change.
   If only a map dependency changes, the existing usage-map reader rechecks the catalog's owned-page set
   and rows. A different record on a shared map holder, or free-space bookkeeping, does not discard them.
+  An empty owned-page set proves that the relationship catalog has no rows, so its empty indexes need no
+  seek. The same map dependencies detect its first allocated data page; the row-count header is not used
+  to cache or infer emptiness.
 
   > **`grbit` records the relationship; ACE does not act on its cascade bits.** The update and delete actions
   > ACE applies are the ones in the relationship's index-info blocks (§3.6, `0x15`/`0x16`): with the two made

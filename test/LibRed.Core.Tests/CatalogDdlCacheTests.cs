@@ -8,6 +8,38 @@ namespace LibRed.Core.Tests;
 
 public class CatalogDdlCacheTests
 {
+    [Fact]
+    public void An_empty_relationship_catalog_detects_its_first_row_and_rollback()
+    {
+        string path = TemporaryDatabase.CreatePath("ddl-cache-empty-");
+        try
+        {
+            JetDatabase.Create(path);
+            using var writer = JetDatabase.Open(path, readOnly: false);
+            writer.CreateTable("P", [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true)], primaryKey: ["Id"]);
+            writer.CreateTable("C", [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true)]);
+            using var reader = JetDatabase.Open(path);
+            Assert.Empty(new UsageMap(reader.Channel, reader.Catalog.RequireTable("MSysRelationships")).DataPages());
+            Assert.Empty(reader.Catalog.ForeignKeysOf("C"));
+            Assert.Empty(reader.Catalog.ReferencesTo("P"));
+
+            var relationship = new RelationshipSpec("FK_PC", "P", [("Id", "Id")], true,
+                CascadeUpdate: false, CascadeDelete: false);
+            writer.BeginTransaction();
+            writer.AddForeignKey("C", relationship);
+            Assert.Single(writer.Catalog.ForeignKeysOf("C"));
+            Assert.Empty(reader.Catalog.ForeignKeysOf("C"));
+            writer.Rollback();
+            Assert.Empty(writer.Catalog.ForeignKeysOf("C"));
+            Assert.Empty(reader.Catalog.ForeignKeysOf("C"));
+
+            writer.AddForeignKey("C", relationship);
+            Assert.Single(reader.Catalog.ForeignKeysOf("C"));
+            Assert.Single(reader.Catalog.ReferencesTo("P"));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

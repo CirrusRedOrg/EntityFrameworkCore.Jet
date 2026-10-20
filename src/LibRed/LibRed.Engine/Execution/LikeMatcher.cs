@@ -96,7 +96,7 @@ internal static class LikeMatcher
     public static bool IsMatch(string value, string pattern)
     {
         string text = Fold(value);
-        int[] characterEnd = CharacterEnds(value, text.Length);
+        int[]? characterEnd = null;
 
         // reach[p] is whether the pattern so far can consume exactly the first p characters of the text.
         var reach = new bool[text.Length + 1];
@@ -119,6 +119,7 @@ internal static class LikeMatcher
             if (pattern[i] == '_')
             {
                 // One character of the value, however many it folds to (verified vs ACE: 'ß' LIKE '_' is True).
+                characterEnd ??= CharacterEnds(value, text.Length);
                 for (int p = first; p < text.Length; p++)
                     next[characterEnd[p]] |= reach[p];
                 i++;

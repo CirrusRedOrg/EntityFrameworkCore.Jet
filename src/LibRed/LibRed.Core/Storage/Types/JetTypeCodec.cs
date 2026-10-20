@@ -2,6 +2,7 @@ using EntityFrameworkCore.Jet.Data;
 using LibRed.Catalog;
 using LibRed.Formats;
 using System.Buffers.Binary;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace LibRed.Storage.Types;
@@ -23,6 +24,9 @@ public static class JetTypeCodec
     /// (Boolean→Int16, Byte/Int16→Int32, Single→Double) while storing the payload at its natural width, so the
     /// stored width is what says how to read it. <paramref name="column"/> still supplies the name for errors
     /// and the scale for <c>FixedPoint</c>.</summary>
+    // Keep type dispatch and width validation in the row decoder's hot loop. The ordinary inlining
+    // budget otherwise leaves a call per value and prevents the JIT optimising the surrounding branches.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static object? Decode(ColumnDef column, JetDataType type, ReadOnlySpan<byte> value)
     {
         int expectedLength = type switch
@@ -214,6 +218,13 @@ public static class JetTypeCodec
         if (!body.Contains((byte)0x00))
             return Encoding.Latin1.GetString(body);
 
+        return DecodeMixedText(body);
+    }
+
+    // The mixed-mode buffer belongs only to text containing compression switches. Keeping its stack
+    // allocation out of DecodeText lets ordinary UTF-16 and Latin-1 reads use the small common path.
+    private static string DecodeMixedText(ReadOnlySpan<byte> body)
+    {
         // Every character takes at least one byte, so the body's length bounds the decoded length.
         char[]? rented = null;
         Span<char> chars = body.Length <= 256
@@ -248,7 +259,19 @@ public static class JetTypeCodec
     internal static decimal CurrencyFromScaled(long raw)
     {
         byte scale = CurrencyScale;
-        while (scale > 0 && raw % 10 == 0)
+        // Strip pairs first: stored money commonly ends in two zeros. This keeps the same minimal
+        // decimal scale while avoiding a separate division and loop branch for each zero.
+        if (raw % 100 == 0)
+        {
+            raw /= 100;
+            scale -= 2;
+            if (raw % 100 == 0)
+            {
+                raw /= 100;
+                scale -= 2;
+            }
+        }
+        if (scale > 0 && raw % 10 == 0)
         {
             raw /= 10;
             scale--;

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace LibRed.Storage.Types;
@@ -123,10 +124,12 @@ public static class VbaText
     /// date and long time, without the time at midnight and without the date on 1899-12-30; a GUID is braced upper
     /// case; a binary value is read as UTF-16 text.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string Of(object v) => v switch
     {
         string s => s,
         bool b => b ? "-1" : "0",
+        int n => n.ToString(CultureInfo.CurrentCulture),
         double d => FloatingText(d, 15),
         float f => FloatingText(f, 7),
         decimal m => m.ToString("0.############################", CultureInfo.CurrentCulture),

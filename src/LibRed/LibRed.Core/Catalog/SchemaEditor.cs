@@ -335,7 +335,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // since the build refuses a declaration ACE refuses (a NUMERIC precision, a record too wide).
         byte[] Build() => TableDefinition.Build(format, tableType, columns, _collation, indexes, longValueSpecs, childLogical,
             usageMapPage).Page;
-        Build();
+        byte[] tdef = Build();
 
         // The table's MSysObjects row, with no extended properties yet (they are written below, one at a time), comes
         // before the index roots, which come before the definition's continuation pages (measured: a CREATE TABLE whose
@@ -351,6 +351,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // a foreign key's after its relationship's rows (both below); until then the definition names page 0.
         bool HasProperties(ColumnSpec c) => defaults.ContainsKey(c.Name) || !c.IsNullable || c.CalculatedExpression is not null;
         bool[] afterProperties = [.. columnsBefore.Select(n => columns.Take(n).Any(HasProperties))];
+        bool rootsChanged = false;
         for (int k = 0; k < owners.Count; k++)
         {
             int i = owners[k];
@@ -358,9 +359,12 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             int rootPage = AllocateIndexRoot(format, tdefPage);
             new UsageMap(_channel).SetBit(indexRows[i], usageMapPage, rootPage, set: true);
             indexes[k] = indexes[k] with { RootPage = rootPage };
+            rootsChanged = true;
         }
 
-        byte[] tdef = Build();
+        // The validated image is already final unless allocating an early index root changed its inputs.
+        // Keys after extended properties are still rooted below, in ACE's original allocation order.
+        if (rootsChanged) tdef = Build();
         // A wide table's definition can exceed one page; write it split across continuation pages if needed.
         int defEnd = TableDefinition.ReadLength(tdef, format);
         TableDefinition.WriteChain(_channel, _allocator, tdefPage, tdef[..defEnd], [], rewrite: false);
@@ -1704,9 +1708,16 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
 
     /// <summary>The rows of a catalog table whose key column holds <paramref name="keyValue"/>, materialised
     /// before the caller writes any of them back.</summary>
-    private static List<(RowId Id, object?[] Values)> RowsKeyed(Table table, int keyColumn, int keyValue) =>
-        [.. table.RowsWhere([keyColumn], values => values[keyColumn] is not null
-            && Convert.ToInt32(values[keyColumn], CultureInfo.InvariantCulture) == keyValue)];
+    private static List<(RowId Id, object?[] Values)> RowsKeyed(Table table, int keyColumn, int keyValue)
+    {
+        bool Matches(object?[] values) => values[keyColumn] is not null
+            && Convert.ToInt32(values[keyColumn], CultureInfo.InvariantCulture) == keyValue;
+        // LONG object ids can use the existing indexed path. Other kinds retain the coercing scan:
+        // RowsWithKey requires a key already in the column's own kind, including its range.
+        return [.. table.Definition.Columns[keyColumn].Type == JetDataType.Int32
+            ? table.RowsWithKey([keyColumn], [keyValue], Matches)
+            : table.RowsWhere([keyColumn], Matches)];
+    }
 
     /// <summary>Deletes every row of <paramref name="catalogTable"/> whose <paramref name="keyColumn"/> equals
     /// <paramref name="keyValue"/> (the object id) — used to remove a dropped table's MSysObjects and MSysACEs

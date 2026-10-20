@@ -49,6 +49,8 @@ internal sealed class EvalScope(
     // Where each reference resolved, by reference. Only the row moves between rows (see Rebind), so where a
     // reference lands does not, and neither does whether it is ambiguous.
     private Dictionary<ColumnReference, int>? _resolved;
+    private ColumnReference? _firstReference;
+    private int _firstSlot;
 
     public bool TryResolve(ColumnReference reference, out object? value)
     {
@@ -60,6 +62,18 @@ internal sealed class EvalScope(
         if (schema.Count == 0)
         {
             found = -1;
+        }
+        else if (_firstReference is null)
+        {
+            // Most scopes read one or two references. Keep the first binding directly, avoiding a
+            // dictionary lookup per row (and the dictionary altogether for a one-reference scope).
+            found = Locate(schema, reference);
+            _firstSlot = found;
+            _firstReference = reference;
+        }
+        else if (ReferenceEquals(reference, _firstReference))
+        {
+            found = _firstSlot;
         }
         else
         {

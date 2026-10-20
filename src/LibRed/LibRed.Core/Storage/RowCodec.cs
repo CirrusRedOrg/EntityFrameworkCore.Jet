@@ -634,6 +634,7 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     internal readonly ref struct Layout
     {
         private readonly ReadOnlySpan<byte> _row;
+        private readonly ReadOnlySpan<byte> _nullBitmap;
         private readonly int _offsetSize;
 
         /// <summary>The leading column count (= max column id + 1).</summary>
@@ -659,6 +660,8 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
                 throw new InvalidDataException(
                     $"Row is {row.Length} bytes, shorter than the {minimum} its {NullBitmapSize}-byte null bitmap"
                     + (hasVar ? " and variable-column trailer need." : " needs."));
+            // Every column consults the same bitmap; validate/slice it once rather than once per value.
+            _nullBitmap = row[^NullBitmapSize..];
 
             if (!hasVar)
             {
@@ -753,7 +756,7 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
 
         /// <summary>The row's null bitmap: one bit per column id below <see cref="ColumnCount"/>, set when the column
         /// holds a value — or, for a Boolean, when it is true.</summary>
-        public ReadOnlySpan<byte> NullBitmap => _row[^NullBitmapSize..];
+        public ReadOnlySpan<byte> NullBitmap => _nullBitmap;
 
         /// <summary>Whether column <paramref name="columnId"/>'s null-bitmap bit is set. A column id the row predates —
         /// at or above its stored count — has no bit, and reads as clear.</summary>

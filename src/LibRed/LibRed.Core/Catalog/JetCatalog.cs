@@ -896,14 +896,14 @@ public sealed class JetCatalog
     {
         private readonly int _definitionPage;
         private Dictionary<int, ReadOnlyMemory<byte>> _images = [];
-        private readonly HashSet<int> _dataPages = [];
+        internal readonly HashSet<int> DataPages = [];
 
         internal CatalogRows(PageChannel channel, TableDefinition definition)
         {
             _definitionPage = definition.DefinitionPage;
             foreach (int page in new UsageMap(channel, definition).DataPages(_images))
             {
-                _dataPages.Add(page);
+                DataPages.Add(page);
                 _images[page] = channel.ReadPageShared(page).Data;
             }
         }
@@ -922,13 +922,13 @@ public sealed class JetCatalog
                 // Preserve decoded DDL in that case and adopt the new identities after validating the set.
                 if (!current.Span.SequenceEqual(image.Value.Span))
                 {
-                    if (_dataPages.Contains(image.Key)) return false;
+                    if (DataPages.Contains(image.Key)) return false;
                     // ACE can share a usage-map holder between tables. Changes to another map, or to
                     // catalog counters, need not change these rows. Reuse the existing map reader to
                     // validate the page set rather than duplicating its record/bitmap parser here.
                     var refreshed = new CatalogRows(channel, definition);
-                    if (!_dataPages.SetEquals(refreshed._dataPages)) return false;
-                    foreach (int page in _dataPages)
+                    if (!DataPages.SetEquals(refreshed.DataPages)) return false;
+                    foreach (int page in DataPages)
                         if (!_images[page].Span.SequenceEqual(refreshed._images[page].Span)) return false;
                     _images = refreshed._images;
                     return true;
@@ -974,6 +974,7 @@ public sealed class JetCatalog
             }
         }
 
+        var catalogRows = new CatalogRows(_channel, def);
         var columns = def.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
         int nameIdx = columns["szRelationship"], childTableIdx = columns["szObject"], childColumnIdx = columns["szColumn"],
             parentTableIdx = columns["szReferencedObject"], parentColumnIdx = columns["szReferencedColumn"],
@@ -986,7 +987,9 @@ public sealed class JetCatalog
 
         var relationships = new Table(_channel, def, this);
         int keyIdx = keyColumn is null ? -1 : columns[keyColumn];
-        IEnumerable<object?[]> rows = key is null ? relationships.Rows()
+        // No owned data page means no row can exist. The captured map dependencies still detect the
+        // first relationship added later; a cached/live row count is never used to make this decision.
+        IEnumerable<object?[]> rows = catalogRows.DataPages.Count == 0 ? [] : key is null ? relationships.Rows()
             : relationships.RowsWithKey([keyIdx], [key],
                 r => string.Equals(r[keyIdx] as string, key, StringComparison.OrdinalIgnoreCase)).Select(r => r.Values);
         foreach (object?[] row in rows)
@@ -1038,7 +1041,7 @@ public sealed class JetCatalog
         }
         if (_relationships.Count >= 64 && !_relationships.ContainsKey(cacheKey))
             _relationships.Remove(_relationships.Keys.First());
-        _relationships[cacheKey] = new RelationshipSet(result, new CatalogRows(_channel, def), def.Metadata, dependencies)
+        _relationships[cacheKey] = new RelationshipSet(result, catalogRows, def.Metadata, dependencies)
         {
             ImageGeneration = _channel.InTransaction ? -1 : _channel.ImageGeneration
         };

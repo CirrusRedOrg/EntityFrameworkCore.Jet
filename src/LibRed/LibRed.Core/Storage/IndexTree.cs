@@ -57,8 +57,9 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
             ParsedIndexPage page = ReadIndexPage(leaf);
             if (page.Type != PageType.LeafIndexPage)
                 throw new InvalidDataException($"Index leaf chain points to non-leaf page {leaf}.");
-            foreach (Entry e in page.Entries)
+            for (int i = LowerBound(page.Entries, key); i < page.Entries.Count; i++)
             {
+                Entry e = page.Entries[i];
                 int cmp = CompareBytes(e.Key, key);
                 if (cmp > 0) return false;   // sorted past where the key would be — it's absent
                 // Same key held by a *different* row (for an UPDATE, the row's own entry is excluded).
@@ -90,8 +91,9 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
             ParsedIndexPage page = ReadIndexPage(leaf);
             if (page.Type != PageType.LeafIndexPage)
                 throw new InvalidDataException($"Index leaf chain points to non-leaf page {leaf}.");
-            foreach (Entry e in page.Entries)
+            for (int i = LowerBound(page.Entries, key); i < page.Entries.Count; i++)
             {
+                Entry e = page.Entries[i];
                 int cmp = CompareBytes(e.Key, key);
                 if (cmp > 0) yield break;                 // sorted past the key — no more matches
                 if (cmp == 0) yield return RowId.FromPacked(e.Trailer);
@@ -127,9 +129,9 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
             ParsedIndexPage page = ReadIndexPage(leaf);
             if (page.Type != PageType.LeafIndexPage)
                 throw new InvalidDataException($"Index leaf chain points to non-leaf page {leaf}.");
-            foreach (Entry e in page.Entries)
+            for (int i = lowKey is null ? 0 : LowerBound(page.Entries, lowKey); i < page.Entries.Count; i++)
             {
-                if (lowKey is not null && CompareBytes(e.Key, lowKey) < 0) continue;     // before the low bound
+                Entry e = page.Entries[i];
                 if (highKey is not null && CompareBytes(e.Key, highKey) > 0) yield break; // past the high bound
                 yield return RowId.FromPacked(e.Trailer);
             }
@@ -170,11 +172,12 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
 
         List<int> path = Descend(index.RootPage, WithTrailer(key, pointer));
         int leafPage = path[^1];
-        CheckedPage page = ReadMutationPage(leafPage, PageType.LeafIndexPage);
-        (List<Entry> entries, _) = Parse(page);
+        ParsedIndexPage page = ReadMutablePage(leafPage, PageType.LeafIndexPage);
+        List<Entry> entries = page.Entries;
 
-        int idx = entries.FindIndex(e => e.Trailer == pointer && CompareBytes(e.Key, key) == 0);
-        if (idx < 0)
+        int idx = LowerBound(entries, key);
+        while (idx < entries.Count && CompareBytes(entries[idx].Key, key) == 0 && entries[idx].Trailer != pointer) idx++;
+        if (idx == entries.Count || entries[idx].Trailer != pointer || CompareBytes(entries[idx].Key, key) != 0)
             throw new InvalidOperationException(
                 $"Index '{index.Name}': entry for row {rowId.Page}:{rowId.Row} was not found on leaf {leafPage}.");
         entries.RemoveAt(idx);
@@ -189,7 +192,7 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
         // emptied leaf that stays in the tree is an empty index page, which carries no prefix.
         WriteOrThrow(leafPage,
             Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries,
-                page.CompressedByteCount));
+                page.Compressed), parsed: entries.Count > 0 ? page : null);
         if (entries.Count == 0 && !UnlinkEmptyLeaf(index, path, page))
             WriteOrThrow(leafPage, Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries, 0));
     }
@@ -208,7 +211,7 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
     /// unlinked without leaving the parent pointing at nothing, a node shape ACE has not been observed to
     /// write; an empty leaf is a valid one, so the tree keeps it rather than inventing that.</para>
     /// </remarks>
-    private bool UnlinkEmptyLeaf(IndexDef index, List<int> path, CheckedPage leaf)
+    private bool UnlinkEmptyLeaf(IndexDef index, List<int> path, ParsedIndexPage leaf)
     {
         if (path.Count < 2) return false;
 
@@ -317,10 +320,8 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
             if (page.Type != PageType.IntermediateIndexPage)
                 throw new InvalidDataException($"Index descent reached non-index page {pageNumber}.");
 
-            int child = page.Tail;
-            foreach (Entry e in page.Entries)
-                if (CompareBytes(e.Key, fullKey) >= 0) { child = e.Trailer; break; }
-            pageNumber = child;
+            int slot = LowerBound(page.Entries, fullKey);
+            pageNumber = slot < page.Entries.Count ? page.Entries[slot].Trailer : page.Tail;
         }
     }
 
@@ -389,12 +390,16 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
         List<Entry> entries = page.Entries;
 
         // Insert in key order (key then pointer tiebreaker) — the full leaf key is key ++ pointer. Compared
-        // without materialising each entry's concatenation: this scan runs over every entry on the page for
-        // every row inserted, so building one throwaway array per comparison was the write path's largest
-        // single allocator.
+        // without materialising each entry's concatenation. The decoded page is already checked for order,
+        // so locate the first equal-or-greater full key with a binary search.
         byte[] fullKey = WithTrailer(key, pointer);
-        int pos = 0;
-        while (pos < entries.Count && CompareWithTrailer(entries[pos].Key, entries[pos].Trailer, fullKey) < 0) pos++;
+        int pos = 0, end = entries.Count;
+        while (pos < end)
+        {
+            int middle = pos + (end - pos) / 2;
+            if (CompareWithTrailer(entries[middle].Key, entries[middle].Trailer, fullKey) < 0) pos = middle + 1;
+            else end = middle;
+        }
         entries.Insert(pos, new Entry(key, pointer));
 
         // ACE compresses a leaf only when it has to, and splits only when compressing is not enough. A page
@@ -817,9 +822,10 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
     /// <param name="page">The built page; null when its entries overflowed.</param>
     /// <param name="tailFrom">The page whose dead bytes the write carries over — this page itself, unless the
     /// content is moving here from another (a split root's left half).</param>
-    private void WriteOrThrow(int pageNumber, byte[]? page, int? tailFrom = null) =>
+    /// <param name="parsed">The private entry list and header matching the built page, if already available.</param>
+    private void WriteOrThrow(int pageNumber, byte[]? page, int? tailFrom = null, ParsedIndexPage? parsed = null) =>
         _channel.WritePage(pageNumber, KeepTail(tailFrom ?? pageNumber, page ?? throw new NotSupportedException(
-            "An index page still overflows after a split (a key wider than half a page).")));
+            "An index page still overflows after a split (a key wider than half a page).")), parsed);
 
     /// <summary>
     /// Carries the destination's bytes past the new live end into a freshly built page, because that is what
@@ -842,23 +848,23 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
 
     /// <summary>What a rewrite of <paramref name="pageNumber"/> keeps past its live end: the page's bytes when it
     /// is already one of this table's index pages, zeros otherwise (see <see cref="KeepTail"/>).</summary>
-    private byte[] ImageOf(int pageNumber)
+    private ReadOnlyMemory<byte> ImageOf(int pageNumber)
     {
-        if (pageNumber >= _channel.PageCount) return new byte[_channel.PageSize];
+        if (pageNumber >= _channel.PageCount) return default;
 
         // A leaf turning node — the root, when it splits — still counts as the same page rewritten.
-        ReadOnlySpan<byte> existing = _channel.ReadPage(pageNumber).Span;
-        if (PageHeader.ReadType(existing) is not (PageType.LeafIndexPage or PageType.IntermediateIndexPage)
-            || ReadOwner(existing, _channel.Format) != _table.DefinitionPage)
-            return new byte[_channel.PageSize];
-        return existing.ToArray();
+        PageBuffer existing = _channel.ReadPageShared(pageNumber);
+        if (PageHeader.ReadType(existing.Span) is not (PageType.LeafIndexPage or PageType.IntermediateIndexPage)
+            || ReadOwner(existing.Span, _channel.Format) != _table.DefinitionPage)
+            return default;
+        return existing.Data;
     }
 
     /// <summary>Carries <paramref name="image"/>'s bytes past <paramref name="built"/>'s live end into it.</summary>
-    private byte[] Merge(byte[] built, byte[] image)
+    private byte[] Merge(byte[] built, ReadOnlyMemory<byte> image)
     {
         int liveEnd = LiveEnd(built);
-        image.AsSpan(liveEnd).CopyTo(built.AsSpan(liveEnd));
+        if (!image.IsEmpty) image.Span[liveEnd..].CopyTo(built.AsSpan(liveEnd));
         return built;
     }
 
@@ -939,11 +945,11 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
 
     /// <summary>The page being filled at one level of a <see cref="BulkBuild"/>: its entries, the prefix they
     /// are stored at, and what the incremental path's writes would have left past the live end.</summary>
-    private sealed class SpinePage(int number, int previous, byte[] image)
+    private sealed class SpinePage(int number, int previous, ReadOnlyMemory<byte> image)
     {
         public int Number { get; } = number;
         public int Previous { get; } = previous;
-        public byte[] Image { get; set; } = image;
+        public ReadOnlyMemory<byte> Image { get; set; } = image;
         public List<Entry> Entries { get; } = [];
         public long KeyBytes { get; set; }
         public int Stored { get; set; }  // the prefix the page is stored at (0x18), as the last write left it
@@ -1130,13 +1136,21 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
             i < e.Key.Length ? e.Key[i] : (byte)(e.Trailer >> (8 * (sizeof(int) - 1 - (i - e.Key.Length))));
     }
 
-    internal static int CompareBytes(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
+    // Every decoded page has already had its key order checked. Find the first entry at or above the
+    // search key, including the first of a duplicate run; seeks need not walk the leaf's preceding keys.
+    private static int LowerBound(List<Entry> entries, ReadOnlySpan<byte> key)
     {
-        int n = Math.Min(a.Length, b.Length);
-        for (int i = 0; i < n; i++)
-            if (a[i] != b[i]) return a[i] - b[i];
-        return a.Length - b.Length;
+        int low = 0, high = entries.Count;
+        while (low < high)
+        {
+            int middle = low + (high - low) / 2;
+            if (CompareBytes(entries[middle].Key, key) < 0) low = middle + 1;
+            else high = middle;
+        }
+        return low;
     }
+
+    internal static int CompareBytes(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b) => a.SequenceCompareTo(b);
 
     private static void WriteInt32Le(byte[] page, int offset, int value) => BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(offset, 4), value);
     private static void WriteInt32Be(byte[] page, int offset, int value) => BinaryPrimitives.WriteInt32BigEndian(page.AsSpan(offset, 4), value);

@@ -41,7 +41,8 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
         ?? throw new InvalidOperationException("A table definition is required to enumerate its data pages.");
 
     /// <summary>Yields the page numbers of every data page owned by the table, in ascending order.</summary>
-    public IEnumerable<int> DataPages() => PagesAt(_channel.Format.TdefOwnedPagesOffset);
+    public IEnumerable<int> DataPages(Dictionary<int, ReadOnlyMemory<byte>>? images = null) =>
+        PagesAt(_channel.Format.TdefOwnedPagesOffset, images);
 
     /// <summary>Yields the table's data pages that still have room for a row, in ascending order — the
     /// free-pages map. A strict subset of <see cref="DataPages"/>, and normally just the page currently
@@ -92,25 +93,28 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
 
     /// <summary>Reads the usage map whose (row, page) pointer sits at <paramref name="pointerOffset"/> in
     /// the TDEF. Both maps share the same pointer shape and record format.</summary>
-    private IEnumerable<int> PagesAt(int pointerOffset)
+    private IEnumerable<int> PagesAt(int pointerOffset, Dictionary<int, ReadOnlyMemory<byte>>? images = null)
     {
-        (int row, int page) = _channel.ReadPage(DefinitionPage).ReadRecordPointer(pointerOffset);
-        return PagesInMap(row, page);
+        PageBuffer definition = _channel.ReadPageShared(DefinitionPage);
+        if (images is not null) images[DefinitionPage] = definition.Data;
+        (int row, int page) = definition.ReadRecordPointer(pointerOffset);
+        return PagesInMap(row, page, images);
     }
 
     /// <summary>The pages recorded by the usage map at a <paramref name="mapPage"/>:<paramref name="mapRow"/>
     /// pointer. The TDEF's own two maps come through here (<see cref="DataPages"/>, <see cref="FreeDataPages"/>),
     /// and so does every other map reached by an explicit pointer — a long-value column's owned and free maps,
     /// whose pointers sit in the TDEF keyed by column id, and an index's own map.</summary>
-    public IEnumerable<int> PagesInMap(int mapRow, int mapPage) =>
-        PagesInRecord(_channel, ReadRecordAt(mapRow, mapPage), _channel.PageCount, "A usage map");
+    public IEnumerable<int> PagesInMap(int mapRow, int mapPage, Dictionary<int, ReadOnlyMemory<byte>>? images = null) =>
+        PagesInRecord(_channel, ReadRecordAt(mapRow, mapPage, images), _channel.PageCount, "A usage map", images);
 
     /// <summary>The pages a map <paramref name="record"/> marks, inline or reference form. Pointer k's bitmap covers
     /// the page range starting at k * UsageMapPagesPerBitmapPage; a zero pointer means the range has no pages in the
     /// map, and a bitmap page belongs to one range only. A page at or past <paramref name="rejectBeyond"/> is
     /// corruption; null keeps every bit, for a map that may name pages past the file's end (see
     /// <see cref="BitmapBits.AppendPages"/>). <paramref name="what"/> names the map in the messages.</summary>
-    internal static List<int> PagesInRecord(PageChannel channel, ReadOnlySpan<byte> record, int? rejectBeyond, string what)
+    internal static List<int> PagesInRecord(PageChannel channel, ReadOnlySpan<byte> record, int? rejectBeyond, string what,
+        Dictionary<int, ReadOnlyMemory<byte>>? images = null)
     {
         JetFormatBase format = channel.Format;
         var pages = new List<int>();
@@ -128,7 +132,9 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
             if (bitmapPage == 0) continue;
             if (!bitmapPages.Add(bitmapPage))
                 throw new InvalidDataException($"{what} repeats bitmap page {bitmapPage}.");
-            BitmapBits.AppendPages(pages, BitmapPageBits(ReadBitmapPage(channel, bitmapPage).Span, format),
+            PageBuffer bitmap = ReadBitmapPage(channel, bitmapPage);
+            if (images is not null) images[bitmapPage] = bitmap.Data;
+            BitmapBits.AppendPages(pages, BitmapPageBits(bitmap.Span, format),
                 e * format.UsageMapPagesPerBitmapPage, rejectBeyond, what);
         }
         return pages;
@@ -140,12 +146,13 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
     /// <remarks>Both halves of the pointer come out of the TDEF, so both are corruption when wrong. Unchecked,
     /// the page number reached the channel as an out-of-range read and the row number reached GetRow as an
     /// index.</remarks>
-    internal ReadOnlySpan<byte> ReadRecordAt(int mapRow, int mapPage)
+    internal ReadOnlySpan<byte> ReadRecordAt(int mapRow, int mapPage, Dictionary<int, ReadOnlyMemory<byte>>? images = null)
     {
         (PageBuffer page, _, DataPage.RowSlot slot) = ReadRecord(_channel, mapRow, mapPage, "Usage-map pointer");
         if (DataPage.ReadOwner(page.Span, _channel.Format) != 0)
             throw new InvalidDataException(
                 $"Usage-map pointer {mapPage}:{mapRow} does not target an owner-zero usage-map data page.");
+        if (images is not null) images[mapPage] = page.Data;
         return page.Slice(slot.Offset, slot.Length);
     }
 
@@ -278,7 +285,7 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
     {
         byte[] page = DataPage.NewPage(format, owner);
         // An all-zero record is an empty inline map: inline type, start page 0, zero bitmap.
-        var records = Enumerable.Range(0, mapCount).Select(_ => new byte[format.UsageMapInlineRecordSize]).ToArray();
+        var records = Enumerable.Range(0, mapCount).Select(_ => (ReadOnlyMemory<byte>)new byte[format.UsageMapInlineRecordSize]).ToArray();
         DataPage.LayRows(page, format, records, new RowSlotFlags[mapCount]);
         return page;
     }
@@ -498,7 +505,7 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
     internal static byte[]? ReplaceMapRecord(byte[] page, DataPage holder, JetFormatBase format, int mapRow, byte[] newRecord, out int newOffset)
     {
         int rowCount = holder.Rows.Count;
-        var records = new byte[rowCount][];
+        var records = new ReadOnlyMemory<byte>[rowCount];
         for (int i = 0; i < rowCount; i++)
             records[i] = page.AsSpan(holder.Rows[i].Offset, holder.Rows[i].Length).ToArray();
         records[mapRow] = newRecord;

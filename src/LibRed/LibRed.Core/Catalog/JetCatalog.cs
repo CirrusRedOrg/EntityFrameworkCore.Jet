@@ -354,7 +354,64 @@ public sealed class JetCatalog
 
     /// <summary>MSysObjects' own definition, read from the TDEF page page 0's catalog root names — what every
     /// catalog lookup reads it by.</summary>
-    private TableDefinition MSysObjects => ReadTableDefinition(_catalogPage, "MSysObjects", isSystem: true);
+    private TableDefinition MSysObjects
+    {
+        get
+        {
+            EnsureFresh();
+            if (_tableDefinitions.TryGetValue("MSysObjects", out DecodedTable? held)
+                && !held.ValidateCatalog && held.Definition is { } cached) return cached;
+            TableDefinition definition = ReadTableDefinition(_catalogPage, "MSysObjects", isSystem: true,
+                out bool reused, held?.Metadata);
+            _tableDefinitions["MSysObjects"] = new DecodedTable(definition,
+                _channel.ReadPageShared(_catalogPage).Data, default, default, metadata: reused ? held!.Metadata : null);
+            return definition;
+        }
+    }
+
+    /// <summary>A bounded DDL cache. Live table-state snapshots are held weakly, separately from the schema;
+    /// row writes refresh those snapshots on demand without discarding the decoded DDL.</summary>
+    private readonly Dictionary<string, DecodedTable> _tableDefinitions = new(StringComparer.OrdinalIgnoreCase);
+    private long _definitionGeneration;
+    private WeakReference<IReadOnlyList<TableDefinition>>? _tables;
+    private string[]? _tableNames;
+    private CatalogRows? _tableDirectory;
+    private long _tablesImageGeneration = -1;
+
+    private sealed class DecodedTable
+    {
+        internal DecodedTable(TableDefinition definition, ReadOnlyMemory<byte> page,
+            ReadOnlyMemory<byte> properties, ObjectAttributes flags, int catalogPage = 0,
+            ReadOnlyMemory<byte> catalogImage = default, TableDefinition.DdlMetadata? metadata = null)
+        {
+            Metadata = metadata ?? new TableDefinition.DdlMetadata(definition);
+            definition.Metadata = Metadata;
+            Snapshot = new WeakReference<TableDefinition>(definition);
+            Page = page;
+            Properties = properties;
+            Flags = flags;
+            CatalogPage = catalogPage;
+            CatalogImage = catalogImage;
+        }
+
+        internal TableDefinition.DdlMetadata Metadata { get; }
+        internal WeakReference<TableDefinition> Snapshot { get; }
+        internal TableDefinition? Definition => Snapshot.TryGetTarget(out TableDefinition? definition) ? definition : null;
+        internal ReadOnlyMemory<byte> Page { get; }
+        internal ReadOnlyMemory<byte> Properties { get; }
+        internal ObjectAttributes Flags { get; }
+        internal int CatalogPage { get; set; }
+        internal ReadOnlyMemory<byte> CatalogImage { get; set; }
+        internal bool ValidateCatalog { get; set; }
+        public long ImageGeneration { get; set; } = -1;
+    }
+
+    private bool EnsureFresh()
+    {
+        if (_definitionGeneration == _channel.SchemaGeneration) return false;
+        Invalidate(publish: false);
+        return true;
+    }
 
     /// <summary>All tables in the database (user and system).</summary>
     public IReadOnlyList<TableDefinition> Tables
@@ -362,12 +419,39 @@ public sealed class JetCatalog
         get
         {
             TableDefinition mo = MSysObjects;
+            long generation = _channel.ImageGeneration;
+            if (!_channel.InTransaction && _tablesImageGeneration == generation
+                && _tables is not null && _tables.TryGetTarget(out IReadOnlyList<TableDefinition>? cached))
+                return cached;
+            if (_tableNames is not null && _tableDirectory is not null && _tableDirectory.Matches(_channel, mo))
+            {
+                IReadOnlyList<TableDefinition> current = Array.AsReadOnly(_tableNames.Select(FindTable)
+                    .Where(t => t is not null).Cast<TableDefinition>().ToArray());
+                if (!_channel.InTransaction)
+                {
+                    _tables = new WeakReference<IReadOnlyList<TableDefinition>>(current);
+                    _tablesImageGeneration = _channel.ImageGeneration;
+                }
+                return current;
+            }
             var columns = mo.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
             var tables = new List<TableDefinition>();
-            foreach (object?[] row in new Table(_channel, mo, this).Rows())
+            var objects = new Table(_channel, mo, this);
+            foreach ((RowId id, object?[] row) in objects.Rows(objects.DecodeOnly(
+                         [columns["Id"], columns["Name"], columns["Type"]])).WithIds())
                 if (row[columns["Type"]] is short t && (ObjectType)t == ObjectType.Table)
-                    tables.Add(ReadTable(row, mo, columns));
-            return tables.AsReadOnly();
+                    tables.Add(ReadTable(row, mo, columns, objects, id));
+            IReadOnlyList<TableDefinition> result = tables.AsReadOnly();
+            _tableNames = tables.Select(t => t.Name).ToArray();
+            _tableDirectory = new CatalogRows(_channel, mo);
+            // The directory is DDL metadata. Materialised live snapshots may be reused at the same image
+            // generation, but never keep those snapshots alive just because the catalog remains open.
+            if (!_channel.InTransaction)
+            {
+                _tables = new WeakReference<IReadOnlyList<TableDefinition>>(result);
+                _tablesImageGeneration = _channel.ImageGeneration;
+            }
+            return result;
         }
     }
 
@@ -421,8 +505,22 @@ public sealed class JetCatalog
         }
     }
 
-    /// <summary>Publishes a schema change. Catalog results belong to their calling operation.</summary>
-    internal void Invalidate() => _channel.MarkSchemaChanged();
+    /// <summary>Requests schema revalidation, optionally publishing a schema change. Unaffected DDL survives.</summary>
+    internal void Invalidate(bool publish = true)
+    {
+        // Keep the decoded DDL, but require a fresh catalog row before trusting it. A property blob can
+        // change on continuation/LVAL pages without replacing the row's own data page.
+        foreach (DecodedTable table in _tableDefinitions.Values)
+        {
+            table.ValidateCatalog = true;
+            table.ImageGeneration = -1;
+        }
+        _tables = null;
+        _tableNames = null;
+        _tableDirectory = null;
+        if (publish) _channel.MarkSchemaChanged();
+        _definitionGeneration = _channel.SchemaGeneration;
+    }
 
     /// <summary>Every complex (multi-value / attachment) column in the database, wired to the table its
     /// values live in. Empty when the file has no <c>MSysComplexColumns</c> — a Jet 4 database has none.</summary>
@@ -439,21 +537,16 @@ public sealed class JetCatalog
             && string.Equals(c.ColumnName, column, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
-    /// Reads <c>MSysComplexColumns</c> and resolves each row to its owner table, its flat table and the flat
-    /// table's two bookkeeping columns. A row whose tables are missing is skipped rather than throwing: the
-    /// catalog must stay readable even where the complex wiring is incomplete.
+    /// Reads <c>MSysComplexColumns</c> — every row, or only those of the table whose definition page is
+    /// <paramref name="ownerPage"/>, sought through its <c>ConceptualTableID</c> index — and resolves each row to its
+    /// owner table, its flat table and the flat table's two bookkeeping columns, each table found by its id. A row
+    /// whose tables are missing is skipped rather than throwing: the catalog must stay readable even where the
+    /// complex wiring is incomplete.
     /// </summary>
-    private List<ComplexColumn> LoadComplexColumns()
+    internal List<ComplexColumn> LoadComplexColumns(int? ownerPage = null)
     {
         var resolved = new List<ComplexColumn>();
-        TableDefinition mo = MSysObjects;
-        var columns = mo.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
-        var rows = new Table(_channel, mo, this).Rows()
-            .Where(r => r[columns["Type"]] is short t && (ObjectType)t == ObjectType.Table)
-            .ToDictionary(r => (int)r[columns["Id"]]!);
-        object?[]? complexRow = rows.Values.FirstOrDefault(r => string.Equals(r[columns["Name"]] as string, "MSysComplexColumns", StringComparison.OrdinalIgnoreCase));
-        if (complexRow is null) return resolved;
-        TableDefinition definition = ReadTable(complexRow, mo, columns);
+        if (FindTable("MSysComplexColumns") is not { } definition) return resolved;
         var definitions = new Dictionary<int, TableDefinition> { [definition.DefinitionPage] = definition };
 
         if (definition.FindColumn("ColumnName") is not { Index: var name } || definition.FindColumn("ComplexID") is not { Index: var id }
@@ -462,7 +555,10 @@ public sealed class JetCatalog
             return resolved;
         int? elementType = definition.FindColumn("ComplexTypeObjectID")?.Index;
 
-        foreach (object?[] row in new Storage.Table(_channel, definition, this).Rows())
+        var complexColumns = new Storage.Table(_channel, definition, this);
+        IEnumerable<object?[]> rows = ownerPage is not { } page ? complexColumns.Rows()
+            : complexColumns.RowsWithKey([owner], [page], r => r[owner] is int o && o == page).Select(r => r.Values);
+        foreach (object?[] row in rows)
         {
             if (row[name] is not string columnName) continue;
             if (Resolve(row[owner]) is not { } ownerTable || Resolve(row[flat]) is not { } flatTable) continue;
@@ -487,8 +583,7 @@ public sealed class JetCatalog
             if (value is null) return null;
             int page = Convert.ToInt32(value, CultureInfo.InvariantCulture);
             if (definitions.TryGetValue(page, out TableDefinition? table)) return table;
-            if (!rows.TryGetValue(page, out object?[]? objectRow)) return null;
-            return definitions[page] = ReadTable(objectRow, mo, columns);
+            return TableWithId(page) is { } found ? definitions[page] = found : null;
         }
     }
 
@@ -499,18 +594,23 @@ public sealed class JetCatalog
         TableDefinition mo = MSysObjects;
         var columns = mo.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
         int page = Convert.ToInt32(id, CultureInfo.InvariantCulture);
-        object?[]? row = new Table(_channel, mo, this).RowsWhere([columns["Id"], columns["Type"]],
-            r => r[columns["Id"]] is int p && p == page && r[columns["Type"]] is short t && (ObjectType)t == ObjectType.Table)
-            .Select(r => r.Values).FirstOrDefault();
-        return row is null ? null : ReadTable(row, mo, columns);
+        foreach (var row in new Table(_channel, mo, this).RowsWithKey([columns["Id"]], [page],
+                     r => r[columns["Id"]] is int p && p == page && r[columns["Type"]] is short t && (ObjectType)t == ObjectType.Table))
+            return ReadTable(row.Values, mo, columns, sourceRow: row.Id);
+        return null;
     }
 
     /// <summary>All relationships (foreign keys) defined in the database.</summary>
-    public IReadOnlyList<ForeignKey> Relationships { get { return LoadRelationships().AsReadOnly(); } }
+    public IReadOnlyList<ForeignKey> Relationships { get { return LoadRelationships(); } }
 
     /// <summary>Relationships for which <paramref name="table"/> is the referencing (child) table.</summary>
-    public IEnumerable<ForeignKey> ForeignKeysOf(string table) =>
-        Relationships.Where(r => string.Equals(r.Table, table, StringComparison.OrdinalIgnoreCase));
+    public IEnumerable<ForeignKey> ForeignKeysOf(string table) => LoadRelationships("szObject", table);
+
+    /// <summary>Relationships for which <paramref name="table"/> is the referenced (parent) table.</summary>
+    public IEnumerable<ForeignKey> ReferencesTo(string table) => LoadRelationships("szReferencedObject", table);
+
+    /// <summary>The relationships called <paramref name="name"/> — one, unless the catalog is damaged.</summary>
+    public IEnumerable<ForeignKey> RelationshipsNamed(string name) => LoadRelationships("szRelationship", name);
 
     /// <summary>User (non-system) tables only.</summary>
     public IEnumerable<TableDefinition> UserTables => Tables.Where(t => !t.IsSystem);
@@ -524,28 +624,102 @@ public sealed class JetCatalog
     /// <summary>
     /// The object called <paramref name="name"/> in the Tables container, found by one seek in <c>MSysObjects</c> and
     /// returned as what its <c>Type</c> makes it: a table's <see cref="TableDefinition"/>, a <see cref="StoredQuery"/>, or null
-    /// for any other kind of object, or none. The result is not retained by the catalog.
+    /// for any other kind of object, or none. User-table parses are reused only while both the catalog-row page
+    /// and TDEF image remain unchanged; changed images take the seek and decode path again.
     /// </summary>
     private object? FindObject(string name)
     {
+        // Every schema invalidation advances the pool generation too. A previously validated decode at
+        // this generation therefore needs neither another schema check nor another page-cache lookup.
+        long generation = _channel.InTransaction ? -1 : _channel.ImageGeneration;
+        _tableDefinitions.TryGetValue(name, out DecodedTable? system);
+        if (system is not null && generation >= 0 && system.ImageGeneration == generation
+            && system.Definition is { } snapshot)
+            return snapshot;
+        if (EnsureFresh()) _tableDefinitions.TryGetValue(name, out system);
+        if (system is { ValidateCatalog: false } && system.Metadata.IsSystem && name.StartsWith("MSys", StringComparison.OrdinalIgnoreCase)
+            && system.Definition is { } systemDefinition)
+        {
+            system.ImageGeneration = generation;
+            return systemDefinition;
+        }
+        // An unchanged catalog-row page preserves the name, flags and property descriptor. Managed schema
+        // changes (including property/continuation changes) publish the shared generation; an unknown external
+        // write must invalidate the entire pool. Data writes also replace the TDEF image, refreshing its counts.
+        if (system is { CatalogPage: > 0, ValidateCatalog: false })
+        {
+            // Transaction-local overlays have their own images, not the committed pool's generation.
+            // Always compare those images directly, including after a statement/savepoint rollback.
+            if (_channel.ReadPageShared(system.CatalogPage).Data.Equals(system.CatalogImage))
+            {
+                if (system.Metadata.NextDefinitionPage == 0
+                    && _channel.ReadPageShared(system.Metadata.DefinitionPage).Data.Equals(system.Page)
+                    && system.Definition is { } definition)
+                {
+                    system.ImageGeneration = generation;
+                    return definition;
+                }
+                // Its catalog row is unchanged: refresh the definition through the same reader without
+                // seeking and decoding that row (and its long property blob) again on every row write.
+                return ReadTable(null, MSysObjects, null, known: system);
+            }
+        }
         TableDefinition mo = MSysObjects;
         var columns = mo.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
-        if (FindObjectRow(JetCatalog.ObjectContainerParentId, name, mo) is not { } row) return null;
-        return row[columns["Type"]] switch
-        {
-            short t when (ObjectType)t == ObjectType.Table => ReadTable(row, mo, columns),
-            short t when (ObjectType)t == ObjectType.Query => ReadQuery((int)row[columns["Id"]]!),
-            _ => null,
-        };
+        object? found = FindObjectRow(JetCatalog.ObjectContainerParentId, name, mo) is not { } row ? null
+            : row.Values[columns["Type"]] switch
+            {
+                short t when (ObjectType)t == ObjectType.Table => ReadTable(row.Values, mo, columns, sourceRow: row.Id),
+                short t when (ObjectType)t == ObjectType.Query => ReadQuery((int)row.Values[columns["Id"]]!),
+                _ => null,
+            };
+        if (found is null) _tableDefinitions.Remove(name);
+        return found;
     }
 
     /// <summary>A table's definition from its <c>MSysObjects</c> row: its TDEF — the row's <c>Id</c> is that page — with
     /// what the row adds, its flags and the column and table properties in its <c>LvProp</c>.</summary>
-    private TableDefinition ReadTable(object?[] row, TableDefinition mo, Dictionary<string, int> columns)
+    private TableDefinition ReadTable(object?[]? row, TableDefinition mo, Dictionary<string, int>? columns,
+        Table? source = null, RowId sourceRow = default, DecodedTable? known = null)
     {
-        int definitionPage = (int)row[columns["Id"]]!;
-        string name = (string)row[columns["Name"]]!;
-        var flags = (ObjectAttributes)unchecked((uint)(int)row[columns["Flags"]]!);
+        int definitionPage = known?.Metadata.DefinitionPage ?? (int)row![columns!["Id"]]!;
+        string name = known?.Metadata.Name ?? (string)row![columns!["Name"]]!;
+        EnsureFresh();
+        // Enumeration and name lookup decode through this same path. Reuse the kept system definitions
+        // here too, rather than repeatedly decoding them just to discard them from a user-table schema view.
+        // The bootstrap definition still needs its catalog flags/properties attached below.
+        if (!_tableDefinitions.TryGetValue(name, out DecodedTable? held)
+            || held.Metadata.DefinitionPage != definitionPage || held.Metadata.Name != name)
+            held = null;
+        if (held is { ValidateCatalog: false } && definitionPage != _catalogPage && held.Metadata.IsSystem
+            && name.StartsWith("MSys", StringComparison.OrdinalIgnoreCase)
+            && held.Definition is { } systemDefinition) return systemDefinition;
+
+        // Enumeration first reads just the object key/type. Non-tables and already-known fixed system
+        // tables never need their other columns (including long property blobs) materialised.
+        if (source is not null)
+            row = source.GetRow(sourceRow)
+                ?? throw new InvalidDataException($"Catalog row {sourceRow.Page}:{sourceRow.Row} disappeared while reading '{name}'.");
+        var flags = known?.Flags ?? (ObjectAttributes)unchecked((uint)(int)row![columns!["Flags"]]!);
+        ReadOnlyMemory<byte> propertyBlob = known?.Properties ?? (row![columns!["LvProp"]] as byte[]);
+        ReadOnlyMemory<byte> page = default;
+        if (held is not null)
+        {
+            page = _channel.ReadPageShared(definitionPage).Data;
+            if (held.Metadata.NextDefinitionPage == 0 && page.Equals(held.Page)
+                && flags == held.Flags && propertyBlob.Span.SequenceEqual(held.Properties.Span)
+                && held.Definition is { } snapshot)
+            {
+                held.ValidateCatalog = false;
+                held.ImageGeneration = _channel.InTransaction ? -1 : _channel.ImageGeneration;
+                // The same object may now occupy a different catalog page. Validate its current row's
+                // page next time, rather than accepting the old page after its row has been removed.
+                held.CatalogPage = known?.CatalogPage ?? sourceRow.Page;
+                held.CatalogImage = held.CatalogPage > 0 ? _channel.ReadPageShared(held.CatalogPage).Data : default;
+                return snapshot;
+            }
+        }
+        if (page.IsEmpty) page = _channel.ReadPageShared(definitionPage).Data;
 
         // A table is "system" (excluded from the user-table list, as Access's own schema view
         // does) if it is flagged system or hidden, or is named as engine/temporary infrastructure:
@@ -555,12 +729,17 @@ public sealed class JetCatalog
                         || name.StartsWith('~')
                         || name.StartsWith('#');
 
-        TableDefinition definition = definitionPage == _catalogPage ? mo : ReadTableDefinition(definitionPage, name, isSystem);
+        bool reused = false;
+        bool sameProperties = held is not null && flags == held.Flags
+            && propertyBlob.Span.SequenceEqual(held.Properties.Span);
+        TableDefinition definition = definitionPage == _catalogPage ? mo
+            : ReadTableDefinition(definitionPage, name, isSystem, out reused,
+                sameProperties ? held!.Metadata : null);
         definition.ObjectFlags = flags;
         // Attach column DefaultValue and table CHECK properties from the extended-properties (LvProp) blob.
-        if (row[columns["LvProp"]] is byte[] { Length: > 0 } blob)
+        if (!reused && propertyBlob is { Length: > 0 })
         {
-            IReadOnlyList<PropertyBlob.Property> properties = PropertyBlob.Read(blob);
+            IReadOnlyList<PropertyBlob.Property> properties = PropertyBlob.Read(propertyBlob.Span);
             var defaults = PropertyBlob.ReadColumnDefaults(properties);
             var required = PropertyBlob.ReadColumnsWith(properties, PropertyBlob.RequiredProperty, true);
             var noZeroLength = PropertyBlob.ReadColumnsWith(properties, PropertyBlob.AllowZeroLengthProperty, false);
@@ -586,6 +765,13 @@ public sealed class JetCatalog
 
             (definition.ValidationRule, definition.ValidationText) = PropertyBlob.ReadValidation(properties, "");
         }
+        if (_tableDefinitions.Count >= 64 && !_tableDefinitions.ContainsKey(name))
+            _tableDefinitions.Remove(_tableDefinitions.Keys.First(key =>
+                !string.Equals(key, "MSysObjects", StringComparison.OrdinalIgnoreCase)));
+        int catalogPage = known?.CatalogPage ?? sourceRow.Page;
+        _tableDefinitions[name] = new DecodedTable(definition, page, propertyBlob, flags, catalogPage,
+            catalogPage > 0 ? _channel.ReadPageShared(catalogPage).Data : default,
+            reused ? held!.Metadata : null);
         return definition;
     }
 
@@ -669,35 +855,28 @@ public sealed class JetCatalog
                 _ => null,
             }) is { } containerName
                 && FindObjectRow(JetCatalog.ContainerParentId, containerName, mo) is { } containerRow
-                    ? Convert.ToInt32(containerRow[idIdx], CultureInfo.InvariantCulture)
+                    ? Convert.ToInt32(containerRow.Values[idIdx], CultureInfo.InvariantCulture)
                     : null,
         };
-        return container is { } parent && FindObjectRow(parent, name, mo) is { } row && row[typeIdx] is short t && (ObjectType)t == type
-            ? Convert.ToInt32(row[idIdx], CultureInfo.InvariantCulture)
+        return container is { } parent && FindObjectRow(parent, name, mo) is { } row && row.Values[typeIdx] is short t && (ObjectType)t == type
+            ? Convert.ToInt32(row.Values[idIdx], CultureInfo.InvariantCulture)
             : null;
     }
 
     /// <summary>The <c>MSysObjects</c> row named <paramref name="name"/> in <paramref name="container"/>, or null.
-    /// Sought through MSysObjects' unique <c>(ParentId, Name)</c> index when its name collation can be encoded;
-    /// otherwise scanned through the same parent/name predicate. The seek can over-return on a text key, so the
+    /// Sought through MSysObjects' unique <c>(ParentId, Name)</c> index. The seek can over-return on a text key, so the
     /// name is checked again on what it finds.</summary>
-    internal object?[]? FindObjectRow(int container, string name, TableDefinition? definition = null)
+    internal (RowId Id, object?[] Values)? FindObjectRow(int container, string name, TableDefinition? definition = null)
     {
         TableDefinition mo = definition ?? MSysObjects;
-        var columns = mo.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
-        int parentIndex = columns["ParentId"], nameIndex = columns["Name"];
-        IndexDef byName = mo.Indexes.FirstOrDefault(i =>
-                i.Columns is [{ Column.Index: var parent }, { Column.Index: var named }]
-                && parent == parentIndex && named == nameIndex)
-            ?? throw new InvalidDataException("MSysObjects has no (ParentId, Name) index.");
+        int parentIndex = mo.RequireColumn("ParentId").Index, nameIndex = mo.RequireColumn("Name").Index;
+        if (!mo.Indexes.Any(i => i.Columns is [{ Column.Index: var parent }, { Column.Index: var named }]
+                && parent == parentIndex && named == nameIndex))
+            throw new InvalidDataException("MSysObjects has no (ParentId, Name) index.");
 
-        var key = new object?[mo.Columns.Count];
-        key[parentIndex] = container;
-        key[nameIndex] = name;
-        var objects = new Table(_channel, mo, this);
-        return mo.Columns[nameIndex].Collation.IsIndexKeyEncodable
-            ? objects.SeekRows(byName, key).FirstOrDefault(Matches)
-            : objects.RowsWhere([parentIndex, nameIndex], Matches).Select(r => r.Values).FirstOrDefault();
+        foreach (var row in new Table(_channel, mo, this).RowsWithKey([parentIndex, nameIndex], [container, name], Matches))
+            return row;
+        return null;
 
         bool Matches(object?[] row) => row[parentIndex] is int p && p == container
             && string.Equals(row[nameIndex] as string, name, StringComparison.OrdinalIgnoreCase);
@@ -709,27 +888,108 @@ public sealed class JetCatalog
     public TableDefinition RequireTable(string name) =>
         FindTable(name) ?? throw new InvalidOperationException($"{name} catalog table was not found.");
 
-    private List<ForeignKey> LoadRelationships()
+    private readonly Dictionary<string, RelationshipSet> _relationships = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Catalog data-page identities, including the page set so additions cannot hide behind an
+    /// unchanged old page. The same validation serves the object directory and relationship rows.</summary>
+    private sealed class CatalogRows
     {
-        TableDefinition mo = MSysObjects;
-        var objectColumns = mo.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
-        var objectRows = new Table(_channel, mo, this).Rows()
-            .Where(r => r[objectColumns["Type"]] is short t && (ObjectType)t == ObjectType.Table)
-            .ToDictionary(r => (string)r[objectColumns["Name"]]!, StringComparer.OrdinalIgnoreCase);
-        if (!objectRows.TryGetValue("MSysRelationships", out object?[]? relationshipRow)) return [];
-        TableDefinition def = ReadTable(relationshipRow, mo, objectColumns);
+        private readonly int _definitionPage;
+        private Dictionary<int, ReadOnlyMemory<byte>> _images = [];
+        private readonly HashSet<int> _dataPages = [];
+
+        internal CatalogRows(PageChannel channel, TableDefinition definition)
+        {
+            _definitionPage = definition.DefinitionPage;
+            foreach (int page in new UsageMap(channel, definition).DataPages(_images))
+            {
+                _dataPages.Add(page);
+                _images[page] = channel.ReadPageShared(page).Data;
+            }
+        }
+
+        internal bool Matches(PageChannel channel, TableDefinition definition)
+        {
+            if (_definitionPage != definition.DefinitionPage) return false;
+            // The existing usage-map reader recorded the TDEF, map holder and reference bitmap pages too.
+            // A new data page changes one of those images, so validating the captured set needs no map scan.
+            List<(int Page, ReadOnlyMemory<byte> Image)>? replacements = null;
+            foreach (var image in _images)
+            {
+                ReadOnlyMemory<byte> current = channel.ReadPageShared(image.Key).Data;
+                if (current.Equals(image.Value)) continue;
+                // Eviction or an external page refresh can replace an image without changing its bytes.
+                // Preserve decoded DDL in that case and adopt the new identities after validating the set.
+                if (!current.Span.SequenceEqual(image.Value.Span))
+                {
+                    if (_dataPages.Contains(image.Key)) return false;
+                    // ACE can share a usage-map holder between tables. Changes to another map, or to
+                    // catalog counters, need not change these rows. Reuse the existing map reader to
+                    // validate the page set rather than duplicating its record/bitmap parser here.
+                    var refreshed = new CatalogRows(channel, definition);
+                    if (!_dataPages.SetEquals(refreshed._dataPages)) return false;
+                    foreach (int page in _dataPages)
+                        if (!_images[page].Span.SequenceEqual(refreshed._images[page].Span)) return false;
+                    _images = refreshed._images;
+                    return true;
+                }
+                (replacements ??= []).Add((image.Key, current));
+            }
+            if (replacements is not null)
+                foreach (var replacement in replacements) _images[replacement.Page] = replacement.Image;
+            return true;
+        }
+    }
+
+    private sealed record RelationshipSet(IReadOnlyList<ForeignKey> Rows, CatalogRows Image,
+        TableDefinition.DdlMetadata? Metadata, Dictionary<string, TableDefinition.DdlMetadata?> Tables)
+    {
+        internal long ImageGeneration { get; set; } = -1;
+    }
+
+    /// <summary>The relationships in <c>MSysRelationships</c> — all of them, or only those whose <paramref name="keyColumn"/>
+    /// (<c>szObject</c>, <c>szReferencedObject</c> or <c>szRelationship</c>) is <paramref name="key"/>, sought through
+    /// that column's index. MSysRelationships and each child are found by name, as any table is.</summary>
+    private IReadOnlyList<ForeignKey> LoadRelationships(string? keyColumn = null, string? key = null)
+    {
+        if (FindTable("MSysRelationships") is not { } def) return [];
+        string cacheKey = keyColumn + "\0" + key;
+        long generation = _channel.InTransaction ? -1 : _channel.ImageGeneration;
+        if (_relationships.TryGetValue(cacheKey, out RelationshipSet? cached)
+            && ReferenceEquals(cached.Metadata, def.Metadata))
+        {
+            if (generation >= 0 && cached.ImageGeneration == generation) return cached.Rows;
+            // These are catalog rows, not the child/parent tables' data. Ordinary row writes leave these
+            // images alone; even a negative FK lookup survives them. Map dependencies catch new pages.
+            bool same = cached.Image.Matches(_channel, def);
+            if (same)
+            {
+                foreach (var table in cached.Tables)
+                    if (!ReferenceEquals(FindTable(table.Key)?.Metadata, table.Value)) { same = false; break; }
+                if (same)
+                {
+                    cached.ImageGeneration = generation;
+                    return cached.Rows;
+                }
+            }
+        }
 
         var columns = def.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
         int nameIdx = columns["szRelationship"], childTableIdx = columns["szObject"], childColumnIdx = columns["szColumn"],
             parentTableIdx = columns["szReferencedObject"], parentColumnIdx = columns["szReferencedColumn"],
             orderIdx = columns["icolumn"], flagsIdx = columns["grbit"];
-        var children = new Dictionary<string, TableDefinition?>(StringComparer.OrdinalIgnoreCase);
+        var dependencies = new Dictionary<string, TableDefinition.DdlMetadata?>(StringComparer.OrdinalIgnoreCase);
 
         // One row per column; group by relationship name and order columns by icolumn.
         var groups = new Dictionary<string, (string Child, string Parent, RelationshipFlags Flags,
             List<(int Order, string Column, string ReferencedColumn)> Columns)>();
 
-        foreach (object?[] row in new Table(_channel, def, this).Rows())
+        var relationships = new Table(_channel, def, this);
+        int keyIdx = keyColumn is null ? -1 : columns[keyColumn];
+        IEnumerable<object?[]> rows = key is null ? relationships.Rows()
+            : relationships.RowsWithKey([keyIdx], [key],
+                r => string.Equals(r[keyIdx] as string, key, StringComparison.OrdinalIgnoreCase)).Select(r => r.Values);
+        foreach (object?[] row in rows)
         {
             string name = (string)row[nameIdx]!;
             if (!groups.TryGetValue(name, out var g))
@@ -741,15 +1001,14 @@ public sealed class JetCatalog
             g.Columns.Add(((int)row[orderIdx]!, (string)row[childColumnIdx]!, (string)row[parentColumnIdx]!));
         }
 
-        return groups
+        IReadOnlyList<ForeignKey> result = groups
             .Select(kvp =>
             {
                 // The actions come from the child's relationship block in its TDEF (0x15/0x16), not from grbit:
                 // made to disagree, ACE cascades by the block (measured against ACE). grbit answers only for a
                 // relationship with no block — an unenforced one, which has nothing to cascade.
-                if (!children.TryGetValue(kvp.Value.Child, out TableDefinition? child))
-                    children[kvp.Value.Child] = child = objectRows.TryGetValue(kvp.Value.Child, out object?[]? childRow)
-                        ? ReadTable(childRow, mo, objectColumns) : null;
+                if (!dependencies.TryGetValue(kvp.Value.Child, out TableDefinition.DdlMetadata? child))
+                    dependencies[kvp.Value.Child] = child = FindTable(kvp.Value.Child)?.Metadata;
                 LogicalIndexDef? block = child?.LogicalIndexes.FirstOrDefault(l =>
                     l.IsRelationship && !l.IsIncomingRelationship &&
                     string.Equals(l.Name, kvp.Key, StringComparison.OrdinalIgnoreCase));
@@ -771,7 +1030,19 @@ public sealed class JetCatalog
                         : block.DeleteAction == RelationshipAction.SetNull,
                     IsOneToOne: flags.HasFlag(RelationshipFlags.OneToOne));
             })
-            .ToList();
+            .ToList().AsReadOnly();
+        foreach (ForeignKey relationship in result)
+        {
+            if (!dependencies.ContainsKey(relationship.ReferencedTable))
+                dependencies[relationship.ReferencedTable] = FindTable(relationship.ReferencedTable)?.Metadata;
+        }
+        if (_relationships.Count >= 64 && !_relationships.ContainsKey(cacheKey))
+            _relationships.Remove(_relationships.Keys.First());
+        _relationships[cacheKey] = new RelationshipSet(result, new CatalogRows(_channel, def), def.Metadata, dependencies)
+        {
+            ImageGeneration = _channel.InTransaction ? -1 : _channel.ImageGeneration
+        };
+        return result;
     }
 
     /// <summary>Rebuilds, from its MSysQueries rows, the executable SQL of a stored query whose operation row is not
@@ -1207,10 +1478,11 @@ public sealed class JetCatalog
     /// <summary>Builds a <see cref="TableDefinition"/> straight from a TDEF page, without its catalog row — what every
     /// catalog lookup builds on, and what database creation and an index back-fill use to read a table they
     /// already know the page of.</summary>
-    internal TableDefinition ReadTableDefinition(int definitionPage, string name, bool isSystem)
+    internal TableDefinition ReadTableDefinition(int definitionPage, string name, bool isSystem, out bool reused,
+        TableDefinition.DdlMetadata? previous = null)
     {
         var definition = new TableDefinition { Name = name, IsSystem = isSystem };
-        definition.Read(_channel, definitionPage);
+        reused = definition.Read(_channel, definitionPage, previous);
         return definition;
     }
 

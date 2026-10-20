@@ -1636,8 +1636,7 @@ internal static class AstBuilder
     /// </summary>
     private static ColumnReference BuildColumn(ColumnRefContext ctx)
     {
-        List<Antlr4.Runtime.ParserRuleContext> parts = [ctx.first, .. ctx._rest];
-        if (parts.Count == 1)
+        if (ctx._rest.Count == 0)
         {
             string name = Identifier(ctx.first);
             if (name.IndexOf('.', StringComparison.Ordinal) is var dot && dot > 0 && dot < name.Length - 1)
@@ -1646,21 +1645,24 @@ internal static class AstBuilder
         }
 
         // ACE refuses a space either side of a bang (verified: 'Invalid use of '.', '!', or '()'').
-        foreach (var (bang, i) in ctx._separators.Select((s, i) => (s, i)).Where(s => s.s.Type == BANG))
-            if (parts[i].Stop.StopIndex + 1 != bang.StartIndex || parts[i + 1].Start.StartIndex != bang.StopIndex + 1)
+        for (int i = 0; i < ctx._separators.Count; i++)
+        {
+            var bang = ctx._separators[i];
+            int leftEnd = i == 0 ? ctx.first.Stop.StopIndex : ctx._rest[i - 1].Stop.StopIndex;
+            if (bang.Type == BANG && (leftEnd + 1 != bang.StartIndex || ctx._rest[i].Start.StartIndex != bang.StopIndex + 1))
                 throw new SqlParseException(
                     $"Invalid use of '!' in '{OriginalText(ctx)}': a bang takes no space either side.",
                     bang.Line, bang.Column);
+        }
 
-        return parts.Count == 2
+        return ctx._rest.Count == 1
             ? new ColumnReference(Identifier(ctx.first), MemberName(ctx._rest[0]))
             : new ColumnReference(null, ChainName(ctx));
     }
 
     /// <summary>A name after a separator: an identifier as <see cref="Identifier"/> reads it, or a reserved word
     /// as written.</summary>
-    private static string MemberName(MemberNameContext ctx) =>
-        ctx.identifier() is { } id ? Identifier(id) : ctx.GetText();
+    private static string MemberName(MemberNameContext ctx) => Undelimited(ctx.Start.Text);
 
     /// <summary>A chain of names as one name: its parts undelimited and joined by bangs, whether a period or a bang
     /// joined them — ACE binds either spelling to the same declared parameter (verified: with <c>PARAMETERS
@@ -1679,8 +1681,12 @@ internal static class AstBuilder
     {
         if (ctx is not PrimaryExprContext p || p.primary() is not ColumnPrimaryContext primary) return null;
         ColumnRefContext column = primary.columnRef();
-        int lastDot = column._separators.ToList().FindLastIndex(s => s.Type == DOT);
-        if (!column._separators.Skip(lastDot + 1).Any(s => s.Type == BANG)) return null;
+        int lastDot = -1;
+        bool bang = false;
+        for (int i = 0; i < column._separators.Count; i++)
+            if (column._separators[i].Type == DOT) { lastDot = i; bang = false; }
+            else if (column._separators[i].Type == BANG) bang = true;
+        if (!bang) return null;
 
         int start = lastDot < 0 ? column.first.Start.StartIndex : column._rest[lastDot].Start.StartIndex;
         string text = column.Start.InputStream.GetText(Antlr4.Runtime.Misc.Interval.Of(start, column.Stop.StopIndex));
@@ -1796,12 +1802,12 @@ internal static class AstBuilder
 
     private static LiteralExpression BuildLiteral(LiteralContext ctx) => ctx switch
     {
-        IntLiteralContext i => BuildNumber(i.GetText(), INTEGER_LITERAL),
-        NumberLiteralContext n => BuildNumber(n.GetText(), NUMBER_LITERAL),
-        HexLiteralContext h => new LiteralExpression(ParseHexBytes(h.GetText())),
-        StringLiteralContext s => new LiteralExpression(Unquote(s.GetText())),
-        DateLiteralContext d => new LiteralExpression(ParseDate(d.GetText())),
-        GuidLiteralContext g => new LiteralExpression(ParseGuid(g.GetText())),
+        IntLiteralContext i => BuildNumber(i.Start.Text, INTEGER_LITERAL),
+        NumberLiteralContext n => BuildNumber(n.Start.Text, NUMBER_LITERAL),
+        HexLiteralContext h => new LiteralExpression(ParseHexBytes(h.Start.Text)),
+        StringLiteralContext s => new LiteralExpression(Unquote(s.Start.Text)),
+        DateLiteralContext d => new LiteralExpression(ParseDate(d.Start.Text)),
+        GuidLiteralContext g => new LiteralExpression(ParseGuid(g.Start.Text)),
         TrueLiteralContext => new LiteralExpression(true),
         FalseLiteralContext => new LiteralExpression(false),
         NullLiteralContext => new LiteralExpression(null),
@@ -1860,7 +1866,9 @@ internal static class AstBuilder
         return Convert.FromHexString(digits);
     }
 
-    private static string Identifier(IdentifierContext ctx) => Undelimited(ctx.GetText());
+    // identifier/memberName/literal each contain one lexical token. Reading that token preserves the
+    // exact spelling without rebuilding its rule subtree's text through temporary StringBuilders.
+    private static string Identifier(IdentifierContext ctx) => Undelimited(ctx.Start.Text);
 
     private static string Undelimited(string text) =>
         // Strip delimiters: [bracketed] or `backtick`.

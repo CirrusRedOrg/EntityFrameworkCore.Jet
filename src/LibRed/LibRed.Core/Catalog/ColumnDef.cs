@@ -6,6 +6,10 @@ namespace LibRed.Catalog;
 /// </summary>
 public sealed class ColumnDef
 {
+    // Descriptors and property values are read-only data; counters and catalog enrichment belong to each
+    // decoded definition. No existing column-copy path exists: keep its complete snapshot here.
+    internal ColumnDef Copy() => (ColumnDef)MemberwiseClone();
+
     public required string Name { get; init; }
     public required JetDataType Type { get; init; }
 

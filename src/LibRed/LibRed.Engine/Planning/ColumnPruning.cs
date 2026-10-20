@@ -178,8 +178,17 @@ internal static class ColumnPruning
     // PlanNode.Children repeats the inputs its own properties already hold.
     private static Func<object, object?>[] ReadableProperties(Type type) =>
         [.. type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(p => p.CanRead && p.GetIndexParameters().Length == 0
-                && !(p.Name == nameof(PlanNode.Children) && typeof(PlanNode).IsAssignableFrom(type)))
+            .Where(p =>
+            {
+                if (!p.CanRead || p.GetIndexParameters().Length != 0
+                    || p.Name == nameof(PlanNode.Children) && typeof(PlanNode).IsAssignableFrom(type)) return false;
+                // Walk ignores these values unconditionally. They cannot contain an AST/plan child, so
+                // don't compile a getter or recursively visit them on every statement either.
+                Type value = Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType;
+                return !(value.IsPrimitive || value.IsEnum || value == typeof(string) || value == typeof(byte[])
+                    || value == typeof(decimal) || value == typeof(DateTime) || value == typeof(DateTimeOffset)
+                    || value == typeof(TimeSpan) || value == typeof(Guid) || value == typeof(Type));
+            })
             .Select(Getter)];
 
     private static Func<object, object?> Getter(PropertyInfo property)

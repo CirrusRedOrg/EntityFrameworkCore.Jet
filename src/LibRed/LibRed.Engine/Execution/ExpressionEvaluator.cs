@@ -1000,6 +1000,10 @@ internal sealed partial class ExpressionEvaluator(
 
     private Dictionary<Expression, NumberClass>? _classes;
 
+    // ParameterBag snapshots the parameter values for this execution. Which operand is a duration is
+    // consequently structural, like the numeric class above, and does not change as rows are rebound.
+    private Dictionary<BinaryExpression, bool?>? _spanSides;
+
     /// <summary>
     /// Access <c>StrConv(string, conversion, [LCID])</c> (verified vs ACE). 0 leaves the text as it is. 1, 2 and 3
     /// work in the ANSI code page, so a character it lacks becomes its best fit or '?': 1 is upper case, 2 lower case,
@@ -2281,11 +2285,16 @@ internal sealed partial class ExpressionEvaluator(
     /// false for the left (only for <c>+</c>, since a span less a date is no date), null when neither.</summary>
     private bool? SpanSide(BinaryExpression b)
     {
-        if (parameters is null || b.Operator is not (BinaryOperator.Add or BinaryOperator.Subtract))
+        if (parameters is not { HasDurations: true } || b.Operator is not (BinaryOperator.Add or BinaryOperator.Subtract))
             return null;
-        if (IsSpan(b.Right, parameters.Duration))
-            return true;
-        return b.Operator == BinaryOperator.Add && IsSpan(b.Left, parameters.Duration) ? false : null;
+#pragma warning disable IDE0028 // Preserve reference identity for AST nodes, as in the numeric-class cache.
+        _spanSides ??= new Dictionary<BinaryExpression, bool?>(ReferenceEqualityComparer.Instance);
+#pragma warning restore IDE0028
+        if (_spanSides.TryGetValue(b, out bool? held)) return held;
+        bool? side = IsSpan(b.Right, parameters.Duration) ? true
+            : b.Operator == BinaryOperator.Add && IsSpan(b.Left, parameters.Duration) ? false : null;
+        _spanSides[b] = side;
+        return side;
     }
 
     /// <summary>The value of a span (<see cref="IsSpan"/>), to the tick; null when it is Null. A factor or divisor is read
@@ -2988,7 +2997,14 @@ internal sealed partial class ExpressionEvaluator(
         VbaEmpty => (short)0,
         _ => v,
     };
-    private static decimal Dec(object v) => JetDecimalConverter.ToDecimal(Numeric(v), CultureInfo.InvariantCulture);
+    private static decimal Dec(object v) => v switch
+    {
+        int n => n,
+        decimal d => d,
+        long n => n,
+        bool b => b ? -1m : 0m,
+        _ => JetDecimalConverter.ToDecimal(Numeric(v), CultureInfo.InvariantCulture),
+    };
     private static double Dbl(object v) => JetDecimalConverter.ToDouble(Numeric(v), CultureInfo.InvariantCulture);
     // Narrow to single precision (the cast yields ±Infinity for an out-of-range double rather than throwing).
     private static float Sng(object v) => (float)Dbl(v);
@@ -3003,6 +3019,13 @@ internal sealed partial class ExpressionEvaluator(
         // Empty is "" beside text and 0 beside anything else, as VBA compares it.
         if (left is VbaEmpty) left = right is string ? "" : (short)0;
         if (right is VbaEmpty) right = left is string ? "" : (short)0;
+
+        // The common stored LONG/LONG comparison needs no coercion. Its integer ordering is exactly
+        // the Decimal ordering used below, including the full signed range, without two object conversions.
+        if (left is int leftInteger && right is int rightInteger)
+            return leftInteger.CompareTo(rightInteger);
+        if (left is double leftDouble && right is double rightDouble)
+            return leftDouble.CompareTo(rightDouble);
 
         if (IsNumeric(left) && IsNumeric(right))
         {
@@ -3105,13 +3128,7 @@ internal sealed partial class ExpressionEvaluator(
     }
 
     /// <summary>Lexicographic byte comparison, then by length (shorter prefix sorts first).</summary>
-    private static int CompareBytes(byte[] a, byte[] b)
-    {
-        int n = Math.Min(a.Length, b.Length);
-        for (int i = 0; i < n; i++)
-            if (a[i] != b[i]) return a[i].CompareTo(b[i]);
-        return a.Length.CompareTo(b.Length);
-    }
+    private static int CompareBytes(byte[] a, byte[] b) => a.AsSpan().SequenceCompareTo(b);
 
     /// <summary>Orders two values for SORT (nulls first), using the same coercion as comparisons, and text in
     /// <paramref name="text"/>'s collation.</summary>

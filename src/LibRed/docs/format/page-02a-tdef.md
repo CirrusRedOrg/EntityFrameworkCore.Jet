@@ -232,6 +232,25 @@ safety budget** before allocation. That budget is an implementation hardening li
 claimed Jet/ACE field limit—and is deliberately far above the maximum observed/constructible from
 the documented 255-column, 32-index, and 64-character-name limits.
 
+When `length + 8` fits the first page, the reader requires its next-page pointer to be zero and decodes
+the declared-length slice of the shared copy-on-write page image directly. Chained definitions still use
+the assembled buffer above; the single-page path changes allocation, not the chain or length checks.
+
+For a catalog definition whose flags and property blob remain identical, LibRed retains decoded **DDL
+metadata**, separately from live row counts, AutoNumber high-waters and index statistics. It reuses that
+metadata after proving that the complete validated definition chain differs only in those counters;
+the existing field readers/writers normalize the counter-bearing prefix for comparison, and the rest
+of the declared definition must match byte-for-byte. This also applies to chained definitions. A
+requested table-state snapshot copies the column prototypes and remaps index columns, reads current
+counters, and retains unchanged properties; earlier snapshots are not modified. Materialised snapshots
+are held weakly, so the DDL cache does not keep decoded live state alive.
+
+Schema invalidation requests fresh catalog/property validation rather than discarding every decoded
+layout. An unchanged definition retains its DDL metadata; a structural/property change takes the full
+decoder. This structural check does not depend on `MSysObjects.DateUpdate` changing, so equal timestamps
+cannot hide an edit. Unknown external writes still require refreshing the underlying raw/parsed page
+pool before catalog validation; invalidating decoded catalog metadata alone does not refresh disk pages.
+
 > **Writing a multi-page TDEF (verified vs ACE).** The 8-byte continuation header is
 > `[0x02][0x01][free space: 2][next page: 4]` (page type, flags, then the same `0x02` free-space and
 > `0x04` next-page fields as page 1). The **first page is filled completely** (free space `0`) and its

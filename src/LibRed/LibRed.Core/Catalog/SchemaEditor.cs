@@ -908,7 +908,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     private void BackfillIndex(TableDefinition definition, string indexName, bool ignoreNulls, bool validateUnique)
     {
         // The catalog's first index cannot resolve its own table until it has been back-filled.
-        TableDefinition table = _catalog.ReadTableDefinition(definition.DefinitionPage, definition.Name, definition.IsSystem);
+        TableDefinition table = _catalog.ReadTableDefinition(definition.DefinitionPage, definition.Name, definition.IsSystem, out _);
         IndexDef index = table.FindIndex(indexName)
             ?? throw new InvalidOperationException($"Index '{indexName}' was not found on '{table.Name}'.");
         List<(byte[] Key, int Pointer, bool NullKey)> entries = IndexEntries(table, index, ignoreNulls);
@@ -1647,7 +1647,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         int idIndex = _catalog.RequireTable("MSysObjects").RequireColumn("Id").Index;
         // Skip the object being renamed — it can't collide with itself (same-name and case-only renames).
         return _catalog.FindObjectRow(JetCatalog.ObjectContainerParentId, name) is { } row
-            && (row[idIndex] is null || Convert.ToInt32(row[idIndex], CultureInfo.InvariantCulture) != exceptObjectId);
+            && (row.Values[idIndex] is null || Convert.ToInt32(row.Values[idIndex], CultureInfo.InvariantCulture) != exceptObjectId);
     }
 
     private static bool NameMatches(object? value, string name) =>
@@ -2731,11 +2731,11 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         holder.Read(_channel.ReadPage(usageMapPage), format);
 
         // The recycled row becomes a zero-length deleted + overflow tombstone; every other slot keeps its flags.
-        var records = new byte[rowCount + 1][];
+        var records = new ReadOnlyMemory<byte>[rowCount + 1];
         var flags = new RowSlotFlags[rowCount + 1];
         for (int i = 0; i <= rowCount; i++)
         {
-            records[i] = i == oldRow ? [] : page.AsSpan(holder.Rows[i].Offset, holder.Rows[i].Length).ToArray();
+            records[i] = i == oldRow ? default : page.AsSpan(holder.Rows[i].Offset, holder.Rows[i].Length).ToArray();
             flags[i] = i == oldRow ? RowSlotFlags.Deleted | RowSlotFlags.Overflow : DataPage.Flags(holder.Rows[i]);
         }
 

@@ -121,6 +121,10 @@ internal static class ViewExpander
             scope = scope with { Catalog = ExternalDatabases.Open(scope.Home, named).Catalog, Database = named };
         table = table with { Database = scope.Database };
 
+        // These are engine-native virtual tables, as in the binder and executor. They have no stored
+        // query to expand; seeking their reserved names in MSysObjects only performs a guaranteed miss.
+        if (scope.Database is null && Schema.InformationSchema.IsInformationSchema(table.Name)) return table;
+
         if (scope.Catalog.FindQuery(table.Name) is { IsAction: false, Sql: { } sql })
             return ExpandView(table, sql, scope);
         if (scope.Database is not null && scope.Catalog.FindTable(table.Name) is null)

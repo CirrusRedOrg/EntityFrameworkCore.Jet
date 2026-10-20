@@ -81,7 +81,7 @@ public sealed class Table
     private RowCodec NewDecoder(bool[]? decode = null) =>
         new(Definition.Columns, Channel.Format, longValues: new LongValueStore(Channel), decode: decode);
 
-    /// <summary>The decoder a seek reads its rows with: the last one made, while it was made for the same column
+    /// <summary>The decoder seeks and unmasked row lookups read with: the last one made, while it was made for the same column
     /// mask (the same array — a caller works one out and passes it to every seek), else a new one.</summary>
     /// <remarks>An index-nested-loop join seeks once per outer row, and building a decoder each time — its column
     /// array copied, a long-value reader made — was a sixth of what such a join allocated. A decoder holds nothing
@@ -107,7 +107,8 @@ public sealed class Table
     /// <summary>Decodes the row at <paramref name="id"/> (following an overflow forward-pointer to a
     /// relocated row), or <see langword="null"/> if the slot is empty/deleted. Used by an index seek, which
     /// yields row ids. <paramref name="decode"/> is as for <see cref="Rows"/>.</summary>
-    public object?[]? GetRow(RowId id, bool[]? decode = null) => GetRow(id, NewDecoder(decode));
+    public object?[]? GetRow(RowId id, bool[]? decode = null) =>
+        GetRow(id, decode is null ? SeekDecoder(null) : NewDecoder(decode));
 
     private object?[]? GetRow(RowId id, RowCodec decoder)
     {
@@ -189,7 +190,9 @@ public sealed class Table
     /// result is never a key and never the caller's to change, and the rewrite carries it over or recomputes it
     /// from the stored bytes; reading it would only refuse a row whose result cannot be read, which ACE still
     /// updates and deletes.</summary>
-    private bool[] StoredColumns => DecodeOnly(Definition.Columns.Where(c => !c.IsCalculated).Select(c => c.Index));
+    // Private and invariant for this table definition, so writes can share its decoder too. A caller's
+    // mutable mask passed to GetRow still creates a fresh decoder on every call.
+    private bool[] StoredColumns => field ??= DecodeOnly(Definition.Columns.Where(c => !c.IsCalculated).Select(c => c.Index));
 
     /// <summary>Rewrites the row at <paramref name="id"/> in place with new values (row id preserved).
     /// <paramref name="changedColumns"/> are the columns that actually changed — an unchanged memo/OLE column
@@ -201,7 +204,7 @@ public sealed class Table
         Write(() =>
         {
             bool[] stored = StoredColumns;
-            object?[] original = GetRow(id, stored) ?? throw new InvalidOperationException($"Row '{id}' does not exist.");
+            object?[] original = GetRow(id, SeekDecoder(stored)) ?? throw new InvalidOperationException($"Row '{id}' does not exist.");
             var changed = new HashSet<int>(changedColumns);
             for (int i = 0; i < values.Length; i++)
                 if (i < stored.Length && !stored[i]) continue;   // a calculated result: never read
@@ -244,9 +247,8 @@ public sealed class Table
         Write(() =>
         {
             object?[] values = GetRow(id, StoredColumns) ?? throw new InvalidOperationException($"Row '{id}' does not exist.");
-            foreach (ComplexColumn complex in _catalog.ComplexColumns)
+            foreach (ComplexColumn complex in _catalog.LoadComplexColumns(Definition.DefinitionPage))
             {
-                if (complex.OwnerTable.DefinitionPage != Definition.DefinitionPage) continue;
                 if (values[complex.OwnerTable.RequireColumn(complex.ColumnName).Index] is not { } raw) continue;
                 int recordId = Convert.ToInt32(raw, System.Globalization.CultureInfo.InvariantCulture);
                 var flat = new Table(Channel, complex.FlatTable, _catalog);

@@ -59,8 +59,25 @@ public sealed class TableDefinition : Page
     /// relationship is the everyday case — and they are the same tree, so anything that maintains index
     /// entries must visit it once. Doing it per <see cref="Indexes"/> entry writes the same key twice.
     /// </summary>
-    public IEnumerable<IndexDef> RealIndexes =>
-        Indexes.Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First());
+    public IEnumerable<IndexDef> RealIndexes
+    {
+        get
+        {
+            // Snapshot the representatives before yielding, as GroupBy did: maintaining one tree must not
+            // change which logical aliases are visited. At most 32 indexes need comparing, without allocating
+            // a grouping, bucket array and iterator chain on every row write.
+            var indexes = new List<IndexDef>(_indexes.Count);
+            foreach (IndexDef index in _indexes)
+            {
+                if (index.RootPage <= 0) continue;
+                bool found = false;
+                for (int i = 0; i < indexes.Count; i++)
+                    if (indexes[i].RootPage == index.RootPage) { found = true; break; }
+                if (!found) indexes.Add(index);
+            }
+            foreach (IndexDef index in indexes) yield return index;
+        }
+    }
 
     public ColumnDef? FindColumn(string name) =>
         Columns.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
@@ -157,13 +174,116 @@ public sealed class TableDefinition : Page
     /// stitching continuation pages (wide tables whose definition spans multiple pages)
     /// into one contiguous buffer before parsing.
     /// </summary>
-    internal void Read(PageChannel channel, int page)
+    internal bool Read(PageChannel channel, int page, DdlMetadata? previous = null)
     {
         (PageBuffer buffer, _) = ReadChain(channel, page);
+        _definitionImage = buffer.Data;
+        JetFormatBase format = channel.Format;
+        // Compare the complete validated definition chain, ignoring only DML counters. In particular, a
+        // same-second ALTER and a change on a continuation page cannot hide behind DateUpdate equality.
+        int countersEnd = format.TdefRealIndexBlockOffset + (previous?.IndexCount ?? 0) * format.RealIndexEntrySize;
+        if (previous is not null && previous.Image.Length == buffer.Length && buffer.Length >= countersEnd)
+        {
+            Span<byte> comparison = stackalloc byte[countersEnd];
+            previous.Image.Span[..countersEnd].CopyTo(comparison);
+            WriteRowCount(comparison, format, ReadRowCount(buffer.Span, format));
+            WriteLastAutoNumber(comparison, format, ReadLastAutoNumber(buffer.Span, format));
+            WriteComplexAutoNumber(comparison, format, ReadComplexAutoNumber(buffer.Span, format));
+            for (int i = 0; i < previous.IndexCount; i++)
+            {
+                (int total, int unique) = ReadIndexCounts(buffer.Span, format, i);
+                WriteIndexCounts(comparison, format, i, total, unique);
+            }
+            if (comparison.SequenceEqual(buffer.Span[..countersEnd])
+                && previous.Image.Span[countersEnd..].SequenceEqual(buffer.Span[countersEnd..]))
+            {
+                Metadata = previous;
+                ReadHeader(buffer, format);
+                foreach (ColumnDef column in previous.Columns) _columns.Add(column.Copy());
+                ReadAutoNumber(buffer, format);
+                foreach (IndexDef index in previous.Indexes)
+                    _indexes.Add(index with
+                    {
+                        UniqueEntryCount = ReadIndexCounts(buffer.Span, format, index.RealIndexOrdinal).Unique,
+                        Columns = index.Columns.Select(c => (_columns[c.Column.Index], c.Ascending)).ToArray()
+                    });
+                _logicalIndexes.AddRange(previous.LogicalIndexes);
+                foreach (var map in previous.LongValueOwnedMaps) _longValueOwnedMaps.Add(map.Key, map.Value);
+                foreach (var map in previous.LongValueFreeMaps) _longValueFreeMaps.Add(map.Key, map.Value);
+                _checkConstraints = previous.CheckConstraints;
+                ValidationRule = previous.ValidationRule;
+                ValidationText = previous.ValidationText;
+                return true;
+            }
+        }
         Read(buffer, channel.Format);
+        return false;
+    }
+
+    private ReadOnlyMemory<byte> _definitionImage;
+    internal DdlMetadata? Metadata { get; set; }
+
+    /// <summary>The decoded DDL retained by the catalog, independently of a caller's table-state snapshot.
+    /// Counts and the next AutoNumber are deliberately absent; prototype columns/indexes carry no live state.</summary>
+    internal sealed class DdlMetadata
+    {
+        internal DdlMetadata(TableDefinition definition)
+        {
+            Name = definition.Name;
+            Image = definition._definitionImage;
+            DefinitionPage = definition.DefinitionPage;
+            IsSystem = definition.IsSystem;
+            NextDefinitionPage = definition.NextDefinitionPage;
+            IndexCount = definition.IndexCount;
+            // Enrichment is complete before this is captured. Only AutoNumber columns are subsequently
+            // mutated by row writes; the other descriptors are immutable DDL and can be retained directly.
+            Columns = definition._columns.Select(c =>
+            {
+                if (!c.IsAutoNumber) return c;
+                ColumnDef prototype = c.Copy();
+                prototype.Seed = 1;
+                return prototype;
+            }).ToArray();
+            Indexes = definition._indexes.Select(i => i.Columns.Any(c => c.Column.IsAutoNumber)
+                ? i with
+                {
+                    UniqueEntryCount = 0,
+                    Columns = i.Columns.Select(c => (Columns[c.Column.Index], c.Ascending)).ToArray()
+                }
+                : i with { UniqueEntryCount = 0 }).ToArray();
+            LogicalIndexes = definition._logicalIndexes.ToArray();
+            LongValueOwnedMaps = definition._longValueOwnedMaps.ToArray();
+            LongValueFreeMaps = definition._longValueFreeMaps.ToArray();
+            CheckConstraints = definition._checkConstraints;
+            ValidationRule = definition.ValidationRule;
+            ValidationText = definition.ValidationText;
+        }
+
+        internal string Name { get; }
+        internal ReadOnlyMemory<byte> Image { get; }
+        internal int DefinitionPage { get; }
+        internal bool IsSystem { get; }
+        internal int NextDefinitionPage { get; }
+        internal int IndexCount { get; }
+        internal ColumnDef[] Columns { get; }
+        internal IndexDef[] Indexes { get; }
+        internal LogicalIndexDef[] LogicalIndexes { get; }
+        internal KeyValuePair<int, (int Row, int Page)>[] LongValueOwnedMaps { get; }
+        internal KeyValuePair<int, (int Row, int Page)>[] LongValueFreeMaps { get; }
+        internal IReadOnlyList<(string Name, string Expression)> CheckConstraints { get; }
+        internal string? ValidationRule { get; }
+        internal string? ValidationText { get; }
     }
 
     internal override void Read(PageBuffer buffer, JetFormatBase format)
+    {
+        buffer = ReadHeader(buffer, format);
+        Regions regions = Regions.Of(buffer.Span, format);
+        ReadColumns(buffer, format, regions.ColumnDescriptors);
+        ReadIndexes(buffer, format, regions);
+    }
+
+    private PageBuffer ReadHeader(PageBuffer buffer, JetFormatBase format)
     {
         if (buffer.Length < format.TdefRealIndexBlockOffset)
             throw new InvalidDataException(
@@ -207,9 +327,7 @@ public sealed class TableDefinition : Page
         // 0x33 (IndexCount) — NOT the logical count at 0x2F (LogicalIndexCount). The two are
         // equal for MSysObjects but differ for user tables (e.g. logical=2, real=1).
         // The buffer here may already be a stitched multi-page definition (see Read(channel, page)).
-        Regions regions = Regions.Of(buffer.Span, format);
-        ReadColumns(buffer, format, regions.ColumnDescriptors);
-        ReadIndexes(buffer, format, regions);
+        return buffer;
     }
 
     /// <summary>
@@ -560,6 +678,11 @@ public sealed class TableDefinition : Page
             });
         }
 
+        ReadAutoNumber(buffer, format);
+    }
+
+    private void ReadAutoNumber(PageBuffer buffer, JetFormatBase format)
+    {
         // AutoNumber seed/increment from the TDEF header: 0x18 = increment, 0x14 = last-assigned value. On a
         // freshly created table the last value is Seed-Increment, so Seed = last + increment (matching what a
         // no-insert scaffold reports).
@@ -1271,7 +1394,8 @@ public sealed class TableDefinition : Page
     {
         JetFormatBase format = channel.Format;
         ValidatePageNumber(channel, firstPage, "TDEF root");
-        // Shared reads: each page is only checked and copied into the assembled buffer below, never written into or kept.
+        // Shared images stay read-only: a single-page definition retains its bounded slice, while a chain
+        // copies its definition bytes into the assembled buffer below.
         PageBuffer first = channel.ReadPageShared(firstPage);
         if (PageHeader.ReadType(first.Span) != PageType.TableDefinition)
             throw new InvalidDataException(
@@ -1295,6 +1419,15 @@ public sealed class TableDefinition : Page
             : (stored - pageSize + bodySize - 1) / bodySize;
 
         int next = first.ReadInt32(format.TdefNextPageOffset);
+        if (continuationCount == 0)
+        {
+            if (next != 0)
+                throw new InvalidDataException(
+                    $"TDEF page {firstPage} has more continuation pages than its declared length permits.");
+            // ReadPageShared supplies a stable copy-on-write image. A single-page definition can be
+            // decoded directly from its bounded slice, without chain bookkeeping or an assembled copy.
+            return (new PageBuffer(first.Data[..definitionLength], firstPage), []);
+        }
         var continuationPages = new List<int>(continuationCount);
         var continuationBuffers = new List<PageBuffer>(continuationCount);
         var visited = new HashSet<int> { firstPage };

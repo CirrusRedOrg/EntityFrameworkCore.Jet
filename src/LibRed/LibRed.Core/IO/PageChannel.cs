@@ -194,6 +194,12 @@ public sealed class PageChannel : IDisposable
         else _cache.MarkSchemaChanged();
     }
 
+    /// <summary>The shared invalidation generation for catalog/format state on this file.</summary>
+    internal long SchemaGeneration => _cache.SchemaGeneration;
+
+    /// <summary>Changes whenever a committed page image is replaced or removed.</summary>
+    internal long ImageGeneration => _cache.ImageGeneration;
+
     public int PageSize => _format.PageSize;
 
     /// <summary>Number of pages currently in the file — or, inside a transaction, the logical count including
@@ -303,10 +309,11 @@ public sealed class PageChannel : IDisposable
 
     /// <summary>
     /// Returns a page backed by the shared cache's own buffer, without copying it out — a zero-allocation read
-    /// for callers that consume the bytes immediately and never mutate or retain them (e.g. decoding one row
+    /// for callers that consume the bytes without mutating them (e.g. decoding one row
     /// during an index seek, where <see cref="ReadPage(int)"/>'s per-call 4 KB copy dominated). On a cache miss
-    /// the page is read from disk and cached, then returned. The returned bytes are live cache state: valid
-    /// only until the next write to or eviction of this page.
+    /// the page is read from disk and cached, then returned. Copy-on-write keeps an existing image stable,
+    /// but it is no longer current after a write or eviction: a caller retaining it as a decode identity
+    /// must compare it with a fresh read before reusing the decode.
     /// </summary>
     internal PageBuffer ReadPageShared(int pageNumber)
     {

@@ -53,6 +53,19 @@ Each entry ends with a **4-byte big-endian** trailing pointer:
 > role; this avoids relying on an earlier descent check if the file changed between reads. Violations
 > are reported as `InvalidDataException`.
 
+LibRed checks reconstructed keys for nondecreasing byte order before caching a decoded page. Node descent
+and point/range seeks then use a binary lower bound: the first entry at or above the search key. For a
+duplicate key this is the first equal entry, so duplicate runs spanning leaves remain complete. The search
+does not replace or skip the page's decode-time validation.
+Leaf insertion uses the same binary-search strategy over the full key plus row-pointer trailer, keeping
+the existing first-equal insertion rule and all page compression/split decisions.
+Deletion likewise copies the current validated parse, searches only the matching key run for its row
+pointer, and publishes the surviving entries with the rewritten image. Its prefix and dead bytes remain
+as before; empty-leaf unlinking still removes the page and its separator.
+Preserving dead tail bytes reads the existing stable copy-on-write image directly; it does not copy the
+whole source page twice before copying its tail into the newly built page. A new or differently owned
+page contributes a zero tail. Bulk-build spine images follow the same rule and remain immutable.
+
 > **How the insert path revalidates.** A leaf rewrite does not re-read and re-decode the page the descent
 > just decoded; it takes that parse from the channel's parsed-page cache and copies the entry list before
 > mutating it (the cached object is shared with every other reader of the file, so it must never be written

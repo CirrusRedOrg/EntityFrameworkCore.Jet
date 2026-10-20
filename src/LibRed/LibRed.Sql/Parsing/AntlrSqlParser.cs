@@ -31,6 +31,10 @@ public sealed class AntlrSqlParser : ISqlParser
     {
         if (string.IsNullOrWhiteSpace(sql)) return true;
 
+        // An ASCII letter always starts a keyword or identifier, never skipped trivia. The statement
+        // parser still lexes and validates it; no second lexer is needed just to prove a token exists.
+        if (char.IsAsciiLetter(sql.AsSpan().TrimStart()[0])) return false;
+
         // Ask the lexer, not a text scan: WS/LINE_COMMENT/BLOCK_COMMENT are `-> skip`, so text made only of
         // those produces no tokens at all. Anything else yields at least one, and a `--` inside a string
         // literal stays part of that literal's token rather than starting a comment.

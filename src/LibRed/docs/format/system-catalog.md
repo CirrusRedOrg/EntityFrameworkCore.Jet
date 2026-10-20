@@ -13,6 +13,27 @@
   build a TableDefinition for MSysObjects from the page `0x20` names ([page-00 §2](page-00-database.md)) and read
   its rows like any table.
 
+  **LibRed decode reuse.** A bounded, per-catalog table-definition memo validates the copy-on-write
+  catalog-row page and TDEF page images before reusing a name lookup. A changed catalog-row image takes
+  the indexed lookup again. When that row remains unchanged, a changed TDEF goes straight to the definition
+  reader; its decoded layout can still be reused when only its counters differ (see
+  [TDEF decoding](page-02a-tdef.md)) and its flags and `LvProp` bytes agree.
+  A data write replacing the TDEF image therefore refreshes
+  row counts and AutoNumber seeds without relying on a DDL notification. Continuation/schema changes
+  invalidate through the shared schema generation; rollback exposes a different page image too.
+  Between pool-image changes, the prior image check is reusable by generation. Inside a transaction,
+  the reader always compares the overlay images directly rather than using the committed pool's generation.
+  A schema invalidation advances the schema generation first and then the pool-image generation, so an
+  unchanged pool generation also proves that no schema invalidation has occurred since the prior check.
+  A completed enumeration's live snapshots are reusable at the same pool-image generation. After an image
+  change, the table-name directory survives if its catalog dependencies still match; requested snapshots
+  refresh independently. Transaction-local live enumerations are not retained.
+  Both table definitions and relationship lookups are bounded to 64 entries. Adding a new key at capacity
+  evicts one entry instead of clearing the cache; the bootstrap MSysObjects definition remains resident.
+  Definitions are not shared between handles, because a writer updates its own counter seed in memory.
+  An unknown external ACE write must invalidate the **whole** page/parse pool and advance the shared
+  invalidation generation: it cannot be treated as a change to a guessed-at table alone.
+
   > **Why the hidden bit / `#` prefix matter.** Missing them makes a hidden helper such as
   > EFCore.Jet's `#Dual` (`Flags = 0x08`) count as a *user* table, so a "has any user tables?" check
   > wrongly reports a schema-less database as populated — which makes EF Core's `EnsureCreated` skip
@@ -836,6 +857,17 @@
   records from the child" (`szObject`); an inner join sets neither). Verified: an enforced, no-cascade
   single-column FK stores `ccolumn = 1`, `icolumn = 0`, `grbit = 0`; a relationship cascading both update
   and delete stores `grbit = 0x1100`; Access's relationship dialog writes each bit above as its option says.
+
+  LibRed retains decoded relationship sets as DDL metadata, including empty indexed lookups. It validates
+  the system table's captured TDEF, usage-map holder, reference bitmap and data-page images, together with
+  both endpoint tables' DDL metadata. Recording the map dependencies through the existing usage-map reader
+  detects newly allocated catalog pages without rescanning the map on a cache hit. Inserts, updates and
+  deletes in the child or parent do not discard an unchanged relationship set. The table-name directory
+  uses the same catalog-page dependency validation; requested live table-state snapshots remain separate.
+  An evicted/refreshed image with identical bytes retains the decoded metadata and adopts the new image
+  identity, so replacing the raw page cache alone does not imply a schema change.
+  If only a map dependency changes, the existing usage-map reader rechecks the catalog's owned-page set
+  and rows. A different record on a shared map holder, or free-space bookkeeping, does not discard them.
 
   > **`grbit` records the relationship; ACE does not act on its cascade bits.** The update and delete actions
   > ACE applies are the ones in the relationship's index-info blocks (§3.6, `0x15`/`0x16`): with the two made

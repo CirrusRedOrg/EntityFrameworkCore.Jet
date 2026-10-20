@@ -366,9 +366,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// <summary>The enforced relationship <paramref name="identity"/> identifies, as the catalog holds it now; null
     /// once it has been dropped.</summary>
     private ForeignKey? CurrentRelationship(RelationshipIdentity identity) =>
-        _database.Catalog.Relationships.FirstOrDefault(r => r.IsEnforced
-            && string.Equals(r.Name, identity.Name, StringComparison.OrdinalIgnoreCase)
-            && identity.Equals(Identify(r)));
+        _database.Catalog.RelationshipsNamed(identity.Name).FirstOrDefault(r => r.IsEnforced && identity.Equals(Identify(r)));
 
     /// <summary>The foreign key a row holds, on ACE's **MATCH FULL** terms (verified vs ACE, and unlike SQL
     /// Server's MATCH SIMPLE): null when every column is null — the row references nothing and the relationship is
@@ -486,8 +484,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private ForeignKey[] ChildRelationshipsOf(string parentTable)
     {
         if (!_referencesTo.TryGetValue(parentTable, out ForeignKey[]? found))
-            _referencesTo[parentTable] = found = [.. _database.Catalog.Relationships.Where(r =>
-                r.IsEnforced && string.Equals(r.ReferencedTable, parentTable, StringComparison.OrdinalIgnoreCase))];
+            _referencesTo[parentTable] = found = [.. _database.Catalog.ReferencesTo(parentTable).Where(r => r.IsEnforced)];
         return found;
     }
 

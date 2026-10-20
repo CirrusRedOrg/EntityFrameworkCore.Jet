@@ -339,8 +339,13 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     /// the highest live id either. The three coincide while ids are contiguous (fresh table / ADD COLUMN) and
     /// diverge once one is dead: a burned type-change id, or a DROP COLUMN gap. Measured vs ACE: after dropping
     /// the only other column of a two-column table, ACE still writes count 2 (spec §5).</remarks>
-    internal static int MaxColumnId(IReadOnlyList<ColumnDef> columns, int highWater) =>
-        Math.Max(highWater - 1, columns.Select(c => c.ColumnId).DefaultIfEmpty(-1).Max());
+    internal static int MaxColumnId(IReadOnlyList<ColumnDef> columns, int highWater)
+    {
+        int maximum = -1;
+        for (int i = 0; i < columns.Count; i++)
+            maximum = Math.Max(maximum, columns[i].ColumnId);
+        return Math.Max(highWater - 1, maximum);
+    }
 
     /// <summary>How many variable slots a row carries: the TDEF's <c>0x2B</c> <paramref name="highWater"/>, or the
     /// highest live <see cref="ColumnDef.VariableIndex"/> + 1 if that is more.</summary>
@@ -353,8 +358,13 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     /// <c>0x2B</c> high-water, once a table has ever had one (measured — a table whose only TEXT column was
     /// dropped still gets <c>06 00 06 00 | 01 00</c>). Only a table that never had one has no trailer at all.
     /// </remarks>
-    internal static int VariableSlotCount(IReadOnlyList<ColumnDef> columns, int highWater) =>
-        Math.Max(highWater, columns.Where(c => !c.IsFixedLength).Select(c => c.VariableIndex + 1).DefaultIfEmpty(0).Max());
+    internal static int VariableSlotCount(IReadOnlyList<ColumnDef> columns, int highWater)
+    {
+        int maximum = 0;
+        for (int i = 0; i < columns.Count; i++)
+            if (!columns[i].IsFixedLength) maximum = Math.Max(maximum, columns[i].VariableIndex + 1);
+        return Math.Max(highWater, maximum);
+    }
 
     /// <summary>The table's fixed-data region: the high-water of where its live columns END, not the sum of
     /// their lengths. DROP COLUMN is a metadata-only edit that leaves every survivor's fixed offset exactly
@@ -365,22 +375,27 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     internal static int ComputeFixedDataLength(IReadOnlyList<ColumnDef> columns)
     {
         int length = 0;
-        foreach (ColumnDef c in columns)
+        for (int i = 0; i < columns.Count; i++)
+        {
+            ColumnDef c = columns[i];
             if (c.OccupiesFixedData)
                 length = Math.Max(length, c.FixedOffset + c.Length);
+        }
         return length;
     }
 
-    private readonly bool[]? _decode = decode;
-
     private readonly LongValueStore? _longValues = longValues;
 
-    // Decode runs once per row, so it walks an array rather than enumerating the interface (a boxed
-    // enumerator per row), and answers Layout.HasVariableSection from a table built once, by stored count,
-    // instead of re-scanning the columns.
-    private readonly ColumnDef[] _columnArray = [.. columns];
-    private readonly bool[] _hasVariableSection = [.. Enumerable.Range(0, MaxColumnId(columns, columnIdHighWater ?? 0) + 2)
-        .Select(count => Layout.HasVariableSection(count, columns, columnIdHighWater ?? 0, variableColumnCount ?? 0))];
+    // Decode runs once per row, so it walks an array of the selected columns rather than enumerating the
+    // interface or checking the mask again. The result still has the full schema width. Cache the
+    // variable-section decision by the stored count actually encountered:
+    // eagerly computing every possible count made opening a decoder quadratic in the column count, even
+    // for a one-row seek. Current rows use the known variable-slot count directly; only historical counts
+    // need the memo. Zero is unknown, one is absent and two is present.
+    private readonly int _valueCount = columns.Count;
+    private readonly ColumnDef[] _columnArray = decode is null
+        ? [.. columns] : [.. columns.Where(column => decode[column.Index])];
+    private byte[]? _hasVariableSection;
 
     private static readonly object BoxedTrue = true;
     private static readonly object BoxedFalse = false;
@@ -388,27 +403,35 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     /// <summary>Decodes the row into one value per column (aligned to <see cref="ColumnDef.Index"/>).</summary>
     public object?[] Decode(ReadOnlySpan<byte> row)
     {
-        var values = new object?[_columnArray.Length];
+        var values = new object?[_valueCount];
 
         // The null-bitmap width comes from the row's own leading count (= max id + 1), NOT the live column
         // count — they differ once ids have a gap (a burned type-change id / DROP COLUMN gap). Reading the
         // stored count is exactly how ACE sizes it, and is robust to any id scheme (spec §5). A real inline
         // row is at least: column count + an empty var table (1 entry) + var count + null bitmap; anything
         // shorter is an overflow/lookup pointer slot the caller should have skipped.
-        Layout layout = Layout.Parse(row, _format,
-            _hasVariableSection[Math.Min(Layout.ReadColumnCount(row, _format), _hasVariableSection.Length - 1)]);
+        int count = Layout.ReadColumnCount(row, _format);
+        bool hasVariableSection = _numVar > 0;
+        if (count <= _maxColumnId)
+        {
+            byte[] decisions = _hasVariableSection ??= new byte[_maxColumnId + 1];
+            byte variableSection = decisions[count];
+            if (variableSection == 0)
+                decisions[count] = variableSection =
+                    Layout.HasVariableSection(count, _columns, _maxColumnId, _numVar) ? (byte)2 : (byte)1;
+            hasVariableSection = variableSection == 2;
+        }
+        Layout layout = Layout.Parse(row, _format, hasVariableSection);
+
+        // A record past the cap fits its page but ACE reads no value from it — not even its key — so a reader
+        // that wants one is refused, while one that only counts rows still passes (verified). Check once per
+        // record; the decode mask only needs inspecting on the exceptional oversized path.
+        if (row.Length > _format.MaxRecordSize && _columnArray.Length != 0)
+            throw new InvalidDataException(
+                $"Record is too large to read: {row.Length} bytes, and a record holds at most {_format.MaxRecordSize}.");
 
         foreach (ColumnDef column in _columnArray)
         {
-            if (_decode is not null && !_decode[column.Index])
-                continue;
-
-            // A record past the cap fits its page but ACE reads no value from it — not even its key — so a reader
-            // that wants one is refused, while one that only counts rows still passes (verified).
-            if (row.Length > _format.MaxRecordSize)
-                throw new InvalidDataException(
-                    $"Record is too large to read: {row.Length} bytes, and a record holds at most {_format.MaxRecordSize}.");
-
             bool present = layout.IsPresent(column.ColumnId);
 
             // Jet stores Boolean (YesNo) columns with no fixed/variable data: the value
@@ -430,7 +453,7 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
             }
 
             ReadOnlySpan<byte> raw = column.IsFixedLength
-                ? FixedSlice(row, layout, column)
+                ? FixedSlice(row, layout.FixedRegionLength, column)
                 : layout.VarChunk(column.VariableIndex);
 
             // A calculated column stores ACE's cached result wrapped in an envelope, routed through a
@@ -512,12 +535,12 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
         return result;
     }
 
-    private ReadOnlySpan<byte> FixedSlice(ReadOnlySpan<byte> row, Layout layout, ColumnDef column)
+    private ReadOnlySpan<byte> FixedSlice(ReadOnlySpan<byte> row, int fixedRegionLength, ColumnDef column)
     {
         int start = _format.RowColumnCountSize + column.FixedOffset;
         long end = (long)start + column.Length;
         if (column.FixedOffset < 0 || column.Length < 0
-            || end > _format.RowColumnCountSize + (long)layout.FixedRegionLength)
+            || end > _format.RowColumnCountSize + (long)fixedRegionLength)
             throw new InvalidDataException(
                 $"Row fixed value for column '{column.Name}' extends outside the fixed-data region.");
         return row.Slice(start, column.Length);
@@ -535,7 +558,8 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
 
     internal static Layout ParseLayout(TableDefinition table, JetFormatBase format, ReadOnlySpan<byte> row) =>
         Layout.Parse(row, format, Layout.HasVariableSection(
-            Layout.ReadColumnCount(row, format), table.Columns, table.ColumnIdHighWater, table.VariableColumnCount));
+            Layout.ReadColumnCount(row, format), table.Columns,
+            MaxColumnId(table.Columns, table.ColumnIdHighWater), VariableSlotCount(table.Columns, table.VariableColumnCount)));
 
 
     /// <summary>The widest a single non-Memo/OLE column may be declared: 255 Text characters, or 510 bytes
@@ -710,13 +734,14 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
         /// columns in either order, including a trailer-less row whose dead bytes spell a valid trailer.</para>
         /// </remarks>
         public static bool HasVariableSection(int storedCount, IReadOnlyList<ColumnDef> columns,
-            int columnIdHighWater, int variableColumnCount)
+            int maxColumnId, int variableSlotCount)
         {
-            if (storedCount > MaxColumnId(columns, columnIdHighWater))
-                return VariableSlotCount(columns, variableColumnCount) > 0;
+            if (storedCount > maxColumnId)
+                return variableSlotCount > 0;
             ColumnDef? below = null;
-            foreach (ColumnDef column in columns)
+            for (int i = 0; i < columns.Count; i++)
             {
+                ColumnDef column = columns[i];
                 if (column.ColumnId == storedCount) return column.VariableTableIndex > 0;
                 if (column.ColumnId < storedCount && (below is null || column.ColumnId > below.ColumnId)) below = column;
             }

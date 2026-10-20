@@ -710,7 +710,7 @@ public sealed class JetDatabase : IDisposable
     /// <summary>Opens a table directly from its TDEF page, bypassing the catalog — used during database
     /// creation to seed the system tables before they self-register in <c>MSysObjects</c>.</summary>
     internal Storage.Table OpenTableAt(int tdefPage, string name, bool isSystem = true) =>
-        new(_channel, Catalog.ReadTableDefinition(tdefPage, name, isSystem), Catalog);
+        new(_channel, Catalog.ReadTableDefinition(tdefPage, name, isSystem, out _), Catalog);
 
     /// <summary>The other database files this one's statements reached through an IN externaldatabase clause, by
     /// <see cref="FileIdentity.Key"/>: one handle each, writable once anything has written there. Every handle opened

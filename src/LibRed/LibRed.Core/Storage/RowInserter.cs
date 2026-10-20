@@ -187,7 +187,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             FreeLongValue(column, descriptor, releaseAtClose: true);
         foreach (int page in unwritten) _channel.Allocator.Free(page);
 
-        byte[] srcPage = _channel.ReadPageShared(id.Page).Span.ToArray();
+        PageBuffer srcPage = _channel.ReadPageShared(id.Page);
         // Written over the old row, as ACE writes it: its fixed bytes, its dropped columns' chunks and their bits
         // stay wherever the new values do not land.
         var encoder = new RowCodec(_table.Columns, format,
@@ -201,11 +201,11 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         // unreadable row an INSERT was stopped from producing.
         EnsureRecordFits(format, record);
 
-        if (DataPage.ReadSlot(srcPage, format, id.Row).Flags.HasFlag(RowSlotFlags.Overflow))
+        if (DataPage.ReadSlot(srcPage.Span, format, id.Row).Flags.HasFlag(RowSlotFlags.Overflow))
         {
             // This slot is a forward record pointer to the real (relocated) row; rewrite it on its target page
             // (which keeps its hidden "deleted" flag).
-            DataPage.TryReadRow(new PageBuffer(srcPage, id.Page), format, id.Row,
+            DataPage.TryReadRow(srcPage, format, id.Row,
                 out DataPage.RowSlot sourceSlot, out ReadOnlySpan<byte> sourceBytes);
             DataPage.RelocatedRow target = DataPage.ResolveRelocation(
                 _channel, _table.DefinitionPage, sourceSlot, sourceBytes);
@@ -308,10 +308,11 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         byte[] page = ArrayPool<byte>.Shared.Rent(format.PageSize);
         try
         {
-            _channel.ReadPage(pageNumber, page);
+            PageBuffer source = _channel.ReadPageShared(pageNumber);
+            source.Span.CopyTo(page);
             int rowCount = DataPage.ReadRowCount(page, format);
 
-            var rows = new byte[rowCount][];
+            var rows = new ReadOnlyMemory<byte>[rowCount];
             var flags = new RowSlotFlags[rowCount];
             int directoryEnd = DataPage.DirectoryEnd(format, rowCount);
             int prevEnd = format.PageSize;
@@ -321,7 +322,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
                 // Same invariant DataPage enforces on the read side — this repacker rewrites the page, so a
                 // bad directory entry must be reported before the first CopyTo rather than mid-repack.
                 DataPage.ValidateSlot(pageNumber, format.PageSize, i, offset, prevEnd, directoryEnd);
-                rows[i] = page.AsSpan(offset, prevEnd - offset).ToArray(); // preserve every row's bytes (deleted/overflow included)
+                rows[i] = source.Data.Slice(offset, prevEnd - offset); // preserve every row's bytes (deleted/overflow included)
                 prevEnd = offset;
             }
             rows[slot] = record;
@@ -781,12 +782,12 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
 
         // Every dead row — this one, and any already retired — becomes a 0-length deleted + overflow tombstone, as
         // ACE writes it.
-        var records = new byte[holder.RowCount][];
+        var records = new ReadOnlyMemory<byte>[holder.RowCount];
         var flags = new RowSlotFlags[holder.RowCount];
         for (int i = 0; i < holder.RowCount; i++)
         {
             bool dead = i == row || holder.Rows[i].IsDeleted;
-            records[i] = dead ? [] : page.AsSpan(holder.Rows[i].Offset, holder.Rows[i].Length).ToArray();
+            records[i] = dead ? default : page.AsSpan(holder.Rows[i].Offset, holder.Rows[i].Length).ToArray();
             flags[i] = dead ? RowSlotFlags.Deleted | RowSlotFlags.Overflow : DataPage.Flags(holder.Rows[i]);
         }
         DataPage.LayRows(page, format, records, flags); // shrinking, so it always fits
@@ -1368,8 +1369,12 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     {
         JetFormatBase format = _channel.Format;
         // One count per real index, so a relationship's logical index sharing a real one does not advance it twice.
-        foreach (IndexDef index in _table.Indexes.GroupBy(i => i.RealIndexOrdinal).Select(g => g.First()))
+        Span<int> seen = stackalloc int[_table.Indexes.Count];
+        int count = 0;
+        foreach (IndexDef index in _table.Indexes)
         {
+            if (seen[..count].Contains(index.RealIndexOrdinal)) continue;
+            seen[count++] = index.RealIndexOrdinal;
             if (!newKeys.Contains(index.RootPage)) continue; // excluded from the index, or its key already there
             (int total, int unique) = TableDefinition.ReadIndexCounts(tdef, format, index.RealIndexOrdinal);
             TableDefinition.WriteIndexCounts(tdef, format, index.RealIndexOrdinal, total, unique + 1);
@@ -1390,8 +1395,13 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         bool failedOnly = !(_table.IsSystem && (_table.Name.Equals("MSysObjects", StringComparison.OrdinalIgnoreCase)
             || _table.Name.Equals("MSysACEs", StringComparison.OrdinalIgnoreCase)));
         _channel.KeepThroughRollback(_table.DefinitionPage, format.TdefRowCountOffset, TableDefinition.ReadRowCount(tdef, format), failedOnly);
-        foreach (int ordinal in _table.Indexes.Select(i => i.RealIndexOrdinal).Distinct())
+        Span<int> seen = stackalloc int[_table.Indexes.Count];
+        int count = 0;
+        foreach (IndexDef index in _table.Indexes)
         {
+            int ordinal = index.RealIndexOrdinal;
+            if (seen[..count].Contains(ordinal)) continue;
+            seen[count++] = ordinal;
             int entry = TableDefinition.RealIndexEntry(format, ordinal);
             (int total, int unique) = TableDefinition.ReadIndexCounts(tdef, format, ordinal);
             _channel.KeepThroughRollback(_table.DefinitionPage, entry + format.RealIndexRowCountOffset, total, failedOnly);

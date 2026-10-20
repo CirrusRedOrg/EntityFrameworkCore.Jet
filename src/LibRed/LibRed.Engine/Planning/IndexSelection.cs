@@ -244,9 +244,13 @@ internal static class IndexSelection
     {
         PlanNode left = Apply(j.Left, database, outer); // rewrite the outer side first (independent of this join)
 
-        // Only a plain nested-loop join with an ON can become index-nested-loop; an outer join is left alone
-        // for now (the right side must still contribute null rows when nothing matches — a scan, not a seek).
-        if (j.Kind is (JoinKind.Inner or JoinKind.Cross) && j.On is { } on
+        // A LEFT join preserves the probing left row: ExecuteJoin's seek loop emits its null-padded result
+        // when no candidate passes ON. RIGHT/FULL must also preserve unmatched inner rows, so still hash/scan.
+        // Keep hashing an unconstrained LEFT outer scan; a point-constrained outer input avoids building the
+        // entire inner table for just its few matching keys.
+        bool seekJoin = j.Kind is JoinKind.Inner or JoinKind.Cross
+            || j.Kind == JoinKind.Left && left is FilterNode { Input: IndexSeekNode };
+        if (seekJoin && j.On is { } on
             && j.Right is ScanNode scan && ExternalDatabases.Open(database, scan.Database).Catalog.FindTable(scan.Table) is { } def)
         {
             string rAlias = scan.Alias ?? scan.Table;

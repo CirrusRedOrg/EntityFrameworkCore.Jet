@@ -13,6 +13,11 @@
 | `0x0C` | 2 | Row count on this page. **ACE writes at most 255, whatever the free space** — see the slot-count limit below. |
 | `0x0E` | 2×N | Row slot directory: one 2-byte entry per row |
 
+LibRed's page repacker accepts read-only row memories. An update keeps slices of the immutable source
+page and lays them into a separate working page, rather than copying every surviving row into a temporary
+array first. Slot offsets are still validated before repacking; the same writer checks that all records
+fit before writing, preserves slot flags and untouched bytes, and updates the count and free-space fields.
+
 > **A data page holds at most 255 rows — a limit the free space does not express.** An index entry addresses a
 > row as `page << 8 | row` ([page-03-04-index-btree.md](page-03-04-index-btree.md) §10.2), so the slot number
 > occupies exactly one byte and slots `0..255` are all that can ever be named. The field at `0x0C` is two bytes
@@ -209,6 +214,12 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
   having no section, and its trailer as fixed data — a re-lay carries that row's chunk, offsets and `numVar` as
   fixed bytes (verified). A trailer-less row whose dead bytes happen to form a valid trailer is not read as having one —
   ACE does not look at the bytes.
+
+  LibRed's row decoder uses the known variable-slot count directly for current rows. Historical counts
+  are memoized on their first row using the same rules above; opening a decoder for a point seek does not
+  walk every possible historical count. The memo belongs to that decoder and its column definitions.
+  A projected decoder selects its columns once when opened; historical trailer detection still consults the
+  complete schema, and the returned row keeps the complete column width with unread values left null.
 
 - **How long the fixed region is depends on the writer** (verified vs ACE):
   - an **INSERT** writes the region the live columns reach, `max(offset+length)` — a dead slot left at the end

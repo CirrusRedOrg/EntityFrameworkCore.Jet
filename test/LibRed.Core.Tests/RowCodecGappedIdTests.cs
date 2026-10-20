@@ -13,6 +13,31 @@ namespace LibRed.Core.Tests;
 // highest live id + 1; an insert passes the table's 0x29 high-water, which also outlives a dropped column.
 public class RowCodecGappedIdTests
 {
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public void One_decoder_reads_rows_from_before_and_after_a_variable_column_was_added(bool fixedColumn, bool variableColumn)
+    {
+        using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb, readOnly: true);
+        var oldColumns = Int32Cols(("A", 0, 0));
+        byte[] oldRow = new RowCodec(oldColumns, db.Format).Encode([17]);
+        List<ColumnDef> columns = [.. oldColumns, new ColumnDef
+        {
+            Name = "V", Type = JetDataType.Text, Index = 1, ColumnId = 1,
+            Length = 20, VariableIndex = 0, VariableTableIndex = 0, IsFixedLength = false,
+        }];
+        var codec = new RowCodec(columns, db.Format, variableColumnCount: 1, columnIdHighWater: 2,
+            decode: [fixedColumn, variableColumn]);
+        byte[] newRow = codec.Encode([29, "hello"]);
+
+        Assert.Equal(new object?[] { fixedColumn ? 17 : null, null }, codec.Decode(oldRow));
+        Assert.Equal(new object?[] { fixedColumn ? 29 : null, variableColumn ? "hello" : null }, codec.Decode(newRow));
+        Assert.Equal(new object?[] { fixedColumn ? 17 : null, null }, codec.Decode(oldRow));
+        Assert.Equal(new object?[] { fixedColumn ? 29 : null, variableColumn ? "hello" : null }, codec.Decode(newRow));
+    }
+
     private static List<ColumnDef> Int32Cols(params (string Name, int Id, int FixedOffset)[] cols) =>
         cols.Select((c, i) => new ColumnDef
         {

@@ -30,12 +30,12 @@ internal static class OutputNames
     internal readonly record struct Output(int Item, Kind Kind, string Name, string? Qualifier, bool Qualified = true, string? Written = null);
 
     /// <summary>The output a select item that is not a <c>*</c> gives, over the columns it is evaluated against.</summary>
-    public static Output For(SelectItem item, int index, IReadOnlyList<OutputColumn> columns)
+    public static Output For(SelectItem item, int index, string? sourceQualifier)
     {
         // A reference with no alias of its own — a name a bang gave it is still a reference's.
         if (item.Value is ColumnReference reference && (item.Alias is null || item.Written is not null))
             return new(index, Kind.Reference, item.Alias ?? reference.Column,
-                reference.Table ?? OutputColumn.Find(columns, reference)?.Qualifier, reference.Table is not null,
+                reference.Table ?? sourceQualifier, reference.Table is not null,
                 item.Written ?? reference.QualifiedName);
         return item.Alias is { } alias ? new(index, Kind.Alias, alias, null) : new(index, Kind.Expression, "", null);
     }
@@ -52,22 +52,39 @@ internal static class OutputNames
 
         for (int i = 0; i < outputs.Count; i++)
             if (outputs[i].Kind == Kind.Reference
-                && Enumerable.Range(i + 1, outputs.Count - i - 1).Any(j => outputs[j].Kind == Kind.Reference
-                    && string.Equals(outputs[j].Written, outputs[i].Written, StringComparison.OrdinalIgnoreCase)))
-                names[i] = Generated(i);
+                && names[i] is null)
+                for (int j = i + 1; j < outputs.Count; j++)
+                    if (outputs[j].Kind == Kind.Reference
+                        && string.Equals(outputs[j].Written, outputs[i].Written, StringComparison.OrdinalIgnoreCase))
+                    {
+                        names[i] = Generated(i);
+                        break;
+                    }
 
-        foreach (IGrouping<string, int> shared in Enumerable.Range(0, outputs.Count).Where(i => names[i] is null)
-                     .GroupBy(i => outputs[i].Name, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
+        // Only collisions need grouping, and a one-column result cannot have one. Count the remaining
+        // names directly rather than allocating a grouping and an index iterator for every output column.
+        if (outputs.Count > 1)
         {
-            bool aliased = shared.Any(i => outputs[i].Kind == Kind.Alias);
-            foreach (int i in shared)
-                names[i] = outputs[i] switch
+#pragma warning disable IDE0028 // Preserve case-insensitive grouping and the known output capacity.
+            var shared = new Dictionary<string, (int Count, bool Aliased)>(outputs.Count, StringComparer.OrdinalIgnoreCase);
+#pragma warning restore IDE0028
+            for (int i = 0; i < outputs.Count; i++)
+                if (names[i] is null)
                 {
-                    { Kind: Kind.Alias } => outputs[i].Name,
-                    { Kind: Kind.Reference, Qualified: false } when aliased => Generated(i),
-                    { Qualifier: { } table } => $"{table}.{outputs[i].Name}",
-                    _ => outputs[i].Name,
-                };
+                    shared.TryGetValue(outputs[i].Name, out var group);
+                    shared[outputs[i].Name] = (group.Count + 1, group.Aliased || outputs[i].Kind == Kind.Alias);
+                }
+            for (int i = 0; i < outputs.Count; i++)
+                if (names[i] is null && shared[outputs[i].Name] is { Count: > 1 } group)
+                {
+                    names[i] = outputs[i] switch
+                    {
+                        { Kind: Kind.Alias } => outputs[i].Name,
+                        { Kind: Kind.Reference, Qualified: false } when group.Aliased => Generated(i),
+                        { Qualifier: { } table } => $"{table}.{outputs[i].Name}",
+                        _ => outputs[i].Name,
+                    };
+                }
         }
 
         for (int i = 0; i < outputs.Count; i++)

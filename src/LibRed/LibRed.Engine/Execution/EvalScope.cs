@@ -63,7 +63,9 @@ internal sealed class EvalScope(
         }
         else
         {
-            _resolved ??= [];
+#pragma warning disable IDE0028 // AST references are keyed by identity, not by rehashing their names per row.
+            _resolved ??= new Dictionary<ColumnReference, int>(ReferenceEqualityComparer.Instance);
+#pragma warning restore IDE0028
             if (!_resolved.TryGetValue(reference, out found))
                 _resolved[reference] = found = Locate(schema, reference);
         }

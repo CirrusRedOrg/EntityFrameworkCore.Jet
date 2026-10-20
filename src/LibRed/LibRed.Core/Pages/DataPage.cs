@@ -140,7 +140,7 @@ public sealed class DataPage : Page
     /// page's rows comes through here; what precedes the directory and what lies between it and the rows is left as
     /// it stands. Returns false, writing nothing, when the records and their directory do not fit the page.
     /// </summary>
-    internal static bool LayRows(Span<byte> page, JetFormatBase format, IReadOnlyList<byte[]> records,
+    internal static bool LayRows(Span<byte> page, JetFormatBase format, IReadOnlyList<ReadOnlyMemory<byte>> records,
         IReadOnlyList<RowSlotFlags> flags)
     {
         int directoryEnd = DirectoryEnd(format, records.Count);
@@ -150,7 +150,7 @@ public sealed class DataPage : Page
         for (int i = 0; i < records.Count; i++)
         {
             offset -= records[i].Length;
-            records[i].CopyTo(page[offset..]);
+            records[i].Span.CopyTo(page[offset..]);
             WriteSlot(page, format, i, offset, flags[i]);
         }
         WriteHeader(page, format, records.Count, offset - directoryEnd);

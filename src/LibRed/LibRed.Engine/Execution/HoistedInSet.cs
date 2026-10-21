@@ -34,12 +34,19 @@ internal sealed class HoistedInSet
 
     private readonly HashSet<object> _values;
     private readonly Kind _kind;
+    // Whether the body's numbers are Singles, and whether a Single probe is widened to a Double (see TryBuild).
+    private readonly bool _singles;
+    private readonly bool _widenSingle;
+    // The body's numbers as Singles, made on the first Single probed against them.
+    private HashSet<object>? _asSingles;
 
-    private HoistedInSet(HashSet<object> values, Kind kind, bool hasNull)
+    private HoistedInSet(HashSet<object> values, Kind kind, bool hasNull, bool singles, bool widenSingle)
     {
         _values = values;
         _kind = kind;
         HasNull = hasNull;
+        _singles = singles;
+        _widenSingle = widenSingle;
     }
 
     /// <summary>Whether the body produced a null, which <c>IN</c> reports as UNKNOWN rather than no-match.</summary>
@@ -48,10 +55,12 @@ internal sealed class HoistedInSet
     /// <summary>Builds a set over <paramref name="values"/>, or null when they cannot be hashed consistently
     /// (a kind outside <see cref="Kind"/>, or more than one kind among them). An empty or all-null body also
     /// returns null: there is nothing to accelerate, and the caller's scan of it is already trivial. Text is
-    /// compared in <paramref name="text"/>'s collation, as <c>=</c> compares it.</summary>
-    public static HoistedInSet? TryBuild(IReadOnlyList<object?> values, LibRed.Storage.JetTextComparer text)
+    /// compared in <paramref name="text"/>'s collation, as <c>=</c> compares it. <paramref name="widenSingle"/> is for
+    /// a body that ACE answers by seeking a Double index, which compares a Single with it as a Double (measured).</summary>
+    public static HoistedInSet? TryBuild(IReadOnlyList<object?> values, LibRed.Storage.JetTextComparer text, bool widenSingle)
     {
         Kind? kind = null;
+        bool? singles = null;
         bool hasNull = false;
         var set = new HashSet<object>(new EvaluatorEquality(text));
 
@@ -63,20 +72,35 @@ internal sealed class HoistedInSet
                 continue;
             }
 
-            if (KindOf(value) is not { } valueKind || (kind is { } only && only != valueKind))
+            if (KindOf(value) is not { } valueKind || (kind is { } only && only != valueKind)
+                || singles is { } wereSingles && wereSingles != value is float)
                 return null;
 
             kind = valueKind;
+            singles = value is float;
             set.Add(value);
         }
 
-        return kind is { } single ? new HoistedInSet(set, single, hasNull) : null;
+        return kind is { } single ? new HoistedInSet(set, single, hasNull, singles == true, widenSingle) : null;
     }
 
     /// <summary>Membership of <paramref name="value"/>, or null when it is of a different kind from the body's
-    /// values — where the hash says nothing and only the evaluator's own comparison can answer.</summary>
-    public (bool Found, bool HasNull)? Lookup(object value) =>
-        KindOf(value) == _kind ? (_values.Contains(value), HasNull) : null;
+    /// values — where the hash says nothing and only the evaluator's own comparison can answer. A Single beside
+    /// another number compares as a Single, so the two are looked up as Singles.</summary>
+    public (bool Found, bool HasNull)? Lookup(object value)
+    {
+        if (_widenSingle && value is float widened)
+            value = (double)widened;
+        if (KindOf(value) != _kind)
+            return null;
+        if (_kind != Kind.Numeric || value is float == _singles)
+            return (_values.Contains(value), HasNull);
+        return value is float
+            ? ((_asSingles ??= new HashSet<object>(_values.Select(AsSingle), _values.Comparer)).Contains(value), HasNull)
+            : (_values.Contains(AsSingle(value)), HasNull);
+
+        static object AsSingle(object number) => ExpressionEvaluator.AsColumnType(number, typeof(float), currency: false)!;
+    }
 
     private static Kind? KindOf(object value) => value switch
     {

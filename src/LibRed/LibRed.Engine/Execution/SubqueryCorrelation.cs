@@ -16,6 +16,8 @@ namespace LibRed.Engine.Execution;
 /// plain <c>=</c> key drops null-bearing rows from the hash and fails a null probe outright, because a null can
 /// never satisfy it; a null-safe key must instead hash the null and match it.
 /// </param>
+/// <param name="KeyTypes">Per key, the type both sides are hashed as, or null to hash them as they are (see
+/// <see cref="SubqueryCorrelation.SameKind" />).</param>
 /// <param name="Residual">The WHERE conjuncts that were not correlation equalities, re-ANDed, or null if none.</param>
 /// <param name="ResidualHaving">
 /// The same for HAVING. The key query must use this and not the original HAVING, which still holds the
@@ -26,6 +28,7 @@ internal readonly record struct CorrelationSplit(
     IReadOnlyList<Expression> InnerKeys,
     IReadOnlyList<Expression> OuterKeys,
     IReadOnlyList<bool> NullSafe,
+    IReadOnlyList<Type?> KeyTypes,
     Expression? Residual,
     Expression? ResidualHaving);
 
@@ -69,6 +72,7 @@ internal static class SubqueryCorrelation
         var innerKeys = new List<Expression>();
         var outerKeys = new List<Expression>();
         var nullSafe = new List<bool>();
+        var keyTypes = new List<Type?>();
         var residual = new List<Expression>();
         var residualHaving = new List<Expression>();
 
@@ -96,11 +100,12 @@ internal static class SubqueryCorrelation
                 && Orient(left, right, innerAliases, outerAliases) is var (inner, outer)
                 && inner is ColumnReference innerCol
                 && (!fromHaving || IsGroupingKey(inner, subquery.GroupBy))
-                && SameKind(innerCol, plan, database, outer, outerColumns))
+                && SameKind(innerCol, plan, database, outer, outerColumns, out Type? keyType))
             {
                 innerKeys.Add(inner);
                 outerKeys.Add(outer);
                 nullSafe.Add(conjunct is not BinaryExpression { Operator: BinaryOperator.Equal });
+                keyTypes.Add(keyType);
             }
             else
             {
@@ -130,7 +135,7 @@ internal static class SubqueryCorrelation
             return null;
         }
 
-        return new CorrelationSplit(plan, innerKeys, outerKeys, nullSafe, And(residual), And(residualHaving));
+        return new CorrelationSplit(plan, innerKeys, outerKeys, nullSafe, keyTypes, And(residual), And(residualHaving));
 
         static Expression? And(List<Expression> conjuncts)
             => conjuncts.Count == 0 ? null : conjuncts.Aggregate((a, b) => new BinaryExpression(BinaryOperator.And, a, b));
@@ -215,16 +220,21 @@ internal static class SubqueryCorrelation
     ///     Whether both sides of a correlation equality are the same type kind. A hash agreeing with the
     ///     evaluator's <c>=</c> only exists within a kind (<c>5 = '5'</c> and <c>5 = 5.0</c>, but
     ///     <c>'5' ≠ '5.0'</c>), so a cross-kind correlation must stay a per-row comparison.
+    ///     <paramref name="keyType" /> is the type both sides are hashed as where a Single meets another number, as
+    ///     the per-row comparison compares them (measured against ACE): as Singles, but as Doubles where the
+    ///     subquery's column is an indexed Double, which the comparison seeks.
     /// </summary>
     internal static bool SameKind(
         ColumnReference innerCol,
         PlanNode innerPlan,
         JetDatabase database,
         Expression outer,
-        IReadOnlyList<OutputColumn> outerColumns)
+        IReadOnlyList<OutputColumn> outerColumns,
+        out Type? keyType)
     {
-        IndexSelection.TypeKind? innerKind = IndexSelection.ResolveKind(innerCol, innerPlan, database);
-        if (innerKind is null)
+        keyType = null;
+        if (IndexSelection.ResolveColumn(innerCol, innerPlan, database) is not { } inner
+            || IndexSelection.Classify(inner.Column.Type) is not { } innerKind)
         {
             return false;
         }
@@ -242,7 +252,19 @@ internal static class SubqueryCorrelation
             .Select(c => c.ClrType)
             .FirstOrDefault();
 
-        return clr is not null && KindOf(clr) == innerKind;
+        if (clr is null || KindOf(clr) != innerKind)
+        {
+            return false;
+        }
+
+        if (inner.Column.Type == JetDataType.Single != ((Nullable.GetUnderlyingType(clr) ?? clr) == typeof(float)))
+        {
+            keyType = inner.Column.Type == JetDataType.Double && IndexSelection.LeadsIndex(inner.Table, inner.Column)
+                ? typeof(double)
+                : typeof(float);
+        }
+
+        return true;
     }
 
     private static IndexSelection.TypeKind? KindOf(Type t)

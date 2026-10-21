@@ -90,9 +90,12 @@ public static class QueryPlanner
             || select.Projection.Any(i => HasAggregate(i.Value))
             || windows.Any(w => w.Function.Expressions().Any(HasAggregate));
 
-        // A bare * names no column to group or total by (verified vs ACE, with GROUP BY and with an aggregate alike).
+        // A * names no column to group or total by (verified vs ACE, with GROUP BY and with an aggregate alike; a
+        // table's * names the table).
         if (aggregate && (select.IsSelectStar || select.Projection.Any(i => i.Value is StarExpression)))
             throw new InvalidOperationException("Cannot group on fields selected with '*'.");
+        if (aggregate && select.Projection.Select(i => i.Value).OfType<QualifiedStarExpression>().FirstOrDefault() is { } star)
+            throw new InvalidOperationException($"Cannot group on fields selected with '*' ({star.Table}).");
 
         // Over a grouped query the windows run over the groups, after HAVING and before the projection and ORDER BY
         // — the standard's order — so the aggregate node computes them itself.
@@ -124,7 +127,7 @@ public static class QueryPlanner
         // projection. It is meaningless with aggregation (grouping already collapses rows) and a no-op for
         // SELECT * (output covers every table), so only the plain projected case needs the node.
         if (select.DistinctRow && !aggregate && !select.IsSelectStar)
-            node = new DistinctRowNode(node, select.Projection);
+            node = new DistinctRowNode(WithRowIds(node), select.Projection);
 
         // A lone * passes its rows through, but over a join the columns two tables share are named apart (OutputNames),
         // which a projection does.
@@ -155,6 +158,19 @@ public static class QueryPlanner
 
         return node;
     }
+
+    /// <summary>The FROM tree a DISTINCTROW dedupes, its tables read with their records' ids: two records holding the
+    /// same values are still two (verified vs ACE). A derived table's rows are no records, so are told apart by
+    /// their values.</summary>
+    private static PlanNode WithRowIds(PlanNode node) => node switch
+    {
+        ScanNode s => s with { RowIds = true },
+        JoinNode j => j with { Left = WithRowIds(j.Left), Right = WithRowIds(j.Right) },
+        FilterNode f => f with { Input = WithRowIds(f.Input) },
+        SortNode s => s with { Input = WithRowIds(s.Input) },
+        WindowNode w => w with { Input = WithRowIds(w.Input) },
+        _ => node,
+    };
 
     /// <summary>
     /// ORDER BY items that are a whole number written as such name the output column at that position (verified vs
@@ -325,7 +341,7 @@ public static class QueryPlanner
     /// (<c>FROM a, b, c WHERE a.x=b.x AND …</c>, planned as CROSS joins) tractable: the nested-loop join
     /// evaluates the pushed predicate inside its loop, so intermediate results stay small.
     /// </summary>
-    private static PlanNode PushPredicates(PlanNode joinTree, Expression where)
+    internal static PlanNode PushPredicates(PlanNode joinTree, Expression where)
     {
         var conjuncts = new List<Expression>();
         SplitAnd(where, conjuncts);
@@ -347,6 +363,16 @@ public static class QueryPlanner
     private static (PlanNode Node, List<Expression> Unplaced) Place(
         PlanNode node, List<Expression> conjuncts, HashSet<string> introduced)
     {
+        // A tree planned already — a saved query's, given its caller's WHERE (IndexSelection) — holds the filters its
+        // own WHERE was placed as. Each is taken apart and placed again with the new conjuncts, which lands them
+        // together on the table they belong to, where a seek of it sees them all.
+        if (node is FilterNode filtered)
+        {
+            var all = new List<Expression>(conjuncts);
+            SplitAnd(filtered.Predicate, all);
+            return Place(filtered.Input, all, introduced);
+        }
+
         HashSet<string> aliases = SubtreeAliases(node);
         var candidates = new List<Expression>();
         var outside = new List<Expression>();
@@ -445,6 +471,6 @@ public static class QueryPlanner
         else into.Add(e);
     }
 
-    private static Expression CombineAnd(IReadOnlyList<Expression> conjuncts) =>
+    internal static Expression CombineAnd(IReadOnlyList<Expression> conjuncts) =>
         conjuncts.Aggregate((a, b) => new BinaryExpression(BinaryOperator.And, a, b));
 }

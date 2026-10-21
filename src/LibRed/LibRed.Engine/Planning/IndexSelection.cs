@@ -38,6 +38,9 @@ internal static class IndexSelection
             SortNode { Input: ScanNode ordered, Limit: not null } sort
                 when OrderedIndexRead(sort, ordered, database) is { } indexScan => indexScan,
 
+            FilterNode { Input: DerivedTableNode derived } filter
+                when IntoDerived(filter, derived, database, outer) is { } moved => moved,
+
             // Otherwise rebuild the node with its children rewritten.
             FilterNode f => f with { Input = Apply(f.Input, database, outer) },
             SortNode s => s with { Input = Apply(s.Input, database, outer) },
@@ -54,6 +57,109 @@ internal static class IndexSelection
             WindowNode w => w with { Input = Apply(w.Input, database, outer) },
             SetOperationNode so => so with { Left = Apply(so.Left, database, outer), Right = Apply(so.Right, database, outer) },
             _ => node,
+        };
+    }
+
+    /// <summary>
+    /// A filter over a derived table — which is how a saved query is read — with each conjunct that reads only the
+    /// derived table's plain columns moved into its own FROM, where the seeks of its table can serve it. Left above
+    /// it, a WHERE on a saved query read the saved query's table whole. Null when nothing moves.
+    /// </summary>
+    /// <remarks>A conjunct moves down through a projection, a sort and DISTINCTROW, each of which passes a row on
+    /// whole or not at all, so filtering their input drops the same rows. Not through TOP, GROUP BY, a window,
+    /// DISTINCT or a set operation, whose rows depend on the rows that would be filtered out first.</remarks>
+    private static PlanNode? IntoDerived(FilterNode filter, DerivedTableNode derived, JetDatabase database, HashSet<string> outer)
+    {
+        var moved = new List<Expression>();
+        var kept = new List<Expression>();
+        foreach (Expression conjunct in Conjuncts(filter.Predicate))
+        {
+            if (InDerived(conjunct) is { } inner)
+                moved.Add(inner);
+            else
+                kept.Add(conjunct);
+        }
+        if (moved.Count == 0 || Into(derived.Input, QueryPlanner.CombineAnd(moved)) is not { } body)
+            return null;
+
+        PlanNode result = derived with { Input = Apply(body, database, outer) };
+        return kept.Count == 0 ? result : new FilterNode(result, QueryPlanner.CombineAnd(kept));
+
+        static PlanNode? Into(PlanNode node, Expression predicate) => node switch
+        {
+            ProjectNode p => Into(p.Input, predicate) is { } input ? p with { Input = input } : null,
+            SortNode { Limit: null, Ties: null } s => Into(s.Input, predicate) is { } input ? s with { Input = input } : null,
+            DistinctRowNode d => Into(d.Input, predicate) is { } input ? d with { Input = input } : null,
+            ScanNode or JoinNode or FilterNode => QueryPlanner.PushPredicates(node, predicate),
+            _ => null,
+        };
+
+        // The conjunct in the derived table's own columns, or null when it reads anything else — a subquery, which
+        // may read the derived table, among them.
+        Expression? InDerived(Expression conjunct)
+        {
+            bool movable = true;
+            Expression inner = Map(conjunct);
+            return movable ? inner : null;
+
+            Expression Map(Expression e)
+            {
+                switch (e)
+                {
+                    case ColumnReference c when c.Table is null || string.Equals(c.Table, derived.Alias, StringComparison.OrdinalIgnoreCase):
+                        if (DerivedColumn(derived, c.Column, database) is { } column)
+                            return column;
+                        break;
+                    case LiteralExpression or ParameterExpression or SystemVariableExpression:
+                        return e;
+                    case not ColumnReference when e.Operands() is not null:
+                        return e.MapOperands(Map);
+                }
+                movable = false;
+                return e;
+            }
+        }
+    }
+
+    /// <summary>The column, in its own FROM's scope, that <paramref name="derived"/> outputs as <paramref name="name"/>:
+    /// the one item of its projection with that name, where it is a column — or by position where a column list
+    /// renames them — or, where no item has the name, the column a <c>*</c> takes from the one table it reads. Null
+    /// for anything else: an expression, a name projected twice (which ACE names apart), a <c>*</c> over more than
+    /// one table, or a derived table that is not a projection of its FROM.</summary>
+    private static ColumnReference? DerivedColumn(DerivedTableNode derived, string name, JetDatabase database)
+    {
+        PlanNode top = derived.Input;
+        while (top is LimitNode or DistinctNode)
+            top = top.Children[0];
+        IReadOnlyList<SelectItem>? projection = top switch
+        {
+            ProjectNode p => p.Projection,
+            // A SELECT * of one source plans no projection.
+            ScanNode or JoinNode or FilterNode or SortNode or DerivedTableNode => [new SelectItem(new StarExpression(), null)],
+            _ => null,
+        };
+        if (projection is null)
+            return null;
+
+        bool star = projection.Any(i => i.Value is StarExpression or QualifiedStarExpression);
+        if (derived.Columns is { } names)
+        {
+            int position = names.ToList().FindIndex(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase));
+            return position >= 0 && position < projection.Count && !star ? projection[position].Value as ColumnReference : null;
+        }
+
+        var items = projection.Where(i => i.Value is not (StarExpression or QualifiedStarExpression)
+            && string.Equals(i.Alias ?? (i.Value as ColumnReference)?.Column, name, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (items.Count > 0 || !star)
+            return items is [{ Value: ColumnReference column }] ? column : null;
+
+        // The one source the * takes its columns from.
+        return (BaseTables(top).ToList(), DerivedTables(top).ToList()) switch
+        {
+            ([var (alias, table, external)], []) when ExternalDatabases.Open(database, external).Catalog.FindTable(table)?.FindColumn(name) is not null
+                => new ColumnReference(alias, name),
+            ([], [var source]) when DerivedColumn(source, name, database) is not null => new ColumnReference(source.Alias, name),
+            _ => null,
         };
     }
 
@@ -93,7 +199,7 @@ internal static class IndexSelection
             if (chosen is not null)
             {
                 var keys = chosen.Columns.Select(c => equalities[c.Column.Name]).ToList();
-                return filter with { Input = new IndexSeekNode(scan.Table, scan.Alias, chosen, keys, scan.Database) };
+                return filter with { Input = new IndexSeekNode(scan.Table, scan.Alias, chosen, keys, scan.Database) { RowIds = scan.RowIds } };
             }
         }
 
@@ -125,7 +231,11 @@ internal static class IndexSelection
             if (low is not null || high is not null)
                 return filter with
                 {
-                    Input = new IndexRangeSeekNode(scan.Table, scan.Alias, index, low, high, scan.Database) { Unordered = unordered },
+                    Input = new IndexRangeSeekNode(scan.Table, scan.Alias, index, low, high, scan.Database)
+                    {
+                        Unordered = unordered,
+                        RowIds = scan.RowIds,
+                    },
                 };
         }
 
@@ -185,7 +295,7 @@ internal static class IndexSelection
             // Both bounds open: the range seek descends to the leftmost leaf and walks the chain, which is the
             // whole index in key order — lazily, so the enclosing limit ends the read.
             if (matches)
-                return new IndexRangeSeekNode(scan.Table, scan.Alias, index, Low: null, High: null, scan.Database);
+                return new IndexRangeSeekNode(scan.Table, scan.Alias, index, Low: null, High: null, scan.Database) { RowIds = scan.RowIds };
         }
 
         return null;
@@ -251,6 +361,8 @@ internal static class IndexSelection
     private static PlanNode RewriteJoin(JoinNode j, JetDatabase database, HashSet<string> outer)
     {
         PlanNode left = Apply(j.Left, database, outer); // rewrite the outer side first (independent of this join)
+        if (j.On is { } joinOn && j.Kind is JoinKind.Inner or JoinKind.Cross or JoinKind.Left or JoinKind.Right)
+            j = j with { On = InInnerType(joinOn, j.Kind, left, j.Right, database) };
 
         // A LEFT join preserves the probing left row: ExecuteJoin's seek loop emits its null-padded result
         // when no candidate passes ON. RIGHT/FULL must also preserve unmatched inner rows, so still hash/scan.
@@ -278,12 +390,18 @@ internal static class IndexSelection
                 if (m is not { } match)
                     continue;
 
+                // A Single beside a Double left as written compares as Singles (InInnerType), which a seek of the
+                // Double's index cannot do: its keys are Doubles. The join hashes instead.
+                if (def.FindColumn(match.innerCol.Column)?.Type == JetDataType.Double && match.outerKey is ColumnReference key
+                    && ResolveColumn(key, left, database)?.Column.Type == JetDataType.Single)
+                    continue;
+
                 IndexDef? index = def.Indexes.FirstOrDefault(
                     i => i.Columns.Count == 1 && string.Equals(i.Columns[0].Column.Name, match.innerCol.Column, StringComparison.OrdinalIgnoreCase));
                 if (index is null)
                     continue;
 
-                var seek = new IndexSeekNode(scan.Table, scan.Alias, index, [match.outerKey], scan.Database);
+                var seek = new IndexSeekNode(scan.Table, scan.Alias, index, [match.outerKey], scan.Database) { RowIds = scan.RowIds };
                 return j with { Left = left, Right = seek }; // ON kept as residual
             }
         }
@@ -303,22 +421,77 @@ internal static class IndexSelection
         // additionally emits the build rows the probe never matched.
         if (j.Kind is (JoinKind.Inner or JoinKind.Left or JoinKind.Right or JoinKind.Full) && j.On is { } cond
             && TryHashKeys(cond, left, right, database) is { } keys)
-            return new HashJoinNode(left, right, j.Kind, keys.Left, keys.Right, cond);
+            return new HashJoinNode(left, right, j.Kind, keys.Left, keys.Right, cond) { KeyTypes = keys.Types };
 
         return j with { Left = left, Right = right };
     }
 #pragma warning restore CA1859
 
+    /// <summary>
+    /// <paramref name="on"/> with each <c>Single = Double</c> between the join's two sides compared as ACE compares it:
+    /// in the type of the join's inner table, the one ACE looks rows up in. Where that is the Double, the Single is
+    /// widened; where it is the Single, the conjunct compares as Singles as written.
+    /// </summary>
+    /// <remarks>Measured against ACE, with tables of 1 to 50 rows: an outer join's inner table is its optional side;
+    /// an inner or comma join's is the side with an index on its column, else the side with more rows, else the
+    /// first. A comparison ACE makes row by row narrows to single precision, as LibRed's does, and a seek of a real
+    /// index converts to that index's type, as LibRed's does.</remarks>
+    private static Expression InInnerType(Expression on, JoinKind kind, PlanNode left, PlanNode right, JetDatabase database)
+    {
+        bool widened = false;
+        List<Expression> conjuncts = [.. Conjuncts(on).Select(InnerType)];
+        return widened ? QueryPlanner.CombineAnd(conjuncts) : on;
+
+        Expression InnerType(Expression conjunct)
+        {
+            if (conjunct is not BinaryExpression { Operator: BinaryOperator.Equal, Left: ColumnReference a, Right: ColumnReference b } eq)
+                return conjunct;
+            var (l, r) = ResolveColumn(a, left, database) is not null ? (a, b) : (b, a);
+            if (ResolveColumn(l, left, database) is not { } lc || ResolveColumn(r, right, database) is not { } rc
+                || ResolveColumn(l, right, database) is not null || ResolveColumn(r, left, database) is not null)
+                return conjunct;
+
+            bool singleLeft = lc.Column.Type == JetDataType.Single;
+            if (!(singleLeft ? rc.Column.Type == JetDataType.Double
+                    : lc.Column.Type == JetDataType.Double && rc.Column.Type == JetDataType.Single))
+                return conjunct;
+
+            bool innerLeft = kind switch
+            {
+                JoinKind.Left => false,
+                JoinKind.Right => true,
+                _ => LeadsIndex(lc.Table, lc.Column) != LeadsIndex(rc.Table, rc.Column) ? LeadsIndex(lc.Table, lc.Column)
+                    : Rows(lc) != Rows(rc) ? Rows(lc) > Rows(rc) : true,
+            };
+            if (innerLeft == singleLeft)
+                return conjunct;
+
+            widened = true;
+            ColumnReference single = singleLeft ? l : r;
+            Expression wide = new FunctionCall("CDbl", [single]);
+            return ReferenceEquals(eq.Left, single) ? eq with { Left = wide } : eq with { Right = wide };
+        }
+
+        static int Rows((JetDatabase Database, TableDefinition Table, ColumnDef Column) c) =>
+            c.Database.OpenTable(c.Table.Name).RowCount;
+    }
+
+    /// <summary>Whether an index of <paramref name="table"/> has <paramref name="column"/> first, so ACE can seek it for
+    /// that column.</summary>
+    internal static bool LeadsIndex(TableDefinition table, ColumnDef column) => table.Indexes.Any(i =>
+        i.Columns.Count > 0 && string.Equals(i.Columns[0].Column.Name, column.Name, StringComparison.OrdinalIgnoreCase));
+
     /// <summary>Splits the join condition into equi-key column pairs (left-referencing = right-referencing)
     /// whose columns are of the same type kind, or null if there is no such pair. The full ON is still applied
     /// as a residual, so a partial split (extra non-equi conjuncts) is fine.</summary>
-    private static (IReadOnlyList<Expression> Left, IReadOnlyList<Expression> Right)? TryHashKeys(
+    private static (IReadOnlyList<Expression> Left, IReadOnlyList<Expression> Right, IReadOnlyList<Type?>? Types)? TryHashKeys(
         Expression on, PlanNode left, PlanNode right, JetDatabase database)
     {
         HashSet<string> leftAliases = QueryPlanner.SubtreeAliases(left);
         HashSet<string> rightAliases = QueryPlanner.SubtreeAliases(right);
         var leftKeys = new List<Expression>();
         var rightKeys = new List<Expression>();
+        var types = new List<Type?>();
 
         foreach (Expression conjunct in Conjuncts(on))
         {
@@ -330,21 +503,33 @@ internal static class IndexSelection
                 ReferencesOnly(eq.Left, leftAliases) && ReferencesOnly(eq.Right, rightAliases) ? (eq.Left, eq.Right)
                 : ReferencesOnly(eq.Right, leftAliases) && ReferencesOnly(eq.Left, rightAliases) ? (eq.Right, eq.Left)
                 : null;
-            if (oriented is not { } o || o.L is not ColumnReference lc || o.R is not ColumnReference rc)
+            // A key is a column, or a Single widened to a Double (InInnerType).
+            if (oriented is not { } o || KeyColumn(o.L) is not { } lc || KeyColumn(o.R) is not { } rc)
                 continue;
 
             // A hash consistent with the evaluator's equality only exists within one type kind (5 = '5' and
             // 5 = 5.0 but '5' ≠ '5.0'), so both key columns must resolve to the same kind.
-            TypeKind? lk = ResolveKind(lc, left, database);
-            TypeKind? rk = ResolveKind(rc, right, database);
-            if (lk is null || lk != rk)
+            var lt = ResolveColumn(lc, left, database);
+            var rt = ResolveColumn(rc, right, database);
+            if (lt is null || rt is null || Classify(lt.Value.Column.Type) is not { } kind || Classify(rt.Value.Column.Type) != kind)
                 continue;
 
             leftKeys.Add(o.L);
             rightKeys.Add(o.R);
+            // A Single beside another number left as written compares as Singles, so both are hashed as Singles.
+            types.Add(o.L is ColumnReference && o.R is ColumnReference
+                && lt.Value.Column.Type == JetDataType.Single != (rt.Value.Column.Type == JetDataType.Single)
+                ? typeof(float) : null);
         }
 
-        return leftKeys.Count > 0 ? (leftKeys, rightKeys) : null;
+        return leftKeys.Count > 0 ? (leftKeys, rightKeys, types.Any(t => t is not null) ? types : null) : null;
+
+        static ColumnReference? KeyColumn(Expression key) => key switch
+        {
+            ColumnReference c => c,
+            FunctionCall { Name: "CDbl", Arguments: [ColumnReference c] } => c,
+            _ => null,
+        };
     }
 
     internal enum TypeKind { Numeric, Text, Binary, Temporal, Guid }
@@ -373,30 +558,31 @@ internal static class IndexSelection
         _ => null,
     };
 
-    /// <summary>The type kind of a column resolved against <paramref name="subtree"/> — a base-table column
-    /// directly, or a derived-table column followed through its projection to the underlying base column — or
-    /// null if it can't be pinned down (e.g. the projection is a computed expression), in which case the join
-    /// is left as a nested loop rather than risk an unsound hash.</summary>
-    internal static TypeKind? ResolveKind(ColumnReference col, PlanNode subtree, JetDatabase database)
+    /// <summary>The base-table column <paramref name="col"/> is in <paramref name="subtree"/> — directly, or a
+    /// derived-table column followed through its projection — with its table and that table's database; null if it
+    /// can't be pinned down (e.g. the projection is a computed expression), in which case a join on it is left as a
+    /// nested loop rather than risk an unsound hash.</summary>
+    internal static (JetDatabase Database, TableDefinition Table, ColumnDef Column)? ResolveColumn(
+        ColumnReference col, PlanNode subtree, JetDatabase database)
     {
         foreach ((string alias, string table, ExternalDatabase? external) in BaseTables(subtree))
         {
             if (col.Table is { } t && !string.Equals(t, alias, StringComparison.OrdinalIgnoreCase))
                 continue;
-            ColumnDef? c = ExternalDatabases.Open(database, external).Catalog.FindTable(table)?.Columns
-                .FirstOrDefault(cd => string.Equals(cd.Name, col.Column, StringComparison.OrdinalIgnoreCase));
-            if (c is not null)
-                return Classify(c.Type);
+            JetDatabase source = ExternalDatabases.Open(database, external);
+            if (source.Catalog.FindTable(table) is { } def
+                && def.Columns.FirstOrDefault(cd => string.Equals(cd.Name, col.Column, StringComparison.OrdinalIgnoreCase)) is { } c)
+                return (source, def, c);
         }
 
         // A derived-table column: match its alias, find what its SELECT list projects for this name, and resolve
-        // that expression's kind against the derived query's own tables (only if it is itself a plain column).
+        // that expression against the derived query's own tables (only if it is itself a plain column).
         foreach (DerivedTableNode d in DerivedTables(subtree))
         {
             if (col.Table is { } t && !string.Equals(t, d.Alias, StringComparison.OrdinalIgnoreCase))
                 continue;
-            if (ProjectionExprFor(d, col.Column) is ColumnReference inner)
-                return ResolveKind(inner, d.Input, database);
+            if (DerivedColumn(d, col.Column, database) is { } inner)
+                return ResolveColumn(inner, d.Input, database);
         }
         return null;
     }
@@ -418,41 +604,6 @@ internal static class IndexSelection
     {
         DerivedTableNode d => [d],
         _ => node.Children.SelectMany(DerivedTables),
-    };
-
-    /// <summary>The expression a derived table projects under output name <paramref name="column"/>, or null. A column
-    /// list renames the columns by position, so there the name finds its position rather than a projected name.</summary>
-    private static Expression? ProjectionExprFor(DerivedTableNode derived, string column)
-    {
-        if (FindProject(derived.Input) is not { } proj)
-            return null;
-        if (derived.Columns is { } names)
-        {
-            int position = names.ToList().FindIndex(n => string.Equals(n, column, StringComparison.OrdinalIgnoreCase));
-            return position >= 0 && position < proj.Projection.Count
-                && !proj.Projection.Any(i => i.Value is StarExpression or QualifiedStarExpression)
-                ? proj.Projection[position].Value
-                : null;
-        }
-        foreach (SelectItem item in proj.Projection)
-        {
-            string name = item.Alias ?? (item.Value as ColumnReference)?.Column ?? "";
-            if (string.Equals(name, column, StringComparison.OrdinalIgnoreCase))
-                return item.Value;
-        }
-        return null;
-    }
-
-    private static ProjectNode? FindProject(PlanNode node) => node switch
-    {
-        ProjectNode p => p,
-        SortNode s => FindProject(s.Input),
-        LimitNode l => FindProject(l.Input),
-        DistinctNode d => FindProject(d.Input),
-        DistinctRowNode dr => FindProject(dr.Input),
-        FilterNode f => FindProject(f.Input),
-        DerivedTableNode dt => FindProject(dt.Input),
-        _ => null,
     };
 
     /// <summary>Whether every column an expression references is one of the given aliases (and it has no

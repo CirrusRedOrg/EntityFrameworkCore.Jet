@@ -11,6 +11,10 @@ public sealed record ScanNode(string Table, string? Alias, ExternalDatabase? Dat
     /// <summary>The column names the query reads, when <c>ColumnPruning</c> has shown nothing else can reach the
     /// output; every other column is left undecoded and reads as null. Null decodes them all.</summary>
     public IReadOnlySet<string>? Decode { get; init; }
+
+    /// <summary>Whether each row carries its record's <c>RowId</c> after its columns, in a column no name can
+    /// reach — for a <see cref="DistinctRowNode"/> above, which tells records apart by it and drops it.</summary>
+    public bool RowIds { get; init; }
 }
 
 /// <summary>A FROM-less SELECT source: yields exactly one row with no columns, so a constant projection like
@@ -29,6 +33,9 @@ public sealed record IndexSeekNode(string Table, string? Alias, IndexDef Index, 
 {
     /// <summary>As <see cref="ScanNode.Decode"/>.</summary>
     public IReadOnlySet<string>? Decode { get; init; }
+
+    /// <summary>As <see cref="ScanNode.RowIds"/>.</summary>
+    public bool RowIds { get; init; }
 }
 
 /// <summary>
@@ -48,6 +55,9 @@ public sealed record IndexRangeSeekNode(string Table, string? Alias, IndexDef In
 {
     /// <summary>As <see cref="ScanNode.Decode"/>.</summary>
     public IReadOnlySet<string>? Decode { get; init; }
+
+    /// <summary>As <see cref="ScanNode.RowIds"/>.</summary>
+    public bool RowIds { get; init; }
 
     /// <summary>The bounds are a <c>BETWEEN</c>'s, which takes them in either order: the executor puts them in the
     /// index's order once their values are known, so a parameter or an expression can be a bound as well as a
@@ -112,6 +122,10 @@ public sealed record HashJoinNode(
 
     /// <summary>As <see cref="JoinNode.Keep"/>.</summary>
     public IReadOnlySet<string>? Keep { get; init; }
+
+    /// <summary>Per key pair, the type both keys are hashed as, or null to hash them as they are: a Single beside
+    /// another number compares as a Single, so the pair is hashed as Singles.</summary>
+    public IReadOnlyList<Type?>? KeyTypes { get; init; }
 }
 
 /// <summary>
@@ -131,6 +145,10 @@ public sealed record AggregateNode(
     TieCut? Ties = null) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
+
+    /// <summary>Per GROUP BY key, a type to group it as in place of the one it declares, or null: a decorrelated
+    /// subquery's correlation key that the comparison it stands for compares as a Single.</summary>
+    public IReadOnlyList<Type?>? KeyTypes { get; init; }
 }
 
 /// <summary>

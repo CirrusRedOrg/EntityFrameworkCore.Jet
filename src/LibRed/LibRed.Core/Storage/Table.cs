@@ -28,6 +28,10 @@ public sealed class Table
 
     public string Name => Definition.Name;
 
+    /// <summary>The row count the definition page holds now. <see cref="TableDefinition.RowCount"/> is the count when
+    /// the definition was read, and a cached definition is not reread for a write.</summary>
+    public int RowCount => TableDefinition.ReadRowCount(Channel.ReadPageShared(Definition.DefinitionPage).Span, Channel.Format);
+
     /// <summary>Returns a forward-only cursor over all rows in the table.</summary>
     /// <param name="decode">Which columns to decode, by <see cref="ColumnDef.Index"/>, or null for all; a column
     /// left out reads as null. For a reader that never looks at it — see <see cref="RowCodec"/>.</param>
@@ -164,12 +168,18 @@ public sealed class Table
     /// <summary>Yields the rows whose <paramref name="index"/> key lies in [<paramref name="low"/>,
     /// <paramref name="high"/>] (either bound null = open) — an index range scan. May over-return at the
     /// boundaries; the caller re-checks the predicate. <paramref name="decode"/> is as for <see cref="Rows"/>.</summary>
-    public IEnumerable<object?[]> SeekRangeRows(IndexDef index, object?[]? low, object?[]? high, bool[]? decode = null)
+    public IEnumerable<object?[]> SeekRangeRows(IndexDef index, object?[]? low, object?[]? high, bool[]? decode = null) =>
+        SeekRangeRowsWithIds(index, low, high, decode).Select(row => row.Values);
+
+    /// <summary>Like <see cref="SeekRangeRows"/> but yields each row together with its <see cref="RowId"/>, as
+    /// <see cref="SeekRowsWithIds"/> does for an equality seek.</summary>
+    public IEnumerable<(RowId Id, object?[] Values)> SeekRangeRowsWithIds(
+        IndexDef index, object?[]? low, object?[]? high, bool[]? decode = null)
     {
         RowCodec decoder = SeekDecoder(decode);
         foreach (RowId id in IndexReader.SeekRange(index, low, high))
             if (GetRow(id, decoder) is { } row)
-                yield return row;
+                yield return (id, row);
     }
 
     /// <summary>Inserts a row (values aligned to column <see cref="ColumnDef.Index"/>) into the table.</summary>

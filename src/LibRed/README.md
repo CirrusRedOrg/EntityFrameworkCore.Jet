@@ -220,6 +220,12 @@ Treat the number as of its date — an EF Core version bump moves it.
   **`TOP n` deliberately differs from ACE's:** it returns exactly n rows, where ACE's `TOP n` (and `TOP n PERCENT`)
   also returns every further row whose `ORDER BY` keys equal the last one's — a stored query ACE wrote included.
   `WITH TIES` asks for ACE's rows (below).
+  **Nested joins deliberately differ from ACE's:** they are evaluated as their parentheses nest them, so an INNER JOIN
+  on a column of an outer join's optional side (`(a LEFT JOIN b ON …) INNER JOIN c ON b.x = c.x`) and an inner join
+  nested as an outer join's operand (`a LEFT JOIN (b INNER JOIN c ON …) ON …`) each return the rows the standard
+  defines, where ACE refuses both with "JOIN expression not supported". It refuses an ON that does not reference
+  both sides (`… INNER JOIN c ON c.k = 1`) with the same message; LibRed takes any condition in an ON — constants,
+  functions and subqueries included — and evaluates it as written.
   `WITH OWNERACCESS OPTION` is taken wherever ACE takes it and changes nothing — LibRed has no users to act for —
   but a stored query keeps it.
   **`TRANSFORM … PIVOT … [IN (…)]`**, the crosstab, with ACE's column naming and ordering, its fixed headings, row

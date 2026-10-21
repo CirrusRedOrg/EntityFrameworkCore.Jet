@@ -22,21 +22,19 @@ Flags (byte `0x03` masked with `0xC0`; its low six bits belong to the length):
 - `0x00` **multi-page** — the payload is chained across LVAL pages; each chunk's row begins
   with a 4-byte pointer (`[row:1][page:3]`) to the next chunk (zero on the last), followed by chunk
   data. Each chunk row is **`MAX_LONG_VALUE_ROW_SIZE` = 4076 bytes** (Jet4; Jet3 = 2032) — a 4-byte
-  pointer + up to 4072 data bytes — except the last, which is shorter. Verified against ACE's own
-  chained OLE (chunk rows of 4076, 4076 and 2606 bytes).
+  pointer + up to 4072 data bytes — except the last, which is shorter (verified vs ACE).
 
 > **The chain stamp binds a descriptor to its first chain page, and ACE enforces it.** A multi-page
 > descriptor's `0x08` and the header `0x08` of the **first** page of its chain hold the same four bytes;
 > later chunk pages, single-page (`0x40`) LVAL pages, and ordinary data pages all hold zero. Only the first
-> page is bound: patching every *later* chunk page's `0x08` while leaving the descriptor and the first page
-> alone changes nothing ACE notices, and patching the first page alone is refused. Which is what the check
+> page is bound: ACE ignores the `0x08` of every *later* chunk page, and refuses a first page whose `0x08`
+> disagrees with the descriptor. Which is what the check
 > is for — the descriptor is the only way into the chain that a stale pointer can arrive by, since every
 > chunk after it is reached from a page already validated. ACE writes
 > `GetTickCount()` there — milliseconds since the writing machine booted, so it is machine- and
 > boot-relative and reproduces nowhere, like the database creation date. **The value is arbitrary; only the
-> agreement matters.** In an ACE-written file, setting *both* copies to `DEADBEEF` reads back fine, setting
-> *both* to zero reads back fine, and changing *either one alone* — to any value, zero included — makes ACE
-> refuse the record. It refuses it as *"you and another user are attempting to change the same data at the
+> agreement matters.** Any value — `DEADBEEF`, zero — is accepted when both copies hold it, and a
+> disagreement, either side zero included, makes ACE refuse the record. It refuses it as *"you and another user are attempting to change the same data at the
 > same time"*, the same misleading concurrency message an
 > oversized record gets, and `CompactDatabase` does not repair such a row: it drops the value.
 >
@@ -60,7 +58,7 @@ ACE accepts an OLE/binary payload of `0x3FFFFFFF` bytes (1 GiB − 1) and reject
 stores text as UTF-16LE, and compressed Unicode (§7) is an optimisation on top of that rather than a
 different encoding.
 
-Both ends measured, with ACE authoring and both engines verifying every character:
+Both ends measured:
 
 | | bytes | outcome |
 | --- | ---: | --- |
@@ -84,16 +82,12 @@ byte ceiling divided by two, whatever the text holds.
 An all-ASCII Memo therefore does **not** reach twice as far: ASCII and non-ASCII agree character for
 character at both ends, 536,870,911 accepted and 536,870,912 refused.
 
-> **The rejection is not cheap and not lossy.** ACE took ~109 minutes to refuse the over-long Memo — it does
-> not pre-check the declared length, it processes the whole value and fails at the end — and the database
-> then reopened with **zero rows**, in every rejected case, so the failed insert rolled back rather than
-> leaving a partial chain. For scale: writing the 1 GiB value took ACE ~110 minutes (~118 for the ASCII one)
-> against LibRed's ~3, while reading it back took ACE 6–10 seconds and LibRed 4–5. The asymmetry is entirely
-> in ACE's write path.
+> **The rejection is not cheap and not lossy.** ACE does not pre-check the declared length — it processes the
+> whole value and fails at the end — and the failed insert rolls back, leaving **zero rows** and no partial
+> chain (measured).
 >
-> Every accepted value was read back in full and verified character by character through **both** engines,
-> including the ACE-written 1 GiB − 1 binary — so the ceiling is where values stop being *storable*, not
-> where they stop being retrievable.
+> Every accepted value, the 1 GiB − 1 binary included, reads back in full (verified) — so the ceiling is
+> where values stop being *storable*, not where they stop being retrievable.
 
 > **`WITH COMPRESSION` does not raise that ceiling.** The attribute is reachable from SQL
 > (`M MEMO WITH COMP`) and does set the capable flag, but compression is decided *after* the storage form,
@@ -133,8 +127,8 @@ LVAL pages are data pages (type `0x0101`) whose owner field (`0x04`) is the ASCI
 > **How aggressively the engine reclaims is a setting, and its default differs by engine.** Jet's
 > `RecycleLVs` (the OLE DB property `Jet OLEDB:Recycle Long-Valued Pages`) controls whether freed LVAL pages
 > are reclaimed aggressively; it ships as **1 on ACE** (both 14 and 16) and **0 on Jet 4.0**. So the same
-> delete can leave different free/owned-map state behind depending on which engine wrote the file — worth
-> pinning before treating an ACE-vs-Jet4 reclamation difference as a format one.
+> delete can leave different free/owned-map state behind depending on which engine wrote the file — a
+> difference that comes from the setting, not from the format.
 
 ### 3.3.2 Column usage-map list (trailing the index names)
 
@@ -154,8 +148,7 @@ list (terminator included) counts toward the definition, not free space.
 > **LVAL-only, despite mdbtools calling it "Variable Column Tracking".** Only **Memo (`0x0C`) and
 > OLE (`0x0B`)** columns appear here — *not* plain **Text (`0x0A`)**, even though Text is
 > variable-length — because only memo/OLE have their own long-value (LVAL) page chains that need
-> usage maps; Text is stored inline in the row. Verified by correlating each entry with its column
-> type: every entry is a Memo or OLE column, and **a table with Text columns but no memo/OLE has an
+> usage maps; Text is stored inline in the row (verified): every entry is a Memo or OLE column, and **a table with Text columns but no memo/OLE has an
 > empty list**. So mdbtools' name is imprecise; the list is keyed to long-value columns.
 
 ### Dropping a long-value column
@@ -181,10 +174,10 @@ the long values:
 > encoding. This matters for Access, not just LibRed: Access
 > tolerates an inline value its reader resolves, but **rejects an over-64-byte value inlined** (e.g. it
 > opens the database yet fails to *run* a view whose subquery `Expression` was inlined; on an LVAL page
-> it runs — verified against the derived-table view, §11). A value of **3817 bytes or more** is written as
+> it runs — verified, §11). A value of **3817 bytes or more** is written as
 > a **chain** (`0x00` descriptor): the payload is split into 4072-byte data chunks,
-> each on its own page with a 4-byte next-pointer, matching ACE byte-for-byte (verified: LibRed and
-> Access both read back memo values from 65 bytes to 100 KB — single-page and multi-page).
+> each on its own page with a 4-byte next-pointer, matching ACE byte-for-byte (verified, single-page and
+> multi-page).
 >
 > **A row's values are written chains first.** ACE writes every chained value of the row, in column order, and
 > only then its single-page values, in column order — so a single-page value in an earlier column takes a
@@ -209,8 +202,7 @@ the long values:
 >
 > **LibRed writes the §3.3.2 entry + empty usage maps for every memo/OLE column** — byte-faithful with
 > ACE, whose usage-map page lays the records out as: row 0 table-owned, row 1 table-free, then one row
-> **per index**, then two rows (owned/free) **per long-value column** (verified against ACE-created
-> tables).
+> **per index**, then two rows (owned/free) **per long-value column** (verified vs ACE).
 >
 > **That order is the DDL's, not a fixed rule — ACE assigns the rows in declaration order.** An *inline*
 > `PRIMARY KEY` is declared before the long-value columns and takes row 2, giving the layout above; a
@@ -224,12 +216,10 @@ the long values:
 > a usage-map page holds ~57 of the 69-byte inline records, so a table with many memo/OLE columns can't
 > fit all its used/free maps on one page. Access fills the primary page (data + indexes + as many *whole*
 > columns as fit — 27 columns alongside a single index), then gives **each remaining long-value column its
-> own dedicated usage-map page** with owned = row 0, free = row 1. LibRed reproduces this exactly (verified:
-> 27 columns land on the primary page at rows 3–56, then one page each for the rest; ACE opens the table and
-> round-trips a value written to an overflow column). **`CREATE INDEX` on such a table spills too**: with
-> the primary page full, ACE does not compact or reuse it but allocates a page holding the new index's map
-> alone, at row 0 (verified: after `CREATE INDEX` the primary page still has its 57 rows and the new index
-> block's `+0x22` pointer reads row 0 of a fresh page). Only when the primary page still has room for
+> own dedicated usage-map page** with owned = row 0, free = row 1: 27 columns land on the primary page at rows
+> 3–56, then one page each for the rest. LibRed reproduces this exactly (verified vs ACE). **`CREATE INDEX` on
+> such a table spills too**: with the primary page full, ACE does not compact or reuse it but allocates a page
+> holding the new index's map alone, at row 0 (verified). Only when the primary page still has room for
 > another 69-byte record does the new index's map go there, appended after the existing rows — **always
 > appended, never a reused row**: `DROP INDEX` leaves the dropped index's map row in place, and the next
 > `CREATE INDEX` still takes a new row after the last one — a page of rows 0–4 that loses an index and gains
@@ -267,18 +257,18 @@ remainder and continue into a reservation from the next bitmap. The bitmap selec
 > **The terminating `0xFFFF` is mandatory on write — even for a table with no long-value
 > columns** (where the list is empty and the `0xFFFF` is the only bytes here). Omitting it makes
 > Access reject the whole table with *"Unrecognized database format"* even though every other byte
-> of the TDEF is valid — verified by byte diff against an ACE-created table. LibRed's reader doesn't
+> of the TDEF is valid (verified vs ACE). LibRed's reader doesn't
 > consume this list (it stops after the named indexes; long values are located via the in-row LVAL
 > pointer, not these maps), but the terminator **must be written**. A table with memo/OLE columns must
 > additionally allocate the usage-map records and emit a real `{col_num, used, free}` entry per long-value
-> column — verified against ACE-authored tables.
+> column (verified vs ACE).
 >
 > **An entry can carry an owned-pages map and no free-pages map** — its free pointer is page 0. Access writes
 > exactly two columns that way, `MSysNameMap.NameMap` and `MSysAccessXML.LValue`; every other long-value
-> column examined has both. Such a column **never shares a page**: each value over 64 bytes is on an LVAL
+> column it writes has both. Such a column **never shares a page**: each value over 64 bytes is on an LVAL
 > page of its own, recorded in the owned map alone.
 > LibRed writes to one the same way — a fresh page per value, owned bit only, nothing packed — and ACE reads
-> the result back and keeps it through a compact (verified, single-page and chained values). Retiring a value
+> the result and keeps it through a compact (verified, single-page and chained values). Retiring a value
 > differs by form (verified). A **single-page** value's page is re-laid and,
 > once empty, typed `0x09` as released — but it **stays in the owned map and stays allocated** in the global
 > map, and the column's next value still takes a fresh page rather than reusing it. A **chained** value's pages

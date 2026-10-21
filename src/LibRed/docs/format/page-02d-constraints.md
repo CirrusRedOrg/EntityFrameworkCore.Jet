@@ -81,8 +81,8 @@ differently from a delete:
 - An index the row is absent from before the update — a Null key in an IGNORE NULL index — is not touched,
   even when the update brings the row in.
 
-> The update rule could not be seen from an index built empty: its zero total leaves the pair alone whatever the
-> update does, which is how "an UPDATE changes neither count" looked right.
+> An index built empty does not show the update rule: its zero total leaves the pair alone whatever the update
+> does, so on such an index an UPDATE appears to change neither count.
 
   LibRed maintains both this way — inserts, deletes and updates in `RowInserter`, builds in `SchemaEditor`'s index
   back-fill, and the Memo/OLE retype (which LibRed does by rebuilding the whole table) restores every other
@@ -93,13 +93,13 @@ differently from a delete:
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 4 | Marker — `0x00000783` (1923) as ACE writes it; not read (any value accepted, [page-02a §3.1](page-02a-tdef.md)) |
+| `0x00` | 4 | Marker — `0x00000783` (1923) as ACE and Jet 4.0 write it; ACE never checks it, Jet 4.0 refuses a value above its build, 9801, once a write reaches the index ([page-02a §3.1](page-02a-tdef.md)) |
 | `0x04` | 30 | **Exactly 10** column slots × (2-byte column id + 1-byte flags); column id `0xFFFF` = unused; flag `0x01` = ascending. This fixed array (no count field, no continuation) is why a Jet/ACE index — and therefore any `PRIMARY KEY`, `UNIQUE`, or `FOREIGN KEY` built on one — is **limited to 10 columns**. |
 | `0x22` | 1 | Usage-map row |
 | `0x23` | 3 | Usage-map page |
 | `0x26` | 4 | **B-tree root page** |
 | `0x2A` | 4 | Unknown / reserved (zero). Not read by ACE, and zeroed when it rewrites the TDEF (verified) |
-| `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls (`WITH IGNORE NULL` — null-keyed rows excluded from the index), `0x08` required (`WITH DISALLOW NULL` / part of a primary key), `0x80` always-set (Access 2000+), `0x0200` an index over a **complex** (multi-value / attachment) column. Verified vs ACE: a plain index is `0x0080`, `IGNORE NULL` `0x0082`, `DISALLOW NULL` `0x0088`, a PK `0x0089`. Every index Access writes over a complex column is `0x0289` — unique, required, always-set and `0x0200` — and no other index carries `0x0200` (verified across Access-written files). A foreign key's child block (§3.6) carries `0x01` exactly when the relationship is one-to-one
+| `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls (`WITH IGNORE NULL` — null-keyed rows excluded from the index), `0x08` required (`WITH DISALLOW NULL` / part of a primary key), `0x80` always-set (Access 2000+), `0x0200` an index over a **complex** (multi-value / attachment) column. Verified vs ACE: a plain index is `0x0080`, `IGNORE NULL` `0x0082`, `DISALLOW NULL` `0x0088`, a PK `0x0089`. Every index Access writes over a complex column is `0x0289` — unique, required, always-set and `0x0200` — and no other index carries `0x0200` (verified). A foreign key's child block (§3.6) carries `0x01` exactly when the relationship is one-to-one
 (`MSysRelationships.grbit` `0x01`), and **this bit, not `grbit`, is what ACE enforces**: made to disagree, a
 child index with the bit refuses a second child row with the same key although `grbit` says one-to-many, and
 one without it accepts the duplicate although `grbit` says one-to-one (verified vs ACE). There is **no clustered flag**: `CLUSTERED`/`NONCLUSTERED` after `PRIMARY KEY` or `UNIQUE` in a constraint is accepted and stores nothing (the file is byte-identical without it), and DAO's `Index.Clustered` reads `False` even on an index created with it set. |
@@ -182,8 +182,7 @@ isolation: 33 plain indexes push both counts to 33 together.
 > `-1305 … could not find the object '…'` entries into `MSysCompactError`, and the table is absent from the
 > object list. Nothing in that failure names indexes or a limit.
 >
-> **The boundary is exactly 32, on the logical count alone** (verified vs ACE: one primary key plus incoming
-> relationships, one data block, single page, differing only in the count):
+> **The boundary is exactly 32, on the logical count alone** (verified vs ACE):
 >
 > | `0x2F` | `0x33` | continuation | ACE |
 > | --- | --- | --- | --- |
@@ -200,7 +199,7 @@ isolation: 33 plain indexes push both counts to 33 together.
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 4 | Marker — `0x00000659` (1625) as ACE writes it; not read (any value accepted, [page-02a §3.1](page-02a-tdef.md)) |
+| `0x00` | 4 | Marker — `0x00000659` (1625) as ACE and Jet 4.0 write it; ACE never checks it, Jet 4.0 refuses a value above its build, 9801, once a write reaches the index ([page-02a §3.1](page-02a-tdef.md)) |
 | `0x04` | 4 | **Logical index number** (`index_num`) — a unique id per logical index, `0 … logicalCount-1` |
 | `0x08` | 4 | **Real index-data block ordinal** (`index_num2`) this logical index uses, `0 … realIndexCount-1` |
 | `0x0C` | 1 | Foreign-key index type: `0x00` = none, `0x01` = **incoming** (this table is the parent/referenced end), `0x02` = **outgoing** (this table is the child/referencing end), `0x03` = **outgoing, `FOREIGN KEY NO INDEX`** (verified vs ACE: identical to `0x02` — same data block and same parent incoming `0x01` block — only this type byte differs) |
@@ -287,7 +286,7 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > `0x11` = the table's own page — an outgoing `0x02` block (`index_num2` → the FK-column index) and an
 > incoming `0x01` block (`index_num2` → the referenced-key index), cross-referenced by `index_num`. The
 > incoming block is numbered after the data-block logical indexes (`index_num` = data-block count).
-> Verified byte-for-byte against an ACE-created self-reference. Added to an existing table, the outgoing
+> Verified byte-for-byte vs ACE. Added to an existing table, the outgoing
 > block takes the lowest free number and the incoming block the next free one above it (verified: with 1 free
 > below a live 2, outgoing 1 and incoming 3, named `.rD`).
 

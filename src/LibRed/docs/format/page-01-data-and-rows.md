@@ -13,11 +13,6 @@
 | `0x0C` | 2 | Row count on this page. **ACE writes at most 255, whatever the free space** — see the slot-count limit below. |
 | `0x0E` | 2×N | Row slot directory: one 2-byte entry per row |
 
-LibRed's page repacker accepts read-only row memories. An update keeps slices of the immutable source
-page and lays them into a separate working page, rather than copying every surviving row into a temporary
-array first. Slot offsets are still validated before repacking; the same writer checks that all records
-fit before writing, preserves slot flags and untouched bytes, and updates the count and free-space fields.
-
 > **A data page holds at most 255 rows — a limit the free space does not express.** An index entry addresses a
 > row as `page << 8 | row` ([page-03-04-index-btree.md](page-03-04-index-btree.md) §10.2), so the slot number
 > occupies exactly one byte and slots `0..255` are all that can ever be named. The field at `0x0C` is two bytes
@@ -136,10 +131,9 @@ source. These shapes are verified in both directions: Access opens LibRed's relo
 Access's.
 
 **The slot is normally exactly 4 bytes wide, but not always.** When ACE relocates a row through
-ordinary DML it trims the slot down to the pointer, and LibRed does the same. Measured **with no
-exception** on ACE x64, the **ACE 2010 runtime on x86**, and LibRed's own writer, under: growing and
-shrinking text, repeated re-relocation of the same rows, page fragmentation by interleaved deletes and
-re-inserts, and an OLE column going from NULL to a value.
+ordinary DML it trims the slot down to the pointer, and LibRed does the same — whatever moved the row:
+growing or shrinking text, a repeated re-relocation, a page fragmented by deletes and re-inserts, or an OLE
+column going from NULL to a value (measured, on ACE x64 and the ACE 2010 runtime on x86).
 
 **A relocated row that grows past its new page moves again**, and the second move is the first one repeated
 rather than a chain: the pointer in the source slot is re-aimed at the row's third home, and the page it is
@@ -181,7 +175,7 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
 ## 5. Row record format
 
 ```
-[ colCount : 2 ]                                ← (max column id + 1), NOT the live column count
+[ colCount : 2 ]                                ← the TDEF's 0x29 id high-water, NOT the live column count
 [ fixed-length column data ... ]
 [ variable-length column data ... ]             ┐
 [ slack : zeros, usually none ]                 │ (record slack, below)
@@ -214,12 +208,6 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
   having no section, and its trailer as fixed data — a re-lay carries that row's chunk, offsets and `numVar` as
   fixed bytes (verified). A trailer-less row whose dead bytes happen to form a valid trailer is not read as having one —
   ACE does not look at the bytes.
-
-  LibRed's row decoder uses the known variable-slot count directly for current rows. Historical counts
-  are memoized on their first row using the same rules above; opening a decoder for a point seek does not
-  walk every possible historical count. The memo belongs to that decoder and its column definitions.
-  A projected decoder selects its columns once when opened; historical trailer detection still consults the
-  complete schema, and the returned row keeps the complete column width with unread values left null.
 
 - **How long the fixed region is depends on the writer** (verified vs ACE):
   - an **INSERT** writes the region the live columns reach, `max(offset+length)` — a dead slot left at the end
@@ -330,8 +318,7 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
   follows several fixed columns is still `fixed@0`. A writer must therefore *not* advance the fixed offset for a Boolean column.) On **write**, the value
   reaches the encoder as a bool *or* a number (a `bit` column is commonly inserted as `1`/`-1`/`0`
   or defaulted from `"0"`), so LibRed coerces it with Access truthiness — **any non-zero number (or
-  bool true) sets the bit**, `0`/false clears it. Verified: Access reads LibRed-written bits back
-  correctly and a bare-boolean predicate returns the right rows.
+  bool true) sets the bit**, `0`/false clears it (verified vs Access).
 - Variable offsets are **always 2 bytes** in Jet 4 / ACE, at any row size. There is **no
   jump table** (that is a Jet 3 construct for its 1-byte offsets).
 

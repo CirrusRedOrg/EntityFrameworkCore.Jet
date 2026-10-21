@@ -53,37 +53,6 @@ Each entry ends with a **4-byte big-endian** trailing pointer:
 > role; this avoids relying on an earlier descent check if the file changed between reads. Violations
 > are reported as `InvalidDataException`.
 
-LibRed checks reconstructed keys for nondecreasing byte order before caching a decoded page. Node descent
-and point/range seeks then use a binary lower bound: the first entry at or above the search key. For a
-duplicate key this is the first equal entry, so duplicate runs spanning leaves remain complete. The search
-does not replace or skip the page's decode-time validation.
-Leaf insertion uses the same binary-search strategy over the full key plus row-pointer trailer, keeping
-the existing first-equal insertion rule and all page compression/split decisions.
-Deletion likewise copies the current validated parse, searches only the matching key run for its row
-pointer, and publishes the surviving entries with the rewritten image. Its prefix and dead bytes remain
-as before; empty-leaf unlinking still removes the page and its separator.
-Preserving dead tail bytes reads the existing stable copy-on-write image directly; it does not copy the
-whole source page twice before copying its tail into the newly built page. A new or differently owned
-page contributes a zero tail. Bulk-build spine images follow the same rule and remain immutable.
-
-> **How the insert path revalidates.** A leaf rewrite does not re-read and re-decode the page the descent
-> just decoded; it takes that parse from the channel's parsed-page cache and copies the entry list before
-> mutating it (the cached object is shared with every other reader of the file, so it must never be written
-> through). The guarantee is unchanged: a cached parse survives only while the bytes behind it are untouched —
-> any write from any channel drops it, eviction drops it, and a page buffered in an open transaction's overlay
-> is served only from that transaction's own parses, which its next write of the page, a savepoint rollback and
-> the rollback all drop, and which the commit hands to the shared cache with the bytes they describe — so a hit
-> carries what a re-read would, and the page's type and owning TDEF are still
-> checked before it is mutated. The copy is shallow by design: an entry is an immutable struct referencing its
-> key, so copying the list shares the key arrays and costs one array of structs rather than one array per entry.
-> A leaf rewritten in place (no split) is written together with the parse it was built from — its entries, the
-> prefix length stored, no child tail — so the next insert into it does not decode it again; that parse is what
-> decoding the written page gives.
->
-> Because an overlay page is never served from the cache, this saves nothing for a page already written inside
-> the current transaction. Inserts outside a transaction, or early in one, gain the most; a long transaction
-> rewriting the same leaf repeatedly gains nothing.
-
 ### 10.3 Prefix compression
 
 Entries on a page share a leading prefix of `compressedByteCount` (`0x18`) bytes. The **first** entry is
@@ -110,8 +79,7 @@ omits. Reconstruct: `fullEntry = prefix ++ stored`.
 > more equal keys, which is ordinary for a non-unique index.
 
 > **Compression is optional on leaves.** A `compressedByteCount` of 0 (every entry stored in full)
-> is a valid *leaf* that Access reads without complaint — verified by rewriting a leaf uncompressed
-> and re-seeking it. **Node (`0x0103`) pages follow the same cycle as leaves** (below): a node is written
+> is a valid *leaf* that Access reads without complaint (verified). **Node (`0x0103`) pages follow the same cycle as leaves** (below): a node is written
 > uncompressed until it fills, compressed in place when it does, and split when that is not enough, both halves
 > then written at the largest prefix they share. So the node of a small two-level tree reads `0x18 = 0` — it has
 > never filled — while the halves of a split node carry a prefix (verified: 16 separators at prefix 0 with 176
@@ -121,11 +89,11 @@ omits. Reconstruct: `fullEntry = prefix ++ stored`.
 >
 > **A leaf with ≤ 1 entry writes `0x18 = 0`.** Prefix compression describes a prefix *shared across
 > entries*, so with zero or one entry there is nothing to share — ACE writes `compressedByteCount = 0`,
-> not the sole key's whole length (which is what a naive `CommonPrefixLength(key, key)` gives). Verified vs
-> ACE on a fresh root leaf holding a single key (e.g. the rebuild in §3.8). A **delete** is different: a leaf
-> keeps the prefix it is stored at however few entries are left, and one a delete empties is written once more,
-> holding none, before it leaves the tree (measured: a range DELETE leaves a leaf of a 2,000-row primary key at
-> prefix 3 with one entry, and an emptied one, freed, at prefix 3 with no entry and its mask clear).
+> not the sole key's whole length (which is what a naive `CommonPrefixLength(key, key)` gives) — a fresh
+> root leaf holding a single key, e.g. the rebuild in §3.8 (verified vs ACE). A **delete** is different: a leaf
+> keeps the prefix it is stored at however few entries are left — one entry at prefix 3 stays at 3 — and one a
+> delete empties is written once more, holding no entry at that prefix with its mask clear, before it leaves
+> the tree (measured; §10.4d).
 >
 > **A leaf is compressed only when it fills, and split only when compressing is not enough.** The prefix is
 > not a property recomputed on every write; it is applied once, in place, at the moment the page can no
@@ -159,8 +127,8 @@ omits. Reconstruct: `fullEntry = prefix ++ stored`.
 > appended at its right edge that shares less with its first entry than the stored prefix does not bring the
 > page down to the shorter prefix, even where every entry would fit there: the page keeps its entries at its
 > prefix and the right-edge split starts the next page with the new entry (measured: a leaf of one key at
-> prefix 7, given the next key, ends at the old key's last entry; on a one-row-a-page table, a leaf at prefix 6
-> holding 594 entries of one key does the same, where prefix 4 would have taken 128 more). Where the shorter
+> prefix 7, given the next key, ends at the old key's last entry; a leaf at prefix 6 holding 594 entries of one
+> key does the same, where prefix 4 would have taken 128 more). Where the shorter
 > prefix would not fit either, the split falls in the same place, so this only shows when it would.
 >
 > **Building an index follows the same rule** (verified): `CREATE INDEX` over a table's rows writes each leaf
@@ -314,8 +282,7 @@ to `n` bytes, as page-01 stores it. LibRed builds the row and every key from one
 > | `côté` | `02 12 02 0E` | `12 02 0E` | `01 0E 02 12 00` |
 >
 > So French orders by the LAST accent — `cote < côte < coté < côté`, where General gives
-> `cote < coté < côte < côté`. LibRed matches ACE across Latin-1 and Latin Extended-A with accents doubled and
-> tripled per string.
+> `cote < coté < côte < côté`. LibRed matches ACE (verified).
 >
 > A word with ONE accent encodes identically under French and General, so only a multi-accent word shows the
 > difference — the same shape of blind spot as the inline position field above.
@@ -992,8 +959,7 @@ make a delete byte-identical to ACE's:
 - **The page keeps its stored `compressedByteCount`.** A delete never recomputes the prefix. Dropping an
   entry can only widen what the rest share, so compressing to the largest prefix now available would be
   legal — and is not what ACE writes. This is the removal-side half of §10.3's "compressed only when it
-  fills": a delete never fills a page, so a delete never re-compresses. Measured: recomputing shortens a
-  two-entry leaf's live region by 4 bytes against ACE's on every leaf a cascading delete touches.
+  fills": a delete never fills a page, so a delete never re-compresses (measured).
 - **Bytes past the new free-space boundary keep their previous contents** (§10.4c).
 
 Keeping the stored count means the rewrite has to re-store the survivors at a prefix it did not choose, and
@@ -1007,7 +973,8 @@ Both engines then agree byte for byte: LibRed touches no page ACE does not (veri
 ### 10.4d A leaf the removal empties leaves the tree
 
 An underfull leaf is left alone (§10.4a), but a leaf whose **last** entry is removed is taken out of the tree
-rather than rewritten empty. Three things change together:
+rather than kept empty: it is written once more, holding no entry at its stored prefix (§10.3), and then
+unlinked. Three things change together:
 
 - **The leaf chain closes over it.** Its left neighbour's `nextPage` (`0x10`) takes its `nextPage`, and its
   right neighbour's `prevPage` (`0x0C`) takes its `prevPage`. A leaf that was the chain's head therefore
@@ -1018,7 +985,7 @@ rather than rewritten empty. Three things change together:
   collapsed into its remaining child: `entryCount = 0` over a live `0x14` is a valid node.
 - **The page is released** — cleared from the index's own pages map (`+0x22` of its data block) and returned
   to the global map. Its **type stays `0x0104`**: unlike a released data page ([page-09](page-09-released-data.md))
-  an index page carries no released-page marker, and none of its bytes change.
+  an index page carries no released-page marker, and the release itself changes none of its bytes.
 
 Two shapes keep an empty leaf, having nowhere to go: a leaf that **is** the root — an index with no rows is
 one empty leaf — and a leaf that is its parent's only remaining child.
@@ -1033,10 +1000,9 @@ entry bytes and releases every other page of the tree untouched — see
 free-space field (`0x02`) and leaves whatever the vacated bytes held — so a page normally carries the tail of
 a longer earlier generation of itself, which no reader reaches.
 
-> Measured on an insert that splits three levels of `[Order Details]`: on all seven index pages ACE rewrote
-> in place — leaves and nodes alike — the region past the new live end still held the pre-insert bytes; on
-> the one page ACE took fresh from the allocator (recycled from a data page of another table) that region was
-> zero.
+> On an index page ACE rewrites in place — leaf or node — the region past the new live end still holds the
+> pre-insert bytes; on a page ACE takes fresh from the allocator, even one recycled from another table's data
+> page, that region is zero (measured).
 
 A writer that instead builds each page in a clean buffer produces correct, readable files that differ from
 ACE's across the whole vacated region. The rule is cheap to honour: build as normal, then copy the
@@ -1120,10 +1086,8 @@ separator is the **maximum key of its child subtree**, stored as a full leaf key
 4-byte row pointer), so descend into the first child whose separator `≥` the new full key, else the
 child-tail (`0x14`). Slot the new entry into the target leaf in key order and rewrite the page.
 
-When a page would overflow, **split** it (LibRed's `IndexTree`). Verified **against ACE** on a
-multi-level tree LibRed wrote: Access's indexed point seek, indexed range, full `COUNT(*)`, non-indexed scan
-and `SUM` all return the correct result — i.e. every row is reachable both by the tree and by the leaf-chain
-scan Access uses.
+When a page would overflow, **split** it (LibRed's `IndexTree`). In a multi-level tree LibRed writes, every
+row is reachable both by the tree and by the leaf-chain scan Access uses (verified against ACE).
 
 The split mechanics:
 
@@ -1166,8 +1130,7 @@ The split mechanics:
   its child becomes the left node's child-tail, and the old tail stays the right node's tail. A node
   fills, compresses in place and splits exactly as a leaf does (§10.3), and both halves are written at the
   largest prefix they share. Nodes carry **sibling links** too: the halves point at each other through
-  `0x0C`/`0x10` and the old right neighbour's `0x0C` is repointed, as on a leaf (verified on a node split
-  under a root). Before promoting it, the child that split is repointed to its new right half, and that
+  `0x0C`/`0x10` and the old right neighbour's `0x0C` is repointed, as on a leaf (verified). Before promoting it, the child that split is repointed to its new right half, and that
   repointed node is what the compress step writes. **A node has a right-edge split too:** when the new
   separator is the node's last entry — the child that split was its tail, as on every split of an ascending
   load — the left node keeps every old entry but the last, that one is promoted (its child becoming the left
@@ -1214,16 +1177,15 @@ The split mechanics:
   - a **node's** left half additionally holds the promoted middle entry just past its live end, stored at the
     page's prefix: ACE writes it into the page and then ends the page before it.
 
-  Each verified byte for byte on a leaf root split (new key high and new key first), a node root split, and a
-  split of a non-root leaf by a new first key.
+  Each verified byte for byte.
 - **`CREATE INDEX` over existing rows** writes the tree that inserting the keys one at a time in key order
   would: every insert lands on the right edge, so the root keeps the page the index was created with, each
   leaf fills uncompressed, is compressed in place when full and splits at the right edge, the nodes above do
   the same, and pages are allocated in the order those splits happen, leaves and nodes interleaved. Verified
-  byte for byte, dead bytes included, on a tree of one node over three leaves and on one of two node levels.
-  The build takes its pages as an owner continuing in its own group does, in order: not by the two groups an
-  insert's B-tree works against the table's data ([page-05](page-05-usage-maps.md)) — measured on an index of
-  ten keys over 20,000 one-row pages, whose leaves ACE numbers one after another.
+  byte for byte, dead bytes included, to two node levels.
+  The build takes its pages as an owner continuing in its own group does, in order, so its leaves are numbered
+  one after another — not by the two groups an insert's B-tree works against the table's data
+  ([page-05](page-05-usage-maps.md)) (measured).
 
 > Newly allocated split pages are taken from the global free-page map ([page-05 §9.1](page-05-usage-maps.md)) and are registered in the
 > *index's own* owned-pages usage map as Access does — `IndexTree.AllocateIndexPage` sets the bit for

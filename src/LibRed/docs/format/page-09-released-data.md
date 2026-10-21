@@ -35,19 +35,18 @@ the type changes only once nothing live is left. The page is then taken out of *
 maps — owned and free — and released. Exactly one page is released per page emptied. The free-pages map is
 given the page's bit first, as for any page a delete frees space on, and loses it with the release: so a free-pages
 map that cannot take the bit inline — not empty, the page outside the window it can slide to — turns reference
-form, though the bit then goes (measured: deleting every seventh row of a one-row-a-page table spanning two
-ranges leaves its free-pages map in reference form with a bitmap for each; the order is inferred from that).
+form, though the bit then goes (the reference form is measured; the order is inferred from it).
 
 **An emptied page the free-pages map marks nothing below is kept.** It is never stamped and never given back,
 however empty it gets, and stays in both of the table's maps with all its slots tombstoned like any other emptied
 page; every other emptied page is released. So deleting every row of a table keeps its lowest page, the first
 the delete empties — even a table that has grown into pages below the one it started on keeps the lowest of them
-and releases its original first page (verified). It is not "a table keeps its first page", though: over 30 one-row
+and releases its original first page (verified). It is not "a table keeps its first page", though: on 30 one-row
 pages none of which the free-pages map marks (Id *n* on page 48 + *n*), deleting Ids 10–19 keeps page 58, the
 first it empties, and releases the rest; deleting 20–24 after that keeps none, the map marking 58 below them;
 deleting 20–24 first keeps 68, and 10–19 after it keeps 58 as well; deleting 0–4 and then 10–19 keeps only 48.
 A kept page that rows fill again leaves the map, and the next DELETE then keeps the first page it empties once
-more (measured, each byte for byte against ACE, on a file of 35,165 pages too).
+more (measured; LibRed agrees byte for byte).
 
 All of this is the **row-by-row** delete. A `DELETE` with no `WHERE` takes the other route below, and keeps
 nothing.
@@ -81,7 +80,7 @@ ACE empties the table in one go, without visiting a row, and **no page it releas
   and its checks evaluated as each row goes — one that fails only once some of the rows are gone refuses the
   statement (verified).
 - It holds for multi-level indexes, chained and packed long values, a definition on continuation pages, a table
-  already emptied row by row (its kept first page goes too), and tables with no index or a composite key. A
+  already emptied row by row (its kept page goes too), and tables with no index or a composite key. A
   table with a **complex column** takes it too, and the engine **leaves the flat table alone**: the owner's pages
   are released untouched, while the flat table keeps every row and its row count, each value now owned by no
   row (verified). LibRed does the same, byte for byte.
@@ -123,8 +122,11 @@ scan, meeting one in a table's owned map, reads it as rows like a live data page
 
 LibRed does the same on both routes, marking the existing page through `DataPage.MarkReleased`. Every page a row has been reclaimed from goes through
 `RowInserter.WriteReclaimedPage`, which sets the type, clears the page from the owning maps and returns it to
-the allocator once nothing live is left and the page is not the table's first; `RowInserter.ReleasePackedValue`
-applies the same rule to an LVAL page against the column's maps. A long-value page that survives goes back
+the allocator once nothing live is left and the page is not the lowest its free-pages map marks
+(`IsLowestFreePage`); `RowInserter.ReleasePackedValue`
+stamps an LVAL page once nothing live is left on it and releases it against the column's maps — with no
+lowest-page exception, but a column with no free-pages map keeps the stamped page in its owned map
+([long-values](long-values.md)). A long-value page that survives goes back
 into the column's **free** map, having room again.
 
 A `DELETE` with no `WHERE` goes through `RowInserter.Truncate` instead, which writes none of the pages it

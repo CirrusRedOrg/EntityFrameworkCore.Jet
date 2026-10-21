@@ -59,7 +59,7 @@ the declared length and no fixed or long flag, ADOX `adVarBinary` with its `Defi
 names it `BigBinary` only in its DataTypes list, where it is the binary type above 510 bytes.
 
 **In a query it is an OLE Object, not a binary.** Stored inline or not, ACE puts it under every restriction a
-long value has, with the same messages it gives `LONGBINARY` (verified, statement for statement, against both):
+long value has, with the same messages it gives `LONGBINARY` (verified):
 
 | Use | BigBinary and OLE alike |
 | --- | --- |
@@ -123,15 +123,14 @@ a declaration to something its existing data would violate.
 > index that round consistently with each other give no internal sign of it.
 
 **`BIGINT` is variable-length despite being a fixed 8 bytes.** ACE puts it behind the row's variable offset
-table rather than in the fixed region — a descriptor carrying length 8 with the fixed flag clear (verified: a
-column ACE creates has `length=8 fixed=False`, and its row holds the value at a variable-column start
-offset). Its *index* key is unaffected — key encoding dispatches on the column's type, not on where
+table rather than in the fixed region — a descriptor carrying length 8 with the fixed flag clear, the row
+holding the value in its variable section (verified). Its *index* key is unaffected — key encoding dispatches on the column's type, not on where
 the row keeps the bytes; the encoding itself is [§10.4](page-03-04-index-btree.md).
 
 > **The reason to match is faithfulness, not readability — ACE honours the descriptor's fixed flag.** It has
 > to: its own `MSysComplexType_GUID` declares `Value` *fixed* while every GUID column its DDL creates is
-> *variable*, so one engine reads both layouts routinely. Verified: a **fixed** BIGINT, Currency and
-> DateTime, and a **variable** Int32, Double, Currency and DateTime, all read back correctly through ACE. A
+> *variable*, so one engine reads both layouts routinely. ACE reads a **fixed** BIGINT, Currency and
+> DateTime, and a **variable** Int32, Double, Currency and DateTime, correctly (verified). A
 > fixed BIGINT is therefore *not* misread — the layout ACE writes is not the only one it looks for.
 
 **`GUID` is variable-length too — but only where ACE's DDL made it.** Every GUID column ACE's SQL creates
@@ -166,7 +165,7 @@ that byte order equals chronological order (an order-preserving inline encoding)
 `…737590:…495300000000:7` is 2020-06-15 13:45:30. Sub-second precision (to 100 ns) is preserved.
 
 Those three fields occupy **41** characters (19 + 1 + 19 + 1 + 1); the 42nd byte is a **NUL (`0x00`), not a
-space** — verified against rows ACE wrote (`… 3A 37 00`). The distinction is not cosmetic: the whole
+space** (verified vs ACE: `… 3A 37 00`). The distinction is not cosmetic: the whole
 42 bytes go into the index key verbatim, so a space there would put every key out of step with ACE's and make
 its seeks miss those rows.
 
@@ -451,7 +450,7 @@ type fits — 8 bytes as 4 wide characters, 42 bytes as binary — and hands bac
 converts, so nothing is corrupted but nothing is decoded either.
 
 **Only materialisation is broken, and only in the driver.** Through ODBC, an `INSERT` or `UPDATE` of either
-type stores the right value (read back from the file directly to confirm), `WHERE Big = 4294967297` and
+type stores the right value, `WHERE Big = 4294967297` and
 `WHERE Stamp = #…#` both match, and anything the engine computes comes back correctly — `CStr(Big)` returns
 `"4294967297"`, `Year(Stamp)` returns `2021`. It is only selecting the column itself, `MAX(Big)` included, that
 yields the undecoded bytes. So a caller stuck on ODBC can use either type by never selecting it bare; a tool

@@ -40,7 +40,7 @@
 
 > **The `0x659` / `0x783` record markers.** `0x0C` holds `0x659` (1625) in every file. This is
 > not isolated: `0x659` recurs as a fixed marker at the start of each repeating TDEF record —
-> column descriptor `+1` (2 bytes, §3.4), index-info block `+0` (4 bytes, §3.6), and this header
+> column descriptor `+1` (4 bytes, `+1`–`+4`, §3.4), index-info block `+0` (4 bytes, §3.6), and this header
 > slot (4 bytes) — while `0x783` (1923) marks each index-data block `+0` (§3.5). They are constant within and
 > across files; mdbtools describes them as "usually 1625 / 1923 *or 0*".
 >
@@ -77,7 +77,7 @@
 > [page-02d §3.5](page-02d-constraints.md).
 
 > **The AutoNumber counter wraps at the int32 boundary — there is no overflow error** (verified vs ACE
-> OLE DB 16.0/12.0). `0x14` is an ordinary signed int32 and the next id is `0x14 + 0x18` computed
+> 16.0 and 12.0). `0x14` is an ordinary signed int32 and the next id is `0x14 + 0x18` computed
 > **unchecked**, so an ascending counter runs
 > `… 2147483646, 2147483647, -2147483648, -2147483647 …` and a descending one mirrors it
 > (`-2147483648 → 2147483647`). ACE issues the wrapped id, writes it to `0x14`, and carries on — nothing in
@@ -232,25 +232,6 @@ safety budget** before allocation. That budget is an implementation hardening li
 claimed Jet/ACE field limit—and is deliberately far above the maximum observed/constructible from
 the documented 255-column, 32-index, and 64-character-name limits.
 
-When `length + 8` fits the first page, the reader requires its next-page pointer to be zero and decodes
-the declared-length slice of the shared copy-on-write page image directly. Chained definitions still use
-the assembled buffer above; the single-page path changes allocation, not the chain or length checks.
-
-For a catalog definition whose flags and property blob remain identical, LibRed retains decoded **DDL
-metadata**, separately from live row counts, AutoNumber high-waters and index statistics. It reuses that
-metadata after proving that the complete validated definition chain differs only in those counters;
-the existing field readers/writers normalize the counter-bearing prefix for comparison, and the rest
-of the declared definition must match byte-for-byte. This also applies to chained definitions. A
-requested table-state snapshot copies the column prototypes and remaps index columns, reads current
-counters, and retains unchanged properties; earlier snapshots are not modified. Materialised snapshots
-are held weakly, so the DDL cache does not keep decoded live state alive.
-
-Schema invalidation requests fresh catalog/property validation rather than discarding every decoded
-layout. An unchanged definition retains its DDL metadata; a structural/property change takes the full
-decoder. This structural check does not depend on `MSysObjects.DateUpdate` changing, so equal timestamps
-cannot hide an edit. Unknown external writes still require refreshing the underlying raw/parsed page
-pool before catalog validation; invalidating decoded catalog metadata alone does not refresh disk pages.
-
 > **Writing a multi-page TDEF (verified vs ACE).** The 8-byte continuation header is
 > `[0x02][0x01][free space: 2][next page: 4]` (page type, flags, then the same `0x02` free-space and
 > `0x04` next-page fields as page 1). The **first page is filled completely** (free space `0`) and its
@@ -285,7 +266,7 @@ pool before catalog validation; invalidating decoded catalog metadata alone does
        column usage maps     (per long-value column) × 10 bytes, then 0xFFFF  (§3.3.2)
 ```
 
-> **Object-name limits (verified vs ACE OLE DB).** The 2-byte length prefix could physically hold a
+> **Object-name limits (verified vs ACE).** The 2-byte length prefix could physically hold a
 > 65535-byte name, but ACE enforces **64 characters** for table/column/index names — a longer name makes ACE
 > reject the *entire file* (65+ char column → "Unrecognized database format"; 65+ char table → "Unspecified
 > error"), not just the object. ACE's *storage/read* path tolerates every special character (quotes, `#`, `%`,
@@ -313,8 +294,8 @@ and markers the reader ignores** (`0x01` flags, the `0x0659`/`0x0783` markers, e
 bytes, the `0x80`/`0x08` index-flag bits, …). The reader being lenient about a field does **not**
 make it optional on write. (Of these, the `0x0659`/`0x0783` markers are known field by field, §3.1: every engine
 accepts zero in all of them, and refuses a header or column value above its own build — ACE 4518, Jet 4.0 9801.) With every documented
-field populated, a LibRed-written TDEF matches an ACE-created one **byte-for-byte** (verified by
-diffing; only page numbers and the auto-generated index name differ).
+field populated, a LibRed-written TDEF matches an ACE-created one **byte-for-byte** (verified vs ACE;
+only page numbers and the auto-generated index name differ).
 
 Only a few fields are *not* fixed constants and so warrant a write note:
 
@@ -348,8 +329,7 @@ Only a few fields are *not* fixed constants and so warrant a write note:
   scanning every existing row (`AddEntry` per row). Verified vs ACE: a primary key added after data
   enforces uniqueness and seeks correctly, including a back-fill that splits the tree.
 
-> **Access opens and round-trips a LibRed-created table** (empty `COUNT`, `INSERT`, read-back —
-> verified through the ACE OLE DB provider) only when *all* of the following hold together; each is
+> **Access opens and round-trips a LibRed-created table** (verified) only when *all* of the following hold together; each is
 > independently necessary (omitting any one gives "Unrecognized database format"):
 >
 > 1. **TDEF byte-validity** — every constant/marker written (§3.1), and the trailing `0xFFFF` that

@@ -41,12 +41,12 @@ extended mode.
 
 ## What the file actually carries
 
-Three places, and all three must agree. Measured with DAO-authored columns of every type it will create.
+Three places, and all three must agree (measured, for every result type DAO will create).
 
 **1. The column descriptor** — a *promoted storage type*, the `0xC0` extended flag, always variable-length,
 declared length `39` for a value type and `0` when the result is a Memo.
 
-**2. The value envelope** in the variable slot — `[reserved:16][length:4][payload:n][padding:3]`.
+**2. The value envelope** in the variable slot — `[status:4][reserved:12][length:4][payload:n][padding:3]`.
 
 **3. The table's property blob (`LvProp`)**, which is where the real semantics live:
 
@@ -274,8 +274,7 @@ itself refuses too: setting the saved field's `Expression` property through its 
 (verified). Only the table designer's UI offers the change. There is therefore no oracle for "alter the
 expression", and anything LibRed offers there is its own extension rather than ACE-matching behaviour.
 
-**ACE does not protect a reference; every ALTER is accepted, two of them destructively.** Measured through
-ACE SQL, each on its own table:
+**ACE does not protect a reference; every SQL ALTER is accepted, two of them destructively** (measured):
 
 | operation | ACE | the calculated column afterwards |
 | --- | --- | --- |

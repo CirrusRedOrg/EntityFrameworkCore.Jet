@@ -13,31 +13,6 @@
   build a TableDefinition for MSysObjects from the page `0x20` names ([page-00 §2](page-00-database.md)) and read
   its rows like any table.
 
-  **LibRed decode reuse.** A bounded, per-catalog table-definition memo validates the copy-on-write
-  catalog-row page and TDEF page images before reusing a name lookup. A changed catalog-row image takes
-  the indexed lookup again. When that row remains unchanged, a changed TDEF goes straight to the definition
-  reader; its decoded layout can still be reused when only its counters differ (see
-  [TDEF decoding](page-02a-tdef.md)) and its flags and `LvProp` bytes agree.
-  DDL property updates likewise seek LONG object ids through an available matching index, using the same
-  residual key check and materialising matches before writing. Other key kinds keep the coercing scan.
-  A data write replacing the TDEF image therefore refreshes
-  row counts and AutoNumber seeds without relying on a DDL notification. Continuation/schema changes
-  invalidate through the shared schema generation; rollback exposes a different page image too.
-  Between pool-image changes, the prior image check is reusable by generation. Inside a transaction,
-  the reader always compares the overlay images directly rather than using the committed pool's generation.
-  A schema invalidation advances the schema generation first and then the pool-image generation, so an
-  unchanged pool generation also proves that no schema invalidation has occurred since the prior check.
-  A completed enumeration's live snapshots are reusable at the same pool-image generation. After an image
-  change, the table-name directory survives if its catalog dependencies still match; requested snapshots
-  refresh independently. Transaction-local live enumerations are not retained.
-  Both table definitions and relationship lookups are bounded to 64 entries. Adding a new key at capacity
-  evicts one entry instead of clearing the cache; the bootstrap MSysObjects definition remains resident.
-  Definitions are not shared between handles, because a writer updates its own counter seed in memory.
-  The SQL binder reuses schema wrappers by validated DDL identity. Their column names, nullability and
-  CLR types are materialised only when requested; row counts and AutoNumber state are not retained there.
-  An unknown external ACE write must invalidate the **whole** page/parse pool and advance the shared
-  invalidation generation: it cannot be treated as a change to a guessed-at table alone.
-
   > **Why the hidden bit / `#` prefix matter.** Missing them makes a hidden helper such as
   > EFCore.Jet's `#Dual` (`Flags = 0x08`) count as a *user* table, so a "has any user tables?" check
   > wrongly reports a schema-less database as populated — which makes EF Core's `EnsureCreated` skip
@@ -341,8 +316,8 @@
   > (descriptor flag `0x04`, TDEF `0x14`/`0x18` at their plain-counter defaults `0`/`1` and **ignored**) plus a
   > **column `DefaultValue` extended-property** holding the built-in expression **`GenUniqueID()`** — the
   > function that returns a random Long. There is **no** dedicated flag or "New Values" property; the
-  > Increment-vs-Random distinction lives entirely in this default expression. Verified against an
-  > Access-authored file: the ID descriptor and TDEF header are **byte-identical** to an increment counter, so
+  > Increment-vs-Random distinction lives entirely in this default expression. Verified: the ID descriptor and
+  > TDEF header are **byte-identical** to an increment counter's, so
   > the ordinary DefaultValue read path surfaces it (`ColumnDef.DefaultValue` = `"GenUniqueID()"`) with no
   > special handling. A Random AutoNumber **can** be created in pure SQL (not UI/DAO-only): `CREATE TABLE T
   > (Id COUNTER DEFAULT GenUniqueID(), ...)` — also `AUTOINCREMENT`/`COUNTER PRIMARY KEY` forms — is accepted
@@ -394,8 +369,9 @@
   - **`Id`** is the next negative synthetic id: one past the highest in the file, from the sequence queries draw
     on, so relationships and queries interleave (`0x8000002C` relationship, `0x8000002D` view,
     `0x8000002E` relationship), and a dropped relationship's id is taken by the next object.
-  - **`MSysACEs` rows** from the `Relationships` container's inheritable grants (§11): the Users SID with ACM
-    `0xF00FE` and admin's with `0xFFFFF` in the databases examined (verified against ACE's `ADD CONSTRAINT`).
+  - **`MSysACEs` rows** from the `Relationships` container's inheritable grants (§11): where it grants Creator
+    `0xF00FE` and Users `0xFFFFF`, the owner (admin) SID with ACM `0xF00FE` and the Users SID with `0xFFFFF`
+    (verified vs ACE).
   - **Dropping it** — `DROP CONSTRAINT`, or `DROP TABLE` of the referencing table — removes the object and its
     two `MSysACEs` rows. A `DROP TABLE` removes them after the table's own rows
     ([page-08](page-08-released-tdef.md)).
@@ -622,7 +598,7 @@
   > `(who TEXT(20), lim LONG)` marks `lim`'s row; `(lim LONG, who TEXT(20))` leaves it null. In
   > `CREATE PROCEDURE p (who TEXT(20)) AS UPDATE Customer SET Name = who WHERE Id = 999` ACE writes an
   > **uninitialised** value, not `0`, in the WHERE row's `LvExtra` (verified): the same in every run within one ACE
-  > process and different in the next (`0xDD`, `0x90`, `0xAD` from the same file). LibRed writes `0`.
+  > process and different in the next (`0xDD`, `0x90`, `0xAD`). LibRed writes `0`.
   >
   > **Dropping a query** deletes its rows in key order — `(Attribute, Order)` — whatever order they were written
   > in (verified).
@@ -660,7 +636,7 @@
   > 1. a 472-byte structure at `0x00`, holding pointers to the structures after it — the 512-byte one and the
   >    slot table among them;
   > 2. four arrays from `0x1D8`, 8 bytes per output column each (the third holds `0x409`, which matches the
-  >    database's sort order but has not been varied to prove it), then the names, NUL-terminated UTF-16 and
+  >    database's sort order — inferred, not verified), then the names, NUL-terminated UTF-16 and
   >    8-aligned: each output column table-qualified, the column, the table;
   > 3. a 288-byte structure carrying an OLE date;
   > 4. a structure naming the table, 32 bytes plus 32 per output column (64, 96, 128 for one, two, three);
@@ -734,7 +710,7 @@
   >
   > **Complex-column system tables (ACE 12+ only).** Access 2007 introduced multi-value and attachment
   > columns, and with them `MSysComplexColumns` (the registry) plus nine `MSysComplexType_*` flat storage
-  > tables. **Jet 4 has none of them.** As the engine creates them (verified, DAO-created ACE 12 database):
+  > tables. **Jet 4 has none of them.** As the engine creates them (verified, ACE 12):
   >
   > | table | columns (id) | indexes | `MSysObjects.Flags` |
   > | --- | --- | --- | --- |
@@ -817,8 +793,7 @@
   > DAO values in the table above (16/32/48/64/80/96/128).
   >
   > **A declared parameter's facets live in the `0x02` row's `LvExtra`**, and Access renders the PARAMETERS
-  > clause from them — a row without them reads back as `Text(255)`. Verified against ACE, declaration by
-  > declaration:
+  > clause from them — a row without them reads back as `Text(255)` (verified vs ACE):
   >
   > | declared | `Flag` | `LvExtra` |
   > |---|---|---|
@@ -862,20 +837,6 @@
   single-column FK stores `ccolumn = 1`, `icolumn = 0`, `grbit = 0`; a relationship cascading both update
   and delete stores `grbit = 0x1100`; Access's relationship dialog writes each bit above as its option says.
 
-  LibRed retains decoded relationship sets as DDL metadata, including empty indexed lookups. It validates
-  the system table's captured TDEF, usage-map holder, reference bitmap and data-page images, together with
-  both endpoint tables' DDL metadata. Recording the map dependencies through the existing usage-map reader
-  detects newly allocated catalog pages without rescanning the map on a cache hit. Inserts, updates and
-  deletes in the child or parent do not discard an unchanged relationship set. The table-name directory
-  uses the same catalog-page dependency validation; requested live table-state snapshots remain separate.
-  An evicted/refreshed image with identical bytes retains the decoded metadata and adopts the new image
-  identity, so replacing the raw page cache alone does not imply a schema change.
-  If only a map dependency changes, the existing usage-map reader rechecks the catalog's owned-page set
-  and rows. A different record on a shared map holder, or free-space bookkeeping, does not discard them.
-  An empty owned-page set proves that the relationship catalog has no rows, so its empty indexes need no
-  seek. The same map dependencies detect its first allocated data page; the row-count header is not used
-  to cache or infer emptiness.
-
   > **`grbit` records the relationship; ACE does not act on its cascade bits.** The update and delete actions
   > ACE applies are the ones in the relationship's index-info blocks (§3.6, `0x15`/`0x16`): with the two made
   > to disagree, a parent delete that `grbit` calls cascading but the blocks do not is refused, and one the
@@ -896,8 +857,8 @@
   > uniquely indexed (the parent PK). LibRed writes all of it, including the byte-faithful relationship
   > logical-index linkage in *both* tables' TDEFs (§3.6: outgoing block on the child, incoming block on the
   > parent, cross-referenced by `index_num`) at `CREATE TABLE` time.
-  > Verified: a LibRed-created relationship is byte-identical to an ACE-created one (bar index *names*),
-  > Access opens the file without repair, and `GetOleDbSchemaTable(Foreign_Keys)` enumerates it.
+  > Verified: a LibRed-created relationship is byte-identical to an ACE-created one (bar index *names*), and
+  > Access opens the file without repair and lists the foreign key.
   >
   > **An UNENFORCED relationship (`grbit & 0x02`) is the catalog rows alone** (verified) — no backing index
   > on the child, no outgoing or incoming block in either TDEF, and the referenced parent column need carry
@@ -928,7 +889,7 @@
   > relationship via the table, not by dropping that index).
   >
   > **Renaming a table or column (ACE-verified).** Because this table stores its tables and columns **by
-  > name**, a rename has to repoint them — and ACE does. Verified against ACE (via the DAO/ADOX rename path):
+  > name**, a rename has to repoint them — and ACE does (verified):
   > renaming a table rewrites `szObject` / `szReferencedObject`, renaming a column rewrites `szColumn` / `szReferencedColumn`, and in both cases the
   > relationship keeps its own `szRelationship` name and its enforcement — the rename is **not** refused for a
   > table in an enforced relationship. Nothing else moves: indexes (including the PK) keep their own names and
@@ -952,8 +913,8 @@
   - **`Type`** is the object's `MSysObjects.Type` read as an unsigned 16-bit value — `1` table, `5` query,
     `32768` form, `32772` report.
   - **`Name`** is the object's name as it was when the row was written, stored **with a trailing NUL**.
-  - **`GUID`** is the object's own `GUID` property (the 16-byte Binary property in its `LvProp`) — in all but a
-    few rows, which Access has left stale.
+  - **`GUID`** is the object's own `GUID` property (the 16-byte Binary property in its `LvProp`), though Access
+    can leave a row's stale.
   - **`Id`** is **not** the `MSysObjects` Id: it is distinct within a file, not contiguous, and not decoded.
   - **`NameMap`** is a long-value column with an owned-pages map and no free-pages map, so each map over 64
     bytes has an LVAL page to itself ([long-values.md](long-values.md) §3.3.2).
@@ -1044,9 +1005,8 @@ Four layers — the user table, then three kinds of ordinary hidden/system table
 > each value id stays unique.
 
 > **The names are creation-time and do not follow renames.** `<Table>_<Column>` is whatever the table and
-> column were called when the complex column was made, and so is the `f_<GUID>_<Column>` table itself:
-> `Borrow.BRW_book`'s value-id column is still `Table1_BRW_book`, `Book.BK_category` is backed by
-> `f_…_TempField*7` with columns `_TempField*7` / `Book_TempField*7`, and `COVER.Attachments` by `f_…_Field1`.
+> column were called when the complex column was made, and so is the `f_<GUID>_<Column>` table itself: after
+> a rename, the value-id column, the owner-link column and the flat table all keep the old names.
 > **Never build these names from the current schema** — resolve the table through `MSysComplexColumns.FlatTableID`,
 > then the two columns through the index shape (primary index → value id; the lone non-unique single-column
 > index → owner link).
@@ -1156,25 +1116,24 @@ and flat table behind. LibRed's `DROP COLUMN` does the same as ACE on both count
 ### Attachment payload — `FileData`
 
 An attachment's `FileData` is an OLE long value wrapping the file, with an 8-byte outer header, optional
-deflate, and a 20-byte inner header naming the extension. Verified on a `pdf`, an `mp3` and a `png`, across
-both storage modes, with the file's own magic number checked after the inner header:
+deflate, and a 20-byte inner header naming the extension (verified, in both storage modes):
 
 ```
 outer header, 8 bytes
   [0..3]  compression flag: 1 = a zlib stream follows, 0 = raw bytes follow
   [4..7]  length of the body once decompressed
 
-body  (inflate when the flag is 1 — the inflated length matched [4..7] exactly)
+body  (inflate when the flag is 1 — the inflated length equals [4..7] exactly)
   inner header, 20 bytes
     [0..3]   = 20, the inner header's own length
-    [4..7]   = 1                     (constant on every sample)
+    [4..7]   = 1                     (constant)
     [8..11]  = 4                     (extension length in UTF-16 units; 12 + 8 = 20)
     [12..19] extension, UTF-16, null-terminated — "pdf", "mp3", "png"
   then the file's bytes verbatim
 ```
 
 The stream is standard zlib (RFC 1950, opening `78 5E`), so `ZLibStream` reads it without skipping a header.
-`FileFlags` and `FileTimeStamp` were `NULL` on every attachment Access wrote.
+`FileFlags` and `FileTimeStamp` are `NULL` on the attachments Access writes (observed).
 
 > **Capability and policy are different here.** The *format* stores a payload either way — the outer flag
 > says which, ACE reads both, and a long value's stored length runs to `0x3FFFFFFF` (ACE accepts that and

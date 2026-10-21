@@ -50,7 +50,10 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         // as-is (Jet, unlike SQL Server, permits explicit AutoNumber values); either way the row's
         // final id drives both the row encoding and the high-water update below. A row refused from here on
         // keeps its drawn ids used, which a rollback writes back (PageChannel.KeepThroughRollback).
-        bool[]? generatedAutoNumbers = AssignAutoNumbers(format, values);
+        // The definition page is read once: its counters are drawn from and advanced in this one copy, and
+        // nothing between here and UpdateTdefCounters writes that page.
+        byte[] tdef = _channel.ReadPageShared(_table.DefinitionPage).Span.ToArray();
+        bool[]? generatedAutoNumbers = AssignAutoNumbers(format, values, tdef);
         validate?.Invoke(values);
         if (updateIndexes) EnforceNonNullKeys(values);   // after AssignAutoNumbers, so a counter key has its value
 
@@ -85,7 +88,7 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
 
         // Asked before the row's own entries go in, so an index "already has" a key only through another row.
         HashSet<int> newKeys = updateIndexes ? IndexesGainingANewKey(values) : [];
-        UpdateTdefCounters(format, values, generatedAutoNumbers, newKeys);
+        UpdateTdefCounters(format, tdef, values, generatedAutoNumbers, newKeys);
         if (updateIndexes)
             UpdateIndexes(values, new RowId(pageNumber, rowCount));
     }
@@ -1216,14 +1219,13 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     /// (null when it generated none), which <see cref="UpdateTdefCounters"/> uses to tell a generated
     /// id from a caller-supplied one.
     /// </summary>
-    private bool[]? AssignAutoNumbers(JetFormatBase format, object?[] values)
+    private bool[]? AssignAutoNumbers(JetFormatBase format, object?[] values, ReadOnlySpan<byte> tdef)
     {
         bool needed = false;
         foreach (ColumnDef column in _table.Columns)
             if (column.IsAutoNumber && values[column.Index] is null or DBNull) { needed = true; break; }
         if (!needed) return null;
 
-        ReadOnlySpan<byte> tdef = _channel.ReadPageShared(_table.DefinitionPage).Span;
         int highWater = TableDefinition.ReadLastAutoNumber(tdef, format);
 
         // A complex (multi-value / attachment) column is an AutoNumber too, but it draws on its own counter
@@ -1284,8 +1286,8 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     }
 
     /// <summary>
-    /// Updates the TDEF counters Access maintains on insert, in one read-modify-write of the TDEF
-    /// page:
+    /// Updates the TDEF counters Access maintains on insert in <paramref name="tdef"/>, the copy of the
+    /// definition page the insert read before drawing its ids, and writes it:
     /// <list type="bullet">
     /// <item>Row count (`0x10`) — incremented.</item>
     /// <item>AutoNumber high-water (`0x14`) — set to the id just written whenever that id advances the
@@ -1304,10 +1306,8 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     /// matched, in <see cref="Delete"/>.</item>
     /// </list>
     /// </summary>
-    private void UpdateTdefCounters(JetFormatBase format, object?[] values, bool[]? generatedAutoNumbers, HashSet<int> newKeys)
+    private void UpdateTdefCounters(JetFormatBase format, byte[] tdef, object?[] values, bool[]? generatedAutoNumbers, HashSet<int> newKeys)
     {
-        byte[] tdef = _channel.ReadPageShared(_table.DefinitionPage).Span.ToArray();
-
         TableDefinition.WriteRowCount(tdef, format, TableDefinition.ReadRowCount(tdef, format) + 1);
 
         // The record's complex id rides its own counter at 0x1C, and every complex column of the table holds

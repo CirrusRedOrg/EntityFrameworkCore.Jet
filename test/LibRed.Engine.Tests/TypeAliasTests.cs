@@ -31,6 +31,9 @@ public class TypeAliasTests : TempDatabaseTest
     // Bare TEXT is Memo (long text); TEXT(n) is a sized varchar.
     [InlineData("TEXT", JetDataType.Memo, 0)]
     [InlineData("TEXT(50)", JetDataType.Text, 100)]
+    // NATIONAL TEXT is TEXT, both ways.
+    [InlineData("NATIONAL TEXT", JetDataType.Memo, 0)]
+    [InlineData("NATIONAL TEXT(10)", JetDataType.Text, 20)]
     public void Alias_maps_to_ace_storage(string sqlType, JetDataType expectedType, int expectedLength)
     {
         ColumnDef c = Column(sqlType);

@@ -60,6 +60,26 @@ public readonly record struct ComplexAttachment(string Extension, byte[] Content
     {
         "jpg", "jpeg", "gif", "png", "zip", "cab", "docx", "xlsx", "xlsb", "pptx",
     };
+
+    /// <summary>
+    /// The extensions ACE refuses to take as an attachment (verified through DAO's <c>LoadFromFile</c>, ACE 16:
+    /// each refused with <c>0x800C000E</c>, whatever its case). That error is urlmon's, so ACE is inferred to take
+    /// the list from Windows' own dangerous file types, and another machine may refuse more or fewer; these are the
+    /// ones it refused here, out of every candidate tried.
+    /// </summary>
+    private static readonly HashSet<string> Blocked = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "accda", "accdb", "accde", "accdr", "accdt", "accdu", "ade", "adp", "app", "application", "appref-ms",
+        "appx", "asp", "bas", "bat", "cab", "cer", "chm", "cmd", "cnt", "com", "cpl", "crt", "csh", "der",
+        "diagcab", "exe", "fxp", "gadget", "grp", "hlp", "hpj", "hta", "img", "inf", "ins", "iso", "isp", "its",
+        "jar", "js", "jse", "ksh", "library-ms", "lnk", "mad", "maf", "mag", "mam", "maq", "mar", "mas", "mat",
+        "mau", "mav", "maw", "mcf", "mda", "mdb", "mde", "mdt", "mdw", "mdz", "msc", "msh", "msh1", "msh1xml",
+        "msh2", "msh2xml", "mshxml", "msi", "msix", "msp", "mst", "ops", "pcd", "pif", "pl", "plg", "prf", "prg",
+        "ps1", "ps1xml", "ps2", "ps2xml", "psc1", "psc2", "psd1", "pst", "py", "pyc", "pyo", "pyw", "pyz", "pyzw",
+        "reg", "scf", "scr", "sct", "search-ms", "settingcontent-ms", "shb", "shs", "theme", "themepack", "tmp",
+        "url", "vb", "vbe", "vbp", "vbs", "vhd", "vhdx", "vsmacros", "vsw", "website", "ws", "wsc", "wsf", "wsh",
+        "xbap", "xnk",
+    };
 #pragma warning restore IDE0028
 
     /// <summary>
@@ -80,8 +100,8 @@ public readonly record struct ComplexAttachment(string Extension, byte[] Content
     /// <summary>
     /// Throws when <paramref name="fileName"/> or <paramref name="content"/> breaks one of <b>Access's</b>
     /// documented attachment limits — the 256 MB per file, the 255-character name, and the characters a name
-    /// may not contain. None of these is a format limit; they are what the Access UI enforces, and a file
-    /// breaking them is one Access would not have created and may not open.
+    /// may not contain — or names a type ACE refuses to attach (<see cref="Blocked"/>). None of these is a format
+    /// limit: a file breaking them is one Access would not have created and may not open.
     /// </summary>
     public static void ValidateAccessLimits(string fileName, ReadOnlySpan<byte> content)
     {
@@ -96,6 +116,10 @@ public readonly record struct ComplexAttachment(string Extension, byte[] Content
         if (fileName.IndexOfAny(['?', '"', '/', '\\', '<', '>', '*', '|', ':']) >= 0)
             throw new ArgumentException(
                 $"An attachment name cannot contain any of ? \" / \\ < > * | : — '{fileName}' does.",
+                nameof(fileName));
+        if (Blocked.Contains(Path.GetExtension(fileName).TrimStart('.')))
+            throw new ArgumentException(
+                $"ACE refuses to attach a file of type '{Path.GetExtension(fileName)}' — '{fileName}' is blocked.",
                 nameof(fileName));
     }
 

@@ -1,6 +1,9 @@
 using LibRed;
 using LibRed.Engine;
 using LibRed.Engine.Plan;
+using LibRed.Engine.Execution;
+using LibRed.Engine.Planning;
+using LibRed.Sql.Parsing;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -40,6 +43,23 @@ public class ColumnPruningTests : TempDatabaseTest
     private static int[] Sorted(QueryEngine e, string sql) => [.. Ints(e, sql).Order()];
 
     private static object?[] RowOfT(QueryEngine e, int id) => Rows(e, $"SELECT * FROM T WHERE Id = {id}").Single();
+
+    [Fact]
+    public void A_prepared_plan_reads_current_rows_and_parameters_on_each_execution()
+    {
+        QueryEngine e = Seeded();
+        PlanNode plan = QueryPlanner.PlanStatement(new AntlrSqlParser().ParseStatement(
+            "SELECT Id, Label FROM T WHERE Grp = @g ORDER BY Id"));
+        List<(int, string)> Execute(int group) => [.. new QueryExecutor(e.Database,
+            new Dictionary<string, object?> { ["g"] = group }).ExecuteQuery(plan).Rows
+            .Select(row => ((int)row[0]!, (string)row[1]!))];
+
+        Assert.Equal([(1, "L1"), (4, "L4"), (7, "L7"), (10, "L10")], Execute(1));
+        e.ExecuteNonQuery("UPDATE T SET Grp = 2, Label = 'changed' WHERE Id = 1");
+        Assert.Equal([(1, "changed"), (2, "L2"), (5, "L5"), (8, "L8"), (11, "L11")], Execute(2));
+        e.ExecuteNonQuery("INSERT INTO T (Id, Grp, Label) VALUES (13, 1, 'new')");
+        Assert.Equal([(4, "L4"), (7, "L7"), (10, "L10"), (13, "new")], Execute(1));
+    }
 
     // --- every place a column can be read from, each the only place that names it -----------------------
 

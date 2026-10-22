@@ -17,8 +17,8 @@ namespace LibRed.Core.Tests;
 /// <list type="bullet">
 /// <item>a 255-column definition spans TDEF continuation pages, so repointing an index's B-tree root
 /// after a root split has to address the stitched definition, not just its first page;</item>
-/// <item>the free-pages map slides a fixed 512-page window instead of growing, so it stays 69 bytes
-/// and leaves the usage-map page's room to the owned map (as Access does);</item>
+/// <item>the free-pages map never grows, so it stays 69 bytes and leaves the usage-map page's room to the
+/// owned map (as Access does);</item>
 /// <item>the reference-type usage map write path, including the inline→reference conversion.</item>
 /// </list>
 /// Access must be able to read the result — that is what makes the layout byte-faithful rather than
@@ -68,12 +68,12 @@ public class WideTableUsageMapTests
     }
 
     /// <summary>
-    /// The free-pages map tracks only the current append tail, so rather than growing a bitmap out from
-    /// page 0 it slides a 64-byte window aligned to a 512-page boundary — verified against ACE, whose free
-    /// map for a table whose tail sat on page 852 / 1227 / 1852 started at 512 / 1024 / 1536.
+    /// The free-pages map never grows, and a page whose first row leaves no room for a second as large never
+    /// enters it: ACE, filling this very table (2,000 one-page rows, the tail left with 2,010 bytes free), leaves
+    /// the free map empty — so it stays one 64-byte window, marking nothing.
     /// </summary>
     [Fact]
-    public void The_free_pages_map_slides_a_512_page_window_instead_of_growing()
+    public void A_table_of_rows_over_half_a_page_leaves_its_free_map_empty()
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "freewin-");
         try
@@ -84,17 +84,10 @@ public class WideTableUsageMapTests
 
             Fill(table, 2_000); // one row per page, so the tail is ~2,300 pages in
 
-            (UsageMapType type, int length, int startPage) = ReadMap(table, db.Format, db.Format.TdefFreePagesOffset);
-            int window = db.Format.UsageMapInlineBitmapSize * 8;
+            (UsageMapType type, int length, _) = ReadMap(table, db.Format, db.Format.TdefFreePagesOffset);
             Assert.Equal(UsageMapType.Inline, type);
             Assert.Equal(db.Format.UsageMapInlineRecordSize, length); // 5-byte header + a fixed 64-byte bitmap, never grown
-            Assert.Equal(0, startPage % window);   // window aligned to a 512-page boundary
-
-            // The window covers the tail: exactly one page has room, and it is the highest owned page.
-            var usage = new UsageMap(table.Channel, table.Definition);
-            int tail = Assert.Single(usage.FreeDataPages());
-            Assert.Equal(usage.MaxDataPage(), tail);
-            Assert.InRange(tail, startPage, startPage + window - 1);
+            Assert.Empty(new UsageMap(table.Channel, table.Definition).FreeDataPages());
         }
         finally { TemporaryDatabase.Delete(path); }
     }

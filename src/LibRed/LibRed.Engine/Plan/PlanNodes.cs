@@ -3,12 +3,18 @@ using LibRed.Sql.Ast;
 
 namespace LibRed.Engine.Plan;
 
-/// <summary>Full-table scan of a base table, exposing its columns under <paramref name="Alias"/>.</summary>
-public sealed record ScanNode(string Table, string? Alias) : PlanNode
+/// <summary>Full-table scan of a base table, exposing its columns under <paramref name="Alias"/>. The table is in
+/// <paramref name="Database"/> when its FROM names another file with IN externaldatabase, and so are the indexes
+/// index selection chooses from for it.</summary>
+public sealed record ScanNode(string Table, string? Alias, ExternalDatabase? Database = null) : PlanNode
 {
     /// <summary>The column names the query reads, when <c>ColumnPruning</c> has shown nothing else can reach the
     /// output; every other column is left undecoded and reads as null. Null decodes them all.</summary>
     public IReadOnlySet<string>? Decode { get; init; }
+
+    /// <summary>Whether each row carries its record's <c>RowId</c> after its columns, in a column no name can
+    /// reach — for a <see cref="DistinctRowNode"/> above, which tells records apart by it and drops it.</summary>
+    public bool RowIds { get; init; }
 }
 
 /// <summary>A FROM-less SELECT source: yields exactly one row with no columns, so a constant projection like
@@ -20,12 +26,16 @@ public sealed record SingleRowNode : PlanNode;
 /// evaluated <paramref name="Keys"/> (one per index column, in index order), instead of a full scan. Exposes
 /// the same columns as a scan of the table. The seek is an access path that may over-return (the key encoding
 /// is lossy for text/binary), so the residual predicate is re-checked by the <see cref="FilterNode"/> above.
-/// A key may reference an outer row (index-nested-loop join).
+/// A key may reference an outer row (index-nested-loop join). <paramref name="Database"/> is the scan's it replaced.
 /// </summary>
-public sealed record IndexSeekNode(string Table, string? Alias, IndexDef Index, IReadOnlyList<Expression> Keys) : PlanNode
+public sealed record IndexSeekNode(string Table, string? Alias, IndexDef Index, IReadOnlyList<Expression> Keys,
+    ExternalDatabase? Database = null) : PlanNode
 {
     /// <summary>As <see cref="ScanNode.Decode"/>.</summary>
     public IReadOnlySet<string>? Decode { get; init; }
+
+    /// <summary>As <see cref="ScanNode.RowIds"/>.</summary>
+    public bool RowIds { get; init; }
 }
 
 /// <summary>
@@ -38,11 +48,21 @@ public sealed record IndexSeekNode(string Table, string? Alias, IndexDef Index, 
 /// <c>ORDER BY</c> matching the index uses instead of sorting (see <c>IndexSelection.OrderedIndexRead</c>).
 /// That is the one case where the index may have several columns: the bounds are what the executor reads a
 /// single column for, and there are none.</para>
+/// <paramref name="Database"/> is the scan's it replaced.
 /// </summary>
-public sealed record IndexRangeSeekNode(string Table, string? Alias, IndexDef Index, Expression? Low, Expression? High) : PlanNode
+public sealed record IndexRangeSeekNode(string Table, string? Alias, IndexDef Index, Expression? Low, Expression? High,
+    ExternalDatabase? Database = null) : PlanNode
 {
     /// <summary>As <see cref="ScanNode.Decode"/>.</summary>
     public IReadOnlySet<string>? Decode { get; init; }
+
+    /// <summary>As <see cref="ScanNode.RowIds"/>.</summary>
+    public bool RowIds { get; init; }
+
+    /// <summary>The bounds are a <c>BETWEEN</c>'s, which takes them in either order: the executor puts them in the
+    /// index's order once their values are known, so a parameter or an expression can be a bound as well as a
+    /// literal.</summary>
+    public bool Unordered { get; init; }
 }
 
 /// <summary>A derived table: the output of <paramref name="Input"/> re-exposed under an alias. The alias
@@ -52,6 +72,10 @@ public sealed record DerivedTableNode(PlanNode Input, string? Alias, IReadOnlyLi
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }
+
+/// <summary>A crosstab. Its columns depend on the data — one per pivot value — so it is planned and run whole when
+/// executed, as a subquery is, rather than as a tree of nodes here.</summary>
+public sealed record CrosstabNode(TransformStatement Transform) : PlanNode;
 
 /// <summary>Index seek/range scan over a named index.</summary>
 public sealed record IndexScanNode(string Table, string Index, Expression? Predicate) : PlanNode
@@ -98,6 +122,10 @@ public sealed record HashJoinNode(
 
     /// <summary>As <see cref="JoinNode.Keep"/>.</summary>
     public IReadOnlySet<string>? Keep { get; init; }
+
+    /// <summary>Per key pair, the type both keys are hashed as, or null to hash them as they are: a Single beside
+    /// another number compares as a Single, so the pair is hashed as Singles.</summary>
+    public IReadOnlyList<Type?>? KeyTypes { get; init; }
 }
 
 /// <summary>
@@ -117,6 +145,10 @@ public sealed record AggregateNode(
     TieCut? Ties = null) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
+
+    /// <summary>Per GROUP BY key, a type to group it as in place of the one it declares, or null: a decorrelated
+    /// subquery's correlation key that the comparison it stands for compares as a Single.</summary>
+    public IReadOnlyList<Type?>? KeyTypes { get; init; }
 }
 
 /// <summary>

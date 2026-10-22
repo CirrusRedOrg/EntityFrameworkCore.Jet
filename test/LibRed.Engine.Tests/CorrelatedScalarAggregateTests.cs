@@ -55,7 +55,7 @@ public class CorrelatedScalarAggregateTests : TempDatabaseTest
 
         return ScalarAggregateSemiJoin.TryBuild(
             (SelectStatement)scalar.Query, outer, new(StringComparer.OrdinalIgnoreCase) { "o" },
-            e.Database.Catalog) is not null;
+            e.Database) is not null;
     }
 
     [Fact]
@@ -188,6 +188,8 @@ public class CorrelatedScalarAggregateTests : TempDatabaseTest
     [InlineData(false, "SELECT o.Id, (SELECT COUNT(*) + 1 FROM I AS i WHERE i.K = o.K) FROM O AS o")]
     // A GROUP BY body yields several rows for the outer row to take the first of.
     [InlineData(false, "SELECT o.Id, (SELECT COUNT(*) FROM I AS i WHERE i.K = o.K GROUP BY i.V) FROM O AS o")]
+    // OFFSET can skip the aggregate's one row, leaving NULL where the grouped pass would give the aggregate.
+    [InlineData(false, "SELECT o.Id, (SELECT COUNT(*) FROM I AS i WHERE i.K = o.K OFFSET 1 ROWS) FROM O AS o")]
     // Uncorrelated: already hoisted to once per statement.
     [InlineData(false, "SELECT o.Id, (SELECT COUNT(*) FROM I AS i WHERE i.Keep = 1) FROM O AS o")]
     // An outer reference the correlation split didn't consume.

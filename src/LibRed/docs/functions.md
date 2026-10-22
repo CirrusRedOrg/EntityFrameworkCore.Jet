@@ -54,12 +54,12 @@ reference throws "Column not found" — a default is row-blind by design). The e
 
 ## Access / VBA functions
 
-The JES surface, **verified against ACE** via a function-whitelist probe sweep (`FunctionWhitelist*Probe`). It is
-close but *not proven exhaustive* — re-run the sweep when in doubt.
+The JES surface. Every function in the VBA library is accounted for: it is here, it is under
+[not supported](#not-supported-by-design), or the JES does not have it (verified).
 
 ### Type conversion
 
-`CBool` `CByte` `CInt` `CLng` `CSng` `CDbl` `CCur` `CStr` `CDate` `CVar`
+`CBool` `CByte` `CInt` `CLng` `CSng` `CDbl` `CCur` `CStr` `CDate` `CVDate` `CVar`
 
 - A **Boolean** converts as VARIANT_BOOL, so True is **-1**, not 1: `CInt`/`CLng`/`CSng`/`CDbl`/`CCur` all give
   -1, and `CByte` overflows because a byte cannot hold it.
@@ -68,6 +68,7 @@ close but *not proven exhaustive* — re-run the sweep when in doubt.
   runtime proper would say `"True"`.
 - `CBool` accepts a numeric string (`"-1"`) and a non-integral number.
 - `CCur` rounds to 4 decimal places, and is ACE's route to a decimal.
+- `CVDate` is `CDate`: a Date, not a Variant (`VarType` 7).
 - `CVar` makes a **Variant** — see below.
 
 (Verified against ACE in `LibRed.Core.Tests.AceVbaConversionProbeTest`.)
@@ -140,7 +141,8 @@ procedure call, and a result past a Double an overflow.
 - **Parts** — `Year` `Month` `Day` `Hour` `Minute` `Second` `Weekday` (Sunday = 1)
 - **Names** — `MonthName` `WeekdayName`
 
-`Time` and `TimeValue` sit on the Jet epoch 1899-12-30. LibRed keeps milliseconds where ACE rounds to the second.
+`Time` and `TimeValue` sit on the Jet epoch 1899-12-30. `Now` and `Time` read the clock in whole seconds, the
+fraction dropped, as ACE does; elsewhere LibRed keeps milliseconds where ACE rounds to the second.
 
 ### Formatting
 
@@ -157,10 +159,11 @@ are locale-dependent by design. `Partition` gives a `"lower:upper"` range-bucket
 
 ### Inspection
 
-`IsNull` `IsNumeric` `IsDate` `IsError` `TypeName` `VarType`
+`IsNull` `IsNumeric` `IsDate` `IsError` `IsEmpty` `IsMissing` `IsObject` `TypeName` `VarType` `IMEStatus`
 
 `IsError` is always False — LibRed has no error value type — but its argument is still evaluated, so an error in
-it is raised.
+it is raised. `IsEmpty`, `IsMissing` and `IsObject` are always False as well, over Null too: no query value is
+Empty, a missing argument or an object. `IMEStatus()` is always 0, a Long.
 
 ### Financial
 
@@ -244,7 +247,8 @@ using; SQL written to run on ACE as well must leave them out.
 
 - **`CLngLng`** — VBA's LongLong conversion (the JES reports it undefined). Reads its argument as `CLng` does, into
   an **Int64**, reading text exactly rather than through a Double.
-- **`CDec`** — to a Decimal. The JES has no such function; `CCur` is ACE's route to a decimal.
+- **`CDec`** — to a Decimal. The JES has no working one: its `CDec` takes exactly two arguments and gives a Long
+  0 whatever they are. `CCur` is ACE's route to a decimal.
 
 ### Math
 
@@ -349,7 +353,12 @@ behaviour over a grouped query are described in the [README](../README.md).
 - **Access-application-only** (JES-undefined, so correctly absent): `Split`, `CurDir`, `CurrentUser`,
   `Environ`, `Randomize`, and the domain aggregates. `Split` also returns a Variant array (no scalar-SQL
   representation).
-- **No scalar-SQL form:** `IRR` / `NPV` (array argument); `Array` / `Join` / `CVErr` (VBA-only).
+- **No scalar-SQL form:** `IRR` / `NPV` (array argument); `Join` / `CVErr` (VBA-only). `Array` is known to the JES
+  but has nothing to give a query — `Array(1)` is a data type mismatch, and `Array()` crashes the ACE provider.
+- **Known to the JES but refused:** `MsgBox` and `InputBox` — *"Function is not available in expressions"*.
+- **Undefined in the JES:** the rest of the VBA library — the file-system, registry-setting, interaction and
+  pointer functions (`Dir`, `Kill`, `Shell`, `GetSetting`, `CreateObject`, `VarPtr`, …), `CLngPtr`, `MIRR`,
+  `Filter`, `IsArray`, `Erl` / `Err`.
 
 See [page-02c-default-values.md](format/page-02c-default-values.md) for how these functions behave specifically in a
 column `DEFAULT` (the DDL-parser-vs-expression-service split, and the forbidden categories).

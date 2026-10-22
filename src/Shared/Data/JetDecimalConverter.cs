@@ -11,7 +11,8 @@ namespace EntityFrameworkCore.Jet.Data
     /// <summary>
     ///     Converts a <see cref="double" />/<see cref="float" /> to <see cref="decimal" /> the way .NET did
     ///     before .NET 11, by rounding the source to its true significant-digit count (15 for double, 7 for
-    ///     float) rather than expanding its exact binary value.
+    ///     float) rather than expanding its exact binary value — and a <see cref="decimal" /> back to a
+    ///     <see cref="double" /> the way it did then too (<see cref="FromDecimal" />).
     ///     <para>
     ///         Why this exists. Jet's <c>ROUND</c> is the VBA function, so it widens a Currency column to a
     ///         Double, and <c>SUM(ROUND(UnitPrice, 2))</c> comes back from ACE as a Double even though EF asks
@@ -43,7 +44,10 @@ namespace EntityFrameworkCore.Jet.Data
     ///         The source is shared: it is compiled into both EntityFrameworkCore.Jet.Data and LibRed.Core, which
     ///         reference neither each other nor a common assembly that could hold it. Every LibRed assembly uses the
     ///         LibRed.Core copy. Any conversion that may meet a <see cref="double" /> or <see cref="float" /> goes
-    ///         through here — <see cref="ToDecimal" /> in place of <c>Convert.ToDecimal</c>, never a cast.
+    ///         through here — <see cref="ToDecimal" /> in place of <c>Convert.ToDecimal</c>, never a cast — and so
+    ///         does any that may meet a <see cref="decimal" /> on its way to a <see cref="double" /> or
+    ///         <see cref="float" /> — <see cref="ToDouble" /> and <see cref="ToSingle" /> in place of
+    ///         <c>Convert.ToDouble</c> and <c>Convert.ToSingle</c>.
     ///     </para>
     /// </summary>
     public static class JetDecimalConverter
@@ -60,6 +64,44 @@ namespace EntityFrameworkCore.Jet.Data
                 float f => FromSingle(f),
                 _ => System.Convert.ToDecimal(value, provider),
             };
+
+        /// <summary>
+        ///     <see cref="System.Convert.ToDouble(object, IFormatProvider)" />, except that a <see cref="decimal" /> is
+        ///     converted the way OLE Automation converts it (<see cref="FromDecimal" />).
+        /// </summary>
+        public static double ToDouble(object? value, IFormatProvider? provider = null)
+            => value is decimal m ? FromDecimal(m) : System.Convert.ToDouble(value, provider);
+
+        /// <summary>
+        ///     <see cref="System.Convert.ToSingle(object, IFormatProvider)" />, except that a <see cref="decimal" /> is
+        ///     converted as OLE Automation's <c>VarR4FromDec</c> converts it: the double <see cref="FromDecimal" />
+        ///     gives, narrowed (verified vs ACE: a Decimal a hair either side of the midpoint between two floats goes
+        ///     where that double goes, which .NET 11's direct conversion does not).
+        /// </summary>
+        public static float ToSingle(object? value, IFormatProvider? provider = null)
+            => value is decimal m ? (float)FromDecimal(m) : System.Convert.ToSingle(value, provider);
+
+        /// <summary>
+        ///     A <see cref="decimal" /> as a <see cref="double" /> the way .NET converted it before .NET 11 — a port
+        ///     of <c>Decimal.DecCalc.VarR8FromDec</c>, OLE Automation's own: the 96-bit integer as a double, divided
+        ///     by the double power of ten of its scale. That is not correctly rounded, and ACE's conversion is exactly
+        ///     it (verified vs ACE: 0.3333333333333333333333333333 is 0.33333333333333337), where .NET 11's
+        ///     correctly-rounded one is a unit in the last place away.
+        /// </summary>
+        public static double FromDecimal(decimal value)
+        {
+            // The double that is 2^64, as oleaut32 defines it.
+            const double ds2to64 = 1.8446744073709552e+019;
+
+            Span<int> bits = stackalloc int[4];
+            decimal.GetBits(value, bits);
+            var low64 = (uint)bits[0] | (ulong)(uint)bits[1] << 32;
+            var high = (uint)bits[2];
+            var scale = (bits[3] >> 16) & 0xFF;
+
+            var dbl = ((double)low64 + (double)high * ds2to64) / DoublePowers10[scale];
+            return bits[3] < 0 ? -dbl : dbl;
+        }
 
         private const int DecScaleMax = 28;
 

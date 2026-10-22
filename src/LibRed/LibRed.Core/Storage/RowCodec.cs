@@ -1,3 +1,4 @@
+using EntityFrameworkCore.Jet.Data;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.Storage.Types;
@@ -29,7 +30,7 @@ namespace LibRed.Storage;
 /// parsed, so a caller wanting both off one row derives the trailer arithmetic once.</para>
 /// </remarks>
 public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase format,
-    int? fixedDataLength = null, int? variableColumnCount = null,
+    int? variableColumnCount = null,
     Func<ColumnDef, byte[], byte[]>? spillCalculated = null, int? columnIdHighWater = null,
     LongValueStore? longValues = null, bool[]? decode = null)
 {
@@ -47,17 +48,16 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     // How many variable slots a row carries. The TDEF's 0x2B when the caller has it — a high-water that
     // never decrements — else the tight maximum over the live columns, which is the same number until the
     // LAST variable column is dropped and is all a standalone encode can know.
-    private readonly int? _variableColumnCount = variableColumnCount;
+    private readonly int _numVar = VariableSlotCount(columns, variableColumnCount ?? 0);
 
     // How many column ids the row's leading count and null bitmap span: the TDEF's 0x29 high-water when the
     // caller has it, which is what ACE writes even after the highest-id column has been dropped — else the
     // highest live id + 1, all a standalone encode can know.
-    private readonly int? _columnIdHighWater = columnIdHighWater;
+    private readonly int _maxColumnId = MaxColumnId(columns, columnIdHighWater ?? 0);
 
-    // Fixed (non-boolean) columns occupy a contiguous region; its length is defined by the
-    // table definition. Default to the tight max so a standalone encode round-trips; INSERT
-    // passes the TDEF's actual fixed-row size so the on-disk layout matches Access.
-    private readonly int _fixedDataLength = fixedDataLength ?? ComputeFixedDataLength(columns);
+    // The fixed region a new row gets: as far as the live fixed columns reach. A dead slot an existing row
+    // still carries is not kept for the rows after it (verified vs ACE, after DROP COLUMN and after a retype).
+    private readonly int _fixedDataLength = ComputeFixedDataLength(columns);
 
     public byte[] Encode(object?[] values) => Encode(values, null);
 
@@ -71,51 +71,37 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     /// <param name="logicalValues">The row as its columns hold it, for the calculated columns to read, when
     /// <paramref name="values"/> already carries long values as their on-disk descriptors. A memo's text is
     /// what an expression reads, not the descriptor that points at it. Null when the two are the same.</param>
-    public byte[] Encode(object?[] values, IReadOnlyDictionary<int, byte[]>? preservedCalculated,
-        object?[]? logicalValues = null)
+    /// <param name="prior">The row being rewritten, for an UPDATE; default for an INSERT. Its fixed bytes, its
+    /// variable chunks and its dead ids' bits are kept wherever this row does not write its own.</param>
+    /// <param name="slackOf">The zero bytes to leave between the variable data and its offset table (spec §5), from
+    /// the variable chunks this row is written with, by variable index; null for none.</param>
+    /// <param name="buffer">The buffer an UPDATE builds its rows in, one per statement and table, page-sized and
+    /// zeroed at the start: <paramref name="prior"/> is copied in, the row is built over it, and the row is left in
+    /// it — so a byte the row does not write and its old record did not reach holds the last updated record that
+    /// did (verified vs ACE, UpdateRowBufferProbeTest). Null for none.</param>
+    internal byte[] Encode(object?[] values, IReadOnlyDictionary<int, byte[]>? preservedCalculated,
+        object?[]? logicalValues = null, Layout prior = default, Func<IReadOnlyList<byte[]>, int>? slackOf = null,
+        byte[]? buffer = null)
     {
         if (values.Length != _columns.Count)
             throw new ArgumentException($"Expected {_columns.Count} values, got {values.Length}.", nameof(values));
 
-        // The leading count and the null-bitmap width span every column id the table has ever handed out — the
-        // TDEF's 0x29 high-water — NOT the live column count, and not the highest live id either. The three
-        // coincide while ids are contiguous (fresh table / ADD COLUMN) and diverge once one is dead: a burned
-        // type-change id, or a DROP COLUMN gap. Measured vs ACE: after dropping the only other column of a
-        // two-column table, ACE still writes count 2 (spec §5). AssembleRow derives the bitmap width from this.
-        int maxColumnId = Math.Max(
-            (_columnIdHighWater ?? 0) - 1,
-            _columns.Count == 0 ? -1 : _columns.Max(c => c.ColumnId));
-
-        // And the variable section is addressed the same way: by VariableIndex, NOT by position among the
-        // live variable columns. DROP COLUMN leaves a hole in the index space — the TDEF's 0x2B count is a
-        // high-water mark that never decrements, and a column added later takes the next index above it — so
-        // packing the chunks densely puts every column after the hole one slot too low. The decoder reads
-        // VarChunk(column.VariableIndex) and so does ACE, which is what makes it silent: the row is written
-        // and read back happily by nothing at all.
-        // The trailer survives the loss of the last variable column, too: ACE keeps writing it, with numVar at
-        // the 0x2B high-water, once a table has ever had one (measured — a table whose only TEXT column was
-        // dropped still gets `06 00 06 00 | 01 00`). Only a table that never had one has no trailer at all.
-        var varCols = _columns.Where(c => !c.IsFixedLength).ToList();
-        int numVar = Math.Max(
-            _variableColumnCount ?? 0,
-            varCols.Count == 0 ? 0 : varCols.Max(c => c.VariableIndex) + 1);
-
+        if (buffer is not null) prior.Record.CopyTo(buffer);
         // Encode each region's payload first so we can size the row exactly.
-        var fixedRegion = new byte[_fixedDataLength];
+        byte[] fixedRegion = FixedRegionOver(prior, _fixedDataLength, _format, buffer);
         foreach (ColumnDef column in _columns)
         {
-            if (column.Type == JetDataType.Boolean || !column.IsFixedLength) continue;
+            if (!column.OccupiesFixedData) continue;
             object? v = values[column.Index];
-            if (v is null) continue; // null fixed value: leave its slot zeroed, clear the bit below
+            if (v is null) continue; // null fixed value: its slot keeps what was there, clear the bit below
             byte[] encoded = JetTypeCodec.Encode(column, v, _format);
             if (encoded.Length != column.Length)
                 throw new InvalidOperationException($"Column '{column.Name}' encoded to {encoded.Length} bytes, expected {column.Length}.");
             encoded.CopyTo(fixedRegion.AsSpan(column.FixedOffset));
         }
 
-        var varChunks = new byte[numVar][];
-        Array.Fill(varChunks, []);          // a dropped column's slot stays present, and empty
-        foreach (ColumnDef column in varCols)
+        byte[][] varChunks = VarChunksOver(prior, _numVar);
+        foreach (ColumnDef column in _columns.Where(c => !c.IsFixedLength))
         {
             if (column.IsCalculated)
             {
@@ -126,7 +112,45 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
             varChunks[column.VariableIndex] = v is null ? [] : JetTypeCodec.Encode(column, v, _format);
         }
 
-        return AssembleRow(_format, maxColumnId, fixedRegion, varChunks, _columns, values);
+        byte[] row = AssembleRow(_format, _maxColumnId, fixedRegion, varChunks, _columns, values, prior.NullBitmap,
+            slackOf?.Invoke(varChunks) ?? 0, buffer);
+        if (buffer is not null) row.CopyTo(buffer, 0);
+        return row;
+    }
+
+    /// <summary>The fixed region of a row being written over <paramref name="prior"/>: <paramref name="liveLength"/>
+    /// long, or as long as the old row's own region if that is longer, and holding the old record's bytes position
+    /// for position — past its own region too — so every slot the new row does not write keeps what was there. Past
+    /// the end of the old record it holds <paramref name="previous"/>'s bytes, else zeros; a new row
+    /// (<paramref name="prior"/> default) starts zeroed.</summary>
+    /// <remarks>Verified vs ACE on UPDATE and on the ALTER COLUMN re-lay: a dead slot inside an old row's region
+    /// stays, a row predating a fixed ADD COLUMN grows to the live length with its variable data's or null
+    /// bitmap's old bytes in the new slot, and a NULL leaves its slot's old bytes rather than zeros. The re-lay, and
+    /// an UPDATE, build every row in one buffer they never clear, so what lies past a short old record is whatever
+    /// the last record to reach that far left there — zeros until one has.</remarks>
+    internal static byte[] FixedRegionOver(in Layout prior, int liveLength, JetFormatBase format,
+        ReadOnlySpan<byte> previous = default)
+    {
+        if (prior.Record.IsEmpty) return new byte[liveLength];
+        var region = new byte[Math.Max(liveLength, prior.FixedRegionLength)];
+        int countSize = format.RowColumnCountSize;
+        if (previous.Length > countSize)
+            previous[countSize..][..Math.Min(previous.Length - countSize, region.Length)].CopyTo(region);
+        ReadOnlySpan<byte> old = prior.Record[countSize..];
+        old[..Math.Min(old.Length, region.Length)].CopyTo(region);
+        return region;
+    }
+
+    /// <summary>The <paramref name="numVar"/> variable chunks of a row being written over <paramref name="prior"/>,
+    /// before its own columns are placed: each the chunk the old row had in that slot, so a slot no live column
+    /// owns — a dropped column's — keeps it, and empty past the old row's slots or on a new row (verified vs ACE on
+    /// UPDATE and the ALTER COLUMN re-lay).</summary>
+    internal static byte[][] VarChunksOver(in Layout prior, int numVar)
+    {
+        var chunks = new byte[numVar][];
+        for (int j = 0; j < numVar; j++)
+            chunks[j] = j < prior.NumVar ? prior.VarChunk(j).ToArray() : [];
+        return chunks;
     }
 
     /// <summary>The slot for a calculated column: the envelope holding the result, wrapped in a long-value
@@ -204,9 +228,11 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     /// <c>[count][fixed][var data][var-offset table][numVar]</c> (the variable section is omitted entirely when
     /// there are none) then <c>[null bitmap]</c>. The count and bitmap width are <c>maxColumnId + 1</c>; a
     /// column's bit is set when present (Boolean = its truthy value), and a dead id's (a gap below the max, from a
-    /// burned/dropped id) is taken from <paramref name="priorBitmap"/> — the row's bitmap before an ALTER COLUMN
-    /// re-lay — or left clear for a new row — all verified vs ACE (§5). Shared by <c>Encode</c> and the ALTER
-    /// COLUMN row re-lay so the two can never drift.</summary>
+    /// burned/dropped id) is taken from <paramref name="priorBitmap"/> — the row's bitmap before an UPDATE or an
+    /// ALTER COLUMN re-lay — or left clear for a new row — all verified vs ACE (§5). In a bitmap byte the prior
+    /// bitmap does not reach, those bits are what <paramref name="beneath"/> — the buffer the re-lay or the UPDATE
+    /// builds the row in — holds at that position. Shared by <c>Encode</c> and the ALTER COLUMN row re-lay so the two can
+    /// never drift.</summary>
     /// <remarks>
     /// The declared-width check runs HERE rather than in <c>Encode</c>. It used to sit above this call,
     /// which meant the ALTER COLUMN re-lay — the other caller — never got it, and a narrowing retype could
@@ -214,7 +240,7 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     /// </remarks>
     internal static byte[] AssembleRow(JetFormatBase format, int maxColumnId, ReadOnlySpan<byte> fixedRegion,
         IReadOnlyList<byte[]> varChunks, IReadOnlyList<ColumnDef> columns, object?[] values,
-        ReadOnlySpan<byte> priorBitmap = default)
+        ReadOnlySpan<byte> priorBitmap = default, int slack = 0, ReadOnlySpan<byte> beneath = default)
     {
         // A calculated column is exempt from the declared-width check: its length field is a constant ACE
         // writes (39 for a value type, 509 for any Text, whatever size was asked for), not a limit — a
@@ -231,7 +257,7 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
         int numVar = varChunks.Count;
         int varDataLength = 0;
         for (int j = 0; j < numVar; j++) varDataLength += varChunks[j].Length;
-        int varSectionLen = numVar > 0 ? varDataLength + (numVar + 1) * offsetSize + numVarSize : 0;
+        int varSectionLen = numVar > 0 ? varDataLength + slack + (numVar + 1) * offsetSize + numVarSize : 0;
 
         // ACE pads an all-fixed row's fixed region out to MinFixedRegion; a row with a variable trailer is
         // left alone. The pad is zero bytes between the fixed values and the null bitmap.
@@ -247,8 +273,9 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
             int pos = varDataStart;
             for (int j = 0; j < numVar; j++) { varChunks[j].CopyTo(row.AsSpan(pos)); pos += varChunks[j].Length; }
 
-            // End-first offset table: entry[numVar] = var-data start, entry[numVar-j-1] = end of var col j.
-            int tableStart = pos;
+            // End-first offset table: entry[numVar] = var-data start, entry[numVar-j-1] = end of var col j. The
+            // slack, zeros, lies between the last chunk and the table, outside every offset.
+            int tableStart = pos + slack;
             BinaryPrimitives.WriteUInt16LittleEndian(row.AsSpan(tableStart + numVar * offsetSize, offsetSize), (ushort)varDataStart);
             int running = varDataStart;
             for (int j = 0; j < numVar; j++)
@@ -275,75 +302,136 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
                 || (column.Type == JetDataType.Boolean ? IsTruthy(values[column.Index]) : values[column.Index] is not null);
             if (present) BitmapBits.Set(nullBitmap, column.ColumnId, true);
         }
-        // A dead id's bit depends on which route wrote the row, and both are measured against ACE: the ALTER
-        // COLUMN re-lay carries the old row's bit forward — set where the retyped column held a value, clear
-        // where it was NULL — while a row INSERTED afterwards leaves it clear: the same statement pair gives
-        // ACE 0x0F for a re-laid row with a value and 0x0D for the next insert.
-        for (int id = 0; id <= maxColumnId && id < priorBitmap.Length * 8; id++)
-            if (!liveIds.Contains(id) && BitmapBits.Get(priorBitmap, id))
+        // A bit no live column owns depends on which route wrote the row, and both are measured against ACE: the
+        // ALTER COLUMN re-lay and an UPDATE carry the old row's bit forward, while a row INSERTED afterwards leaves
+        // it clear. That holds for a dead id's bit — set where the column held a value, clear where it was NULL:
+        // the same statement pair gives ACE 0x0F for a re-laid row with a value and 0x0D for the next insert — and
+        // for the padding past the last column in the final byte alike: an UPDATE of a row whose last byte read
+        // 0x65 over one live column leaves it 0x65 (WholeFileParityProbeTest). Padding in a byte the row did not
+        // have before is whatever the re-lay's or the UPDATE's buffer holds there — stale text included, 0x78 under
+        // one live bit giving 0x79 — and clear for an INSERT, which has none.
+        byte[] prior = new byte[nullBitmapSize];
+        priorBitmap[..Math.Min(priorBitmap.Length, nullBitmapSize)].CopyTo(prior);
+        for (int k = priorBitmap.Length; k < nullBitmapSize; k++)
+            if (row.Length - nullBitmapSize + k < beneath.Length) prior[k] = beneath[row.Length - nullBitmapSize + k];
+        for (int id = 0; id < nullBitmapSize * 8; id++)
+            if (!liveIds.Contains(id) && BitmapBits.Get(prior, id))
                 BitmapBits.Set(nullBitmap, id, true);
         return row;
     }
 
-    /// <summary>Access truthiness for a Boolean (bit) value being stored: a bool is itself, any non-zero
-    /// number is true, 0 / null is false. The index key uses the same rule, so a key always agrees with its row.</summary>
+    /// <summary>Access truthiness for a Boolean (bit) value being stored: a bool is itself, and a number is rounded
+    /// half to even and is true when that is not 0 — text and a date read as a number column reads them
+    /// (<see cref="JetTypeCodec.NumberFromText"/>), and anything else a type mismatch (verified vs ACE: 0.5, -0.5 and
+    /// 0.0001 store False, 0.6 and 2.5 True, '0.6' True, <c>Time()</c> at 20:58 True, and 'True' and 'Yes' are
+    /// refused). Null is false. The index key uses the same rule, so a key always agrees with its row.</summary>
     internal static bool IsTruthy(object? value) => value switch
     {
         null => false,
         bool b => b,
-        _ => Convert.ToBoolean(value, System.Globalization.CultureInfo.InvariantCulture),
+        _ => Math.Round(JetDecimalConverter.ToDouble(JetTypeCodec.NumberFromText(JetDataType.Double, value),
+            System.Globalization.CultureInfo.InvariantCulture), MidpointRounding.ToEven) != 0,
     };
 
-    private static int ComputeFixedDataLength(IReadOnlyList<ColumnDef> columns)
+    /// <summary>The highest column id a row spans: the TDEF's <c>0x29</c> <paramref name="highWater"/> − 1, or the
+    /// highest live id if that is more. AssembleRow sizes the leading count and the null bitmap from it.</summary>
+    /// <remarks>The span covers every column id the table has ever handed out, NOT the live column count, and not
+    /// the highest live id either. The three coincide while ids are contiguous (fresh table / ADD COLUMN) and
+    /// diverge once one is dead: a burned type-change id, or a DROP COLUMN gap. Measured vs ACE: after dropping
+    /// the only other column of a two-column table, ACE still writes count 2 (spec §5).</remarks>
+    internal static int MaxColumnId(IReadOnlyList<ColumnDef> columns, int highWater)
+    {
+        int maximum = -1;
+        for (int i = 0; i < columns.Count; i++)
+            maximum = Math.Max(maximum, columns[i].ColumnId);
+        return Math.Max(highWater - 1, maximum);
+    }
+
+    /// <summary>How many variable slots a row carries: the TDEF's <c>0x2B</c> <paramref name="highWater"/>, or the
+    /// highest live <see cref="ColumnDef.VariableIndex"/> + 1 if that is more.</summary>
+    /// <remarks>The variable section is addressed by VariableIndex, NOT by position among the live variable
+    /// columns. DROP COLUMN leaves a hole in the index space — <c>0x2B</c> is a high-water mark that never
+    /// decrements, and a column added later takes the next index above it — so packing the chunks densely puts
+    /// every column after the hole one slot too low. The decoder reads VarChunk(column.VariableIndex) and so does
+    /// ACE, which is what makes it silent: the row is written and read back happily by nothing at all.
+    /// The trailer survives the loss of the last variable column, too: ACE keeps writing it, with numVar at the
+    /// <c>0x2B</c> high-water, once a table has ever had one (measured — a table whose only TEXT column was
+    /// dropped still gets <c>06 00 06 00 | 01 00</c>). Only a table that never had one has no trailer at all.
+    /// </remarks>
+    internal static int VariableSlotCount(IReadOnlyList<ColumnDef> columns, int highWater)
+    {
+        int maximum = 0;
+        for (int i = 0; i < columns.Count; i++)
+            if (!columns[i].IsFixedLength) maximum = Math.Max(maximum, columns[i].VariableIndex + 1);
+        return Math.Max(highWater, maximum);
+    }
+
+    /// <summary>The table's fixed-data region: the high-water of where its live columns END, not the sum of
+    /// their lengths. DROP COLUMN is a metadata-only edit that leaves every survivor's fixed offset exactly
+    /// where it was, so a dropped column's bytes stay in the region as dead space — a sum under-counts by
+    /// precisely that hole, and would pass a declaration whose rows then overrun 4060, which is a table Access
+    /// refuses to open the database for. On a table that has dropped nothing the two agree, because the
+    /// offsets pack from zero.</summary>
+    internal static int ComputeFixedDataLength(IReadOnlyList<ColumnDef> columns)
     {
         int length = 0;
-        foreach (ColumnDef c in columns)
-            if (c.IsFixedLength && c.Type != JetDataType.Boolean)
+        for (int i = 0; i < columns.Count; i++)
+        {
+            ColumnDef c = columns[i];
+            if (c.OccupiesFixedData)
                 length = Math.Max(length, c.FixedOffset + c.Length);
+        }
         return length;
     }
 
-    private readonly bool[]? _decode = decode;
-
     private readonly LongValueStore? _longValues = longValues;
 
-    // Decode runs once per row, so it walks an array rather than enumerating the interface (a boxed
-    // enumerator per row), and answers Layout.HasVariableSection from the lowest variable column id
-    // instead of re-scanning the columns: a row has a variable section exactly when its stored count
-    // reaches past that id.
-    private readonly ColumnDef[] _columnArray = [.. columns];
-    private readonly int _lowestVariableId = LowestVariableId(columns);
+    // Decode runs once per row, so it walks an array of the selected columns rather than enumerating the
+    // interface or checking the mask again. The result still has the full schema width. Cache the
+    // variable-section decision by the stored count actually encountered:
+    // eagerly computing every possible count made opening a decoder quadratic in the column count, even
+    // for a one-row seek. Current rows use the known variable-slot count directly; only historical counts
+    // need the memo. Zero is unknown, one is absent and two is present.
+    private readonly int _valueCount = columns.Count;
+    private readonly ColumnDef[] _columnArray = decode is null
+        ? [.. columns] : [.. columns.Where(column => decode[column.Index])];
+    private byte[]? _hasVariableSection;
 
     private static readonly object BoxedTrue = true;
     private static readonly object BoxedFalse = false;
 
-    private static int LowestVariableId(IReadOnlyList<ColumnDef> columns)
-    {
-        int lowest = int.MaxValue;
-        foreach (ColumnDef column in columns)
-            if (!column.IsFixedLength && column.ColumnId < lowest)
-                lowest = column.ColumnId;
-        return lowest;
-    }
-
     /// <summary>Decodes the row into one value per column (aligned to <see cref="ColumnDef.Index"/>).</summary>
     public object?[] Decode(ReadOnlySpan<byte> row)
     {
-        var values = new object?[_columnArray.Length];
+        var values = new object?[_valueCount];
 
         // The null-bitmap width comes from the row's own leading count (= max id + 1), NOT the live column
         // count — they differ once ids have a gap (a burned type-change id / DROP COLUMN gap). Reading the
         // stored count is exactly how ACE sizes it, and is robust to any id scheme (spec §5). A real inline
         // row is at least: column count + an empty var table (1 entry) + var count + null bitmap; anything
         // shorter is an overflow/lookup pointer slot the caller should have skipped.
-        bool hasVar = _lowestVariableId < Layout.ReadColumnCount(row, _format);
-        Layout layout = Layout.Parse(row, _format, hasVar);
+        int count = Layout.ReadColumnCount(row, _format);
+        bool hasVariableSection = _numVar > 0;
+        if (count <= _maxColumnId)
+        {
+            byte[] decisions = _hasVariableSection ??= new byte[_maxColumnId + 1];
+            byte variableSection = decisions[count];
+            if (variableSection == 0)
+                decisions[count] = variableSection =
+                    Layout.HasVariableSection(count, _columns, _maxColumnId, _numVar) ? (byte)2 : (byte)1;
+            hasVariableSection = variableSection == 2;
+        }
+        Layout layout = Layout.Parse(row, _format, hasVariableSection);
+
+        // A record past the cap fits its page but ACE reads no value from it — not even its key — so a reader
+        // that wants one is refused, while one that only counts rows still passes (verified). Check once per
+        // record; the decode mask only needs inspecting on the exceptional oversized path.
+        if (row.Length > _format.MaxRecordSize && _columnArray.Length != 0)
+            throw new InvalidDataException(
+                $"Record is too large to read: {row.Length} bytes, and a record holds at most {_format.MaxRecordSize}.");
 
         foreach (ColumnDef column in _columnArray)
         {
-            if (_decode is not null && !_decode[column.Index])
-                continue;
-
             bool present = layout.IsPresent(column.ColumnId);
 
             // Jet stores Boolean (YesNo) columns with no fixed/variable data: the value
@@ -365,7 +453,7 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
             }
 
             ReadOnlySpan<byte> raw = column.IsFixedLength
-                ? FixedSlice(row, layout, column)
+                ? FixedSlice(row, layout.FixedRegionLength, column)
                 : layout.VarChunk(column.VariableIndex);
 
             // A calculated column stores ACE's cached result wrapped in an envelope, routed through a
@@ -401,10 +489,10 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     /// unchanged column's descriptor verbatim (avoiding a needless re-materialise) and to free a replaced or
     /// deleted value's LVAL pages.</summary>
     public static Dictionary<int, byte[]> LongValueDescriptors(
-        IReadOnlyList<ColumnDef> columns, JetFormatBase format, ReadOnlySpan<byte> row) =>
-        LongValueDescriptors(columns, ParseLayout(columns, format, row), row);
+        TableDefinition table, JetFormatBase format, ReadOnlySpan<byte> row) =>
+        LongValueDescriptors(table.Columns, ParseLayout(table, format, row), row);
 
-    /// <inheritdoc cref="LongValueDescriptors(IReadOnlyList{ColumnDef}, JetFormatBase, ReadOnlySpan{byte})"/>
+    /// <inheritdoc cref="LongValueDescriptors(TableDefinition, JetFormatBase, ReadOnlySpan{byte})"/>
     /// <remarks>Takes a layout the caller has already parsed — an UPDATE wants this and
     /// <see cref="CalculatedSlots(IReadOnlyList{ColumnDef}, Layout, ReadOnlySpan{byte})"/> off one row, and
     /// <see cref="Layout"/> exists so that arithmetic is done once.</remarks>
@@ -427,10 +515,10 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     /// — the envelope, or the long-value descriptor wrapping it — WITHOUT decoding or resolving it. An UPDATE
     /// that touches nothing the expression reads writes these back unchanged, which is what ACE does.</summary>
     public static Dictionary<int, byte[]> CalculatedSlots(
-        IReadOnlyList<ColumnDef> columns, JetFormatBase format, ReadOnlySpan<byte> row) =>
-        CalculatedSlots(columns, ParseLayout(columns, format, row), row);
+        TableDefinition table, JetFormatBase format, ReadOnlySpan<byte> row) =>
+        CalculatedSlots(table.Columns, ParseLayout(table, format, row), row);
 
-    /// <inheritdoc cref="CalculatedSlots(IReadOnlyList{ColumnDef}, JetFormatBase, ReadOnlySpan{byte})"/>
+    /// <inheritdoc cref="CalculatedSlots(TableDefinition, JetFormatBase, ReadOnlySpan{byte})"/>
     /// <remarks>Takes a layout the caller has already parsed; see the
     /// <see cref="LongValueDescriptors(IReadOnlyList{ColumnDef}, Layout, ReadOnlySpan{byte})"/> overload.</remarks>
     internal static Dictionary<int, byte[]> CalculatedSlots(
@@ -447,12 +535,12 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
         return result;
     }
 
-    private ReadOnlySpan<byte> FixedSlice(ReadOnlySpan<byte> row, Layout layout, ColumnDef column)
+    private ReadOnlySpan<byte> FixedSlice(ReadOnlySpan<byte> row, int fixedRegionLength, ColumnDef column)
     {
         int start = _format.RowColumnCountSize + column.FixedOffset;
         long end = (long)start + column.Length;
         if (column.FixedOffset < 0 || column.Length < 0
-            || end > _format.RowColumnCountSize + (long)layout.FixedRegionLength)
+            || end > _format.RowColumnCountSize + (long)fixedRegionLength)
             throw new InvalidDataException(
                 $"Row fixed value for column '{column.Name}' extends outside the fixed-data region.");
         return row.Slice(start, column.Length);
@@ -468,8 +556,10 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
             + "LongValueReader; this RowDecoder was constructed without one. "
             + $"Use {nameof(LongValueDescriptors)} to read the stored descriptors instead.");
 
-    internal static Layout ParseLayout(IReadOnlyList<ColumnDef> columns, JetFormatBase format, ReadOnlySpan<byte> row) =>
-        Layout.Parse(row, format, Layout.HasVariableSection(row, columns, format));
+    internal static Layout ParseLayout(TableDefinition table, JetFormatBase format, ReadOnlySpan<byte> row) =>
+        Layout.Parse(row, format, Layout.HasVariableSection(
+            Layout.ReadColumnCount(row, format), table.Columns,
+            MaxColumnId(table.Columns, table.ColumnIdHighWater), VariableSlotCount(table.Columns, table.VariableColumnCount)));
 
 
     /// <summary>The widest a single non-Memo/OLE column may be declared: 255 Text characters, or 510 bytes
@@ -544,6 +634,7 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     internal readonly ref struct Layout
     {
         private readonly ReadOnlySpan<byte> _row;
+        private readonly ReadOnlySpan<byte> _nullBitmap;
         private readonly int _offsetSize;
 
         /// <summary>The leading column count (= max column id + 1).</summary>
@@ -569,6 +660,8 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
                 throw new InvalidDataException(
                     $"Row is {row.Length} bytes, shorter than the {minimum} its {NullBitmapSize}-byte null bitmap"
                     + (hasVar ? " and variable-column trailer need." : " needs."));
+            // Every column consults the same bitmap; validate/slice it once rather than once per value.
+            _nullBitmap = row[^NullBitmapSize..];
 
             if (!hasVar)
             {
@@ -624,26 +717,46 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
             return BinaryPrimitives.ReadUInt16LittleEndian(row[..countSize]);
         }
 
-        /// <summary>Whether <b>this row</b> carries a variable section — the argument every <see cref="Parse"/>
-        /// caller needs, derived once here rather than at each call site.</summary>
+        /// <summary>Whether a row whose stored count is <paramref name="storedCount"/> carries a variable section —
+        /// the argument every <see cref="Parse"/> caller needs, decided as ACE decides it (spec §5).</summary>
         /// <remarks>
-        /// It is not "does the schema have a variable column": a row written before the table's first variable
-        /// ADD COLUMN has no trailer even though the current schema does, because ADD COLUMN is metadata-only.
-        /// The row's own stored count is what dates it — a column id at or above the count did not exist when
-        /// the row was written. Get this wrong and the parse reads the last bytes of FIXED data as numVar and an
-        /// offset table, which the bounds checks above usually catch, but not always.
+        /// <para>It is not "does the schema have a variable column": a row written before the table's first
+        /// variable ADD COLUMN has no trailer even though the current schema does, because ADD COLUMN is
+        /// metadata-only. The row's stored count dates it — a column id at or above the count did not exist when
+        /// the row was written — and the question is how many variable slots had been handed out by then. Each
+        /// live column's descriptor <c>0x07</c> records that for its own id, so:</para>
+        /// <list type="bullet">
+        /// <item>a count at the <c>0x29</c> high-water: every slot ever handed out, <c>0x2B</c>;</item>
+        /// <item>a count naming a live column: that column's <c>0x07</c>;</item>
+        /// <item>a count naming a dead id: the nearest live column below it — its <c>0x07</c>, plus its own slot if
+        /// it is variable — with no live column below meaning none.</item>
+        /// </list>
+        /// <para>The last is where ACE guesses, and LibRed guesses with it: a variable column dropped from between
+        /// that live column and the count is not seen, so a row written while it existed is read as having no
+        /// trailer — its trailer then reads as fixed data. Verified vs ACE across ADD and DROP of fixed and variable
+        /// columns in either order, including a trailer-less row whose dead bytes spell a valid trailer.</para>
         /// </remarks>
-        public static bool HasVariableSection(ReadOnlySpan<byte> row, IReadOnlyList<ColumnDef> columns, JetFormatBase format)
+        public static bool HasVariableSection(int storedCount, IReadOnlyList<ColumnDef> columns,
+            int maxColumnId, int variableSlotCount)
         {
-            int storedCount = ReadColumnCount(row, format);
-            foreach (ColumnDef column in columns)
-                if (!column.IsFixedLength && column.ColumnId < storedCount) return true;
-            return false;
+            if (storedCount > maxColumnId)
+                return variableSlotCount > 0;
+            ColumnDef? below = null;
+            for (int i = 0; i < columns.Count; i++)
+            {
+                ColumnDef column = columns[i];
+                if (column.ColumnId == storedCount) return column.VariableTableIndex > 0;
+                if (column.ColumnId < storedCount && (below is null || column.ColumnId > below.ColumnId)) below = column;
+            }
+            return below is not null && below.VariableTableIndex + (below.IsFixedLength ? 0 : 1) > 0;
         }
+
+        /// <summary>The record this layout was parsed from; empty for a default layout, which stands for no row.</summary>
+        public ReadOnlySpan<byte> Record => _row;
 
         /// <summary>The row's null bitmap: one bit per column id below <see cref="ColumnCount"/>, set when the column
         /// holds a value — or, for a Boolean, when it is true.</summary>
-        public ReadOnlySpan<byte> NullBitmap => _row[^NullBitmapSize..];
+        public ReadOnlySpan<byte> NullBitmap => _nullBitmap;
 
         /// <summary>Whether column <paramref name="columnId"/>'s null-bitmap bit is set. A column id the row predates —
         /// at or above its stored count — has no bit, and reads as clear.</summary>
@@ -660,6 +773,10 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
             int end = VarOffset(NumVar - variableIndex - 1);
             return _row[start..end];
         }
+
+        /// <summary>The zero bytes between the end of the variable data and the offset table — the slack ACE leaves in
+        /// a record written over a longer default (spec §5, "Record slack"); 0 for a row with no variable section.</summary>
+        public int Slack => VarTableStart < 0 ? 0 : VarTableStart - VarOffset(0);
 
         private int VarOffset(int entry) =>
             BinaryPrimitives.ReadUInt16LittleEndian(_row.Slice(VarTableStart + entry * _offsetSize, _offsetSize));

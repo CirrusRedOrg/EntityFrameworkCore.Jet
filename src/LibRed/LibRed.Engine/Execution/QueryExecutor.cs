@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using LibRed.Engine.Plan;
 using LibRed.Engine.Planning;
 using LibRed.Sql.Ast;
@@ -16,6 +17,7 @@ internal enum ColumnOrigin { Expression, Aggregate, SetOperation }
 /// <param name="Currency">Marks a Currency value, which shares <see cref="decimal"/> with Decimal but
 /// calculates differently.</param>
 /// <param name="Scale">A Decimal's places.</param>
+/// <param name="Precision">A Decimal's precision.</param>
 /// <param name="Null">Marks a column that is a bare <c>NULL</c>, which has no type of its own, unlike one
 /// whose type is merely unknown.</param>
 /// <param name="Source">The stored column this output passes through unchanged, with the table it was read from, where
@@ -27,41 +29,38 @@ internal enum ColumnOrigin { Expression, Aggregate, SetOperation }
 /// text.</param>
 internal readonly record struct OutputColumn(
     string? Qualifier, string Name, Type? ClrType = null, bool Currency = false, int? Scale = null,
-    bool Null = false, (LibRed.Catalog.TableDefinition Table, LibRed.Catalog.ColumnDef Column)? Source = null,
+    int? Precision = null, bool Null = false,
+    (LibRed.Catalog.TableDefinition Table, LibRed.Catalog.ColumnDef Column)? Source = null,
     ColumnOrigin Origin = ColumnOrigin.Expression, bool Variant = false)
 {
     /// <summary>The output of <paramref name="table"/>'s stored <paramref name="column"/>.</summary>
-    public static OutputColumn Of(string? qualifier, LibRed.Catalog.TableDefinition table, LibRed.Catalog.ColumnDef column) =>
-        new(qualifier, column.Name, Schema.JetClrTypeMap.ToClrType(column.Type),
+    public static OutputColumn Of(string? qualifier, LibRed.Catalog.TableDefinition table, LibRed.Catalog.ColumnDef column)
+    {
+        bool numeric = column.Type == LibRed.Catalog.JetDataType.FixedPoint;
+        return new(qualifier, column.Name, Schema.JetClrTypeMap.ToClrType(column.Type),
             column.Type == LibRed.Catalog.JetDataType.Currency,
-            column.Type == LibRed.Catalog.JetDataType.FixedPoint ? column.Scale : null,
+            numeric ? column.Scale : null, numeric ? column.Precision : null,
             Source: (table, column));
+    }
 
     /// <summary>A computed column of <paramref name="type"/>, computed by <paramref name="expression"/>.
     /// <paramref name="source"/> is the stored column it merely renames, where it is one.</summary>
     public static OutputColumn Computed(
         string name, Type? clrType, NumberType type, Expression expression,
-        (LibRed.Catalog.TableDefinition Table, LibRed.Catalog.ColumnDef Column)? source = null) =>
-        new(null, name, clrType, type.Class == NumberClass.Currency,
-            type.Class == NumberClass.Decimal ? type.Places : null, expression is LiteralExpression { Value: null },
-            source);
+        (LibRed.Catalog.TableDefinition Table, LibRed.Catalog.ColumnDef Column)? source = null)
+    {
+        bool numeric = type.Class == NumberClass.Decimal;
+        return new(null, name, clrType, type.Class == NumberClass.Currency,
+            numeric ? type.Places : null, numeric ? type.Precision : null,
+            expression is LiteralExpression { Value: null }, source);
+    }
 
     /// <summary>The column <paramref name="reference"/> names, or null when none or more than one does (execution
     /// reports the ambiguous reference).</summary>
     public static OutputColumn? Find(IReadOnlyList<OutputColumn> columns, ColumnReference reference)
     {
-        OutputColumn? result = null;
-        foreach (OutputColumn column in columns)
-        {
-            if (!string.Equals(column.Name, reference.Column, StringComparison.OrdinalIgnoreCase)
-                || reference.Table is not null
-                && !string.Equals(column.Qualifier, reference.Table, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            if (result is not null) return null;
-            result = column;
-        }
-        return result;
+        int slot = EvalScope.Locate(columns, reference, throwIfAmbiguous: false);
+        return slot >= 0 ? columns[slot] : null;
     }
 }
 
@@ -92,53 +91,62 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     // Optimised plans for subqueries, keyed by their AST node (reference identity). A correlated subquery is
     // executed once per outer row, so planning + index selection must be done ONCE, not on every evaluation.
-    private readonly Dictionary<SqlStatement, PlanNode> _subqueryPlans = new(ReferenceEqualityComparer.Instance);
+    private Dictionary<SqlStatement, PlanNode> SubqueryPlans => field ??= new(ReferenceEqualityComparer.Instance);
+
+    // A correlated plan is executed once per outer row. Its opened sources belong to this executor just
+    // as its plan and projection schema do: reopening a source re-read its catalog row and TDEF each time.
+    // These are statement-owned table handles, never shared with another execution.
+    private Dictionary<PlanNode, LibRed.Storage.Table> SourceTables => field ??= new(ReferenceEqualityComparer.Instance);
 
     // Flattened projection schema (output columns + per-item source), keyed by the ProjectNode. Depends only on
     // the node and its input column structure — both invariant across outer rows — so, like the subquery plans,
     // it must be built ONCE. Rebuilding it per row re-ran DeclaredType (linear column scans, string allocation)
     // for every outer row of a correlated subquery / nested-loop inner.
-    private readonly Dictionary<ProjectNode, ProjectionSchema> _projectionSchemas = new(ReferenceEqualityComparer.Instance);
+    private Dictionary<ProjectNode, ProjectionSchema> ProjectionSchemas => field ??= new(ReferenceEqualityComparer.Instance);
+    private (ProjectNode Node, ProjectionSchema Schema)? _firstProjection;
+
+    // COUNT(*)'s output shape is fixed for a plan, including when a correlated count is executed per outer row.
+    private Dictionary<AggregateNode, IReadOnlyList<OutputColumn>> CountColumns => field ??= new(ReferenceEqualityComparer.Instance);
 
     // Each scalar subquery's column, keyed by AST node: described once, however often DeclaredType asks.
-    private readonly Dictionary<SqlStatement, OutputColumn?> _scalarSubqueryColumns = new(ReferenceEqualityComparer.Instance);
+    private Dictionary<SqlStatement, OutputColumn?> ScalarSubqueryColumns => field ??= new(ReferenceEqualityComparer.Instance);
 
     // Decorrelated EXISTS subqueries, keyed by AST node. A present-but-null value records "analysed, not
     // decorrelatable", so an unsound-to-rewrite subquery isn't re-analysed on every outer row.
-    private readonly Dictionary<SqlStatement, ExistsSemiJoin?> _semiJoins = new(ReferenceEqualityComparer.Instance);
+    private Dictionary<SqlStatement, ExistsSemiJoin?> SemiJoins => field ??= new(ReferenceEqualityComparer.Instance);
 
     // The same for `x IN (subquery)`, kept separate because the plan there carries the IN value as an extra key
     // column — the same SelectStatement node reached as an EXISTS body would need a different one.
-    private readonly Dictionary<SqlStatement, ExistsSemiJoin?> _inSemiJoins = new(ReferenceEqualityComparer.Instance);
+    private Dictionary<SqlStatement, ExistsSemiJoin?> InSemiJoins => field ??= new(ReferenceEqualityComparer.Instance);
 
     // And for a correlated scalar aggregate, which maps each key to one value rather than testing membership.
-    private readonly Dictionary<SqlStatement, ScalarAggregateSemiJoin?> _scalarSemiJoins = new(ReferenceEqualityComparer.Instance);
+    private Dictionary<SqlStatement, ScalarAggregateSemiJoin?> ScalarSemiJoins => field ??= new(ReferenceEqualityComparer.Instance);
 
     // Results of subqueries that turned out not to depend on the outer row: same answer every time, so they are
     // evaluated once per statement. Keyed by AST node; the boxed value may legitimately be null (SQL NULL), hence
     // separate dictionaries rather than a null-means-absent convention.
-    private readonly Dictionary<SqlStatement, object?> _hoistedScalar = new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<SqlStatement, List<object?>> _hoistedColumn = new(ReferenceEqualityComparer.Instance);
+    private Dictionary<SqlStatement, object?> HoistedScalar => field ??= new(ReferenceEqualityComparer.Instance);
+    private Dictionary<SqlStatement, List<object?>> HoistedColumn => field ??= new(ReferenceEqualityComparer.Instance);
 
     // Hash membership over a hoisted IN body's values, so testing an outer row is a lookup rather than a walk of
     // that list. A present-but-null entry records "built, not usable" (mixed or non-hashable kinds), so the
     // decision is made once rather than re-attempted for every row.
-    private readonly Dictionary<SqlStatement, HoistedInSet?> _hoistedInSets = new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<SqlStatement, bool> _hoistedExists = new(ReferenceEqualityComparer.Instance);
+    private Dictionary<SqlStatement, HoistedInSet?> HoistedInSets => field ??= new(ReferenceEqualityComparer.Instance);
+    private Dictionary<SqlStatement, bool> HoistedExists => field ??= new(ReferenceEqualityComparer.Instance);
 
     // Subqueries proven to depend on the outer row. Recorded so a correlated subquery pays ONE failed hoist
     // attempt per statement rather than one per row.
-    private readonly HashSet<SqlStatement> _correlated = new(ReferenceEqualityComparer.Instance);
+    private HashSet<SqlStatement> Correlated => field ??= new(ReferenceEqualityComparer.Instance);
 
     // Per-row time spent on each decorrelatable subquery, which is what decides when to switch over. See
     // DecorrelationGate: the rewrite is sound from the first probe but not always cheaper, and the outer row count
     // that would settle it isn't known until the outer scan has finished.
-    private readonly Dictionary<SqlStatement, DecorrelationGate> _gates = new(ReferenceEqualityComparer.Instance);
+    private Dictionary<SqlStatement, DecorrelationGate> Gates => field ??= new(ReferenceEqualityComparer.Instance);
 
 #pragma warning restore IDE0028
 
     private DecorrelationGate Gate(SqlStatement query)
-        => _gates.TryGetValue(query, out DecorrelationGate? gate) ? gate : _gates[query] = new DecorrelationGate();
+        => Gates.TryGetValue(query, out DecorrelationGate? gate) ? gate : Gates[query] = new DecorrelationGate();
 
     /// <param name="database">The open database the plan reads from.</param>
     /// <param name="parameters">The statement's parameter values, by name.</param>
@@ -168,6 +176,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     public ResultSet ExecuteQuery(PlanNode plan)
     {
+        // Prepared plans enter here too. Prune at the shared execution boundary so every root query
+        // decodes only its referenced columns, regardless of which caller built the plan.
+        plan = ColumnPruning.Apply(plan);
         var (columns, rows) = Execute(plan, null);
         // A result writes its Variants out as text, as ACE's expression service does (verified vs ACE).
         if (columns.Any(c => c.Variant))
@@ -247,6 +258,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         /// padding.</summary>
         public object?[] Combine(object?[]? left, object?[]? right)
         {
+            // A count-only join has no values to own or copy. Still emit one row per pair.
+            if (Columns.Count == 0) return [];
             if (_left is null)
                 return [.. left ?? new object?[_leftWidth], .. right ?? new object?[_rightWidth]];
 
@@ -303,22 +316,22 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     private object? ScalarValue(SqlStatement query, EvalScope outerScope)
     {
-        if (_hoistedScalar.TryGetValue(query, out object? hoisted))
+        if (HoistedScalar.TryGetValue(query, out object? hoisted))
             return hoisted;
 
         if (TryHoist(query, outerScope, ScalarOf, out object? once))
-            return _hoistedScalar[query] = once;
+            return HoistedScalar[query] = once;
 
         // A correlated aggregate is one grouped pass over the body rather than one aggregate per outer row.
-        if (!_scalarSemiJoins.TryGetValue(query, out ScalarAggregateSemiJoin? semi))
+        if (!ScalarSemiJoins.TryGetValue(query, out ScalarAggregateSemiJoin? semi))
         {
             // Only a plain SELECT is analysable: the rewrite reads the body's projection, FROM and WHERE, none of
             // which a set operation or a table value constructor has. Declining costs speed, never correctness —
             // the per-row path below runs the body as written.
-            _scalarSemiJoins[query] = semi = query is SelectStatement scalarBody
+            ScalarSemiJoins[query] = semi = query is SelectStatement scalarBody
                 ? ScalarAggregateSemiJoin.TryBuild(
                     scalarBody, outerScope.AllColumns(),
-                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database.Catalog)
+                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database)
                 : null;
         }
 
@@ -337,30 +350,35 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         object? ScalarOf(EvalScope? scope)
         {
             var (_, rows) = Execute(SubqueryPlan(query, outerScope), scope);
-            foreach (object?[] row in rows)
-                return row.Length > 0 ? row[0] : null;
-            return null; // no rows → NULL
+            using IEnumerator<object?[]> row = rows.GetEnumerator();
+            if (!row.MoveNext())
+                return null; // no rows → NULL
+            object? value = row.Current.Length > 0 ? row.Current[0] : null;
+            // A second row is refused rather than one of them picked (verified vs ACE, in the SELECT list and in WHERE).
+            return row.MoveNext()
+                ? throw new InvalidOperationException("At most one record can be returned by this subquery.")
+                : value;
         }
     }
 
     bool IScalarSubqueryRunner.ExecuteExists(SqlStatement query, EvalScope outerScope)
     {
         // An EXISTS that doesn't depend on the outer row at all has one answer for the whole statement.
-        if (_hoistedExists.TryGetValue(query, out bool hoisted))
+        if (HoistedExists.TryGetValue(query, out bool hoisted))
             return hoisted;
 
         if (TryHoist(query, outerScope, ExistsOf, out bool once))
-            return _hoistedExists[query] = once;
+            return HoistedExists[query] = once;
 
         // A correlated EXISTS runs once per outer row, so if it can be turned into a hash semi-join the body is
         // executed once for the whole statement instead of once per row. See ExistsSemiJoin for the measurements.
-        if (!_semiJoins.TryGetValue(query, out ExistsSemiJoin? semi))
+        if (!SemiJoins.TryGetValue(query, out ExistsSemiJoin? semi))
         {
             // As in ExecuteScalar: only a plain SELECT can be decorrelated, and declining is the safe direction.
-            _semiJoins[query] = semi = query is SelectStatement existsBody
+            SemiJoins[query] = semi = query is SelectStatement existsBody
                 ? ExistsSemiJoin.TryBuild(
                     existsBody, outerScope.AllColumns(),
-                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database.Catalog)
+                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database)
                 : null;
         }
 
@@ -402,7 +420,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     private bool TryHoist<T>(SqlStatement query, EvalScope outerScope, Func<EvalScope?, T> run, out T result)
     {
         result = default!;
-        if (_correlated.Contains(query)
+        if (Correlated.Contains(query)
             || SubqueryHoisting.MayReferenceOuter(query, outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase)))
         {
             return false;
@@ -415,7 +433,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
         catch (Exception)
         {
-            _correlated.Add(query);
+            Correlated.Add(query);
             return false;
         }
     }
@@ -436,8 +454,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     ///     Per correlation column, whether a null there is a value to be hashed rather than a row to discard. See
     ///     <see cref="CorrelationSplit.NullSafe" />.
     /// </param>
+    /// <param name="keyTypes">Per key column, the type it is hashed as. See <see cref="CorrelationSplit.KeyTypes" />.</param>
     internal (HashSet<object?[]> Keys, HashSet<object?[]> NullTailKeys) BuildSemiJoinKeys(
-        SelectStatement keyQuery, int keyWidth, IReadOnlyList<bool> nullSafe, bool trackNullTail = false)
+        SelectStatement keyQuery, int keyWidth, IReadOnlyList<bool> nullSafe, IReadOnlyList<Type?> keyTypes,
+        bool trackNullTail = false)
     {
         var keys = new HashSet<object?[]>(new HashKeyComparer(TextComparer));
         var nullTail = new HashSet<object?[]>(new HashKeyComparer(TextComparer));
@@ -455,7 +475,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             var usable = true;
             for (var i = 0; i < prefix && usable; i++)
             {
-                usable = (key[i] = row[i]) is not null || (i < nullSafe.Count && nullSafe[i]);
+                usable = (key[i] = ExpressionEvaluator.AsColumnType(row[i], keyTypes[i], currency: false)) is not null
+                    || (i < nullSafe.Count && nullSafe[i]);
             }
 
             if (!usable)
@@ -467,7 +488,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             {
                 keys.Add(key);
             }
-            else if ((key[prefix] = row[prefix]) is null)
+            else if ((key[prefix] = ExpressionEvaluator.AsColumnType(row[prefix], keyTypes[prefix], currency: false)) is null)
             {
                 nullTail.Add(key[..prefix]);
             }
@@ -486,10 +507,14 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     ///     <see cref="BuildSemiJoinKeys" />; the aggregate itself may legitimately be null (<c>SUM</c> of nulls).
     /// </summary>
     internal Dictionary<object?[], object?> BuildGroupedAggregate(
-        SelectStatement keyQuery, int keyWidth, IReadOnlyList<bool> nullSafe)
+        SelectStatement keyQuery, int keyWidth, IReadOnlyList<bool> nullSafe, IReadOnlyList<Type?> keyTypes)
     {
         var values = new Dictionary<object?[], object?>(new HashKeyComparer(TextComparer));
-        var (_, rows) = Execute(SubqueryPlan(keyQuery, new EvalScope([], [], null)), null);
+        PlanNode plan = SubqueryPlan(keyQuery, new EvalScope([], [], null));
+        // The groups are made in the type each key is compared as, so the values that compare equal are one group.
+        if (keyTypes.Any(t => t is not null) && plan is AggregateNode grouped)
+            plan = grouped with { KeyTypes = keyTypes };
+        var (_, rows) = Execute(plan, null);
         foreach (object?[] row in rows)
         {
             if (row.Length <= keyWidth)
@@ -501,7 +526,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             var usable = true;
             for (var i = 0; i < keyWidth && usable; i++)
             {
-                usable = (key[i] = row[i]) is not null || (i < nullSafe.Count && nullSafe[i]);
+                usable = (key[i] = ExpressionEvaluator.AsColumnType(row[i], keyTypes[i], currency: false)) is not null
+                    || (i < nullSafe.Count && nullSafe[i]);
             }
 
             if (usable)
@@ -537,12 +563,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     {
         // An uncorrelated IN needs nothing from here: ExecuteColumn hoists it, so the body already runs once and
         // the caller's loop walks a cached list. TryBuildForIn declines it too (there are no correlation keys).
-        if (!_inSemiJoins.TryGetValue(query, out ExistsSemiJoin? semi))
+        if (!InSemiJoins.TryGetValue(query, out ExistsSemiJoin? semi))
         {
-            _inSemiJoins[query] = semi = query is SelectStatement inBody
+            InSemiJoins[query] = semi = query is SelectStatement inBody
                 ? ExistsSemiJoin.TryBuildForIn(
                     inBody, value, outerScope.AllColumns(),
-                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database.Catalog)
+                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database)
                 : null;
         }
 
@@ -553,19 +579,19 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     }
 
     (bool Found, bool HasNull)? IScalarSubqueryRunner.LookupHoistedIn(SqlStatement query, object value) =>
-        _hoistedInSets.TryGetValue(query, out HoistedInSet? set) ? set?.Lookup(value) : null;
+        HoistedInSets.TryGetValue(query, out HoistedInSet? set) ? set?.Lookup(value) : null;
 
     IEnumerable<object?> IScalarSubqueryRunner.ExecuteColumn(SqlStatement query, EvalScope outerScope)
     {
-        if (_hoistedColumn.TryGetValue(query, out List<object?>? hoisted))
+        if (HoistedColumn.TryGetValue(query, out List<object?>? hoisted))
             return hoisted;
 
         if (TryHoist(query, outerScope, ColumnOf, out List<object?>? once))
         {
             // Built here rather than lazily on first probe: this is the one place that knows the body was
             // hoisted, and the set is only ever worth building for a body that runs once.
-            _hoistedInSets[query] = HoistedInSet.TryBuild(once!, TextComparer);
-            return _hoistedColumn[query] = once!;
+            HoistedInSets[query] = HoistedInSet.TryBuild(once!, TextComparer, SeeksDoubleIndex(query));
+            return HoistedColumn[query] = once!;
         }
 
         // This is the per-row cost of an IN, so it is what the gate measures — the membership comparison the caller
@@ -583,21 +609,139 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
     }
 
+    /// <summary>Whether an IN's body reads an indexed Double column and nothing else — <c>SELECT c FROM t</c> — which ACE
+    /// answers by seeking that index, so compares a Single with it as a Double (measured).</summary>
+    private bool SeeksDoubleIndex(SqlStatement query) =>
+        query is SelectStatement
+        {
+            From: NamedTable table, Projection: [{ Value: ColumnReference column }], IsSelectStar: false, Where: null,
+            GroupBy.Count: 0, Having: null, Distinct: false, DistinctRow: false, Top: null, Offset: null,
+        }
+        && ExternalDatabases.Open(_database, table.Database).Catalog.FindTable(table.Name) is { } def
+        && def.FindColumn(column.Column) is { Type: LibRed.Catalog.JetDataType.Double } indexed
+        && Planning.IndexSelection.LeadsIndex(def, indexed);
+
+    /// <summary>
+    /// A crosstab: the TRANSFORM's SELECT, one row per group, followed by a column per pivot value holding the
+    /// TRANSFORM value for that row's group and that pivot value, or Null where the group has no rows with it.
+    /// </summary>
+    /// <remarks>
+    /// <para>It runs as two grouped queries over the same FROM and WHERE: the SELECT itself, which gives the rows, their
+    /// order and any further aggregates (a row total counts every row of the group, an IN list's or not), and the
+    /// value grouped by the same keys and the pivot. Both carry the GROUP BY keys, which is what matches a cell to its
+    /// row, folded as any GROUP BY folds them (<see cref="GroupKey"/>).</para>
+    /// <para>The pivot columns are a PIVOT IN list's headings, in their order and whatever the data holds, or else
+    /// every pivot value met, ascending with Null first. A column is named by its value as CStr writes it, trimmed,
+    /// with <c>.</c>, <c>!</c>, <c>[</c> and <c>]</c> made <c>_</c>, and Null or the empty string named <c>&lt;&gt;</c>;
+    /// a heading is named by its own text, made the same way (all verified vs ACE). Text values that fold together are
+    /// one column, named by the value its group came back with — ACE's choice among them is not stable, so is not
+    /// modelled.</para>
+    /// </remarks>
+    private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteCrosstab(
+        TransformStatement transform, EvalScope? outer)
+    {
+        SelectStatement select = transform.Select;
+        if (!QueryPlanner.HasAggregate(transform.Value))
+            throw new InvalidOperationException("Your query does not include the TRANSFORM value as part of an aggregate function.");
+        if (select.OrderBy.Any(o => QueryPlanner.HasAggregate(o.Value)))
+            throw new InvalidOperationException("Cannot have aggregate function in ORDER BY clause.");
+
+        IReadOnlyList<Expression> keys = select.GroupBy;
+        int width = select.Projection.Count;
+        List<SelectItem> keyItems = [.. keys.Select((key, i) => new SelectItem(key, $"$key{i}"))];
+        var rows = Run(select with { Projection = [.. select.Projection, .. keyItems] });
+        var cells = Run(new SelectStatement(
+            [.. keyItems, new SelectItem(transform.Pivot, "$pivot"), new SelectItem(transform.Value, "$value")],
+            IsSelectStar: false, select.From, select.Where, [.. keys, transform.Pivot], Having: null, OrderBy: [], Top: null));
+
+        // Each group's cells by pivot value, and every pivot value with the value it was first met as.
+        var byGroup = new Dictionary<GroupKey, Dictionary<GroupKey, object?>>();
+        var pivots = new Dictionary<GroupKey, object?>();
+        foreach (object?[] cell in cells.Rows)
+        {
+            var pivot = new GroupKey([cell[keys.Count]], TextComparer);
+            pivots.TryAdd(pivot, cell[keys.Count]);
+            var group = new GroupKey(cell[..keys.Count], TextComparer);
+            if (!byGroup.TryGetValue(group, out Dictionary<GroupKey, object?>? values))
+                byGroup[group] = values = [];
+            values[pivot] = cell[^1];
+        }
+
+        List<string> names;
+        var columnOf = new Dictionary<GroupKey, int>();
+        if (transform.Headings is { } fixedHeadings)
+        {
+            List<PivotHeading> headings = [.. fixedHeadings];
+            names = [.. headings.Select(h => HeadingName(h.Text))];
+            foreach ((GroupKey pivot, object? value) in pivots)
+                columnOf[pivot] = headings.FindIndex(h => Matches(value, h.Value.Value));
+        }
+        else
+        {
+            List<GroupKey> ordered = [.. pivots.Keys];
+            ordered.Sort((a, b) => ExpressionEvaluator.CompareForSort(a.Values[0], b.Values[0], TextComparer));
+            names = [.. ordered.Select(p => HeadingName(pivots[p] is { } value ? LibRed.Storage.Types.VbaText.Of(value) : null))];
+            for (int i = 0; i < ordered.Count; i++) columnOf[ordered[i]] = i;
+        }
+
+        OutputColumn valueColumn = cells.Columns[^1];
+        List<OutputColumn> columns = [.. rows.Columns.Take(width), .. names.Select(n => valueColumn with { Qualifier = null, Name = n, Source = null })];
+        var output = new List<object?[]>();
+        foreach (object?[] row in rows.Rows)
+        {
+            var result = new object?[width + names.Count];
+            Array.Copy(row, result, width);
+            if (byGroup.TryGetValue(new GroupKey(row[width..(width + keys.Count)], TextComparer), out Dictionary<GroupKey, object?>? values))
+                foreach ((GroupKey pivot, object? value) in values)
+                    if (columnOf[pivot] is int column and >= 0)
+                        result[width + column] = value;
+            output.Add(result);
+        }
+        return (columns, output);
+
+        (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) Run(SelectStatement statement) =>
+            Execute(SubqueryPlan(statement, outer), outer);
+
+        // A heading takes the values = would call it equal to (verified vs ACE: '9' and 'A' head the 9 and the a
+        // column), and a Null heading the Null ones; a value of a kind that cannot compare with it is not its.
+        bool Matches(object? value, object? heading)
+        {
+            try { return ExpressionEvaluator.CompareForSort(value, heading, TextComparer) == 0; }
+            catch (InvalidCastException) { return false; }
+        }
+
+        static string HeadingName(string? text)
+        {
+            string name = (text ?? "").Trim(' ').Replace('.', '_').Replace('!', '_').Replace('[', '_').Replace(']', '_');
+            return name.Length == 0 ? "<>" : name;
+        }
+    }
+
     /// <summary>The optimised plan for a subquery, planned once and cached: index selection (index seeks, hash
     /// joins) is applied just like a top-level query, and the outer query's aliases are passed so a correlated
     /// predicate (<c>inner.col = outer.col</c>) becomes an index seek keyed off the outer row — a correlated
     /// subquery runs per outer row, so an unoptimised plan re-run thousands of times is what made correlated
     /// EXISTS/scalar pathological.</summary>
-    private PlanNode SubqueryPlan(SqlStatement query, EvalScope outerScope)
+    private PlanNode SubqueryPlan(SqlStatement query, EvalScope? outerScope)
     {
-        if (!_subqueryPlans.TryGetValue(query, out PlanNode? plan))
+        if (!SubqueryPlans.TryGetValue(query, out PlanNode? plan))
         {
-            var outerAliases = outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase);
-            _subqueryPlans[query] = plan =
+            var outerAliases = outerScope?.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase);
+            SubqueryPlans[query] = plan =
                 ColumnPruning.Apply(
-                    Planning.IndexSelection.Apply(QueryPlanner.PlanStatement(query), _database.Catalog, outerAliases));
+                    Planning.IndexSelection.Apply(QueryPlanner.PlanStatement(query), _database, outerAliases));
         }
         return plan;
+    }
+
+    private LibRed.Storage.Table SourceTable(PlanNode source, string name, ExternalDatabase? database, EvalScope? outer)
+    {
+        // An uncorrelated source is opened once, so it needs no table-handle dictionary. The cache serves
+        // the same plan re-entered for successive outer rows (correlated subqueries and APPLY).
+        if (outer is null) return ExternalDatabases.Open(_database, database).OpenTable(name);
+        if (!SourceTables.TryGetValue(source, out LibRed.Storage.Table? table))
+            SourceTables[source] = table = ExternalDatabases.Open(_database, database).OpenTable(name);
+        return table;
     }
 
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) Execute(PlanNode node, EvalScope? outer)
@@ -631,7 +775,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     return (valueColumns, valueRows);
                 }
 
-            case ScanNode scan when Schema.InformationSchema.IsInformationSchema(scan.Table):
+            case CrosstabNode crosstab:
+                return ExecuteCrosstab(crosstab.Transform, outer);
+
+            case ScanNode scan when scan.Database is null && Schema.InformationSchema.IsInformationSchema(scan.Table):
                 {
                     // Virtual INFORMATION_SCHEMA.<view> table: materialise rows from the catalog.
                     string alias = scan.Alias ?? scan.Table;
@@ -643,57 +790,103 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
             case ScanNode scan:
                 {
-                    var table = _database.OpenTable(scan.Table);
+                    var table = SourceTable(scan, scan.Table, scan.Database, outer);
                     string alias = scan.Alias ?? scan.Table;
                     var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, table.Definition, c)).ToList();
-                    return (columns, _describing ? [] : table.Rows(ColumnPruning.Mask(table.Definition, scan.Decode)));
+                    var rows = table.Rows(ColumnPruning.Mask(table.Definition, scan.Decode));
+                    return scan.RowIds
+                        ? (WithRowIdColumn(columns, alias), _describing ? [] : WithRowIds(rows.WithIds()))
+                        : (columns, _describing ? [] : rows);
                 }
 
             case IndexSeekNode seek:
                 {
-                    var table = _database.OpenTable(seek.Table);
+                    var table = SourceTable(seek, seek.Table, seek.Database, outer);
                     string alias = seek.Alias ?? seek.Table;
                     var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, table.Definition, c)).ToList();
+                    if (seek.RowIds) columns = WithRowIdColumn(columns, alias);
                     if (_describing) return (columns, []);
 
                     // Evaluate the key(s) in the outer scope (so an index-nested-loop join can key off the outer
                     // row); a single-table seek's key is a constant/parameter.
                     var evaluator = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session);
                     var keyValues = new object?[table.Definition.Columns.Count];
-                    bool seekable = true;
-                    for (int i = 0; i < seek.Keys.Count && seekable; i++)
+                    var found = ExpressionEvaluator.SeekKey.Key;
+                    for (int i = 0; i < seek.Keys.Count && found == ExpressionEvaluator.SeekKey.Key; i++)
                     {
                         var keyColumn = seek.Index.Columns[i].Column;
-                        seekable = ExpressionEvaluator.TryGetSeekKey(
+                        found = ExpressionEvaluator.TryGetSeekKey(
                             keyColumn, seek.Keys[i], evaluator.Evaluate(seek.Keys[i]), out keyValues[keyColumn.Index]);
                     }
 
                     // A value of another kind is not a key this index can be searched by, so the rows are found
                     // by scanning instead. The FilterNode this seek was planned under is kept whatever happens
                     // (see IndexSelection), so it re-checks every row either way and the answer is the same one
-                    // the table would give with no index on it at all.
+                    // the table would give with no index on it at all. A value its column cannot hold equals no row.
                     bool[]? decode = ColumnPruning.Mask(table.Definition, seek.Decode);
-                    return (columns, seekable ? table.SeekRows(seek.Index, keyValues, decode) : table.Rows(decode));
+                    if (seek.RowIds)
+                        return (columns, WithRowIds(found switch
+                        {
+                            ExpressionEvaluator.SeekKey.Key => table.SeekRowsWithIds(seek.Index, keyValues, decode),
+                            ExpressionEvaluator.SeekKey.OtherKind => table.Rows(decode).WithIds(),
+                            _ => [],
+                        }));
+                    return (columns, found switch
+                    {
+                        ExpressionEvaluator.SeekKey.Key => table.SeekRows(seek.Index, keyValues, decode),
+                        ExpressionEvaluator.SeekKey.OtherKind => table.Rows(decode),
+                        _ => [],
+                    });
                 }
 
             case IndexRangeSeekNode range:
                 {
-                    var table = _database.OpenTable(range.Table);
+                    var table = SourceTable(range, range.Table, range.Database, outer);
                     string alias = range.Alias ?? range.Table;
                     var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, table.Definition, c)).ToList();
+                    if (range.RowIds) columns = WithRowIdColumn(columns, alias);
                     if (_describing) return (columns, []);
 
                     var evaluator = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session);
-                    int col = range.Index.Columns[0].Column.Index;
+                    var rangeColumn = range.Index.Columns[0].Column;
+                    bool seekable = true;
+                    // Each bound is a key as an equality seek's value is (ExpressionEvaluator.TryGetSeekKey): one of
+                    // another kind has no key range, so the rows are scanned and the FilterNode above re-checks them;
+                    // one its whole-number column cannot hold is the error ACE raises for it.
                     object?[]? Bound(Expression? e)
                     {
-                        if (e is null) return null;
+                        if (e is null || !seekable) return null;
                         var v = new object?[table.Definition.Columns.Count];
-                        v[col] = evaluator.Evaluate(e);
-                        return v;
+                        switch (ExpressionEvaluator.TryGetSeekKey(rangeColumn, e, evaluator.Evaluate(e), out v[rangeColumn.Index]))
+                        {
+                            case ExpressionEvaluator.SeekKey.OtherKind:
+                                seekable = false;
+                                return null;
+                            case ExpressionEvaluator.SeekKey.PastRange:
+                                throw new OverflowException(
+                                    $"Overflow: {v[rangeColumn.Index]} is past the range of column '{rangeColumn.Name}'.");
+                            case ExpressionEvaluator.SeekKey.Fraction:
+                                throw new InvalidCastException(
+                                    $"Data type mismatch: {v[rangeColumn.Index]} cannot be a bound of the whole-number column '{rangeColumn.Name}'.");
+                            default:
+                                return v;
+                        }
                     }
-                    return (columns, table.SeekRangeRows(range.Index, Bound(range.Low), Bound(range.High),
-                        ColumnPruning.Mask(table.Definition, range.Decode)));
+                    object?[]? low = Bound(range.Low), high = Bound(range.High);
+                    // A BETWEEN's bounds come in either order: put the lower first, in the order the index walks.
+                    if (range.Unordered && seekable
+                        && low?[rangeColumn.Index] is { } lowValue && high?[rangeColumn.Index] is { } highValue
+                        && ExpressionEvaluator.CompareForSort(
+                            lowValue, highValue, LibRed.Storage.JetTextComparer.For(rangeColumn.Collation)) > 0)
+                        (low, high) = (high, low);
+                    bool[]? rangeDecode = ColumnPruning.Mask(table.Definition, range.Decode);
+                    if (range.RowIds)
+                        return (columns, WithRowIds(seekable
+                            ? table.SeekRangeRowsWithIds(range.Index, low, high, rangeDecode)
+                            : table.Rows(rangeDecode).WithIds()));
+                    return (columns, seekable
+                        ? table.SeekRangeRows(range.Index, low, high, rangeDecode)
+                        : table.Rows(rangeDecode));
                 }
 
             case DerivedTableNode derived:
@@ -858,16 +1051,29 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                         .Where(q => q is not null).Select(q => q!)
                         .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+                    // The tables were read with their records' ids, which nothing above may see.
+                    int[] kept = [.. Enumerable.Range(0, columns.Count).Where(i => columns[i].Name != RowIdColumn)];
+                    var keptColumns = kept.Select(i => columns[i]).ToList();
+
                     // Access ignores DISTINCTROW when there is a single source table, when every table
                     // contributes output, or (our guard) when nothing does — leaving the rows untouched.
                     if (all.Count <= 1 || contributing.Count == 0 || all.All(contributing.Contains))
-                        return (columns, rows);
+                        return (keptColumns, WithoutRowIds(rows));
 
-                    // Otherwise dedupe on the full set of columns belonging to the contributing tables.
+                    // Otherwise each combination of the contributing tables' records once: a table read with its
+                    // records' ids is told apart by them, so two records holding the same values are two (verified
+                    // vs ACE); a derived table by all its columns.
+                    var identified = columns.Where(c => c.Name == RowIdColumn).Select(c => c.Qualifier)
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
                     int[] keyIndexes = Enumerable.Range(0, columns.Count)
-                        .Where(i => columns[i].Qualifier is { } q && contributing.Contains(q))
+                        .Where(i => columns[i].Qualifier is { } q && contributing.Contains(q)
+                            && (columns[i].Name == RowIdColumn || !identified.Contains(q)))
                         .ToArray();
-                    return (columns, DistinctByIndexes(rows, keyIndexes));
+                    return (keptColumns, WithoutRowIds(DistinctByIndexes(rows, keyIndexes)));
+
+                    IEnumerable<object?[]> WithoutRowIds(IEnumerable<object?[]> source) => kept.Length == columns.Count
+                        ? source
+                        : source.Select(row => kept.Select(i => row[i]).ToArray());
                 }
 
             default:
@@ -894,6 +1100,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 ClrType = right.ClrType,
                 Currency = right.Currency,
                 Scale = right.Scale,
+                Precision = right.Precision,
                 Null = false,
                 Source = null,
                 Origin = ColumnOrigin.SetOperation,
@@ -908,13 +1115,17 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             : l == typeof(Guid) || r == typeof(Guid) || l == typeof(byte[]) || r == typeof(byte[]) ? typeof(byte[])
             : CommonNumericType(AsInteger(l), AsInteger(r), currency: !leftDecimal && !rightDecimal) ?? typeof(string);
         bool isDecimal = type == typeof(decimal);
+        OutputColumn? scaled = !isDecimal ? null
+            : leftDecimal && rightDecimal
+                ? (left.Scale is not null && left.Scale == right.Scale
+                    ? left with { Precision = Math.Max(left.Precision ?? 0, right.Precision ?? 0) } : null)
+            : leftDecimal ? left : rightDecimal ? right : null;
         return left with
         {
             ClrType = type,
             Currency = isDecimal && !leftDecimal && !rightDecimal,
-            Scale = !isDecimal ? null
-                : leftDecimal && rightDecimal ? (left.Scale == right.Scale ? left.Scale : null)
-                : leftDecimal ? left.Scale : rightDecimal ? right.Scale : null,
+            Scale = scaled?.Scale,
+            Precision = scaled?.Precision,
             Source = null,
             Origin = ColumnOrigin.SetOperation,
             Variant = false,
@@ -975,8 +1186,18 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 yield return row;
     }
 
+    /// <summary>The name of the column a read with <see cref="ScanNode.RowIds"/> carries its records' ids in: no
+    /// identifier can spell it (one takes '$' only last), so no reference resolves to it.</summary>
+    private const string RowIdColumn = "$rowid";
+
+    private static List<OutputColumn> WithRowIdColumn(List<OutputColumn> columns, string alias) =>
+        [.. columns, new OutputColumn(alias, RowIdColumn, typeof(int))];
+
+    private static IEnumerable<object?[]> WithRowIds(IEnumerable<(LibRed.Storage.RowId Id, object?[] Values)> rows) =>
+        rows.Select(row => (object?[])[.. row.Values, row.Id.Packed]);
+
     /// <summary>Yields the first row for each distinct combination of the values at <paramref name="indexes"/>
-    /// (the columns of the DISTINCTROW contributing tables), preserving order.</summary>
+    /// (the DISTINCTROW contributing tables' record ids, or their columns), preserving order.</summary>
     private IEnumerable<object?[]> DistinctByIndexes(IEnumerable<object?[]> rows, int[] indexes)
     {
         var seen = new HashSet<GroupKey>();
@@ -999,50 +1220,96 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// it rather than resolving the name again; it still takes the item's conversions, which a passed-through
     /// <c>InputIndex</c> column does not. -1 sends the item through the evaluator.</remarks>
     private sealed record ProjectionSchema(
-        List<(OutputColumn Column, int InputIndex, Expression? Expr, NumberType Type, Type? ConvertTo, int Slot)> Plan,
+        List<(int InputIndex, Expression? Expr, NumberType Type, Type? ConvertTo, int Slot)> Plan,
         List<OutputColumn> Columns);
 
     /// <summary>Builds — or reuses — a ProjectNode's schema. Flattens the projection, expanding a qualified star
     /// (Table.*) into the input columns of that source (passed through by index); every other item is an
-    /// evaluated expression whose declared type is derived once here.</summary>
+    /// evaluated expression whose declared type is derived once here. A bare <c>*</c> among them is every input column
+    /// none of the others returns — none a column reference names, none a qualified star expands to — after all of
+    /// them, wherever it stands, and once however often it is written (verified vs ACE). The columns are named as
+    /// <see cref="OutputNames"/> has them.</summary>
     private ProjectionSchema ProjectionSchemaFor(ProjectNode project, IReadOnlyList<OutputColumn> columns)
     {
-        if (_projectionSchemas.TryGetValue(project, out ProjectionSchema? cached))
+        if (_firstProjection is { } first && ReferenceEquals(first.Node, project))
+            return first.Schema;
+        if (_firstProjection is not null && ProjectionSchemas.TryGetValue(project, out ProjectionSchema? cached))
             return cached;
 
-        var plan = new List<(OutputColumn Column, int InputIndex, Expression? Expr, NumberType Type, Type? ConvertTo, int Slot)>();
+        // Metadata belongs in Columns, not in every per-row instruction: OutputColumn carries the stored
+        // source and numeric facets, none of which the hot projection loop reads or needs to copy.
+        var plan = new List<(int InputIndex, Expression? Expr, NumberType Type, Type? ConvertTo, int Slot)>(project.Projection.Count);
+        var outputColumns = new List<OutputColumn>(project.Projection.Count);
+        var outputs = new List<OutputNames.Output>(project.Projection.Count);
+        var returned = new HashSet<int>();
+        bool allFields = false;
+        int index = 0;
         foreach (SelectItem item in project.Projection)
         {
+            if (item.Value is StarExpression)
+            {
+                allFields = true;
+                continue;
+            }
             if (item.Value is QualifiedStarExpression star)
             {
                 for (int ci = 0; ci < columns.Count; ci++)
                     if (string.Equals(columns[ci].Qualifier, star.Table, StringComparison.OrdinalIgnoreCase))
-                        plan.Add((columns[ci], ci, null, default, null, -1));
+                    {
+                        plan.Add((ci, null, default, null, -1));
+                        outputColumns.Add(columns[ci]);
+                        outputs.Add(new(index, OutputNames.Kind.Star, columns[ci].Name, columns[ci].Qualifier));
+                        returned.Add(ci);
+                    }
             }
             else
             {
-                string name = item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{plan.Count + 1}");
                 NumberType type = ExpressionEvaluator.NumberTypeOf(item.Value, columns, e => DeclaredType(e, columns));
                 // A projection item that is just a column keeps what that column was: the stored column behind
                 // it, and where none stands behind it, what computed it — so a renamed union column still
                 // describes itself as one.
-                OutputColumn? referenced = item.Value is ColumnReference reference
-                    ? OutputColumn.Find(columns, reference)
-                    : null;
-                (Type? convertTo, bool variant) = ItemConversion(item.Value, columns);
-                plan.Add((
-                    OutputColumn.Computed(name, DeclaredType(item.Value, columns), type, item.Value, referenced?.Source)
+                // The evaluator resolves this scope's columns before any outer one, so a name that is one
+                // column here is that column on every row. None, or more than one, stays with the evaluator.
+                int slot = item.Value is ColumnReference own ? EvalScope.Locate(columns, own, throwIfAmbiguous: false) : -1;
+                OutputColumn? referenced = slot >= 0 ? columns[slot] : null;
+                outputs.Add(OutputNames.For(item, index, referenced?.Qualifier));
+                // A resolved column already carries its type/variance. Reading those fields avoids
+                // resolving the same reference again inside each expression-metadata walk.
+                (Type? convertTo, bool variant) = referenced is { } boundColumn
+                    ? (null, boundColumn.Variant) : ItemConversion(item.Value, columns);
+                Type? declared = referenced is { ClrType: not null, Variant: false } typedColumn
+                    ? typedColumn.ClrType : DeclaredType(item.Value, columns);
+                outputColumns.Add(
+                    OutputColumn.Computed("", declared, type, item.Value, referenced?.Source)
                         with
-                    { Origin = referenced?.Origin ?? ColumnOrigin.Expression, Variant = variant },
-                    -1, item.Value, type, convertTo,
-                    // The evaluator resolves this scope's columns before any outer one, so a name that is one
-                    // column here is that column on every row. None, or more than one, stays with the evaluator.
-                    item.Value is ColumnReference own ? EvalScope.Locate(columns, own, throwIfAmbiguous: false) : -1));
+                    { Origin = referenced?.Origin ?? ColumnOrigin.Expression, Variant = variant });
+                // The existing pass-through instruction also covers a resolved column whose two
+                // conversions are identities. Numeric result classes keep their precision/coercion path.
+                int input = slot >= 0 && convertTo is null
+                    && type.Class is not (NumberClass.Decimal or NumberClass.Double or NumberClass.Currency) ? slot : -1;
+                plan.Add((input, item.Value, type, convertTo, slot));
+                if (slot >= 0) returned.Add(slot);
             }
+            index++;
         }
 
-        var schema = new ProjectionSchema(plan, plan.Select(p => p.Column).ToList());
-        _projectionSchemas[project] = schema;
+        if (allFields)
+            for (int ci = 0; ci < columns.Count; ci++)
+                if (returned.Add(ci))
+                {
+                    plan.Add((ci, null, default, null, -1));
+                    outputColumns.Add(columns[ci]);
+                    outputs.Add(new(index, OutputNames.Kind.Star, columns[ci].Name, columns[ci].Qualifier));
+                }
+
+        string[] names = OutputNames.Of(outputs);
+        for (int i = 0; i < outputColumns.Count; i++)
+            outputColumns[i] = outputColumns[i] with { Name = names[i] };
+        var schema = new ProjectionSchema(plan, outputColumns);
+        // A single projection needs no dictionary or identity hash. Additional nested projections
+        // retain the existing reference-keyed lookup and the same execution-scoped lifetime.
+        if (_firstProjection is null) _firstProjection = (project, schema);
+        else ProjectionSchemas[project] = schema;
         return schema;
     }
 
@@ -1065,8 +1332,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 return _parameters.TypeOf(parameter.Name);
             case ColumnReference column:
                 return DeclaredColumnType(column, columns)
-                    ?? (column.Table is null && column.Column.Equals("Now", StringComparison.OrdinalIgnoreCase)
-                        ? typeof(DateTime) : null);
+                    ?? (ExpressionEvaluator.IsNiladicFunction(column) ? typeof(DateTime) : null);
             case SystemVariableExpression variable:
                 return variable.Name.Equals("ROWCOUNT", StringComparison.OrdinalIgnoreCase)
                     ? typeof(int) : _session?.LastIdentity?.GetType();
@@ -1101,7 +1367,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     && binary.Operator is BinaryOperator.Add or BinaryOperator.Subtract
                     || right == typeof(DateTime) && IsSpan(binary.Left) && binary.Operator == BinaryOperator.Add)
                     return typeof(DateTime);
-                return DeclaredBinaryType(binary.Operator, left, right);
+                return DoubleWhereAceSays(binary, DeclaredBinaryType(binary.Operator, left, right), columns);
             case FunctionCall function:
                 return DeclaredFunctionType(function, columns);
             case CaseExpression @case:
@@ -1110,6 +1376,14 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 return null;
         }
     }
+
+    /// <summary>A Decimal that ACE gives a Double column is a Double (<see cref="ExpressionEvaluator.NumberTypeOf"/>;
+    /// <see cref="ExpressionEvaluator.ToResultPlaces"/> converts its value): DOUBLE * 1.11, 1.5 * 1.25, DECIMAL(18,4)
+    /// * 1.11, Currency * Double.</summary>
+    private Type? DoubleWhereAceSays(Expression expression, Type? declared, IReadOnlyList<OutputColumn> columns) =>
+        declared == typeof(decimal)
+        && ExpressionEvaluator.NumberTypeOf(expression, columns, e => DeclaredType(e, columns)).Class == NumberClass.Double
+            ? typeof(double) : declared;
 
     /// <summary>
     /// What ACE's expression service makes of a value beyond its type (verified vs ACE, over OLE DB, for IIF, SWITCH
@@ -1184,7 +1458,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     }
 
     /// <summary>The values a choice picks among, or null for a function that is not one.</summary>
-    private static IEnumerable<Expression>? ChoiceArms(FunctionCall function) =>
+    internal static IEnumerable<Expression>? ChoiceArms(FunctionCall function) =>
         function.Name.TrimEnd('$').ToUpperInvariant() switch
         {
             "IIF" when function.Arguments.Count == 3 => function.Arguments.Skip(1),
@@ -1237,8 +1511,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// this type — each is the subquery's own projected value, and a Variant is written out as text.</summary>
     private OutputColumn? ScalarSubqueryColumn(SqlStatement query)
     {
-        if (!_scalarSubqueryColumns.TryGetValue(query, out OutputColumn? column))
-            _scalarSubqueryColumns[query] = column =
+        if (!ScalarSubqueryColumns.TryGetValue(query, out OutputColumn? column))
+            ScalarSubqueryColumns[query] = column =
                 new QueryExecutor(_database, _parameterValues, _session, describing: true)
                     .DescribeQuery(QueryPlanner.PlanStatement(query)) is [var first, ..] ? first : null;
         return column;
@@ -1257,7 +1531,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     private Type? DeclaredCaseType(CaseExpression @case, IReadOnlyList<OutputColumn> columns)
         => UnifiedType(CaseResults(@case), columns);
 
-    private static IEnumerable<Expression> CaseResults(CaseExpression c)
+    internal static IEnumerable<Expression> CaseResults(CaseExpression c)
     {
         foreach (CaseWhen arm in c.WhenClauses)
             yield return arm.Result;
@@ -1267,10 +1541,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     /// <summary>The single type a set of alternative expressions declares — shared by CASE, IIF, COALESCE,
     /// GREATEST and LEAST, which the standard defines in terms of CASE or gives the same precedence rule.</summary>
-    /// <remarks>A number written with a decimal point counts as a Decimal here, as ACE reads it (NumberTypeOf), though
-    /// its value is held as a Double: EF writes a decimal zero as <c>0.0</c>, so its Sum-with-a-default shape
-    /// <c>IIF(SUM(x) IS NULL, 0.0, SUM(x))</c> would otherwise make every money sum a Double. A Double still wins
-    /// where one is present.</remarks>
+    /// <remarks>A Decimal stays a Decimal beside a whole number, as .NET and EF expect — where ACE makes any Decimal
+    /// value in IIF a Double — so EF's Sum-with-a-default shape <c>IIF(SUM(x) IS NULL, 0.0, SUM(x))</c> keeps a
+    /// decimal sum a Decimal. A Double still wins where one is present.</remarks>
     private Type? UnifiedType(IEnumerable<Expression> alternatives, IReadOnlyList<OutputColumn> columns)
     {
         Type? result = null;
@@ -1278,7 +1551,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
         foreach (Expression alternative in alternatives)
         {
-            Type? branchType = IsWrittenDecimal(alternative) ? typeof(decimal) : OperandType(alternative, columns);
+            Type? branchType = OperandType(alternative, columns);
             if (branchType is null)
             {
                 if (alternative is LiteralExpression { Value: null })
@@ -1318,14 +1591,6 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
 
         return result;
-    }
-
-    /// <summary>Whether <paramref name="expression"/> is a number written with a decimal point, negated or not.</summary>
-    private static bool IsWrittenDecimal(Expression expression)
-    {
-        while (expression is UnaryExpression { Operator: UnaryOperator.Negate } negation)
-            expression = negation.Operand;
-        return expression is LiteralExpression { Written: decimal };
     }
 
     /// <summary>
@@ -1425,15 +1690,15 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             // DateDiff counts into Access's Long Integer whatever the interval, and DateDiff_Big into an Int64
             "DATEDIFF_BIG" => typeof(long),
             "LEN" or "DATALENGTH" or "INSTR" or "INSTRREV" or "ASC" or "ASCW" or "DATEPART" or "DATEDIFF"
-                or "YEAR" or "MONTH" or "DAY" or "HOUR" or "MINUTE" or "SECOND" or "WEEKDAY" => typeof(int),
-            "CDATE" or "NOW" or "DATE" or "TIME" or "DATEADD" or "DATESERIAL" or "TIMESERIAL"
+                or "YEAR" or "MONTH" or "DAY" or "HOUR" or "MINUTE" or "SECOND" or "WEEKDAY" or "IMESTATUS" => typeof(int),
+            "CDATE" or "CVDATE" or "NOW" or "DATE" or "TIME" or "DATEADD" or "DATESERIAL" or "TIMESERIAL"
                 or "DATEVALUE" or "TIMEVALUE" or "GETUTCDATE" or "SYSDATETIME" or "SYSUTCDATETIME" => typeof(DateTime),
             "SQR" or "SIN" or "COS" or "TAN" or "ATN" or "LOG" or "EXP" or "RND"
                 or "SQRT" or "LN" or "LOG10" or "POWER" or "ASIN" or "ACOS" or "ATAN" or "ATAN2" or "SINH" or "COSH"
                 or "TANH" or "DEGREES" or "RADIANS" or "PI"
                 or "PMT" or "FV" or "PV" or "NPER" or "IPMT" or "PPMT" or "DDB" or "RATE" or "SLN" or "SYD" => typeof(double),
             // IIF chooses between two values as CASE does, so it takes CASE's rule rather than ACE's own (which
-            // makes every whole number a Long and lets Currency beat Double).
+            // makes every whole number a Long, any Decimal a Double, and lets Currency beat Double).
             "IIF" when function.Arguments.Count == 3 => UnifiedType(function.Arguments.Skip(1), columns),
             // SWITCH and CHOOSE pick one of their values as IIF does, and take its rule.
             "SWITCH" or "CHOOSE" => UnifiedType(ChoiceArms(function)!, columns),
@@ -1506,7 +1771,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         {
             if (op == BinaryOperator.Subtract && left == typeof(DateTime) && right == typeof(DateTime))
                 return typeof(double);
-            return op is BinaryOperator.Add or BinaryOperator.Subtract ? typeof(DateTime) : typeof(double);
+            return op is BinaryOperator.Add or BinaryOperator.Subtract ? typeof(DateTime)
+                : left == typeof(decimal) || right == typeof(decimal) ? typeof(decimal) : typeof(double);
         }
         if (left == typeof(decimal) || right == typeof(decimal)) return typeof(decimal);
         if (left == typeof(double) || right == typeof(double)) return typeof(double);
@@ -1627,7 +1893,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             // Open the inner table, resolve its columns, and precompute the seek key-column positions ONCE —
             // not per left row. Per left row we only rebuild the tiny key-value array and seek; this is the
             // hot path of the join, so everything hoistable stays out of the loop.
-            var innerTable = _database.OpenTable(seek.Table);
+            var innerTable = SourceTable(seek, seek.Table, seek.Database, outer);
             string innerAlias = seek.Alias ?? seek.Table;
             int innerWidth = innerTable.Definition.Columns.Count;
             var seekColumns = innerTable.Definition.Columns.Select(c => OutputColumn.Of(innerAlias, innerTable.Definition, c)).ToList();
@@ -1653,16 +1919,20 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     // As the single-table seek above: a key of another kind cannot be looked up in this index,
                     // and the join's ON is kept whole as the residual, so scanning the inner table for that
                     // outer row gives the same rows the seek would have had to find.
-                    bool seekable = true;
-                    for (int i = 0; i < seek.Keys.Count && seekable; i++)
-                        seekable = ExpressionEvaluator.TryGetSeekKey(
+                    // A key its column cannot hold equals no inner row.
+                    var found = ExpressionEvaluator.SeekKey.Key;
+                    for (int i = 0; i < seek.Keys.Count && found == ExpressionEvaluator.SeekKey.Key; i++)
+                        found = ExpressionEvaluator.TryGetSeekKey(
                             seek.Index.Columns[i].Column, seek.Keys[i], keyEval.Evaluate(seek.Keys[i]),
                             out keyValues[keyCols[i]]);
 
                     bool matched = false;
-                    foreach (object?[] right in seekable
-                        ? innerTable.SeekRows(seek.Index, keyValues, decode)
-                        : innerTable.Rows(decode))
+                    foreach (object?[] right in found switch
+                    {
+                        ExpressionEvaluator.SeekKey.Key => innerTable.SeekRows(seek.Index, keyValues, decode),
+                        ExpressionEvaluator.SeekKey.OtherKind => innerTable.Rows(decode),
+                        _ => [],
+                    })
                     {
                         object?[] combined = seekShape.Combine(left, right);
                         if (on is null || onEval.Rebind(combined).IsTrue(on))
@@ -1773,40 +2043,75 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             // Build phase: hash the build side by its keys. A row with any null key can never satisfy an
             // equi-join (SQL null = null is not true), so it is dropped from the table.
             var table = new Dictionary<object?[], List<object?[]>>(new HashKeyComparer(TextComparer));
+            var probeScope = new EvalScope(probeColumns, [], outer);
+            var probeEval = new ExpressionEvaluator(probeScope, this, parameters: _parameters, session: _session);
+            List<object?[]>? selectiveProbe = null;
+            // An indexed literal equality supplies a small, side-effect-free probe input. Keep buckets
+            // only for those keys, rather than retaining the entire scanned table. Preserve both probe
+            // order and each bucket's build order. Other shapes retain the original streaming probe.
+            if (join.Kind == JoinKind.Inner && join.Right is ScanNode
+                && join.Left is FilterNode
+                {
+                    Input: IndexSeekNode,
+                    Predicate: BinaryExpression
+                    {
+                        Operator: BinaryOperator.Equal, Left: ColumnReference, Right: LiteralExpression
+                    }
+                }
+                && buildKeys.All(k => k is ColumnReference) && probeKeys.All(k => k is ColumnReference))
+            {
+                const int probeLimit = 32;
+                List<object?[]> candidates = probeRowsEnum.Take(probeLimit + 1).ToList();
+                if (candidates.Count <= probeLimit)
+                {
+                    selectiveProbe = candidates;
+                    foreach (object?[] p in selectiveProbe)
+                    {
+                        probeScope.Rebind(p);
+                        var wanted = new object?[probeKeys.Count];
+                        if (EvalKey(probeEval, probeKeys, join.KeyTypes, wanted)) table.TryAdd(wanted, []);
+                    }
+                }
+            }
             var buildScope = new EvalScope(buildColumns, [], outer);
             var buildEval = new ExpressionEvaluator(buildScope, this, parameters: _parameters, session: _session);
             // A null-key build row can never match, so it is normally dropped outright. Under FULL the build
             // side is preserved, which makes "never matches" a reason to emit it, not to discard it - so those
             // rows are set aside instead and joined to the unmatched tail below.
             List<object?[]>? unhashableBuild = preserveBuild ? [] : null;
+            var buildKey = new object?[buildKeys.Count];
             foreach (object?[] b in buildRowsEnum)
             {
                 buildScope.Rebind(b);
-                var key = new object?[buildKeys.Count];
-                if (!EvalKey(buildEval, buildKeys, key)) // null key → unmatchable
+                object?[] key = selectiveProbe is null ? new object?[buildKeys.Count] : buildKey;
+                if (!EvalKey(buildEval, buildKeys, join.KeyTypes, key)) // null key → unmatchable
                 {
                     unhashableBuild?.Add(b);
                     continue;
                 }
-                if (!table.TryGetValue(key, out List<object?[]>? bucket))
-                    table[key] = bucket = [];
-                bucket.Add(b);
+                if (selectiveProbe is not null)
+                {
+                    if (table.TryGetValue(key, out List<object?[]>? wanted)) wanted.Add(b);
+                }
+                else
+                {
+                    ref List<object?[]>? bucket = ref CollectionsMarshal.GetValueRefOrAddDefault(table, key, out _);
+                    (bucket ??= []).Add(b);
+                }
             }
 
             // Probe phase: each probe row looks up its bucket; the full ON re-checks each candidate (buckets can
             // collide, and ON may carry extra non-equi conjuncts). An outer join emits a null-padded row on no match.
-            var probeScope = new EvalScope(probeColumns, [], outer);
-            var probeEval = new ExpressionEvaluator(probeScope, this, parameters: _parameters, session: _session);
             var onScope = new EvalScope(joinColumns, [], outer);
             var onEval = new ExpressionEvaluator(onScope, this, parameters: _parameters, session: _session);
             var probe = new object?[probeKeys.Count]; // reused; only used to look up, never stored
             var matchedBuild = preserveBuild ? new HashSet<object?[]>(RowIdentityComparer.Instance) : null;
 
-            foreach (object?[] p in probeRowsEnum)
+            foreach (object?[] p in selectiveProbe ?? probeRowsEnum)
             {
                 probeScope.Rebind(p);
                 bool matched = false;
-                if (EvalKey(probeEval, probeKeys, probe) && table.TryGetValue(probe, out List<object?[]>? bucket))
+                if (EvalKey(probeEval, probeKeys, join.KeyTypes, probe) && table.TryGetValue(probe, out List<object?[]>? bucket))
                 {
                     foreach (object?[] b in bucket)
                     {
@@ -1849,12 +2154,14 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         return (joinColumns, Rows());
     }
 
-    /// <summary>Evaluates the key expressions into <paramref name="dest"/>; returns false (short-circuiting) if
-    /// any key is null, since a null key never participates in an equi-join match.</summary>
-    private static bool EvalKey(ExpressionEvaluator eval, IReadOnlyList<Expression> keys, object?[] dest)
+    /// <summary>Evaluates the key expressions into <paramref name="dest"/>, each as the type its pair is hashed as
+    /// (<see cref="HashJoinNode.KeyTypes"/>); returns false (short-circuiting) if any key is null, since a null key
+    /// never participates in an equi-join match.</summary>
+    private static bool EvalKey(
+        ExpressionEvaluator eval, IReadOnlyList<Expression> keys, IReadOnlyList<Type?>? types, object?[] dest)
     {
         for (int i = 0; i < keys.Count; i++)
-            if ((dest[i] = eval.Evaluate(keys[i])) is null)
+            if ((dest[i] = ExpressionEvaluator.AsColumnType(eval.Evaluate(keys[i]), types?[i], currency: false)) is null)
                 return false;
         return true;
     }
@@ -2267,6 +2574,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteAggregate(AggregateNode node, EvalScope? outer)
     {
         var (inColumns, inRowsEnum) = Execute(node.Input, outer);
+        RequireGrouped(node, inColumns);
+        bool bareCount = IsBareCountStar(node);
+        if (bareCount && CountColumns.TryGetValue(node, out IReadOnlyList<OutputColumn>? heldColumns))
+            return (heldColumns, _describing ? [] : [[CountRows(inRowsEnum)]]);
 
         // Windows over the groups publish a column each, which the projection and ORDER BY read as any other.
         IReadOnlyList<WindowOutput> windows = node.Windows ?? [];
@@ -2275,9 +2586,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         var outTypes = node.Projection
             .Select(item => ExpressionEvaluator.NumberTypeOf(item.Value, columns, e => DeclaredType(e, columns))).ToList();
         var conversions = node.Projection.Select(item => ItemConversion(item.Value, columns)).ToList();
+        string[] names = OutputNames.Of([.. node.Projection.Select((item, i) => OutputNames.For(item, i,
+            item.Value is ColumnReference reference ? OutputColumn.Find(columns, reference)?.Qualifier : null))]);
         var outColumns = node.Projection
             .Select((item, i) => OutputColumn.Computed(
-                    item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{i + 1}"),
+                    names[i],
                     DeclaredType(item.Value, columns),
                     outTypes[i],
                     item.Value,
@@ -2296,6 +2609,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             })
             .ToList();
 
+        if (bareCount) CountColumns[node] = outColumns;
+
         // Describing evaluates nothing. An aggregate is the one node that has a row over no input — COUNT(*) is 0 —
         // so letting it compute one hands the nodes above a row to evaluate, and a correlated subquery being
         // described has no outer row for them to read.
@@ -2305,7 +2620,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         // whole input first — which for this shape is the entire cost, and pure waste: holding every decoded row
         // alive at once made counting a table cost more than reading it (measured, `scan.count_star` against
         // `scan.star`). Counting the same sequence lazily is the identical answer with nothing retained.
-        if (IsBareCountStar(node))
+        if (bareCount)
             return (outColumns, [[CountRows(inRowsEnum)]]);
 
         // Aggregates can appear in the projection, HAVING (e.g. HAVING COUNT(*) > 30) and ORDER BY
@@ -2338,10 +2653,16 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         // An empty input still has its one group when there is no GROUP BY: COUNT(*) over nothing is 0.
         ExpressionEvaluator rowEval = Eval(inColumns, [], outer); // one evaluator, rebound per row
         var groupStates = new List<GroupState>();
-        GroupState? single = node.GroupBy.Count == 0 ? NewGroupState(null) : null;
+        int keyCount = node.GroupBy.Count;
+        GroupState? single = keyCount == 0 ? NewGroupState(null) : null;
         if (single is not null) groupStates.Add(single);
         var byKey = new Dictionary<GroupKey, GroupState>();
         bool[] keyByText = ComparedAsText(node.GroupBy, inColumns);
+        // A key is grouped as the type it declares, as its projected value is converted to it: an IIF choosing a
+        // Single or a Double groups as a Double (verified vs ACE: the two are two groups, ordered as Doubles).
+        Type?[] keyTypes = [.. node.GroupBy.Select((key, i) => node.KeyTypes?[i] ?? ItemConversion(key, inColumns).ConvertTo)];
+        int[] keySlots = [.. node.GroupBy.Select(key => key is ColumnReference reference
+            ? EvalScope.Locate(inColumns, reference, throwIfAmbiguous: false) : -1)];
         foreach (object?[] row in inRowsEnum)
         {
             rowEval.Rebind(row);
@@ -2350,14 +2671,16 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             {
                 // Text is keyed here, once — as GroupKey would key it, so it holds these values as they are — and
                 // the group keeps them for ordering the output, where they used to be evaluated and keyed again.
-                var keyValues = new object?[node.GroupBy.Count];
+                var keyValues = new object?[keyCount];
                 for (int i = 0; i < keyValues.Length; i++)
-                    keyValues[i] = ExpressionEvaluator.SortKey(
-                        Compared(rowEval.Evaluate(node.GroupBy[i]), keyByText[i]), TextComparer);
+                    keyValues[i] = ExpressionEvaluator.SortKey(Compared(ExpressionEvaluator.AsColumnType(
+                        keySlots[i] >= 0 ? row[keySlots[i]] : rowEval.Evaluate(node.GroupBy[i]), keyTypes[i], currency: false),
+                        keyByText[i]), TextComparer);
                 var key = new GroupKey(keyValues, TextComparer);
-                if (!byKey.TryGetValue(key, out state))
+                ref GroupState? slot = ref CollectionsMarshal.GetValueRefOrAddDefault(byKey, key, out bool exists);
+                state = slot ??= NewGroupState(row);
+                if (!exists)
                 {
-                    byKey[key] = state = NewGroupState(row);
                     state.Keys = key.Values;
                     groupStates.Add(state); // first-appearance order, which a stable ORDER BY keeps between ties
                 }
@@ -2440,11 +2763,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             // Stable (see SortNode): groups with equal ORDER BY keys keep their input (first-appearance) order.
             outRows = outRows.OrderBy(x => x, Comparer<(object?[] Row, object?[] SortKeys, object?[] GroupKeys)>.Create(
                 (a, b) => CompareEvaluatedKeys(node.OrderBy, a.SortKeys, b.SortKeys, TextComparer))).ToList();
-        else if (node.GroupBy.Count > 0)
+        else if (keyCount > 0)
             // No explicit ORDER BY: Access orders GROUP BY output ascending by the grouping columns.
             outRows.Sort((a, b) =>
             {
-                for (int i = 0; i < node.GroupBy.Count; i++)
+                for (int i = 0; i < keyCount; i++)
                 {
                     int c = ExpressionEvaluator.CompareForSort(a.GroupKeys[i], b.GroupKeys[i], TextComparer);
                     if (c != 0) return c;
@@ -2457,6 +2780,87 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             outRows = CutWithTies(outRows, x => x.SortKeys, node.OrderBy, ties, outer);
 
         return (outColumns, outRows.Select(x => x.Row));
+    }
+
+    /// <summary>
+    /// Refuses a grouped query that reads a column of its rows outside an aggregate where the column is neither a GROUP
+    /// BY expression nor inside an expression that is one — in the projection, HAVING, ORDER BY or a window, or as an
+    /// outer reference in a subquery of any of them. Evaluated, it would read whichever row its group met first.
+    /// Verified vs ACE: <c>CategoryID + 1</c> grouped by <c>CategoryID</c> is taken, while <c>CategoryID</c> grouped by
+    /// <c>CategoryID + 1</c>, <c>Mid(x, 1, 2)</c> grouped by <c>Mid(x, 1, 1)</c> and <c>x</c> grouped by
+    /// <c>UCase(x)</c> are each refused.
+    /// </summary>
+    private static void RequireGrouped(AggregateNode node, IReadOnlyList<OutputColumn> columns)
+    {
+        IEnumerable<Expression> read = node.Projection.Select(item => item.Value)
+            .Concat(node.Having is { } having ? [having] : [])
+            .Concat(node.OrderBy.Select(key => key.Value))
+            .Concat((node.Windows ?? []).SelectMany(w => w.Function.Expressions()));
+        foreach (Expression expression in read)
+            if (Ungrouped(expression) is { } column)
+                throw new InvalidOperationException(
+                    $"Your query does not include the specified expression '{column.Column}' as part of an aggregate function.");
+
+        // A column that is not one of these rows' — an enclosing query's, or a window's output — is not grouped here.
+        ColumnReference? Ungrouped(Expression e) =>
+            node.GroupBy.Any(key => SameExpression(e, key, columns)) ? null : e switch
+            {
+                FunctionCall f when QueryPlanner.IsAggregate(f.Name) => null,
+                ColumnReference c => EvalScope.Locate(columns, c, throwIfAmbiguous: false) >= 0 ? c : null,
+                ScalarSubquery s => UngroupedOuter(s.Query),
+                ExistsExpression x => UngroupedOuter(x.Query),
+                InSubqueryExpression i => Ungrouped(i.Value) ?? UngroupedOuter(i.Query),
+                _ => e.Operands()?.Select(Ungrouped).FirstOrDefault(c => c is not null),
+            };
+
+        // A subquery's own tables come first, so only a reference qualified by a table it does not name can be one of
+        // these rows' columns; an unqualified name is left to the subquery. An aggregate there over these rows is
+        // computed per group (see Aggregates), so is not looked into.
+        ColumnReference? UngroupedOuter(SqlStatement query)
+        {
+            var named = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            ColumnPruning.Walk(query, n =>
+            {
+                if (n is NamedTable table) named.Add(table.Alias ?? table.Name);
+                else if (n is SubqueryTable { Alias: { } alias }) named.Add(alias);
+                return true;
+            });
+            ColumnReference? found = null;
+            ColumnPruning.Walk(query, n =>
+            {
+                if (found is not null || n is FunctionCall f && QueryPlanner.IsAggregate(f.Name)) return false;
+                if (n is ColumnReference { Table: { } table } c && !named.Contains(table)) found = Ungrouped(c);
+                return true;
+            });
+            return found;
+        }
+    }
+
+    /// <summary>Whether two expressions are the same expression: the same node with the same operands, a column
+    /// being the same column of <paramref name="columns"/> however it is qualified (verified vs ACE:
+    /// <c>P.CategoryID</c> is grouped by <c>CategoryID</c>).</summary>
+    private static bool SameExpression(Expression a, Expression b, IReadOnlyList<OutputColumn> columns)
+    {
+        bool sameNode = (a, b) switch
+        {
+            (ColumnReference x, ColumnReference y) => EvalScope.Locate(columns, x, throwIfAmbiguous: false) is var slot
+                && slot >= 0 && slot == EvalScope.Locate(columns, y, throwIfAmbiguous: false),
+            (FunctionCall x, FunctionCall y) => string.Equals(x.Name, y.Name, StringComparison.OrdinalIgnoreCase)
+                && x.Distinct == y.Distinct && (x.WithinGroup ?? []).SequenceEqual(y.WithinGroup ?? [])
+                && (x.Filter is null) == (y.Filter is null),
+            (BinaryExpression x, BinaryExpression y) => x.Operator == y.Operator,
+            (UnaryExpression x, UnaryExpression y) => x.Operator == y.Operator,
+            (InListExpression x, InListExpression y) => x.Negated == y.Negated,
+            (BetweenExpression x, BetweenExpression y) => x.Negated == y.Negated,
+            (CaseExpression x, CaseExpression y) =>
+                x.WhenClauses.Count == y.WhenClauses.Count && (x.ElseResult is null) == (y.ElseResult is null),
+            // A leaf, whose record equality compares everything it holds.
+            _ => a.Operands() is null && a.Equals(b),
+        };
+        if (!sameNode) return false;
+
+        List<Expression> left = [.. a.Operands() ?? []], right = [.. b.Operands() ?? []];
+        return left.Count == right.Count && left.Zip(right).All(pair => SameExpression(pair.First, pair.Second, columns));
     }
 
     /// <summary>
@@ -2509,8 +2913,22 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     {
         private bool? _currency;
         private bool? _byText;
+        private bool _validated;
 
-        public FunctionCall Call => call;
+        public FunctionCall Call
+        {
+            get
+            {
+                // Arity is query shape, not group state. Keep validation lazy, as before, but do it
+                // only once after it succeeds rather than once for every group.
+                if (!_validated)
+                {
+                    ExpressionEvaluator.ValidateArity(Name, call.Arguments.Count);
+                    _validated = true;
+                }
+                return call;
+            }
+        }
         public string Name { get; } = call.Name.ToUpperInvariant();
 
         /// <summary>Min, Max, First and Last take a Variant's or a Mixed value's text (verified vs ACE: Max of 3, 10
@@ -2554,7 +2972,6 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             _executor = executor;
             _call = spec.Call;
             _name = spec.Name;
-            ExpressionEvaluator.ValidateArity(_name, _call.Arguments.Count);
             Expression? arg = _call.Arguments.Count > 0 ? _call.Arguments[0] : null;
 
             // COUNT(*) counts rows; DISTINCT is meaningless there (and EF never emits it).

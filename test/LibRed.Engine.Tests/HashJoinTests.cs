@@ -29,6 +29,51 @@ public class HashJoinTests : TempDatabaseTest
 
     private static int Count(QueryEngine e, string sql) => e.ExecuteQuery(sql).Rows.Count();
 
+    [Theory]
+    [InlineData("C.Amt > 100", false, 1)]
+    [InlineData("C.Amt > 195", false, 1)]
+    [InlineData("C.Amt > 100", false, 999)]
+    [InlineData("C.Amt > 100", true, 0)]
+    [InlineData("C.Amt > 100", true, 999)]
+    public void Indexed_left_join_keeps_hash_join_duplicates_nulls_and_residuals(string residual, bool textKey, int outerId)
+    {
+        var e = TwoTables();
+        e.ExecuteNonQuery("INSERT INTO P (Id, Nm) VALUES (999, NULL)");
+        e.ExecuteNonQuery("INSERT INTO C (Id, Pid, Amt) VALUES (999, NULL, 999)");
+        e.ExecuteNonQuery("UPDATE P SET Nm = 'T0' WHERE Id = 0");
+        string equality = textKey ? "P.Nm = C.Tag" : "P.Id = C.Pid";
+        string sql = $"SELECT P.Id, C.Id FROM P LEFT JOIN C ON {equality} AND {residual} WHERE P.Id = {outerId} ORDER BY P.Id, C.Id";
+        Assert.True(ContainsHashJoin(e.PlanFor(sql)));
+        var expected = e.ExecuteQuery(sql).Rows.Select(r => (r[0], r[1])).ToArray();
+        if (outerId == 999) Assert.Contains(expected, r => Equals(r.Item1, 999) && r.Item2 is null);
+
+        e.ExecuteNonQuery($"CREATE INDEX ix_c_key ON C ({(textKey ? "Tag" : "Pid")})");
+        Assert.False(ContainsHashJoin(e.PlanFor(sql)));
+        Assert.Equal(expected, e.ExecuteQuery(sql).Rows.Select(r => (r[0], r[1])).ToArray());
+    }
+
+    [Fact]
+    public void Indexed_probe_reduction_keeps_duplicate_keys_nulls_residuals_and_row_order()
+    {
+        var e = TwoTables();
+        e.ExecuteNonQuery("UPDATE P SET Nm = 'T7' WHERE Id = 7 OR Id = 8");
+        e.ExecuteNonQuery("INSERT INTO P (Id, Nm) VALUES (999, NULL)");
+        e.ExecuteNonQuery("UPDATE C SET Tag = NULL WHERE Id = 57");
+        const string sql = "SELECT P.Id, C.Id FROM P INNER JOIN C ON P.Nm = C.Tag AND C.Amt > 100 WHERE P.Nm = 'T7'";
+        var expected = e.ExecuteQuery(sql).Rows.Select(r => (r[0], r[1])).ToArray();
+        Assert.Equal(4, expected.Length);
+        Assert.True(ContainsHashJoin(e.PlanFor(sql)));
+
+        e.ExecuteNonQuery("CREATE INDEX ix_p_nm ON P (Nm)");
+        Assert.True(ContainsHashJoin(e.PlanFor(sql)));
+        Assert.Equal(expected, e.ExecuteQuery(sql).Rows.Select(r => (r[0], r[1])).ToArray());
+        Assert.Empty(e.ExecuteQuery("SELECT P.Id FROM P INNER JOIN C ON P.Nm = C.Tag WHERE P.Id = 999").Rows);
+        Assert.Empty(e.ExecuteQuery("SELECT P.Id FROM P INNER JOIN C ON P.Nm = C.Tag WHERE P.Nm = 'absent'").Rows);
+        Assert.Equal(2, Count(e, "SELECT P.Id FROM P INNER JOIN C ON P.Nm = C.Tag AND P.Id = C.Pid AND C.Amt > 100 WHERE P.Nm = 'T7'"));
+        e.ExecuteNonQuery("UPDATE P SET Nm = 'T7' WHERE Id < 50");
+        Assert.Equal(100, Count(e, sql)); // a nonselective index value uses the ordinary hash build
+    }
+
     [Fact]
     public void An_unindexed_equi_join_is_planned_as_a_hash_join()
     {

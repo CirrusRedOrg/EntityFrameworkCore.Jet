@@ -25,8 +25,14 @@ internal sealed class ParameterBag
     {
         if (values is null) return;
         foreach (var (key, value) in values)
+        {
             _values[Normalize(key)] = value;
+            HasDurations |= value is TimeSpan or TimeOnly;
+        }
     }
+
+    /// <summary>Whether a parameter can introduce duration arithmetic; stored time columns are dates.</summary>
+    public bool HasDurations { get; }
 
     public object? Resolve(string name)
     {

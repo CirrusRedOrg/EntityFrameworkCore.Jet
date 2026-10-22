@@ -59,11 +59,35 @@ public sealed class TableDefinition : Page
     /// relationship is the everyday case — and they are the same tree, so anything that maintains index
     /// entries must visit it once. Doing it per <see cref="Indexes"/> entry writes the same key twice.
     /// </summary>
-    public IEnumerable<IndexDef> RealIndexes =>
-        Indexes.Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First());
+    public IEnumerable<IndexDef> RealIndexes
+    {
+        get
+        {
+            // Snapshot the representatives before yielding, as GroupBy did: maintaining one tree must not
+            // change which logical aliases are visited. At most 32 indexes need comparing, without allocating
+            // a grouping, bucket array and iterator chain on every row write.
+            var indexes = new List<IndexDef>(_indexes.Count);
+            foreach (IndexDef index in _indexes)
+            {
+                if (index.RootPage <= 0) continue;
+                bool found = false;
+                for (int i = 0; i < indexes.Count; i++)
+                    if (indexes[i].RootPage == index.RootPage) { found = true; break; }
+                if (!found) indexes.Add(index);
+            }
+            foreach (IndexDef index in indexes) yield return index;
+        }
+    }
 
     public ColumnDef? FindColumn(string name) =>
         Columns.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The real index the logical index <paramref name="name"/> names. Found through the logical indexes:
+    /// a relationship that shares a named index's data block has no entry of its own in <see cref="Indexes"/>.</summary>
+    public IndexDef? FindIndex(string name) =>
+        LogicalIndexes.FirstOrDefault(l => string.Equals(l.Name, name, StringComparison.OrdinalIgnoreCase)) is { } logical
+            ? Indexes.First(i => i.RealIndexOrdinal == logical.RealIndexOrdinal)
+            : null;
 
     /// <summary>The column, or the error naming the table that is missing it — the partner of
     /// <see cref="JetCatalog.RequireTable"/>, for a column the caller's own correctness depends on rather than
@@ -114,7 +138,7 @@ public sealed class TableDefinition : Page
 
     private readonly List<LogicalIndexDef> _logicalIndexes = [];
     /// <summary>Every logical index, in the order the TDEF lists them — including the relationship names that
-    /// share a real index with a named one, which <see cref="Indexes"/> keeps only one of.</summary>
+    /// share a real index with a named one, which <see cref="Indexes"/> leaves out.</summary>
     public IReadOnlyList<LogicalIndexDef> LogicalIndexes
     {
         get => _logicalIndexesView ??= _logicalIndexes.AsReadOnly();
@@ -150,13 +174,116 @@ public sealed class TableDefinition : Page
     /// stitching continuation pages (wide tables whose definition spans multiple pages)
     /// into one contiguous buffer before parsing.
     /// </summary>
-    internal void Read(PageChannel channel, int page)
+    internal bool Read(PageChannel channel, int page, DdlMetadata? previous = null)
     {
         (PageBuffer buffer, _) = ReadChain(channel, page);
+        _definitionImage = buffer.Data;
+        JetFormatBase format = channel.Format;
+        // Compare the complete validated definition chain, ignoring only DML counters. In particular, a
+        // same-second ALTER and a change on a continuation page cannot hide behind DateUpdate equality.
+        int countersEnd = format.TdefRealIndexBlockOffset + (previous?.IndexCount ?? 0) * format.RealIndexEntrySize;
+        if (previous is not null && previous.Image.Length == buffer.Length && buffer.Length >= countersEnd)
+        {
+            Span<byte> comparison = stackalloc byte[countersEnd];
+            previous.Image.Span[..countersEnd].CopyTo(comparison);
+            WriteRowCount(comparison, format, ReadRowCount(buffer.Span, format));
+            WriteLastAutoNumber(comparison, format, ReadLastAutoNumber(buffer.Span, format));
+            WriteComplexAutoNumber(comparison, format, ReadComplexAutoNumber(buffer.Span, format));
+            for (int i = 0; i < previous.IndexCount; i++)
+            {
+                (int total, int unique) = ReadIndexCounts(buffer.Span, format, i);
+                WriteIndexCounts(comparison, format, i, total, unique);
+            }
+            if (comparison.SequenceEqual(buffer.Span[..countersEnd])
+                && previous.Image.Span[countersEnd..].SequenceEqual(buffer.Span[countersEnd..]))
+            {
+                Metadata = previous;
+                ReadHeader(buffer, format);
+                foreach (ColumnDef column in previous.Columns) _columns.Add(column.Copy());
+                ReadAutoNumber(buffer, format);
+                foreach (IndexDef index in previous.Indexes)
+                    _indexes.Add(index with
+                    {
+                        UniqueEntryCount = ReadIndexCounts(buffer.Span, format, index.RealIndexOrdinal).Unique,
+                        Columns = index.Columns.Select(c => (_columns[c.Column.Index], c.Ascending)).ToArray()
+                    });
+                _logicalIndexes.AddRange(previous.LogicalIndexes);
+                foreach (var map in previous.LongValueOwnedMaps) _longValueOwnedMaps.Add(map.Key, map.Value);
+                foreach (var map in previous.LongValueFreeMaps) _longValueFreeMaps.Add(map.Key, map.Value);
+                _checkConstraints = previous.CheckConstraints;
+                ValidationRule = previous.ValidationRule;
+                ValidationText = previous.ValidationText;
+                return true;
+            }
+        }
         Read(buffer, channel.Format);
+        return false;
+    }
+
+    private ReadOnlyMemory<byte> _definitionImage;
+    internal DdlMetadata? Metadata { get; set; }
+
+    /// <summary>The decoded DDL retained by the catalog, independently of a caller's table-state snapshot.
+    /// Counts and the next AutoNumber are deliberately absent; prototype columns/indexes carry no live state.</summary>
+    internal sealed class DdlMetadata
+    {
+        internal DdlMetadata(TableDefinition definition)
+        {
+            Name = definition.Name;
+            Image = definition._definitionImage;
+            DefinitionPage = definition.DefinitionPage;
+            IsSystem = definition.IsSystem;
+            NextDefinitionPage = definition.NextDefinitionPage;
+            IndexCount = definition.IndexCount;
+            // Enrichment is complete before this is captured. Only AutoNumber columns are subsequently
+            // mutated by row writes; the other descriptors are immutable DDL and can be retained directly.
+            Columns = definition._columns.Select(c =>
+            {
+                if (!c.IsAutoNumber) return c;
+                ColumnDef prototype = c.Copy();
+                prototype.Seed = 1;
+                return prototype;
+            }).ToArray();
+            Indexes = definition._indexes.Select(i => i.Columns.Any(c => c.Column.IsAutoNumber)
+                ? i with
+                {
+                    UniqueEntryCount = 0,
+                    Columns = i.Columns.Select(c => (Columns[c.Column.Index], c.Ascending)).ToArray()
+                }
+                : i with { UniqueEntryCount = 0 }).ToArray();
+            LogicalIndexes = definition._logicalIndexes.ToArray();
+            LongValueOwnedMaps = definition._longValueOwnedMaps.ToArray();
+            LongValueFreeMaps = definition._longValueFreeMaps.ToArray();
+            CheckConstraints = definition._checkConstraints;
+            ValidationRule = definition.ValidationRule;
+            ValidationText = definition.ValidationText;
+        }
+
+        internal string Name { get; }
+        internal ReadOnlyMemory<byte> Image { get; }
+        internal int DefinitionPage { get; }
+        internal bool IsSystem { get; }
+        internal int NextDefinitionPage { get; }
+        internal int IndexCount { get; }
+        internal ColumnDef[] Columns { get; }
+        internal IndexDef[] Indexes { get; }
+        internal LogicalIndexDef[] LogicalIndexes { get; }
+        internal KeyValuePair<int, (int Row, int Page)>[] LongValueOwnedMaps { get; }
+        internal KeyValuePair<int, (int Row, int Page)>[] LongValueFreeMaps { get; }
+        internal IReadOnlyList<(string Name, string Expression)> CheckConstraints { get; }
+        internal string? ValidationRule { get; }
+        internal string? ValidationText { get; }
     }
 
     internal override void Read(PageBuffer buffer, JetFormatBase format)
+    {
+        buffer = ReadHeader(buffer, format);
+        Regions regions = Regions.Of(buffer.Span, format);
+        ReadColumns(buffer, format, regions.ColumnDescriptors);
+        ReadIndexes(buffer, format, regions);
+    }
+
+    private PageBuffer ReadHeader(PageBuffer buffer, JetFormatBase format)
     {
         if (buffer.Length < format.TdefRealIndexBlockOffset)
             throw new InvalidDataException(
@@ -200,15 +327,13 @@ public sealed class TableDefinition : Page
         // 0x33 (IndexCount) — NOT the logical count at 0x2F (LogicalIndexCount). The two are
         // equal for MSysObjects but differ for user tables (e.g. logical=2, real=1).
         // The buffer here may already be a stitched multi-page definition (see Read(channel, page)).
-        Regions regions = Regions.Of(buffer.Span, format);
-        ReadColumns(buffer, format, regions.ColumnDescriptors);
-        ReadIndexes(buffer, format, regions);
+        return buffer;
     }
 
     /// <summary>
     /// Parses the index structures following the column names into <see cref="IndexDef"/>s
-    /// (one per index-data block): columns + sort order, unique/primary flags, root page,
-    /// and the index name (resolved from the logical-index info blocks).
+    /// (one per named index over each index-data block): columns + sort order, unique/primary flags,
+    /// root page, and the index name (resolved from the logical-index info blocks).
     /// </summary>
     private void ReadIndexes(PageBuffer buffer, JetFormatBase format, Regions regions)
     {
@@ -272,7 +397,7 @@ public sealed class TableDefinition : Page
 
     /// <summary>Where real index <paramref name="ordinal"/>'s entry starts in the real-index block that opens the
     /// definition.</summary>
-    private static int RealIndexEntry(JetFormatBase format, int ordinal) =>
+    internal static int RealIndexEntry(JetFormatBase format, int ordinal) =>
         format.TdefRealIndexBlockOffset + ordinal * format.RealIndexEntrySize;
 
     /// <summary>Real index <paramref name="ordinal"/>'s two statistics: its total entry count, and its unique count —
@@ -393,15 +518,18 @@ public sealed class TableDefinition : Page
     }
 
     /// <summary>
-    /// Reads the logical-index info blocks and their names, then attaches each name (and the
-    /// primary-key flag) to the index-data block it references. A data block may be referenced
-    /// by several logical indexes (e.g. a relationship plus the real index); the real index's
-    /// name wins over a foreign-key relationship's.
+    /// Reads the logical-index info blocks and their names, then gives every named index an entry of its own over
+    /// the index-data block it references, with its name and primary-key flag. A data block may be referenced by
+    /// several logical indexes — a relationship plus a named index, or two named indexes over the same columns,
+    /// which share one block as ACE writes them (verified) — and every named one is listed, the primary key
+    /// first; a block only relationships name goes by the first relationship's name.
     /// </summary>
     private int ResolveIndexNames(PageBuffer buffer, Regions regions, JetFormatBase format)
     {
         int namePos = regions.IndexNames;
-        var priority = new int[_indexes.Count];
+        var named = new List<(string Name, bool IsPrimaryKey)>[_indexes.Count];
+        var relationship = new string?[_indexes.Count];
+        for (int b = 0; b < named.Length; b++) named[b] = [];
         _logicalIndexes.Clear();
         for (int i = 0; i < LogicalIndexCount; i++) // 0x2F — the logical-index (slot) count
         {
@@ -422,17 +550,19 @@ public sealed class TableDefinition : Page
             _logicalIndexes.Add(new LogicalIndexDef(name, dataNumber, isRelationship,
                 !isRelationship && info.Type == IndexInfoType.Primary, info.FkType, info.UpdateAction, info.DeleteAction));
 
-            // Prefer a real index name over a relationship's; prefer the primary among real ones.
-            int p = isRelationship ? 1 : info.Type == IndexInfoType.Primary ? 3 : 2;
-            if (p > priority[dataNumber])
-            {
-                priority[dataNumber] = p;
-                _indexes[dataNumber] = _indexes[dataNumber] with
-                {
-                    Name = name,
-                    IsPrimaryKey = !isRelationship && info.Type == IndexInfoType.Primary,
-                };
-            }
+            if (isRelationship) relationship[dataNumber] ??= name;
+            else if (info.Type == IndexInfoType.Primary) named[dataNumber].Insert(0, (name, true));
+            else named[dataNumber].Add((name, false));
+        }
+
+        IndexDef[] blocks = [.. _indexes];
+        _indexes.Clear();
+        foreach (IndexDef block in blocks)
+        {
+            if (named[block.RealIndexOrdinal].Count == 0)
+                _indexes.Add(relationship[block.RealIndexOrdinal] is { } name ? block with { Name = name } : block);
+            foreach ((string name, bool isPrimaryKey) in named[block.RealIndexOrdinal])
+                _indexes.Add(block with { Name = name, IsPrimaryKey = isPrimaryKey });
         }
 
         return namePos;
@@ -528,20 +658,31 @@ public sealed class TableDefinition : Page
                 IsFixedLength = isFixed,
                 IsAutoNumber = (d.Flags & ColumnFlags.AutoNumber) != 0,
                 // The user-column flag bits (0x0F: updatable/GUID-autonumber/hyperlink; 0x10: compressed-Unicode /
-                // calculated). The catalog and attachment bits are only ever written, from a created column's spec.
+                // calculated / version history). The catalog and attachment bits are only ever written, from a created
+                // column's spec.
                 IsUpdatable = (d.Flags & ColumnFlags.Updatable) != 0,
                 IsGuidAutoNumber = (d.Flags & ColumnFlags.GuidAutoNumber) != 0,
                 IsHyperlink = (d.Flags & ColumnFlags.Hyperlink) != 0,
                 SupportsCompressedUnicode = (d.ExtFlags & ColumnExtendedFlags.CompressedUnicode) != 0,
                 IsCalculated = (d.ExtFlags & ColumnExtendedFlags.Calculated) != 0,
+                EvaluatesExpression = (d.ExtFlags & ColumnExtendedFlags.EvaluatesExpression) != 0,
+                IsVersionHistory = (d.ExtFlags & ColumnExtendedFlags.VersionHistory) != 0,
+                IsWriteOnce = (buffer.ReadByte(columnBlock + i * format.ColumnDescriptorSize + format.ColumnWriteOnceOffset) & 0x01) != 0,
                 Precision = d.Precision,
                 Scale = d.Scale,
                 Collation = d.Collation,
+                ComplexId = d.Type == JetDataType.Complex
+                    ? buffer.ReadInt32(columnBlock + i * format.ColumnDescriptorSize + format.ColumnComplexIdOffset) : 0,
                 // The descriptor's bytes as read, fields LibRed does not model included.
                 RawDescriptor = buffer.Slice(columnBlock + i * format.ColumnDescriptorSize, format.ColumnDescriptorSize).ToArray(),
             });
         }
 
+        ReadAutoNumber(buffer, format);
+    }
+
+    private void ReadAutoNumber(PageBuffer buffer, JetFormatBase format)
+    {
         // AutoNumber seed/increment from the TDEF header: 0x18 = increment, 0x14 = last-assigned value. On a
         // freshly created table the last value is Seed-Increment, so Seed = last + increment (matching what a
         // no-insert scaffold reports).
@@ -667,7 +808,7 @@ public sealed class TableDefinition : Page
         var columns = ResolveColumns(format, specs, collation);
         IReadOnlyList<LogicalIndexSpec> logical = logicalIndexes
             ?? indexes.Select((ix, i) => LogicalIndexSpec.Plain(i, i, ix.IsPrimaryKey, ix.Name)).ToList();
-        ValidateIndexAndLongValueSpecs(format, columns, indexes, logical, longValueColumns);
+        ValidateIndexAndLongValueSpecs(format, collation, columns, indexes, logical, longValueColumns);
 
         int definitionSize = DefinitionSize(format, columns, indexes, logical, longValueColumns);
         var page = new byte[Math.Max(format.PageSize, definitionSize)];
@@ -790,7 +931,7 @@ public sealed class TableDefinition : Page
             RowCodec.ValidateFieldWidth(spec.Name, spec.Type, spec.Length);
             JetDataTypeVersions.EnsureStorable(spec.Type, format.Version, spec.Name);
             ValidateNumericPrecision(spec);
-            if (spec.IsFixedLength && spec.Type != JetDataType.Boolean)
+            if (spec.OccupiesFixedData)
                 fixedBytes += spec.Length;
             if (!spec.IsFixedLength) variableColumns++;
             highWater = Math.Max(highWater, id);
@@ -805,6 +946,7 @@ public sealed class TableDefinition : Page
 
     private static void ValidateIndexAndLongValueSpecs(
         JetFormatBase format,
+        Collation collation,
         IReadOnlyList<ColumnDef> columns,
         IReadOnlyList<IndexSpec> indexes,
         IReadOnlyList<LogicalIndexSpec> logical,
@@ -832,7 +974,7 @@ public sealed class TableDefinition : Page
         // Duplicate index names, on the create path. ACE rejects them, and every downstream lookup resolves an
         // index by name, so two blocks sharing one would make DROP INDEX remove an arbitrary one of them. The
         // column list has had this check all along (see below); the index list had only a length check.
-        var indexNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var indexNames = new HashSet<string>(JetTextComparer.For(collation));
         foreach (LogicalIndexSpec index in logical)
         {
             ValidateNameLength(index.Name, "Logical index", format);
@@ -1034,10 +1176,9 @@ public sealed class TableDefinition : Page
         // Fixed-data offsets are assigned in ascending column-id order, NOT declaration order — Access lays the
         // fixed columns out by column id (e.g. MSysACEs stores ObjectId(id0) at offset 0 even though its
         // descriptor is written after ACM). Only differs from declaration order when ids are reordered (MSys*).
-        bool Occupies(int i) => specs[i].IsFixedLength && specs[i].Type != JetDataType.Boolean;
         var fixedOffsets = new Dictionary<int, int>();
         int running = 0;
-        foreach (int i in Enumerable.Range(0, specs.Count).Where(Occupies).OrderBy(EffectiveId))
+        foreach (int i in Enumerable.Range(0, specs.Count).Where(i => specs[i].OccupiesFixedData).OrderBy(EffectiveId))
         {
             fixedOffsets[i] = running;
             running += specs[i].Length;
@@ -1047,9 +1188,6 @@ public sealed class TableDefinition : Page
         for (int i = 0; i < specs.Count; i++)
         {
             ColumnSpec s = specs[i];
-            // Booleans live in the null bitmap and occupy no fixed-data bytes, so they don't
-            // advance the fixed offset (matching how the row codec skips them).
-            bool occupiesFixedData = s.IsFixedLength && s.Type != JetDataType.Boolean;
             columns.Add(new ColumnDef
             {
                 Name = s.Name,
@@ -1057,7 +1195,7 @@ public sealed class TableDefinition : Page
                 Index = i,
                 ColumnId = EffectiveId(i),
                 Length = s.Length,
-                FixedOffset = occupiesFixedData ? fixedOffsets[i] : 0,
+                FixedOffset = s.OccupiesFixedData ? fixedOffsets[i] : 0,
                 VariableIndex = s.IsFixedLength ? -1 : variableRank[i],
                 VariableTableIndex = VarTableIndex(i),
                 IsFixedLength = s.IsFixedLength,
@@ -1067,13 +1205,19 @@ public sealed class TableDefinition : Page
                 CalculatedExpression = s.CalculatedExpression,
                 CalculatedResultType = s.CalculatedResultType,
                 SystemFlags = s.SystemFlags,
-                IsEngineColumn = s.IsEngineColumn || s.SystemFlags != 0,
+                Ordinal = s.SystemFlags != 0 ? 0 : s.Ordinal,
                 ExtendedFlags = s.ExtendedFlags,
                 Precision = EffectivePrecision(s),
                 Scale = s.Scale,
                 // Numeric columns carry no collation (their 0x0B/0x0C bytes are precision/scale); every
-                // other column inherits the database's collating order.
-                Collation = s.Type == JetDataType.FixedPoint ? Collation.GeneralLegacy : collation,
+                // other column inherits the database's collating order unless the spec gives its own — or, for
+                // one that is not text, gives it a precision and scale, which then fill those bytes as two words,
+                // as ACE's make-table leaves them on the columns after a Decimal (page-02b §3.4).
+                Collation = s.Collation ?? (s.Type == JetDataType.FixedPoint ? Collation.GeneralLegacy
+                    : s.Precision != 0 && s.Type is not (JetDataType.Text or JetDataType.Memo)
+                        ? new Collation((CollatingOrder)s.Precision, Version: 0, SortId: s.Scale)
+                    : collation),
+                ComplexId = s.ComplexId,
             });
         }
         return columns;
@@ -1128,14 +1272,15 @@ public sealed class TableDefinition : Page
         // model and DAO-executed SQL — and every user table in every fixture carries it, while only the
         // engine's own bootstrap tables (MSysObjects and friends) leave it zero, which is what a system
         // column keeps here. An earlier comment claimed real files store zero; that had been read off the
-        // system tables alone.
+        // system tables alone. A make-table is the exception: it numbers from 1 (see ColumnSpec).
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnSecondaryNumberOffset, 2),
-            (ushort)(c.IsEngineColumn ? 0 : c.ColumnId));
+            (ushort)(c.Ordinal ?? c.ColumnId));
         // Offset 7 = variable-table index (count of variable columns with a smaller id), stored on fixed columns
-        // too. Prefer the precomputed value; fall back to the legacy rule (0 for fixed) when unset (ADD COLUMN).
-        BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnVariableIndexOffset, 2),
-            (ushort)(c.VariableTableIndex >= 0 ? c.VariableTableIndex : (c.IsFixedLength ? 0 : c.VariableIndex)));
+        // too.
+        BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnVariableIndexOffset, 2), (ushort)c.VariableTableIndex);
         WriteLocaleUnion(d, c.Type, c.Precision, c.Scale, c.Collation, format);
+        if (c.Type == JetDataType.Complex)
+            BinaryPrimitives.WriteInt32LittleEndian(d.AsSpan(format.ColumnComplexIdOffset, sizeof(int)), c.ComplexId);
         // Compose the flag byte (0x0F) from every bit a user column models, plus the catalog bits a created system
         // column asks for; likewise the extended-flag byte (0x10), plus the unmodelled bits an attachment's
         // value columns ask for.
@@ -1150,7 +1295,7 @@ public sealed class TableDefinition : Page
 
         ColumnExtendedFlags extFlags =
             (c.SupportsCompressedUnicode ? ColumnExtendedFlags.CompressedUnicode : ColumnExtendedFlags.None)
-            | (c.IsCalculated ? ColumnExtendedFlags.Calculated : ColumnExtendedFlags.None)
+            | (c.IsCalculated ? ColumnExtendedFlags.Calculated | ColumnExtendedFlags.EvaluatesExpression : ColumnExtendedFlags.None)
             | (ColumnExtendedFlags)c.ExtendedFlags;
         d[format.ColumnExtendedFlagsOffset] = (byte)extFlags;
 
@@ -1249,7 +1394,8 @@ public sealed class TableDefinition : Page
     {
         JetFormatBase format = channel.Format;
         ValidatePageNumber(channel, firstPage, "TDEF root");
-        // Shared reads: each page is only checked and copied into the assembled buffer below, never written into or kept.
+        // Shared images stay read-only: a single-page definition retains its bounded slice, while a chain
+        // copies its definition bytes into the assembled buffer below.
         PageBuffer first = channel.ReadPageShared(firstPage);
         if (PageHeader.ReadType(first.Span) != PageType.TableDefinition)
             throw new InvalidDataException(
@@ -1273,6 +1419,15 @@ public sealed class TableDefinition : Page
             : (stored - pageSize + bodySize - 1) / bodySize;
 
         int next = first.ReadInt32(format.TdefNextPageOffset);
+        if (continuationCount == 0)
+        {
+            if (next != 0)
+                throw new InvalidDataException(
+                    $"TDEF page {firstPage} has more continuation pages than its declared length permits.");
+            // ReadPageShared supplies a stable copy-on-write image. A single-page definition can be
+            // decoded directly from its bounded slice, without chain bookkeeping or an assembled copy.
+            return (new PageBuffer(first.Data[..definitionLength], firstPage), []);
+        }
         var continuationPages = new List<int>(continuationCount);
         var continuationBuffers = new List<PageBuffer>(continuationCount);
         var visited = new HashSet<int> { firstPage };
@@ -1444,12 +1599,30 @@ public sealed class TableDefinition : Page
     {
         JetFormatBase format = channel.Format;
         var body = new List<byte>(format.PageSize);
+        // A design change rewrites every record, and ACE writes its markers afresh — the minimum-build ones as
+        // 0x659 and the index-data one as 0x783, whatever they held, a zero included (verified).
+        BinaryPrimitives.WriteUInt32LittleEndian(parts.Header.AsSpan(format.TdefRecordMarkerOffset, 4), JetFormatBase.TdefRecordMarker);
         body.AddRange(parts.Header);
         foreach (byte[] s in parts.Stats) body.AddRange(s);
-        foreach ((byte[] descriptor, _) in parts.Columns) body.AddRange(descriptor);
+        foreach ((byte[] descriptor, _) in parts.Columns)
+        {
+            BinaryPrimitives.WriteUInt32LittleEndian(descriptor.AsSpan(format.ColumnRecordMarkerOffset, 4), JetFormatBase.TdefRecordMarker);
+            // ACE keeps only the write-once bit of this field (verified).
+            descriptor[format.ColumnWriteOnceOffset] &= 0x01;
+            descriptor.AsSpan(format.ColumnWriteOnceOffset + 1, 3).Clear();
+            body.AddRange(descriptor);
+        }
         foreach ((_, byte[] name) in parts.Columns) body.AddRange(name);
-        foreach (byte[] d in parts.DataBlocks) body.AddRange(d);
-        foreach ((byte[] info, _) in parts.Logical) body.AddRange(info);
+        foreach (byte[] d in parts.DataBlocks)
+        {
+            BinaryPrimitives.WriteUInt32LittleEndian(d, JetFormatBase.IndexDataMarker);
+            body.AddRange(d);
+        }
+        foreach ((byte[] info, _) in parts.Logical)
+        {
+            BinaryPrimitives.WriteUInt32LittleEndian(info.AsSpan(format.IndexInfoMarkerOffset, 4), JetFormatBase.TdefRecordMarker);
+            body.AddRange(info);
+        }
         foreach ((_, byte[] nm) in parts.Logical) body.AddRange(nm);
         body.AddRange(parts.Lval);
         byte[] def = [.. body];
@@ -1482,7 +1655,7 @@ public sealed class TableDefinition : Page
         int headerSize = format.TdefContinuationHeaderSize;
 
         foreach (int old in oldContinuations)
-            allocator.Release(old);   // reusable only after this handle closes, as ACE holds them
+            allocator.Release(old, untilCommit: true);   // reusable once the statement commits, as ACE frees them
 
         if (def.Length + headerSize <= ps)
         {
@@ -1573,8 +1746,8 @@ public sealed class TableDefinition : Page
 
     /// <summary>Applies ACE's in-place column retype to the target descriptor within <paramref name="parts"/>
     /// (no page write — the caller writes the TDEF once): the target becomes a NEW column with a fresh id from the
-    /// <c>0x29</c> high-water and its fixed data appended to the END of the current fixed region (its old slot left
-    /// as dead space — ACE does not compact); <c>0x29</c> bumps, and <c>0x2B</c> too for a variable retype. Only
+    /// <c>0x29</c> high-water and its fixed data placed where the live fixed columns end (its old slot left as dead
+    /// space — ACE does not compact); <c>0x29</c> bumps, and <c>0x2B</c> too for a variable retype. Only
     /// the target descriptor changes; every other descriptor stays byte-identical. Returns the burned new id.</summary>
     internal static int EditTargetDescriptor(Parts parts, ColumnDef target, ColumnSpec newSpec, int fixedEnd,
         Collation collation, JetFormatBase format)
@@ -1596,7 +1769,8 @@ public sealed class TableDefinition : Page
         flags = newSpec.IsFixedLength ? flags | ColumnFlags.FixedLength : flags & ~ColumnFlags.FixedLength;
         flags = newSpec.IsAutoNumber ? flags | ColumnFlags.AutoNumber : flags & ~ColumnFlags.AutoNumber;
         d[format.ColumnFlagsOffset] = (byte)flags;
-        BinaryPrimitives.WriteUInt16LittleEndian(d[format.ColumnFixedOffsetOffset..], (ushort)(newSpec.IsFixedLength ? fixedEnd : 0)); // +0x15
+        BinaryPrimitives.WriteUInt16LittleEndian(d[format.ColumnFixedOffsetOffset..],
+            (ushort)(newSpec.OccupiesFixedData ? fixedEnd : 0)); // +0x15
         BinaryPrimitives.WriteUInt16LittleEndian(d[format.ColumnLengthOffset..], (ushort)newSpec.Length); // +0x17
         // 0x0B–0x0E is a union keyed by type, so the WHOLE union is rewritten, not just the decimal arm.
         // Writing precision/scale on the way in but nothing on the way out left a former DECIMAL(12,3) with
@@ -1625,35 +1799,33 @@ public sealed class TableDefinition : Page
         return (columnId, variableIndex);
     }
 
-    /// <summary>Removes a data index (its stats + data block at <paramref name="removeDataOrdinal"/>,
-    /// decrementing the data-ordinal reference of every remaining info block that pointed past it)
-    /// and every logical block matching <paramref name="removeLogical"/> (with its name).</summary>
-    internal static void RemoveIndexBlocks(JetFormatBase format, Parts parts, int? removeDataOrdinal, Func<(byte[] Info, byte[] Name), bool> removeLogical)
+    /// <summary>Removes every logical block matching <paramref name="removeLogical"/> (with its name) and the data
+    /// index at <paramref name="removeDataOrdinal"/> (its stats + data block, decrementing the data-ordinal reference
+    /// of every remaining info block that pointed past it) — unless a remaining logical block still names that data
+    /// index, which then stays. Returns whether the data index went.</summary>
+    internal static bool RemoveIndexBlocks(JetFormatBase format, Parts parts, int? removeDataOrdinal, Func<(byte[] Info, byte[] Name), bool> removeLogical)
     {
         // The logical blocks go first, so what is left is exactly what has to survive the renumbering below.
         parts.Logical.RemoveAll(b => removeLogical(b));
+        if (removeDataOrdinal is not int ord)
+            return false;
 
-        if (removeDataOrdinal is int ord)
-        {
-            // One data block can be named by more than one logical block — a primary key that also backs a
-            // relationship is the everyday case — and the renumbering below only moves references PAST the
-            // block being removed. A surviving reference EQUAL to it would silently come to name whichever
-            // index slid into the slot: same table, same file, an index quietly pointing at another index's
-            // B-tree. The callers guard against this by refusing to drop an index a relationship uses; this is
-            // the structural check behind that, so a route that ever gets here says so instead of writing it.
-            List<(byte[] Block, LogicalIndexSpec Info)> survivors =
-                [.. parts.Logical.Select(b => (b.Info, ReadInfoBlock(b.Info, format, ReadName(new PageBuffer(b.Name, 0), 0, "logical index", format).Name)))];
-            foreach ((_, LogicalIndexSpec info) in survivors)
-                if (info.DataOrdinal == ord)
-                    throw new InvalidOperationException(
-                        $"Cannot remove index-data block {ord}: logical index '{info.Name}' still refers to it.");
+        // One data block can be named by more than one logical block: a primary key that also backs a relationship,
+        // and an index ACE created over the same columns, direction and flags as one already there — a plain
+        // index's or a relationship's, whichever came first — which names that index's block rather than taking
+        // its own. Dropping either of those leaves the block to the other (verified vs ACE, for DROP INDEX and DROP
+        // CONSTRAINT alike).
+        List<(byte[] Block, LogicalIndexSpec Info)> survivors =
+            [.. parts.Logical.Select(b => (b.Info, ReadInfoBlock(b.Info, format, ReadName(new PageBuffer(b.Name, 0), 0, "logical index", format).Name)))];
+        if (survivors.Any(s => s.Info.DataOrdinal == ord))
+            return false;
 
-            parts.Stats.RemoveAt(ord);
-            parts.DataBlocks.RemoveAt(ord);
-            foreach ((byte[] block, LogicalIndexSpec info) in survivors)
-                if (info.DataOrdinal > ord)
-                    WriteInfoBlock(block, format, info with { DataOrdinal = info.DataOrdinal - 1 });
-        }
+        parts.Stats.RemoveAt(ord);
+        parts.DataBlocks.RemoveAt(ord);
+        foreach ((byte[] block, LogicalIndexSpec info) in survivors)
+            if (info.DataOrdinal > ord)
+                WriteInfoBlock(block, format, info with { DataOrdinal = info.DataOrdinal - 1 });
+        return true;
     }
 
     /// <summary>Maps an absolute definition offset to the page holding it and the offset within that page.</summary>

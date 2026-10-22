@@ -32,16 +32,60 @@ was.
 
 Deleting the **last live row** on the page. Each delete tombstones that row and slides the rows below it up;
 the type changes only once nothing live is left. The page is then taken out of **both** of the table's
-maps — owned and free — and released. Exactly one page is released per page emptied.
+maps — owned and free — and released. Exactly one page is released per page emptied. The free-pages map is
+given the page's bit first, as for any page a delete frees space on, and loses it with the release: so a free-pages
+map that cannot take the bit inline — not empty, the page outside the window it can slide to — turns reference
+form, though the bit then goes (the reference form is measured; the order is inferred from it).
 
-**A table always keeps its first data page.** It is never stamped and never given back, however empty it
-gets, and stays in both of the table's maps with all its slots tombstoned like any other emptied page. This
-is not "a table keeps one page": it is kept even while later pages still hold live rows. It is identified as
-the lowest page in the table's owned map.
+**An emptied page the free-pages map marks nothing below is kept.** It is never stamped and never given back,
+however empty it gets, and stays in both of the table's maps with all its slots tombstoned like any other emptied
+page; every other emptied page is released. So deleting every row of a table keeps its lowest page, the first
+the delete empties — even a table that has grown into pages below the one it started on keeps the lowest of them
+and releases its original first page (verified). It is not "a table keeps its first page", though: on 30 one-row
+pages none of which the free-pages map marks (Id *n* on page 48 + *n*), deleting Ids 10–19 keeps page 58, the
+first it empties, and releases the rest; deleting 20–24 after that keeps none, the map marking 58 below them;
+deleting 20–24 first keeps 68, and 10–19 after it keeps 58 as well; deleting 0–4 and then 10–19 keeps only 48.
+A kept page that rows fill again leaves the map, and the next DELETE then keeps the first page it empties once
+more (measured; LibRed agrees byte for byte).
 
-> **Unsettled:** whether the kept page is the lowest page in the owned map or the page the table was created
-> with. The two coincide wherever they have been compared, so either reading fits; a table whose first page
-> came out of a hole in the free map would separate them.
+All of this is the **row-by-row** delete. A `DELETE` with no `WHERE` takes the other route below, and keeps
+nothing.
+
+### A DELETE with no WHERE
+
+ACE empties the table in one go, without visiting a row, and **no page it releases is stamped or rewritten**:
+
+- **Every data page** in the table's owned map — the first one included — is cleared from the owned **and**
+  free maps and released to the global map. Its bytes stay exactly as they were: type `0x0101`, row count,
+  slots and rows all live-looking, nothing tombstoned. No reader reaches it, because nothing owns it.
+- **Every long-value page** in each long-value column's owned map — chained and packed alike — is cleared from
+  that column's owned and free maps and released, its bytes untouched (a packed page keeps `0x0101`; it is not
+  stamped `0x0109` as a row-by-row delete of its last value stamps it).
+- **Every index** keeps only its root, which is rewritten as an **empty leaf**: type `0x0104` (a node root
+  becomes a leaf), free space everything past the header, owner unchanged, previous, next, child-tail,
+  compressed-byte count and level `0`, entry mask cleared. The entry bytes past the header stay as they were
+  ([page-03-04 §10.4c](page-03-04-index-btree.md)). Every other page of the tree is cleared from the index's
+  own pages map and released, untouched. The root keeps its bit.
+- The TDEF's row count and **both** counts of every real index read `0`. The AutoNumber counter is untouched.
+
+**When ACE takes it** (verified):
+
+- The test is the **missing `WHERE`**, not every row matching: `WHERE 1 = 1` and `WHERE D >= 0` delete row by
+  row. `DELETE * FROM t` is the same statement as `DELETE FROM t`.
+- A table an **enforced** relationship names as its **parent** is deleted row by row, cascading or not. A table
+  that is only a **child** (holds a foreign key) takes this route, and so does a parent only through an
+  **unenforced** relationship, its rows left live-looking as a plain table's are (verified) — which LibRed
+  also empties in one go.
+- A table with a **CHECK constraint** is deleted row by row, its pages exactly as a row-by-row delete leaves them,
+  and its checks evaluated as each row goes — one that fails only once some of the rows are gone refuses the
+  statement (verified).
+- It holds for multi-level indexes, chained and packed long values, a definition on continuation pages, a table
+  already emptied row by row (its kept page goes too), and tables with no index or a composite key. A
+  table with a **complex column** takes it too, and the engine **leaves the flat table alone**: the owner's pages
+  are released untouched, while the flat table keeps every row and its row count, each value now owned by no
+  row (verified). LibRed does the same, byte for byte.
+- The reset root's compressed-byte count is `0`, whether or not the root was compressed beforehand: a root
+  compressed at 9 reads 0 after `DELETE FROM` (verified).
 
 ### An emptied packed long-value page
 
@@ -78,9 +122,15 @@ scan, meeting one in a table's owned map, reads it as rows like a live data page
 
 LibRed does the same on both routes, marking the existing page through `DataPage.MarkReleased`. Every page a row has been reclaimed from goes through
 `RowInserter.WriteReclaimedPage`, which sets the type, clears the page from the owning maps and returns it to
-the allocator once nothing live is left and the page is not the table's first; `RowInserter.ReleasePackedValue`
-applies the same rule to an LVAL page against the column's maps. A long-value page that survives goes back
+the allocator once nothing live is left and the page is not the lowest its free-pages map marks
+(`IsLowestFreePage`); `RowInserter.ReleasePackedValue`
+stamps an LVAL page once nothing live is left on it and releases it against the column's maps — with no
+lowest-page exception, but a column with no free-pages map keeps the stamped page in its owned map
+([long-values](long-values.md)). A long-value page that survives goes back
 into the column's **free** map, having room again.
+
+A `DELETE` with no `WHERE` goes through `RowInserter.Truncate` instead, which writes none of the pages it
+releases; `StatementExecutor` decides which route a statement takes.
 
 A page is "emptied" when every slot is a deleted **and** zero-length tombstone, not merely a deleted one: a
 hidden relocation target ([page-01](page-01-data-and-rows.md)) is a live row carrying the deleted flag, so a

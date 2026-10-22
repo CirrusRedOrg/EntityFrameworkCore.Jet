@@ -1,4 +1,7 @@
 using System.Globalization;
+using System.Numerics;
+using Antlr4.Runtime;
+using Antlr4.Runtime.Tree;
 using LibRed.Sql.Ast;
 using static LibRed.Sql.Grammar.AccessSqlParser;
 
@@ -42,8 +45,56 @@ internal static class AstBuilder
         if (ctx.transactionStatement() is { } txn) return BuildTransaction(txn);
         if (ctx.executeStatement() is { } exec) return BuildExecute(exec);
         if (ctx.systemVariableSelect() is { } sysSelect) return BuildSystemVariableSelect(sysSelect);
+        if (ctx.transformStatement() is { } transform) return BuildTransform(transform);
         return BuildQueryExpression(ctx.queryExpression());
     }
+
+    /// <summary>
+    /// A crosstab. What ACE refuses in one is refused here with its message (verified): a SELECT without GROUP BY or
+    /// with HAVING, <c>*</c>, a TOP, an INTO, and a fixed heading listed twice. A PIVOT written <c>x IN (…)</c> is the
+    /// field <c>x</c> and its fixed headings, which must be literals (ACE: "Data type mismatch in criteria
+    /// expression" for <c>IN (9+1)</c>).
+    /// </summary>
+    private static TransformStatement BuildTransform(TransformStatementContext ctx)
+    {
+        QuerySpecificationContext spec = ctx.select;
+        if (spec.groupByClause() is null || spec.havingClause() is not null || spec.into is not null)
+            throw new SqlParseException("Syntax error in TRANSFORM statement.");
+        if (spec.selectList().selectItem().Any(i => i is StarSelectItemContext or QualifiedStarSelectItemContext))
+            throw new SqlParseException("Cannot use '*' in crosstab query.");
+        if (spec.topClause() is not null)
+            throw new SqlParseException("Values specified in a TOP clause are not allowed in delete queries or reports.");
+
+        SelectStatement select = BuildQuerySpecification(spec) with
+        {
+            OrderBy = ctx.orderByClause() is { } ob ? ob.orderByItem().Select(BuildOrderByItem).ToList() : [],
+        };
+
+        Expression pivot = BuildExpression(PivotField(ctx));
+        List<PivotHeading>? headings = null;
+        if (PivotField(ctx) != ctx.pivot)
+        {
+            headings = [];
+            foreach (ExpressionContext item in ((InExprContext)ctx.pivot)._items)
+            {
+                if (BuildExpression(item) is not LiteralExpression literal)
+                    throw new SqlParseException("Data type mismatch in criteria expression.");
+                // A Null heading is named as a Null value is, <> (verified vs ACE).
+                string text = literal.Value is null ? ""
+                    : item is PrimaryExprContext p && p.primary() is LiteralPrimaryContext lp && lp.literal() is StringLiteralContext
+                        ? (string)literal.Value : OriginalText(item);
+                if (headings.Any(h => string.Equals(h.Text, text, StringComparison.OrdinalIgnoreCase)))
+                    throw new SqlParseException($"Cannot specify fixed column heading '{text}' in a crosstab query more than once.");
+                headings.Add(new PivotHeading(literal, text));
+            }
+        }
+
+        return new TransformStatement(BuildExpression(ctx.value), OptionalIdentifier(ctx.valueAlias), select, pivot, headings);
+    }
+
+    /// <summary>A PIVOT's field: the pivot itself, or the value of its <c>x IN (…)</c> heading list.</summary>
+    private static ExpressionContext PivotField(TransformStatementContext ctx) =>
+        ctx.pivot is InExprContext fixedHeadings && fixedHeadings.not is null ? fixedHeadings.val : ctx.pivot;
 
     private static TransactionControlStatement BuildTransaction(TransactionStatementContext ctx) => ctx switch
     {
@@ -84,7 +135,7 @@ internal static class AstBuilder
     };
 
     private static DeleteStatement BuildDelete(DeleteStatementContext ctx) =>
-        new(OptionalIdentifier(ctx.target),
+        new(OptionalIdentifier(ctx.deleteItem().FirstOrDefault(i => i.STAR() is not null)?.table),
             BuildTableSources(ctx.tableSource()),
             ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null);
 
@@ -114,6 +165,7 @@ internal static class AstBuilder
         if (ctx.temp is not null)
             throw new NotSupportedException("CREATE TEMPORARY TABLE is not supported.");
 
+        string table = Identifier(ctx.table);
         var columns = ctx.columnDefinition().Select(BuildColumnDefinition).ToList();
 
         // Primary key, foreign keys and unique constraints come from both column-level (single-field)
@@ -126,14 +178,26 @@ internal static class AstBuilder
         string? primaryKeyName = null;
 
         // Where each constraint sits in the statement's text — used for a self-reference below, and to count
-        // the columns declared before each one (DeclaredAfterColumns).
+        // the elements declared before each one (DeclaredAfter).
         var foreignKeyTokens = new List<int>();
         var uniqueTokens = new List<int>();
         int primaryKeyToken = int.MaxValue;
 
+        // A table constraint may be written anywhere among the columns, but ACE resolves each one as it reaches it,
+        // against the columns declared so far: one naming a column written after it — or not at all — is refused
+        // with this message (verified).
+        var columnStarts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        void RequireDeclaredBefore(IEnumerable<string> names, int token)
+        {
+            foreach (string name in names)
+                if (!columnStarts.TryGetValue(name, out int start) || start > token)
+                    throw new SqlParseException($"Invalid field definition '{name}' in definition of index or relationship.");
+        }
+
         // Column-level UNIQUE and REFERENCES (the single-field forms) apply to the column they follow.
         foreach (ColumnDefinitionContext cd in ctx.columnDefinition())
         {
+            columnStarts.TryAdd(Identifier(cd.name), cd.Start.TokenIndex);
             ColumnKeys keys = ColumnKeysOf(cd);
             foreach (PrimaryKeyConstraintContext p in keys.PrimaryKeys)
             {
@@ -157,11 +221,13 @@ internal static class AstBuilder
             switch (tc)
             {
                 case PrimaryKeyTableConstraintContext pk:
+                    RequireDeclaredBefore(pk._columns.Select(Identifier), pk.Start.TokenIndex);
                     primaryKey.AddRange(pk._columns.Select(Identifier));
                     if (pk.name is not null) primaryKeyName = Identifier(pk.name);
                     primaryKeyToken = Math.Min(primaryKeyToken, pk.Start.TokenIndex);
                     break;
                 case UniqueTableConstraintContext uq:
+                    RequireDeclaredBefore(uq._columns.Select(Identifier), uq.Start.TokenIndex);
                     uniques.Add(new UniqueConstraint(uq.name is null ? null : Identifier(uq.name), uq._columns.Select(Identifier).ToList()));
                     uniqueTokens.Add(uq.Start.TokenIndex);
                     break;
@@ -170,8 +236,9 @@ internal static class AstBuilder
                     foreignKeyTokens.Add(fk.Start.TokenIndex);
                     break;
                 case CheckTableConstraintContext ck:
-                    checks.Add(new CheckConstraint(
-                        ck.name is null ? null : Identifier(ck.name), OriginalText(ck.checkBody())));
+                    string? checkName = OptionalIdentifier(ck.name);
+                    checks.Add(new CheckConstraint(checkName, CheckText(ck.checkBody(), table, checkName),
+                        ctx.columnDefinition().Count(c => c.Start.TokenIndex < ck.Start.TokenIndex)));
                     break;
             }
         }
@@ -180,36 +247,140 @@ internal static class AstBuilder
         // the key this statement declares, but only if it is declared earlier in the text: ACE resolves each
         // reference as it reaches it, so against a key declared after it there is none yet (verified — ACE then
         // reports that the table has no primary key). Resolved here, where the text order is known; a reference
-        // left without columns is refused when the statement runs.
-        string table = Identifier(ctx.table);
+        // left without columns is refused when the statement runs. ACE resolves the reference before the foreign
+        // key's own columns (verified), so a self-reference left without a key is not checked for them here.
         for (int i = 0; i < foreignKeys.Count; i++)
         {
             ForeignKeyConstraint fk = foreignKeys[i];
-            if (fk.ReferencedColumns.Count == 0
-                && string.Equals(fk.ReferencedTable, table, StringComparison.OrdinalIgnoreCase)
-                && primaryKeyToken < foreignKeyTokens[i])
-                foreignKeys[i] = fk with { ReferencedColumns = primaryKey.ToList() };
+            if (string.Equals(fk.ReferencedTable, table, StringComparison.OrdinalIgnoreCase))
+            {
+                if (fk.ReferencedColumns.Count > 0)
+                    RequireDeclaredBefore(fk.ReferencedColumns, foreignKeyTokens[i]);
+                else if (primaryKeyToken < foreignKeyTokens[i])
+                    foreignKeys[i] = fk with { ReferencedColumns = primaryKey.ToList() };
+                else
+                    continue;
+            }
+            RequireDeclaredBefore(fk.Columns, foreignKeyTokens[i]);
         }
 
-        // Each constraint's place in the element list, as the count of columns declared before it. The storage
-        // layer lays the table's usage-map rows out in declaration order, interleaving indexes with long-value
-        // columns, and a statement is the only thing that knows that order.
-        int[] columnStarts = [.. ctx.columnDefinition().Select(c => c.Start.TokenIndex)];
-        int ColumnsBefore(int token) => columnStarts.Count(start => start < token);
+        // Each key constraint's place in the element list, as the count of columns and key constraints declared
+        // before it. The storage layer numbers the indexes in declaration order and lays the usage-map rows out
+        // in it, interleaving indexes with long-value columns, and a statement is the only thing that knows it.
+        int[] elementStarts =
+        [
+            .. ctx.columnDefinition().Select(c => c.Start.TokenIndex), .. uniqueTokens, .. foreignKeyTokens,
+            .. primaryKeyToken == int.MaxValue ? Array.Empty<int>() : [primaryKeyToken],
+        ];
+        int DeclaredAfter(int token) => elementStarts.Count(start => start < token);
 
         for (int i = 0; i < uniques.Count; i++)
-            uniques[i] = uniques[i] with { DeclaredAfterColumns = ColumnsBefore(uniqueTokens[i]) };
+            uniques[i] = uniques[i] with { DeclaredAfter = DeclaredAfter(uniqueTokens[i]) };
         for (int i = 0; i < foreignKeys.Count; i++)
-            foreignKeys[i] = foreignKeys[i] with { DeclaredAfterColumns = ColumnsBefore(foreignKeyTokens[i]) };
+            foreignKeys[i] = foreignKeys[i] with { DeclaredAfter = DeclaredAfter(foreignKeyTokens[i]) };
 
         return new CreateTableStatement(table, columns, primaryKey, foreignKeys, uniques, checks, primaryKeyName,
-            primaryKeyToken == int.MaxValue ? 0 : ColumnsBefore(primaryKeyToken));
+            primaryKeyToken == int.MaxValue ? 0 : DeclaredAfter(primaryKeyToken));
+    }
+
+    /// <summary>
+    /// A CHECK's text as ACE stores it, which names the row being checked by <see cref="CheckConstraint.RowQualifier"/>,
+    /// not by the table's name. Where the text qualifies a column with <paramref name="table"/>'s own name, the
+    /// qualifier is dropped outside any subquery, and inside one becomes the row qualifier — unless that subquery, or
+    /// one it is inside, reads the table under its own name, when the column is that table's and is left alone. A
+    /// constraint it drops a qualifier from ACE writes out afresh from its parse (<see cref="CheckTextWriter"/>);
+    /// any other is kept as written. All verified.
+    /// <para>ACE takes the table's name as the row's qualifier only bare and joined by '.' — and inside a subquery only
+    /// before a bare column name — and no qualifier with space about its separator inside a subquery, or the
+    /// table's own name with space about it anywhere; it refuses the rest (verified).</para>
+    /// </summary>
+    private static string CheckText(CheckBodyContext body, string table, string? name)
+    {
+        string text = OriginalText(body);
+        if (body.Start is null || body.Stop is null || body.Stop.TokenIndex < body.Start.TokenIndex) return text;
+        var edits = new List<(int Start, int Stop, string Replacement)>();
+
+        // A group's own tokens, with those of the parenthesised groups in it that are not subqueries.
+        static IEnumerable<IToken> Tokens(CheckBodyContext group)
+        {
+            foreach (IParseTree child in group.children ?? [])
+                if (child is ITerminalNode t) yield return t.Symbol;
+                else if (child is CheckBodyContext nested && nested.Start?.Type != SELECT)
+                    foreach (IToken token in Tokens(nested)) yield return token;
+        }
+
+        // Whether a subquery's FROM clause reads the table under its own name: the name, not followed by an alias.
+        bool ReadsTable(CheckBodyContext subquery)
+        {
+            List<IToken> tokens = [.. Tokens(subquery)];
+            int from = tokens.FindIndex(t => t.Type == FROM);
+            for (int i = from + 1; from >= 0 && i < tokens.Count && tokens[i].Type is not (WHERE or GROUP or HAVING or ORDER or UNION); i++)
+                if (tokens[i].Type is IDENTIFIER or BRACKET_ID or BACKTICK_ID
+                    && string.Equals(Undelimited(tokens[i].Text), table, StringComparison.OrdinalIgnoreCase)
+                    && tokens[i - 1].Type != DOT
+                    && (i + 1 == tokens.Count || tokens[i + 1].Type is not (DOT or AS or IDENTIFIER or BRACKET_ID or BACKTICK_ID)))
+                    return true;
+            return false;
+        }
+
+        // row: what the table's name as a qualifier becomes in this group — "" to drop it, the row qualifier, or null
+        // to leave it alone.
+        void Rewrite(CheckBodyContext group, string? row, bool inSubquery)
+        {
+            IList<IParseTree> children = group.children ?? [];
+            for (int i = 0; i < children.Count; i++)
+            {
+                if (children[i] is CheckBodyContext nested)
+                {
+                    bool subquery = nested.Start?.Type == SELECT;
+                    Rewrite(nested, subquery && (row is null || ReadsTable(nested)) ? null : subquery ? CheckConstraint.RowQualifier : row,
+                        inSubquery || subquery);
+                    continue;
+                }
+                // A qualifier: a name, then '.' or '!', then the member it names — and not itself a chain's member.
+                if (i == 0 || i + 1 == children.Count
+                    || children[i] is not ITerminalNode { Symbol: { Type: DOT or BANG } separator }
+                    || children[i - 1] is not ITerminalNode { Symbol: { Type: IDENTIFIER or BRACKET_ID or BACKTICK_ID } qualifier }
+                    || children[i + 1] is not ITerminalNode { Symbol: { } member }
+                    || (i >= 2 && children[i - 2] is ITerminalNode { Symbol.Type: DOT or BANG }))
+                    continue;
+                bool spaced = separator.StartIndex != qualifier.StopIndex + 1 || member.StartIndex != separator.StopIndex + 1;
+                bool self = string.Equals(Undelimited(qualifier.Text), table, StringComparison.OrdinalIgnoreCase);
+                if (spaced && inSubquery)
+                    throw CheckConstraint.Refusal();
+                if (spaced && self)
+                    throw name is null ? CheckConstraint.Refusal() : new SqlParseException($"'{name}' is not an index in this table.");
+                if (!self || row is null)
+                    continue;
+                if (qualifier.Type != IDENTIFIER || separator.Type != DOT || (inSubquery && member.Type is BRACKET_ID or BACKTICK_ID))
+                    throw CheckConstraint.Refusal();
+                edits.Add(row.Length == 0
+                    ? (qualifier.StartIndex, separator.StopIndex, "")
+                    : (qualifier.StartIndex, qualifier.StopIndex, row));
+            }
+        }
+
+        Rewrite(body, "", inSubquery: false);
+        var stored = new System.Text.StringBuilder(text);
+        foreach (var (start, stop, replacement) in edits.OrderByDescending(e => e.Start))
+            stored.Remove(start - body.Start.StartIndex, stop - start + 1).Insert(start - body.Start.StartIndex, replacement);
+        if (!edits.Any(e => e.Replacement.Length == 0))
+            return stored.ToString();
+
+        try
+        {
+            return CheckTextWriter.Write(AntlrSqlParser.ExpressionTree(stored.ToString()));
+        }
+        catch (SqlParseException)
+        {
+            throw CheckConstraint.Refusal();
+        }
     }
 
     /// <summary>The verbatim source text of a parse context (preserving spacing), via the input stream —
     /// unlike <c>GetText()</c>, which concatenates token text with no whitespace. Used to store a CHECK
     /// expression exactly as written (matching Access).</summary>
-    private static string OriginalText(Antlr4.Runtime.ParserRuleContext ctx) =>
+    internal static string OriginalText(Antlr4.Runtime.ParserRuleContext ctx) =>
         ctx.Start is null || ctx.Stop is null
             ? ctx.GetText()
             : ctx.Start.InputStream.GetText(Antlr4.Runtime.Misc.Interval.Of(ctx.Start.StartIndex, ctx.Stop.StopIndex));
@@ -219,16 +390,18 @@ internal static class AstBuilder
         AlterTableAction action = ctx.alterTableAction() switch
         {
             AddColumnActionContext a => BuildAddColumn(a.columnDefinition()),
-            AddConstraintActionContext a => BuildAddConstraint(a.tableConstraint()),
+            AddConstraintActionContext a => BuildAddConstraint(a.tableConstraint(), Identifier(ctx.table)),
             AlterColumnActionContext a => new AlterColumnAction(
                 Identifier(a.field), TypeName(a.dataType()), Size(a.dataType()), Scale(a.dataType()),
-                a.columnConstraint().OfType<DefaultConstraintContext>().FirstOrDefault()?.expression().GetText(),
+                a.columnConstraint().OfType<DefaultConstraintContext>().FirstOrDefault() is { } d
+                    ? OriginalText(d.defaultValue())
+                    : null,
                 // NOT NULL → true, NULL → false, neither → null (leave the column's nullability unchanged).
                 a.columnConstraint().OfType<NotNullConstraintContext>().Any() ? true
                     : a.columnConstraint().OfType<NullableConstraintContext>().Any() ? false : null,
                 IdentityOf(a.columnConstraint())),
             AlterColumnSetDefaultActionContext a => new AlterColumnSetDefaultAction(
-                Identifier(a.field), OriginalText(a.expression())),
+                Identifier(a.field), OriginalText(a.defaultValue())),
             AlterColumnDropDefaultActionContext a => new AlterColumnDropDefaultAction(Identifier(a.field)),
             DropColumnActionContext a => new DropColumnAction(Identifier(a.field)),
             DropConstraintActionContext a => new DropConstraintAction(Identifier(a.cname)),
@@ -273,7 +446,7 @@ internal static class AstBuilder
                 .Select(r => (BuildColumnReferences(r, name), r.Start.TokenIndex)).ToList());
     }
 
-    private static AlterTableAction BuildAddConstraint(TableConstraintContext tc) => tc switch
+    private static AlterTableAction BuildAddConstraint(TableConstraintContext tc, string table) => tc switch
     {
         PrimaryKeyTableConstraintContext pk =>
             new AddPrimaryKeyAction(pk.name is null ? null : Identifier(pk.name), pk._columns.Select(Identifier).ToList()),
@@ -281,7 +454,8 @@ internal static class AstBuilder
             new AddUniqueAction(new UniqueConstraint(uq.name is null ? null : Identifier(uq.name), uq._columns.Select(Identifier).ToList())),
         ForeignKeyTableConstraintContext fk => new AddForeignKeyAction(BuildForeignKey(fk)),
         CheckTableConstraintContext ck =>
-            new AddCheckAction(new CheckConstraint(ck.name is null ? null : Identifier(ck.name), OriginalText(ck.checkBody()))),
+            new AddCheckAction(new CheckConstraint(OptionalIdentifier(ck.name),
+                CheckText(ck.checkBody(), table, OptionalIdentifier(ck.name)))),
         _ => throw new SqlParseException("Unsupported ALTER TABLE ADD CONSTRAINT."),
     };
 
@@ -357,12 +531,12 @@ internal static class AstBuilder
         bool compressed = ctx.columnConstraint().OfType<CompressionConstraintContext>().Any();
         bool notNull = ctx.columnConstraint().OfType<NotNullConstraintContext>().Any();
         bool primaryKey = ctx.columnConstraint().OfType<PrimaryKeyConstraintContext>().Any();
-        // Capture the DEFAULT expression's source text (stored verbatim as the DefaultValue property,
-        // matching Access — e.g. "42", "'hi'"). Re-parsed and evaluated when a column is omitted on insert.
-        string? defaultSql = ctx.columnConstraint().OfType<DefaultConstraintContext>()
-            .FirstOrDefault()?.expression().GetText();
-        // OriginalText, not GetText: the expression is stored verbatim and re-read by whichever engine opens
-        // the file, so its spacing and quoting have to survive the round trip through the parser.
+        // OriginalText, not GetText: the DEFAULT (a leading = included) and the calculated expression are stored
+        // verbatim and re-read by whichever engine opens the file, so their spacing and quoting have to survive
+        // the round trip through the parser. A default is re-parsed and evaluated when a column is omitted on insert.
+        string? defaultSql = ctx.columnConstraint().OfType<DefaultConstraintContext>().FirstOrDefault() is { } d
+            ? OriginalText(d.defaultValue())
+            : null;
         string? calculated = ctx.calculatedClause() is { } calc ? OriginalText(calc.expression()) : null;
 
         return new ColumnDefinition(
@@ -416,6 +590,11 @@ internal static class AstBuilder
 
     private static CreateViewStatement BuildCreateView(CreateViewStatementContext ctx)
     {
+        // A view takes no ORDER BY or INTO, where a procedure may (verified vs ACE) — a TOP is allowed, but not with an
+        // ORDER BY.
+        if (ctx.query.orderByClause() is not null || MakeTable(ctx.query) is not null)
+            throw new NotSupportedException("Only simple SELECT queries are allowed in VIEWS.");
+
         var columns = ctx._columns.Select(Identifier).ToList();
         ViewDefinition definition = BuildViewDefinition(ctx.query);
         return new CreateViewStatement(Identifier(ctx.name), columns, definition, OriginalText(ctx.query));
@@ -446,32 +625,79 @@ internal static class AstBuilder
         if (body.insertStatement() is { } insert) return BuildAppendProcedure(name, insert, parameters);
         if (body.updateStatement() is { } update) return BuildUpdateProcedure(name, update, parameters);
         if (body.deleteStatement() is { } delete) return BuildDeleteProcedure(name, delete, parameters);
+        if (body.transformStatement() is { } transform)
+            return new CreateProcedureStatement(name, parameters, BuildCrosstabDefinition(transform), OriginalText(transform));
 
         QueryExpressionContext query = body.queryExpression();
         // A SELECT with an INTO is a make-table query — an action query that stores its target on the action
         // row — not a view of the SELECT.
-        if (MakeTableTarget(query) is { } target)
+        if (MakeTable(query) is { } makeTable)
             return new CreateActionProcedureStatement(
-                name, ProcedureActionKind.MakeTable, null, target, null,
-                BuildViewDefinition(query), null, parameters, OwnerAccess(query));
+                name, ProcedureActionKind.MakeTable, null, Identifier(makeTable.into), null,
+                BuildViewDefinition(query), null, parameters, OwnerAccess(query),
+                makeTable.intoDatabase is { } into ? BuildExternalDatabase(into) : null);
 
-        ViewDefinition definition = BuildViewDefinition(query);
+        ViewDefinition definition = query.setOperator().Length > 0 ? BuildUnionDefinition(query) : BuildViewDefinition(query);
         return new CreateProcedureStatement(name, parameters, definition, OriginalText(query));
     }
 
-    /// <summary>The table a <c>SELECT … INTO t</c> body writes into, or null for an ordinary SELECT.</summary>
-    private static string? MakeTableTarget(QueryExpressionContext ctx) =>
-        ctx.setOperator().Length == 0 && ctx.queryTerm(0) is SelectTermContext term
-        && term.querySpecification().into is { } into
-            ? Identifier(into)
+    /// <summary>A UNION body as ACE stores it (verified): two segments, each verbatim — the text before the query's
+    /// last set operator and the term after it, so <c>A UNION B UNION ALL C</c> is <c>A UNION B </c> and <c>C</c> —
+    /// and whether that last operator drops duplicates. Its ORDER BY and a WITH OWNERACCESS OPTION ending it are the
+    /// whole query's, stored as a SELECT's are; one ending an earlier SELECT stays in that segment's text.</summary>
+    private static ViewDefinition BuildUnionDefinition(QueryExpressionContext ctx)
+    {
+        // ACE has no INTERSECT or EXCEPT to store, and no paging: a stored query has nowhere to keep either.
+        if (ctx.setOperator().Any(o => o.UNION() is null))
+            throw new NotSupportedException("A stored query combines SELECTs with UNION only.");
+        if (ctx.offsetFetchClause() is not null)
+            throw new NotSupportedException("A stored UNION query cannot store OFFSET or FETCH.");
+
+        SetOperatorContext last = ctx.setOperator()[^1];
+        QueryTermContext lastTerm = ctx.queryTerm()[^1];
+        Antlr4.Runtime.ICharStream text = ctx.Start.InputStream;
+        string first = text.GetText(Antlr4.Runtime.Misc.Interval.Of(ctx.Start.StartIndex, last.Start.StartIndex - 1));
+        string second = lastTerm is SelectTermContext s && s.querySpecification().ownerAccessOption() is { } option
+            ? text.GetText(Antlr4.Runtime.Misc.Interval.Of(lastTerm.Start.StartIndex, option.Start.StartIndex - 1)).TrimEnd()
+            : OriginalText(lastTerm);
+
+        return new ViewDefinition(last.ALL() is null, Columns: [],
+            [new ViewSource(null, null, first), new ViewSource(null, null, second)], Joins: [], Where: null,
+            GroupBy: [], Having: null, ViewOrderBys(ctx.orderByClause()), Top: null, OwnerAccess: OwnerAccess(ctx), Union: true);
+    }
+
+    /// <summary>A crosstab body: its SELECT decomposed as a view's is, and the TRANSFORM value and PIVOT beside it.
+    /// It is checked as running it is checked, so what cannot run is not stored either.</summary>
+    private static ViewDefinition BuildCrosstabDefinition(TransformStatementContext ctx)
+    {
+        _ = BuildTransform(ctx);
+        return ViewDefinitionOf(ctx.select, ctx.orderByClause(), ctx.ownerAccessOption() is not null) with
+        {
+            Crosstab = new ViewCrosstab(OriginalText(ctx.value), OptionalIdentifier(ctx.valueAlias),
+                OriginalText(PivotField(ctx)), OriginalText(ctx.pivot)),
+        };
+    }
+
+    /// <summary>A stored query's ORDER BY keys: they come off the query expression, not a SELECT, since they order
+    /// the query's result.</summary>
+    private static List<ViewOrderBy> ViewOrderBys(OrderByClauseContext? orderBy) =>
+        orderBy is { } ob
+            ? ob.orderByItem().Select(i => new ViewOrderBy(OriginalText(i.expression()), i.dir?.Type == DESC)).ToList()
+            : [];
+
+    /// <summary>The SELECT of a <c>SELECT … INTO t</c> body, which names the table it writes into, or null for an
+    /// ordinary SELECT.</summary>
+    private static QuerySpecificationContext? MakeTable(QueryExpressionContext ctx) =>
+        ctx.setOperator().Length == 0 && ctx.queryTerm(0) is SelectTermContext term && term.querySpecification().into is not null
+            ? term.querySpecification()
             : null;
 
     private static CreateActionProcedureStatement BuildAppendProcedure(
         string name, InsertStatementContext insert, IReadOnlyList<ProcedureParameter> parameters)
     {
         var columns = insert._columns;
-        if (columns.Count == 0)
-            throw new NotSupportedException("An INSERT procedure body must list its target columns.");
+        // An IN externaldatabase goes on the operation row, as a make-table's does (verified vs ACE).
+        ExternalDatabase? target = insert.targetDatabase is { } external ? BuildExternalDatabase(external) : null;
 
         // The multiple-record form: the values come from a SELECT, which is stored as the query's own source
         // — the same table / join / where rows a view stores — with each column row naming what it reads.
@@ -479,6 +705,23 @@ internal static class AstBuilder
         if (rows is null && insert.source is { } source)
         {
             ViewDefinition body = BuildViewDefinition(source);
+
+            // Without a column list the SELECT is stored as a view's is, each value under its output name — its alias,
+            // or the column's own name — and SELECT * as no columns at all; ACE fills the target columns by those
+            // names (verified). ACE refuses a value with no name of its own to go by.
+            if (columns.Count == 0)
+            {
+                SelectItemContext[] items = [.. ((SelectTermContext)source.queryTerm(0)).querySpecification().selectList().selectItem()
+                    .Where(i => i is not StarSelectItemContext)];
+                var named = body.Columns.Select((column, i) => BuildSelectItem(items[i]) is var item
+                            && (item.Alias ?? (item.Value as ColumnReference)?.Column) is { } outputName
+                        ? column with { Alias = outputName }
+                        : throw new SqlParseException($"An INSERT without a column list needs a name for '{column.Expression}' to fill a column by."))
+                        .ToList();
+                return new CreateActionProcedureStatement(
+                    name, ProcedureActionKind.Append, null, Identifier(insert.table), null, body with { Columns = named }, null,
+                    parameters, OwnerAccess(source), target);
+            }
             if (body.Columns.Count != columns.Count)
                 throw new SqlParseException(
                     $"INSERT lists {columns.Count} columns but its SELECT returns {body.Columns.Count}.");
@@ -488,7 +731,7 @@ internal static class AstBuilder
                 .ToList();
             return new CreateActionProcedureStatement(
                 name, ProcedureActionKind.Append, null, Identifier(insert.table), sourced, body, null, parameters,
-                OwnerAccess(source));
+                OwnerAccess(source), target);
         }
 
         // A stored append query keeps its columns and values as text pairs, which has room for exactly one
@@ -506,16 +749,18 @@ internal static class AstBuilder
                 "An INSERT procedure body cannot use DEFAULT as a value.");
 
         var values = rowValues.Select(v => v.expression()).ToArray();
-        if (columns.Count != values.Length)
+        if (columns.Count > 0 && columns.Count != values.Length)
             throw new SqlParseException(
                 $"INSERT lists {columns.Count} columns but {values.Length} values.");
 
-        var appendColumns = columns
-            .Select((col, i) => new AppendColumn(Identifier(col), OriginalText(values[i])))
+        // Without a column list each value is stored with no target column, and fills the table's in order — so a
+        // count the table does not have is refused when the query runs, not here (verified vs ACE).
+        var appendColumns = values
+            .Select((value, i) => new AppendColumn(columns.Count > 0 ? Identifier(columns[i]) : null, OriginalText(value)))
             .ToList();
         return new CreateActionProcedureStatement(
             name, ProcedureActionKind.Append, null, Identifier(insert.table), appendColumns,
-            null, null, parameters, insert.source is { } query && OwnerAccess(query));
+            null, null, parameters, insert.source is { } query && OwnerAccess(query), target);
     }
 
     /// <summary>An UPDATE body: its sources and WHERE are stored exactly as a view's are, and each SET
@@ -524,8 +769,9 @@ internal static class AstBuilder
     private static CreateActionProcedureStatement BuildUpdateProcedure(
         string name, UpdateStatementContext update, IReadOnlyList<ProcedureParameter> parameters)
     {
+        // ACE stores the target unquoted whatever was written — `My T.My Col`, `od.Discount` (verified).
         var assignments = update.assignment()
-            .Select(a => new AppendColumn(OriginalText(a.target), OriginalText(a.expression())))
+            .Select(a => new AppendColumn(BuildColumn(a.target).QualifiedName, OriginalText(a.expression())))
             .ToList();
         return new CreateActionProcedureStatement(
             name, ProcedureActionKind.Update, null, null, assignments,
@@ -533,12 +779,12 @@ internal static class AstBuilder
             update.ownerAccessOption() is not null);
     }
 
-    /// <summary>A DELETE body: its sources and WHERE, plus the <c>table.*</c> target when the statement names
-    /// one — which Access stores verbatim, and omits entirely for a bare <c>DELETE FROM</c>.</summary>
+    /// <summary>A DELETE body: its sources and WHERE, plus each <c>table.*</c> or column the statement names as its
+    /// target — which Access stores as written, and omits entirely for a bare <c>DELETE FROM</c>.</summary>
     private static CreateActionProcedureStatement BuildDeleteProcedure(
         string name, DeleteStatementContext delete, IReadOnlyList<ProcedureParameter> parameters)
     {
-        string? target = delete.target is { } t ? $"{Identifier(t)}.*" : null;
+        List<string> target = [.. delete.deleteItem().Select(i => i.table is { } t ? $"{Identifier(t)}.*" : OriginalText(i))];
         return new CreateActionProcedureStatement(
             name, ProcedureActionKind.Delete, null, null, null,
             ActionBody(delete.tableSource(), delete.whereClause()), target, parameters,
@@ -611,6 +857,13 @@ internal static class AstBuilder
             From = LowerFrom(del.From, names)!,
             Where = del.Where is null ? null : LowerExpr(del.Where, names),
         },
+        // A crosstab declares them as its SELECT does (verified vs ACE: PARAMETERS y SHORT; TRANSFORM … WHERE … = y).
+        TransformStatement transform => transform with
+        {
+            Value = LowerExpr(transform.Value, names),
+            Select = LowerSelect(transform.Select, names),
+            Pivot = LowerExpr(transform.Pivot, names),
+        },
         _ => s,
     };
 
@@ -680,22 +933,31 @@ internal static class AstBuilder
     {
         if (ctx.setOperator().Length > 0)
             throw new NotSupportedException("A UNION query is not a valid (simple) view.");
+        // TABLE t is SELECT * FROM t, and ACE stores it so (verified).
+        if (ctx.queryTerm(0) is TableTermContext table)
+            return new ViewDefinition(Distinct: false, Columns: [], [new ViewSource(Identifier(table.table), null)], Joins: [],
+                Where: null, GroupBy: [], Having: null, ViewOrderBys(ctx.orderByClause()), Top: null,
+                OwnerAccess: OwnerAccess(ctx), AllFields: true);
         if (ctx.queryTerm(0) is not SelectTermContext term)
             throw new NotSupportedException("A parenthesised query is not a valid (simple) view.");
 
-        QuerySpecificationContext select = term.querySpecification();
+        // A stored TOP has no WITH TIES of its own: it is ACE's TOP, which always keeps the ties, while LibRed reads
+        // it back as a plain one. So neither reading can be stored faithfully.
+        if (term.querySpecification().topClause()?.ties is not null || ctx.offsetFetchClause()?.ties is not null)
+            throw new NotSupportedException("A view cannot store TOP … WITH TIES.");
+        return ViewDefinitionOf(term.querySpecification(), ctx.orderByClause(), OwnerAccess(ctx));
+    }
+
+    /// <summary>One SELECT decomposed into the rows Access stores for it, with the ORDER BY and WITH OWNERACCESS
+    /// OPTION its statement gives it — a query expression's own, or a crosstab's.</summary>
+    private static ViewDefinition ViewDefinitionOf(QuerySpecificationContext select, OrderByClauseContext? orderBy, bool ownerAccess)
+    {
+        // Checked as running it is checked, so what cannot run is not stored either.
+        _ = BuildQuerySpecification(select);
         var groupBy = select.groupByClause() is { } g
             ? g.expression().Select(OriginalText).ToList() : (IReadOnlyList<string>)[];
         // The group filter of a "totals" query, stored verbatim in its own row alongside the GROUP BY ones.
         string? having = select.havingClause() is { } h ? OriginalText(h.expression()) : null;
-        // The view's ORDER BY comes off the query expression, not the SELECT: it orders the view's result.
-        var orderBy = ctx.orderByClause() is { } ob
-            ? ob.orderByItem().Select(i => new ViewOrderBy(OriginalText(i.expression()), i.dir?.Type == DESC)).ToList()
-            : (IReadOnlyList<ViewOrderBy>)[];
-        // A stored TOP has no WITH TIES of its own: it is ACE's TOP, which always keeps the ties, while LibRed reads
-        // it back as a plain one. So neither reading can be stored faithfully.
-        if (select.topClause()?.ties is not null || ctx.offsetFetchClause()?.ties is not null)
-            throw new NotSupportedException("A view cannot store TOP … WITH TIES.");
         // A stored view can only carry a literal TOP (Access stores it as text); reject a parameterized one.
         int? top = select.topClause() is { } t
             ? BuildTop(t) is LiteralExpression { Value: int n }
@@ -703,10 +965,10 @@ internal static class AstBuilder
                 : throw new NotSupportedException("A view's TOP must be a literal integer.")
             : null;
 
-        // Output columns; SELECT * becomes a single "*", a qualified star stays "Table.*".
-        var columns = select.selectList().STAR() is not null && select.selectList().selectItem().Length == 0
-            ? (IReadOnlyList<ViewColumn>)[new ViewColumn("*", null)]
-            : select.selectList().selectItem().Select(BuildViewColumn).ToList();
+        // Output columns; a qualified star stays "Table.*". A bare * is no column of its own but the query's
+        // output-all-fields option, beside whatever columns the list names too (verified vs ACE).
+        SelectItemContext[] items = select.selectList().selectItem();
+        var columns = items.Where(i => i is not StarSelectItemContext).Select(BuildViewColumn).ToList();
 
         // Flatten the FROM into a flat list of source tables and joins, descending through any parenthesised
         // join groups (Access stores them flat — one Attribute=5 per table, one Attribute=7 per join). A
@@ -718,21 +980,23 @@ internal static class AstBuilder
             CollectSources(ts, tables, joins);
 
         string? where = select.whereClause() is { } w ? OriginalText(w.expression()) : null;
-        return new ViewDefinition(select.predicate?.DISTINCT() is not null, columns, tables, joins, where, groupBy, having, orderBy, top,
-            TopPercent: select.topClause()?.percent is not null, OwnerAccess: OwnerAccess(ctx));
+        return new ViewDefinition(select.predicate?.DISTINCT() is not null, columns, tables, joins, where, groupBy, having, ViewOrderBys(orderBy), top,
+            TopPercent: select.topClause()?.percent is not null, OwnerAccess: ownerAccess,
+            Database: select.fromClause()?.externalDatabase() is { } external ? BuildExternalDatabase(external) : null,
+            AllFields: items.Any(i => i is StarSelectItemContext), DistinctRow: select.predicate?.DISTINCTROW() is not null);
     }
 
-    /// <summary>Whether a query declares WITH OWNERACCESS OPTION — after its ORDER BY, or at the end of one of its
-    /// SELECTs, as ACE takes it either way. ACE reads a query's ORDER BY as part of its last SELECT, so the option
+    /// <summary>Whether a query declares WITH OWNERACCESS OPTION — after its ORDER BY, or at the end of its last
+    /// SELECT, as ACE takes it either way. ACE reads a query's ORDER BY as part of its last SELECT, so the option
     /// ending that SELECT cannot come before the ORDER BY, nor be written again after it (verified); both are
-    /// refused here.</summary>
+    /// refused here. One ending an earlier SELECT of a UNION is that SELECT's: ACE keeps it in the stored segment's
+    /// text, not as the query's option (verified).</summary>
     private static bool OwnerAccess(QueryExpressionContext ctx)
     {
-        if (ctx.queryTerm()[^1] is SelectTermContext last && last.querySpecification().ownerAccessOption() is not null
-            && (ctx.orderByClause() is not null || ctx.offsetFetchClause() is not null || ctx.ownerAccessOption() is not null))
+        bool ending = ctx.queryTerm()[^1] is SelectTermContext last && last.querySpecification().ownerAccessOption() is not null;
+        if (ending && (ctx.orderByClause() is not null || ctx.offsetFetchClause() is not null || ctx.ownerAccessOption() is not null))
             throw new SqlParseException("WITH OWNERACCESS OPTION ends a query: it comes after the query's ORDER BY, and once.");
-        return ctx.ownerAccessOption() is not null
-            || ctx.queryTerm().Any(t => t is SelectTermContext s && s.querySpecification().ownerAccessOption() is not null);
+        return ending || ctx.ownerAccessOption() is not null;
     }
 
     private static void CollectSources(TableSourceContext ts, List<ViewSource> tables, List<ViewJoin> joins)
@@ -838,6 +1102,7 @@ internal static class AstBuilder
             return new InsertStatement(table, [], [(IReadOnlyList<Expression>)[]], DefaultValues: true);
 
         var columns = ctx._columns.Select(Identifier).ToList();
+        ExternalDatabase? database = ctx.targetDatabase is { } external ? BuildExternalDatabase(external) : null;
 
         // A table value constructor: one or more parenthesised rows. The AST and executor were already
         // row-list shaped, so a multi-row insert needs nothing beyond handing them every row.
@@ -846,11 +1111,11 @@ internal static class AstBuilder
             var rows = values
                 .Select(r => (IReadOnlyList<Expression>)r.rowValue().Select(BuildRowValue).ToList())
                 .ToList();
-            return new InsertStatement(table, columns, rows);
+            return new InsertStatement(table, columns, rows, TableDatabase: database);
         }
 
         // The multiple-record form: the rows come from a query rather than a VALUES list.
-        return new InsertStatement(table, columns, [], Source: BuildQueryExpression(ctx.source));
+        return new InsertStatement(table, columns, [], Source: BuildQueryExpression(ctx.source), TableDatabase: database);
     }
 
     /// <summary>The rows of an INSERT's VALUES list — a source that is one table value constructor and nothing
@@ -952,6 +1217,7 @@ internal static class AstBuilder
         SelectTermContext s => BuildQuerySpecification(s.querySpecification()),
         ParenTermContext p => BuildQueryExpression(p.queryExpression()),
         ValuesTermContext v => BuildValuesQuery(v),
+        TableTermContext t => new SelectStatement([], IsSelectStar: true, new NamedTable(Identifier(t.table), null), null, [], null, [], null),
         _ => throw new SqlParseException($"Unsupported query term: {ctx.GetText()}"),
     };
 
@@ -994,11 +1260,12 @@ internal static class AstBuilder
     /// them to belong to.</summary>
     private static SelectStatement BuildQuerySpecification(QuerySpecificationContext ctx)
     {
-        SelectListContext list = ctx.selectList();
-        bool star = list.STAR() != null;
+        // A lone * is every column, as it always was; a * among other items is one of them (see StarSelectItem).
+        SelectItemContext[] items = ctx.selectList().selectItem();
+        bool star = items is [StarSelectItemContext];
         var projection = star
             ? (IReadOnlyList<SelectItem>)[]
-            : list.selectItem().Select(BuildSelectItem).ToList();
+            : items.Select(BuildSelectItem).ToList();
 
         TableReference? from = ctx.fromClause() is { } fc ? BuildFrom(fc) : null;
         Expression? where = ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null;
@@ -1016,7 +1283,21 @@ internal static class AstBuilder
             DistinctRow: predicate?.DISTINCTROW() is not null,
             TopPercent: topPercent,
             Into: ctx.into is null ? null : Identifier(ctx.into),
-            WithTies: ctx.topClause()?.ties is not null);
+            WithTies: ctx.topClause()?.ties is not null,
+            IntoDatabase: ctx.intoDatabase is { } database ? BuildExternalDatabase(database) : null);
+    }
+
+    /// <summary>An <c>IN externaldatabase</c> as written. ACE refuses an empty database type, and an empty path with
+    /// nothing after it to name the file (verified: "Syntax error in FROM clause.").</summary>
+    private static ExternalDatabase BuildExternalDatabase(ExternalDatabaseContext ctx)
+    {
+        string path = Unquote(ctx.path.Text);
+        string? connect = ctx.type is { } type ? Unquote(type.Text)
+            : ctx.connect is { } bracketed ? bracketed.Text[1..^1]
+            : null;
+        if (connect is "" || path.Length == 0 && connect is null)
+            throw new SqlParseException("Syntax error in FROM clause.");
+        return new ExternalDatabase(path.Length == 0 ? null : path, connect);
     }
 
     /// <summary>The TOP count expression: a single operand, or a left-associative +/- chain of them (each
@@ -1041,13 +1322,30 @@ internal static class AstBuilder
 
     private static SelectItem BuildSelectItem(SelectItemContext ctx) => ctx switch
     {
+        StarSelectItemContext => new SelectItem(new StarExpression(), null),
         QualifiedStarSelectItemContext q => new SelectItem(new QualifiedStarExpression(Identifier(q.qualifier)), null),
         ExpressionSelectItemContext e => new SelectItem(
-            BuildExpression(e.expression()), OptionalIdentifier(e.alias) ?? BangColumnName(e.expression())),
+            BuildExpression(e.expression()), OptionalIdentifier(e.alias) ?? BangColumnName(e.expression()),
+            e.alias is null && e.expression() is PrimaryExprContext { } p && p.primary() is ColumnPrimaryContext
+                ? OriginalText(e.expression()) : null),
         _ => throw new SqlParseException($"Unsupported select item: {ctx.GetText()}"),
     };
 
-    private static TableReference BuildFrom(FromClauseContext ctx) => BuildTableSources(ctx.tableSource());
+    /// <summary>A FROM clause. An IN externaldatabase ending it puts every table it names in that file — the tables
+    /// of its joins and comma list alike, not those inside a derived table, whose FROM is a clause of its own, as a
+    /// subquery's is (verified vs ACE: a WHERE subquery under such a FROM reads the statement's own database).</summary>
+    private static TableReference BuildFrom(FromClauseContext ctx)
+    {
+        TableReference from = BuildTableSources(ctx.tableSource());
+        return ctx.externalDatabase() is { } external ? InDatabase(from, BuildExternalDatabase(external)) : from;
+
+        static TableReference InDatabase(TableReference table, ExternalDatabase database) => table switch
+        {
+            NamedTable named => named with { Database = database },
+            JoinTable join => join with { Left = InDatabase(join.Left, database), Right = InDatabase(join.Right, database) },
+            _ => table,
+        };
+    }
 
     /// <summary>A comma list of table sources, which is an implicit cross join (no ON).</summary>
     private static TableReference BuildTableSources(TableSourceContext[] sources)
@@ -1137,6 +1435,13 @@ internal static class AstBuilder
         InExprContext i => BuildIn(i),
         InSubqueryExprContext i => new InSubqueryExpression(
             BuildExpression(i.val), BuildQueryExpression(i.sub), i.not is not null),
+        // `= ANY` is IN and `<> ALL` NOT IN, value for value (verified vs ACE), so they go the way IN does.
+        QuantifiedComparisonExprContext q => (MapOperator(q.op.Type), q.quantifier.Type == ALL) switch
+        {
+            (BinaryOperator.Equal, false) => new InSubqueryExpression(BuildExpression(q.left), BuildQueryExpression(q.sub), Negated: false),
+            (BinaryOperator.NotEqual, true) => new InSubqueryExpression(BuildExpression(q.left), BuildQueryExpression(q.sub), Negated: true),
+            var (comparison, all) => new InSubqueryExpression(BuildExpression(q.left), BuildQueryExpression(q.sub), Negated: false, comparison, all),
+        },
         LikeExprContext l => l.not is null
             ? new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))
             : new UnaryExpression(UnaryOperator.Not, new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))),
@@ -1331,8 +1636,7 @@ internal static class AstBuilder
     /// </summary>
     private static ColumnReference BuildColumn(ColumnRefContext ctx)
     {
-        List<Antlr4.Runtime.ParserRuleContext> parts = [ctx.first, .. ctx._rest];
-        if (parts.Count == 1)
+        if (ctx._rest.Count == 0)
         {
             string name = Identifier(ctx.first);
             if (name.IndexOf('.', StringComparison.Ordinal) is var dot && dot > 0 && dot < name.Length - 1)
@@ -1341,21 +1645,24 @@ internal static class AstBuilder
         }
 
         // ACE refuses a space either side of a bang (verified: 'Invalid use of '.', '!', or '()'').
-        foreach (var (bang, i) in ctx._separators.Select((s, i) => (s, i)).Where(s => s.s.Type == BANG))
-            if (parts[i].Stop.StopIndex + 1 != bang.StartIndex || parts[i + 1].Start.StartIndex != bang.StopIndex + 1)
+        for (int i = 0; i < ctx._separators.Count; i++)
+        {
+            var bang = ctx._separators[i];
+            int leftEnd = i == 0 ? ctx.first.Stop.StopIndex : ctx._rest[i - 1].Stop.StopIndex;
+            if (bang.Type == BANG && (leftEnd + 1 != bang.StartIndex || ctx._rest[i].Start.StartIndex != bang.StopIndex + 1))
                 throw new SqlParseException(
                     $"Invalid use of '!' in '{OriginalText(ctx)}': a bang takes no space either side.",
                     bang.Line, bang.Column);
+        }
 
-        return parts.Count == 2
+        return ctx._rest.Count == 1
             ? new ColumnReference(Identifier(ctx.first), MemberName(ctx._rest[0]))
             : new ColumnReference(null, ChainName(ctx));
     }
 
     /// <summary>A name after a separator: an identifier as <see cref="Identifier"/> reads it, or a reserved word
     /// as written.</summary>
-    private static string MemberName(MemberNameContext ctx) =>
-        ctx.identifier() is { } id ? Identifier(id) : ctx.GetText();
+    private static string MemberName(MemberNameContext ctx) => Undelimited(ctx.Start.Text);
 
     /// <summary>A chain of names as one name: its parts undelimited and joined by bangs, whether a period or a bang
     /// joined them — ACE binds either spelling to the same declared parameter (verified: with <c>PARAMETERS
@@ -1374,12 +1681,16 @@ internal static class AstBuilder
     {
         if (ctx is not PrimaryExprContext p || p.primary() is not ColumnPrimaryContext primary) return null;
         ColumnRefContext column = primary.columnRef();
-        int lastDot = column._separators.ToList().FindLastIndex(s => s.Type == DOT);
-        if (!column._separators.Skip(lastDot + 1).Any(s => s.Type == BANG)) return null;
+        int lastDot = -1;
+        bool bang = false;
+        for (int i = 0; i < column._separators.Count; i++)
+            if (column._separators[i].Type == DOT) { lastDot = i; bang = false; }
+            else if (column._separators[i].Type == BANG) bang = true;
+        if (!bang) return null;
 
         int start = lastDot < 0 ? column.first.Start.StartIndex : column._rest[lastDot].Start.StartIndex;
         string text = column.Start.InputStream.GetText(Antlr4.Runtime.Misc.Interval.Of(start, column.Stop.StopIndex));
-        return text is ['[', .., ']'] or ['`', .., '`'] ? text[1..^1] : text;
+        return Undelimited(text);
     }
 
     /// <summary><c>x IN (a, b, …)</c> becomes a flat <see cref="InListExpression"/> evaluated iteratively — NOT a
@@ -1399,17 +1710,50 @@ internal static class AstBuilder
     /// <summary>Parses an Access <c>#…#</c> date literal (e.g. <c>#1/1/1997#</c>, month/day/year) to a
     /// <see cref="DateTime"/>. A time without a date is on 1899-12-30, day zero (verified vs ACE: #13:45:30# is
     /// 1899-12-30 13:45:30), not on today.</summary>
-    private static DateTime ParseDate(string text)
+    internal static DateTime ParseDate(string text)
     {
         DateTime value = DateTime.Parse(text.Trim('#'), CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault);
         return value.Date == DateTime.MinValue ? new DateTime(1899, 12, 30).Add(value.TimeOfDay) : value;
     }
 
-    /// <summary>The exact value of a number written without an exponent; none for 1E5 or 1.5E2, or past a Decimal.</summary>
-    private static decimal? WrittenDecimal(string text) =>
-        text.IndexOfAny(['E', 'e']) < 0
-        && decimal.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal value)
-            ? value : null;
+    /// <summary>A number written with a decimal point or an exponent, as ACE reads it (verified vs ACE, over OLE DB):
+    /// a whole number a Long holds is a Long (<c>3.0</c>, <c>1E5</c>); a number a Decimal holds exactly is a Decimal
+    /// of the digits written (<c>1.50</c>, <c>15E-1</c>, <c>1E-28</c>, <c>3E9</c>, <c>7.9E28</c>); and anything
+    /// else is a Double — a Decimal's 29th place (<c>1.5E-28</c>), past its range (<c>1E29</c>), and a whole number
+    /// past a Long written with a point and no exponent (<c>3000000000.0</c>).</summary>
+    private static object ParseNumber(string text)
+    {
+        // The value as mantissa × 10^exponent, the mantissa's trailing zeros moved into the exponent.
+        int e = text.IndexOfAny(['E', 'e']);
+        string digits = e < 0 ? text : text[..e];
+        int exponent = e < 0 ? 0 : int.Parse(text[(e + 1)..], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+        int point = digits.IndexOf('.', StringComparison.Ordinal);
+        if (point >= 0)
+        {
+            exponent -= digits.Length - point - 1;
+            digits = digits.Remove(point, 1);
+        }
+        var mantissa = BigInteger.Parse(digits, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+        while (!mantissa.IsZero && mantissa % 10 == 0)
+        {
+            mantissa /= 10;
+            exponent++;
+        }
+
+        if (mantissa.IsZero) return 0;
+        var largest = new BigInteger(decimal.MaxValue);
+        if (exponent >= 0)
+        {
+            BigInteger whole = exponent <= 28 ? mantissa * BigInteger.Pow(10, exponent) : largest + 1;
+            if (whole >= int.MinValue && whole <= int.MaxValue) return (int)whole;
+            if (BigInteger.Abs(whole) > largest || point >= 0 && e < 0)
+                return double.Parse(text, CultureInfo.InvariantCulture);
+        }
+        else if (-exponent > 28 || BigInteger.Abs(mantissa) > largest)
+            return double.Parse(text, CultureInfo.InvariantCulture);
+        return decimal.Parse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent,
+            CultureInfo.InvariantCulture);
+    }
 
     /// <summary>
     /// A minus written directly against a number that begins with a digit is part of that number, which is then a single
@@ -1453,18 +1797,17 @@ internal static class AstBuilder
             : new BinaryExpression(BinaryOperator.Power, BuildExpression(power.left), BuildExpression(power.right));
 
     /// <summary>A number literal, with the sign when a minus is written against it.</summary>
-    private static LiteralExpression BuildNumber(string text, int tokenType) => tokenType == INTEGER_LITERAL
-        ? new LiteralExpression(ParseInteger(text))
-        : new LiteralExpression(double.Parse(text, CultureInfo.InvariantCulture), WrittenDecimal(text));
+    private static LiteralExpression BuildNumber(string text, int tokenType) =>
+        new(tokenType == INTEGER_LITERAL ? ParseInteger(text) : ParseNumber(text));
 
     private static LiteralExpression BuildLiteral(LiteralContext ctx) => ctx switch
     {
-        IntLiteralContext i => BuildNumber(i.GetText(), INTEGER_LITERAL),
-        NumberLiteralContext n => BuildNumber(n.GetText(), NUMBER_LITERAL),
-        HexLiteralContext h => new LiteralExpression(ParseHexBytes(h.GetText())),
-        StringLiteralContext s => new LiteralExpression(Unquote(s.GetText())),
-        DateLiteralContext d => new LiteralExpression(ParseDate(d.GetText())),
-        GuidLiteralContext g => new LiteralExpression(ParseGuid(g.GetText())),
+        IntLiteralContext i => BuildNumber(i.Start.Text, INTEGER_LITERAL),
+        NumberLiteralContext n => BuildNumber(n.Start.Text, NUMBER_LITERAL),
+        HexLiteralContext h => new LiteralExpression(ParseHexBytes(h.Start.Text)),
+        StringLiteralContext s => new LiteralExpression(Unquote(s.Start.Text)),
+        DateLiteralContext d => new LiteralExpression(ParseDate(d.Start.Text)),
+        GuidLiteralContext g => new LiteralExpression(ParseGuid(g.Start.Text)),
         TrueLiteralContext => new LiteralExpression(true),
         FalseLiteralContext => new LiteralExpression(false),
         NullLiteralContext => new LiteralExpression(null),
@@ -1503,8 +1846,12 @@ internal static class AstBuilder
     private static object ParseInteger(string text) =>
         // Box each branch independently: a bare `? i : long.Parse(...)` would infer the
         // conditional's type as `long` and silently widen the int branch, so every literal
-        // (even `1`) would arrive as a boxed long.
-        int.TryParse(text, out int i) ? i : (object)long.Parse(text, CultureInfo.InvariantCulture);
+        // (even `1`) would arrive as a boxed long. Past a Long, ACE reads the literal as a Decimal, and past a
+        // Decimal as a Double (verified: 9223372036854775808 and 10^20 are Decimal, 2^96 a Double).
+        int.TryParse(text, out int i) ? i
+        : long.TryParse(text, CultureInfo.InvariantCulture, out long l) ? l
+        : decimal.TryParse(text, CultureInfo.InvariantCulture, out decimal m) ? m
+        : (object)double.Parse(text, CultureInfo.InvariantCulture);
 
     /// <summary>A GUID literal, <c>{…}</c> or ACE's <c>{guid {…}}</c>: the GUID is the innermost braced part.</summary>
     private static Guid ParseGuid(string text) => Guid.Parse(text[text.LastIndexOf('{')..(text.IndexOf('}') + 1)]);
@@ -1519,14 +1866,15 @@ internal static class AstBuilder
         return Convert.FromHexString(digits);
     }
 
-    private static string Identifier(IdentifierContext ctx)
-    {
-        string text = ctx.GetText();
+    // identifier/memberName/literal each contain one lexical token. Reading that token preserves the
+    // exact spelling without rebuilding its rule subtree's text through temporary StringBuilders.
+    private static string Identifier(IdentifierContext ctx) => Undelimited(ctx.Start.Text);
+
+    private static string Undelimited(string text) =>
         // Strip delimiters: [bracketed] or `backtick`.
-        return text.Length >= 2 && ((text[0] == '[' && text[^1] == ']') || (text[0] == '`' && text[^1] == '`'))
+        text.Length >= 2 && ((text[0] == '[' && text[^1] == ']') || (text[0] == '`' && text[^1] == '`'))
             ? text[1..^1]
             : text;
-    }
 
     private static string? OptionalIdentifier(IdentifierContext? ctx) => ctx is null ? null : Identifier(ctx);
 

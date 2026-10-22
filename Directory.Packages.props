@@ -1,0 +1,47 @@
+<Project>
+	<PropertyGroup>
+		<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+		<EFCoreVersion>[11.0.0-rc.2.26504.105]</EFCoreVersion>
+		<MSLibVersion>[11.0.0-rc.2.26504.105]</MSLibVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageVersion Include="Antlr4.Runtime.Standard" Version="4.13.1" />
+		<PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+		<PackageVersion Include="coverlet.collector" Version="10.0.1" />
+		<!-- Centralised so the three test projects that use it cannot drift apart again; they previously
+		     carried inline 18.7.1 / 18.7.1 / 18.4.0. -->
+		<PackageVersion Include="Microsoft.Build.Tasks.Core" Version="18.9.6" />
+		<PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(EFCoreVersion)" />
+		<PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(EFCoreVersion)" />
+		<PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="$(EFCoreVersion)" />
+		<PackageVersion Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(EFCoreVersion)" />
+		<PackageVersion Include="Microsoft.Extensions.Configuration" Version="$(MSLibVersion)" />
+		<PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="$(MSLibVersion)" />
+		<PackageVersion Include="Microsoft.Extensions.Configuration.FileExtensions" Version="$(MSLibVersion)" />
+		<PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="$(MSLibVersion)" />
+		<PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="$(MSLibVersion)" />
+		<PackageVersion Include="Microsoft.Extensions.DependencyModel" Version="$(MSLibVersion)" />
+		<PackageVersion Include="Microsoft.Extensions.Logging" Version="$(MSLibVersion)" />
+		<PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="$(MSLibVersion)" />
+		<PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.0" />
+		<PackageVersion Include="Microsoft.SourceLink.GitHub" Version="11.0.100-rc.2.26504.105" />
+		<PackageVersion Include="Moq" Version="4.20.72" />
+		<PackageVersion Include="MSTest.TestAdapter" Version="4.4.0" />
+		<PackageVersion Include="MSTest.TestFramework" Version="4.4.0" />
+		<PackageVersion Include="NetTopologySuite" Version="2.6.0" />
+		<PackageVersion Include="System.Data.Odbc" Version="$(MSLibVersion)" />
+		<PackageVersion Include="System.Data.OleDb" Version="$(MSLibVersion)" />
+		<!-- Not used directly: Microsoft.Build.Tasks.Core (18.9.6 through 18.11.0) pulls in Pkcs 10.0.10, which
+		     GHSA-2fmv-rv2c-59x7 flags, and NuGetAudit fails the restore. Every project referencing it lifts Pkcs to
+		     the patched build alongside it; drop this once an MSBuild release depends on a patched Pkcs. -->
+		<PackageVersion Include="System.Security.Cryptography.Pkcs" Version="$(MSLibVersion)" />
+		<!-- xunit v3. Not a preference: EF 11's Specification.Tests depends on xunit.v3.assert and
+		     xunit.v3.extensibility.core, so inheriting from its test bases requires v3. Pinned to the
+		     same build EF resolves, so the two cannot disagree about which xunit is in the graph. -->
+		<PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
+		<PackageVersion Include="xunit.v3.assert" Version="4.0.0" />
+		<PackageVersion Include="xunit.v3.core" Version="4.0.0" />
+		<PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.0" />
+	</ItemGroup>
+</Project>

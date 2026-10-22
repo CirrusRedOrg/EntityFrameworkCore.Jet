@@ -288,8 +288,8 @@ public sealed class AgileEncryption : IPageCodec
             throw new NotSupportedException("Agile descriptor hashAlgorithm differs between keyData and encryptedKey.");
     }
 
-    // The descriptor names its own hash, and SHA-1 is what Access writes for many files; reading them back means
-    // honouring it.
+    // Every hash MS-OFFCRYPTO allows is named here so that ValidateSupportedProfile can refuse all but SHA-512, the
+    // only one Access writes for Agile. SHA-1 belongs to the older Office Standard scheme (OfficeStandardEncryption).
     private static HashAlgorithmName ParseHash(string name) => name.Replace("-", "").ToUpperInvariant() switch
     {
         "SHA1" => HashAlgorithmName.SHA1,

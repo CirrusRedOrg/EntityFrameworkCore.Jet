@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-// Generated from AccessSql.g4 by ANTLR 4.13.1
+// Generated from D:/toolkits/efcorejetlibred/src/LibRed/LibRed.Sql/Grammar/AccessSql.g4 by ANTLR 4.13.1
 
 // Unreachable code detected
 #pragma warning disable 0162
@@ -324,13 +324,6 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitCompressionConstraint([NotNull] AccessSqlParser.CompressionConstraintContext context);
 	/// <summary>
-	/// Visit a parse tree produced by the <c>CheckColumnConstraint</c>
-	/// labeled alternative in <see cref="AccessSqlParser.columnConstraint"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitCheckColumnConstraint([NotNull] AccessSqlParser.CheckColumnConstraintContext context);
-	/// <summary>
 	/// Visit a parse tree produced by the <c>PrimaryKeyConstraint</c>
 	/// labeled alternative in <see cref="AccessSqlParser.columnConstraint"/>.
 	/// </summary>
@@ -358,6 +351,12 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitIdentityConstraint([NotNull] AccessSqlParser.IdentityConstraintContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.defaultValue"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitDefaultValue([NotNull] AccessSqlParser.DefaultValueContext context);
 	/// <summary>
 	/// Visit a parse tree produced by the <c>PrimaryKeyTableConstraint</c>
 	/// labeled alternative in <see cref="AccessSqlParser.tableConstraint"/>.
@@ -493,6 +492,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitValuesTerm([NotNull] AccessSqlParser.ValuesTermContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>TableTerm</c>
+	/// labeled alternative in <see cref="AccessSqlParser.queryTerm"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitTableTerm([NotNull] AccessSqlParser.TableTermContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.setOperator"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
@@ -552,6 +558,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitSelectList([NotNull] AccessSqlParser.SelectListContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>StarSelectItem</c>
+	/// labeled alternative in <see cref="AccessSqlParser.selectItem"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitStarSelectItem([NotNull] AccessSqlParser.StarSelectItemContext context);
 	/// <summary>
 	/// Visit a parse tree produced by the <c>QualifiedStarSelectItem</c>
 	/// labeled alternative in <see cref="AccessSqlParser.selectItem"/>.
@@ -736,6 +749,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitPowExpr([NotNull] AccessSqlParser.PowExprContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>QuantifiedComparisonExpr</c>
+	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitQuantifiedComparisonExpr([NotNull] AccessSqlParser.QuantifiedComparisonExprContext context);
 	/// <summary>
 	/// Visit a parse tree produced by the <c>OrExpr</c>
 	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
@@ -1094,5 +1114,23 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitDerivedColumns([NotNull] AccessSqlParser.DerivedColumnsContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.externalDatabase"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitExternalDatabase([NotNull] AccessSqlParser.ExternalDatabaseContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.transformStatement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitTransformStatement([NotNull] AccessSqlParser.TransformStatementContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.deleteItem"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitDeleteItem([NotNull] AccessSqlParser.DeleteItemContext context);
 }
 } // namespace LibRed.Sql.Grammar

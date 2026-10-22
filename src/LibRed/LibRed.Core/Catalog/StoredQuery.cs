@@ -4,13 +4,25 @@ using System.Buffers.Binary;
 namespace LibRed.Catalog;
 
 /// <summary>A stored query read back from the catalog. A view (<paramref name="IsAction"/> false) carries its SELECT in
-/// <paramref name="Sql"/>, or null when it does not reconstruct. An action query — a CREATE PROCEDURE body that is not a
-/// SELECT — carries its reconstructed, executable statement there when LibRed supports the kind; otherwise it is null
-/// and <paramref name="UnsupportedReason"/> explains why executing it throws.</summary>
+/// <paramref name="Sql"/>; an action query — a CREATE PROCEDURE body that is not a SELECT — its executable statement.
+/// Where LibRed does not rebuild the query <paramref name="Sql"/> is null and <paramref name="UnsupportedReason"/> says
+/// why.</summary>
 public sealed record StoredQuery(string? Sql, string? UnsupportedReason, bool IsAction = true)
 {
+    /// <summary>The query's statement, or the refusal its <see cref="UnsupportedReason"/> gives when LibRed does not
+    /// rebuild it.</summary>
+    public string RequireSql() => Sql ?? throw new NotSupportedException(UnsupportedReason);
+
     /// <summary>The parameters the query declares, in declaration order; empty for one that declares none.</summary>
     public IReadOnlyList<StoredQueryParameter> Parameters { get; init; } = [];
+
+    /// <summary>A pass-through query's connection string, its operation row's <c>Name1</c>; null for any other
+    /// kind.</summary>
+    public string? Connect { get; init; }
+
+    /// <summary>A pass-through query's statement, its operation row's <c>Expression</c> — the server's own SQL, not
+    /// Jet's, so never <see cref="Sql"/>; null for any other kind.</summary>
+    public string? PassThroughSql { get; init; }
 
     /// <summary><see cref="QueryAttribute.Type"/> Flag value for a SELECT query.</summary>
     internal const short QueryTypeSelect = 1;

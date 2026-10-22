@@ -117,7 +117,7 @@ recorded in `IndexKeyCodec`'s remarks so the "special case" is not mistaken for 
 
 ## Reproducing
 
-`IndexKeyTruncationAccessTests` (in `LibRed.Core.Tests`, needs Windows + ACE) holds the shapes that matter:
+`IndexKeyTruncationAccessTests` (in `LibRed.Core.AccessTests`, needs Windows + ACE) holds the shapes that matter:
 all-text past the cap, numeric-tailed below and past it for each of `LONG`/`CURRENCY`/`DOUBLE`, and a dropped
 word-sort record at seven mark/position combinations. The probe pattern, if you need to go further: create and
 insert through ACE, read the entries back with `IndexCursor(...).RawEntries()`, and compare against

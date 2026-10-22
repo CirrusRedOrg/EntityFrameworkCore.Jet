@@ -10,9 +10,10 @@ internal enum QueryOptions : short
 {
     None = 0,
 
-    /// <summary>Also UNION ALL on a UNION query.</summary>
+    /// <summary>Set on every UNION query.</summary>
     OutputAllFields = 0x01,
 
+    /// <summary>On a UNION query, UNION as against UNION ALL.</summary>
     Distinct = 0x02,
 
     /// <summary>WITH OWNERACCESS OPTION.</summary>

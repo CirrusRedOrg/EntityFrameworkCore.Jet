@@ -25,10 +25,17 @@ public class CreateTableUsageMapOrderAccessTests(ITestOutputHelper output)
     [InlineData("inline primary key", "CREATE TABLE T (Id LONG PRIMARY KEY, M MEMO)")]
     [InlineData("named inline primary key", "CREATE TABLE T (Id LONG CONSTRAINT pk PRIMARY KEY, M MEMO)")]
     // An inline constraint IS the tie case — it sits at the same point in the list as the column it is written
-    // on, and takes the row first. `CREATE TABLE T (Id LONG, CONSTRAINT pk PRIMARY KEY (Id), M MEMO)` would say
-    // the same thing about a TABLE-level constraint, and ACE gives it row 2 there, which is what rules out
-    // "table-level constraints come last". It is not a case here because LibRed's grammar does not accept a
-    // table constraint with columns still to come — every columnDefinition must precede every tableConstraint.
+    // on, and takes the row first.
+    // A table-level constraint written between columns takes its row where it is written too — which is what
+    // rules out "table-level constraints come last".
+    [InlineData("table constraint between columns", "CREATE TABLE T (Id LONG, CONSTRAINT pk PRIMARY KEY (Id), M MEMO)")]
+    [InlineData("unnamed table constraint between columns", "CREATE TABLE T (Id LONG, PRIMARY KEY (Id), M MEMO)")]
+    [InlineData("unique between two memos", "CREATE TABLE T (M MEMO, A LONG, CONSTRAINT u UNIQUE (A), N MEMO)")]
+    [InlineData("foreign key between columns",
+        "CREATE TABLE T (A LONG, CONSTRAINT fk FOREIGN KEY (A) REFERENCES Employees (EmployeeID), M MEMO, B LONG)")]
+    [InlineData("self-reference between columns, after its key",
+        "CREATE TABLE T (Id LONG, CONSTRAINT pk PRIMARY KEY (Id), P LONG, CONSTRAINT fk FOREIGN KEY (P) REFERENCES T, M MEMO)")]
+    [InlineData("check between columns takes no row", "CREATE TABLE T (A LONG, CONSTRAINT ck CHECK (A > 0), M MEMO)")]
     // …and one written after it takes the later row, which is the shape a migration emits.
     [InlineData("table constraint after the memo", "CREATE TABLE T (Id LONG, M MEMO, CONSTRAINT pk PRIMARY KEY (Id))")]
     [InlineData("memo column first", "CREATE TABLE T (M MEMO, Id LONG CONSTRAINT pk PRIMARY KEY)")]
@@ -38,6 +45,21 @@ public class CreateTableUsageMapOrderAccessTests(ITestOutputHelper output)
     [InlineData("an index between two memos", "CREATE TABLE T (M MEMO, A LONG CONSTRAINT u UNIQUE, N MEMO)")]
     [InlineData("a foreign key after a memo",
         "CREATE TABLE T (Id LONG CONSTRAINT pk PRIMARY KEY, M MEMO, PId LONG CONSTRAINT fk REFERENCES T (Id))")]
+    // Table-level constraints one after another, in each order: the indexes are numbered, and take their rows, in
+    // the order they are declared, whatever their kind — not primary key, then unique, then foreign key.
+    [InlineData("foreign key before primary key",
+        "CREATE TABLE T (A LONG, B LONG, CONSTRAINT fk FOREIGN KEY (B) REFERENCES Employees (EmployeeID), CONSTRAINT pk PRIMARY KEY (A))")]
+    [InlineData("unique, foreign key, primary key",
+        "CREATE TABLE T (A LONG, B LONG, C LONG, CONSTRAINT u UNIQUE (C), CONSTRAINT fk FOREIGN KEY (B) REFERENCES Employees (EmployeeID), CONSTRAINT pk PRIMARY KEY (A))")]
+    [InlineData("primary key, foreign key, unique",
+        "CREATE TABLE T (A LONG, B LONG, C LONG, CONSTRAINT pk PRIMARY KEY (A), CONSTRAINT fk FOREIGN KEY (B) REFERENCES Employees (EmployeeID), CONSTRAINT u UNIQUE (C))")]
+    [InlineData("inline foreign key, unique, primary key",
+        "CREATE TABLE T (C LONG CONSTRAINT fk REFERENCES Employees (EmployeeID), B LONG CONSTRAINT u UNIQUE, A LONG CONSTRAINT pk PRIMARY KEY)")]
+    [InlineData("kinds interleaved",
+        "CREATE TABLE T (A LONG, B LONG, C LONG, D LONG, E LONG, CONSTRAINT f2 FOREIGN KEY (E) REFERENCES Employees (EmployeeID), " +
+        "CONSTRAINT u2 UNIQUE (D), CONSTRAINT f1 FOREIGN KEY (C) REFERENCES Employees (EmployeeID), CONSTRAINT u1 UNIQUE (B), CONSTRAINT pk PRIMARY KEY (A))")]
+    [InlineData("a memo, then constraints in reverse kind order",
+        "CREATE TABLE T (A LONG, B LONG, M MEMO, CONSTRAINT fk FOREIGN KEY (B) REFERENCES Employees (EmployeeID), CONSTRAINT pk PRIMARY KEY (A))")]
     // Controls: nothing to interleave.
     [InlineData("memo only", "CREATE TABLE T (Id LONG, M MEMO)")]
     [InlineData("index only", "CREATE TABLE T (Id LONG CONSTRAINT pk PRIMARY KEY, A LONG)")]
@@ -70,8 +92,9 @@ public class CreateTableUsageMapOrderAccessTests(ITestOutputHelper output)
         }
     }
 
-    /// <summary>Each real index's usage-map row by data-block ordinal, then each long-value column's
-    /// owned/free rows by column id — the layout of the table's primary usage-map page.</summary>
+    /// <summary>Each real index's columns and usage-map row by data-block ordinal, then each long-value column's
+    /// owned/free rows by column id — the layout of the table's primary usage-map page, and which index each
+    /// data block is.</summary>
     private static string MapLayout(string path)
     {
         using var channel = PageChannel.Open(path, readOnly: true);
@@ -81,7 +104,7 @@ public class CreateTableUsageMapOrderAccessTests(ITestOutputHelper output)
 
         var parts = new List<string>();
         foreach (IndexDef index in definition.Indexes.OrderBy(i => i.RealIndexOrdinal))
-            parts.Add($"index{index.RealIndexOrdinal}=row{index.UsageMap.Row}");
+            parts.Add($"index{index.RealIndexOrdinal}({string.Join(",", index.Columns.Select(c => c.Column.Name))})=row{index.UsageMap.Row}");
         foreach ((int columnId, (int owned, int _)) in definition.LongValueOwnedMaps.OrderBy(e => e.Key))
             parts.Add($"column{columnId}=rows{owned}/{definition.LongValueFreeMaps[columnId].Item1}");
         return string.Join(" ", parts);

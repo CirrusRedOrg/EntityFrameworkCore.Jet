@@ -89,6 +89,31 @@ public class IndexLeafParseCacheTests
     }
 
     [Fact]
+    public void Deleting_duplicate_keys_keeps_cached_parses_equal_to_the_written_pages()
+    {
+        var (db, path) = Fresh(new ColumnSpec("K", JetDataType.Text, 120, IsFixedLength: false));
+        try
+        {
+            for (int i = 0; i < 200; i++) Insert(db, i, "a shared prefix - " + i % 3);
+            Table table = db.OpenTable("T");
+            var rows = table.Rows().WithIds().Select(r => r.Id).ToList();
+            int cached = 0;
+            foreach (var id in rows)
+            {
+                table.Delete(id);
+                cached += AssertCachedParsesMatch(db);
+            }
+            Assert.True(cached > rows.Count);
+            Assert.Empty(table.Rows());
+        }
+        finally
+        {
+            db.Dispose();
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void A_savepoint_rollback_drops_the_parses_of_the_pages_it_restores()
     {
         var (db, path) = Fresh(new ColumnSpec("K", JetDataType.Int32, 4, IsFixedLength: true));

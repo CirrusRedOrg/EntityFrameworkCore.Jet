@@ -1,8 +1,6 @@
-using EntityFrameworkCore.Jet.Data;
 using LibRed.Catalog;
 using LibRed.Storage.Types;
 using System.Buffers.Binary;
-using System.Globalization;
 using System.Runtime.InteropServices;
 
 namespace LibRed.Storage;
@@ -209,6 +207,9 @@ public static class IndexKeyCodec
                 continue;
             }
 
+            // Keyed as the row stores it: the row encoder's own conversion.
+            value = JetTypeCodec.ToStoredValue(column, column.Type, value);
+
             // Text uses Jet's collation: start flag then the collation key body (weights, inline
             // ignorable codes, terminator). Descending inverts every byte of that ascending key
             // and appends a 0x00 (verified against ACE).
@@ -263,14 +264,7 @@ public static class IndexKeyCodec
             // every byte except the continuation marker — verified against ACE.
             if (column.Type == JetDataType.Guid)
             {
-                Guid guid = value switch
-                {
-                    Guid g => g,
-                    byte[] b when b.Length == 16 => new Guid(b),
-                    string text when JetTypeCodec.TryParseGuid(text, out Guid parsed) => parsed,
-                    _ => throw new NotSupportedException($"Cannot encode GUID index key from {value.GetType().Name}."),
-                };
-                EncodeBinaryChunked(buffer, Convert.FromHexString(guid.ToString("N")), ascending);
+                EncodeBinaryChunked(buffer, Convert.FromHexString(((Guid)value).ToString("N")), ascending);
                 continue;
             }
 
@@ -289,10 +283,7 @@ public static class IndexKeyCodec
             // chronological order. Note the value's 42nd byte is a NUL (see JetTypeCodec) and lands in the key.
             if (column.Type == JetDataType.DateTimeExtended)
             {
-                EncodeBinaryChunked(
-                    buffer,
-                    JetTypeCodec.EncodeExtendedDateTime(Convert.ToDateTime(value, CultureInfo.InvariantCulture)),
-                    ascending);
+                EncodeBinaryChunked(buffer, JetTypeCodec.EncodeExtendedDateTime((DateTime)value), ascending);
                 continue;
             }
 
@@ -365,28 +356,27 @@ public static class IndexKeyCodec
     /// (<see cref="FixedKeySize"/>).</summary>
     private static byte[] EncodeFixed(ColumnDef column, object value, int size)
     {
-        var c = CultureInfo.InvariantCulture;
         switch (column.Type)
         {
             case JetDataType.Byte:
-                return [Convert.ToByte(value, c)];
+                return [(byte)value];
             case JetDataType.Int16:
-                return EncodeInteger(Convert.ToInt16(value, c), size);
+                return EncodeInteger((short)value, size);
             case JetDataType.Int32:
             case JetDataType.Complex: // the complex id, keyed as the Int32 it is
-                return EncodeInteger(Convert.ToInt32(value, c), size);
+                return EncodeInteger((int)value, size);
             case JetDataType.Currency:
-                return EncodeInteger(JetTypeCodec.CurrencyToScaled(value, c), size);
+                return EncodeInteger((long)value, size);
             case JetDataType.Int64: // BIGINT — verified against ACE across 0, ±1, ±42 and both extremes
-                return EncodeInteger(Convert.ToInt64(value, c), size);
+                return EncodeInteger((long)value, size);
             case JetDataType.Single:
-                return EncodeFloatBits(BitConverter.SingleToInt32Bits(Convert.ToSingle(value, c)), size);
+                return EncodeFloatBits(BitConverter.SingleToInt32Bits((float)value), size);
             case JetDataType.Double:
-                return EncodeFloatBits(BitConverter.DoubleToInt64Bits(Convert.ToDouble(value, c)), size);
+                return EncodeFloatBits(BitConverter.DoubleToInt64Bits((double)value), size);
             case JetDataType.DateTime:
-                return EncodeFloatBits(BitConverter.DoubleToInt64Bits(JetTypeCodec.ToOaDate(column, value, c)), size);
+                return EncodeFloatBits(BitConverter.DoubleToInt64Bits((double)value), size);
             case JetDataType.FixedPoint:
-                return EncodeFixedPoint(JetDecimalConverter.ToDecimal(value, c), column.Scale, size);
+                return EncodeFixedPoint((decimal)value, column.Scale, size);
             default:
                 throw new NotSupportedException($"Index key type {column.Type} is not encodable.");
         }

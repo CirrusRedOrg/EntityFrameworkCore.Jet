@@ -10,6 +10,9 @@ namespace EntityFrameworkCore.LibRed.Storage.Internal
         private const string DateTimeFormatConst = @"'{0:yyyy-MM-dd HH:mm:ss}'";
         private const string DateTimeMillisecondsFormatConst = @"'{0:yyyy-MM-dd HH:mm:ss.fff}'";
 
+        private static readonly MethodInfo FromStoredMethod
+            = typeof(LibRedDateTimeOffsetTypeMapping).GetMethod(nameof(FromStored), [typeof(DateTimeOffset)])!;
+
         public static new LibRedDateTimeOffsetTypeMapping Default { get; } = new LibRedDateTimeOffsetTypeMapping("datetime");
         public LibRedDateTimeOffsetTypeMapping(
                 string storeType)
@@ -37,6 +40,15 @@ namespace EntityFrameworkCore.LibRed.Storage.Internal
 
             base.ConfigureParameter(parameter);
         }
+
+        // The read half of the substitution above: the OLE epoch, where default(DateTimeOffset) is stored, reads back
+        // as default. It applies to EF's reads only (query shaping and SaveChanges read-back); LibRedDataReader keeps
+        // returning the stored date, as ACE does, because other consumers (linq2db) rely on that.
+        public override Expression CustomizeDataReaderExpression(Expression expression)
+            => Expression.Call(FromStoredMethod, base.CustomizeDataReaderExpression(expression));
+
+        public static DateTimeOffset FromStored(DateTimeOffset value)
+            => value.UtcDateTime == DateTime.FromOADate(0) ? default : value;
 
         protected override string SqlLiteralFormatString
             => DateTimeOffsetFormatConst;

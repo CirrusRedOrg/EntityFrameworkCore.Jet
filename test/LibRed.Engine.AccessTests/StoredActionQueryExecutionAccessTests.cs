@@ -96,6 +96,45 @@ public class StoredActionQueryExecutionAccessTests : TempDatabaseTest
             "INSERT INTO Shippers (CompanyName) SELECT ContactName FROM Customers WHERE Country = 'UK'",
             "SELECT COUNT(*) FROM Shippers");
 
+    /// <summary>Without a column list ACE fills the target columns by the SELECT's output names, not their places,
+    /// and stores those names rather than target columns — so aliases that swap two columns swap them here too.</summary>
+    [Theory]
+    [InlineData("INSERT INTO Shippers SELECT CompanyName, Phone FROM Suppliers WHERE SupplierID < 4")]
+    [InlineData("INSERT INTO Shippers SELECT ContactTitle AS Phone, Phone AS CompanyName FROM Suppliers WHERE SupplierID < 4")]
+    [InlineData("INSERT INTO Shippers SELECT Suppliers.CompanyName FROM Suppliers WHERE SupplierID < 4")]
+    [InlineData("INSERT INTO Shippers SELECT * FROM (SELECT CompanyName, Phone FROM Suppliers WHERE SupplierID < 4) AS s")]
+    public void Append_query_without_a_column_list_fills_the_columns_ace_fills(string body) =>
+        AssertSameAsAce(body, "SELECT Max(CompanyName & '|' & Phone) FROM Shippers WHERE ShipperID > 3");
+
+    /// <summary>A stored append or make-table query's SELECT runs as ACE stored it — its VALUES without a column list,
+    /// a SELECT with no FROM, and its ORDER BY, GROUP BY and HAVING, which decide which rows a TOP or a group keeps.</summary>
+    [Theory]
+    [InlineData("INSERT INTO Shippers VALUES (50, 'Fifty', '555')",
+        "SELECT Max(ShipperID & '|' & CompanyName & '|' & Phone) FROM Shippers WHERE ShipperID > 3")]
+    [InlineData("INSERT INTO Shippers SELECT 'NoFrom' AS CompanyName", "SELECT Max(CompanyName) FROM Shippers WHERE ShipperID > 3")]
+    [InlineData("INSERT INTO Shippers (CompanyName) SELECT TOP 1 CompanyName FROM Suppliers ORDER BY SupplierID DESC",
+        "SELECT Max(CompanyName) FROM Shippers WHERE ShipperID > 3")]
+    [InlineData("INSERT INTO Shippers (CompanyName) SELECT Country FROM Customers GROUP BY Country HAVING Count(*) > 10",
+        "SELECT Count(*) & '|' & Max(CompanyName) FROM Shippers WHERE ShipperID > 3")]
+    [InlineData("SELECT TOP 1 CompanyName INTO TopCopy FROM Customers ORDER BY CustomerID DESC", "SELECT Max(CompanyName) FROM TopCopy")]
+    [InlineData("SELECT Country, Count(*) AS N INTO CountryCount FROM Customers GROUP BY Country HAVING Count(*) > 5",
+        "SELECT Count(*) & '|' & Sum(N) FROM CountryCount")]
+    public void An_ace_written_append_or_make_table_runs_its_whole_select(string body, string verify) =>
+        AssertSameAsAce(body, verify);
+
+    /// <summary>A stored DELETE that names columns, as the Access designer writes one, deletes whole rows of its one
+    /// table; and an UPDATE whose target ACE stores bracketed sets that column.</summary>
+    [Theory]
+    [InlineData("DELETE Customers.Phone FROM Customers WHERE CustomerID NOT IN (SELECT CustomerID FROM Orders)",
+        "SELECT Count(*) FROM Customers")]
+    [InlineData("DELETE Customers.Phone, Customers.Fax FROM Customers WHERE CustomerID NOT IN (SELECT CustomerID FROM Orders)",
+        "SELECT Count(*) FROM Customers")]
+    [InlineData("DELETE Phone FROM Customers WHERE CustomerID NOT IN (SELECT CustomerID FROM Orders)", "SELECT Count(*) FROM Customers")]
+    [InlineData("UPDATE [Order Details] SET [Order Details].Discount = 0.5 WHERE OrderID = 10248",
+        "SELECT Sum(Discount) FROM [Order Details] WHERE OrderID = 10248")]
+    public void An_ace_written_delete_naming_columns_or_bracketed_update_runs_as_ace_runs_it(string body, string verify) =>
+        AssertSameAsAce(body, verify);
+
     [Fact]
     public void Make_table_query_writes_the_table_ace_writes() =>
         AssertSameAsAce(
@@ -140,11 +179,12 @@ public class StoredActionQueryExecutionAccessTests : TempDatabaseTest
     }
 
     [Fact]
-    public void A_kind_libred_cannot_run_is_refused_by_name()
+    public void An_ace_written_crosstab_runs_by_name_as_ace_runs_it()
     {
         string path = Copy();
         try
         {
+            var aceRows = new List<string>();
             using (var connection = AceTestDatabase.Open(path))
             {
                 using var create = connection.CreateCommand();
@@ -152,13 +192,24 @@ public class StoredActionQueryExecutionAccessTests : TempDatabaseTest
                     "CREATE PROCEDURE [ByCountry] AS " +
                     "TRANSFORM Count(*) SELECT Country FROM Customers GROUP BY Country PIVOT City";
                 create.ExecuteNonQuery();
+
+                using var run = connection.CreateCommand();
+                run.CommandText = "ByCountry";
+                run.CommandType = System.Data.CommandType.StoredProcedure;
+                using var reader = run.ExecuteReader();
+                aceRows.Add(string.Join(", ", Enumerable.Range(0, reader.FieldCount).Select(reader.GetName)));
+                var values = new object[reader.FieldCount];
+                while (reader.Read())
+                {
+                    reader.GetValues(values);
+                    aceRows.Add(string.Join(" | ", values.Select(v => v is DBNull ? "NULL" : Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture))));
+                }
             }
 
             using var db = TemporaryDatabase.OpenTracked(path, readOnly: false);
-            var engine = new QueryEngine(db);
-
-            var error = Assert.Throws<NotSupportedException>(() => engine.ExecuteNonQuery("EXECUTE [ByCountry]"));
-            Assert.Contains("Crosstab", error.Message, StringComparison.OrdinalIgnoreCase);
+            var result = new QueryEngine(db).ExecuteQuery("EXECUTE [ByCountry]");
+            Assert.Equal(aceRows, [string.Join(", ", result.ColumnNames),
+                .. result.Rows.Select(r => string.Join(" | ", r.Select(v => v is null ? "NULL" : Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture))))]);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

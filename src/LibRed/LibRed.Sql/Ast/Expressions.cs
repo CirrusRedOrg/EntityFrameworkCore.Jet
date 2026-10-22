@@ -3,13 +3,17 @@ namespace LibRed.Sql.Ast;
 /// <summary>Base type for scalar/boolean expressions.</summary>
 public abstract record Expression : SqlNode;
 
-/// <summary>A literal constant (number, string, date, boolean or null). <paramref name="Written"/> is the exact value of
-/// a number written with a decimal point and no exponent, its scale the digits written after the point (<c>1.50</c> is
-/// 1.50); ACE reads such a literal as a Decimal and keeps no more places than that in a product or quotient.</summary>
-public sealed record LiteralExpression(object? Value, decimal? Written = null) : Expression;
+/// <summary>A literal constant (number, string, date, boolean or null). A number written with a decimal point or an
+/// exponent is a Decimal of exactly the digits written, its scale those after the point (<c>1.50</c> is 1.50), unless
+/// it is a whole number a Long holds; ACE keeps no more places than that in a product or quotient.</summary>
+public sealed record LiteralExpression(object? Value) : Expression;
 
 /// <summary>A reference to a column, optionally table-qualified.</summary>
-public sealed record ColumnReference(string? Table, string Column) : Expression;
+public sealed record ColumnReference(string? Table, string Column) : Expression
+{
+    /// <summary>The reference unquoted: <c>table.column</c>, or the bare column.</summary>
+    public string QualifiedName => Table is null ? Column : $"{Table}.{Column}";
+}
 
 /// <summary>A positional or named query parameter (e.g. <c>?</c> or <c>@p</c>).</summary>
 public sealed record ParameterExpression(string Name) : Expression;
@@ -172,8 +176,11 @@ public sealed record ExistsExpression(SqlStatement Query) : Expression;
 
 /// <summary><c>x [NOT] IN (SELECT … )</c>: membership of <paramref name="Value"/> in the first column of a
 /// (possibly correlated) subquery, with SQL three-valued semantics. The query is any query statement — see
-/// <see cref="ScalarSubquery"/>.</summary>
-public sealed record InSubqueryExpression(Expression Value, SqlStatement Query, bool Negated) : Expression;
+/// <see cref="ScalarSubquery"/>. Membership is <c>x = ANY (…)</c>; <paramref name="Comparison"/> and
+/// <paramref name="All"/> make it any quantified comparison, <c>x &gt; ALL (…)</c> and the rest.</summary>
+public sealed record InSubqueryExpression(
+    Expression Value, SqlStatement Query, bool Negated, BinaryOperator Comparison = BinaryOperator.Equal, bool All = false)
+    : Expression;
 
 /// <summary><c>x [NOT] IN (a, b, …)</c> over a literal value list, kept as a flat node (rather than lowered to a
 /// deep <c>OR</c>-chain) so a very large list — EF Core inlines a "huge number of values" Contains as thousands

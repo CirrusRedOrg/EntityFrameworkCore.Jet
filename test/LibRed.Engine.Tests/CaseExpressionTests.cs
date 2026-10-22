@@ -165,7 +165,7 @@ public class CaseExpressionTests
 
     [Fact]
     public void Numeric_branches_widen_to_the_larger_type()
-        => Assert.Equal(typeof(double), ColumnType("CASE WHEN 1 = 1 THEN 1 ELSE 2.5E0 END"));
+        => Assert.Equal(typeof(double), ColumnType("CASE WHEN 1 = 1 THEN 1 ELSE CDBL(2.5) END"));
 
     [Fact]
     public void Text_beside_a_number_declares_text()

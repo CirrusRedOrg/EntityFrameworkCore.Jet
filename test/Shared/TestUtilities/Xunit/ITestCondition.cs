@@ -9,8 +9,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit;
 /// <remarks>
 /// EF Core 11 removed its own <c>ITestCondition</c> along with the xunit v2 conditional infrastructure that
 /// evaluated it. Per-method and per-class conditions moved to xunit v3's native skipping — <c>SkipWhen</c> /
-/// <c>SkipUnless</c> on a fact, and <c>ConditionalClass</c> for a whole class. Neither covers an
-/// <b>assembly-level</b> condition, which is the one case still using this: the providers each apply one to
+/// <c>SkipUnless</c> on a fact or theory. That does not cover an <b>assembly-level</b> condition, which is the one case still using this: the providers each apply one to
 /// declare that nothing can run without a configured test database.
 /// </remarks>
 public interface ITestCondition

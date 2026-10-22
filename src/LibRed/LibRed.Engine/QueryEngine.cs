@@ -1,3 +1,4 @@
+using LibRed.Catalog;
 using LibRed.Engine.Execution;
 using LibRed.Engine.Plan;
 using LibRed.Engine.Planning;
@@ -52,7 +53,7 @@ public sealed class QueryEngine
     private T Scoped<T>(SqlStatement statement, Func<T> action) =>
         // A SELECT with INTO is a make-table query: it looks like a read and writes a table, so it takes the
         // exclusive scope with the other writers. The guard above caught this rather than letting it through.
-        statement is SelectStatement { Into: null } or SetOperationStatement or SystemVariableSelectStatement
+        statement is SelectStatement { Into: null } or SetOperationStatement or SystemVariableSelectStatement or TransformStatement
             ? _database.ReadConsistent(action)
             : _database.WriteExclusive(action);
 
@@ -61,8 +62,8 @@ public sealed class QueryEngine
         if (parsed is ExecuteStatement exec) return ExecuteProcedure(exec, parameters).Rows;
         // A make-table query is an action query however it was invoked: run it and return nothing, rather
         // than handing the caller the rows it just wrote into a table.
-        if (parsed is SelectStatement { Into: not null }) return Route(parsed, parameters).Rows;
-        SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog, _parser);
+        SqlStatement ast = ViewExpander.Expand(parsed, _database, _parser);
+        if (parsed is SelectStatement { Into: not null }) return Route(_binder.Bind(ast).Statement, parameters).Rows;
         BoundStatement bound = _binder.Bind(ast);
         if (bound.Statement is TransactionControlStatement txnControl)
         {
@@ -100,19 +101,17 @@ public sealed class QueryEngine
             // A stored SELECT describes as its own (parameterized) text; a stored action query would have
             // written, so it describes as nothing. Its arguments are never evaluated — values cannot change
             // a shape.
-            var query = _database.Catalog.FindQuery(exec.Procedure);
-            if (query is { IsAction: false, Sql: { } viewSql })
-                return DescribeCore(_parser.ParseStatement(viewSql), parameters);
-            if (query is { IsAction: true }) return ResultSet.Empty;
-            throw new InvalidOperationException($"No stored procedure or query named '{exec.Procedure}'.");
+            StoredQuery query = Procedure(exec.Procedure);
+            if (query.IsAction) return ResultSet.Empty;
+            return DescribeCore(_parser.ParseStatement(query.RequireSql()), parameters);
         }
 
         // Everything that writes — DML, DDL, a make-table SELECT, transaction control — returns no rows and
         // does not run.
-        if (parsed is not (SelectStatement { Into: null } or SetOperationStatement or SystemVariableSelectStatement))
+        if (parsed is not (SelectStatement { Into: null } or SetOperationStatement or SystemVariableSelectStatement or TransformStatement))
             return ResultSet.Empty;
 
-        BoundStatement bound = _binder.Bind(ViewExpander.Expand(parsed, _database.Catalog, _parser));
+        BoundStatement bound = _binder.Bind(ViewExpander.Expand(parsed, _database, _parser));
         var executor = new QueryExecutor(_database, parameters, _session, describing: true);
         ResultSet shape = bound.Statement is SystemVariableSelectStatement sysSelect
             ? executor.ExecuteSystemVariableSelect(sysSelect)
@@ -138,11 +137,10 @@ public sealed class QueryEngine
     /// <see cref="NotSupportedException"/>, and an unknown name throws <see cref="InvalidOperationException"/>.</summary>
     public int ExecuteStoredActionQuery(string name)
     {
-        if (_database.Catalog.FindQuery(name) is not { IsAction: true } query)
+        StoredQuery query = Procedure(name);
+        if (!query.IsAction)
             throw new InvalidOperationException($"No stored action query named '{name}'.");
-        if (query.Sql is null)
-            throw new NotSupportedException(query.UnsupportedReason ?? $"Stored query '{name}' cannot be executed by LibRed yet.");
-        return ExecuteNonQuery(query.Sql);
+        return ExecuteNonQuery(query.RequireSql());
     }
 
     /// <summary>
@@ -165,7 +163,7 @@ public sealed class QueryEngine
     private CommandResult ExecuteCore(SqlStatement parsed, IReadOnlyDictionary<string, object?>? parameters)
     {
         if (parsed is ExecuteStatement exec) return ExecuteProcedure(exec, parameters);
-        SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog, _parser);
+        SqlStatement ast = ViewExpander.Expand(parsed, _database, _parser);
         BoundStatement bound = _binder.Bind(ast);
         return Route(bound.Statement, parameters);
     }
@@ -198,7 +196,7 @@ public sealed class QueryEngine
             // failure part-way cannot leave a half-populated table behind.
             case SelectStatement { Into: not null }:
                 return ExecuteWritingStatement(statement, parameters);
-            case SelectStatement or SetOperationStatement:
+            case SelectStatement or SetOperationStatement or TransformStatement:
                 return new CommandResult(
                     new QueryExecutor(_database, parameters, _session).ExecuteQuery(PlanWithIndexes(new BoundStatement(statement))), -1);
             case TransactionControlStatement txnControl:
@@ -237,7 +235,7 @@ public sealed class QueryEngine
                 // closed too. Left open it sits above the savepoint the enclosing BEGIN pushed, and that level's
                 // COMMIT then refuses — only the innermost savepoint can be released — so one failed statement
                 // makes every later nested COMMIT throw.
-                _database.RollbackToSavepoint(savepoint);
+                _database.RollbackToSavepoint(savepoint, failed: true);
                 _database.ReleaseSavepoint(savepoint);
                 throw;
             }
@@ -252,7 +250,7 @@ public sealed class QueryEngine
         }
         catch
         {
-            _database.Rollback();
+            _database.Rollback(failed: true);
             throw;
         }
     }
@@ -261,8 +259,7 @@ public sealed class QueryEngine
     /// (or, for NOT EXISTS, when it doesn't). @@ROWCOUNT reflects the THEN, or 0 when the guard skips it.</summary>
     private CommandResult ExecuteIfThen(IfThenStatement ifThen, IReadOnlyDictionary<string, object?>? parameters)
     {
-        var condPlan = ColumnPruning.Apply(
-            IndexSelection.Apply(QueryPlanner.PlanStatement(ifThen.Condition), _database.Catalog));
+        var condPlan = IndexSelection.Apply(QueryPlanner.PlanStatement(ifThen.Condition), _database);
         bool hasRows = new QueryExecutor(_database, parameters, _session).ExecuteQuery(condPlan).Rows.Any();
         if (hasRows == ifThen.Negated)
             return new CommandResult(ResultSet.Empty, 0); // guard not satisfied — skip the body
@@ -270,17 +267,22 @@ public sealed class QueryEngine
     }
 
     /// <summary>Plans a bound statement, then applies index selection (turning scans into index seeks where a
-    /// predicate allows) and column pruning (decoding only the columns the query reads).</summary>
+    /// predicate allows). Root-query column pruning runs at the executor's shared entry.</summary>
     private PlanNode PlanWithIndexes(BoundStatement bound) =>
-        ColumnPruning.Apply(IndexSelection.Apply(QueryPlanner.Plan(bound), _database.Catalog));
+        IndexSelection.Apply(QueryPlanner.Plan(bound), _database);
 
     /// <summary>The optimised plan for a query — exposed for tests to assert the chosen access path/strategy
     /// (e.g. that an unindexed equi-join becomes a hash join).</summary>
     internal PlanNode PlanFor(string sql)
     {
-        SqlStatement ast = ViewExpander.Expand(_parser.ParseStatement(sql), _database.Catalog, _parser);
-        return PlanWithIndexes(_binder.Bind(ast));
+        SqlStatement ast = ViewExpander.Expand(_parser.ParseStatement(sql), _database, _parser);
+        return ColumnPruning.Apply(PlanWithIndexes(_binder.Bind(ast)));
     }
+
+    /// <summary>The stored query <paramref name="name"/> names, for running it and describing it alike; a missing one
+    /// is refused with ACE's message for a missing input (verified, for <c>EXEC</c>).</summary>
+    private StoredQuery Procedure(string name) =>
+        _database.Catalog.FindQuery(name) ?? throw new InvalidOperationException(SqlBindException.InputNotFound(name));
 
     /// <summary>
     /// Runs an <c>EXECUTE|EXEC procedure arg, …</c>: resolves the stored procedure/query by name, binds the
@@ -289,12 +291,12 @@ public sealed class QueryEngine
     /// </summary>
     private CommandResult ExecuteProcedure(ExecuteStatement exec, IReadOnlyDictionary<string, object?>? parameters)
     {
-        var query = _database.Catalog.FindQuery(exec.Procedure);
+        StoredQuery query = Procedure(exec.Procedure);
         var bag = new ParameterBag(parameters);
         var executor = new QueryExecutor(_database, parameters, _session);
         var evaluator = new ExpressionEvaluator(new EvalScope([], [], null), executor, bag, _session);
 
-        List<string> paramNames = query?.Parameters.Select(p => p.Name).ToList() ?? [];
+        List<string> paramNames = query.Parameters.Select(p => p.Name).ToList();
 
         // Access EXEC arguments take three shapes (EF emits all of them):
         //   procParam = value  → a NAMED argument (bind the proc's named parameter to the value)
@@ -339,18 +341,10 @@ public sealed class QueryEngine
         }
 
         // A stored SELECT (with its PARAMETERS clause) → rows; a stored action query → rows-affected.
-        if (query is { IsAction: false, Sql: { } viewSql })
-            return Execute(viewSql, args);
-
-        if (query is { IsAction: true } action)
-        {
-            if (action.Sql is null)
-                throw new NotSupportedException(
-                    action.UnsupportedReason ?? $"Stored query '{exec.Procedure}' cannot be executed by LibRed yet.");
-            return new CommandResult(ResultSet.Empty, ExecuteNonQuery(action.Sql, args));
-        }
-
-        throw new InvalidOperationException($"No stored procedure or query named '{exec.Procedure}'.");
+        string sql = query.RequireSql();
+        return query.IsAction
+            ? new CommandResult(ResultSet.Empty, ExecuteNonQuery(sql, args))
+            : Execute(sql, args);
     }
 }
 

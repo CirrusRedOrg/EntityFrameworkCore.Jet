@@ -21,6 +21,9 @@ public enum ObjectAttributes : uint
     /// rowsets at all.</summary>
     ComplexStorage = 0x00030000,
 
+    /// <summary>A complex column's flat table, <c>f_&lt;GUID&gt;_&lt;column&gt;</c>, with <see cref="System"/>.</summary>
+    ComplexFlatTable = 0x000A0000,
+
     /// <summary>A table that owns a complex column — set on exactly those tables, and on no table without one
     /// (measured across Access-written files; system-catalog §11).</summary>
     OwnsComplexColumns = 0x00040000,

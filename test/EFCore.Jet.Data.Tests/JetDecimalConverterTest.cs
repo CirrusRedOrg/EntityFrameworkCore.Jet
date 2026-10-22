@@ -113,6 +113,31 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         }
 
         [TestMethod]
+        public void Converts_a_decimal_to_a_double_as_ace_does()
+        {
+            // OLE Automation's VarR8FromDec, which .NET used before 11, divides in doubles and is not correctly
+            // rounded; ACE gives exactly these (measured: a Double result column over a Decimal quotient, and a
+            // Decimal literal stored into a DOUBLE column), each a unit in the last place from .NET 11's (double)m.
+            Assert.AreEqual(0.33333333333333337, JetDecimalConverter.FromDecimal(0.3333333333333333333333333333m));
+            Assert.AreEqual(1234567890.123457, JetDecimalConverter.FromDecimal(1234567890.12345678901m));
+            Assert.AreEqual(-0.33333333333333337, JetDecimalConverter.FromDecimal(-0.3333333333333333333333333333m));
+            Assert.AreEqual(0d, JetDecimalConverter.FromDecimal(0m));
+            Assert.AreEqual(58.6, JetDecimalConverter.FromDecimal(58.6m));
+        }
+
+        [TestMethod]
+        public void Converts_a_decimal_to_a_single_through_that_double()
+        {
+            // OLE Automation's VarR4FromDec narrows the double VarR8FromDec gives. A Decimal a hair either side of
+            // the midpoint between two floats then goes where that double goes; ACE stores exactly these into a
+            // REAL column (measured), where .NET 11's direct conversion picks the other float.
+            Assert.AreEqual(1.9678342f, JetDecimalConverter.ToSingle(1.967834293842315673828126m));
+            Assert.AreEqual(1.0747681f, JetDecimalConverter.ToSingle(1.074768006801605224609374m));
+            Assert.AreEqual(1.225503f, JetDecimalConverter.ToSingle(1.225503027439117431640626m));
+            Assert.AreEqual(1.5f, JetDecimalConverter.ToSingle(1.5m));
+        }
+
+        [TestMethod]
         public void Keeps_the_original_boundary_behaviour()
         {
             // Below 2^-94 the old algorithm flushed to zero rather than throwing.

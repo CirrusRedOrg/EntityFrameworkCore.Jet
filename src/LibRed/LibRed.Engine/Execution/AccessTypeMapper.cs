@@ -1,5 +1,4 @@
 using LibRed.Catalog;
-using LibRed.Formats;
 using LibRed.Sql.Ast;
 using LibRed.Storage;
 
@@ -14,9 +13,11 @@ namespace LibRed.Engine.Execution;
 /// </summary>
 internal static class AccessTypeMapper
 {
-    public static ColumnSpec ToColumnSpec(ColumnDefinition column, JetVersion version)
+    /// <remarks>A type the open file is too old for is mapped all the same: Core raises the file to what the column
+    /// needs once it has checked the statement (<c>SchemaEditor.RaiseFormatFor</c>), as Access does.</remarks>
+    public static ColumnSpec ToColumnSpec(ColumnDefinition column)
     {
-        ColumnSpec spec = WithIdentity(MapType(column, version), column.Identity) with
+        ColumnSpec spec = WithIdentity(MapType(column), column.Identity) with
         {
             IsNullable = !column.NotNull,
             // WITH COMPRESSION is only meaningful on the two types ACE accepts it for; Access rejects it
@@ -68,46 +69,17 @@ internal static class AccessTypeMapper
         return spec with { IsAutoNumber = true, Seed = identity.Seed ?? 1, Increment = identity.Increment ?? 1 };
     }
 
-    /// <summary>Whether WITH COMPRESSION applies to this column's type. Mapped at the HIGHEST version so the
-    /// version gate inside <see cref="MapType"/> cannot fire here: asking at Version4 made
-    /// <c>BIGINT … WITH COMPRESSION</c> on an ACE 16 file — which had already passed the real gate — report
-    /// "requires Access 2016 or later; this database is Version4" instead of the compression message. Only the
-    /// resulting type matters, and that does not vary with version.</summary>
+    /// <summary>Whether WITH COMPRESSION applies to this column's type.</summary>
     private static bool IsCompressible(ColumnDefinition column) =>
-        MapType(column, JetVersion.Version17_2019).Type is JetDataType.Text or JetDataType.Memo;
-
-    /// <summary>
-    /// The minimum file format a declared type needs, or <c>null</c> for the types every format can hold.
-    /// </summary>
-    /// <remarks>
-    /// BIGINT and DATETIME2 arrived in DIFFERENT format versions — verified against files authored with each
-    /// feature enabled: BIGINT (Large Number) forces the ACE 16 / Access 2016 format (version byte 0x05),
-    /// DATETIME2 (Date/Time Extended) the ACE 17 / 2019+ format (0x06). Below those the engine cannot
-    /// represent the type at all.
-    /// <para>Callers that are about to write storage raise the file to meet this (see
-    /// <c>StatementExecutor.MapColumn</c>), which is what Access itself does. <see cref="MapType"/> still
-    /// refuses a type the open file is too old for, so a caller that skips the upgrade — or cannot perform it,
-    /// on a read-only database — fails loudly instead of writing a column Access could not read.</para>
-    /// </remarks>
-    public static (JetVersion Min, string Label)? RequiredVersion(string typeName) =>
-        Normalize(typeName) switch
-        {
-            "BIGINT" => (JetVersion.Version16_2016, "Access 2016 (ACE 16)"),
-            "DATETIME2" => (JetVersion.Version17_2019, "Access 2019+ (ACE 17)"),
-            _ => null,
-        };
+        MapType(column).Type is JetDataType.Text or JetDataType.Memo;
 
     /// <summary>Collapses internal whitespace so two-word aliases ("character  varying") match.</summary>
     private static string Normalize(string typeName) =>
         string.Join(' ', typeName.ToUpperInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
-    private static ColumnSpec MapType(ColumnDefinition column, JetVersion version)
+    private static ColumnSpec MapType(ColumnDefinition column)
     {
         string t = Normalize(column.TypeName);
-
-        if (RequiredVersion(t) is { } g && version < g.Min)
-            throw new NotSupportedException(
-                $"Column type '{column.TypeName}' requires {g.Label} or later; this database is {version}.");
 
         return t switch
         {
@@ -167,8 +139,9 @@ internal static class AccessTypeMapper
             "CHAR" or "CHARACTER" or "NCHAR" or "NATIONAL CHAR" or "NATIONAL CHARACTER"
                 => Text(column, isFixed: true),
             // Bare TEXT is a Jet quirk: with no size it means LONGTEXT (Memo), but TEXT(n) is a variable
-            // Text column of n characters. Verified vs ACE: `TEXT` → Memo, `TEXT(50)` → Text(50).
-            "TEXT" => column.Size is null
+            // Text column of n characters. Verified vs ACE: `TEXT` → Memo, `TEXT(50)` → Text(50); NATIONAL TEXT
+            // is the same (verified), though NATIONAL VARCHAR is refused.
+            "TEXT" or "NATIONAL TEXT" => column.Size is null
                 ? new ColumnSpec(column.Name, JetDataType.Memo, 0, IsFixedLength: false)
                 : Text(column, isFixed: false),
             // Variable-length character types (the VARCHAR family) → a variable Text column.
@@ -206,7 +179,7 @@ internal static class AccessTypeMapper
     // openable by Access (an over-long fixed column produces an unreadable file).
     private const int MaxTextCharacters = 255;
     private const int MaxBinaryBytes = 510;
-    private const int MaxDecimalPrecision = 28;
+    internal const int MaxDecimalPrecision = 28;
 
     private static ColumnSpec Decimal(ColumnDefinition column)
     {

@@ -44,7 +44,7 @@ namespace LibRed.Formats
         };
 
         /// <summary>Throws when <paramref name="type"/> cannot exist in <paramref name="version"/>. Callers
-        /// that are able to upgrade the file raise it first (see <c>JetDatabase.EnsureFormatAtLeast</c>),
+        /// that are able to upgrade the file raise it first (see <c>SchemaEditor.RaiseFormatFor</c>),
         /// which is what Access itself does; this catches the ones that did not or could not.</summary>
         public static void EnsureStorable(JetDataType type, JetVersion version, string columnName)
         {

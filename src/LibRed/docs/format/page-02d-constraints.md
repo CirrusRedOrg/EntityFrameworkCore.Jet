@@ -11,7 +11,7 @@ statistics:
 | --- | --- | --- |
 | `0x00` | 4 | Total entry count — written only when the index is **built** or the file compacted (see note), not on insert |
 | `0x04` | 4 | **Unique entry count** — maintained live on insert, set when the index is built (see note) |
-| `0x08` | 4 | Reserved (zero observed) |
+| `0x08` | 4 | Reserved (zero observed). ACE does not read it, and writes zero when it rewrites the TDEF (verified) |
 
 **These two fields are maintained very differently (verified vs ACE):**
 
@@ -28,8 +28,10 @@ statistics:
   brings a key the index **does not hold at that moment**, and lowers it only on a delete that clears the
   last row holding a key, and then only for an index whose total is non-zero (see "On delete"). It equals the
   current distinct-key count only where no delete has left a gap the index never refilled.
-  - A **unique** index gains a new key with every row, so it advances on every insert.
-  - A **non-unique** index advances only for a key not already in it. Keys are compared as index keys, so
+  - **Unique or not, an index advances only for a key not already in it.** A unique index gains a new key with
+    every row whose key has no Null in it, since that key cannot be there already; but it may hold a key with a
+    Null more than once, and a repeat adds nothing (verified).
+  - Keys are compared as index keys, so
     collation-equal text (`'a'`, `'A'`) is one key; a **Null is a key** like any other (a second Null adds
     nothing), except in an **IGNORE NULL** index, which does not hold it and so never counts it. A key whose
     last row was deleted **counts again** when it returns. A multi-column index compares the whole tuple.
@@ -55,7 +57,13 @@ count, and it is gated on the total:
   have taken unique to `2`.
 - **Otherwise the total drops by one**, on every real index, for each row removed.
 - **And the unique count drops by one** on those indexes where the deleted row was the **last** holder of its
-  key — compared as index keys, exactly as on the insert side.
+  key — compared as index keys, exactly as on the insert side — **and is then held to no more than the
+  total**, as on an update (verified). An index at total `6`, unique `7` over twelve rows of
+  distinct keys reads `0`/`0` after they are all deleted — the sixth delete takes the total to `0` and the unique
+  count with it, the six after it touch nothing — while its sibling at `0`/`13` stays `0`/`13`.
+- **A `DELETE` with no `WHERE` that empties the table in one go** (see
+  [page-09](page-09-released-data.md#a-delete-with-no-where)) sets **both** counts of every real index to `0`,
+  whatever they read.
 
 > This is why an index built empty and filled by three inserts reads unique `3` before a delete and unique
 > `3` after it: its total is `0`, so the delete skips it. The rule is visible only on an index that *was*
@@ -73,8 +81,8 @@ differently from a delete:
 - An index the row is absent from before the update — a Null key in an IGNORE NULL index — is not touched,
   even when the update brings the row in.
 
-> The update rule could not be seen from an index built empty: its zero total leaves the pair alone whatever the
-> update does, which is how "an UPDATE changes neither count" looked right.
+> An index built empty does not show the update rule: its zero total leaves the pair alone whatever the update
+> does, so on such an index an UPDATE appears to change neither count.
 
   LibRed maintains both this way — inserts, deletes and updates in `RowInserter`, builds in `SchemaEditor`'s index
   back-fill, and the Memo/OLE retype (which LibRed does by rebuilding the whole table) restores every other
@@ -85,17 +93,17 @@ differently from a delete:
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 4 | Marker (`0x00000783` = 1923, or 0) |
+| `0x00` | 4 | Marker — `0x00000783` (1923) as ACE and Jet 4.0 write it; ACE never checks it, Jet 4.0 refuses a value above its build, 9801, once a write reaches the index ([page-02a §3.1](page-02a-tdef.md)) |
 | `0x04` | 30 | **Exactly 10** column slots × (2-byte column id + 1-byte flags); column id `0xFFFF` = unused; flag `0x01` = ascending. This fixed array (no count field, no continuation) is why a Jet/ACE index — and therefore any `PRIMARY KEY`, `UNIQUE`, or `FOREIGN KEY` built on one — is **limited to 10 columns**. |
 | `0x22` | 1 | Usage-map row |
 | `0x23` | 3 | Usage-map page |
 | `0x26` | 4 | **B-tree root page** |
-| `0x2A` | 4 | Unknown / reserved — zero in every file checked. mdbtools calls it uninitialised page residue (unverified) |
-| `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls (`WITH IGNORE NULL` — null-keyed rows excluded from the index), `0x08` required (`WITH DISALLOW NULL` / part of a primary key), `0x80` always-set (Access 2000+), `0x0200` an index over a **complex** (multi-value / attachment) column. Verified vs ACE: a plain index is `0x0080`, `IGNORE NULL` `0x0082`, `DISALLOW NULL` `0x0088`, a PK `0x0089`. Every index Access writes over a complex column is `0x0289` — unique, required, always-set and `0x0200` — and no other index carries `0x0200` (verified across Access-written files). A foreign key's child block (§3.6) carries `0x01` exactly when the relationship is one-to-one
+| `0x2A` | 4 | Unknown / reserved (zero). Not read by ACE, and zeroed when it rewrites the TDEF (verified) |
+| `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls (`WITH IGNORE NULL` — null-keyed rows excluded from the index), `0x08` required (`WITH DISALLOW NULL` / part of a primary key), `0x80` always-set (Access 2000+), `0x0200` an index over a **complex** (multi-value / attachment) column. Verified vs ACE: a plain index is `0x0080`, `IGNORE NULL` `0x0082`, `DISALLOW NULL` `0x0088`, a PK `0x0089`. Every index Access writes over a complex column is `0x0289` — unique, required, always-set and `0x0200` — and no other index carries `0x0200` (verified). A foreign key's child block (§3.6) carries `0x01` exactly when the relationship is one-to-one
 (`MSysRelationships.grbit` `0x01`), and **this bit, not `grbit`, is what ACE enforces**: made to disagree, a
 child index with the bit refuses a second child row with the same key although `grbit` says one-to-many, and
 one without it accepts the duplicate although `grbit` says one-to-one (verified vs ACE). There is **no clustered flag**: `CLUSTERED`/`NONCLUSTERED` after `PRIMARY KEY` or `UNIQUE` in a constraint is accepted and stores nothing (the file is byte-identical without it), and DAO's `Index.Clustered` reads `False` even on an index created with it set. |
-| `0x30` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 52-byte block |
+| `0x30` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 52-byte block. Not read by ACE, and zeroed when it rewrites the TDEF (verified) |
 
 > **The 10-column cap must be enforced on the incremental path too**, as must the 32-index cap below.
 > `TableDefinition` rejects an over-wide index when a table is created with its indexes, but `CREATE INDEX` and
@@ -159,8 +167,9 @@ something *references* it. So the budget is:
 ```
 
 The child side of a foreign key is a real index and costs one from each count — its **own**, even when a
-primary key or unique index already covers exactly those columns; only the parent end is free of storage,
-reusing the index already over the referenced columns. So being *referenced* is what spends the
+primary key or unique index already covers exactly those columns, though not when a plain index does (§3.6,
+*One data block, several logical indexes*); only the parent end is free of storage, reusing the index already
+over the referenced columns. So being *referenced* is what spends the
 budget invisibly. A self-reference lands both ends on one table: one data block, two logical blocks.
 
 Because a data block must be named by a logical block, `0x33 ≤ 0x2F` always holds — which makes `0x2F` the
@@ -173,8 +182,7 @@ isolation: 33 plain indexes push both counts to 33 together.
 > `-1305 … could not find the object '…'` entries into `MSysCompactError`, and the table is absent from the
 > object list. Nothing in that failure names indexes or a limit.
 >
-> **The boundary is exactly 32, on the logical count alone** (verified vs ACE: one primary key plus incoming
-> relationships, one data block, single page, differing only in the count):
+> **The boundary is exactly 32, on the logical count alone** (verified vs ACE):
 >
 > | `0x2F` | `0x33` | continuation | ACE |
 > | --- | --- | --- | --- |
@@ -191,7 +199,7 @@ isolation: 33 plain indexes push both counts to 33 together.
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 4 | Marker (`0x00000659` = 1625, or 0) |
+| `0x00` | 4 | Marker — `0x00000659` (1625) as ACE and Jet 4.0 write it; ACE never checks it, Jet 4.0 refuses a value above its build, 9801, once a write reaches the index ([page-02a §3.1](page-02a-tdef.md)) |
 | `0x04` | 4 | **Logical index number** (`index_num`) — a unique id per logical index, `0 … logicalCount-1` |
 | `0x08` | 4 | **Real index-data block ordinal** (`index_num2`) this logical index uses, `0 … realIndexCount-1` |
 | `0x0C` | 1 | Foreign-key index type: `0x00` = none, `0x01` = **incoming** (this table is the parent/referenced end), `0x02` = **outgoing** (this table is the child/referencing end), `0x03` = **outgoing, `FOREIGN KEY NO INDEX`** (verified vs ACE: identical to `0x02` — same data block and same parent incoming `0x01` block — only this type byte differs) |
@@ -200,7 +208,7 @@ isolation: 33 plain indexes push both counts to 33 together.
 | `0x15` | 1 | Update action: `0x04` plain index; on a relationship `0x00` = no cascade, `0x01` = cascade update. With `0x16`, what ACE acts on — not `MSysRelationships.grbit` (verified vs ACE: made to disagree, ACE follows these bytes) |
 | `0x16` | 1 | Delete action: `0x04` plain index; on a relationship `0x00` = no cascade, `0x01` = cascade delete, `0x02` = **`ON DELETE SET NULL`** (verified vs ACE) |
 | `0x17` | 1 | Index type: `0x00` = plain secondary, `0x01` = primary, `0x02` = foreign/relationship |
-| `0x18` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 28-byte block |
+| `0x18` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 28-byte block. Not read by ACE, and zeroed when it rewrites the TDEF (verified) |
 
 The index **name** read at the same ordinal applies to this logical index. To name the
 physical (data-block) index, prefer a real index's name over a foreign-key relationship's
@@ -210,17 +218,24 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > table gives its FK-column index a *single* logical block that **is** the relationship: `index_num2` → the FK-column data
 > block, `0x0C = 0x02` (outgoing), `0x11` = parent page, `0x17 = 0x02`, name = the constraint name.
 > That FK-column data block is a real index of the relationship's own, never shared with a primary key or
-> unique index over the same columns, and it is **non-unique unless the relationship is one-to-one**
+> unique index over the same columns (a plain index over them is another matter, below), and it is
+> **non-unique unless the relationship is one-to-one**
 > (`MSysRelationships.grbit` `0x01`, which SQL never sets): then its unique flag (§3.5, `0x2E` bit `0x01`)
 > is set, and ACE refuses a second child row with the same key (verified vs ACE, on a child primary-key column
 > and on a plain one).
 > The **parent** (referenced) table gains an **extra** logical block beyond its data blocks:
 > `index_num2` → its referenced-key (PK) data block, `0x0C = 0x01` (incoming), `0x11` = child page,
-> `0x17 = 0x02`, name = the hidden name **`.r` followed by the letter `'A' + index_num`** — `.rB` for block 1,
-> `.rC` for 2, `.rD` for 3 (verified vs ACE, in `CREATE TABLE` and `ALTER TABLE` alike; the name past `Z` is
-> not measured). The two ends cross-reference: each block's `0x0D` holds the other block's `index_num`
-> (`0x04`). Logical blocks are stored **sorted by name, ignoring case** (verified: `a3` sorts before `IX2`, a
-> foreign key `fk` before `IX2`; how punctuation and accented letters order is not measured). `index_num` is
+> `0x17 = 0x02`, name = the hidden name **`.r` followed by index_num in base 16, with the letters `A`–`P` as
+> digits, least significant first** — `.rB` for block 1, `.rP` for 15, `.rAB` for 16, `.rBB` for 17, `.rOB` for
+> 30 (verified vs ACE for 1–30 in `CREATE TABLE`, and for 1–3 in `ALTER TABLE`). A one-letter reading, `'A' +
+> index_num`, agrees only up to 15. The two ends cross-reference: each block's `0x0D` holds the other block's `index_num`
+> (`0x04`). Logical blocks are stored **sorted by name in the database's collation** (page 0's), the order
+> index keys in that collation sort in: case ignored, `_` and most punctuation before digits and letters,
+> hyphen and apostrophe weighed after the letters, accented letters beside their base letter, each locale's
+> own letters where it places them (Spanish `ch` after `cz`; Norwegian/Danish `æ ø å aa` after `z`), and the
+> hidden `.r` names first (verified vs ACE under General v0 and v1, Spanish, Swedish/Finnish,
+> Norwegian/Danish, Czech, Turkish and French). Names equal in that collation are one name: ACE refuses an
+> index `ss` beside `ß`, and `ae` beside `æ` except in Norwegian/Danish, where `æ` is a letter. `index_num` is
 > assigned in creation order (a table's own indexes first, then relationships as added), and a new block —
 > an index, an outgoing or an incoming relationship block — takes the **lowest number no block holds**
 > (verified vs ACE: with 1 and 2 free below a live 3, a new index takes 1; a parent's incoming block likewise
@@ -229,9 +244,29 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > block count (which collides with a live block, leaving two blocks claiming the number each end's `0x0D`
 > cross-link names) nor `max(index_num) + 1` is the number ACE uses.
 >
+> **One data block, several logical indexes.** A new index over exactly the columns, directions and flags
+> (§3.5 `0x2E`) of a data block the table already has takes no block of its own: its logical block names that
+> one, and nothing else is written — no statistics, no root, no usage-map row (verified vs ACE). What kind each
+> index is does not enter into it, only the block: two plain indexes over `(C)` share, as do two unique ones,
+> two `IGNORE NULL` ones, two descending ones, a unique index and a `UNIQUE` constraint, a unique
+> `DISALLOW NULL` index and the primary key (`0x89` both), two relationships over one column, and a plain index
+> and a relationship's child index — whichever of a pair came first, and inside one `CREATE TABLE` as well. A
+> flag or a column apart keeps them apart: plain beside unique, `IGNORE NULL` or `DISALLOW NULL`, ascending beside
+> descending, a relationship beside a `UNIQUE` or the primary key over its column, a column list beside a prefix
+> of it. Dropping one of the names — `DROP INDEX`, or `DROP CONSTRAINT` for a relationship — takes only its
+> logical block and name; the data block, its statistics and its B-tree stay with the name that is left
+> (verified). In a `CREATE TABLE` the constraint declared later is the one that shares: it takes no usage-map
+> row and no root, so the rows and roots go to the others in declaration order as if it were not there
+> (verified). LibRed shares exactly so on `CREATE TABLE`,
+> `CREATE INDEX` and `ALTER TABLE … ADD CONSTRAINT`.
+>
 > The parent key must be a **unique or primary** index over the referenced columns. Over a plain
 > non-unique index ACE refuses the relationship — *"No unique index found for the referenced field of the
-> primary table"* — while the same shape over a `PRIMARY KEY` succeeds.
+> primary table"* — while the same shape over a `PRIMARY KEY` succeeds. A self-reference is held to the same
+> rule (verified): another relationship's index over the referenced columns, being non-unique, does not serve.
+> In its own `CREATE TABLE` only a key declared **earlier** in the statement serves; one declared after the
+> reference gets the same refusal (verified), and a referenced column itself declared after the reference is
+> refused as *"Invalid field definition '…' in definition of index or relationship."*
 >
 > **Each child column must have its parent column's storage type** (verified vs ACE over every pairing of the
 > column types). Lengths do not matter: `TEXT(5)`, `TEXT(20)` and `CHAR(10)` pair with one another, `DECIMAL`s
@@ -251,7 +286,7 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > `0x11` = the table's own page — an outgoing `0x02` block (`index_num2` → the FK-column index) and an
 > incoming `0x01` block (`index_num2` → the referenced-key index), cross-referenced by `index_num`. The
 > incoming block is numbered after the data-block logical indexes (`index_num` = data-block count).
-> Verified byte-for-byte against an ACE-created self-reference. Added to an existing table, the outgoing
+> Verified byte-for-byte vs ACE. Added to an existing table, the outgoing
 > block takes the lowest free number and the incoming block the next free one above it (verified: with 1 free
 > below a live 2, outgoing 1 and incoming 3, named `.rD`).
 

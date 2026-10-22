@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 EntityFrameworkCore.Jet is an EF Core provider for Microsoft Jet/ACE databases (Microsoft Access `.mdb`/`.accdb` files). The **Jet** provider runs **Windows only** and bridges EF Core to the Access database engine via either ODBC or OLE DB. Alongside it, **LibRed** (also in this repo, on `master`) is a from-scratch managed engine that reads/writes the file format directly and is **cross-platform** — see the LibRed section below.
 
-Current version: `11.0.0-alpha.4` (`Version.props`) targeting EF Core 11 and `net11.0`; `global.json` pins the 11.0.100 RC1 SDK with `rollForward: latestFeature`. The test projects use **xunit v3**, except `EFCore.Jet.Data.Tests` and `EFCore.Jet.IntegrationTests`, which use MSTest.
+Current version: `11.0.0-alpha.4` (`Version.props`) targeting EF Core 11 and `net11.0`; `global.json` pins the 11.0.100 RC2 SDK with `rollForward: latestFeature`. The test projects use **xunit v3**, except `EFCore.Jet.Data.Tests` and `EFCore.Jet.IntegrationTests`, which use MSTest.
 
 **One exception to `net11.0`:** `LibRed.Core`, `LibRed.Sql`, `LibRed.Engine` and `LibRed.Ado` multi-target
 `$(LibRedTargetFrameworks)` = `net10.0;net11.0`, because none of them depends on an EF Core package. `LibRed.EFCore`
@@ -293,21 +293,22 @@ src/LibRed/
 ```
 
 **Format version gating and auto-upgrade — LibRed already does this.** Don't grep for `JetCapabilities`;
-the names are `JetVersion` / `RequiredVersion` / `EnsureFormatAtLeast`:
+the names are `JetVersion` / `JetDataTypeVersions` / `RaiseFormatFor`:
 
 - `LibRed.Formats.JetVersion` enumerates the on-disk version byte (`Version3` = 0x00 … `Version17_2019` = 0x06).
-- `AccessTypeMapper.RequiredVersion(typeName)` is the capability table: `BIGINT` needs `Version16_2016` (0x05),
+- `JetDataTypeVersions.Required(type)` is the capability table: `BIGINT` needs `Version16_2016` (0x05),
   `DATETIME2` needs `Version17_2019` (0x06). **Different thresholds** — the natural assumption that ACE 16 added
-  both at once is wrong, and it's measured in `docs/format/page-00-database.md`.
-- `AccessTypeMapper.MapType` **refuses** a type the open file is too old for, so a caller that can't upgrade
-  (read-only database) fails loudly instead of writing a column Access couldn't read. That guard is on the SQL
-  path; the same rule is enforced again in Core over `JetDataType` (`JetDataTypeVersions.EnsureStorable`, called
-  from `TableDefinition` and `SchemaEditor`), because every `JetDatabase` method that defines a column takes a raw `ColumnSpec` and
-  would otherwise write the descriptor with nothing objecting.
-- `StatementExecutor.MapColumn` → `JetDatabase.EnsureFormatAtLeast` → `PageChannel.RaiseFormatVersion`
-  **raises the file's version byte** rather than refusing the DDL, which is what ACE itself does. The raise goes
+  both at once is wrong, and it's measured in `docs/format/page-00-database.md`. A calculated column needs
+  `Version14_2010`.
+- `SchemaEditor.RaiseFormatFor` → `PageChannel.RaiseFormatVersion` **raises the file's version byte** rather than
+  refusing the DDL, which is what ACE itself does — in CREATE TABLE, ADD COLUMN and ALTER COLUMN, for the SQL path
+  and the Core API alike, once the statement's checks (the read-only refusal among them) have passed. The raise goes
   through `WritePage`, so it joins the statement's transaction and a failed `CREATE`/`ALTER` takes it back down;
-  both rollback paths re-derive the in-memory `Format` from the version byte then visible.
+  both rollback paths re-derive the in-memory `Format` from the version byte then visible, and
+  `JetDatabase.DefinitionPage` re-reads itself when its version no longer matches. A Jet MDB cannot take an ACE
+  version and is refused. `JetDataTypeVersions.EnsureStorable` (in `TableDefinition`) refuses whatever reaches it
+  unraised. A stored query's `BIGINT`/`DATETIME2` *parameter* declares no storage: ACE stores it on an ACE 12 file
+  without raising the version (verified), and so does LibRed.
 
 The Jet provider (`src/EFCore.Jet*`) has **no** equivalent — it does no ACE version detection, and
 `JetTypeMappingSource` keeps `{"bigint", …}` commented out, so `long` maps to `decimal(20,0)` regardless of the
@@ -332,8 +333,8 @@ updated as the format understanding grows. (`docs/jet-ace-file-format.md` is now
 stub to that folder.) Alongside it: `docs/functions.md` catalogs the supported VBA/Access function surface,
 `docs/design/transactions.md` covers the deferred-write page overlay,
 `docs/design/index-key-checksum.md` records how the index-key truncation checksum was pinned down (and why the
-rule it replaced looked verified for years), and `docs/mdbtools-spec-diff-todo.md`
-tracks where our spec and mdbtools' still disagree.
+rule it replaced looked verified for years), and `docs/verification-backlog.md` lists every claim the docs
+still call unverified, with how to settle each.
 
 > **Rule — spec sync on every `LibRed.Core` change.** Whenever you touch the actual on-disk
 > read/write code in `src/LibRed/LibRed.Core/` (page/row/index/TDEF/usage-map parsing or
@@ -378,6 +379,12 @@ of one field that disagreed, a merged path that lost a check only one copy had, 
 a pointer, test helpers re-implementing Core and drifting from it. A genuinely new member is fine when nothing
 existing does the job; say what you checked.
 
+**Never change a test because a change makes it fail.** A failing test is evidence against the change, not a test
+to update. For every failing test, measure what ACE itself produces for that exact query, on that test's own schema
+and data — not a similar expression, another table, or a function ACE does not have. If ACE agrees with the test,
+the change is wrong: fix the code. Change the test only where it must change to match ACE's measured behaviour
+exactly, and say what was measured. A `PostToolUse` hook stops the turn after every edit under `test/` to enforce it.
+
 `.claude/settings.json` installs `PreToolUse` hooks that **deny** three things in `Bash`/`PowerShell`:
 
 - **Reading files through the shell** (`cat`, `head`, `grep`, `ls`, `find`, `Get-Content`, `Select-String`, …) —
@@ -388,7 +395,7 @@ existing does the job; say what you checked.
   `.ps1`/`.g4`, and any `python` invocation) — these bypass file checkpointing, so `/rewind` cannot undo them.
   Use `Edit`/`Write`.
 - **`LibRed.Core.AccessTests` or `LibRed.Engine.AccessTests` in the foreground with no `--filter`** — they are
-  ~7 and ~1.5 minutes, and waiting on them is dead session time. Add a `--filter` naming the tests that cover
+  ~12 and ~4.5 minutes, and waiting on them is dead session time. Add a `--filter` naming the tests that cover
   the change, or pass `run_in_background` and carry on working while they run. The other suites are unaffected.
 
 `dotnet build`/`test`/`restore` and, in Bash, `git status`/`diff`/`log`/`show`/`branch`/`add`/`commit`/`push`

@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using LibRed.Engine.Plan;
 using LibRed.Sql.Ast;
 using Linq = System.Linq.Expressions;
@@ -28,12 +29,19 @@ namespace LibRed.Engine.Planning;
 /// </remarks>
 internal static class ColumnPruning
 {
+    // Pruning depends only on the immutable plan's references and visibility. A prepared plan should
+    // pay for that walk once; weak keys keep this derived shape alive only while its plan is in use.
+    private static readonly ConditionalWeakTable<PlanNode, PlanNode> Pruned = new();
+
     public static PlanNode Apply(PlanNode plan)
     {
         if (!HasHiddenRead(plan, visible: true))
             return plan;
-        HashSet<string>? names = ReferencedNames(plan);
-        return names is null ? plan : Rewrite(plan, visible: true, names);
+        return Pruned.GetValue(plan, static input =>
+        {
+            HashSet<string>? names = ReferencedNames(input);
+            return names is null ? input : Rewrite(input, visible: true, names);
+        });
     }
 
     /// <summary>Whether any table read sits where pruning could apply — so a plan with none is not walked. Its
@@ -119,21 +127,27 @@ internal static class ColumnPruning
     internal static HashSet<string>? ReferencedNames(object root)
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        return Collect(root, names) ? names : null;
+        return Walk(root, node =>
+        {
+            if (node is not ColumnReference reference) return true;
+            names.Add(reference.Column);
+            return false;
+        }) ? names : null;
     }
 
-    private static bool Collect(object? value, HashSet<string> names)
+    /// <summary>Hands every AST and plan node under <paramref name="value"/> to <paramref name="visit"/>, parents before
+    /// their children, through every public property — so a clause added to a node later is never missed. A node
+    /// <paramref name="visit"/> answers false for is not descended into. Returns false when the walk met a value of a
+    /// type it does not know, and so could not see everything.</summary>
+    internal static bool Walk(object? value, Func<object, bool> visit)
     {
         switch (value)
         {
             case null or string or byte[] or decimal or DateTime or DateTimeOffset or TimeSpan or Guid or Type:
                 return true;
-            case ColumnReference reference:
-                names.Add(reference.Column);
-                return true;
             case IEnumerable items:
                 foreach (object? item in items)
-                    if (!Collect(item, names)) return false;
+                    if (!Walk(item, visit)) return false;
                 return true;
         }
 
@@ -142,6 +156,8 @@ internal static class ColumnPruning
             return true;
         if (type.Namespace is not ("LibRed.Sql.Ast" or "LibRed.Engine.Plan"))
             return false;
+        if (!visit(value))
+            return true;
 
         foreach (Func<object, object?> property in Getters.GetOrAdd(type, ReadableProperties))
         {
@@ -157,7 +173,7 @@ internal static class ColumnPruning
             }
 #pragma warning restore CA1031
 
-            if (!Collect(child, names)) return false;
+            if (!Walk(child, visit)) return false;
         }
 
         return true;
@@ -170,8 +186,17 @@ internal static class ColumnPruning
     // PlanNode.Children repeats the inputs its own properties already hold.
     private static Func<object, object?>[] ReadableProperties(Type type) =>
         [.. type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(p => p.CanRead && p.GetIndexParameters().Length == 0
-                && !(p.Name == nameof(PlanNode.Children) && typeof(PlanNode).IsAssignableFrom(type)))
+            .Where(p =>
+            {
+                if (!p.CanRead || p.GetIndexParameters().Length != 0
+                    || p.Name == nameof(PlanNode.Children) && typeof(PlanNode).IsAssignableFrom(type)) return false;
+                // Walk ignores these values unconditionally. They cannot contain an AST/plan child, so
+                // don't compile a getter or recursively visit them on every statement either.
+                Type value = Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType;
+                return !(value.IsPrimitive || value.IsEnum || value == typeof(string) || value == typeof(byte[])
+                    || value == typeof(decimal) || value == typeof(DateTime) || value == typeof(DateTimeOffset)
+                    || value == typeof(TimeSpan) || value == typeof(Guid) || value == typeof(Type));
+            })
             .Select(Getter)];
 
     private static Func<object, object?> Getter(PropertyInfo property)

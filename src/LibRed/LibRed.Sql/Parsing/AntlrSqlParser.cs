@@ -21,6 +21,7 @@ public sealed class AntlrSqlParser : ISqlParser
         lexer.AddErrorListener(errors);
 
         var parser = new AccessSqlParser(new CommonTokenStream(lexer));
+        parser.ErrorHandler = errors;
         parser.RemoveErrorListeners();
         parser.AddErrorListener(errors);
 
@@ -31,6 +32,10 @@ public sealed class AntlrSqlParser : ISqlParser
     {
         if (string.IsNullOrWhiteSpace(sql)) return true;
 
+        // An ASCII letter always starts a keyword or identifier, never skipped trivia. The statement
+        // parser still lexes and validates it; no second lexer is needed just to prove a token exists.
+        if (char.IsAsciiLetter(sql.AsSpan().TrimStart()[0])) return false;
+
         // Ask the lexer, not a text scan: WS/LINE_COMMENT/BLOCK_COMMENT are `-> skip`, so text made only of
         // those produces no tokens at all. Anything else yields at least one, and a `--` inside a string
         // literal stays part of that literal's token rather than starting a comment.
@@ -39,25 +44,35 @@ public sealed class AntlrSqlParser : ISqlParser
         return lexer.NextToken().Type == TokenConstants.EOF;
     }
 
-    public Expression ParseExpression(string sql)
+    public Expression ParseExpression(string sql) => AstBuilder.BuildExpression(ExpressionTree(sql));
+
+    /// <summary>The parse tree of a standalone expression, before it is lowered to the AST — for a caller that needs
+    /// the text as written (its tokens) as well as its structure. Such text is stored text — a DEFAULT, a CHECK —
+    /// so it is read without comments, as ACE reads it.</summary>
+    internal static AccessSqlParser.ExpressionContext ExpressionTree(string sql)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
 
         var errors = new ThrowingErrorListener();
 
-        var lexer = new AccessSqlLexer(new AntlrInputStream(sql));
+        var lexer = new AccessSqlLexer(new AntlrInputStream(sql)) { Comments = false };
         lexer.RemoveErrorListeners();
         lexer.AddErrorListener(errors);
 
         var parser = new AccessSqlParser(new CommonTokenStream(lexer));
+        parser.ErrorHandler = errors;
         parser.RemoveErrorListeners();
         parser.AddErrorListener(errors);
 
-        return AstBuilder.BuildExpression(parser.standaloneExpression().expression());
+        return parser.standaloneExpression().expression();
     }
 
-    private sealed class ThrowingErrorListener : IAntlrErrorListener<int>, IAntlrErrorListener<IToken>
+    private sealed class ThrowingErrorListener : DefaultErrorStrategy, IAntlrErrorListener<int>, IAntlrErrorListener<IToken>
     {
+        // Parsing already stops at the first reported error. ANTLR's eager loop/optional-rule
+        // recovery checks do no useful recovery here; normal matching/prediction still reports errors.
+        public override void Sync(Parser recognizer) { }
+
         public void SyntaxError(TextWriter output, IRecognizer recognizer, int offendingSymbol,
             int line, int charPositionInLine, string msg, RecognitionException e) =>
             throw new SqlParseException(msg, line, charPositionInLine);

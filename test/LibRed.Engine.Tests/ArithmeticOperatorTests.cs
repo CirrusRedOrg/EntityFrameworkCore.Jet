@@ -181,25 +181,18 @@ public class ArithmeticOperatorTests(ArithmeticOperatorTests.Database database)
     public void A_single_divided_with_integers_or_booleans_stays_a_single(string expression, float expected) =>
         Assert.Equal(expected, Assert.IsType<float>(Scalar(expression)));
 
+    // Verified vs ACE on this table (AceDecimalPrecisionProbeTest.Arithmetic_operator_tests_type_probe): a number
+    // written with a decimal point is a Decimal, and a Decimal result keeps exactly its places.
     [Theory]
-    [InlineData("1 / 1.5", 0.6d)]
-    [InlineData("1.5 / '2.5'", 0.6d)]
-    [InlineData("1.5 * 1.5", 2.2d)]
-    [InlineData("1.5 * 1.5 * 1.5", 3.3d)]
-    [InlineData("459.35 / 3", 153.11d)]
-    [InlineData("40000 / 0.3", 133333.3d)]
-    [InlineData("D * 0.25", 10958.12d)]
-    [InlineData("1.5 / LEFT('12', 2)", 0.1d)]
-    [InlineData("CSTR(5) / 1.5", 3.3d)]
-    [InlineData("1.5 * 1.25", 1.875d)]
-    [InlineData("459.35 * 334.90", 153836.315d)]
-    [InlineData("1.1 * 1.11", 1.2210000000000003d)]
-    [InlineData("1 / 3.0", 0.3333333333333333d)]
-    public void A_number_written_with_a_decimal_point_keeps_its_places_unless_another_decimal_has_different_ones(
-        string expression, double expected) =>
-        Assert.Equal(expected, Assert.IsType<double>(Scalar(expression)));
-
-    [Theory]
+    [InlineData("1 / 1.5", "0.6")]
+    [InlineData("1.5 / '2.5'", "0.6")]
+    [InlineData("1.5 * 1.5", "2.2")]
+    [InlineData("1.5 * 1.5 * 1.5", "3.3")]
+    [InlineData("459.35 / 3", "153.11")]
+    [InlineData("40000 / 0.3", "133333.3")]
+    [InlineData("D * 0.25", "10958.12")]
+    [InlineData("1.5 / LEFT('12', 2)", "0.1")]
+    [InlineData("CSTR(5) / 1.5", "3.3")]
     [InlineData("1 / DC", "0.2222")]
     [InlineData("TRUE / DC", "-0.2222")]
     [InlineData("DC / 40000", "0.0001")]
@@ -207,21 +200,33 @@ public class ArithmeticOperatorTests(ArithmeticOperatorTests.Database database)
     [InlineData("DC * DC", "20.2500")]
     [InlineData("D / DC", "9740.5555")]
     [InlineData("CY * CY", "10.5625")]
-    [InlineData("CY / 3", "1.0833333333333333333333333333")]
-    [InlineData("1.5 / DC", "0.3333333333333333333333333333")]
-    public void A_decimal_column_keeps_its_places_but_currency_divided_is_whole(string expression, string expected) =>
+    public void A_decimal_keeps_its_places(string expression, string expected) =>
         Assert.Equal(expected, Assert.IsType<decimal>(Scalar(expression)).ToString(CultureInfo.InvariantCulture));
+
+    // Verified vs ACE on this table: two decimals of different places, or a Currency divided, give a Double.
+    [Theory]
+    [InlineData("1.5 * 1.25", 1.875d)]
+    [InlineData("459.35 * 334.90", 153836.315d)]
+    [InlineData("1.1 * 1.11", 1.2210000000000003d)]
+    [InlineData("1 / 3.0", 0.3333333333333333d)]
+    [InlineData("CY / 3", 1.0833333333333333d)]
+    [InlineData("1.5 / DC", 0.33333333333333337d)]
+    public void Different_places_or_a_currency_divided_give_a_double(string expression, double expected) =>
+        Assert.Equal(expected, Assert.IsType<double>(Scalar(expression)));
 
     [Fact]
     public void A_decimal_literal_meets_a_decimal_as_written() =>
-        Assert.Equal(1507.05m, Assert.IsType<decimal>(Scalar("DC * 334.90")));
+        Assert.Equal(1507.05d, Assert.IsType<double>(Scalar("DC * 334.90")));
 
     [Theory]
     [InlineData("SELECT d.X / 7 FROM (SELECT DC AS X FROM T) AS d", "0.6428")]
-    [InlineData("SELECT d.X / 3 FROM (SELECT CY AS X FROM T) AS d", "1.0833333333333333333333333333")]
     [InlineData("SELECT SUM(DC) / 7 FROM T", "0.6428")]
     public void A_column_keeps_its_decimal_kind_through_a_derived_table_and_an_aggregate(string sql, string expected) =>
         Assert.Equal(expected, Assert.IsType<decimal>(Query(sql)).ToString(CultureInfo.InvariantCulture));
+
+    [Fact]
+    public void A_currency_keeps_its_kind_through_a_derived_table() =>
+        Assert.Equal(1.0833333333333333d, Assert.IsType<double>(Query("SELECT d.X / 3 FROM (SELECT CY AS X FROM T) AS d")));
 
     [Fact]
     public void Only_the_result_column_is_cut_not_an_argument() =>

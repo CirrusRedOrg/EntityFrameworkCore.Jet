@@ -1,5 +1,7 @@
 using LibRed.Catalog;
 using LibRed.Engine.Planning;
+using LibRed.Engine.Schema;
+using LibRed.IO;
 using LibRed.Sql.Ast;
 using LibRed.Sql.Parsing;
 using LibRed.Storage;
@@ -37,8 +39,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         AlterTableStatement alter => ExecuteAlterTable(alter),
         DropIndexStatement dropIndex => DropIndex(dropIndex.Table, dropIndex.Index),
         DropTableStatement dropTable => DropTable(dropTable.Table),
-        DropViewStatement dropView => DropQueryObject(dropView.View, "view"),
-        DropProcedureStatement dropProc => DropQueryObject(dropProc.Procedure, "procedure"),
+        DropViewStatement dropView => DropQueryObject(dropView.View),
+        DropProcedureStatement dropProc => DropQueryObject(dropProc.Procedure),
         SelectStatement { Into: not null } makeTable => ExecuteSelectInto(makeTable),
         InsertStatement insert => ExecuteInsert(insert),
         UpdateStatement update => ExecuteUpdate(update),
@@ -46,33 +48,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         _ => throw new NotSupportedException($"{statement.GetType().Name} cannot be executed as a non-query."),
     };
 
-    /// <summary>
-    /// Maps a declared column type to its storage spec, first raising the database's format version if the
-    /// type needs a newer one than the file currently is.
-    /// </summary>
-    /// <remarks>
-    /// Access does the upgrade itself rather than refusing the DDL — adding a Date/Time Extended column to an
-    /// ACE 12 database moves its version byte to 0x06, and for DATETIME2 that byte is the entire upgrade
-    /// (docs/format/page-00-database.md). Refusing instead would leave LibRed unable to do something the
-    /// engine it mirrors does routinely.
-    /// <para>The raise joins this statement's transaction, so a failed CREATE/ALTER takes its format bump
-    /// back down with it. It is still one-way in the sense that matters: once committed, an Access older than
-    /// the new format cannot open the file — unavoidable, since the column it would find is one it cannot
-    /// read either.</para>
-    /// </remarks>
-    private ColumnSpec MapColumn(ColumnDefinition column)
-    {
-        if (AccessTypeMapper.RequiredVersion(column.TypeName) is { } required)
-            _database.EnsureFormatAtLeast(required.Min);
-
-        return AccessTypeMapper.ToColumnSpec(column, _database.Format.Version);
-    }
-
     private int ExecuteCreateTable(CreateTableStatement statement)
     {
-        var columns = statement.Columns.Select(MapColumn).ToList();
-        foreach (var (spec, def) in columns.Zip(statement.Columns))
-            ValidateColumnDefault(spec, def.Default);
+        var columns = statement.Columns.Select(AccessTypeMapper.ToColumnSpec).ToList();
         IReadOnlyList<string>? primaryKey = statement.PrimaryKey.Count > 0 ? statement.PrimaryKey : null;
 
         var relationships = statement.ForeignKeys.Select(fk => ToRelationshipSpec(statement.Table, fk)).ToList();
@@ -89,7 +67,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         var uniques = statement.UniqueConstraints.Select((u, i) => new UniqueIndexSpec(
             Name: u.Name ?? Generated("UQ", i),
             Columns: u.Columns,
-            DeclaredAfterColumns: u.DeclaredAfterColumns)).ToList();
+            DeclaredAfter: u.DeclaredAfter)).ToList();
 
         var defaults = statement.Columns
             .Where(c => c.Default is not null)
@@ -97,12 +75,105 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             .ToList();
 
         var checks = statement.CheckConstraints
-            .Select((ck, i) => (Name: ck.Name ?? Generated("CK", i), ck.Expression))
+            .Select((ck, i) => (Name: ck.Name ?? Generated("CK", i), ck.Expression,
+                Reads: (IReadOnlyList<(string Table, IReadOnlyList<string> Columns)>)CheckReads(
+                    statement.Table, [.. statement.Columns.Take(ck.ColumnsBefore).Select(col => col.Name)], ck.Expression)))
             .ToList();
 
         _database.CreateTable(statement.Table, columns, primaryKey, relationships, uniques, defaults, checks,
-            statement.PrimaryKeyName, statement.PrimaryKeyDeclaredAfterColumns);
+            statement.PrimaryKeyName, statement.PrimaryKeyDeclaredAfter);
         return 0;
+    }
+
+    /// <summary>
+    /// What a CHECK on <paramref name="table"/> reads, for the object ACE records it with
+    /// (<c>SchemaEditor.CheckReadsText</c>): its own table first, then every table a subquery names, in the order
+    /// the expression names them; each with the columns read of it, in <paramref name="ownColumns"/>' order or the
+    /// table's own, each once. A column takes the innermost table in scope that has it, or the one its qualifier
+    /// names. Measured by whole-file diff (<c>WholeFileParityProbeTest</c>): <c>Len([Note]) &lt; [Level] + 20 OR
+    /// [Level] &gt; 0</c> on <c>Setting</c> reads <c>Level, Note</c>; a <c>COUNT(*)</c> subquery over
+    /// <c>Customer</c> lists it with no column.
+    /// <para>The same walk refuses what ACE refuses when the check is created, in CREATE TABLE and ALTER TABLE alike
+    /// (verified): an expression that does not parse; a name no scope has, even in an IIf branch that never runs, as
+    /// ACE resolves names rather than evaluating; inside a subquery, an unqualified name only the row being checked
+    /// has — the row is reached there only through its qualifier (<see cref="CheckConstraint.RowQualifier"/>); a
+    /// subquery over a table that does not exist; and an aggregate outside a subquery. <paramref name="ownColumns"/>
+    /// are the columns the check may name: in CREATE TABLE, those declared before it.</para>
+    /// </summary>
+    private List<(string Table, IReadOnlyList<string> Columns)> CheckReads(
+        string table, IReadOnlyList<string> ownColumns, string expression)
+    {
+        Expression parsed;
+        try
+        {
+            parsed = ParsedCheck(expression);
+        }
+        catch (SqlParseException)
+        {
+            throw CheckConstraint.Refusal();
+        }
+
+        List<(string Name, IReadOnlyList<string> Columns, HashSet<string> Read)> tables =
+            [(table, ownColumns, new HashSet<string>(StringComparer.OrdinalIgnoreCase))];
+
+        int TableOf(string name)
+        {
+            int at = tables.FindIndex(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (at >= 0) return at;
+            TableDefinition definition = _database.Catalog.FindTable(name) ?? throw CheckConstraint.Refusal();
+            HashSet<string> read = [with(StringComparer.OrdinalIgnoreCase)];
+            tables.Add((definition.Name, [.. definition.Columns.Select(c => c.Name)], read));
+            return tables.Count - 1;
+        }
+
+        // A table in scope as FindColumns resolves against it: under its alias, or its name where it has none.
+        SourceTable Source(int at, string? alias)
+        {
+            string name = alias ?? tables[at].Name;
+            return new SourceTable(name, null, [.. tables[at].Columns.Select(c => new OutputColumn(name, c))], null);
+        }
+
+        // Each level of scope holds its sources and which of the tables each is; the innermost level comes first.
+        void Scan(object root, List<(List<SourceTable> Sources, List<int> Tables)> scopes)
+        {
+            _ = Planning.ColumnPruning.Walk(root, node =>
+            {
+                switch (node)
+                {
+                    case SelectStatement select when !ReferenceEquals(select, root):
+                        (List<SourceTable> Sources, List<int> Tables) level = ([], []);
+                        _ = Planning.ColumnPruning.Walk(select.From, from =>
+                        {
+                            if (from is NamedTable named)
+                            {
+                                int at = TableOf(named.Name);
+                                level.Sources.Add(Source(at, named.Alias));
+                                level.Tables.Add(at);
+                            }
+                            return from is not SelectStatement;
+                        });
+                        Scan(select, [level, .. scopes]);
+                        return false;
+                    case ColumnReference column:
+                        for (int depth = 0; depth < scopes.Count; depth++)
+                            if (FindColumns(scopes[depth].Sources, column.Table, column.Column) is [var (found, _), ..])
+                            {
+                                if (depth == scopes.Count - 1 && depth > 0 && column.Table is null)
+                                    throw CheckConstraint.Refusal();
+                                tables[scopes[depth].Tables[found]].Read.Add(column.Column);
+                                return false;
+                            }
+                        return ExpressionEvaluator.IsNiladicFunction(column) ? false : throw CheckConstraint.Refusal();
+                    case FunctionCall call when scopes.Count == 1 && QueryPlanner.IsAggregate(call.Name):
+                        throw CheckConstraint.Refusal();
+                    default:
+                        return true;
+                }
+            });
+        }
+
+        Scan(parsed, [([Source(0, CheckConstraint.RowQualifier)], [0])]);
+        return [.. tables.Select(t => (t.Name, (IReadOnlyList<string>)[.. t.Columns.Where(t.Read.Contains)]))];
     }
 
     private static readonly System.Text.RegularExpressions.Regex BareWord =
@@ -110,45 +181,87 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     /// <summary>Parses a column DEFAULT into an expression. In Access an **unquoted single word** is a LITERAL
     /// STRING (verified vs ACE: <c>DEFAULT Unknown</c> → "Unknown", <c>DEFAULT K</c> → "K" even when K is a
-    /// column) — it is never a column reference. The one exception is the niladic <c>Now</c> function. A
-    /// bracketed <c>[X]</c> stays a column reference (rejected in a default); a quoted literal, function call, or
-    /// compound expression parses normally. (A multi-word bare default is a syntax error at CREATE, matching ACE.)</summary>
+    /// column) — it is never a column reference. It is what the grammar reads it as only when that is a value: a
+    /// constant — <c>Null</c> stores NULL, and <c>True</c>, <c>Yes</c>, <c>On</c>, <c>False</c>, <c>No</c> and
+    /// <c>Off</c> store -1 and 0, as the column's type has them (verified vs ACE, into LONG, TEXT, YESNO, DATETIME and
+    /// DOUBLE) — or the niladic <c>Now</c>. A bracketed <c>[X]</c> stays a column reference (rejected in a default); a
+    /// quoted literal, function call, or compound expression parses normally. (A multi-word bare default is a syntax
+    /// error at CREATE, matching ACE.) A subquery is refused: a default reads no table or query, and ACE refuses one.</summary>
     private Expression ParseDefaultExpression(string text)
     {
-        string t = text.Trim();
-        return BareWord.IsMatch(t) && !t.Equals("Now", StringComparison.OrdinalIgnoreCase)
-            ? new LiteralExpression(t)
-            : _parser.ParseExpression(text);
+        string t = PropertyBlob.DefaultExpression(text);
+        if (!BareWord.IsMatch(t))
+        {
+            Expression expression = _parser.ParseExpression(t);
+            _ = Planning.ColumnPruning.Walk(expression, node => node is ScalarSubquery or ExistsExpression or InSubqueryExpression
+                ? throw new SqlParseException($"A default value cannot read a table or query: '{text}'.")
+                : true);
+            return expression;
+        }
+        Expression? parsed;
+        try { parsed = _parser.ParseExpression(t); }
+        catch (SqlParseException) { parsed = null; }   // a word the grammar reserves is text too
+        return parsed is LiteralExpression || parsed is ColumnReference c && ExpressionEvaluator.IsNiladicFunction(c)
+            ? parsed
+            : new LiteralExpression(t);
     }
 
     /// <summary>Rejects an insert that leaves a NOT NULL (Required) column null after defaults are applied —
     /// matching Access, which raises "You must enter a value in the 'Table.Column' field." AutoNumber columns
-    /// are exempt: they are assigned during the write, not supplied here.</summary>
+    /// are exempt: they are assigned during the write, not supplied here. And one that gives a column whose
+    /// AllowZeroLength is cleared a zero-length string, in ACE's words for it (measured).</summary>
     private static void EnforceRequired(string table, IReadOnlyList<ColumnDef> columns, object?[] values)
     {
         foreach (ColumnDef column in columns)
+        {
             if (!column.IsNullable && !column.IsAutoNumber && values[column.Index] is null)
                 throw new InvalidOperationException($"You must enter a value in the '{table}.{column.Name}' field.");
+            if (!column.AllowZeroLength && values[column.Index] is string { Length: 0 })
+                throw new InvalidOperationException($"Field '{table}.{column.Name}' cannot be a zero-length string.");
+        }
     }
 
-    /// <summary>Rejects a row that violates any of the table's CHECK constraints — evaluated against the full
-    /// row. A CHECK is violated only when its expression is explicitly FALSE; NULL/unknown passes (SQL
-    /// three-valued CHECK semantics). The expression may reference the row's own columns and use (uncorrelated)
-    /// subqueries. Matches Access's validation-rule enforcement.</summary>
-    private void EnforceCheckConstraints(TableDefinition definition, object?[] values)
+    /// <summary>Rejects a row written against any of the table's CHECK constraints. Called once the row is written, so
+    /// a subquery over the table sees it, one row at a time in the order the statement writes them — and for a deleted
+    /// row once it is gone, against a row whose every column is Null — as ACE does (all verified). A CHECK is violated
+    /// only when its expression is explicitly FALSE; NULL/unknown passes. A row a cascade wrote is refused in ACE's
+    /// words for a cascade, and an expression that cannot be evaluated — a division by zero, an overflow, a type
+    /// mismatch — with ACE's error for that rather than the evaluator's own.</summary>
+    private void EnforceCheckConstraints(TableDefinition definition, object?[] values, bool cascaded)
     {
         if (definition.CheckConstraints.Count == 0) return;
-        var schema = definition.Columns.Select(c => OutputColumn.Of(definition.Name, definition, c)).ToList();
-        var evaluator = new ExpressionEvaluator(new EvalScope(schema, values, null), _scalarRunner, _parameters, _session);
+        // A runner of its own, not the statement's: that one keeps a subquery's answer once it has worked it out, as
+        // a query can, and this statement has written rows since — a CHECK reading the table has to see them.
+        // The row is named as ACE names it, by CheckConstraint.RowQualifier — not by the table's name, which inside a
+        // subquery could be the subquery's own table.
+        List<OutputColumn> row = [.. definition.Columns.Select(c => OutputColumn.Of(CheckConstraint.RowQualifier, definition, c))];
+        var evaluator = new ExpressionEvaluator(new EvalScope(row, values, null),
+            new QueryExecutor(_database, parameters, _session), _parameters, _session);
         foreach (var (name, expression) in definition.CheckConstraints)
         {
-            if (!_checkExpressions.TryGetValue(expression, out Expression? parsed))
-                _checkExpressions[expression] = parsed = _parser.ParseExpression(expression);
-            if (evaluator.Evaluate(parsed) is false)
-                throw new InvalidOperationException(
-                    $"One or more values are prohibited by the validation rule '{name}' set for '{definition.Name}'. " +
-                    "Enter a value that the expression for this field can accept.");
+            Expression parsed = ParsedCheck(expression);
+            object? holds;
+            try
+            {
+                holds = evaluator.Evaluate(parsed);
+            }
+            catch (Exception e) when (e is ArithmeticException or InvalidCastException or ArgumentException or InvalidOperationException)
+            {
+                throw new InvalidOperationException($"Error evaluating {name} CHECK constraint. {name}", e);
+            }
+            if (holds is false)
+                throw new InvalidOperationException(cascaded
+                    ? $"Cannot perform cascading operation. The value entered is prohibited by the validation rule '{name}' set for '{definition.Name}'."
+                    : $"One or more values are prohibited by the validation rule '{name}' set for '{definition.Name}'. " +
+                      "Enter a value that the expression for this field can accept.");
         }
+    }
+
+    private Expression ParsedCheck(string expression)
+    {
+        if (!_checkExpressions.TryGetValue(expression, out Expression? parsed))
+            _checkExpressions[expression] = parsed = _parser.ParseExpression(expression);
+        return parsed;
     }
 
     /// <summary>The relationship a parsed foreign key creates on <paramref name="childTable"/>, for CREATE TABLE and
@@ -167,7 +280,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         DeleteSetNull: fk.OnDelete == ReferentialAction.SetNull,
         UpdateSetNull: fk.OnUpdate == ReferentialAction.SetNull,
         ReferencesPrimaryKey: fk.ReferencedColumns.Count == 0,
-        DeclaredAfterColumns: fk.DeclaredAfterColumns);
+        DeclaredAfter: fk.DeclaredAfter);
 
     /// <summary>Access-style fallback name when the constraint is unnamed: "childparent".</summary>
     private static string DefaultRelationshipName(string childTable, ForeignKeyConstraint fk) =>
@@ -197,9 +310,15 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 continue;
 
             if (partialNull || !ParentRowExists(ends, target))
+            {
+                // ACE refuses the row at the relationship's index, the keys it gave the indexes ahead of it counted.
+                if (!update && table.Definition.Indexes.FirstOrDefault(i => i.Name.Equals(fk.Name, StringComparison.OrdinalIgnoreCase))
+                    is { } refusing)
+                    table.CountKeysBeforeRefusal(refusing, values);
                 throw new InvalidOperationException(
                     $"{(update ? "UPDATE of" : "INSERT into")} '{childTable}' violates foreign key '{fk.Name}': "
                     + $"no matching row in '{fk.ReferencedTable}'.");
+            }
 
             // Inside a transaction, finding the parent now is not enough: reading it writes no page, so the
             // commit's page-conflict check cannot see the dependency, and a concurrent transaction is free to
@@ -247,22 +366,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// <summary>The enforced relationship <paramref name="identity"/> identifies, as the catalog holds it now; null
     /// once it has been dropped.</summary>
     private ForeignKey? CurrentRelationship(RelationshipIdentity identity) =>
-        _database.Catalog.Relationships.FirstOrDefault(r => r.IsEnforced
-            && string.Equals(r.Name, identity.Name, StringComparison.OrdinalIgnoreCase)
-            && identity.Equals(Identify(r)));
-
-    /// <summary>Whether every row of the relationship's child table has its parent, on the MATCH FULL terms
-    /// <see cref="EnforceReferentialIntegrity"/> applies to one row: a key that is entirely null references
-    /// nothing and needs nothing, and a partly null one can never match.</summary>
-    private bool ExistingRowsHaveParents(ForeignKey fk)
-    {
-        RelationshipEnds ends = Ends(fk);
-        foreach (object?[] row in ends.Child.Rows(ends.Child.DecodeOnly(ends.ChildColumns)))
-            if (ForeignKeyValue(row, ends.ChildColumns, out bool partialNull) is { } key
-                && (partialNull || !ParentRowExists(ends, key)))
-                return false;
-        return true;
-    }
+        _database.Catalog.RelationshipsNamed(identity.Name).FirstOrDefault(r => r.IsEnforced && identity.Equals(Identify(r)));
 
     /// <summary>The foreign key a row holds, on ACE's **MATCH FULL** terms (verified vs ACE, and unlike SQL
     /// Server's MATCH SIMPLE): null when every column is null — the row references nothing and the relationship is
@@ -363,8 +467,13 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         for (int i = 0; i < key.Length; i++)
         {
             ColumnDef column = table.Definition.Columns.First(c => c.Index == columns[i]);
-            if (!ExpressionEvaluator.TryGetSeekKey(column, new LiteralExpression(key[i]), key[i], out seekKey[i]))
-                return table.RowsWhere(columns, Holds);
+            switch (ExpressionEvaluator.TryGetSeekKey(column, new LiteralExpression(key[i]), key[i], out seekKey[i]))
+            {
+                case ExpressionEvaluator.SeekKey.OtherKind:
+                    return table.RowsWhere(columns, Holds);
+                case ExpressionEvaluator.SeekKey.PastRange or ExpressionEvaluator.SeekKey.Fraction:
+                    return [];   // a value its column cannot hold is in no row
+            }
         }
 
         return table.RowsWithKey(columns, seekKey, Holds);
@@ -375,8 +484,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private ForeignKey[] ChildRelationshipsOf(string parentTable)
     {
         if (!_referencesTo.TryGetValue(parentTable, out ForeignKey[]? found))
-            _referencesTo[parentTable] = found = [.. _database.Catalog.Relationships.Where(r =>
-                r.IsEnforced && string.Equals(r.ReferencedTable, parentTable, StringComparison.OrdinalIgnoreCase))];
+            _referencesTo[parentTable] = found = [.. _database.Catalog.ReferencesTo(parentTable).Where(r => r.IsEnforced)];
         return found;
     }
 
@@ -427,6 +535,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         foreach (var (id, values) in roots.Reverse())
             if (scheduled.Add((rootTable.Name, id)))
                 stack.Push((rootTable, id, values, false));
+        var rootRows = new HashSet<(string Table, RowId Id)>(scheduled);
 
         while (stack.Count > 0)
         {
@@ -440,8 +549,12 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             EnqueueCascadeChildren(table.Name, values, scheduled, stack);
         }
 
-        foreach (var (table, id, values) in order)
+        foreach (var (table, id, _) in order)
+        {
             table.Delete(id);
+            EnforceCheckConstraints(table.Definition, new object?[table.Definition.Columns.Count],
+                cascaded: !rootRows.Contains((table.Name, id)));
+        }
     }
 
     /// <summary>Applies each enforced relationship's ON DELETE action to a parent row about to be deleted:
@@ -465,7 +578,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
             if (fk.CascadeDelete)
             {
-                foreach (var (cid, cvals) in children)
+                // Pushed last first, as the roots are, so the children come off the stack in the order they were
+                // found — the order ACE deletes them in (measured, whole-file diff: a parent's two children left
+                // the leaf and the data page holding the second one's bytes, where the reverse leaves the first's).
+                foreach (var (cid, cvals) in Enumerable.Reverse(children))
                     if (scheduled.Add((ends.Child.Name, cid)))
                         stack.Push((ends.Child, cid, cvals, false));
             }
@@ -547,7 +663,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         }
 
         // A cascade rewrites a row, so it owes the row everything an UPDATE of it does — and the same code does it.
-        UpdateRow(ends.Child, childId, childValues, newValues, stillToWrite);
+        UpdateRow(ends.Child, childId, childValues, newValues, stillToWrite, cascaded: true);
     }
 
     /// <summary>
@@ -555,9 +671,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// reaches — after checking it against every rule an updated row is held to, then applies the ON UPDATE rules
     /// of any relationship whose key it changed. The one place a row is rewritten: a cascaded row is checked
     /// exactly as a directly updated one, and a cascade that changes a key others reference carries on down.
+    /// <paramref name="cascaded"/> says a cascade is writing it, which ACE words a refused CHECK differently for.
     /// </summary>
     private void UpdateRow(Table table, RowId id, object?[] original, object?[] values,
-        Dictionary<(int Tdef, RowId Id), object?[]>? stillToWrite)
+        Dictionary<(int Tdef, RowId Id), object?[]>? stillToWrite, bool cascaded)
     {
         var changed = new HashSet<int>();
         for (int i = 0; i < values.Length; i++)
@@ -595,11 +712,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                     index.Name,
                     index.IsPrimaryKey);
 
-        // The updated row must still satisfy every CHECK constraint (evaluated against the full new row).
-        EnforceCheckConstraints(table.Definition, values);
-
         table.Update(id, values, changed);
         stillToWrite?.Remove((table.Definition.DefinitionPage, id));
+
+        // The updated row must still satisfy every CHECK constraint.
+        EnforceCheckConstraints(table.Definition, values, cascaded);
 
         // Parent side, once the row holds its new key: a changed referenced-key column triggers each relationship's
         // ON UPDATE action (CASCADE rewrites the children, NO ACTION rejects if any exist). After the write, so a
@@ -633,10 +750,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // A procedure is a parameterized stored query: a view spec plus a parameter row per declared
         // parameter (name + Jet type code, resolved from the declared Access type name).
         //
-        // Deliberately NOT MapColumn: this declares no storage, so there is no column forcing the file's
-        // hand, and a BIGINT/DATETIME2 parameter on an older format is left to fail. Upgrading a whole
-        // database for a saved query's parameter type is a bigger claim than anything measured — what ACE
-        // does with a new-type parameter in MSysQueries has not been probed, unlike the column case.
+        // A parameter declares no storage, so its type neither raises the file nor is refused by it: ACE stores a
+        // BIGINT or DATETIME2 parameter on an ACE 12 file with its type, and the version byte stays 0x02 (verified).
         _database.CreateView(
             statement.Name,
             BuildViewSpec(statement.Definition) with { Parameters = BuildParameterSpecs(statement.Parameters) });
@@ -645,7 +760,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     /// <summary>The declared parameters of a stored query as the rows that hold them: each name with the Jet
     /// type code its declared Access type maps to. An action query declares them exactly as a SELECT does.</summary>
-    private List<ViewParameterSpec>? BuildParameterSpecs(IReadOnlyList<ProcedureParameter>? parameters) =>
+    private static List<ViewParameterSpec>? BuildParameterSpecs(IReadOnlyList<ProcedureParameter>? parameters) =>
         parameters is null or { Count: 0 }
             ? null
             : parameters
@@ -653,8 +768,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                     p.Stored ?? p.Name,
                     // The declared size decides the type code as well as being stored: Text(50) is a Text
                     // parameter (code 10) where a bare Text is a memo (12), which is what ACE records.
-                    (byte)AccessTypeMapper.ToColumnSpec(
-                        new ColumnDefinition(p.Name, p.TypeName, p.Size, p.Scale, false, false), _database.Format.Version).Type,
+                    (byte)AccessTypeMapper.ToColumnSpec(new ColumnDefinition(p.Name, p.TypeName, p.Size, p.Scale, false, false)).Type,
                     p.Size, p.Scale))
                 .ToList();
 
@@ -756,8 +870,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         ColumnDefinition column = add.Column;
         // NOT NULL and DEFAULT are written to the column's LvProp properties (Required / DefaultValue).
-        ColumnSpec spec = MapColumn(column);
-        ValidateColumnDefault(spec, column.Default);
+        ColumnSpec spec = AccessTypeMapper.ToColumnSpec(column);
         if (!_database.AddColumn(table, spec, column.Default))
             throw new InvalidOperationException($"ALTER TABLE '{table}' ADD COLUMN '{column.Name}': the column already exists.");
         // The column's constraints apply to it as in CREATE TABLE — a primary key, a unique index, a relationship —
@@ -770,34 +883,6 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         if (add.References is { } references)
             AddForeignKey(table, references);
         return 0;
-    }
-
-    /// <summary>Rejects a DEFAULT expression the storage engine can't accept — matching ACE's CREATE-time
-    /// validation. Currently: <c>GenUniqueID()</c> is only valid on a <c>LONG</c> (Int32) column; every other
-    /// type raises "Cannot place this validation expression on this field" (verified across BYTE/SHORT/SINGLE/
-    /// DOUBLE/CURRENCY/DECIMAL/GUID/DATETIME/BIT/TEXT).</summary>
-    private static void ValidateColumnDefault(ColumnSpec spec, string? defaultSql) =>
-        ValidateColumnDefault(spec.Name, spec.Type, defaultSql);
-
-    private static void ValidateColumnDefault(string columnName, JetDataType type, string? defaultSql)
-    {
-        if (defaultSql is not null
-            && defaultSql.Trim().Equals("GenUniqueID()", StringComparison.OrdinalIgnoreCase)
-            && type != JetDataType.Int32)
-            throw new InvalidOperationException(
-                $"Cannot place this validation expression on this field. GenUniqueID() is only valid as the " +
-                $"DEFAULT of a LONG (Int32) column (column '{columnName}').");
-    }
-
-    /// <summary>The same check for a column that already exists, so every statement that can write a
-    /// <c>DefaultValue</c> property passes it. CREATE TABLE and ADD COLUMN validated against the spec they
-    /// were handed; the two ALTER forms wrote the property straight through, which let a default ACE refuses
-    /// at DDL time be persisted — and then evaluated, putting a random Int32 into a Text column on insert.
-    /// A column the catalog cannot find is left to the layer below to report.</summary>
-    private void ValidateExistingColumnDefault(string table, string column, string? defaultSql)
-    {
-        if (_database.Catalog.FindTable(table)?.FindColumn(column) is { } existing)
-            ValidateColumnDefault(existing.Name, existing.Type, defaultSql);
     }
 
     private int DropColumn(string table, string column)
@@ -817,14 +902,15 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private int DropTable(string table)
     {
         if (!_database.DropTable(table))
-            throw new InvalidOperationException($"DROP TABLE '{table}': no such table.");
+            throw new InvalidOperationException($"Table '{table}' does not exist.");   // ACE's message (verified)
         return 0;
     }
 
-    private int DropQueryObject(string name, string kind)
+    // ACE refuses a DROP VIEW or DROP PROCEDURE of nothing with its DDL message (verified).
+    private int DropQueryObject(string name)
     {
         if (!_database.DropQueryObject(name))
-            throw new InvalidOperationException($"DROP {kind.ToUpperInvariant()} '{name}': no such {kind}.");
+            throw new InvalidOperationException("Cannot find table or constraint.");
         return 0;
     }
 
@@ -850,7 +936,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     private int AddCheck(string table, AddCheckAction chk)
     {
-        _database.AddCheckConstraint(table, chk.Check.Name ?? $"CK_{table}", chk.Check.Expression);
+        // A missing table is left for the design path to report, as it always has: it reads nothing.
+        TableDefinition? definition = _database.Catalog.FindTable(table);
+        _database.AddCheckConstraint(table, chk.Check.Name ?? $"CK_{table}", chk.Check.Expression, definition is null ? []
+            : CheckReads(definition.Name, [.. definition.Columns.Select(c => c.Name)], chk.Check.Expression));
         return 0;
     }
 
@@ -858,11 +947,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         var colDef = new ColumnDefinition(alter.Field, alter.TypeName, alter.Size, alter.Scale, NotNull: false, PrimaryKey: false,
             Identity: alter.Identity);
-        ColumnSpec spec = MapColumn(colDef);
-        // Validated against the column's NEW type, and before the type change, so a rejected DEFAULT leaves
-        // the whole statement having done nothing.
-        ValidateColumnDefault(spec, alter.Default);
-        _database.AlterColumn(table, alter.Field, spec);
+        // A DEFAULT the new type refuses fails the statement, and its transaction takes the type change back with it.
+        _database.AlterColumn(table, alter.Field, AccessTypeMapper.ToColumnSpec(colDef));
         // Apply DEFAULT before Required so the column's property map keeps ACE's order (DefaultValue, then Required).
         if (alter.Default is not null)   // ALTER COLUMN … DEFAULT: set the column's default after the type change
             _database.SetColumnDefault(table, alter.Field, alter.Default);
@@ -873,7 +959,6 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     private int SetColumnDefault(string table, AlterColumnSetDefaultAction set)
     {
-        ValidateExistingColumnDefault(table, set.Field, set.Default);
         _database.SetColumnDefault(table, set.Field, set.Default);
         return 0;
     }
@@ -889,18 +974,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         RelationshipSpec relationship = ToRelationshipSpec(table, fk);
         _database.AddForeignKey(table, relationship);
 
-        // ACE refuses a relationship the existing rows already break — an orphan, or a partly null composite key
-        // (verified; the ON DELETE action makes no difference). Checked against the relationship as the catalog
-        // now holds it, a REFERENCES with no column list resolved to the parent's primary key; the statement's own
-        // rollback takes the relationship back out when the check fails.
         ForeignKey added = _database.Catalog.Relationships.Single(
             r => string.Equals(r.Name, relationship.Name, StringComparison.OrdinalIgnoreCase));
         RelationshipIdentity identity = Identify(added)!;
-        bool Holds() => CurrentRelationship(identity) is not { } current || ExistingRowsHaveParents(current);
-        if (!Holds())
-            throw new InvalidOperationException(
-                "Cannot create relationships to enforce referential integrity. Existing data in table "
-                + $"'{added.Table}' violates referential integrity rules in table '{added.ReferencedTable}'.");
+        bool Holds() => CurrentRelationship(identity) is not { } current || _database.ExistingRowsHaveParents(current);
 
         // ACE then holds both tables exclusively until the transaction ends, so nothing can delete a parent the
         // check found (verified: another connection's DELETE is refused). LibRed takes no table locks, so the
@@ -938,7 +1015,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             Body: statement.Body is { } body ? BuildViewSpec(body) : null,
             Parameters: BuildParameterSpecs(statement.Parameters),
             DeleteTarget: statement.DeleteTarget,
-            OwnerAccess: statement.OwnerAccess);
+            OwnerAccess: statement.OwnerAccess,
+            TargetDatabase: ExternalSpec(statement.TargetDatabase));
 
         _database.CreateActionQuery(statement.Name, spec);
         return 0;
@@ -958,7 +1036,15 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         OrderBy: d.OrderBy.Select(o => new ViewOrderBySpec(o.Expression, o.Descending)).ToList(),
         Top: d.Top,
         TopPercent: d.TopPercent,
-        OwnerAccess: d.OwnerAccess);
+        OwnerAccess: d.OwnerAccess,
+        Union: d.Union,
+        Database: ExternalSpec(d.Database),
+        Crosstab: d.Crosstab is { } c ? new ViewCrosstabSpec(c.Value, c.ValueAlias, c.Pivot, c.PivotColumn) : null,
+        AllFields: d.AllFields,
+        DistinctRow: d.DistinctRow);
+
+    private static ExternalDatabaseSpec? ExternalSpec(ExternalDatabase? database) =>
+        database is null ? null : new ExternalDatabaseSpec(database.Path, database.Connect);
 
     /// <summary>
     /// A make-table query: <c>SELECT … INTO newtable FROM source</c>.
@@ -976,40 +1062,101 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // A taken name — a table's, a query's or a linked table's — is refused by CreateTable, before anything is
         // written; the read below has no side effect to undo.
         string target = statement.Into!;
+        // An IN externaldatabase after INTO makes the table in that file (verified vs ACE).
+        JetDatabase into = ExternalDatabases.Open(_database, statement.IntoDatabase, writable: true);
+        // Both of these before a row is read (verified vs ACE): the same table as source and destination is reported
+        // first, and a read-only database is refused straight after it. A table of that name in another file is
+        // another table: ACE reports it as the name being taken.
+        if (TablesIn(statement.From).Any(t => string.Equals(t.Name, target, StringComparison.OrdinalIgnoreCase)
+                && ExternalDatabases.Open(_database, t.Database) == into))
+            throw new InvalidOperationException(
+                $"Same table '{target}' referenced as both the source and destination in make-table query.");
+        into.RefuseIfReadOnly(ReadOnlyWrite.DatabaseOrObject);
 
         // Run the query first — with INTO stripped, or planning would recurse back into this method — and
         // materialise it. The rows have to exist before the table does: the source may read a table this
         // statement is about to change, and the row count is not known until the read completes.
-        ResultSet source = _scalarRunner.ExecuteQuery(Planning.ColumnPruning.Apply(Planning.IndexSelection.Apply(
-            Planning.QueryPlanner.PlanSelect(statement with { Into = null }), _database.Catalog)));
+        ResultSet source = _scalarRunner.ExecuteQuery(Planning.IndexSelection.Apply(
+            Planning.QueryPlanner.PlanSelect(statement with { Into = null }), _database));
         var rows = source.Rows.ToList();
 
-        // A result column that IS a source column keeps that column's DEFINITION — its type and its declared
-        // width. Only a computed column is typed from its value. Measured: a source Text(30) arrives as
-        // Text(60) bytes, not the Text(510) maximum, while a concatenation does get the maximum because
-        // there is no declared width to copy.
+        // A result column that IS a source column keeps that column's DEFINITION — its type, its declared
+        // width and whether it is an AutoNumber. Only a computed column is typed from its value. Measured: a
+        // source Text(30) arrives as Text(60) bytes, not the Text(510) maximum, while a concatenation does get
+        // the maximum because there is no declared width to copy; and a COUNTER arrives as a COUNTER — with the
+        // default step whatever the source's, its counter left on the last id copied. Every column's ordinal counts
+        // from 1 (all verified vs ACE, WholeFileParityProbeTest).
         var sourceColumns = SourceColumnsFor(statement);
         var specs = source.ColumnNames
-            .Select((name, i) => sourceColumns.TryGetValue(name, out ColumnDef? column)
-                ? new ColumnSpec(name, column.Type, column.Length, column.IsFixedLength,
+            .Select((name, i) => (sourceColumns.TryGetValue(name, out ColumnDef? column)
+                ? new ColumnSpec(name, column.Type, column.Length, column.IsFixedLength, column.IsAutoNumber,
                                  Precision: column.Precision, Scale: column.Scale)
-                : ColumnSpecFor(name, source.ColumnTypes[i]))
+                : ColumnSpecFor(source.Columns[i])) with
+            { Ordinal = i + 1 })
             .ToList();
-        _database.CreateTable(target, specs);
 
-        // Written the way every inserted row is, so whatever the new table carries is checked as INSERT checks it.
+        // ACE fills in every column's descriptor from one structure, whose collation shares its bytes with a
+        // Decimal's precision and scale. So after a Decimal, each later column but a text one, whose collation is
+        // its own, carries the latest Decimal's precision and scale there as two words — 0C 00 02 00 after a
+        // DECIMAL(12,2) — and the next statement starts afresh (verified vs ACE, copied columns included,
+        // AceDecimalPrecisionProbeTest.Make_table_descriptor_union_probe; a Memo is taken to be text, unmeasured).
+        ColumnSpec? carried = null;
+        for (int i = 0; i < specs.Count; i++)
+        {
+            if (specs[i].Type == JetDataType.FixedPoint)
+                carried = specs[i];
+            else if (specs[i].Type is not (JetDataType.Text or JetDataType.Memo) && carried is not null)
+                specs[i] = specs[i] with { Precision = carried.Precision, Scale = carried.Scale };
+        }
+
+        WriteIn(into, executor => executor.MakeTable(target, specs, rows));
+
+        if (_session is not null) _session.RowCount = rows.Count;
+        return rows.Count;
+    }
+
+    /// <summary>Runs a statement's writes on the database they go to: this one, within the statement, or another file
+    /// an IN externaldatabase names, written as a statement on it would be — under its own exclusive scope and in its
+    /// own transaction, so a failure part-way leaves nothing half-written there either. Its rows are checked against
+    /// that file's catalog, by an executor of its own.</summary>
+    private void WriteIn(JetDatabase into, Action<StatementExecutor> write)
+    {
+        if (into == _database)
+        {
+            write(this);
+            return;
+        }
+        into.WriteExclusive(() =>
+        {
+            into.BeginTransaction();
+            try
+            {
+                write(new StatementExecutor(into, null, _parser));
+                into.Commit(flush: false);
+            }
+            catch
+            {
+                into.Rollback(failed: true);
+                throw;
+            }
+            return 0;
+        });
+    }
+
+    /// <summary>Creates a make-table query's new table and writes its rows into it, each the way every inserted row is,
+    /// so whatever the new table carries is checked as INSERT checks it.</summary>
+    private void MakeTable(string target, List<ColumnSpec> specs, List<object?[]> rows)
+    {
+        _database.CreateTable(target, specs);
         Table table = _database.OpenTable(target);
         RowDefaults defaults = DefaultsOf(table.Definition);
-        var provided = Enumerable.Range(0, specs.Count).ToHashSet();
+        var provided = Enumerable.Range(0, specs.Count).ToList();
         foreach (object?[] row in rows)
         {
             var values = new object?[specs.Count];
             Array.Copy(row, values, Math.Min(row.Length, values.Length));
             InsertNewRow(target, table, defaults, values, provided);
         }
-
-        if (_session is not null) _session.RowCount = rows.Count;
-        return rows.Count;
     }
 
     /// <summary>
@@ -1023,8 +1170,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private Dictionary<string, ColumnDef> SourceColumnsFor(SelectStatement statement)
     {
         var available = new Dictionary<string, ColumnDef>(StringComparer.OrdinalIgnoreCase);
-        foreach (string table in TablesIn(statement.From))
-            if (_database.Catalog.FindTable(table) is { } def)
+        foreach (NamedTable table in TablesIn(statement.From))
+            if (ExternalDatabases.Open(_database, table.Database).Catalog.FindTable(table.Name) is { } def)
                 foreach (ColumnDef column in def.Columns)
                     available.TryAdd(column.Name, column);
 
@@ -1038,10 +1185,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         return byOutputName;
     }
 
-    /// <summary>The table names a FROM clause reaches, so their column definitions can be found.</summary>
-    private static IEnumerable<string> TablesIn(TableReference? from) => from switch
+    /// <summary>The tables a FROM clause reaches, so their column definitions can be found.</summary>
+    private static IEnumerable<NamedTable> TablesIn(TableReference? from) => from switch
     {
-        NamedTable named => [named.Name],
+        NamedTable named => [named],
         JoinTable join => [.. TablesIn(join.Left), .. TablesIn(join.Right)],
         // A derived table has no stored column definitions to copy, so its columns fall back to being typed
         // from their values — as a computed column does.
@@ -1050,23 +1197,35 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     /// <summary>The column a COMPUTED result column becomes. Text takes the 255-character maximum, because an
     /// expression carries no declared width — ACE gives a concatenation Text(255) rather than measuring the
-    /// values it produced.</summary>
-    private static ColumnSpec ColumnSpecFor(string name, Type clrType) => Type.GetTypeCode(clrType) switch
+    /// values it produced. A Boolean, Byte or Integer result is a fixed Integer; every other number and a date
+    /// keep their type but are variable-length, a Single widening to Double (verified vs ACE on CBool, a
+    /// comparison, CByte, CInt, CLng, CSng, CDbl, CCur, CDate, COUNT, SUM and arithmetic,
+    /// WholeFileParityProbeTest). A Decimal is a DECIMAL of the precision and scale the result has
+    /// (<see cref="ExpressionEvaluator.NumberTypeOf"/>), whose length is the bytes the largest number of that
+    /// precision takes and a sign byte — 6 for DECIMAL(12,2), 13 for DECIMAL(28,2) — where a declared DECIMAL's
+    /// is 17; its values are 17 bytes whichever (verified vs ACE, AceDecimalPrecisionProbeTest.Make_table_column_type_probe).
+    /// A Decimal with no scale of its own is a Double.</summary>
+    private static ColumnSpec ColumnSpecFor(ResultColumn column) => Type.GetTypeCode(column.ClrType) switch
     {
-        TypeCode.Boolean => new ColumnSpec(name, JetDataType.Boolean, 1, IsFixedLength: true),
-        TypeCode.Byte => new ColumnSpec(name, JetDataType.Byte, 1, IsFixedLength: true),
-        TypeCode.Int16 => new ColumnSpec(name, JetDataType.Int16, 2, IsFixedLength: true),
-        TypeCode.Int32 => new ColumnSpec(name, JetDataType.Int32, 4, IsFixedLength: true),
-        TypeCode.Single => new ColumnSpec(name, JetDataType.Single, 4, IsFixedLength: true),
-        TypeCode.Double => new ColumnSpec(name, JetDataType.Double, 8, IsFixedLength: true),
-        TypeCode.Decimal => new ColumnSpec(name, JetDataType.Currency, 8, IsFixedLength: true),
-        TypeCode.DateTime => new ColumnSpec(name, JetDataType.DateTime, 8, IsFixedLength: true),
+        TypeCode.Boolean or TypeCode.Byte or TypeCode.Int16 => new ColumnSpec(column.Name, JetDataType.Int16, 2, IsFixedLength: true),
+        TypeCode.Int32 => new ColumnSpec(column.Name, JetDataType.Int32, 4, IsFixedLength: false),
+        // A BIGINT, as AccessTypeMapper declares one (verified vs ACE: BIGINT * 2 makes one).
+        TypeCode.Int64 => new ColumnSpec(column.Name, JetDataType.Int64, 8, IsFixedLength: false),
+        TypeCode.Single or TypeCode.Double => new ColumnSpec(column.Name, JetDataType.Double, 8, IsFixedLength: false),
+        TypeCode.Decimal when column.TypeName == "Currency" =>
+            new ColumnSpec(column.Name, JetDataType.Currency, 8, IsFixedLength: false),
+        TypeCode.Decimal when column is { Precision: int precision, Scale: int scale } => new ColumnSpec(
+            column.Name, JetDataType.FixedPoint,
+            (System.Numerics.BigInteger.Pow(10, precision) - 1).GetByteCount(isUnsigned: true) + 1,
+            IsFixedLength: false, Precision: (byte)precision, Scale: (byte)scale),
+        TypeCode.Decimal => new ColumnSpec(column.Name, JetDataType.Double, 8, IsFixedLength: false),
+        TypeCode.DateTime => new ColumnSpec(column.Name, JetDataType.DateTime, 8, IsFixedLength: false),
         // Variable, like every GUID column ACE declares — including through SELECT INTO, which is this
         // method's caller (verified: ACE's `SELECT G INTO Dst` gives Dst.G length 16, fixed flag clear).
         // See AccessTypeMapper for the same rule on a declared column, and BIGINT for the same shape.
-        _ when clrType == typeof(Guid) => new ColumnSpec(name, JetDataType.Guid, 16, IsFixedLength: false),
-        _ when clrType == typeof(byte[]) => new ColumnSpec(name, JetDataType.Binary, 255, IsFixedLength: false),
-        _ => new ColumnSpec(name, JetDataType.Text, 255 * 2, IsFixedLength: false),
+        _ when column.ClrType == typeof(Guid) => new ColumnSpec(column.Name, JetDataType.Guid, 16, IsFixedLength: false),
+        _ when column.ClrType == typeof(byte[]) => new ColumnSpec(column.Name, JetDataType.Binary, 255, IsFixedLength: false),
+        _ => new ColumnSpec(column.Name, JetDataType.Text, 255 * 2, IsFixedLength: false),
     };
 
     /// <summary>Sentinel standing for an explicit <c>DEFAULT</c> row value. Reference identity is what marks
@@ -1093,25 +1252,57 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     /// <summary>Writes a new row: every column not in <paramref name="provided"/> takes its default (an explicit
     /// NULL is left as NULL), the row is checked as any insert is, and it is written. Returns its AutoNumber value,
-    /// if it has one.</summary>
-    private object? InsertNewRow(string tableName, Table table, RowDefaults defaults, object?[] values, HashSet<int> provided)
+    /// if it has one. <paramref name="provided"/> is in the order the statement names the columns.</summary>
+    /// <remarks>A Text column's default is cut to the column's width, where a value supplied for it is refused
+    /// (verified vs ACE: <c>DEFAULT 'abcdefghijklmnopqrstuvwxyz'</c> on a <c>TEXT(20)</c> stores its first 20
+    /// characters, and <c>DEFAULT Now()</c> the first 20 of the date's text). A supplied column's default is evaluated
+    /// too where it can size the record's slack — a variable column's, not a Memo's or OLE's: ACE writes the row
+    /// over the record of them all (spec §5).</remarks>
+    private object? InsertNewRow(string tableName, Table table, RowDefaults defaults, object?[] values, List<int> provided)
     {
         var evaluator = new ExpressionEvaluator(new EvalScope([], [], null), _scalarRunner, parameters: _parameters);
+        var defaultRecord = new object?[values.Length];
         foreach (var (index, expression) in defaults.Columns)
-            if (!provided.Contains(index))
-                values[index] = evaluator.Evaluate(expression);
+        {
+            ColumnDef column = table.Definition.Columns[index];
+            bool supplied = provided.Contains(index);
+            if (supplied && (column.IsFixedLength || column.IsCalculated || column.Type is JetDataType.Memo or JetDataType.Ole))
+                continue;
+            object? value;
+            if (!supplied) value = evaluator.Evaluate(expression);
+            else
+                try { value = evaluator.Evaluate(expression); }
+#pragma warning disable CA1031 // a supplied column's default only sizes the record's slack: one that cannot be evaluated adds none rather than failing a row that never takes it
+                catch (Exception) { value = null; }
+#pragma warning restore CA1031
+            if (column.Type == JetDataType.Text && value is not null && JetStoreType.MaxLength(column) is int width
+                && LibRed.Storage.Types.VbaText.Of(value) is var text && text.Length > width)
+                value = text[..width];
+            defaultRecord[index] = value;
+            if (!supplied) values[index] = value;
+        }
 
-        EnforceRequired(tableName, table.Definition.Columns, values);
-        EnforceReferentialIntegrity(tableName, table, values);
-        EnforceCheckConstraints(table.Definition, values);
-        table.Insert(values); // fills values[autoNumber.Index] with the generated id (array mutated in place)
+        // Checked as ACE checks them: a required column once the row's ids are drawn, so a refused row uses up its
+        // AutoNumber; a reference once the row is written. Insert fills values[autoNumber.Index] with the generated
+        // id (array mutated in place).
+        table.Insert(values, defaultRecord, provided,
+            validate: row => EnforceRequired(tableName, table.Definition.Columns, row),
+            reference: row => EnforceReferentialIntegrity(tableName, table, row));
+        EnforceCheckConstraints(table.Definition, values, cascaded: false);
+        _database.AcceptCounters();   // the row stands: a later failure of the statement keeps its counting, as ACE's does
         return defaults.AutoNumber is { } autoNumber ? values[autoNumber.Index] : null;
     }
 
     private int ExecuteInsert(InsertStatement statement)
     {
-        Table table = _database.OpenTable(statement.Table);
-        var columns = table.Definition.Columns;
+        // An IN externaldatabase puts the target in that file, and only the target: the values and the source are read
+        // from this one (verified vs ACE).
+        JetDatabase into = ExternalDatabases.Open(_database, statement.TableDatabase, writable: true);
+        // The target is the one table ACE names differently when it is missing (verified), in another file too.
+        if (into.Catalog.FindTable(statement.Table) is not { } definition)
+            throw new InvalidOperationException($"Could not find output table '{statement.Table}'.");
+        // Before the column list and the values: ACE refuses a read-only database on finding the table (verified).
+        into.RefuseIfReadOnly(ReadOnlyWrite.Row);
 
         // Target columns: the explicit list; DEFAULT VALUES provides none (every column takes its default);
         // otherwise a bare VALUES (…) targets all columns in order.
@@ -1119,10 +1310,66 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             ? statement.Columns
             : statement.DefaultValues
                 ? []
-                : columns.Select(c => c.Name).ToList();
+                : definition.Columns.Select(c => c.Name).ToList();
 
         var evaluator = new ExpressionEvaluator(
             new EvalScope([], [], null), _scalarRunner, parameters: _parameters);
+        IEnumerable<object?[]> rows;
+
+        if (statement.Source is not null)
+        {
+            // The multiple-record form. The source is MATERIALISED before a single row is written: appending
+            // a table to itself otherwise feeds its own output back into the scan and never terminates.
+            // Access's INSERT INTO t SELECT * FROM t doubles the table and stops, so the read completes
+            // before the write begins.
+            ResultSet source = _scalarRunner.ExecuteQuery(
+                Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(statement.Source), _database));
+            rows = source.Rows.ToList();
+
+            // With no column list the source's output NAMES choose the target columns — ACE resolves by name,
+            // not by position. Measured, because the two only disagree when they disagree silently:
+            //   INSERT INTO PDst SELECT B AS Name, A AS Id FROM PSrc
+            // stores Id=7, Name='seven' — the values routed by their aliases, not by the order they appear
+            // in. Positionally that would have put 'seven' in Id. ACE rejects a name the target lacks
+            // ("unknown field name: 'A'"), including through SELECT *, and FindColumn below does the same.
+            //
+            // An explicit column list is the other rule entirely: it names the targets and the source's
+            // values map positionally onto IT, whatever the source calls them.
+            if (statement.Columns.Count == 0)
+                targets = source.ColumnNames;
+        }
+        else
+            // Each row's values are evaluated as that row is written.
+            rows = statement.Rows.Select(rowExprs => rowExprs
+                // DEFAULT is a marker, not something to evaluate — it is carried through as a sentinel so
+                // InsertRow can tell "take the column's default" apart from any value, NULL included.
+                .Select(e => e is DefaultValueExpression ? DefaultRowValue : evaluator.Evaluate(e))
+                .ToArray());
+
+        (int affected, object? lastIdentity, bool generates) = (0, null, false);
+        WriteIn(into, executor => (affected, lastIdentity, generates) = executor.AppendRows(statement.Table, targets, rows));
+
+        // Publish @@ROWCOUNT (rows this insert affected) and @@IDENTITY (the last AutoNumber generated) so a
+        // following SELECT in the same batch can read the store-generated key back — the shape EF Core emits.
+        // @@IDENTITY is connection-scoped and only overwritten by an insert that actually generates an id,
+        // so an insert into a keyless table leaves the previous value intact (matching Access).
+        if (_session is not null)
+        {
+            _session.RowCount = affected;
+            if (generates)
+                _session.LastIdentity = lastIdentity;
+        }
+        return affected;
+    }
+
+    /// <summary>Appends an INSERT's rows to a table of this database, each given its values in the order of
+    /// <paramref name="targets"/>: how many it wrote, the last AutoNumber it generated, and whether the table has
+    /// one.</summary>
+    private (int Affected, object? LastIdentity, bool Generates) AppendRows(
+        string tableName, IReadOnlyList<string> targets, IEnumerable<object?[]> rows)
+    {
+        Table table = _database.OpenTable(tableName);
+        var columns = table.Definition.Columns;
         RowDefaults defaults = DefaultsOf(table.Definition);
 
         int affected = 0;
@@ -1137,11 +1384,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                     $"INSERT has {supplied.Length} values but {targets.Count} target columns.");
 
             var values = new object?[columns.Count];
-            var provided = new HashSet<int>();
+            var provided = new List<int>();
             for (int i = 0; i < targets.Count; i++)
             {
                 ColumnDef column = table.Definition.FindColumn(targets[i])
-                    ?? throw new InvalidOperationException($"Column '{targets[i]}' does not exist in '{statement.Table}'.");
+                    ?? throw new InvalidOperationException($"Column '{targets[i]}' does not exist in '{tableName}'.");
 
                 // An explicit DEFAULT is not a value: leaving the column out of `provided` routes it through
                 // InsertNewRow's default filling, so it takes its declared default, or stays NULL when it has
@@ -1154,68 +1401,20 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 // (verified vs ACE) — to the row inserter a Null means "generate the next id".
                 if (supplied[i] is null && column.IsAutoNumber && column.Type == JetDataType.Int32)
                     throw new InvalidOperationException(
-                        $"Cannot insert a Null value into AutoNumber field '{statement.Table}.{column.Name}'.");
+                        $"Cannot insert a Null value into AutoNumber field '{tableName}.{column.Name}'.");
 
                 values[column.Index] = supplied[i];
-                provided.Add(column.Index);
+                if (!provided.Contains(column.Index)) provided.Add(column.Index);
             }
 
-            object? identity = InsertNewRow(statement.Table, table, defaults, values, provided);
+            object? identity = InsertNewRow(tableName, table, defaults, values, provided);
             if (defaults.AutoNumber is not null)
                 lastIdentity = identity;
             affected++;
         }
 
-        if (statement.Source is not null)
-        {
-            // The multiple-record form. The source is MATERIALISED before a single row is written: appending
-            // a table to itself otherwise feeds its own output back into the scan and never terminates.
-            // Access's INSERT INTO t SELECT * FROM t doubles the table and stops, so the read completes
-            // before the write begins.
-            ResultSet source = _scalarRunner.ExecuteQuery(Planning.ColumnPruning.Apply(
-                Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(statement.Source), _database.Catalog)));
-            var rows = source.Rows.ToList();
-
-            // With no column list the source's output NAMES choose the target columns — ACE resolves by name,
-            // not by position. Measured, because the two only disagree when they disagree silently:
-            //   INSERT INTO PDst SELECT B AS Name, A AS Id FROM PSrc
-            // stores Id=7, Name='seven' — the values routed by their aliases, not by the order they appear
-            // in. Positionally that would have put 'seven' in Id. ACE rejects a name the target lacks
-            // ("unknown field name: 'A'"), including through SELECT *, and FindColumn below does the same.
-            //
-            // An explicit column list is the other rule entirely: it names the targets and the source's
-            // values map positionally onto IT, whatever the source calls them.
-            if (statement.Columns.Count == 0)
-                targets = source.ColumnNames;
-
-            foreach (object?[] row in rows) InsertRow(row);
-        }
-        else
-        {
-            foreach (IReadOnlyList<Expression> rowExprs in statement.Rows)
-            {
-                var supplied = new object?[rowExprs.Count];
-                for (int i = 0; i < rowExprs.Count; i++)
-                    // DEFAULT is a marker, not something to evaluate — it is carried through as a sentinel so
-                    // InsertRow can tell "take the column's default" apart from any value, NULL included.
-                    supplied[i] = rowExprs[i] is DefaultValueExpression
-                        ? DefaultRowValue
-                        : evaluator.Evaluate(rowExprs[i]);
-                InsertRow(supplied);
-            }
-        }
-
-        // Publish @@ROWCOUNT (rows this insert affected) and @@IDENTITY (the last AutoNumber generated) so a
-        // following SELECT in the same batch can read the store-generated key back — the shape EF Core emits.
-        // @@IDENTITY is connection-scoped and only overwritten by an insert that actually generates an id,
-        // so an insert into a keyless table leaves the previous value intact (matching Access).
-        if (_session is not null)
-        {
-            _session.RowCount = affected;
-            if (defaults.AutoNumber is not null)
-                _session.LastIdentity = lastIdentity;
-        }
-        return affected;
+        foreach (object?[] row in rows) InsertRow(row);
+        return (affected, lastIdentity, defaults.AutoNumber is not null);
     }
 
     /// <summary>A table participating in an UPDATE/DELETE source: its alias, columns (alias-qualified, for the
@@ -1334,7 +1533,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             // because the body runs once per outer row.
             var outerColumns = tables.SelectMany(t => t.Columns).ToList();
             Plan.PlanNode plan = Planning.ColumnPruning.Apply(Planning.IndexSelection.Apply(
-                Planning.QueryPlanner.PlanStatement(sq.Query), _database.Catalog,
+                Planning.QueryPlanner.PlanStatement(sq.Query), _database,
                 tables.Select(t => t.Alias).ToHashSet(StringComparer.OrdinalIgnoreCase)));
 
             // The rows vary per outer row but the schema does not, and JoinRows needs it before reading any row.
@@ -1579,8 +1778,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // PlanStatement, not PlanSelect: EF puts a set operation here for Union/Except/Intersect/Concat before
         // an ExecuteUpdate, and a table value constructor for an inline collection. Same widening as the
         // subquery predicates needed, for the same reason - a derived table is a query expression.
-        var plan = Planning.ColumnPruning.Apply(
-            Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(query), _database.Catalog));
+        var plan = Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(query), _database);
         ResultSet result = _scalarRunner.ExecuteQuery(plan);
         var columns = result.ColumnNames.Select((name, i) => new OutputColumn(alias, name, result.ColumnTypes[i])).ToList();
         return (columns, result.Rows.ToList());
@@ -1752,19 +1950,24 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// names, which is all that choosing the rows and evaluating the SETs look at — but a row is rewritten, its
     /// constraints checked and its index entries moved from all of its values. The rest are filled into the same
     /// array, which every joined row of that physical row shares, before any of it is read.
+    /// <para>All but a calculated column the statement does not name: the rewrite carries its stored result over,
+    /// or recomputes it, without ever reading it — so a row whose result cannot be read, a cached error or one ACE
+    /// will not evaluate, can still be updated or deleted, as in ACE.</para>
     /// </summary>
     private void CompleteRows(List<(RowId Id, object?[] Values)[]> joinRows, List<SourceTable> tables, IEnumerable<int> targets)
     {
         int[] pruned = [.. targets.Distinct().Where(t =>
             tables[t].Table is { } table && Planning.ColumnPruning.Mask(table.Definition, _readNames) is not null)];
         if (pruned.Length == 0) return;
+        Dictionary<int, bool[]> written = pruned.ToDictionary(ti => ti, ti => tables[ti].Table!.DecodeOnly(
+            tables[ti].Table!.Definition.Columns.Where(c => !c.IsCalculated || _readNames!.Contains(c.Name)).Select(c => c.Index)));
 
         var done = new HashSet<object?[]>(ReferenceEqualityComparer.Instance);
         foreach (var combo in joinRows)
             foreach (int ti in pruned)
             {
                 if (IsNullExtended(combo[ti]) || !done.Add(combo[ti].Values)) continue;
-                object?[] full = tables[ti].Table!.GetRow(combo[ti].Id)
+                object?[] full = tables[ti].Table!.GetRow(combo[ti].Id, written[ti])
                     ?? throw new InvalidOperationException($"Row {combo[ti].Id} of '{tables[ti].Table!.Name}' vanished while it was being read.");
                 Array.Copy(full, combo[ti].Values, full.Length);
             }
@@ -1773,9 +1976,17 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// <summary>Concatenates the value arrays of the first <paramref name="count"/> accumulated join rows.</summary>
     private static object?[] Flatten((RowId, object?[])[] acc, int count)
     {
-        var flat = new List<object?>();
-        for (int i = 0; i < count; i++) flat.AddRange(acc[i].Item2);
-        return [.. flat];
+        int length = 0;
+        for (int i = 0; i < count; i++) length += acc[i].Item2.Length;
+        var flat = new object?[length];
+        int offset = 0;
+        for (int i = 0; i < count; i++)
+        {
+            object?[] values = acc[i].Item2;
+            Array.Copy(values, 0, flat, offset, values.Length);
+            offset += values.Length;
+        }
+        return flat;
     }
 
     /// <summary>If table <paramref name="i"/>'s own join <paramref name="on"/> has an equality between one of its
@@ -1880,7 +2091,6 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         var (tables, kinds, ons, groupBases) = ResolveSource(statement.From);
         var columns = tables.SelectMany(t => t.Columns).ToList();
-        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, kinds, ons, groupBases, statement.Where, columns);
 
         // Resolve each assignment to its (table index, column) once.
         var targets = statement.Assignments.Select(a =>
@@ -1909,16 +2119,20 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             throw new InvalidOperationException(
                 $"Duplicate output destination '{tables[duplicate.Key.TableIndex].Alias}.{duplicate.First().Column.Name}'.");
 
+        // Once the SET targets are resolved and before the joined rows are read: ACE refuses a read-only database
+        // after a missing table or column and before the values it would write (verified).
+        _database.RefuseIfReadOnly(ReadOnlyWrite.Row);
+        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, kinds, ons, groupBases, statement.Where, columns);
         CompleteRows(joinRows, tables, targets.Select(t => t.TableIndex));
 
         // Apply SETs to the shared value arrays; snapshot each touched row's original bytes on first touch.
         var dirty = new Dictionary<(string, RowId), (Table Table, RowId Id, object?[] Original, object?[] Values)>();
         // A null-extended side's value array is the joined row's own, so it keys the new row it becomes.
-        var newRows = new Dictionary<object?[], (Table Table, HashSet<int> Provided)>(ReferenceEqualityComparer.Instance);
+        var newRows = new Dictionary<object?[], (Table Table, List<int> Provided)>(ReferenceEqualityComparer.Instance);
         foreach (var combo in joinRows)
         {
             // Every SET of this joined row reads the row as it was before any of them.
-            object?[] flat = combo.SelectMany(c => c.Values).ToArray();
+            object?[] flat = Flatten(combo, combo.Length);
             var eval = new ExpressionEvaluator(new EvalScope(columns, flat, null), _scalarRunner, _parameters, _session);
             object?[] results = targets.Select(t => eval.Evaluate(t.Value)).ToArray();
 
@@ -1930,7 +2144,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 {
                     if (!newRows.TryGetValue(shared, out var newRow))
                         newRows[shared] = newRow = (TargetTable(tables, ti), []);
-                    newRow.Provided.Add(col.Index);
+                    if (!newRow.Provided.Contains(col.Index)) newRow.Provided.Add(col.Index);
                 }
                 else
                 {
@@ -1952,7 +2166,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             stillToWrite[(table.Definition.DefinitionPage, id)] = values;
 
         foreach (var (table, id, original, values) in dirty.Values)
-            UpdateRow(table, id, original, values, stillToWrite);
+            UpdateRow(table, id, original, values, stillToWrite, cascaded: false);
 
         var newRowDefaults = new Dictionary<int, RowDefaults>();
         foreach (var (values, (table, provided)) in newRows)
@@ -1995,10 +2209,31 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         var (tables, kinds, ons, groupBases) = ResolveSource(statement.From);
         var columns = tables.SelectMany(t => t.Columns).ToList();
-        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, kinds, ons, groupBases, statement.Where, columns);
 
         int ti = DeleteTarget(tables, statement.TargetTable);
         Table target = TargetTable(tables, ti);
+        // Once the target is resolved and before the joined rows are read, as ACE refuses a read-only database after
+        // a missing table (verified).
+        _database.RefuseIfReadOnly(ReadOnlyWrite.RowDelete);
+
+        // With no WHERE over one table, ACE empties the table in one go rather than row by row — unless an enforced
+        // relationship names it as the parent, when it deletes row by row as below (measured, whole-file diff:
+        // WholeFileParityProbeTest). The test is the WHERE's absence, not every row matching: WHERE 1 = 1 deletes
+        // row by row. So does a table with a CHECK constraint, pages and all, its checks evaluated as each row goes
+        // (verified: whole-file diff, and a check that fails only once some rows are gone). A table holding a complex
+        // column takes this path too, and its values' flat rows stay where they are, owned by no row (verified through
+        // DAO and ACE's OLE DB alike). No row is read but to be counted.
+        if (statement.Where is null && statement.From is NamedTable
+            && ChildRelationshipsOf(target.Name).Length == 0
+            && target.Definition.CheckConstraints.Count == 0)
+        {
+            int rows = target.Rows(target.DecodeOnly([])).Count();
+            target.Truncate();
+            if (_session is not null) _session.RowCount = rows;
+            return rows;
+        }
+
+        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, kinds, ons, groupBases, statement.Where, columns);
         CompleteRows(joinRows, tables, [ti]);
 
         var deleted = new Dictionary<RowId, object?[]>();

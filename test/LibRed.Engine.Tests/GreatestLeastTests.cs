@@ -121,5 +121,5 @@ public class GreatestLeastTests
 
     [Fact]
     public void Numeric_arguments_widen_to_the_larger_type()
-        => Assert.Equal(typeof(double), ColumnType("GREATEST(1, 2.5E0)"));
+        => Assert.Equal(typeof(double), ColumnType("GREATEST(1, CDBL(2.5))"));
 }

@@ -69,14 +69,15 @@ public class CheckConstraintEnforcementTests : TempDatabaseTest
         e.ExecuteNonQuery("UPDATE tblCustomers SET CustomerLimit = 100 WHERE CustomerID = 1");
     }
 
+    // ACE refuses this CREATE TABLE with "Syntax error in CHECK constraint clause." (measured), so the check never
+    // reaches a row.
     [Fact]
-    public void Check_with_trailing_unparsed_tokens_is_rejected_during_enforcement()
+    public void Check_with_trailing_unparsed_tokens_is_refused_when_created()
     {
+        // ACE refuses this exact statement as a syntax error in the CHECK clause (measured).
         var e = Fresh();
-        e.ExecuteNonQuery("CREATE TABLE T (ID LONG PRIMARY KEY, Amount DOUBLE, " +
-            "CONSTRAINT CheckAmount CHECK (Amount > 0 unexpected))");
-
         Assert.Throws<LibRed.Sql.Parsing.SqlParseException>(() =>
-            e.ExecuteNonQuery("INSERT INTO T (ID, Amount) VALUES (1, 50)"));
+            e.ExecuteNonQuery("CREATE TABLE T (ID LONG PRIMARY KEY, Amount DOUBLE, " +
+                "CONSTRAINT CheckAmount CHECK (Amount > 0 unexpected))"));
     }
 }

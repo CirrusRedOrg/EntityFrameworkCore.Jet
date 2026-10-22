@@ -41,9 +41,10 @@ public class CalculatedColumnSqlAccessTests(ITestOutputHelper output) : TempData
                     .Select(i => reader.IsDBNull(i) ? "(null)" : Convert.ToString(reader.GetValue(i)))));
             foreach (string row in rows) output.WriteLine($"  {row}");
 
-            // Row 1 predates the ADD COLUMN, so its Tripled is NULL — an added column reads as null on
-            // existing rows whether it is calculated or not, because no row was rewritten.
-            Assert.Equal(["1 | 14 | n=7 | (null)", "2 | 10 | n=5 | 15"], rows);
+            // Row 1 predates the ADD COLUMN and still gets its Tripled: a calculated column added to a table
+            // with rows is computed for them, as ACE computes one DAO adds (measured: a DAO-added [A]*2 reads
+            // back 42 on an existing row with A = 21). It used to read NULL here, with no row rewritten.
+            Assert.Equal(["1 | 14 | n=7 | 21", "2 | 10 | n=5 | 15"], rows);
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -88,13 +89,15 @@ public class CalculatedColumnSqlAccessTests(ITestOutputHelper output) : TempData
         finally { TemporaryDatabase.Delete(path); }
     }
 
-    // A CHECK constraint is expression text in LvProp too, evaluated by the same expression service — which
-    // does not know SQL's backtick quoting. ACE's DDL parser accepts `CHECK (`Qty` > 0)` and stores it, and
-    // then every INSERT fails with "Could not find field '`Qty`'", so the table is created already unusable.
-    // LibRed normalises the quoting on the way into the blob, which is what keeps ACE able to write.
+    // A CHECK constraint is expression text in LvProp too. Measured on this statement: ACE stores
+    // `CHECK (`Qty` > 0)` with its backticks, and so does LibRed; this machine's ACE then enforces it — a passing
+    // row written, a failing one refused. (ACE 2010 and the 2016 redistributable read `Qty` as a field named with
+    // the backticks and fail every insert; see docs/format/page-02c-default-values.md.)
     [Fact]
-    public void Normalises_identifier_quoting_in_a_check_constraint()
+    public void Stores_a_backtick_quoted_check_as_ace_does()
     {
+        Assert.SkipUnless(AceTestDatabase.EnforcesBacktickCheck(
+            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb")), AceTestDatabase.BacktickCheckReason);
         string path = TemporaryDatabase.CreatePath("check-tick-");
         try
         {
@@ -108,11 +111,11 @@ public class CalculatedColumnSqlAccessTests(ITestOutputHelper output) : TempData
                 (string Name, string Expression) check =
                     Assert.Single(database.Catalog.FindTable("T")!.CheckConstraints);
                 output.WriteLine($"  stored: {check.Name} -> {check.Expression}");
-                Assert.Equal("[Qty] > 0", check.Expression);
+                Assert.Equal("`Qty` > 0", check.Expression);
             }
 
             // The engine that has to evaluate it gets the last word: ACE writes a passing row and rejects a
-            // failing one, which it could not do at all if the constraint still named "`Qty`".
+            // failing one.
             using var connection = AceTestDatabase.Open(path);
             using (var ok = connection.CreateCommand())
             {

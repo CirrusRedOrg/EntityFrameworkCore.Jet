@@ -25,7 +25,7 @@ public class AceAlterConstraintTests
                     [new ColumnSpec("ID", JetDataType.Int32, 4, IsFixedLength: true),
                      new ColumnSpec("Amount", JetDataType.Double, 8, IsFixedLength: true)],
                     primaryKey: ["ID"]);
-                db.AddCheckConstraint("tblInvoices", "CheckAmount", "Amount > 0");
+                db.AddCheckConstraint("tblInvoices", "CheckAmount", "Amount > 0", [("tblInvoices", ["Amount"])]);
             }
 
             using var conn = OpenOleDb(path);
@@ -49,7 +49,7 @@ public class AceAlterConstraintTests
                     [new ColumnSpec("ID", JetDataType.Int32, 4, IsFixedLength: true),
                      new ColumnSpec("Amount", JetDataType.Double, 8, IsFixedLength: true)],
                     primaryKey: ["ID"]);
-                db.AddCheckConstraint("tblInvoices", "CheckAmount", "Amount > 0");
+                db.AddCheckConstraint("tblInvoices", "CheckAmount", "Amount > 0", [("tblInvoices", ["Amount"])]);
                 Assert.True(db.DropCheckConstraint("tblInvoices", "CheckAmount"));   // ALTER TABLE … DROP CONSTRAINT
                 Assert.False(db.DropCheckConstraint("tblInvoices", "CheckAmount"));  // already gone → false
             }

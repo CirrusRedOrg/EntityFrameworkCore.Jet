@@ -198,17 +198,20 @@ public class CreateProcedureTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
-    // An INSERT with no column list can't be stored as an append query: the rows pair each value with the
-    // column it goes in, so there is nowhere to put a positional value list.
+    // An INSERT … VALUES with no column list is stored with no target column on each value, which fill the table's
+    // columns in order: ACE stores this one and refuses it only when it runs, since Shippers has three columns
+    // (verified vs ACE: "Number of query values and destination fields are not the same.").
     [Fact]
-    public void Unsupported_procedure_body_is_rejected()
+    public void A_values_body_without_a_column_list_is_stored_and_refused_when_it_runs_short()
     {
         string path = Fresh();
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
-            Assert.Throws<NotSupportedException>(() => new QueryEngine(db).ExecuteNonQuery(
-                "CREATE PROCEDURE `AddNoCols` AS INSERT INTO Shippers VALUES ('ZZ Co')"));
+            var engine = new QueryEngine(db);
+            engine.ExecuteNonQuery("CREATE PROCEDURE `AddNoCols` AS INSERT INTO Shippers VALUES ('ZZ Co')");
+            Assert.Equal("INSERT INTO [Shippers] VALUES ('ZZ Co')", db.Catalog.FindQuery("AddNoCols")!.Sql);
+            Assert.Throws<InvalidOperationException>(() => engine.ExecuteNonQuery("EXECUTE AddNoCols"));
         }
         finally { TemporaryDatabase.Delete(path); }
     }

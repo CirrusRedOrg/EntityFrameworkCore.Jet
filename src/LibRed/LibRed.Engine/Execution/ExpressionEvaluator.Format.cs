@@ -1,4 +1,5 @@
 using LibRed.Sql.Ast;
+using LibRed.Storage.Types;
 using System.Globalization;
 using System.Text;
 
@@ -97,7 +98,7 @@ internal sealed partial class ExpressionEvaluator
     /// <summary>A value as Format writes it without a format: as CStr does, but a date with its year padded and
     /// rounded to the second.</summary>
     private static string GeneralText(object value) =>
-        value is DateTime date ? DateText(RoundToSecond(date), padYear: true) : ConcatText(value);
+        value is DateTime date ? VbaText.DateText(RoundToSecond(date), padYear: true) : ConcatText(value);
 
     private static string NamedNumber(object? value, Func<object, string> write) =>
         value is null or string { Length: 0 } ? ""
@@ -108,7 +109,7 @@ internal sealed partial class ExpressionEvaluator
     /// reads as a number or else as a date. Null for other text, which the format leaves as it is.</summary>
     private static object? FormatNumberOperand(object value) => value switch
     {
-        string or char => TryTextAsNumber(value.ToString()!) is { } number ? number
+        string or char => VbaText.TryTextAsNumber(value.ToString()!) is { } number ? number
             : VbaDateText.TryParse(value.ToString()!, CultureInfo.CurrentCulture, out DateTime date) ? date.ToOADate()
             : null,
         DateTime date => date.ToOADate(),
@@ -357,8 +358,8 @@ internal sealed partial class ExpressionEvaluator
                 ('w', 1) => (DaysIntoWeek(date, first) + 1).ToString(culture),
                 ('w', _) => WeekOfYear(date, first, rule).ToString(culture),
                 ('q', _) => ((date.Month + 2) / 3).ToString(culture),
-                ('c', _) => DateText(date, padYear: true),
-                _ => date.ToString(LongTimePattern(names), culture),
+                ('c', _) => VbaText.DateText(date, padYear: true),
+                _ => date.ToString(VbaText.LongTimePattern(names), culture),
             });
             afterHour = symbol == 'h';
             i += length;

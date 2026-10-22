@@ -8,6 +8,37 @@ namespace LibRed.Core.Tests;
 
 public class GlobalMapGrowthTests : TempDatabaseTest
 {
+    // ACE keeps the session's reservation through a rollback — to a savepoint (a nested transaction, a failed
+    // statement) as of the transaction — and puts the pages the undone writes took from it in the free map rather
+    // than back into it, so the next page is the reservation's next (measured: RollbackAllocationProbeTest).
+    [Fact]
+    public void Rollback_keeps_the_reservation_and_frees_the_pages_it_took()
+    {
+        // A fresh file, so the reservation the first page opens holds the pages after it, as in every case measured.
+        string path = TemporaryDatabase.CreatePath("allocation-rollback-");
+        JetDatabase.Create(path);
+        using var channel = PageChannel.Open(path, readOnly: false);
+        channel.BeginTransaction();
+        int first = channel.Allocator.Allocate();
+        var savepoint = channel.CreateSavepoint();
+        int second = channel.Allocator.Allocate();
+        channel.RollbackToSavepoint(savepoint);
+        Assert.Contains(second, GlobalFree(channel));
+        Assert.Equal(second + 1, channel.Allocator.Allocate());
+        channel.RollbackTransaction();
+        HashSet<int> free = GlobalFree(channel);
+        Assert.True(free.Contains(first) && free.Contains(second) && free.Contains(second + 1), $"free [{string.Join(",", free.Order())}]");
+        channel.BeginTransaction();
+        Assert.Equal(second + 2, channel.Allocator.Allocate());
+        channel.CommitTransaction();
+    }
+
+    private static HashSet<int> GlobalFree(PageChannel channel)
+    {
+        (_, _, byte[] holder, DataPage.RowSlot slot) = TestDatabases.GlobalMap(channel, channel.Format.FreePagesMapPointerOffset);
+        return [.. UsageMap.PagesInRecord(channel, holder.AsSpan(slot.Offset, slot.Length), null, "The global free map")];
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -41,7 +72,9 @@ public class GlobalMapGrowthTests : TempDatabaseTest
         Assert.Equal(window, allocator.Allocate());
         byte[] grown = ReadMap(channel);
         Assert.Equal(channel.Format.UsageMapInlineRecordSize + channel.Format.UsageMapInlineGrowthSize, grown.Length);
-        Assert.Equal(new byte[] { 0xFE, 0xFF, 0xFF, 0xFF }, grown[^4..]);
+        // ACE's live CREATE INDEX on this same Northwind fixture reserves 512–543; close returns 513–543.
+        // Measured by PageGroupProbeTest.Global_growth_reservations_on_the_unit_test_fixture.
+        Assert.Equal(new byte[] { 0, 0, 0, 0 }, grown[^4..]);
 
         while (channel.PageCount < 32000) allocator.Allocate();
         Assert.Equal(4005, ReadMap(channel).Length);   // measured from ACE at 32,000 pages, not derived
@@ -59,12 +92,14 @@ public class GlobalMapGrowthTests : TempDatabaseTest
         byte[] reference = ReadMap(channel);
         Assert.Equal(UsageMapType.Reference, UsageMap.RecordType(reference));
         Assert.Equal(32000, UsageMap.ReferencePointer(reference, 0, channel.Format));
-        AssertBitmap(channel, 32000, 32002);
+        AssertBitmap(channel, 32000, 32032); // bitmap + used page + unused live reservation
         while (channel.PageCount < pagesPerBitmapPage) allocator.Allocate();
         Assert.Equal(pagesPerBitmapPage + 1, allocator.Allocate());
         reference = ReadMap(channel);
         Assert.Equal(pagesPerBitmapPage, UsageMap.ReferencePointer(reference, 1, channel.Format));
-        AssertBitmap(channel, pagesPerBitmapPage, 2);
+        AssertBitmap(channel, pagesPerBitmapPage, 32);
+        // Finish the reservation before checking lowest-free reuse in the next allocation scope.
+        allocator.ReturnReleasedPages();
         allocator.Free(pagesPerBitmapPage + 1);
         Assert.Equal(pagesPerBitmapPage + 1, allocator.Allocate());
     }

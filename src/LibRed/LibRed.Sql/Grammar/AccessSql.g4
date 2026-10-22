@@ -11,6 +11,10 @@
 grammar AccessSql;
 
 @lexer::members {
+    // Whether comments are skipped. A statement's text can carry them (EF Core's query tags); a stored expression's
+    // cannot, since ACE's have none, and ACE writes a double negation as `--A` (verified).
+    public bool Comments { get; set; } = true;
+
     // Whether the input ahead is any number of dashes and then a number: a digit, or a point and a digit.
     private bool DashesThenNumber()
     {
@@ -36,7 +40,7 @@ grammar AccessSql;
 }
 
 // A single statement, optionally terminated by ';' (EF Core emits a trailing semicolon).
-statement : parametersClause? (ifThenStatement | createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | dropStatement | insertStatement | updateStatement | deleteStatement | transactionStatement | executeStatement | systemVariableSelect | queryExpression) SEMI? EOF ;
+statement : parametersClause? (ifThenStatement | createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | dropStatement | insertStatement | updateStatement | deleteStatement | transactionStatement | executeStatement | systemVariableSelect | transformStatement | queryExpression) SEMI? EOF ;
 
 // EF emits Jet's conditional DDL for idempotent migrations: `IF [NOT] EXISTS (<select>) THEN <statement>`.
 // A single guarded statement (all EF produces); the condition is an ordinary subquery (e.g. over INFORMATION_SCHEMA).
@@ -58,8 +62,9 @@ assignment : target=columnRef EQ expression ;
 // DELETE [table.* | *] FROM tableexpression [WHERE …]. For a join, the `table.*` target selects which
 // table's rows to delete; a bare `*` (or no target) is only valid for a single table — a join without a
 // `table.*` target is ambiguous and rejected at execution (matching Access, which asks you to specify it).
-// As in a FROM clause, the tableexpression may be a comma list of sources (verified vs ACE).
-deleteStatement : DELETE (target=identifier DOT STAR | STAR)? FROM tableSource (COMMA tableSource)* whereClause? ownerAccessOption? ;
+// As in a FROM clause, the tableexpression may be a comma list of sources (verified vs ACE). The target may also list
+// columns, as the Access designer writes it — see deleteItem.
+deleteStatement : DELETE (STAR | deleteItem (COMMA deleteItem)*)? FROM tableSource (COMMA tableSource)* whereClause? ownerAccessOption? ;
 
 // A FROM-less SELECT of system variables only — ACE allows `SELECT @@IDENTITY` / `SELECT @@ROWCOUNT`
 // (and a comma list of them) with no FROM clause. Listed before queryExpression so it is preferred; a
@@ -75,9 +80,11 @@ parametersClause : PARAMETERS procParam (COMMA procParam)* SEMI ;
 
 // ---- DDL / DML ----
 
+// A table constraint may sit anywhere among the columns, as in ACE; the AST builder checks it names only columns
+// declared before it.
 createTableStatement
     : CREATE temp=TEMPORARY? TABLE table=identifier
-      LPAREN columnDefinition (COMMA columnDefinition)* (COMMA tableConstraint)* RPAREN
+      LPAREN (columnDefinition | tableConstraint) (COMMA (columnDefinition | tableConstraint))* RPAREN
     ;
 
 // CREATE VIEW view [(field1, …)] AS selectstatement. The body is a SELECT (UNION accepted too).
@@ -114,7 +121,7 @@ alterTableAction
     : ADD COLUMN? columnDefinition               # AddColumnAction
     | ADD tableConstraint                        # AddConstraintAction
     | ALTER COLUMN? field=identifier dataType columnConstraint*  # AlterColumnAction
-    | ALTER COLUMN? field=identifier SET DEFAULT expression       # AlterColumnSetDefaultAction
+    | ALTER COLUMN? field=identifier SET DEFAULT defaultValue     # AlterColumnSetDefaultAction
     | ALTER COLUMN? field=identifier DROP DEFAULT                 # AlterColumnDropDefaultAction
     | DROP COLUMN field=identifier               # DropColumnAction
     | DROP CONSTRAINT cname=identifier           # DropConstraintAction
@@ -126,10 +133,10 @@ alterTableAction
     ;
 
 // A procedure body is any statement Access allows. We store the ones we can decompose into the MSysQueries
-// rows Access writes for them — a SELECT (a plain view, or a make-table when it has an INTO), an INSERT from
-// either VALUES or a SELECT, an UPDATE, a DELETE, and CREATE TABLE (stored verbatim). The kinds we cannot
-// store (crosstab, pass-through, UNION) are rejected by the builder.
-procedureBody : queryExpression | insertStatement | updateStatement | deleteStatement | createTableStatement ;
+// rows Access writes for them — a SELECT (a plain view, a UNION, or a make-table when it has an INTO), a
+// crosstab, an INSERT from either VALUES or a SELECT, an UPDATE, a DELETE, and CREATE TABLE (stored verbatim).
+// ACE's CREATE VIEW takes no crosstab ("expected token: SELECT", verified), which is why only this rule has one.
+procedureBody : queryExpression | insertStatement | updateStatement | deleteStatement | createTableStatement | transformStatement ;
 
 // CREATE [UNIQUE] INDEX name ON table (field [ASC|DESC], …) [WITH {PRIMARY|DISALLOW NULL|IGNORE NULL}]
 createIndexStatement
@@ -184,9 +191,8 @@ signedInteger : MINUS? INTEGER_LITERAL ;
 columnConstraint
     : NOT NULL                                       # NotNullConstraint
     | NULL                                           # NullableConstraint
-    | DEFAULT expression                             # DefaultConstraint
+    | DEFAULT defaultValue                           # DefaultConstraint
     | WITH (COMPRESSION | COMP)                       # CompressionConstraint
-    | (CONSTRAINT cname=identifier)? CHECK LPAREN checkBody RPAREN  # CheckColumnConstraint
     | (CONSTRAINT cname=identifier)? PRIMARY KEY clusteredOption?   # PrimaryKeyConstraint
     | (CONSTRAINT cname=identifier)? UNIQUE clusteredOption?        # UniqueColumnConstraint
     | (CONSTRAINT cname=identifier)? REFERENCES refTable=identifier
@@ -197,6 +203,9 @@ columnConstraint
     // other type, both as ACE does.
     | IDENTITY (LPAREN seed=signedInteger (COMMA increment=signedInteger)? RPAREN)?  # IdentityConstraint
     ;
+
+// A DEFAULT may start with =, as ACE's does: `DEFAULT =1`. It is stored with the = and read past when applied.
+defaultValue : EQ? expression ;
 
 // EF Core emits named table constraints: CONSTRAINT `PK_x` PRIMARY KEY (`col`, ...) and
 // CONSTRAINT `FK_x` FOREIGN KEY (`col`, ...) REFERENCES `Parent` (`col`, ...) ON DELETE CASCADE.
@@ -213,9 +222,9 @@ tableConstraint
     | (CONSTRAINT name=identifier)? CHECK LPAREN checkBody RPAREN                               # CheckTableConstraint
     ;
 
-// A CHECK expression is parsed as balanced-paren token soup and kept as its original text, so any
-// expression ACE accepts parses without needing full expression support. A table-level CHECK's text is
-// stored and enforced (parsed properly when evaluated); a column-level one is dropped by AstBuilder.
+// A CHECK expression is parsed as balanced-paren token soup and kept as its original text, which is stored, and
+// parsed properly when the statement runs. There is no column-level CHECK: ACE refuses one as a syntax error in
+// the field definition (verified).
 checkBody : ( ~(LPAREN | RPAREN) | LPAREN checkBody RPAREN )* ;
 
 // ON UPDATE / ON DELETE may appear in either order (Access documents UPDATE-then-DELETE; EF Core
@@ -236,13 +245,13 @@ referentialAction
     ;
 
 // Access's two append-query forms:
-//   single-record    INSERT INTO target [(field, …)] VALUES (value, …)
-//   multiple-record  INSERT INTO target [(field, …)] SELECT [source.]field, … FROM tableexpression
+//   single-record    INSERT INTO target [(field, …)] [IN externaldatabase] VALUES (value, …)
+//   multiple-record  INSERT INTO target [(field, …)] [IN externaldatabase] SELECT [source.]field, … FROM tableexpression
 // plus `INSERT INTO t DEFAULT VALUES` — EF Core emits that for an all-store-generated/all-default row, and
 // it inserts one row taking every column's default / AutoNumber.
 //
-// The IN externaldatabase clause both forms allow is deliberately absent: appending into another file is
-// part of the linked/external-database subsystem, which LibRed neither reads nor writes.
+// The IN puts the target in another Access file, and only the target: the SELECT's FROM reads this one unless it has
+// an IN of its own (verified vs ACE, which refuses the IN before the field list).
 //
 // The multiple-record source is a queryExpression rather than a bare selectStatement, so a UNION can feed an
 // append — the shape EF emits from a Concat — which is a superset of what Access documents.
@@ -254,7 +263,7 @@ referentialAction
 // cost.
 insertStatement
     : INSERT INTO table=identifier
-      ( (LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN)? source=queryExpression
+      ( (LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN)? targetDatabase=externalDatabase? source=queryExpression
       | DEFAULT VALUES )
     ;
 
@@ -279,7 +288,9 @@ rowValue : DEFAULT | expression ;
 // is what gives `(SELECT TOP 5 … ORDER BY x) UNION …` its meaning — the ordering is what makes that TOP
 // deterministic. This is the standard's own structure: <query expression> carries the ordering, <query term>
 // does not.
-queryExpression : queryTerm (setOperator queryTerm)* orderByClause? offsetFetchClause? ownerAccessOption? ;
+// A ';' may end an operand before its set operator: ACE runs `A; UNION ALL B`, and a UNION stored in Access often
+// keeps one there, verbatim in its first segment (verified).
+queryExpression : queryTerm (SEMI? setOperator queryTerm)* orderByClause? offsetFetchClause? ownerAccessOption? ;
 
 // WITH OWNERACCESS OPTION: run the query with its owner's permissions. LibRed has no users to act for, so it
 // changes nothing when a query runs; a stored query keeps it (QueryOptions.OwnerAccess). ACE takes it
@@ -297,6 +308,9 @@ queryTerm
     // where the row values may reference outer columns, so this is evaluated per outer row. Column names come
     // from the leading query of the set operation, per SQL, which is why no column alias list is needed here.
     | VALUES rowValues (COMMA rowValues)*  # ValuesTerm
+    // TABLE t: every column of t, as SELECT * FROM t. ACE takes it alone and as a UNION's operand, and stores a
+    // UNION's verbatim (verified), so a stored query read back can hold it.
+    | TABLE table=identifier               # TableTerm
     ;
 setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 
@@ -304,8 +318,7 @@ setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 //
 // INTO makes it a MAKE-TABLE query: the rows go into a new table rather than back to the caller.
 //   SELECT field1[, field2[, …]] INTO newtable [IN externaldatabase] FROM source
-// The IN externaldatabase clause is deliberately absent, as it is on INSERT — creating a table in another
-// file is part of the linked-database subsystem LibRed does not have.
+// and the IN puts that table in another Access file (see externalDatabase).
 // The standard's <query specification>, and named for it: SELECT … FROM … WHERE … GROUP BY … HAVING, with no
 // ORDER BY or OFFSET/FETCH — see queryExpression, the only place those may appear. Splitting the ordering out
 // of the operand rule is what every serious SQL grammar does (Trino's querySpecification/queryNoWith, SQLite's
@@ -313,7 +326,7 @@ setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 // the enclosing expression's greedily. TOP stays, because a leading TOP genuinely belongs to its own operand:
 // `SELECT TOP 5 … UNION SELECT TOP 5 …` takes five rows from each side.
 querySpecification
-    : SELECT predicate=selectPredicate? topClause? selectList (INTO into=identifier)? fromClause? whereClause? groupByClause? havingClause?
+    : SELECT predicate=selectPredicate? topClause? selectList (INTO into=identifier intoDatabase=externalDatabase?)? fromClause? whereClause? groupByClause? havingClause?
       ownerAccessOption?
     ;
 
@@ -363,17 +376,20 @@ offsetFetchClause
     ;
 rowKeyword : ROW | ROWS ;
 
-selectList
-    : STAR
-    | selectItem (COMMA selectItem)*
-    ;
+// A bare * may sit among other items, as ACE takes it (verified): `SELECT *, X`, `SELECT X, *`, `SELECT *, *`. It means
+// every column the other items do not already return, after them, whatever its place in the list.
+selectList : selectItem (COMMA selectItem)* ;
 
 selectItem
-    : qualifier=identifier DOT STAR        # QualifiedStarSelectItem
+    : STAR                                 # StarSelectItem
+    | qualifier=identifier DOT STAR        # QualifiedStarSelectItem
     | expression (AS? alias=identifier)?   # ExpressionSelectItem
     ;
 
-fromClause : FROM tableSource (COMMA tableSource)* ;
+// An IN externaldatabase ends the whole table expression, after any alias and before WHERE, once per FROM, and
+// every table of the FROM is read from that file (verified vs ACE: `FROM a IN 'x', b` is a syntax error, and
+// `FROM a, b IN 'x'` reads both from x).
+fromClause : FROM tableSource (COMMA tableSource)* externalDatabase? ;
 
 // A table source and its explicit JOINs; comma between sources is an implicit cross join.
 tableSource : tablePrimary joinClause* ;
@@ -436,6 +452,9 @@ expression
     // ACE: 1 & 2 + 3 is '15').
     | left=expression op=AMP right=expression                                 # ConcatExpr
     | left=expression op=(EQ | NEQ | LT | LTE | GT | GTE) right=expression   # ComparisonExpr
+    // A comparison with each row of a one-column subquery: true for ANY (or SOME) when one comparison is, for ALL
+    // when every one is (verified vs ACE). ACE takes no value list here and no second pair of parentheses.
+    | left=expression op=(EQ | NEQ | LT | LTE | GT | GTE) quantifier=(ANY | SOME | ALL) LPAREN sub=queryExpression RPAREN # QuantifiedComparisonExpr
     // The lower bound is parsed at the upper bound's precedence (see EnterRecursionRule above), so the AND between
     // them is never taken into it.
     | val=expression not=NOT? BETWEEN lo=expression AND hi=expression        # BetweenExpr
@@ -602,7 +621,7 @@ reservedKeyword
     | VALUES | PRIMARY | KEY | CONSTRAINT | FOREIGN | REFERENCES | DELETE | UPDATE | CASCADE | RESTRICT | ACTION
     | SET | DEFAULT | NO | UNIQUE | CLUSTERED | IDENTITY | NONCLUSTERED | INDEX | TEMPORARY | WITH | COMPRESSION
     | COMP | DISALLOW | IGNORE | CHECK | VIEW | PROCEDURE | PARAMETERS | EXECUTE | EXEC | ASC | DESC | TRUE
-    | FALSE | NULL
+    | FALSE | NULL | TRANSFORM | PIVOT | ANY | SOME
     ;
 
 // An aggregate's FILTER: only the rows for which the condition is true go into it.
@@ -622,6 +641,32 @@ nullTreatment : treatment=(RESPECT | IGNORE) NULLS ;
 // such syntax. Kept after the existing parser rules so adding it does not renumber their ids.
 derivedColumns : LPAREN names+=identifier (COMMA names+=identifier)* RPAREN ;
 
+// IN externaldatabase — the Access file a FROM's tables, or a make-table's new table, are in. ACE takes the path
+// quoted, alone or followed by the database type, quoted or bracketed, or an empty path and a bracketed connect
+// string naming it (verified vs ACE, each form):
+//   IN 'C:\db.accdb'     IN 'C:\db.accdb' 'MS Access;'     IN 'C:\db.accdb' [MS Access;]
+//   IN '' [;DATABASE=C:\db.accdb]     IN '' [MS Access;DATABASE=C:\db.accdb]
+// An empty type string, a bare path and a connect string with no path before it are syntax errors there. The
+// builder refuses the empty type; which database types LibRed opens is decided when the statement runs. Kept after
+// the existing parser rules so adding it does not renumber their ids.
+externalDatabase : IN path=STRING_LITERAL (type=STRING_LITERAL | connect=BRACKET_ID)? ;
+
+// TRANSFORM aggfunction selectstatement PIVOT pivotfield [IN (value1[, value2[, …]])] — a crosstab query. The
+// SELECT's columns are the row headings, one row per GROUP BY group, and the pivot field's values the further
+// columns, each holding the TRANSFORM value for its row and heading. ACE takes an ORDER BY before the PIVOT and
+// WITH OWNERACCESS OPTION after it (verified). The IN list is the pivot's own `x IN (…)`: it parses as an IN
+// expression, which is how ACE stores it too, and the builder splits it into the field and its fixed headings.
+// Kept after the existing parser rules so adding it does not renumber their ids.
+transformStatement
+    : TRANSFORM value=expression (AS? valueAlias=identifier)? select=querySpecification orderByClause?
+      PIVOT pivot=expression ownerAccessOption?
+    ;
+
+// A DELETE target item: `table.*`, which names the table whose rows go, or a column, which names nothing — ACE deletes
+// whole rows of the one table either way, refuses a column target over a join as it refuses no target ("Specify the
+// table containing the records you want to delete."), and stores every item as a column row (verified).
+deleteItem : table=identifier DOT STAR | columnRef ;
+
 // ---- Lexer ----
 
 SELECT : [Ss][Ee][Ll][Ee][Cc][Tt] ;
@@ -639,7 +684,9 @@ BAND   : [Bb][Aa][Nn][Dd] ;
 BOR    : [Bb][Oo][Rr] ;
 BXOR   : [Bb][Xx][Oo][Rr] ;
 BNOT   : [Bb][Nn][Oo][Tt] ;
-LIKE   : [Ll][Ii][Kk][Ee] ;
+// ALike is LIKE with the ANSI-92 wildcards whatever the connection — the set LibRed's LIKE always uses. ACE writes it
+// for any LIKE in a CHECK constraint it re-forms (verified), so a stored constraint can hold either.
+LIKE   : [Ll][Ii][Kk][Ee] | [Aa][Ll][Ii][Kk][Ee] ;
 MOD    : [Mm][Oo][Dd] ;
 INNER  : [Ii][Nn][Nn][Ee][Rr] ;
 LEFT   : [Ll][Ee][Ff][Tt] ;
@@ -678,6 +725,9 @@ ONLY     : [Oo][Nn][Ll][Yy] ;
 BETWEEN  : [Bb][Ee][Tt][Ww][Ee][Ee][Nn] ;
 UNION     : [Uu][Nn][Ii][Oo][Nn] ;
 ALL       : [Aa][Ll][Ll] ;
+// ANY and SOME are reserved, as ACE has them: neither is a bare column name or alias there (verified).
+ANY       : [Aa][Nn][Yy] ;
+SOME      : [Ss][Oo][Mm][Ee] ;
 INTERSECT : [Ii][Nn][Tt][Ee][Rr][Ss][Ee][Cc][Tt] ;
 EXCEPT    : [Ee][Xx][Cc][Ee][Pp][Tt] ;
 CREATE    : [Cc][Rr][Ee][Aa][Tt][Ee] ;
@@ -754,6 +804,9 @@ FILTER    : [Ff][Ii][Ll][Tt][Ee][Rr] ;
 // WITH OWNERACCESS OPTION's words — not reserved; see nonReservedKeyword.
 OWNERACCESS : [Oo][Ww][Nn][Ee][Rr][Aa][Cc][Cc][Ee][Ss][Ss] ;
 OPTION      : [Oo][Pp][Tt][Ii][Oo][Nn] ;
+// A crosstab's words, reserved as Access reserves them.
+TRANSFORM   : [Tt][Rr][Aa][Nn][Ss][Ff][Oo][Rr][Mm] ;
+PIVOT       : [Pp][Ii][Vv][Oo][Tt] ;
 
 STAR     : '*' ;
 SLASH    : '/' ;
@@ -802,12 +855,13 @@ BACKTICK_ID     : '`' ~[`]+ '`' ;
 // identifier. Longest-match makes "Left$" an IDENTIFIER (5 chars) rather than the LEFT keyword (4); the
 // evaluator strips the '$' and dispatches to the base function.
 // Any script's letters, not just ASCII (verified vs ACE: Név, Номер, 名前, ΑΒΓ, straße and Ñandú all read unbracketed),
-// with a combining mark allowed after the first, as Devanagari and Thai spell a letter.
-IDENTIFIER      : [\p{L}_][\p{L}\p{M}\p{Nd}_]* '$'? ;
+// with a combining mark allowed after the first, as Devanagari and Thai spell a letter. U+FFFE alone is a name too:
+// a stored CHECK qualifies the row it is checking with it (see CheckConstraint.RowQualifier).
+IDENTIFIER      : [\p{L}_][\p{L}\p{M}\p{Nd}_]* '$'? | '\uFFFE' ;
 
 WS      : [ \t\r\n]+ -> skip ;
 // SQL comments — EF Core query tags prepend a `-- tag` line comment to the statement; also block comments.
 // '--' starts a comment unless nothing but more dashes stands between it and a number, so '--2' and '---2' are
 // repeated negation as in ACE (which has no comments at all), while '--Before' is a comment.
-LINE_COMMENT  : '--' {!DashesThenNumber()}? ~[\r\n]* -> skip ;
-BLOCK_COMMENT : '/*' .*? '*/' -> skip ;
+LINE_COMMENT  : '--' {Comments && !DashesThenNumber()}? ~[\r\n]* -> skip ;
+BLOCK_COMMENT : '/*' {Comments}? .*? '*/' -> skip ;

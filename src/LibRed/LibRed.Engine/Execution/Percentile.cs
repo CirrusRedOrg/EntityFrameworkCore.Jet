@@ -69,5 +69,5 @@ internal static class Percentile
     }
 
     private static double Number(object value) => value is string or char or Guid or byte[]? throw new InvalidCastException("Type mismatch: PERCENTILE_CONT interpolates numbers and dates.")
-        : Convert.ToDouble(ExpressionEvaluator.ConversionNumber(value), CultureInfo.InvariantCulture);
+        : JetDecimalConverter.ToDouble(ExpressionEvaluator.ConversionNumber(value), CultureInfo.InvariantCulture);
 }

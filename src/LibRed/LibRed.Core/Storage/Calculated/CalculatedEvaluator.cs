@@ -207,7 +207,7 @@ internal static class CalculatedEvaluator
             "SPACE" => new string(' ', (int)Num(name, args, 1)),
             "ASC" => ToText(Single(name, args)) is { Length: > 0 } s ? (double)s[0]
                      : throw new CalculatedExpressionException("Asc of an empty string."),
-            "STR" => Str(Num(name, args, 1)),
+            "STR" => Types.VbaText.Str(Num(name, args, 1)),
             "STRING" => Repeat(args),
             "LEFT" => Take(args, name, fromLeft: true),
             "RIGHT" => Take(args, name, fromLeft: false),
@@ -270,10 +270,6 @@ internal static class CalculatedEvaluator
         Arity(name, args, expected);
         return ToNumber(args[0]!);
     }
-
-    /// <summary>VBA <c>Str</c>: invariant formatting, with a leading space for a non-negative number.</summary>
-    private static string Str(double value) =>
-        (value < 0 ? "" : " ") + value.ToString("R", CultureInfo.InvariantCulture);
 
     private static string Repeat(object?[] args)
     {
@@ -522,24 +518,18 @@ internal static class CalculatedEvaluator
     {
         double d => d,
         float f => f,
-        decimal m => (double)m,
+        decimal m => JetDecimalConverter.FromDecimal(m),
         bool b => b ? -1 : 0,                        // VARIANT_TRUE is -1, not 1
         DateTime t => t.ToOADate(),
-        string s when double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out double parsed) => parsed,
+        string s when Types.VbaText.TryTextAsNumber(s) is double parsed => parsed,
         byte or short or int or long => Convert.ToDouble(value, CultureInfo.InvariantCulture),
         _ => throw new CalculatedExpressionException($"Cannot use '{value}' as a number."),
     };
 
     private static bool ToBoolean(object value) => value is bool b ? b : ToNumber(value) != 0;
 
-    private static string ToText(object? value) => value switch
-    {
-        null => "",
-        string s => s,
-        bool b => b ? "True" : "False",
-        DateTime d => d.ToString(CultureInfo.InvariantCulture),
-        _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "",
-    };
+    // As CStr writes it, which is what ACE caches.
+    private static string ToText(object? value) => value is null ? "" : Types.VbaText.Of(value);
 
     private static DateTime ToDate(object value) => value is DateTime d ? d : DateTime.FromOADate(ToNumber(value));
 
@@ -574,19 +564,27 @@ internal static class CalculatedEvaluator
     public static object? Coerce(object? value, JetDataType type)
     {
         if (value is null) return null;
-        return type switch
+        try
         {
-            JetDataType.Boolean => ToBoolean(value),
-            JetDataType.Byte => (byte)Math.Round(ToNumber(value), MidpointRounding.ToEven),
-            JetDataType.Int16 => (short)Math.Round(ToNumber(value), MidpointRounding.ToEven),
-            JetDataType.Int32 => (int)Math.Round(ToNumber(value), MidpointRounding.ToEven),
-            JetDataType.Int64 => (long)Math.Round(ToNumber(value), MidpointRounding.ToEven),
-            JetDataType.Single => (float)ToNumber(value),
-            JetDataType.Double => ToNumber(value),
-            JetDataType.Currency => Math.Round(JetDecimalConverter.FromDouble(ToNumber(value)), 4, MidpointRounding.ToEven),
-            JetDataType.DateTime => ToDate(value),
-            JetDataType.Text or JetDataType.Memo => ToText(value),
-            _ => throw new CalculatedExpressionException($"Cannot store a calculated {type} value."),
-        };
+            return type switch
+            {
+                JetDataType.Boolean => ToBoolean(value),
+                JetDataType.Byte => checked((byte)Math.Round(ToNumber(value), MidpointRounding.ToEven)),
+                JetDataType.Int16 => checked((short)Math.Round(ToNumber(value), MidpointRounding.ToEven)),
+                JetDataType.Int32 => checked((int)Math.Round(ToNumber(value), MidpointRounding.ToEven)),
+                JetDataType.Int64 => checked((long)Math.Round(ToNumber(value), MidpointRounding.ToEven)),
+                JetDataType.Single => (float)ToNumber(value),
+                JetDataType.Double => ToNumber(value),
+                JetDataType.Currency => Math.Round(JetDecimalConverter.FromDouble(ToNumber(value)), 4, MidpointRounding.ToEven),
+                JetDataType.DateTime => ToDate(value),
+                JetDataType.Text or JetDataType.Memo => ToText(value),
+                _ => throw new CalculatedExpressionException($"Cannot store a calculated {type} value."),
+            };
+        }
+        catch (OverflowException)
+        {
+            throw new CalculatedExpressionException(
+                $"VBA error 6, overflow: the expression's result {value} does not fit its {type} result type.");
+        }
     }
 }

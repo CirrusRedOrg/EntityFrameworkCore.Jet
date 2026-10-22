@@ -101,10 +101,11 @@ public class CollationTests
     // byte-identical to General v0, so the example stopped being an example. The two below are refused for
     // reasons that will outlive a survey — there is no engine to measure them against. Access 365 creates a
     // database in "Japanese - Unicode", but ACE refuses to open one, because Windows no longer supports that
-    // alternate sort; and Jet accepts Irish, but not in a process that has loaded ACE.
+    // alternate sort; and ACE creates a database, tables and indexes in Irish, but refuses every row written into
+    // one with "Selected collating sequence not supported by the operating system".
     [Theory]
     [InlineData((int)CollatingOrder.Japanese, 1, "Japanese - Unicode: created by Access, refused by ACE on open")]
-    [InlineData(1084, 0, "Irish - accepted by Jet, but never measured against ACE")]
+    [InlineData(1084, 0, "Irish - created by ACE, which then refuses every row written into it")]
     public void Index_key_encoding_refuses_an_unmeasured_collation(int order, byte sortId, string why)
     {
         _ = why;   // names the case in the test output

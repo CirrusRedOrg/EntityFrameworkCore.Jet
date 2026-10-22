@@ -394,6 +394,10 @@ public abstract class JetFormatBase
     /// <summary>Decimal/Numeric columns only.</summary>
     public abstract int ColumnScaleOffset { get; }
 
+    /// <summary>Complex columns only: the Int32 <c>MSysComplexColumns.ComplexID</c>, over the bytes a text column
+    /// gives its collation.</summary>
+    public abstract int ColumnComplexIdOffset { get; }
+
     /// <summary>
     /// Non-numeric columns use the precision/scale bytes and the two after them for the text collation, and
     /// the four bytes together are a 32-bit Windows LCID with the sort-order version in its otherwise-unused
@@ -416,6 +420,11 @@ public abstract class JetFormatBase
 
     /// <summary>The extended column flag byte — <see cref="ColumnExtendedFlags"/>.</summary>
     public abstract int ColumnExtendedFlagsOffset { get; }
+
+    /// <summary>Four bytes whose first byte's <c>0x01</c> bit makes the column <b>write-once</b>: an INSERT may set
+    /// it, an UPDATE may not. Nothing else in them is read, and whenever ACE rewrites a definition — any change to a
+    /// table's design, not a row write — it keeps that bit and zeroes the rest. Jet 4.0 zeroes all four.</summary>
+    public abstract int ColumnWriteOnceOffset { get; }
 
     public abstract int ColumnFixedOffsetOffset { get; }
     public abstract int ColumnLengthOffset { get; }
@@ -563,8 +572,8 @@ public abstract class JetFormatBase
     /// <summary>The step an inline bitmap grows in.</summary>
     public abstract int UsageMapInlineGrowthSize { get; }
 
-    /// <summary>Bytes the global maps' holder page keeps free: an inline global map that would leave less
-    /// converts to reference form instead.</summary>
+    /// <summary>Bytes a usage-map holder page keeps free — the global maps' and a table's alike: an inline map
+    /// that would grow to leave less converts to reference form instead.</summary>
     public abstract int UsageMapHolderReserve { get; }
 
     /// <summary>Offset in a reference record of its 4-byte bitmap-page pointers.</summary>
@@ -655,20 +664,30 @@ public abstract class JetFormatBase
             throw new NotSupportedException(
                 $"Jet/ACE format identifier \"{identifier}\" does not match version byte 0x{version:X2}.");
 
+        JetFormatBase format;
         try
         {
-            return FromVersionByte(version);
+            format = FromVersionByte(version);
         }
-        catch (NotSupportedException)
+        // Unknown version byte on an ACCDB that still carries the Jet-4.0 engine string is almost certainly a
+        // newer 4KB ACE variant (the format grows conservatively, adding a byte per engine release). Read it
+        // with the latest known ACE layout rather than failing. The 4.0 guard is essential: it stops us from
+        // mis-reading a genuinely different future engine (e.g. a "5.0" string) as ACE.
+        catch (NotSupportedException) when (identifier == AceIdentifier && ReadEngineVersion(header) == Jet40EngineVersion)
         {
-            // Unknown version byte on an ACCDB that still carries the Jet-4.0 engine string is almost certainly a
-            // newer 4KB ACE variant (the format grows conservatively, adding a byte per engine release). Read it
-            // with the latest known ACE layout rather than failing. The 4.0 guard is essential: it stops us from
-            // mis-reading a genuinely different future engine (e.g. a "5.0" string) as ACE.
-            if (identifier == AceIdentifier && ReadEngineVersion(header) == Jet40EngineVersion)
-                return new Jet17Format();
-            throw;
+            format = new Jet17Format();
         }
+
+        // The minor byte qualifies the version, and ACE validates it as it opens the file (verified): a Jet 4 or
+        // ACE 12 file must carry 0, an ACE 14 file opens up to 2 read as a signed byte, and ACE 16 and 17 take any.
+        sbyte minor = (sbyte)header[format.MinorVersionOffset];
+        if (version <= 0x02 && minor != 0)
+            throw new InvalidDataException(
+                $"Unrecognized database format: version 0x{version:X2} carries minor version 0x{(byte)minor:X2}, and only 0x00 is valid.");
+        if (version == 0x03 && minor > 2)
+            throw new NotSupportedException(
+                $"The database requires a newer version of the engine: version 0x03 with minor version 0x{minor:X2}, past 0x02.");
+        return format;
     }
 
     /// <summary>Reads the cleartext engine-version string ("4.0") at <see cref="EngineVersionOffset"/>.</summary>

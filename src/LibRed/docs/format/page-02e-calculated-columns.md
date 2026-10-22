@@ -6,8 +6,7 @@ describes **engine behaviour** rather than on-disk layout; the 25-byte descripto
 long-value route live in [page-02b-columns §3.4a](page-02b-columns.md), and the `LvProp` property blob that
 carries the expression is in [system-catalog.md](system-catalog.md).
 
-Everything here is **measured** — against ACE-authored columns of every type DAO will create, and from the
-write side by having ACE read back what LibRed produced.
+Everything here is **measured** against ACE's own behaviour.
 
 > **There is no single "what ACE does" to match.** Four independent gatekeepers enforce different rules and
 > do not share a rulebook: **DAO** is the only thing that can author a calculated column and refuses to
@@ -42,12 +41,12 @@ extended mode.
 
 ## What the file actually carries
 
-Three places, and all three must agree. Measured with DAO-authored columns of every type it will create.
+Three places, and all three must agree (measured, for every result type DAO will create).
 
 **1. The column descriptor** — a *promoted storage type*, the `0xC0` extended flag, always variable-length,
 declared length `39` for a value type and `0` when the result is a Memo.
 
-**2. The value envelope** in the variable slot — `[reserved:16][length:4][payload:n][padding:3]`.
+**2. The value envelope** in the variable slot — `[status:4][reserved:12][length:4][payload:n][padding:3]`.
 
 **3. The table's property blob (`LvProp`)**, which is where the real semantics live:
 
@@ -84,8 +83,7 @@ Reading `ResultType` removes the guess entirely.
 
 ## The expression language ACE accepts
 
-Enumerated over every Access / VBA scalar function [functions.md](../functions.md) catalogues plus every operator. This is
-the whole surface, not a sample.
+Enumerated over every Access / VBA scalar function [functions.md](../functions.md) catalogues plus every operator.
 
 **Operators** — `+` `-` `*` `/` `^` `&`, `+` as concatenation, `=` `<>` `<` `>` `<=` `>=`, `And`, `Or`,
 `Not`, `Is Null`, `Like`, `In`, unary minus, parentheses, literal-only expressions.
@@ -115,10 +113,10 @@ Everything else is refused, in one of **four** distinct ways — a validator has
 | `Syntax error in expression.` | a call with the **wrong number of arguments** (below), and `CDec` at any arity — the one exception to that reading |
 | `The expression cannot be saved because it refers to another table.` / `... refers to itself.` | scope violations |
 
-### Cross-checked against Access's own Expression Builder
+### Access's Expression Builder list
 
 Access's Expression Builder, opened on a calculated column, lists the functions it will offer. Its list and
-the functions measured above agree **exactly** — every function the builder shows is accepted, and nothing
+the functions listed above agree **exactly** — every function the builder shows is accepted, and nothing
 accepted is missing from it. Two entries on it need care.
 
 **`IsEmpty` is accepted, and is a constant.** VBA's `IsEmpty` asks whether a Variant was never initialised,
@@ -220,7 +218,7 @@ slot, the constant declared length. `CREATE TABLE` and `ADD COLUMN` write the
 `Expression`/`ResultType`/`FCMin*Ver` properties. A Memo result gets its long-value maps, keyed off the
 **result** type because the declared type is `Text` and says nothing — so neither the reader nor the
 write-side guard in `TableDefinition` may demand that a map's owner be Memo/OLE. The ACE-14 gate goes through
-`EnsureFormatAtLeast`, raising the file rather than refusing, as for `BIGINT`/`DATETIME2`.
+`SchemaEditor.RaiseFormatFor`, raising the file rather than refusing, as for `BIGINT`/`DATETIME2`.
 
 **Validation runs before anything is written** (`CalculatedExpression.ParseValidated`): the whitelist above,
 plus self-reference, an unknown column, and the `$` name variants. It is mandatory rather than a courtesy —
@@ -228,19 +226,19 @@ an expression ACE rejects does not produce a merely odd file, it produces a colu
 all. Measured end to end: ACE accepts, evaluates and *recomputes* a column LibRed authored, for every result
 type including a spilled Memo.
 
-**`ALTER` is measured, not assumed.** `ADD COLUMN`, `DROP COLUMN`, `ALTER COLUMN` (retype) and
+**`ALTER` leaves a calculated column working.** `ADD COLUMN`, `DROP COLUMN`, `ALTER COLUMN` (retype) and
 `RenameColumn` all leave a calculated column working. Where an unrelated column's retype requires LibRed's
 full table rebuild (for example Memo → Text), the rebuild carries each calculated column's `Expression`/`ResultType` properties along with its descriptor and
 regenerates its cached value from the expression; a cached value is not caller-supplied data and cannot be
 reinserted verbatim.
-Dropping a column an expression reads is **refused**, which ACE does not do; see the probe below.
+Dropping a column an expression reads is **refused**, which ACE does not do; see below.
 
 **Text compression follows the declared type**, and the encoding rule is in
 [page-02b-columns §3.4a](page-02b-columns.md) with the rest of the layout. It is called out here because it
 is not cosmetic: compressing a 36-character Memo result shrinks it from 95 bytes to 61, under the inline
 limit, so the value never reaches a long-value page at all.
 
-## What the probes settled
+## How ACE treats a calculated column
 
 **The cache is authoritative, and recomputation is narrow.** Poking a wrong value straight into the stored
 envelope and asking ACE for it returns *the wrong value* — ACE does not re-evaluate on read. Updating a
@@ -270,12 +268,13 @@ cached value.
 
 **ACE has no route to change an existing calculated column's expression.** DAO refuses to mutate any field
 of a *saved* `TableDefinition` — *"Operation is not supported for this type of object."* — and that refusal is
-generic: an ordinary column gets it too, so it says nothing about calculated columns specifically. Access's
-own designer must reach it by a path DAO does not expose. There is therefore no oracle for "alter the expression", and anything LibRed offers there is its own extension rather than
-ACE-matching behaviour.
+generic: an ordinary column gets it too, so it says nothing about calculated columns specifically. Access
+itself refuses too: setting the saved field's `Expression` property through its own `CurrentDb` fails with
+*"Cannot define field more than once."* and leaves the expression and every cached value as they were
+(verified). Only the table designer's UI offers the change. There is therefore no oracle for "alter the
+expression", and anything LibRed offers there is its own extension rather than ACE-matching behaviour.
 
-**ACE does not protect a reference; every ALTER is accepted, two of them destructively.** Measured through
-ACE SQL, each on its own table:
+**ACE does not protect a reference; every SQL ALTER is accepted, two of them destructively** (measured):
 
 | operation | ACE | the calculated column afterwards |
 | --- | --- | --- |
@@ -318,11 +317,12 @@ cannot construct this state by clicking, only by writing SQL — exactly where L
 every route: `CREATE INDEX`, `CREATE UNIQUE INDEX`, a composite that merely includes one, a table-level
 `CONSTRAINT … PRIMARY KEY`/`UNIQUE`, and the inline `col type PRIMARY KEY` form.
 
-**Indexing a calculated column is a trap, not a feature.** ACE accepts `CREATE INDEX` and even
-`CREATE UNIQUE INDEX` on one — and then refuses every `INSERT` into the table with *"Operation is not
-supported for this type of object."* Measured for Int16 and Int32 result types, and with the index created
-both before and after rows exist. So there is no index-key encoding to define: such an index can never be
-populated.
+**Indexing a calculated column is a trap, not a feature.** On an empty table ACE accepts `CREATE INDEX` and
+even `CREATE UNIQUE INDEX` on one — and then refuses every `INSERT` into the table with *"Operation is not
+supported for this type of object."* Once the table has rows, the `CREATE INDEX` itself is refused with that
+message. Verified for every value result type; a Memo result is refused at `CREATE INDEX` as any Memo column
+is (*"Invalid field definition 'C' in definition of index or relationship."*). So there is no index-key
+encoding to define: such an index can never be populated.
 
 **Declared length is a constant, and the requested size is discarded.** `39` for every value type, `509` for
 Text whatever size was asked for (10, 60 and 255 all give 509), `0` plus a long-value map for Memo. `39` is
@@ -336,9 +336,21 @@ type: `Left([A],2)` over a Null `[A]` stores an empty payload and reads back `""
 payload under a `DateTime` result type reads back Null. Reading it as Null in both cases is a silent
 disagreement about a value nothing ever recomputes.
 
-**The envelope does not consume fixed-region budget.** 250 `Double` columns — 2000 bytes, the documented
-record cap — are accepted both with and without a calculated column on top. The true ceiling was not
-bracketed, so this rules out a *fixed-region* cost rather than establishing the exact limit.
+**Against the 4060-byte record cap a calculated column is a variable column** (verified at both
+boundaries):
+
+- **Declared**, it costs its 2-byte offset entry and its null-bitmap bit and nothing else — on a table with no
+  variable column yet, the widest record ([page-02b §3.7](page-02b-columns.md)) grows by exactly 2 bytes, the
+  variable section's 4-byte allowance becoming 6. A table whose widest record already sits at the cap cannot
+  take one: ACE then refuses the whole database (*"Unrecognized database format"*). DAO itself does not check —
+  it appends the column and writes the file ACE then refuses — so a declaration ACE accepts is not proof that
+  the table is usable.
+- **Stored**, its envelope is variable data in the row, counted against the cap like any other: 27 bytes for a
+  Long value (23 of envelope, 4 of payload). So a table that just admits the column must give up another 27
+  bytes of fixed region before a row holding a value fits; until then every insert is *"Record is too large"*.
+
+LibRed agrees at both edges: `ValidateRecordFits` refuses the over-cap declaration up front, and the insert
+check refuses the over-cap record.
 
 **The engine evaluates the stored text, and enforces the whitelist itself.** Authoring a column with an
 allowed expression and then patching the stored `Expression` property on the page to another string of the
@@ -391,19 +403,29 @@ is more permissive than ACE**, which refuses such a column outright; whether Lib
 
    The bytes settle what "an error" means on disk, and it is **not** the same as Null: the envelope's leading
    field holds the **VBA error number** (94 "Invalid use of Null", 13 "Type mismatch"), and an error envelope
-   is 38 bytes against 23 for a Null — see [page-02b §3.4a](page-02b-columns.md).
+   fills the 39-byte declared length with zeros after the status, against 23 bytes for a Null — see
+   [page-02b §3.4a](page-02b-columns.md).
 
    **Reading** is settled: a non-zero status throws rather than decoding as Null, naming the VBA error and
    the expression that raised it. Zero is that field's success code, so a value and a propagated Null both
-   read exactly as before.
+   read exactly as before. An update or delete does not read the result, so such a row can still be rewritten,
+   and an update of a column the expression reads recomputes it — the repair ACE allows.
 
-   **Writing** is settled too, and diverges deliberately: **LibRed refuses the row.** ACE accepts the insert
+   **Writing** is settled too, and diverges deliberately: **LibRed refuses the row.** For a Text or Memo
+   result that is what ACE does as well — it refuses the insert with *"Error evaluating CHECK constraint."*
+   (verified). For a value result ACE accepts the insert
    and caches the failure, after which its own reader rejects that row — and the state is **sticky**: a
    compact-and-repair does *not* clear it (still error 94 afterwards, rows intact); the only thing that does
    is an `UPDATE` writing a column the expression reads, forcing a recompute — which needs a value for the
    very column that was Null. So writing it produces a row that neither engine can read and that the obvious
    repair does not fix. Refusing costs the caller a guard and keeps the file readable, the
    same trade as refusing to drop a column an expression reads.
+
+   **Overflow is one of these errors.** A result past its result type caches VBA error 6 (measured). LibRed
+   refuses the row, as above.
+
+   **`ADD COLUMN` computes the rows already there** (measured). LibRed rewrites each existing row with its result
+   in the same transaction as the add, so a row the expression fails on refuses the whole add.
 5. **Changing an existing column's expression or result type — out of scope by decision, not unfinished.**
    ACE offers no route to it at all, so LibRed would be *defining* the behaviour rather than matching any,
    including having to recompute every existing row at once (nothing re-derives a cached value on read).

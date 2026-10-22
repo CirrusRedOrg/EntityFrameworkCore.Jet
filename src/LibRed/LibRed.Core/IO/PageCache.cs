@@ -36,6 +36,11 @@ internal sealed class PageCache : IDisposable
     // scope while each page write re-enters it; an attempted read→write upgrade is rejected explicitly below.
     private readonly ReaderWriterLockSlim _publishGate = new(LockRecursionPolicy.SupportsRecursion);
     private long _schemaGeneration;
+    private long _imageGeneration;
+
+    // A decode whose dependencies were checked at this generation needs no repeated page lookups until
+    // the pool replaces an image. This is independent of schema: ordinary data writes change counts too.
+    public long ImageGeneration => Volatile.Read(ref _imageGeneration);
     // The file's committed length in bytes, shared like the pages: every change to it is made by a channel on this
     // file, which records it here, so measuring the stream again only repeats this number - at the cost of a
     // file-information syscall per measurement, which on Windows made every pointer range check on a read path
@@ -153,6 +158,7 @@ internal sealed class PageCache : IDisposable
                 // only the pre-existing _gate — which keeps the hot read path free of coordination overhead.
                 node.Value.Bytes = bytes;
                 node.Value.Parsed = null; // the bytes changed, so any cached parse of them is stale
+                Interlocked.Increment(ref _imageGeneration);
                 _lru.Remove(node);
                 _lru.AddFirst(node);
                 return;
@@ -161,6 +167,7 @@ internal sealed class PageCache : IDisposable
             var entry = new Entry(page, bytes);
             var added = _lru.AddFirst(entry);
             _map[page] = added;
+            Interlocked.Increment(ref _imageGeneration);
 
             if (_map.Count > CapacityPages)
             {
@@ -178,6 +185,7 @@ internal sealed class PageCache : IDisposable
         {
             if (!_map.Remove(page, out LinkedListNode<Entry>? node)) return;
             _lru.Remove(node);
+            Interlocked.Increment(ref _imageGeneration);
         }
     }
 
@@ -213,14 +221,16 @@ internal sealed class PageCache : IDisposable
         finally { _publishGate.ExitReadLock(); }
     }
 
-    public long SchemaGeneration
-    {
-        get { lock (_gate) return _schemaGeneration; }
-    }
+    // Format checks read this on hot row/page paths. The generation is one independently published value;
+    // an atomic acquire read is sufficient, without taking the buffer-pool lock for every format access.
+    public long SchemaGeneration => Volatile.Read(ref _schemaGeneration);
 
     public void MarkSchemaChanged()
     {
-        lock (_gate) _schemaGeneration++;
+        Interlocked.Increment(ref _schemaGeneration);
+        // Publish after the schema generation: seeing this image generation also requires rechecking
+        // schema state, even when the invalidation itself did not replace a resident page.
+        Interlocked.Increment(ref _imageGeneration);
     }
 
     /// <summary>The file's committed length in bytes (see <see cref="SetFileLength"/>).</summary>

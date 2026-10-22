@@ -44,4 +44,40 @@ public class DeleteTests
         }
         finally { TemporaryDatabase.Delete(path); }
     }
+
+    // The Access designer writes a DELETE naming columns. Each form deletes the whole row of its one table, and over a
+    // join a column names no table to delete from (all verified vs ACE on these rows).
+    [Fact]
+    public void Delete_naming_columns_deletes_whole_rows_of_its_one_table()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            foreach (string name in new[] { "del1", "del2", "del3", "del4" })
+                e.ExecuteNonQuery($"INSERT INTO Shippers (CompanyName, Phone) VALUES ('{name}', '555')");
+            e.ExecuteNonQuery("CREATE TABLE P (Id LONG, PName TEXT(10))");
+            e.ExecuteNonQuery("CREATE TABLE C (Id LONG, PId LONG, CNote TEXT(10))");
+            e.ExecuteNonQuery("INSERT INTO P VALUES (1, 'x'), (2, 'y')");
+            e.ExecuteNonQuery("INSERT INTO C VALUES (10, 1, 'n10'), (11, 1, 'n11'), (20, 2, 'n20')");
+
+            Assert.Equal(1, e.ExecuteNonQuery("DELETE Shippers.Phone FROM Shippers WHERE CompanyName = 'del1'"));
+            Assert.Equal(1, e.ExecuteNonQuery("DELETE Shippers.Phone, Shippers.CompanyName FROM Shippers WHERE CompanyName = 'del2'"));
+            Assert.Equal(1, e.ExecuteNonQuery("DELETE Phone FROM Shippers WHERE CompanyName = 'del3'"));
+            Assert.Equal(["del4|555"],
+                e.ExecuteQuery("SELECT CompanyName & '|' & Phone FROM Shippers WHERE Left(CompanyName, 3) = 'del'").Rows.Select(r => (string)r[0]!));
+
+            Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("DELETE C.CNote FROM C INNER JOIN P ON C.PId = P.Id WHERE P.PName = 'x'"));
+            Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("DELETE CNote FROM C INNER JOIN P ON C.PId = P.Id WHERE P.PName = 'x'"));
+            Assert.Equal(2, e.ExecuteNonQuery("DELETE C.* FROM C INNER JOIN P ON C.PId = P.Id WHERE P.PName = 'x'"));
+
+            // Stored, every item is kept and the query runs as written.
+            e.ExecuteNonQuery("CREATE PROCEDURE D4 AS DELETE Shippers.Phone, Shippers.* FROM Shippers WHERE CompanyName = 'del4'");
+            Assert.Equal("DELETE Shippers.Phone, Shippers.* FROM [Shippers] WHERE CompanyName = 'del4'", db.Catalog.FindQuery("D4")!.Sql);
+            Assert.Equal(1, e.ExecuteNonQuery("EXECUTE D4"));
+            Assert.Empty(e.ExecuteQuery("SELECT CompanyName FROM Shippers WHERE Left(CompanyName, 3) = 'del'").Rows);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
 }

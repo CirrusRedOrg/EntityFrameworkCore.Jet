@@ -160,7 +160,7 @@ public class LongValueOrderProbeTest(ITestOutputHelper output)
         page.Read(doc.Channel.ReadPageShared(id.Page), doc.Channel.Format);
         byte[] row = page.GetRow(id.Row).ToArray();
         var parts = new List<string>();
-        foreach ((int index, byte[] descriptor) in RowCodec.LongValueDescriptors(doc.Definition.Columns, doc.Channel.Format, row)
+        foreach ((int index, byte[] descriptor) in RowCodec.LongValueDescriptors(doc.Definition, doc.Channel.Format, row)
                      .OrderBy(d => d.Key))
         {
             ColumnDef column = doc.Definition.Columns[index];

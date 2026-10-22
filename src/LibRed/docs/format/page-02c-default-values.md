@@ -52,10 +52,16 @@ The single most important structural fact: ACE has **two** places that touch a d
 capabilities.
 
 1. **The OLE DB *DDL parser*** (`CREATE TABLE … DEFAULT <expr>`) is narrow and inconsistent. It accepts a
-   literal or a simple function call, but rejects concatenation, **literal arithmetic** (`1+2` → "Syntax error in
-   CREATE TABLE statement"!), and nested calls (`Year(Now())`, `CBool(Choose(...))`). Quirks abound: `Now()+30`
-   parses but `1+2` doesn't; `(UCase('hi'))` parses but `UCase('hi')` doesn't. **Parentheses are not an
-   expression-escape** (unlike SQL Server's `DEFAULT (expr)`) — `(1+2)` is still rejected.
+   literal or a simple function call, but rejects concatenation, **spaced arithmetic** (`1 + 2` → "Syntax error in
+   CREATE TABLE statement"!, where `1+2` is accepted), and nested calls (`Year(Now())`, `CBool(Choose(...))`).
+   Quirks abound: `Now()+30` parses but `Now() + 30` doesn't; `(UCase('hi'))` parses but `UCase('hi')` doesn't.
+   **Parentheses are not an expression-escape** (unlike SQL Server's `DEFAULT (expr)`) — `(1+2)` is still
+   rejected. A **leading `=`** is accepted by `CREATE TABLE`, `ADD COLUMN`, `ALTER COLUMN … DEFAULT` and
+   `ALTER COLUMN … SET DEFAULT` alike, and stored as written, `=` included. What may follow it is no more consistent:
+   `=1`, `='a'`, `=1+1`, `=(1 + 1)`, `='a'&'b'`, `=Left('abc', 2)`, `=UCase( 'x' )`, `=GenUniqueID()` are
+   accepted; `= 1`, `=1 + 1`, `='a b'`, `=#2020-01-02 10:00:00#`, `=UCase('x')`, `=Year(Now())` are a syntax error,
+   and `==1` and a bare `=` are refused as "Syntax error (missing operator) in table-level validation expression"
+   (all verified).
 
 2. **The expression *service*** (used to *evaluate* a stored default at insert, and by field validation rules)
    handles the full expression language.
@@ -63,12 +69,18 @@ capabilities.
 > **They do not even share a lexer.** ACE's SQL parser accepts `` `backtick` `` identifier quoting — it is
 > what EF Core's Jet provider emits for every identifier — and the expression service does **not**. It reads
 > `` `Qty` `` as a field whose name literally includes the backticks and fails with *"Could not find field
-> '`Qty`'"*. It shows in two unrelated features: a calculated column's `Expression`, and a `CHECK` constraint,
-> where `ALTER TABLE … CHECK (`Qty` > 0)` is **accepted and stored** and every later INSERT is then refused.
-> That is the same smuggling route as the compound defaults above, but it lands the other way round: the DDL
-> parser stores something the service cannot evaluate, so the table ends up unusable rather than usefully
-> extended. Any expression text LibRed writes into `LvProp` therefore has to be in the service's own syntax —
-> brackets, not backticks — whatever quoting the SQL it came from used.
+> '`Qty`'"*. It shows in a calculated column's `Expression`. That is the same smuggling route as the compound
+> defaults above, but it lands the other way round: the DDL parser stores something the service cannot
+> evaluate, so the table ends up unusable rather than usefully extended. A calculated column's expression LibRed
+> writes into `LvProp` therefore has to be in the service's own syntax — brackets, not backticks — whatever
+> quoting the SQL it came from used.
+>
+> A **`CHECK` constraint depends on the engine build.** ACE stores `` `Qty` > 0 `` with its
+> backticks, through `CREATE TABLE` and `ALTER TABLE … ADD CONSTRAINT` alike. The current Microsoft 365 Access
+> Runtime (x64) then enforces it. ACE 2010 (x86) and the 2016 Access Database Engine redistributable (x64) do
+> not: their CHECK evaluator reads `` `Qty` `` as a field named with the backticks, so every insert
+> fails with *"Could not find field '`Qty`'"*, its own writes included (verified). LibRed stores a
+> check's text as written, so a backtick-quoted check it writes is enforceable only by the newer engine.
 
 Consequence: a compound default that the DDL parser refuses can still be **stored** (via the table designer, DAO,
 or LibRed writing `LvProp` directly) and is then **read and applied** by ACE at insert. Verified:
@@ -82,7 +94,22 @@ cannot be smuggled past it: a column-ref default written to `LvProp` opens clean
 
 ## The `DefaultValue` text itself
 
-- Stored **verbatim**, preserving quote style (`'hello'` vs `"hello"` are kept as typed).
+- Stored **verbatim**: its spacing (`Left('abc', 2)`, `UCase( 'x' )`), its quote style (`'hello'` vs `"hello"`),
+  and a leading `=` with it.
+- The expression service reads past a `=` that is the text's **first character**, and any spaces after it: `=1`,
+  `= 1` and `=  1` insert 1, `=' a b '` inserts ` a b `, `=1 + 1` inserts 2, and what follows is read as a default
+  without the `=` is (`= Z` inserts `"Z"`, `=Yes` inserts -1). An AutoNumber with `=GenUniqueID()` is a Random
+  AutoNumber exactly as one with `GenUniqueID()` is. A `=` anywhere else is an operator with nothing on its left:
+  ` =1` (a space first), `==1` and `=` alone fail the insert with "Syntax error (missing operator) in table-level
+  validation expression" (all verified).
+- An **unquoted single word** is a literal string — `DEFAULT Unknown` inserts `"Unknown"`, `DEFAULT K` inserts `"K"`
+  even when `K` is a column — **except** the niladic `Now` and the constants: `Null` inserts NULL, and `True`,
+  `Yes`, `On` and `False`, `No`, `Off` insert -1 and 0 (verified; `TEXT DEFAULT Yes` stores `'-1'`, not `'Yes'`).
+- The value is converted to the column's type as any stored value is ([data-types.md](data-types.md)) — a date into
+  a `LONG` is its serial, a number into a `DATETIME` the date at that serial — **except that text is cut to the
+  column's width** rather than refused: `DEFAULT 'abcdefghijklmnopqrstuvwxyz'` on a `TEXT(20)` stores its first 20
+  characters, and `DEFAULT Now()` the first 20 of the date's text, where the same value supplied by an `INSERT` is
+  refused (verified, on `TEXT` and `CHAR` alike).
 - The DAO **255-character** cap on `DefaultValue` is a **DAO-API limit, not an engine/file-format one**: ACE
   accepts and applies a 300-char default expression; LibRed round-trips 300+ char defaults. (A many-operator
   expression separately hits "Expression too complex" — an operator-count limit, unrelated to length.)
@@ -123,7 +150,10 @@ they are otherwise valid expressions (see the table below).
   stores the text and rejects at **INSERT** (defaults are parsed lazily when applied). Net behaviour matches
   (both refuse); the messages and timing differ. *TODO:* optional create-time validation with ACE-like messages.
 - **Superset grammar.** LibRed's ANTLR front-end parses compound/nested defaults ACE's DDL parser rejects; ACE
-  still reads and applies them from `LvProp`.
+  still reads and applies them from `LvProp`. That includes the leading `=`: LibRed takes it before any default,
+  spaced or not (`DEFAULT = 1`), in all four routes, and stores the text as written — every such text is one the
+  expression service applies. Applying a default reads past a first-character `=` exactly as the service does
+  (`PropertyBlob.DefaultExpression`, also what the scaffolder parses a default's CLR value from).
 
 ### Parity of the forbidden categories
 

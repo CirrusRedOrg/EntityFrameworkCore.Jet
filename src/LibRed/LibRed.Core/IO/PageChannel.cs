@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using LibRed.Crypto;
 using LibRed.Formats;
 using LibRed.Pages;
@@ -63,6 +64,19 @@ public sealed class PageChannel : IDisposable
     private readonly List<int> _releasing = [];
     private readonly List<int> _released = [];
 
+    // The TDEF counters a rollback, of the transaction or to a savepoint, does not take back — by page and offset, the
+    // last value written — which it writes back over the restored page. ACE never reissues an id it has drawn, whether
+    // the insert that drew it commits, fails or is rolled back, and keeps MSysObjects' and MSysACEs' row and index
+    // counts through any rollback; a statement that fails keeps every table's counts as it left them, where a
+    // ROLLBACK takes an ordinary table's back (FailedOnly) (measured). Baseline is the committed value the
+    // transaction started from: the transaction's rollback writes back its change on top of what is committed then,
+    // which another handle may have moved on — and nothing for a table the transaction created (no baseline).
+    private readonly Dictionary<(int Page, int Offset), (int? Baseline, int Value, bool FailedOnly)> _keptCounters = [];
+    // The FailedOnly counters written since a statement last accepted them (AcceptCounters).
+    private readonly Dictionary<(int Page, int Offset), (int? Baseline, int Value)> _pendingCounters = [];
+    // Usage-map records the open transaction retired, whose bytes ACE takes back only when it commits.
+    private readonly List<(int Page, int Row)> _reclaimAtCommit = [];
+
     // What the open transaction's writes depend on being TRUE of OTHER rows — a foreign key's parent row
     // existing, say. Reading a row writes no page, so such a dependency is invisible to the page-conflict
     // check above, and two transactions can each check the other's precondition and commit to a state neither
@@ -100,6 +114,25 @@ public sealed class PageChannel : IDisposable
 
     /// <summary>Whether this channel was opened read-only, so it can never write a page.</summary>
     internal bool IsReadOnly => _readOnly;
+
+    /// <summary>Refuses <paramref name="write"/> when this channel is read-only, with ACE's message for that kind of
+    /// write; <paramref name="objectName"/> names the table or query a design change is to.</summary>
+    /// <remarks>ACE reports these first, before the read-only refusal: the syntax, a name's legality, and a missing
+    /// table, query, column, index or constraint that the statement finds or drops. It reports these after it: an
+    /// INSERT's column list and values, a duplicate name, an index's columns, a relationship's target (verified vs
+    /// ACE). So each writer calls this between the two, and the refusals below — at the first page written — are
+    /// only what a writer that misses it meets.</remarks>
+    internal void RefuseIfReadOnly(ReadOnlyWrite write, string? objectName = null)
+    {
+        if (!_readOnly) return;
+        throw new InvalidOperationException(write switch
+        {
+            ReadOnlyWrite.Row => "Operation must use an updateable query.",
+            ReadOnlyWrite.RowDelete => "Could not delete from specified tables.",
+            ReadOnlyWrite.Design => $"Cannot modify the design of table '{objectName}'. It is in a read-only database.",
+            _ => "Cannot update. Database or object is read-only.",
+        });
+    }
 
     /// <summary>Holds a freed page until this channel closes. Inside a transaction the page is staged with it —
     /// released only if the transaction commits; outside one it is committed at once.</summary>
@@ -160,6 +193,12 @@ public sealed class PageChannel : IDisposable
         if (_active is not null) _schemaDirty = true;
         else _cache.MarkSchemaChanged();
     }
+
+    /// <summary>The shared invalidation generation for catalog/format state on this file.</summary>
+    internal long SchemaGeneration => _cache.SchemaGeneration;
+
+    /// <summary>Changes whenever a committed page image is replaced or removed.</summary>
+    internal long ImageGeneration => _cache.ImageGeneration;
 
     public int PageSize => _format.PageSize;
 
@@ -270,10 +309,11 @@ public sealed class PageChannel : IDisposable
 
     /// <summary>
     /// Returns a page backed by the shared cache's own buffer, without copying it out — a zero-allocation read
-    /// for callers that consume the bytes immediately and never mutate or retain them (e.g. decoding one row
+    /// for callers that consume the bytes without mutating them (e.g. decoding one row
     /// during an index seek, where <see cref="ReadPage(int)"/>'s per-call 4 KB copy dominated). On a cache miss
-    /// the page is read from disk and cached, then returned. The returned bytes are live cache state: valid
-    /// only until the next write to or eviction of this page.
+    /// the page is read from disk and cached, then returned. Copy-on-write keeps an existing image stable,
+    /// but it is no longer current after a write or eviction: a caller retaining it as a decode identity
+    /// must compare it with a fresh read before reusing the decode.
     /// </summary>
     internal PageBuffer ReadPageShared(int pageNumber)
     {
@@ -453,14 +493,13 @@ public sealed class PageChannel : IDisposable
     /// </summary>
     public Transaction BeginTransaction()
     {
-        if (_readOnly)
-            throw new InvalidOperationException("This channel was opened read-only.");
+        // Allowed read-only, as ACE allows it: nothing can be written into it, so it commits and rolls back nothing.
         if (_active is not null)
             throw new InvalidOperationException("A transaction is already in progress.");
         ClearTransactionState();
         _schemaDirty = false;
         _txPageCount = PageCount; // committed count at start (PageCount is still file-based while _active is null)
-        return _active = new Transaction(_txPageCount);
+        return _active = new Transaction(_txPageCount, Allocator.State);
     }
 
     /// <summary>Commits the current transaction: publishes every buffered overlay page to disk and the shared
@@ -472,6 +511,8 @@ public sealed class PageChannel : IDisposable
     public void CommitTransaction(bool flush = true)
     {
         if (_active is null) return;
+        Allocator.ReturnGroups();
+        ReclaimRetiredRecords();
 
         int[] pages = _overlay.Keys.ToArray();
         Array.Sort(pages);
@@ -547,6 +588,8 @@ public sealed class PageChannel : IDisposable
 
             _active = null;
             _released.AddRange(_releasing);   // the pages it freed are now the session's to hold until close
+            _keptCounters.Clear();            // and the counters it kept are on its TDEF pages
+            _pendingCounters.Clear();
             ClearTransactionState();
             if (_schemaDirty) _cache.MarkSchemaChanged();
             _schemaDirty = false;
@@ -558,14 +601,95 @@ public sealed class PageChannel : IDisposable
     /// <summary>
     /// Rolls the current transaction back by discarding its overlay. Nothing the transaction wrote ever reached
     /// disk or the shared cache, so there is nothing to restore, truncate or flush. No-op if none is open.
+    /// <paramref name="failed"/> says a statement failed, rather than a ROLLBACK asked for it (see
+    /// <see cref="KeepThroughRollback"/>).
     /// </summary>
-    public void RollbackTransaction()
+    public void RollbackTransaction(bool failed = false)
     {
         if (_active is null) return;
+        Storage.PageAllocator.AllocationState? allocation = _active.AllocationAt(new Savepoint(0));
         ClearTransactionState();   // including the staged releases: a rolled-back free frees nothing
         _schemaDirty = false;
         _active = null;
         ResyncFormatVersion();   // a discarded format raise must not stay raised in memory
+        if (allocation is not null) Allocator.RollBackTo(allocation);
+        RestoreKeptCounters(failed);
+        _keptCounters.Clear();
+    }
+
+    /// <summary>Notes <paramref name="value"/> as the counter at <paramref name="offset"/> of TDEF page
+    /// <paramref name="page"/> that the open transaction just wrote, for a rollback to keep — with
+    /// <paramref name="failedOnly"/>, only the rollback of a statement that failed, and only once
+    /// <see cref="AcceptCounters"/> has accepted it.</summary>
+    internal void KeepThroughRollback(int page, int offset, int value, bool failedOnly = false)
+    {
+        if (_active is null) return;
+        int? baseline = _keptCounters.TryGetValue((page, offset), out var kept) ? kept.Baseline
+            : _pendingCounters.TryGetValue((page, offset), out var pending) ? pending.Baseline
+            : ReadCommittedPageOrNull(page) is { } committed && PageHeader.ReadType(committed) == PageType.TableDefinition
+                ? BinaryPrimitives.ReadInt32LittleEndian(committed.AsSpan(offset))
+                : null;
+        if (failedOnly) _pendingCounters[(page, offset)] = (baseline, value);
+        else _keptCounters[(page, offset)] = (baseline, value, false);
+    }
+
+    /// <summary>Takes back usage-map record <paramref name="row"/> of page <paramref name="page"/>, flagged deleted
+    /// with its bytes still in place: inside a statement of a user transaction — run under a savepoint — when the
+    /// transaction commits, as ACE takes back a retired map record's bytes then (see
+    /// <c>SchemaEditor.RetireMapRecords</c>); otherwise now, as ACE does for a statement on its own (measured: a
+    /// DROP TABLE's records each slide as they go).</summary>
+    internal void ReclaimAtCommit(int page, int row)
+    {
+        _reclaimAtCommit.Add((page, row));
+        if (_active is null || _active.Depth == 1) ReclaimRetiredRecords();
+    }
+
+    /// <summary>Takes back each retired map record still flagged — a savepoint rollback may have put one back.</summary>
+    private void ReclaimRetiredRecords()
+    {
+        foreach ((int page, int row) in _reclaimAtCommit)
+        {
+            byte[] bytes = ReadPage(page).Span.ToArray();
+            if (DataPage.ReadSlot(bytes, Format, row).Flags != RowSlotFlags.Deleted) continue;
+            DataPage.ReclaimRow(bytes, Format, row);
+            WritePage(page, bytes);
+        }
+        _reclaimAtCommit.Clear();
+    }
+
+    /// <summary>Accepts the counters written since the last acceptance: a row the statement has finished with, or
+    /// the counting ACE does for a row it refuses at an index, which a failure of the statement later on then leaves
+    /// standing — where a row refused before that, by a CHECK say, has its counting taken back (measured).</summary>
+    internal void AcceptCounters()
+    {
+        foreach (((int page, int offset), (int? baseline, int value)) in _pendingCounters)
+            _keptCounters[(page, offset)] = (baseline, value, true);
+        _pendingCounters.Clear();
+    }
+
+    /// <summary>Writes each kept counter back onto its TDEF — where that page still is one, the table not having
+    /// been created by the writes just undone. Into the enclosing transaction after a savepoint rollback, as the
+    /// value written; straight to the file after the transaction's, as the change written on top of what is
+    /// committed now. A rollback no statement's failure caused takes back what only a failure keeps, which no later
+    /// rollback then writes back either.</summary>
+    private void RestoreKeptCounters(bool failed)
+    {
+        _pendingCounters.Clear();
+        foreach (((int page, int offset), (int? baseline, int value, bool failedOnly)) in _keptCounters.ToArray())
+        {
+            if (failedOnly && !failed)
+            {
+                _keptCounters.Remove((page, offset));
+                continue;
+            }
+            if (page >= PageCount || _active is null && baseline is null) continue;
+            byte[] tdef = ReadPage(page).Span.ToArray();
+            int current = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(offset));
+            int kept = _active is null ? unchecked(current + value - baseline!.Value) : value;
+            if (PageHeader.ReadType(tdef) != PageType.TableDefinition || current == kept) continue;
+            BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(offset), kept);
+            WritePage(page, tdef);
+        }
     }
 
     /// <summary>Drops everything the open transaction accumulated — its unpublished pages, the images they
@@ -574,6 +698,7 @@ public sealed class PageChannel : IDisposable
     /// which is the whole difference between them.</summary>
     private void ClearTransactionState()
     {
+        _reclaimAtCommit.Clear();
         _overlay.Clear();
         _overlayParsed.Clear();
         _commitBaselines.Clear();
@@ -647,19 +772,23 @@ public sealed class PageChannel : IDisposable
     {
         if (_active is null)
             throw new InvalidOperationException("No transaction is in progress.");
-        return _active.Save(_txPageCount, _releasing.Count, _dependencies.Count);
+        return _active.Save(_txPageCount, _releasing.Count, _dependencies.Count, Allocator.State);
     }
 
     /// <summary>Rolls the transaction back to <paramref name="savepoint"/>: undoes every write made since it was
-    /// created and drops pages allocated after it, leaving the savepoint (and the transaction) open.</summary>
-    public void RollbackToSavepoint(Savepoint savepoint)
+    /// created and drops pages allocated after it, leaving the savepoint (and the transaction) open.
+    /// <paramref name="failed"/> as for <see cref="RollbackTransaction"/>.</summary>
+    public void RollbackToSavepoint(Savepoint savepoint, bool failed = false)
     {
         if (_active is null)
             throw new InvalidOperationException("No transaction is in progress.");
         int releaseCount = _active.ReleaseCountAt(savepoint);
         int dependencyCount = _active.DependencyCountAt(savepoint);
+        Storage.PageAllocator.AllocationState? allocation = _active.AllocationAt(savepoint);
         var (before, pageCount) = _active.TakeForRollbackTo(savepoint);
         RestoreOverlay(before, pageCount);
+        if (allocation is not null) Allocator.RollBackTo(allocation);
+        RestoreKeptCounters(failed);
         _releasing.RemoveRange(releaseCount, _releasing.Count - releaseCount);
         // The writes that needed them are undone, so the conditions are no longer anything to hold the commit to —
         // and a key they held is free to be registered again by a write made after the rollback.
@@ -761,4 +890,20 @@ public sealed class PageChannel : IDisposable
         PageCache.ReleaseKey(_identity); // last channel on this file drops the shared pool
         if (_ownsLocks) MonitorLockManager.ReleaseKey(_identity); // and the shared lock manager
     }
+}
+
+/// <summary>The kinds of write a read-only database refuses, each with its own message from ACE.</summary>
+public enum ReadOnlyWrite
+{
+    /// <summary>An SQL INSERT or UPDATE: <i>"Operation must use an updateable query."</i></summary>
+    Row,
+    /// <summary>An SQL DELETE: <i>"Could not delete from specified tables."</i></summary>
+    RowDelete,
+    /// <summary>A change to a table's design, or the drop of a table, index or query:
+    /// <i>"Cannot modify the design of table 'X'. It is in a read-only database."</i></summary>
+    Design,
+    /// <summary>A new query (CREATE VIEW/PROCEDURE), a make-table query, or a row written through the table API
+    /// rather than SQL — as a DAO recordset's AddNew, Edit and Delete are (all verified):
+    /// <i>"Cannot update. Database or object is read-only."</i></summary>
+    DatabaseOrObject,
 }

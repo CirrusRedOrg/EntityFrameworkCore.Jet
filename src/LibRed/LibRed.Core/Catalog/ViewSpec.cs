@@ -16,6 +16,22 @@ public sealed record ViewJoinSpec(ViewJoinType Kind, string Condition, string Le
 /// row Expression + Name1).</summary>
 public sealed record ViewColumnSpec(string Expression, string? Alias);
 
+/// <summary>An <c>IN externaldatabase</c>: the quoted path (null when written as the empty string) and the database
+/// type or connect string after it. A FROM's is the query's <c>0x04</c> row (Name1 = path, Expression = connect); a
+/// make-table's target is on the operation row (Name2 = path, Expression = connect) — both verified vs ACE.</summary>
+public sealed record ExternalDatabaseSpec(string? Path, string? Connect)
+{
+    /// <summary>The clause as a statement writes it.</summary>
+    public string Text => Path is { } path
+        ? $"IN '{path.Replace("'", "''", StringComparison.Ordinal)}'{(Connect is null ? "" : $" [{Connect}]")}"
+        : $"IN '' [{Connect}]";
+}
+
+/// <summary>A crosstab's parts beyond its SELECT, verbatim: the TRANSFORM value and its alias (the column row of
+/// <c>Flag 0</c>), the PIVOT field (a GROUP BY row of <c>Flag 1</c>) and the PIVOT clause with its IN list (a column
+/// row of <c>Flag 1</c>). The SELECT's own columns and GROUP BY rows carry <c>Flag 2</c> (all verified vs ACE).</summary>
+public sealed record ViewCrosstabSpec(string Value, string? ValueAlias, string Pivot, string PivotColumn);
+
 /// <summary>
 /// A declared parameter of a stored (procedure) query: its name and Jet type code, stored as an MSysQueries
 /// <c>Attribute=2</c> row (Name1 = name, Flag = <paramref name="TypeCode"/>). The row's <c>LvExtra</c> carries
@@ -50,8 +66,9 @@ public enum ActionQueryKind
 /// <summary>One column/value pair of an action query, stored as an <c>Attribute=0x06</c> row (Name2 = the
 /// column, Expression = the value): an appended column of an INSERT — whose value is a literal for the VALUES
 /// form and a source expression for the SELECT form — or one assignment of an UPDATE, whose
-/// <paramref name="Column"/> is table-qualified when the update runs over a join.</summary>
-public sealed record AppendColumnSpec(string Column, string ValueExpression);
+/// <paramref name="Column"/> is table-qualified when the update runs over a join. An INSERT … VALUES that lists no
+/// columns has none, and its values fill the table's in order.</summary>
+public sealed record AppendColumnSpec(string? Column, string ValueExpression);
 
 /// <summary>
 /// A stored action query (a CREATE PROCEDURE body that is not a plain SELECT). A
@@ -59,7 +76,9 @@ public sealed record AppendColumnSpec(string Column, string ValueExpression);
 /// else — Access does not decompose it. Every other kind stores its sources, joins and WHERE exactly as a view
 /// does, in <paramref name="Body"/>, and differs only in the action row and in what its column rows mean:
 /// <paramref name="Values"/> holds an append's columns or an update's assignments, <paramref name="TargetTable"/>
-/// the table an append or make-table writes into, and the body's own columns are a make-table's output list.
+/// the table an append or make-table writes into — in the file <paramref name="TargetDatabase"/> names, when it names
+/// one — and the body's own columns are a make-table's output list. <paramref name="DeleteTarget"/> is each
+/// <c>table.*</c> or column a delete names as its target, as written.
 /// <paramref name="Parameters"/> are declared exactly as a parameterized SELECT declares them, and
 /// <paramref name="OwnerAccess"/> is WITH OWNERACCESS OPTION, stored as the view stores it.
 /// </summary>
@@ -70,8 +89,9 @@ public sealed record ActionQuerySpec(
     IReadOnlyList<AppendColumnSpec>? Values = null,
     ViewSpec? Body = null,
     IReadOnlyList<ViewParameterSpec>? Parameters = null,
-    string? DeleteTarget = null,
-    bool OwnerAccess = false);
+    IReadOnlyList<string>? DeleteTarget = null,
+    bool OwnerAccess = false,
+    ExternalDatabaseSpec? TargetDatabase = null);
 
 /// <summary>A parameter a stored query declares, in declaration order. <paramref name="Type"/> is the Jet type
 /// Access recorded for it, or null for its untyped parameter — the one Access renders as the keyword
@@ -88,6 +108,12 @@ public sealed record StoredQueryParameter(
 /// are ordinary column rows, and only the grouping keys and the group filter get rows of their own.
 /// <paramref name="TopPercent"/> makes <paramref name="Top"/> a percentage. <paramref name="OwnerAccess"/> is WITH
 /// OWNERACCESS OPTION: an option-row bit, and nothing LibRed acts on.
+/// <para>A <paramref name="Union"/> query has no columns, joins or predicate of its own: its two
+/// <paramref name="Tables"/> are its segments, each a <see cref="ViewTableSpec.SubquerySql"/> — the text before the
+/// query's last UNION and the term after it — and <paramref name="Distinct"/> is UNION as against UNION ALL.</para>
+/// <para><paramref name="Database"/> is the FROM's <c>IN externaldatabase</c>, and <paramref name="Crosstab"/> makes
+/// the query a TRANSFORM over this SELECT. <paramref name="AllFields"/> is a bare <c>*</c>, beside any
+/// <paramref name="Columns"/> named too, and <paramref name="DistinctRow"/> is DISTINCTROW — both option-row bits.</para>
 /// </summary>
 public sealed record ViewSpec(
     bool Distinct,
@@ -101,4 +127,9 @@ public sealed record ViewSpec(
     IReadOnlyList<ViewOrderBySpec>? OrderBy = null,
     int? Top = null,
     bool TopPercent = false,
-    bool OwnerAccess = false);
+    bool OwnerAccess = false,
+    bool Union = false,
+    ExternalDatabaseSpec? Database = null,
+    ViewCrosstabSpec? Crosstab = null,
+    bool AllFields = false,
+    bool DistinctRow = false);

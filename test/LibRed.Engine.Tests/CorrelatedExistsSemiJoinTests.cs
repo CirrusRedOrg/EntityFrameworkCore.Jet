@@ -57,7 +57,7 @@ public class CorrelatedExistsSemiJoinTests : TempDatabaseTest
 
         return ExistsSemiJoin.TryBuild(
             (SelectStatement)exists.Query, outer, new(StringComparer.OrdinalIgnoreCase) { "o" },
-            e.Database.Catalog) is not null;
+            e.Database) is not null;
     }
 
     [Fact]
@@ -246,6 +246,8 @@ public class CorrelatedExistsSemiJoinTests : TempDatabaseTest
     [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.Keep = 1)")]
     [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT TOP 0 1 FROM I AS i WHERE i.K = o.K)")]
     [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT TOP 50 PERCENT 1 FROM I AS i WHERE i.K = o.K)")]
+    // An OFFSET asks for more than n rows per key — EF's ElementAt(n) != null. A key set can't say that.
+    [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K OFFSET 1 ROWS)")]
     public void The_analysis_accepts_exactly_these_shapes(bool expected, string sql)
         => Assert.Equal(expected, Decorrelates(Fresh(), sql));
 
@@ -358,21 +360,20 @@ public class CorrelatedExistsSemiJoinTests : TempDatabaseTest
                 """));
 
     [Fact]
-    public void A_having_correlation_on_a_non_grouping_column_falls_back()
-        // i.Id is not a grouping key, so the predicate does NOT select whole groups: grouping by K and then
-        // testing `i.Id = o.Id` reads Id from each group's FIRST row. It must decline, and the answer it falls
-        // back to shows why lifting it would have been wrong. The four groups by K are 10 → rows (Id 1, Id 3),
-        // 30 → (Id 2), NULL → (Id 4), 50 → (Id 5), so the Ids on offer are {1, 2, 4, 5} — note 3 is absent, being
-        // the second row of its group. Every outer row whose own Id is in that set qualifies.
-        => Assert.Equal([1, 2, 4, 5],
-            Ids(Fresh(),
+    public void A_having_correlation_on_a_non_grouping_column_is_refused()
+        // i.Id is not a grouping key, so a group has no one Id to test against o.Id. ACE refuses the query (measured,
+        // on this schema and data: "Your query does not include the specified expression 'COUNT(*)>=1 And i.Id=o.Id'
+        // as part of an aggregate function."), where grouping by K and reading Id from each group's first row
+        // answered {1, 2, 4, 5}.
+        => Assert.Contains("as part of an aggregate function",
+            Assert.Throws<InvalidOperationException>(() => Ids(Fresh(),
                 """
                 SELECT o.Id FROM O AS o
                 WHERE EXISTS (
                     SELECT 1 FROM I AS i
                     GROUP BY i.K
                     HAVING COUNT(*) >= 1 AND i.Id = o.Id)
-                """));
+                """)).Message);
 
     [Fact]
     public void A_having_correlation_with_no_group_by_falls_back()

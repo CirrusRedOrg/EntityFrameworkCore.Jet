@@ -179,6 +179,27 @@ public class ForeignKeyDdlTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // A self-reference needs a unique parent key, as a cross-table one does: here the referenced column's only
+    // index is another relationship's, which is not unique, and ACE refuses the CREATE (verified).
+    [Fact]
+    public void Self_referencing_foreign_key_needs_a_unique_parent_index()
+    {
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "fkselfunique-");
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var engine = new QueryEngine(db);
+            engine.ExecuteNonQuery("CREATE TABLE `O` (`Id` INTEGER PRIMARY KEY)");
+            var error = Assert.Throws<InvalidOperationException>(() => engine.ExecuteNonQuery(
+                "CREATE TABLE `S` (`Id` INTEGER PRIMARY KEY, `X` INTEGER, `P` INTEGER, " +
+                "CONSTRAINT `G1` FOREIGN KEY (`X`) REFERENCES `O` (`Id`), " +
+                "CONSTRAINT `G2` FOREIGN KEY (`P`) REFERENCES `S` (`X`))"));
+            Assert.Contains("No unique index found", error.Message, StringComparison.Ordinal);
+            Assert.Null(db.Catalog.FindTable("S"));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     // Access documents ON UPDATE before ON DELETE; EF Core emits only ON DELETE. The grammar accepts
     // the clauses in either order, so both cascades must round-trip regardless of ordering.
     [Fact]

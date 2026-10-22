@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace LibRed.Engine.Execution;
+namespace LibRed.Storage.Types;
 
 /// <summary>
 /// Text read as a date and time the way <c>CDate</c> reads it — OLE Automation's own parser rather than .NET's
@@ -26,7 +26,7 @@ namespace LibRed.Engine.Execution;
 /// text as a number instead.</item>
 /// </list>
 /// </remarks>
-internal static class VbaDateText
+public static class VbaDateText
 {
     private enum Kind { Number, Month, Meridiem, DateSeparator, TimeSeparator }
 

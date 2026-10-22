@@ -41,7 +41,8 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
         ?? throw new InvalidOperationException("A table definition is required to enumerate its data pages.");
 
     /// <summary>Yields the page numbers of every data page owned by the table, in ascending order.</summary>
-    public IEnumerable<int> DataPages() => PagesAt(_channel.Format.TdefOwnedPagesOffset);
+    public IEnumerable<int> DataPages(Dictionary<int, ReadOnlyMemory<byte>>? images = null) =>
+        PagesAt(_channel.Format.TdefOwnedPagesOffset, images);
 
     /// <summary>Yields the table's data pages that still have room for a row, in ascending order — the
     /// free-pages map. A strict subset of <see cref="DataPages"/>, and normally just the page currently
@@ -49,23 +50,24 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
     public IEnumerable<int> FreeDataPages() => PagesAt(_channel.Format.TdefFreePagesOffset);
 
     /// <summary>The highest-numbered data page the table owns, or -1 when it owns none.</summary>
-    public int MaxDataPage() => EdgeDataPage(fromEnd: true);
+    public int MaxDataPage() => EdgeDataPage(_channel.Format.TdefOwnedPagesOffset, fromEnd: true);
 
-    /// <summary>The lowest-numbered data page the table owns, or -1 when it owns none.</summary>
-    public int MinDataPage() => EdgeDataPage(fromEnd: false);
+    /// <summary>The lowest-numbered page the table's free-pages map marks, or -1 when it marks none.</summary>
+    public int MinFreeDataPage() => EdgeDataPage(_channel.Format.TdefFreePagesOffset, fromEnd: false);
 
-    /// <summary>The owned-pages map's last (<paramref name="fromEnd"/>) or first page.</summary>
+    /// <summary>The last (<paramref name="fromEnd"/>) or first page of the TDEF's map at
+    /// <paramref name="pointerOffset"/>.</summary>
     /// <remarks>
     /// Scans the bitmap from one end rather than enumerating <see cref="DataPages"/> and taking the extreme:
     /// callers ask this on every page allocation and on every delete that empties a page, and materializing
     /// every owned page each time would make a bulk load quadratic. Cost here is bounded by the bitmap size,
     /// not the table's page count. Both ends share this walk so only the scan direction differs.
     /// </remarks>
-    private int EdgeDataPage(bool fromEnd)
+    private int EdgeDataPage(int pointerOffset, bool fromEnd)
     {
         JetFormatBase format = _channel.Format;
         PageBuffer tdef = _channel.ReadPage(DefinitionPage);
-        (int row, int page) = tdef.ReadRecordPointer(format.TdefOwnedPagesOffset);
+        (int row, int page) = tdef.ReadRecordPointer(pointerOffset);
         ReadOnlySpan<byte> record = ReadRecordAt(row, page);
 
         if (RecordType(record) == UsageMapType.Inline)
@@ -91,25 +93,28 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
 
     /// <summary>Reads the usage map whose (row, page) pointer sits at <paramref name="pointerOffset"/> in
     /// the TDEF. Both maps share the same pointer shape and record format.</summary>
-    private IEnumerable<int> PagesAt(int pointerOffset)
+    private IEnumerable<int> PagesAt(int pointerOffset, Dictionary<int, ReadOnlyMemory<byte>>? images = null)
     {
-        (int row, int page) = _channel.ReadPage(DefinitionPage).ReadRecordPointer(pointerOffset);
-        return PagesInMap(row, page);
+        PageBuffer definition = _channel.ReadPageShared(DefinitionPage);
+        if (images is not null) images[DefinitionPage] = definition.Data;
+        (int row, int page) = definition.ReadRecordPointer(pointerOffset);
+        return PagesInMap(row, page, images);
     }
 
     /// <summary>The pages recorded by the usage map at a <paramref name="mapPage"/>:<paramref name="mapRow"/>
     /// pointer. The TDEF's own two maps come through here (<see cref="DataPages"/>, <see cref="FreeDataPages"/>),
     /// and so does every other map reached by an explicit pointer — a long-value column's owned and free maps,
     /// whose pointers sit in the TDEF keyed by column id, and an index's own map.</summary>
-    public IEnumerable<int> PagesInMap(int mapRow, int mapPage) =>
-        PagesInRecord(_channel, ReadRecordAt(mapRow, mapPage), _channel.PageCount, "A usage map");
+    public IEnumerable<int> PagesInMap(int mapRow, int mapPage, Dictionary<int, ReadOnlyMemory<byte>>? images = null) =>
+        PagesInRecord(_channel, ReadRecordAt(mapRow, mapPage, images), _channel.PageCount, "A usage map", images);
 
     /// <summary>The pages a map <paramref name="record"/> marks, inline or reference form. Pointer k's bitmap covers
     /// the page range starting at k * UsageMapPagesPerBitmapPage; a zero pointer means the range has no pages in the
     /// map, and a bitmap page belongs to one range only. A page at or past <paramref name="rejectBeyond"/> is
     /// corruption; null keeps every bit, for a map that may name pages past the file's end (see
     /// <see cref="BitmapBits.AppendPages"/>). <paramref name="what"/> names the map in the messages.</summary>
-    internal static List<int> PagesInRecord(PageChannel channel, ReadOnlySpan<byte> record, int? rejectBeyond, string what)
+    internal static List<int> PagesInRecord(PageChannel channel, ReadOnlySpan<byte> record, int? rejectBeyond, string what,
+        Dictionary<int, ReadOnlyMemory<byte>>? images = null)
     {
         JetFormatBase format = channel.Format;
         var pages = new List<int>();
@@ -127,7 +132,9 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
             if (bitmapPage == 0) continue;
             if (!bitmapPages.Add(bitmapPage))
                 throw new InvalidDataException($"{what} repeats bitmap page {bitmapPage}.");
-            BitmapBits.AppendPages(pages, BitmapPageBits(ReadBitmapPage(channel, bitmapPage).Span, format),
+            PageBuffer bitmap = ReadBitmapPage(channel, bitmapPage);
+            if (images is not null) images[bitmapPage] = bitmap.Data;
+            BitmapBits.AppendPages(pages, BitmapPageBits(bitmap.Span, format),
                 e * format.UsageMapPagesPerBitmapPage, rejectBeyond, what);
         }
         return pages;
@@ -139,12 +146,13 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
     /// <remarks>Both halves of the pointer come out of the TDEF, so both are corruption when wrong. Unchecked,
     /// the page number reached the channel as an out-of-range read and the row number reached GetRow as an
     /// index.</remarks>
-    internal ReadOnlySpan<byte> ReadRecordAt(int mapRow, int mapPage)
+    internal ReadOnlySpan<byte> ReadRecordAt(int mapRow, int mapPage, Dictionary<int, ReadOnlyMemory<byte>>? images = null)
     {
         (PageBuffer page, _, DataPage.RowSlot slot) = ReadRecord(_channel, mapRow, mapPage, "Usage-map pointer");
         if (DataPage.ReadOwner(page.Span, _channel.Format) != 0)
             throw new InvalidDataException(
                 $"Usage-map pointer {mapPage}:{mapRow} does not target an owner-zero usage-map data page.");
+        if (images is not null) images[mapPage] = page.Data;
         return page.Slice(slot.Offset, slot.Length);
     }
 
@@ -233,17 +241,12 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
     private static int ReferencePointerOffset(int slot, JetFormatBase format) =>
         format.UsageMapReferencePointersOffset + slot * sizeof(int);
 
-    /// <summary>Whether <paramref name="page"/> carries a dedicated bitmap page's complete
-    /// <c>[05 01 00 00]</c> header — the check every reader and writer makes before trusting a pointer to one.</summary>
-    private static bool IsBitmapPage(ReadOnlySpan<byte> page, JetFormatBase format) =>
-        PageHeader.ReadType(page) == PageType.PageUsageBitmap
-        && !page[sizeof(ushort)..format.UsageMapBitmapPageHeaderSize].ContainsAnyExcept((byte)0); // past the type: zero
-
     /// <summary>
     /// The dedicated bitmap page (type 0x0105) a reference record's pointer names, after proving it is one: inside the
-    /// file and carrying the complete bitmap-page header. The pointer comes out of the file, so this is the one check
-    /// every reader and writer makes before trusting it — the spec states it as mandatory "before any bitmap is
-    /// expanded into page numbers", and a writer that skipped it OR'd a bit into an ordinary data, TDEF or index page.
+    /// file and carrying the bitmap page type. The pointer comes out of the file, so this is the one check every
+    /// reader and writer makes before trusting it — the spec states it as mandatory "before any bitmap is expanded
+    /// into page numbers", and a writer that skipped it OR'd a bit into an ordinary data, TDEF or index page. Bytes
+    /// 2..3 are not checked: ACE does not read them, and keeps whatever they hold (verified).
     /// The bytes are the channel's shared copy; a writer copies them before changing any.
     /// </summary>
     internal static PageBuffer ReadBitmapPage(PageChannel channel, int pageNumber)
@@ -252,9 +255,9 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
             throw new InvalidDataException(
                 $"Usage map names bitmap page {pageNumber}, outside the file's 1..{channel.PageCount - 1} range.");
         PageBuffer page = channel.ReadPageShared(pageNumber);
-        if (!IsBitmapPage(page.Span, channel.Format))
+        if (PageHeader.ReadType(page.Span) != PageType.PageUsageBitmap)
             throw new InvalidDataException(
-                $"Page {pageNumber} is named as a usage bitmap but does not carry the [05 01 00 00] header.");
+                $"Page {pageNumber} is named as a usage bitmap but is not a bitmap page (type 0x0105).");
         return page;
     }
 
@@ -282,7 +285,7 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
     {
         byte[] page = DataPage.NewPage(format, owner);
         // An all-zero record is an empty inline map: inline type, start page 0, zero bitmap.
-        var records = Enumerable.Range(0, mapCount).Select(_ => new byte[format.UsageMapInlineRecordSize]).ToArray();
+        var records = Enumerable.Range(0, mapCount).Select(_ => (ReadOnlyMemory<byte>)new byte[format.UsageMapInlineRecordSize]).ToArray();
         DataPage.LayRows(page, format, records, new RowSlotFlags[mapCount]);
         return page;
     }
@@ -296,15 +299,10 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
     /// <paramref name="mapRow"/> on <paramref name="mapPage"/>.</summary>
     /// <remarks>
     /// Handles both map types. An inline map is grown in place while its record still fits the page; once it
-    /// cannot, the map is converted to a reference map — exactly Access's own threshold.
-    /// <para>
-    /// <paramref name="movableWindow"/> marks a map whose set bits stay clustered near the append tail — a
-    /// free-pages map. Rather than growing a bitmap from <c>startPage = 0</c> all the way out to the tail,
-    /// such a map slides a fixed full-width window, as Access does, so its record stays full-width forever.
-    /// An owned-pages map cannot do this: it must retain every page it has ever taken.
-    /// </para>
+    /// cannot, the map is converted to a reference map — exactly Access's own threshold. A free-pages map is no
+    /// different from an owned one here (measured).
     /// </remarks>
-    public void SetBit(int mapRow, int mapPage, int targetPage, bool set, bool movableWindow = false)
+    public void SetBit(int mapRow, int mapPage, int targetPage, bool set)
     {
         JetFormatBase format = _channel.Format;
         // The pointer comes out of the file, so the record is located as every reader locates it: a live, non-empty
@@ -331,14 +329,26 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
         {
             if (!set) return;
 
-            // A free-pages map slides its window onto the target instead of growing (and can therefore also
-            // move *backwards*, which a grown map could never do).
-            if (movableWindow && TryRepositionWindow(page, holder, format, mapPage, mapRow, targetPage))
+            // A map that marks no page has nothing to keep, so ACE re-bases it on the target, rounded down to a
+            // byte, rather than growing or sliding it — owned, free, index and long-value maps alike (verified: a
+            // table whose first page is 605 / 1151 / 1535 starts its maps at 600 / 1144 / 1528, and a free map
+            // emptied by a filled page moves to the next tail's byte, not to a 512-page boundary).
+            if (!InlineBits(page.AsSpan(mapOffset, slot.Length), format).ContainsAnyExcept((byte)0))
+            {
+                BinaryPrimitives.WriteInt32LittleEndian(
+                    page.AsSpan(mapOffset + format.UsageMapStartPageOffset, sizeof(int)), targetPage / 8 * 8);
+                bitIndex = targetPage % 8;
+            }
+            // A map that marks a page cannot slide: asked for a page below its start, it converts to a reference
+            // map (verified: a table whose owned map was re-based on 600, given 42, 44 and 45, holds them in a
+            // reference map; a free-pages map at a table's tail near page 1140, given a page near 340, likewise).
+            // Asked for one past its end, it grows, a free-pages map too (measured: a DELETE of every seventh row
+            // of a one-row-a-page table grows the free-pages map from start page 0, 69 to 77, 89 and 477 bytes).
+            else if (bitIndex < 0)
+            {
+                SetAsReference();
                 return;
-
-            if (bitIndex < 0)
-                throw new NotSupportedException(
-                    $"Page {targetPage} is below the usage map's start page {startPage}; this map's window cannot move.");
+            }
         }
 
         // When Access needs to mark a page beyond the window it grows the bitmap record in place (still
@@ -350,12 +360,12 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
             page.AsSpan(mapOffset, slot.Length).CopyTo(grownRecord);
 
             byte[]? grown = ReplaceMapRecord(page, holder, format, mapRow, grownRecord, out mapOffset);
-            if (grown is null)
+            if (grown is null || DataPage.ReadFreeSpace(grown, format) < format.UsageMapHolderReserve)
             {
-                // The record can no longer grow within its page: switch to a reference map and retry there.
-                ConvertInlineToReference(mapPage, mapRow);
-                (PageBuffer converted, _, DataPage.RowSlot reference) = ReadRecord(_channel, mapRow, mapPage, "Usage-map pointer");
-                SetReferenceBit(converted.Span.ToArray(), mapPage, reference.Offset, targetPage, set);
+                // The record can no longer grow within its page, keeping the holder's reserve free as ACE does
+                // (verified: a key-less table's owned map ends inline at 4005 bytes, 4 left, rather than 4009):
+                // switch to a reference map and retry there.
+                SetAsReference();
                 return;
             }
 
@@ -364,55 +374,13 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
 
         BitmapBits.Set(InlineBits(page.AsSpan(mapOffset), format), bitIndex, set);
         _channel.WritePage(mapPage, page);
-    }
 
-    /// <summary>
-    /// Slides an inline map's window onto <paramref name="targetPage"/>: a full-width bitmap starting at the
-    /// window boundary below the target, carrying over every bit already set and adding the target's.
-    /// Returns <see langword="false"/> — leaving the map untouched — when some page already marked would
-    /// fall outside the new window, since moving would silently forget it; the caller then grows instead.
-    /// </summary>
-    private bool TryRepositionWindow(byte[] page, DataPage holder, JetFormatBase format, int mapPage, int mapRow, int targetPage)
-    {
-        DataPage.RowSlot slot = holder.Rows[mapRow];
-        int headerSize = format.UsageMapInlineHeaderSize;
-        int startPage = StartPage(page.AsSpan(slot.Offset), format);
-        ReadOnlySpan<byte> bitmap = page.AsSpan(slot.Offset + headerSize, slot.Length - headerSize);
-
-        int windowPages = format.UsageMapInlineBitmapSize * 8;
-        int newStart = targetPage / windowPages * windowPages;
-        int newEnd = newStart + windowPages;
-
-        var marked = new List<int>();
-        BitmapBits.AppendPages(marked, bitmap, startPage, rejectBeyond: null, "A free-pages map");
-        bool fitsWindow = marked.TrueForAll(p => p >= newStart && p < newEnd);
-
-        // A window that has already moved above the target cannot slide back down without dropping the pages
-        // it still advertises, so it widens instead: the start drops to the lowest page it must cover (rounded
-        // down to a byte, as the released map's move does) and the record is sized to reach the highest. That
-        // keeps it inline and keeps every bit. Marking a page a table's free map cannot represent is not a
-        // corruption — the bit only advertises room — but silently dropping it is what leaves reusable space
-        // invisible, and throwing outright failed an ordinary DROP TABLE on a real file (complex1.accdb, whose
-        // MSysObjects free map sits at page 2288 while its catalog rows live at page 17).
-        int bitmapBytes = format.UsageMapInlineBitmapSize;
-        if (!fitsWindow)
+        void SetAsReference()
         {
-            int lowest = Math.Min(targetPage, marked.Count == 0 ? targetPage : marked.Min());
-            int highest = Math.Max(targetPage, marked.Count == 0 ? targetPage : marked.Max());
-            newStart = lowest / 8 * 8;
-            bitmapBytes = InlineBitmapBytes(format, highest - newStart + 1);
+            ConvertInlineToReference(mapPage, mapRow);
+            (PageBuffer converted, _, DataPage.RowSlot reference) = ReadRecord(_channel, mapRow, mapPage, "Usage-map pointer");
+            SetReferenceBit(converted.Span.ToArray(), mapPage, reference.Offset, targetPage, set);
         }
-
-        byte[] record = NewInlineRecord(format, newStart, bitmapBytes);
-        marked.Add(targetPage);
-        foreach (int markedPage in marked)
-            BitmapBits.Set(InlineBits(record, format), markedPage - newStart, true);
-
-        byte[]? rewritten = ReplaceMapRecord(page, holder, format, mapRow, record, out _);
-        if (rewritten is null) return false; // shrinking or same size, so effectively unreachable
-
-        _channel.WritePage(mapPage, rewritten);
-        return true;
     }
 
     /// <summary>Sets or clears <paramref name="targetPage"/>'s bit in a reference map: pointer slot
@@ -432,7 +400,7 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
         if (bitmapPage == 0)
         {
             if (!set) return; // the bit is already clear — no need to materialize the bitmap page
-            bitmapPage = AllocateBitmapPage();
+            bitmapPage = AllocateBitmapPage(slot);
             WriteReferencePointer(record, slot, format, bitmapPage);
             _channel.WritePage(mapPage, page);
         }
@@ -464,10 +432,15 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
         return pages;
     }
 
-    /// <summary>Allocates and initialises an empty dedicated usage-bitmap page (type 0x0105).</summary>
-    private int AllocateBitmapPage()
+    /// <summary>Allocates and initialises an empty dedicated usage-bitmap page (type 0x0105) for reference slot
+    /// <paramref name="slot"/>: the shared reservation's next page; with none, the lowest page not in use — free in the
+    /// global map, or held by an owner's group — from the slot's range on (measured: a table's owned map turned
+    /// reference form takes the lowest free page; with none free, the page an index's group holds; its second range's
+    /// bitmap, the first page of that range not in use; a DELETE's free-pages map, the reservation's pages). A free page
+    /// opens the reservation round it, whose pages the next rows take.</summary>
+    private int AllocateBitmapPage(int slot)
     {
-        int pageNumber = _channel.Allocator.Allocate();
+        int pageNumber = _channel.Allocator.Allocate(rangeStart: slot * _channel.Format.UsageMapPagesPerBitmapPage);
         _channel.WritePage(pageNumber, NewBitmapPage(_channel.Format));
         return pageNumber;
     }
@@ -500,7 +473,7 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
                 throw new NotSupportedException(
                     $"Page {group.First()} lies past the {format.UsageMapReferenceSlots} bitmap slots a usage map can address (Jet's 2 GB file limit).");
 
-            int bitmapPage = AllocateBitmapPage();
+            int bitmapPage = AllocateBitmapPage(group.Key);
             byte[] bits = _channel.ReadPage(bitmapPage).Span.ToArray();
             foreach (int ownedPage in group)
                 BitmapBits.Set(BitmapPageBits(bits, format), ownedPage % pagesPerBitmap, true);
@@ -532,7 +505,7 @@ internal sealed class UsageMap(PageChannel channel, TableDefinition? table = nul
     internal static byte[]? ReplaceMapRecord(byte[] page, DataPage holder, JetFormatBase format, int mapRow, byte[] newRecord, out int newOffset)
     {
         int rowCount = holder.Rows.Count;
-        var records = new byte[rowCount][];
+        var records = new ReadOnlyMemory<byte>[rowCount];
         for (int i = 0; i < rowCount; i++)
             records[i] = page.AsSpan(holder.Rows[i].Offset, holder.Rows[i].Length).ToArray();
         records[mapRow] = newRecord;

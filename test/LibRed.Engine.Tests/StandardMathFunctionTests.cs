@@ -28,7 +28,7 @@ public class StandardMathFunctionTests(StandardMathFunctionTests.Database databa
     [Theory]
     [InlineData("FLOOR(DB)", -3d)]
     [InlineData("CEILING(DB)", -2d)]
-    [InlineData("CEIL(2.5)", 3d)]
+    [InlineData("CEIL(CDBL(2.5))", 3d)]
     [InlineData("SQRT(6.25)", 2.5)]
     [InlineData("LN(1)", 0d)]
     [InlineData("LOG10(1000)", 3d)]

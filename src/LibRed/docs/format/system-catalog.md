@@ -4,7 +4,7 @@
 
 ## 11. System catalog
 
-- **MSysObjects** (its TDEF is the page page 0's catalog-root pointer at `0x20` names) lists every object. Columns include `Id`, `Name`,
+- **MSysObjects** (its TDEF is the page that page 0's catalog-root pointer at `0x20` names) lists every object. Columns include `Id`, `Name`,
   `Type`, `Flags`, `ParentId`. For a **table** object (`Type == 1`), **`Id` is the table's TDEF
   page number**. An object is excluded from the **user-table** list (as Access's own schema view
   does — it hides system *and* hidden objects) if `Flags & 0x80000002` (system: `0x80000000` +
@@ -30,7 +30,7 @@
   > name. Stored queries are listed in the same rowset as **`VIEW`**.
 
   **Object kinds.** `Type` names the kind and `ParentId` the **container** it sits in; the containers are
-  themselves rows, of `Type 3`. Measured across a corpus of Access-written files:
+  themselves rows, of `Type 3`. Across Access-written files:
 
   | `Type` | Kind | `ParentId` (container) | Non-null blob/link columns |
   |---|---|---|---|
@@ -40,6 +40,7 @@
   | `5` | query | `Tables` | `Lv`, `LvExtra`, `LvProp` |
   | `6` | linked table; `Flags` `0x00200000` or `0x00B00000` | `Tables` | `Connect`, `Database`, `ForeignName`, `Lv`, `LvProp` |
   | `8` | relationship | `Relationships` (`0x0F000003`) | `LvProp` |
+  | `9` | CHECK constraint, and DAO's `SingleRecord` every database is created with; `Flags` `0x10000000`, `Owner` null | `Relationships` | `Connect`, `Database`, `ForeignName` |
   | `-32757` (`0x800B`) | database document: `SummaryInfo`, `UserDefined`, `AccessLayout` | `Databases` | `LvExtra`, `LvProp` |
   | `-32758` (`0x800A`) | a row per user (`Admin`) | `SysRel` | `LvExtra` |
   | `-32761` (`0x8007`) | module | `Modules` | — |
@@ -83,8 +84,8 @@
   > - A fresh DAO/ACE database's `Tables` container grants Creator `0xF00FE` and the Users group `0xFFEFF`
   >   (its admin row, `0x60001`, is not inheritable), so a new table, view or query gets admin `0xF00FE`,
   >   Users `0xFFEFF`.
-  > - Northwind's `Tables` container also grants admin `0xFFEFF`, inheritable, so there both rows are `0xFFEFF`.
-  > - The `Relationships` container grants Creator `0xF00FE` and Users `0xFFFFF` in both, so a relationship
+  > - A database whose `Tables` container also grants admin `0xFFEFF` inheritable has both rows `0xFFEFF`.
+  > - The `Relationships` container grants Creator `0xF00FE` and Users `0xFFFFF`, so a relationship
   >   gets admin `0xF00FE`, Users `0xFFFFF`.
   >
   > The route does not matter: ACE's SQL DDL and the Access UI give the same rows in the same database.
@@ -111,15 +112,25 @@
   > entries `[short entryLen][byte flags][byte dataType][short nameIndex][short valueLen][value]`.
   > The owner record's second field is **always zero** (verified).
   > The per-entry flag byte is a **bit field**. Bit `0x01` marks a **DDL/property-definition property**; an
-  > ordinary property has it clear. A set bit makes the property definition-protected (`dbSecWriteDef`
-  > permission is needed to change/delete it), and Access only recognises some properties when the
-  > classification is correct (both unverified against ACE). Observed in files: `DefaultValue`, `Required`,
-  > `CheckConstraints`, `GUID`, and `ResultType` are `0x01`, while `Title`, `Author`, `AccessVersion`, and
-  > datasheet-layout properties are `0x00`. `ValidationRule`/`ValidationText` are classed as DDL and
-  > `Caption`/`Description` as ordinary (unverified). Bit **`0x80`** also occurs in Access-written files: every
-  > stored query of one example database carries a `0x80` entry in its own (`0x00`) block. mdbtools reads it as
-  > "store the value without running the property's handler", set by Access itself and by no DAO call
-  > (unverified). The flag is independent per entry; it is not a file-version, encryption, owner, or data-type
+  > ordinary property has it clear. It is exactly DAO's `DDL` argument (verified): the engine's built-in
+  > properties set through DAO — `ValidationRule`, `ValidationText`, `DefaultValue`, `Required`,
+  > `AllowZeroLength`, on a column and on the table alike — are written `0x01`, a property appended with
+  > `CreateProperty(…, DDL:=True)` is `0x01`, and one appended with `DDL` left at its default (`Caption`,
+  > `Description`) is `0x00`. **ACE only recognises a column's `DefaultValue` and `Required` with the bit set**
+  > (verified): with it clear, an `INSERT` omitting the column stores NULL rather than the default, and an explicit
+  > NULL is accepted into the `NOT NULL` column. The table's `CheckConstraints` entry is enforced either way.
+  > LibRed's reader applies `DefaultValue` and `Required` only with the bit set, as ACE does; every writer seen sets
+  > the bit on them. **A set bit makes the property part of the definition** (verified): under user-level security a
+  > user without `dbSecWriteDef` on the table can change and delete a column's `0x00` property, but is refused
+  > *"You do not have the necessary permissions to use the 'T' object"* on a `0x01` one, as on adding a field.
+  > LibRed has no user-level security and so enforces none of this. Observed in files too: `CheckConstraints`, `GUID` and `ResultType` are `0x01`,
+  > while `Title`, `Author`, `AccessVersion` and datasheet-layout properties are `0x00`. DAO stored a column's
+  > `ValidationRule` with a trailing NUL character in the value and the table's without one (observed, not
+  > explained). Bit **`0x80`** also occurs in Access-written files, on one property only: `ReplicableBool`,
+  > in a stored query's own (`0x00`) block. Appending that property through DAO, or through Access's own
+  > `CurrentDb`, writes it `0x00` like any other (verified), so neither API sets the bit; `ReplicableBool`
+  > belongs to Jet replication, which `.accdb` does not support, so it is presumably the replication machinery or
+  > a conversion from a replicated `.mdb` that writes it (inferred). The flag is independent per entry; it is not a file-version, encryption, owner, or data-type
   > marker. LibRed accepts any flag byte, writes it back unchanged, and defaults newly constructed schema
   > properties to `0x01`. The
   > `dataType` is an ordinary **`JetDataType` code** (the same byte used by column descriptors and
@@ -146,13 +157,31 @@
   > changes the blob's bytes though nothing it means has changed.
   >
   > The value-block **type** is `0x01` for a column-owned map and `0x00` for the
-  > table-owned map (empty owner name). mdbtools gives `0x02` as an **index**-owned map, named for the index —
-  > which Access usually names for its column — though no example file has one (unverified). LibRed keeps each
+  > table-owned map (empty owner name), and `0x02` for an **index**-owned map, under the index's own name, not its
+  > column's (verified). Access usually names an index for its column, which is why the type, not the name, must decide
+  > the owner. LibRed keeps each
   > block's type as read, so a column's properties are only ever those in a `0x01` block of its name. A `DefaultValue` (column property) is the expression's **source
   > text** (e.g. `42`, `'hi'`) — its evaluation semantics (what an expression may contain, the
   > DDL-parser-vs-expression-service split) are in [page-02c-default-values.md](page-02c-default-values.md);
   > table-level `CHECK` constraints are a single **table** property named `CheckConstraints` whose value is a
   > `name\0expression\0` list, terminated by an extra `\0` (verified byte-for-byte vs ACE).
+  > The expression names the row it checks by **U+FFFE**, never by the table's name (verified): a column the
+  > statement qualified with the table's own name is stored unqualified, or inside a subquery as `U+FFFE.column`
+  > — unless that subquery reads the table itself, where the qualifier is the subquery's and is kept. ACE cannot
+  > evaluate a stored `table.column` (*"Could not find field"*), so a writer must not leave one.
+  > A check is otherwise stored **as written** — spacing, keyword case, `` `backtick` `` quoting and all (which
+  > only newer engine builds can evaluate; see [page-02c-default-values.md](page-02c-default-values.md)) — except
+  > where a qualifier was dropped outside a subquery: that expression is stored **re-formed** from its parse
+  > (verified). No space about `^ * / \ + - = <> < <= > >=`; one either side of `&`, `Mod` and the word operators,
+  > spelt `Not And Or Xor Eqv Imp Between In Is Exists`, with `ALike` for `LIKE`; `x <> Null` becomes
+  > `x Is Not Null`, while `x = Null` stays. Brackets only where VBA operator precedence needs them — about an
+  > operand looser than its operator, or as loose on its right. Names, strings, function names and `0x` literals as
+  > written, save `IIf` (always so spelt) and a bare `Now` (written `Now()`); `True Yes On False No Off` each
+  > capitalised as its own word; a number in plain decimal with its digits exact (`1.50` → `1.5`, `1E3` → `1000`,
+  > `.5` → `0.5`); a date as `#m/d/yyyy#`, plus an unpadded 24-hour `h:n:s` when it has a time, a time alone
+  > dated `12/30/1899`. A subquery's own text is kept as written. A comparison with a subquery's rows is spelt
+  > `Any`, `Some` or `All` — kept as distinct words, `Some` not made `Any` — after its operator, with a space before
+  > the subquery: `A>Any (SELECT …)`, `A<>All (SELECT …)` (verified).
   > `ALTER TABLE … DROP CONSTRAINT <ck>` removes the matching entry from that list and rewrites it (dropping
   > the whole table-level property block when it was the last check) — ACE-verified: after the drop ACE stops enforcing the check. (In
   > Jet/ACE `DROP CONSTRAINT` is polymorphic over the name — FK / PK / unique index / CHECK.)
@@ -169,10 +198,10 @@
   > Compatible Syntax (ANSI 92)* option: `0` = ANSI-89, `1` = ANSI-92. (The *"Default for new databases"*
   > checkbox beside it is an application setting and appears nowhere in any file; it only decides what Access
   > stamps into the next database it creates.) The two modes name the `LIKE` wildcard sets — ANSI-89 `*` `?`
-  > `#`, ANSI-92 `%` `_`. **Verified** across 38 files: 33 carry `0`, 5 carry `1`.
+  > `#`, ANSI-92 `%` `_` (verified).
   >
-  > **The engine does not consult it.** Measured over ACE in nine combinations: the property set to absent,
-  > `0` or `1` × OLE DB / ODBC / ODBC with `ExtendedAnsiSQL=1` gives identical results, for ad-hoc SQL and for
+  > **The engine does not consult it.** With the property absent, `0` or `1`, across OLE DB, ODBC and ODBC with
+  > `ExtendedAnsiSQL=1`, results are identical, for ad-hoc SQL and for
   > a saved query alike, whether the saved query was written by ACE itself or by LibRed. The wildcard set
   > comes from the **connection**: OLE DB is ANSI-92, plain ODBC reads a saved query's pattern as ANSI-89, and
   > ODBC with `ExtendedAnsiSQL=1` — which `JetConnection` sets on every ODBC connection — is ANSI-92 again.
@@ -181,12 +210,11 @@
   > **Absent is not the same as `0`.** A clear checkbox is recorded as an explicit `0`; absent means nothing
   > ever wrote the property. Neither DAO nor Access-on-first-open writes it: a pristine DAO 2000 file carries
   > an `MSysDb` row with **zero** properties, and after Access opens it the row has nine — still not this one
-  > (verified). Ten of the corpus files carry a populated blob without it, Northwind among them, so absent is
-  > an ordinary state rather than an old-format quirk.
+  > (verified). A populated blob without it is an ordinary state rather than an old-format quirk.
   >
   > LibRed neither reads nor writes it, because acting on it would diverge from the engine: its SQL surface is
   > ANSI-92 throughout, which is what every connection into an ACE database uses. Note the trap — Access's
-  > saved queries are full of ANSI-89 `*` patterns (17 of the 17 extractable ones in the corpus), which makes
+  > saved queries are full of ANSI-89 `*` patterns, which makes
   > it look as though the file's mode must be driving them. It isn't; the connection is.
   >
   > **Property-reader/writer guardrails.** LibRed validates the signature and consumes the blob exactly to
@@ -208,10 +236,14 @@
   > appearance via `Distinct()`).
   >
   > **Unmodelled properties round-trip verbatim.** LibRed *interprets* `DefaultValue`, `Required`,
-  > `CheckConstraints` and the text `ValidationRule`/`ValidationText` (the last two are **read-only**: surfaced
-  > through `INFORMATION_SCHEMA.{TABLES,COLUMNS}.VALIDATION_RULE/VALIDATION_TEXT` to match EFCore.Jet's ADOX
-  > `Jet OLEDB:{Table,Column} Validation Rule/Text`, but not yet written or enforced), while a database-first
-  > file may carry many more per column (`Format`, `AllowZeroLength`, the numeric `DecimalPlaces`, …). An
+  > `AllowZeroLength`, `CheckConstraints` and the text `ValidationRule`/`ValidationText` (the last two are
+  > **read-only**: surfaced through `INFORMATION_SCHEMA.{TABLES,COLUMNS}.VALIDATION_RULE/VALIDATION_TEXT` to match
+  > EFCore.Jet's ADOX `Jet OLEDB:{Table,Column} Validation Rule/Text`, but not yet written or enforced), while a
+  > database-first file may carry many more per column (`Format`, the numeric `DecimalPlaces`, …).
+  > `AllowZeroLength` is a Boolean DAO writes on every text field it creates — `0` unless asked for `1` — and a
+  > column SQL DDL creates carries none; ACE refuses a zero-length string where it reads `0` ("Field
+  > '<table>.<column>' cannot be a zero-length string."), and takes one where it is `1` or absent (verified), as
+  > LibRed does (`ColumnDef.AllowZeroLength`). An
   > ALTER that edits one property rewrites the whole blob (`PropertyBlob.Read` → mutate → `Write`), so
   > `PropertyBlob.Property` keeps each value's **exact stored bytes** (`RawValue`) and re-emits them unchanged —
   > a property LibRed doesn't model is never dropped or corrupted by the best-effort UTF-16 value decode (which
@@ -284,8 +316,8 @@
   > (descriptor flag `0x04`, TDEF `0x14`/`0x18` at their plain-counter defaults `0`/`1` and **ignored**) plus a
   > **column `DefaultValue` extended-property** holding the built-in expression **`GenUniqueID()`** — the
   > function that returns a random Long. There is **no** dedicated flag or "New Values" property; the
-  > Increment-vs-Random distinction lives entirely in this default expression. Verified against an
-  > Access-authored file: the ID descriptor and TDEF header are **byte-identical** to an increment counter, so
+  > Increment-vs-Random distinction lives entirely in this default expression. Verified: the ID descriptor and
+  > TDEF header are **byte-identical** to an increment counter's, so
   > the ordinary DefaultValue read path surfaces it (`ColumnDef.DefaultValue` = `"GenUniqueID()"`) with no
   > special handling. A Random AutoNumber **can** be created in pure SQL (not UI/DAO-only): `CREATE TABLE T
   > (Id COUNTER DEFAULT GenUniqueID(), ...)` — also `AUTOINCREMENT`/`COUNTER PRIMARY KEY` forms — is accepted
@@ -310,13 +342,14 @@
 - **LVAL (long-value) page** — a data page (type `0x0101`) whose owner field (`0x04`) is the ASCII marker
   `"LVAL"` instead of a TDEF page number. A single-page long value stores the whole payload in the
   referenced row (row 0 on a fresh page); the in-row reference descriptor is
-  `[length-and-flags:4][row:1][page:3][4 reserved]`. The first word is little-endian, with a 30-bit byte
+  `[length-and-flags:4][row:1][page:3][chain-stamp:4]` (the chain stamp is zero on the inline and single-page
+  forms, non-zero only on the chained form — see [long-values.md](long-values.md)). The first word is little-endian, with a 30-bit byte
   length and two flag bits: byte `0x03` masked with `0xC0` gives `0x40` = single page
   (`0x80` = inline, payload follows the descriptor; `0x00` = chained across pages). LibRed writes the
   single-page form (`LongValueStore`) and chained pages for payloads larger than one page.
 
   > With those fields set, Access **enumerates** a LibRed-created table (it appears in the
-  > schema/Tables rowset) — verified via OLE DB. Maintaining MSysObjects' indexes (the composite
+  > schema/Tables rowset). Maintaining MSysObjects' indexes (the composite
   > `ParentId+Name` and `Id` indexes) then lets Access **resolve the table by name** and attempt
   > to open it. Opening it then requires the table's own structures to be byte-valid to Access
   > (see §3.7).
@@ -336,12 +369,39 @@
   - **`Id`** is the next negative synthetic id: one past the highest in the file, from the sequence queries draw
     on, so relationships and queries interleave (`0x8000002C` relationship, `0x8000002D` view,
     `0x8000002E` relationship), and a dropped relationship's id is taken by the next object.
-  - **`MSysACEs` rows** from the `Relationships` container's inheritable grants (§11): the Users SID with ACM
-    `0xF00FE` and admin's with `0xFFFFF` in the databases examined (verified against ACE's `ADD CONSTRAINT`).
+  - **`MSysACEs` rows** from the `Relationships` container's inheritable grants (§11): where it grants Creator
+    `0xF00FE` and Users `0xFFFFF`, the owner (admin) SID with ACM `0xF00FE` and the Users SID with `0xFFFFF`
+    (verified vs ACE).
   - **Dropping it** — `DROP CONSTRAINT`, or `DROP TABLE` of the referencing table — removes the object and its
-    two `MSysACEs` rows.
-  - **Its name** must differ from every other relationship's (*"There is already a relationship named '…' in
-    the current database."*), but may equal a table's or a query's.
+    two `MSysACEs` rows. A `DROP TABLE` removes them after the table's own rows
+    ([page-08](page-08-released-tdef.md)).
+  - **Its name** must differ from every other relationship's and every CHECK constraint's (*"There is already a
+    relationship named '…' in the current database."*, measured), but may equal a table's or a query's.
+
+- **CHECK constraints** are `MSysObjects` rows of **Type 9**, beside the table's `CheckConstraints` property
+  (§11), written by both `ALTER TABLE … ADD CONSTRAINT … CHECK` and a `CREATE TABLE` constraint (verified). The
+  same shape as the `SingleRecord` row every new database holds:
+  - `Name` the check's name, `ParentId 0x0F000003` (the Relationships container), `Flags 0x10000000`,
+    **`Owner` null**, **no `MSysACEs` rows**, `Id` the next negative synthetic id from the sequence queries and
+    relationships draw on. Its name must differ from every relationship's and every other check's, on whichever
+    table (measured) — the unique `(ParentId, Name)` index — but may equal a table's (measured).
+  - **`Connect`** — the expression as the `CheckConstraints` property stores it, `U+FFFE` row qualifier and
+    re-formed text included (verified). **`ForeignName`** — the table's name followed by a NUL
+    character (`Setting\0`).
+  - **`Database`** — what the expression reads, as text built of length-prefix characters: one character counting
+    the tables, then for each table a character giving its name's length, the name, a character counting its
+    columns, and each column as its length and name. The check's **own table comes first**, then each table a
+    subquery names in the order the expression names it; a table's **columns in the table's own order**, each
+    once (`Len([Note]) < [Level] + 20 OR [Level] > 0` reads `Level, Note`); a table read for no column
+    (`COUNT(*)`) counts `0`. `[Level] < (SELECT MAX(Credit) FROM Customer WHERE City = 'Rome') + 10` on `Setting`
+    is `\x02 \x07Setting \x01 \x05Level \x08Customer \x02 \x04City \x06Credit`.
+  - Both Memo columns are stored as any Memo value is (data-types §7): an inline value compressed, a page one not,
+    and one holding a NUL — a `0`-column count — never.
+  - **`CREATE TABLE`** writes the table's own row first and each check's after it. **Dropping** a check removes
+    its row; **`DROP TABLE`** removes its checks' rows before its own.
+  - Every check has one: a check whose expression does not parse is refused when it is created, in `CREATE TABLE`
+    and `ALTER TABLE` alike (measured), so what it reads is always known. The engine parses the expression; the
+    Core API takes what it reads from the caller.
 
   > **MSysQueries columns (8, verified).** The table has exactly: `ObjectId` (Int32, the
   > query object's `Id`), `Attribute` (Byte, the row kind — see below), `Flag` (Int16, attribute-specific),
@@ -357,7 +417,8 @@
   (`Name1`=parameter name, `Flag`=Jet
   type code — same codes as on-disk column types, e.g. `8`=DateTime; **`Flag 0` is not a type code but Access's
   untyped parameter, rendered as the keyword `Value`**; one row per parameter, `Order`
-  1-based), `0x03` = **options** (see below), `0x04` = the connection string of a **pass-through** query,
+  1-based), `0x03` = **options** (see below), `0x04` = the **external database** of the FROM (below) — a
+  pass-through query keeps its connection string on the operation row instead (below),
   `0x05` = FROM source, `0x06` =
   output column (`Expression`=verbatim text; **`Name1`=the column's output alias** when it has one, e.g.
   `Expression=Customers.CompanyName`, `Name1=CustomerName`; a computed column stores its whole verbatim
@@ -373,7 +434,7 @@
   (`Name1`=table, `Name2`=alias), a **derived table / subquery** (`Expression`=the verbatim inner
   subquery SQL — outer parens and `AS alias` stripped, whitespace preserved — `Name2`=alias, **no `Name1`**;
   verified), or, on a UNION query, one **UNION segment's
-  own SQL** (`Name2` = that segment's identifier).
+  own SQL** (`Expression`; `Name2` = `X7YZ_____1` or `X7YZ_____2`, no `Name1` — below).
 
   > **The `0x01` OPERATION row is the query KIND, and SELECT is one of its values** — its presence does *not*
   > mean the query is an action query. Access writes it on plain SELECTs as well, and omits it entirely on
@@ -382,27 +443,74 @@
   > | `Flag` | kind | DAO `QueryDef.Type` | status |
   > |---|---|---|---|
   > | `1` | SELECT | `0` dbQSelect | observed |
-  > | `2` | make-table (`SELECT … INTO`; target in `Name1`, external db path in `Name2`) | `80` dbQMakeTable | observed |
-  > | `3` | append (`INSERT`; target table in `Name1`) | `64` dbQAppend | observed |
+  > | `2` | make-table (`SELECT … INTO`; target in `Name1`, external db path in `Name2`, its type or connect string in `Expression`) | `80` dbQMakeTable | observed |
+  > | `3` | append (`INSERT`; target table in `Name1`, external db path in `Name2`, its type or connect string in `Expression`) | `64` dbQAppend | observed |
   > | `4` | UPDATE | `48` dbQUpdate | observed |
   > | `5` | DELETE | `32` dbQDelete | observed |
   > | `6` | crosstab (`TRANSFORM`) | `16` dbQCrosstab | observed |
-  > | `7` | data definition (whole SQL in `Expression`, leading space) | `96` dbQDDL | *not observed in a stored query; verified by write/read round-trip only* |
-  > | `8` | pass-through | `112` dbQSQLPassThrough | *unverified — from the published MSysQueries tables* |
+  > | `7` | data definition (whole SQL in `Expression`, leading space) | `96` dbQDDL | observed |
+  > | `8` | pass-through (connect string in `Name1`, the SQL verbatim in `Expression`; no `0x04` row, a start row with `Flag 0`, `MSysObjects.Flags` `0x70`) | `112` dbQSQLPassThrough | verified (DAO) |
   > | `9` | UNION | `128` dbQSetOperation | observed |
   >
   > On a crosstab, the `0x06` and `0x09` rows carry the extra structure in their own `Flag`: `0` = the
   > `TRANSFORM` value / an ordinary GROUP BY column, `1` = the `PIVOT` column heading, `2` = a row heading.
   > On an append query, `0x06` `Flag` `-32768` (`0x8000`) marks an `INSERT … VALUES` literal, as against
-  > `Flag 0` for a column sourced from an `INSERT … SELECT`.
+  > `Flag 0` for a column sourced from an `INSERT … SELECT`. With a column list each row names its target column in
+  > `Name2`; without one (`INSERT INTO t SELECT …`) the rows are the SELECT's own, each value's output name — its
+  > alias, or the column's name — in `Name1` and no `Name2`, and a `SELECT *` has no column rows and sets the option
+  > row's `0x01` bit (verified vs ACE). ACE then fills the target columns by those names, not by position, refusing
+  > one the target lacks ("unknown field name"). An `INSERT INTO t VALUES (…)` without a column list has neither
+  > `Name1` nor `Name2` on its rows, and its values fill the table's columns in order: ACE stores one of the wrong
+  > length and refuses it only when it runs ("Number of query values and destination fields are not the same.").
+  > The SELECT is stored as any other: a SELECT with no FROM has no `0x05` rows, and its `GROUP BY`, `HAVING` and
+  > `ORDER BY` are `0x09`, `0x0A` and `0x0B` rows after the WHERE — so a stored `TOP` keeps the order that chooses its
+  > rows. A make-table's SELECT keeps them the same way (verified vs ACE).
+  >
+  > **A crosstab (verified vs ACE, `CREATE PROCEDURE` and DAO alike).** The operation row (`Flag 6`) comes straight
+  > after the type, end and parameter rows. Then:
+  >
+  > | Rows | Holds |
+  > |---|---|
+  > | `0x06` `Order 1`, `Flag 0` | the `TRANSFORM` value, its alias (accepted, naming nothing) in `Name1` |
+  > | `0x06` `Order 2…`, `Flag 2` | the SELECT's columns, aggregates such as a row total included, aliases in `Name1` |
+  > | `0x09` `Order 1…`, `Flag 2` | the SELECT's GROUP BY keys |
+  > | `0x09` last, `Flag 1` | the `PIVOT` field |
+  > | `0x06` last, `Flag 1` | the `PIVOT` clause, its `IN (…)` heading list included (`K IN ('a', 'b')`); `Order` is the column rows' count + 1 |
+  >
+  > They are written in clause order — columns, joins, tables, the external-database row, WHERE, the SELECT's GROUP BY
+  > rows, ORDER BY — and only then the pivot's GROUP BY row, its column row and the option row. `DISTINCT` and
+  > `WITH OWNERACCESS OPTION` go on the option row as a SELECT's do; a crosstab takes no `HAVING` or `TOP`, and
+  > `CREATE VIEW` refuses one ("expected token: SELECT"). `MSysObjects.Flags` carries DAO type `16`.
+  >
+  > **An external database (verified vs ACE).** A FROM ending in `IN externaldatabase` reads every table of that FROM
+  > from another file; the query keeps it as one `0x04` row, written straight after the `0x05` rows: the quoted path in
+  > `Name1` (absent when written `''`), and the type or connect string after it in `Expression` — `IN 'C:\x.accdb'` is
+  > `Name1` alone, `IN 'C:\x.accdb' 'MS Access;'` and `IN 'C:\x.accdb' [MS Access;]` add `Expression=MS Access;`, and
+  > `IN '' [;DATABASE=C:\x.accdb]` is `Expression=;DATABASE=C:\x.accdb` alone. A make-table's `INTO t IN …` and an
+  > append's `INSERT INTO t [(…)] IN …` are kept on the operation row instead: the path in `Name2`, the type or connect
+  > string in `Expression`. Either names the target's file only — the SELECT's FROM, and a subquery in its WHERE, read
+  > the query's own file unless that FROM has an `IN` of its own, a `0x04` row beside the operation row's. ACE takes
+  > the append's `IN` after the column list and refuses it before one. A view, a procedure, a make-table's or an
+  > append's source and a crosstab's FROM all store the FROM's the same way.
+  >
+  > **A bare `SELECT *` has no `0x06` rows** and sets the option row's `0x01` bit instead (verified vs ACE, a view and
+  > a procedure alike, with and without an external database). **A `*` among other items** (`SELECT *, x AS X`,
+  > `SELECT Phone, *, CompanyName`) sets the same bit and writes a `0x06` row for each other item only, in their
+  > written order — the `*` itself has no row, however many times it is written (verified vs ACE). Read back, the
+  > query returns those items first and then every column of the FROM that none of them returns by a column
+  > reference (aliased or not) or a `t.*`. A procedure `TABLE t` is stored exactly as `SELECT * FROM t`. ACE refuses
+  > to store a `*` in a grouped or aggregate query ("Cannot group on fields selected with '*'."); LibRed refuses to
+  > run one but still stores it. `DISTINCTROW` is the option row's `0x08` bit (below), so `SELECT DISTINCTROW *` is
+  > `Flag 9`, and `DISTINCTROW` with explicit columns `Flag 8`, its `TOP` and `PERCENT` adding `0x10` and `0x20` as
+  > they do to any SELECT (verified vs ACE).
 
   > **The `0x03` OPTION row's `Flag` is a bit set, and the bits are cumulative** — one row can carry several,
   > and Access may also split them across rows, so read them as a union of every `0x03` row's `Flag`:
   >
   > | bit | meaning |
   > |---|---|
-  > | `0x01` | output-all-fields; also `UNION ALL` on a UNION query, and part of the record-source form below |
-  > | `0x02` | `DISTINCT` |
+  > | `0x01` | output-all-fields; set on every UNION query, and part of the record-source form below |
+  > | `0x02` | `DISTINCT`; on a UNION query, `UNION` as against `UNION ALL` |
   > | `0x04` | `WITH OWNERACCESS OPTION` |
   > | `0x08` | `DISTINCTROW` |
   > | `0x10` | `TOP` (count as text in `Name1`) |
@@ -414,18 +522,36 @@
   > (`0x08|0x01`) is what Access writes for its auto-generated form/report record-source queries**, the
   > `~sq_f…` / `~sq_r…` / `~sq_c…` objects, which it renders as `SELECT DISTINCTROW * FROM <table>`.
   >
+  > **ACE's `CREATE VIEW` takes a simple SELECT only, where `CREATE PROCEDURE` takes more** (verified): a view with an
+  > `ORDER BY` (with or without a `TOP`) or an `INTO` is refused with *"Only simple SELECT queries are allowed in
+  > VIEWS."*, and one with a `UNION` with *"Unions not allowed in a subquery."*, as LibRed refuses them; a procedure
+  > accepts all three. **Nothing stored tells the two apart** (verified): a SELECT made by `CREATE VIEW` and the same
+  > one made by `CREATE PROCEDURE` write identical MSysQueries rows and MSysObjects flags, and both are listed as
+  > views.
+  >
+  > **A UNION query is two segments, however many SELECTs it combines** (verified, through `CREATE PROCEDURE` and
+  > DAO alike). It is split at its **last** set operator: the first `0x05` row holds the text before that operator,
+  > verbatim and with the whitespace before it, and the second the term after it, so `A UNION B UNION ALL C` is
+  > stored as `A UNION B ` and `C`, and `A UNION (B UNION ALL C)` as `A ` and `(B UNION ALL C)`. A `;` ending an
+  > operand before its operator, which ACE takes, stays in that text (`A; UNION ALL B` is `A; ` and `B`); one ending
+  > the whole query is dropped (verified). A segment is any
+  > query ACE takes there — a parenthesised one, `TABLE t` (every column of `t`), a `TOP`, a `GROUP BY`, a join, a
+  > `WITH OWNERACCESS OPTION` ending an earlier SELECT, a declared parameter's name. The rest of the query is
+  > stored as a SELECT's is: the `0x01` row (`Flag 9`), one `0x03` row (`Flag 3` for `UNION`, `1` for
+  > `UNION ALL`, `0x04` added for a `WITH OWNERACCESS OPTION` ending the last SELECT or the query), the `ORDER BY`
+  > as `0x0B` rows and the parameters as `0x02` rows; there are no `0x06`, `0x07` or `0x08` rows. ACE refuses
+  > `INTERSECT` and `EXCEPT` (*"Syntax error in FROM clause."*), and an `ORDER BY` on anything but the first
+  > SELECT's output.
+  >
   > **What ACE's own `CREATE VIEW` / `CREATE PROCEDURE` writes is one `0x03` row, `Order 1`, holding every bit the
   > query has**, the `TOP` count in its `Name1`: `DISTINCT TOP 2` is `Flag 18`, and `DISTINCT TOP 25 PERCENT` `50`.
   > A query with none of them has no `0x03` row. A make-table or append query's own SELECT keeps its
-  > `DISTINCT` and `TOP` on the same row (measured: `SELECT DISTINCT … INTO`, `SELECT TOP 5 … INTO`,
-  > `INSERT INTO … SELECT DISTINCT`). LibRed writes the same single row, and reads it back into the statement.
+  > `DISTINCT` and `TOP` on the same row. LibRed writes the same single row, and reads it back into the statement.
   >
   > **`WITH OWNERACCESS OPTION` (`0x04`) is stored by a view and by every kind of action query**, on that same row:
   > with it, ACE writes exactly the rows it writes without, but for the bit — `DISTINCT` with it is `6`, `TOP` `20`,
   > `DISTINCT TOP` `22`, `DISTINCT TOP … PERCENT` `54`, and an update, delete or append query, which has no other
-  > option, gets a `0x03` row of its own, `Flag 4`, `Order 1`. Measured for plain, `DISTINCT`, `TOP`,
-  > `DISTINCT TOP` and `DISTINCT TOP … PERCENT` SELECTs and for append (from `VALUES` and from a SELECT), update,
-  > delete and make-table queries. LibRed writes it so, reads it back to the clause at the end of the rebuilt
+  > option, gets a `0x03` row of its own, `Flag 4`, `Order 1`. LibRed writes it so, reads it back to the clause at the end of the rebuilt
   > statement, and acts on nothing it says.
 
   > **A query with no `0x05` rows at all has no FROM clause.** `SELECT 1 AS n` is a query Access stores (as
@@ -444,11 +570,99 @@
   `(ObjectId Int32, Attribute Byte, Order Binary)`; its Binary key encodes as `0x7F` + the raw bytes +
   `00 00 00 00` + a length byte.
 
-  > **Row order matters.** Access writes the rows in the order **type, end, parameters (`0x02`), distinct/top,
-  > tables (`0x05`), columns (`0x06`), joins (`0x07`), where (`0x08`), group-by (`0x09`), order-by (`0x0B`)** —
-  > *tables before columns* (verified). Access tolerates the wrong order for a **named** table, but a
-  > **derived** table defines an alias the column expressions reference, so its `0x05` row must precede the `0x06` rows or
-  > Access opens the database yet **fails to run the view**.
+  > **The rows' physical order carries no meaning.** A query is its rows grouped by `Attribute`, each group in
+  > `Order` sequence — the primary key's order — so the order the rows sit in on the page is not part of it. ACE
+  > reads a query whichever order its rows were written in, a derived table's `0x05` row after the column rows
+  > that use its alias included (verified), and LibRed reads it by `Attribute` and `Order` alone. What a
+  > derived-table view does need is a subquery `Expression` past 64 bytes on an LVAL page rather than inline
+  > (below).
+  >
+  > **Write order.** ACE writes the type, end and parameter (`0x02`) rows, then the rest in the **statement's
+  > clause order**, a FROM's joins before its tables (verified), and LibRed writes the same:
+  >
+  > | Statement | Order after type, end and parameters |
+  > |---|---|
+  > | `SELECT` (view or procedure) | columns, joins, tables, where, group-by, having, order-by, then the option row (`0x03`, DISTINCT/TOP) |
+  > | `INSERT INTO t (…) VALUES (…)` | operation (`0x01`), values |
+  > | `INSERT INTO t (…) SELECT … FROM` | operation, columns, joins, tables, where |
+  > | `SELECT … INTO t FROM` | columns, then the operation naming `t`, joins, tables, where |
+  > | `UPDATE t SET …`, `DELETE FROM t` | operation, table, assignments, where |
+  > | `… UNION …` | first segment, operation, second segment, order-by, then the option row |
+  > | `TRANSFORM … PIVOT` | operation, columns, joins, tables, external database, where, group-by, order-by, the pivot's group-by and column rows, then the option row |
+  >
+  > A FROM's external-database row (`0x04`) follows its tables in every kind.
+  >
+  > **`LvExtra` after a sized parameter.** Once a parameter row carrying facets in `LvExtra` (a `TEXT(20)`'s
+  > length) is written, **every later row of the query carries `LvExtra` too**, `0` where it has nothing of its
+  > own — a later parameter without facets, the columns, tables and predicates, an action query's rows alike.
+  > `(who TEXT(20), lim LONG)` marks `lim`'s row; `(lim LONG, who TEXT(20))` leaves it null. In
+  > `CREATE PROCEDURE p (who TEXT(20)) AS UPDATE Customer SET Name = who WHERE Id = 999` ACE writes an
+  > **uninitialised** value, not `0`, in the WHERE row's `LvExtra` (verified): the same in every run within one ACE
+  > process and different in the next (`0xDD`, `0x90`, `0xAD`). LibRed writes `0`.
+  >
+  > **Dropping a query** deletes its rows in key order — `(Attribute, Order)` — whatever order they were written
+  > in (verified).
+  >
+  > **A query's `MSysObjects.Lv` is a value ACE keeps for running it, and nothing reads it but ACE** (verified).
+  > ACE writes it whenever it runs the query over a connection that can write, and writes it afresh on every such
+  > run; a read-only connection writes none. `CREATE PROCEDURE` writes one at once for an `INSERT … VALUES`, a UNION
+  > and a FROM-less SELECT; every other body, `CREATE VIEW` and DAO's `CreateQueryDef` write none until the query
+  > runs. Compacting the file drops it, so a compacted file's queries carry none.
+  >
+  > **It is a packed memory image of the query as ACE compiled it** (layout verified, 64-bit ACE 16), 1–7 KB on
+  > LVAL pages:
+  >
+  > | Offset | Size | Meaning |
+  > | --- | --- | --- |
+  > | `0x00` | 12 | `FF FF FF FF B8 8A 7D 5F 06 01 00 5C` in every value seen |
+  > | `0x0C` | 52 | zero |
+  > | `0x40` | 4 | header length, `0x60` |
+  > | `0x44` | 4 | length from `0x60` to the end |
+  > | `0x48` | 4 | length of the unpacked image |
+  > | `0x50` | 8 | the address the image sat at in ACE's memory |
+  > | `0x58` | 4 | length of the whole value |
+  > | `0x5C` | 4 | zero |
+  > | `0x60` | 4 | length of the unpacked image again |
+  > | `0x64` | … | the image, packed: a byte `n` below `0x80` is followed by `n` bytes copied as they are, a byte with the top bit set stands for `n & 0x7F` zero bytes, and `00` ends it |
+  >
+  > The image holds 64-bit pointers into itself — absolute, at the address in `0x50` — and into the rest of ACE's
+  > memory, and UTF-16 strings: the query's name, each table it reads, each output column table-qualified
+  > (`T.A`) and its output name, the columns its predicate reads, and the index it is answered through (the
+  > primary key's name for `WHERE K = 2` or `COUNT(*)`, none for a scan or an `ORDER BY` over an unindexed
+  > column). It records the table's row count at the time it was compiled, and the `MSysObjects.DateUpdate` of the
+  > query and of each table it reads, to the second, as OLE dates — a table's last `ALTER`, not its creation. Its
+  > structures, cut at the offsets its pointers name, keep one order in every image seen:
+  >
+  > 1. a 472-byte structure at `0x00`, holding pointers to the structures after it — the 512-byte one and the
+  >    slot table among them;
+  > 2. four arrays from `0x1D8`, 8 bytes per output column each (the third holds `0x409`, which matches the
+  >    database's sort order — inferred, not verified), then the names, NUL-terminated UTF-16 and
+  >    8-aligned: each output column table-qualified, the column, the table;
+  > 3. a 288-byte structure carrying an OLE date;
+  > 4. a structure naming the table, 32 bytes plus 32 per output column (64, 96, 128 for one, two, three);
+  > 5. a second 288-byte structure, with the same date and the query's own name;
+  > 6. 88 bytes per output column, then the table's name again;
+  > 7. a 264-byte, a 16-byte and a 128-byte structure;
+  > 8. a 512-byte structure, `0xFF` but for its first words;
+  > 9. a further 88-byte structure per output column;
+  > 10. a 1896–1904-byte table that ends every image: pointers back to the structures above, then the same empty
+  >     entry repeated.
+  >
+  > This is the layout for a query over one table; a join's is **not known**.
+  >
+  > The rest is per feature: three 48-byte structures and a 192-byte one more for `WHERE A > 1`; a 192-byte
+  > structure naming the key and a 440-byte one for a seek on it; a 632-byte one for an `ORDER BY` or a
+  > `COUNT(*)`; and a pair of 272-byte ones for the `COUNT(*)`. Some images also hold an address inside ACE's own
+  > code (`00007FF8…`). What the fields inside each structure encode is **not known**. Rewritten on every run, it is not the same twice: the image sits
+  > at a new address, so every pointer changes, and once those are taken as offsets from `0x50` a rerun on the
+  > same data still differs in a counter and in the pointers outside the image, so even its packed length
+  > changes.
+  >
+  > **ACE does not rely on it.** DDL leaves it as it is, ACE's own as much as LibRed's, and the next run returns
+  > what the changed schema gives: a column added to a table appears in `SELECT *`, a dropped one fails as a
+  > parameter, a table given a new index returns what it did — the same whether ACE or LibRed made the change.
+  > LibRed writes none, reads none, and leaves one it finds alone; where ACE writes one, the two files cannot be
+  > byte-identical.
   >
   > **Long `Expression` lives on an LVAL page.** `Expression` is a Memo, so a subquery longer than the
   > 64-byte inline limit is written to an LVAL page (§8) — required for Access to *run* the view (an
@@ -473,6 +687,10 @@
   > to a declared name are lowered into engine parameters, so LibRed's own engine executes the stored procedure
   > when values are supplied.
   >
+  > **A parameter's type needs no format raise.** A `BIGINT` or `DATETIME2` parameter on an ACE 12 file is stored
+  > with its type (Int64 `0x13`, Date/Time Extended `0x14`) and the version byte stays `0x02` — for a SELECT and an
+  > action query alike (verified vs ACE). It declares no storage, so nothing about the file has to change.
+  >
   > **A form control is declared as a bang chain and stored as written.** `PARAMETERS [Forms]![frmMenu]![txtCity]
   > Text ( 20 )`, saved through DAO, stores `Name1=[Forms]![frmMenu]![txtCity]` — each part in its own brackets,
   > so a `Name1` that starts with `[` need not be one bracketed name. LibRed writes the same `Name1`, and the
@@ -482,17 +700,17 @@
   > `Forms!f!c` declared, so do `Forms!f.c` and `Forms.f!c`.
   >
   > **A declared name wins over a column of the same name — and a `@` prefix does not distinguish them.**
-  > Measured against ACE 12 on Northwind: *every* unqualified occurrence of a declared parameter name is the
+  > Verified against ACE: *every* unqualified occurrence of a declared parameter name is the
   > parameter, whether written bare or as `@name`, even where the query's own table has a column by that name.
-  > Only a table-qualified reference is read as the column. Northwind's own `CustOrdersOrders` — declared
-  > `CustomerID Text(5)`, body `WHERE CustomerID = @CustomerID` — is therefore a tautology in ACE and returns
-  > all 830 orders for any supplied value; a body written `Orders.CustomerID = [CustomerID]` returns the 6 that
-  > match. LibRed reproduces all four combinations exactly, so the "obvious" fix of resolving the left-hand
+  > Only a table-qualified reference is read as the column. A query declared
+  > `CustomerID Text(5)` with body `WHERE CustomerID = @CustomerID` is therefore a tautology in ACE and returns
+  > every row for any supplied value, while a body written `Orders.CustomerID = [CustomerID]` matches only the
+  > equal ones. LibRed reproduces all four combinations exactly, so the "obvious" fix of resolving the left-hand
   > name to the column would be a divergence, not a repair.
   >
   > **Complex-column system tables (ACE 12+ only).** Access 2007 introduced multi-value and attachment
   > columns, and with them `MSysComplexColumns` (the registry) plus nine `MSysComplexType_*` flat storage
-  > tables. **Jet 4 has none of them.** As the engine creates them (verified, DAO-created ACE 12 database):
+  > tables. **Jet 4 has none of them.** As the engine creates them (verified, ACE 12):
   >
   > | table | columns (id) | indexes | `MSysObjects.Flags` |
   > | --- | --- | --- | --- |
@@ -555,22 +773,27 @@
   > - **Update**: the `0x01` action row has `Flag 4` and nothing else on it — the target is the FROM source.
   >   One `0x06` row per SET assignment: **`Name2` = the assigned column**, `Expression` = the new value.
   >   Over a join, `Name2` is **table-qualified** (`Orders.ShipCountry`) and the join is an ordinary `0x07`
-  >   row, so an UPDATE over a join stores exactly what the same join in a SELECT stores.
+  >   row, so an UPDATE over a join stores exactly what the same join in a SELECT stores. ACE writes `Name2`
+  >   unquoted however the target was written — `SET [My T].[My Col]` and `` SET `My T`.`My Col` `` are both
+  >   `My T.My Col`, an alias's `od.Discount` — and qualified only when the statement qualified it (verified). A
+  >   file from an older engine can hold a quoted part (`T.[My Col]`), which reads the same.
   > - **Delete**: the `0x01` action row has `Flag 5`. A `DELETE <table>.* FROM …` keeps that target as a
   >   single `0x06` row whose `Expression` is the verbatim `<table>.*` and which has no `Name2`; a
   >   `DELETE FROM …` (no named target) stores **no** `0x06` row at all, and ACE renders it back as
-  >   `DELETE * FROM …`.
+  >   `DELETE * FROM …`. The Access designer also lists columns as the target (`DELETE t.c FROM t`, `DELETE c FROM
+  >   t`, several, or beside `t.*`): each is a `0x06` row of its own, as written, in order. A column names no table —
+  >   ACE deletes whole rows of the one table, and over a join refuses a target of columns only ("Specify the table
+  >   containing the records you want to delete.") as it refuses no target (verified).
   > - **Make-table** (`SELECT … INTO`): `Flag 2`, with the target table in `Name1` and, when the target is in
   >   another database file, its path in `Name2`. Everything else is stored as the SELECT it is.
   >
   > **The MSysObjects `Flags` low byte is DAO's own `QueryDef.Type`** — not the `0x01` row's `Flag`, which
-  > numbers the kinds differently. Measured across six kinds: `0x10000000` plus crosstab `0x10`, delete
-  > `0x20`, update `0x30`, append `0x40`, make-table `0x50`, data-definition `0x60` — exactly the DAO values
-  > in the table above (16/32/48/64/80/96).
+  > numbers the kinds differently. The low byte is `0x10000000` plus crosstab `0x10`, delete
+  > `0x20`, update `0x30`, append `0x40`, make-table `0x50`, data-definition `0x60`, UNION `0x80` — exactly the
+  > DAO values in the table above (16/32/48/64/80/96/128).
   >
   > **A declared parameter's facets live in the `0x02` row's `LvExtra`**, and Access renders the PARAMETERS
-  > clause from them — a row without them reads back as `Text(255)`. Verified against ACE, declaration by
-  > declaration:
+  > clause from them — a row without them reads back as `Text(255)` (verified vs ACE):
   >
   > | declared | `Flag` | `LvExtra` |
   > |---|---|---|
@@ -581,12 +804,12 @@
   > | `Long`, and every type with no declared size | its code | *nothing* |
   >
   > On every *other* row `LvExtra` holds nothing: for one statement ACE left it null with no parameter
-  > declared and wrote `0` and `226` on those same rows once one was, and Northwind's designer-authored query
+  > declared and wrote `0` and `226` on those same rows once one was, and a designer-authored query
   > carries `936840680` throughout. Don't model it outside a parameter row.
   >
   > **The `0x02` `Flag` is the Jet on-disk type code**, the same code a column of that type carries — not
-  > DAO's type constants, which agree with it only up to `15` (GUID) and then diverge. Measured across every
-  > declarable type: `Bit 1`, `Byte 2`, `Short 3`, `Long 4`, `Currency 5`, `Single 6`, `Double 7`,
+  > DAO's type constants, which agree with it only up to `15` (GUID) and then diverge. The codes are:
+  > `Bit 1`, `Byte 2`, `Short 3`, `Long 4`, `Currency 5`, `Single 6`, `Double 7`,
   > `DateTime 8`, `Binary 9`, `Text 10`, `LongBinary 11`, `Memo 12`, `GUID 15`, `Decimal 16`, **`BigInt 19`**,
   > **`DateTime2 20`**, and `0` for Access's untyped `Value` parameter. The last two are worth noting twice
   > over: DAO numbers `dbBigInt` 16, which is Decimal's code here, and ACE accepts a `BigInt` or `DateTime2`
@@ -595,12 +818,14 @@
   >
   > (A plain view/SELECT query uses `Flags=0x10000000` and no `0x01` row.) LibRed **writes** every kind it
   > reads: CREATE TABLE verbatim, INSERT from VALUES or from a SELECT, UPDATE (joins included), DELETE (with
-  > or without a `table.*` target) and make-table, each with its declared parameters and their facets — row
+  > or without a target), make-table, UNION and crosstab, each with its declared parameters and their facets — row
   > for row what ACE writes for the same statement, including the object flags, and ACE runs the result. **Read-back:** LibRed reconstructs and runs
   > every kind whose statement its engine can execute — DDL (verbatim), INSERT from VALUES or from a SELECT,
-  > UPDATE (joins included), DELETE and make-table — rebuilt with a leading `PARAMETERS` clause when the query
-  > declares parameters, so `EXECUTE name arg, …` binds them. Crosstab, pass-through and UNION read back with
-  > an "unsupported" reason naming the kind, and throw when executed.
+  > UPDATE (joins included), DELETE, make-table, UNION and crosstab, the last two returning rows — rebuilt with a
+  > leading `PARAMETERS` clause when the query declares parameters, so `EXECUTE name arg, …` binds them. A UNION
+  > is its two segments joined by the operator its option row records, then its `ORDER BY`. Pass-through reads
+  > back its connection string and its SQL, kept apart from executable SQL since the server's dialect is not Jet's,
+  > with an "unsupported" reason naming the kind, and throws when executed.
 
 - **MSysRelationships** defines foreign keys (one row per relationship column): `szRelationship`
   (name), `szObject` (child/referencing table), `szColumn` (child column), `szReferencedObject`
@@ -632,8 +857,8 @@
   > uniquely indexed (the parent PK). LibRed writes all of it, including the byte-faithful relationship
   > logical-index linkage in *both* tables' TDEFs (§3.6: outgoing block on the child, incoming block on the
   > parent, cross-referenced by `index_num`) at `CREATE TABLE` time.
-  > Verified: a LibRed-created relationship is byte-identical to an ACE-created one (bar index *names*),
-  > Access opens the file without repair, and `GetOleDbSchemaTable(Foreign_Keys)` enumerates it.
+  > Verified: a LibRed-created relationship is byte-identical to an ACE-created one (bar index *names*), and
+  > Access opens the file without repair and lists the foreign key.
   >
   > **An UNENFORCED relationship (`grbit & 0x02`) is the catalog rows alone** (verified) — no backing index
   > on the child, no outgoing or incoming block in either TDEF, and the referenced parent column need carry
@@ -664,7 +889,7 @@
   > relationship via the table, not by dropping that index).
   >
   > **Renaming a table or column (ACE-verified).** Because this table stores its tables and columns **by
-  > name**, a rename has to repoint them — and ACE does. Verified against ACE (via the DAO/ADOX rename path):
+  > name**, a rename has to repoint them — and ACE does (verified):
   > renaming a table rewrites `szObject` / `szReferencedObject`, renaming a column rewrites `szColumn` / `szReferencedColumn`, and in both cases the
   > relationship keeps its own `szRelationship` name and its enforcement — the rename is **not** refused for a
   > table in an enforced relationship. Nothing else moves: indexes (including the PK) keep their own names and
@@ -688,15 +913,15 @@
   - **`Type`** is the object's `MSysObjects.Type` read as an unsigned 16-bit value — `1` table, `5` query,
     `32768` form, `32772` report.
   - **`Name`** is the object's name as it was when the row was written, stored **with a trailing NUL**.
-  - **`GUID`** is the object's own `GUID` property (the 16-byte Binary property in its `LvProp`) — in all but a
-    few rows, which Access has left stale.
+  - **`GUID`** is the object's own `GUID` property (the 16-byte Binary property in its `LvProp`), though Access
+    can leave a row's stale.
   - **`Id`** is **not** the `MSysObjects` Id: it is distinct within a file, not contiguous, and not decoded.
   - **`NameMap`** is a long-value column with an owned-pages map and no free-pages map, so each map over 64
     bytes has an LVAL page to itself ([long-values.md](long-values.md) §3.3.2).
 
   **`NameMap` blob.** `[int32 version = 5][int32 fixedLen = 48]`, then records back to back, each
   `[int32 length, excluding itself][48 fixed bytes][UTF-16 name, NUL-terminated]`; a map with no records is
-  the 8-byte header alone. Every blob in the corpus parses to its exact end under this rule. The fixed part:
+  the 8-byte header alone. Every blob parses to its exact end under this rule. The fixed part:
 
   | Offset | Size | Object record | Field record |
   |---|---|---|---|
@@ -725,8 +950,8 @@
   > part — `[int32 0][GUID][int32 kind][16-byte slot]` — followed at once by the NUL-terminated UTF-16 name:
   > no length prefix, no type field, no uninitialised field. The list ends with a record of **kind `12`**
   > (`0x0C`) whose GUID is null, whose slot holds an int32 of `2` to `5` then zeros (`5` on every form,
-  > report and linked table), and whose name is empty; the blob ends with it. Every blob in the corpus
-  > parses to its exact end this way, bar one table in an MDB file that has no kind-12 record and ends after
+  > report and linked table), and whose name is empty; the blob ends with it. Every blob
+  > parses to its exact end this way; an MDB file can instead have no kind-12 record, ending after
   > its last name with two zero bytes. Records with a **null GUID** occur inside the list too, so the end is
   > the kind, never the GUID.
   >
@@ -742,8 +967,9 @@
 
 The Access **Complex** column (on-disk type `0x12`, len 4 — see [data-types](data-types.md)) implements
 attachment and multi-value columns. Its in-row value is a 4-byte **complex id**; the actual data lives in a
-per-column backing table, wired up through hidden system tables. LibRed **reads every piece as an ordinary
-table but does not yet auto-resolve** a `0x12` column to its backing rows (a `SELECT` of it returns the raw 4-byte id as `byte[]`).
+per-column backing table, wired up through hidden system tables. LibRed reads every piece as an ordinary table: a
+row holds the column's complex id as an Int32, and `JetDatabase.ReadComplexValues(table, column, id)` resolves an
+id to its values in the backing table.
 
 Four layers — the user table, then three kinds of ordinary hidden/system table:
 
@@ -765,54 +991,79 @@ Four layers — the user table, then three kinds of ordinary hidden/system table
      [`0x14`](page-02a-tdef.md) — there is no complex-specific counter on this side.
    - **`IdxFKPrimaryScalar`** is unique over `[_<Column> + <first value column>]` (`Value` for a scalar,
      `FileName` for an attachment): one record cannot hold the same value twice, and **ACE enforces it**
-     (verified — `ComplexDuplicateValueProbeTest`). Adding a value a record already holds is refused with
+     (verified). Adding a value a record already holds is refused with
      *"You cannot enter that value because it duplicates an existing value in the multi-valued lookup or
      attachment field"*, while a fresh value on the same record is accepted. The same value on a **different**
-     record is fine, which is what the composite key says and what the corpus shows. A writer must therefore
+     record is fine, which is what the composite key says. A writer must therefore
      reject the duplicate itself rather than relying on the value id's own uniqueness.
 
    For an Attachments column the rows are the real files (`FileData` = OLE `byte[]`, `FileName`, `FileType`);
    a multi-value scalar column is the same shape with a single `Value` column.
 
-> **Verified, and the reverse reading is excluded.** `PasesDeSalida.Acompaña`: six rows with inline ids
-> `1,2,3,4,7,14`, six flat rows, and `_TempField*0` takes the values `2,3,3,4,4,7` — two records holding two
-> values each — while `PasesDeSalida_TempField*0` runs `1..6` unique. `XSDFiles.XMLSchemaFiles`: one record,
-> `_XMLSchemaFiles` = `1` on all **37** rows. A unique key on the owner link could not produce either.
+> **A unique key on the owner link is excluded.** The owner-link column repeats once per value, so one owner
+> can appear on several flat rows — a record holding two values has its complex id on two of them — while
+> each value id stays unique.
 
 > **The names are creation-time and do not follow renames.** `<Table>_<Column>` is whatever the table and
-> column were called when the complex column was made, and so is the `f_<GUID>_<Column>` table itself:
-> `Borrow.BRW_book`'s value-id column is still `Table1_BRW_book`, `Book.BK_category` is backed by
-> `f_…_TempField*7` with columns `_TempField*7` / `Book_TempField*7`, and `COVER.Attachments` by `f_…_Field1`.
+> column were called when the complex column was made, and so is the `f_<GUID>_<Column>` table itself: after
+> a rename, the value-id column, the owner-link column and the flat table all keep the old names.
 > **Never build these names from the current schema** — resolve the table through `MSysComplexColumns.FlatTableID`,
 > then the two columns through the index shape (primary index → value id; the lone non-unique single-column
 > index → owner link).
 
 > **One record id serves every complex column of the table.** The counter is the table's single `0x1C`, so a
-> row gets one id when it is created and all of its complex columns carry that same id — `complex1.accdb`'s
-> `Table1` has four attachment columns, and records 1, 2 and 3 hold ids 1, 2 and 3 in every one of them. A
-> writer allocates once per row, not once per column.
+> row gets one id when it is created and all of its complex columns carry that same id — a row with several
+> complex columns holds the same id in every one of them. A writer allocates once per row, not once per column.
 
 > **Deleting the owning record cascades to every flat table, and rolls no counter back** (verified through
-> DAO — `ComplexDeleteCascadeProbeTest`). Deleting `Table1`'s record 3, which held three attachments in
-> `Attachment` and two more in `att4`, removed all five flat rows across both tables. The owner's `0x1C`
-> stayed at 3 and each flat table's `0x14` kept its value, so the next row still gets id 4 and the freed
+> DAO). Deleting a record removes its flat rows across every one of the table's complex columns. The owner's
+> `0x1C` and each flat table's `0x14` keep their values, so the next row still gets the next id and the freed
 > value ids are never reissued. A delete path must therefore remove the flat rows of **every** complex column
-> on the table for that id, and must leave both high-waters alone.
+> on the table for that id, and must leave both high-waters alone. The exception is a `DELETE` with no `WHERE`,
+> which empties the owner in one go and leaves every flat table as it was ([page-09](page-09-released-data.md)).
 
 LibRed's `Table.Delete` performs this cleanup before removing the owner's index entries and row. Each
 backing row uses the same table deletion path, including its indexes and long-value reclamation. All writes
 join the owner's transaction; a standalone deletion starts a transaction covering the entire operation.
 
-> **Both id spaces are sparse high-water counters**, so neither is dense or ordered: record ids run
-> `1,2,3,4,7,14` over six rows, and `XSDFiles`' value ids reach `116` over 37 values. And an id is allocated
-> when the **row** is created, with or without values — `complex1.accdb`'s `Table1` has three rows with ids
-> `1,2,3` and an empty flat table, which Access itself renders as `(0)` in every row's attachment cell. A
+> **Both id spaces are sparse high-water counters**, so neither is dense or ordered. An id is allocated
+> when the **row** is created, with or without values — a row can carry an inline id while its flat table is
+> empty, which Access renders as `(0)` in that row's attachment cell. A
 > non-null inline id is therefore **not** evidence that any value exists.
 
 > **The in-row complex id is an AutoNumber.** The `0x12` column's descriptor carries the auto-number flag
 > (`0x0F` bit `0x04`) and its high-water is the owner table's [`0x1C`](page-02a-tdef.md), separate from the
-> table's ordinary counter at `0x14`. Its descriptor also names its catalog row: `0x0B` holds the
+> table's ordinary counter at `0x14`. Its descriptor also names its catalog row: `0x0B`–`0x0E` hold the
 > `ComplexID`. See [page-02b-columns.md](page-02b-columns.md).
+
+### Creating a complex column
+
+ACE's SQL has no type for a complex column. Creating one, in a new table or appended to an existing one,
+writes the same structure for every element type:
+
+1. **The owner column**: type `0x12`, length 4, flags `0x07`, `0x0B`–`0x0E` the Int32 `ComplexID`. The id is
+   `MSysComplexColumns`' AutoNumber, so a dropped column's id is never handed out again. In a new table the
+   column is in the table's definition; appended, it is added to it and the table's rows are numbered — see
+   [`0x1C`](page-02a-tdef.md). The owner's `MSysObjects.Flags` gains `0x00040000`.
+2. **The flat table** `f_<GUID>_<column>`, cut to 64 characters, `Flags` `0x800A0000`, owned by the user SID,
+   its two `MSysACEs` rows the owner table's grants with `FInheritable` true. Its columns, stored in name order:
+   - the template's value columns, as the template declares them but with ids `0`… in **name** order;
+   - `<table>_<column>`, the next id: a variable Int32 AutoNumber, extended flag `0x04`; if that name passes 64
+     characters it is `<first character of the table>_<column>`, cut to 64;
+   - `_<column>`, the id after: a variable Int32, extended flag `0x08`, cut to 64.
+
+   Neither bookkeeping column carries a LANGID, and every column has `0x09` zero. Its three indexes, in
+   data-block order: `MSysComplexPKIndex` over the value id (primary, `0x0089`), `_<column>` (`0x0088`), and
+   `IdxFKPrimaryScalar` over `_<column>` and `Value` — `FileName` for an attachment (`0x0089`).
+3. **The registry row**: `ColumnName`, `ComplexID`, `ComplexTypeObjectID` = the template's TDEF page,
+   `ConceptualTableID` = the owner's, `FlatTableID` = the flat table's.
+4. **The owner's index** over the column, `<column cut to 31 characters>_<GUID>` (a different GUID from the
+   flat table's), unique, flags `0x0289`.
+5. **The flat table's `LvProp`**: `Required` = false on its first value column in name order (`Value`,
+   `FileData`).
+
+The pages are allocated in that order. A multi-value column has no element size or precision of its own: its
+`Value` is always the template's.
 
 ### Catalog rows for the hidden tables
 
@@ -865,48 +1116,51 @@ and flat table behind. LibRed's `DROP COLUMN` does the same as ACE on both count
 ### Attachment payload — `FileData`
 
 An attachment's `FileData` is an OLE long value wrapping the file, with an 8-byte outer header, optional
-deflate, and a 20-byte inner header naming the extension. Verified on a `pdf`, an `mp3` and a `png`, across
-both storage modes, with the file's own magic number checked after the inner header:
+deflate, and a 20-byte inner header naming the extension (verified, in both storage modes):
 
 ```
 outer header, 8 bytes
   [0..3]  compression flag: 1 = a zlib stream follows, 0 = raw bytes follow
   [4..7]  length of the body once decompressed
 
-body  (inflate when the flag is 1 — the inflated length matched [4..7] exactly)
+body  (inflate when the flag is 1 — the inflated length equals [4..7] exactly)
   inner header, 20 bytes
     [0..3]   = 20, the inner header's own length
-    [4..7]   = 1                     (constant on every sample)
+    [4..7]   = 1                     (constant)
     [8..11]  = 4                     (extension length in UTF-16 units; 12 + 8 = 20)
     [12..19] extension, UTF-16, null-terminated — "pdf", "mp3", "png"
   then the file's bytes verbatim
 ```
 
 The stream is standard zlib (RFC 1950, opening `78 5E`), so `ZLibStream` reads it without skipping a header.
-`FileFlags` and `FileTimeStamp` were `NULL` on every attachment Access wrote.
+`FileFlags` and `FileTimeStamp` are `NULL` on the attachments Access writes (observed).
 
 > **Capability and policy are different here.** The *format* stores a payload either way — the outer flag
 > says which, ACE reads both, and a long value's stored length runs to `0x3FFFFFFF` (ACE accepts that and
 > rejects `0x40000000`). Everything below is what **Access** chooses on top of that: which extensions it
-> deflates, its 256 MB per file — a quarter of what the format holds — its naming rules, and its
-> blocked-extension list. A reader needs none of it; a writer wanting files that look like Access's does.
+> deflates, its 256 MB per file — a quarter of what the format holds — its naming rules, and the file types the
+> engine refuses to attach. A reader needs none of it; a writer wanting files that look like Access's does.
 >
 > **When Access compresses is an extension list, not a size rule.** Microsoft documents it on the
 > [Attachment object](https://learn.microsoft.com/en-us/office/vba/api/access.attachment): *"Access will
 > compress your attached files unless those files are compressed natively."* The listed exceptions are
 > `.jpg .jpeg .gif .png .zip .cab .docx .xlsx .xlsb .pptx`; `.tif .exif .bmp .emf .wmf .ico` are compressed,
-> and the table is explicitly partial, so anything absent from the exception list is compressed. The three
-> measured samples agree exactly: `png` is on the list and was stored raw, while `pdf` (3,397,525 →
-> 3,303,763) and `mp3` (5,480,476 → 5,442,917) are not on it and were deflated despite saving almost
+> and the table is explicitly partial, so anything absent from the exception list is compressed. The
+> behaviour is consistent: `png` is on the list and is stored raw, while `pdf` and `mp3` are not on it and are
+> deflated despite saving almost
 > nothing — which a size rule would not explain. ACE honours the flag either way, so getting it wrong still
 > reads; matching it is about writing what Access writes.
 >
 > The same page gives a writer three more limits: an individual file may not exceed **256 MB**, a name may
 > not exceed **255 characters** including the extension, and a name may not contain `? " / \ < > * | :` or a
-> paragraph mark. Access also blocks a long list of executable extensions (`.exe`, `.bat`, `.vbs`, `.mdb`,
-> …) — that is an Access **application** policy, and whether the engine refuses them through DAO is
-> untested here.
+> paragraph mark. **The engine refuses a long list of file types** (verified through DAO's `LoadFromFile`): each
+> fails with `0x800C000E` (urlmon's `INET_E_SECURITY_PROBLEM`), whatever the extension's case — executables and
+> scripts (`.exe`, `.bat`, `.cmd`, `.vbs`, `.js`, `.ps1`, `.py`, `.jar`, …), installers and disk images (`.msi`,
+> `.msix`, `.cab`, `.iso`, `.vhd`), Access's own files (`.mdb`, `.accdb`, `.accde`, …) and shell types (`.lnk`,
+> `.url`, `.theme`, `.library-ms`). Near neighbours pass (`.dll`, `.sys`, `.psm1`, `.htm`, `.svg`, `.vss`,
+> `.vst`, `.laccdb`), as does a name with no extension. That ACE asks Windows for its dangerous file types, so the
+> list is the machine's rather than the format's, is *inferred* from the urlmon error.
 
 **To materialize**: read the row's `0x12` id → find the column's row in `MSysComplexColumns` (by `ComplexID`
 from the descriptor's `0x0B`, or by name) → open `FlatTableID`'s `f_` table → select the rows whose
-**owner-link** column equals that id. All readable today by hand; LibRed does not yet do it for you.
+**owner-link** column equals that id. `JetDatabase.ReadComplexValues` does exactly this.

@@ -20,7 +20,7 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
 {
     private const int UseJet = 2;
     private const int DbBoolean = 1, DbByte = 2, DbInteger = 3, DbLong = 4, DbCurrency = 5,
-                      DbSingle = 6, DbDouble = 7, DbDate = 8, DbText = 10, DbMemo = 12;
+                      DbSingle = 6, DbDouble = 7, DbDate = 8, DbText = 10, DbMemo = 12, DbBigInt = 16;
 
     /// <summary>(column, DAO type, text size, expression) — one per type DAO will accept.</summary>
     private static readonly (string Name, int Type, int Size, string Expression)[] Calculated =
@@ -525,11 +525,18 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
     // -- yet ACE's raise writes 0x00 there. One 2007 base, copied, so ACE's raise and LibRed's start from
     // identical bytes and page 0 can be compared whole -- everything but the commit-byte table from 0xE00,
     // which moves for any write.
-    [Fact]
-    public void A_calculated_column_raises_page_zero_as_ACE_does()
+    // A BIGINT result needs the 2016 format as well as the calculated column's 2010 one: the raise is to the higher.
+    [Theory]
+    [InlineData(DbLong, JetDataType.Int32)]
+    [InlineData(DbBigInt, JetDataType.Int64)]
+    public void A_calculated_column_raises_page_zero_as_ACE_does(int daoType, JetDataType resultType)
     {
         object? engine = CreateDbEngine();
         Assert.SkipWhen(engine is null, "DAO is unavailable in this process; it authors the fixture.");
+        if (resultType == JetDataType.Int64)
+            Assert.SkipUnless(
+                AceTestDatabase.SupportsColumnType(TestDatabases.NorthwindAccdb, "BIGINT"),
+                AceTestDatabase.UnsupportedColumnTypeReason("BIGINT"));
 
         string basePath = TemporaryDatabase.CreatePath("calc-raise-base-");
         string acePath = TemporaryDatabase.CreatePath("calc-raise-ace-");
@@ -542,14 +549,14 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
 
             object workspace = Invoke(engine!, "CreateWorkspace", "", "admin", "", UseJet)!;
             object database = Invoke(workspace, "OpenDatabase", acePath)!;
-            AppendCalculatedTable(database, "CLong", DbLong, 0, "[Qty]*2");
+            AppendCalculatedTable(database, "CLong", daoType, 0, "[Qty]*2");
             Invoke(database, "Close");
 
             using (var db = JetDatabase.Open(libPath, readOnly: false))
                 db.CreateTable("T_CLong", [
                     new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),
                     new ColumnSpec("Qty", JetDataType.Int32, 4, IsFixedLength: true),
-                    ColumnSpec.Calculated("CLong", JetDataType.Int32, "[Qty]*2"),
+                    ColumnSpec.Calculated("CLong", resultType, "[Qty]*2"),
                 ]);
 
             byte[] ace = PageZero(acePath), lib = PageZero(libPath);
@@ -716,7 +723,7 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
                 if (page.Rows[row].IsDeleted) continue;
                 byte[] raw = page.GetRow(row).ToArray();
                 byId[BitConverter.ToInt32(raw, t.Channel.Format.RowColumnCountSize + id.FixedOffset)] =
-                    RowCodec.CalculatedSlots(t.Definition.Columns, t.Channel.Format, raw)[index];
+                    RowCodec.CalculatedSlots(t.Definition, t.Channel.Format, raw)[index];
             }
         }
         return (byId[1], byId[2]);

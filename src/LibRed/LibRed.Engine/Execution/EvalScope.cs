@@ -49,6 +49,8 @@ internal sealed class EvalScope(
     // Where each reference resolved, by reference. Only the row moves between rows (see Rebind), so where a
     // reference lands does not, and neither does whether it is ambiguous.
     private Dictionary<ColumnReference, int>? _resolved;
+    private ColumnReference? _firstReference;
+    private int _firstSlot;
 
     public bool TryResolve(ColumnReference reference, out object? value)
     {
@@ -61,9 +63,23 @@ internal sealed class EvalScope(
         {
             found = -1;
         }
+        else if (_firstReference is null)
+        {
+            // Most scopes read one or two references. Keep the first binding directly, avoiding a
+            // dictionary lookup per row (and the dictionary altogether for a one-reference scope).
+            found = Locate(schema, reference);
+            _firstSlot = found;
+            _firstReference = reference;
+        }
+        else if (ReferenceEquals(reference, _firstReference))
+        {
+            found = _firstSlot;
+        }
         else
         {
-            _resolved ??= [];
+#pragma warning disable IDE0028 // AST references are keyed by identity, not by rehashing their names per row.
+            _resolved ??= new Dictionary<ColumnReference, int>(ReferenceEqualityComparer.Instance);
+#pragma warning restore IDE0028
             if (!_resolved.TryGetValue(reference, out found))
                 _resolved[reference] = found = Locate(schema, reference);
         }
@@ -97,14 +113,12 @@ internal sealed class EvalScope(
 
             if (found >= 0)
                 return throwIfAmbiguous
-                    ? throw new InvalidOperationException($"Column reference '{Describe(reference)}' is ambiguous.")
+                    ? throw new InvalidOperationException($"Column reference '{reference.QualifiedName}' is ambiguous.")
                     : -1;
             found = i;
         }
         return found;
     }
-
-    internal static string Describe(ColumnReference r) => r.Table is null ? r.Column : $"{r.Table}.{r.Column}";
 
     /// <summary>The current row's value at a 1-based column position.</summary>
     public object? At(int position) =>

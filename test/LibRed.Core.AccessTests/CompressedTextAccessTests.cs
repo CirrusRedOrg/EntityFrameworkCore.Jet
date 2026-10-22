@@ -124,7 +124,7 @@ public class CompressedTextAccessTests : TempDatabaseTest
             for (int row = 0; row < page.RowCount; row++)
             {
                 if (page.Rows[row].IsDeleted) continue;
-                foreach (var raw in RowCodec.LongValueDescriptors(definition.Columns, channel.Format, page.GetRow(row)))
+                foreach (var raw in RowCodec.LongValueDescriptors(definition, channel.Format, page.GetRow(row)))
                 {
                     if (raw.Key != column.ColumnId) continue;
                     byte[] payload = reader.Resolve(raw.Value);
@@ -199,7 +199,7 @@ public class CompressedTextAccessTests : TempDatabaseTest
                 byte[] bytes = page.GetRow(row).ToArray();
                 if (column.Type == JetDataType.Memo)
                 {
-                    foreach (var raw in RowCodec.LongValueDescriptors(definition.Columns, channel.Format, bytes))
+                    foreach (var raw in RowCodec.LongValueDescriptors(definition, channel.Format, bytes))
                         if (raw.Key == column.ColumnId)
                             return raw.Value[..channel.Format.LongValueDescriptorSize];
                     throw new InvalidOperationException("No long-value descriptor for the memo column.");

@@ -108,6 +108,7 @@ public class StoredQueryKindAccessTests
     [InlineData("UpdQ", "UPDATE Shippers SET Shippers.Phone = '555-0100'", 4, "SET")]
     [InlineData("DelQ", "DELETE FROM Shippers WHERE Shippers.CompanyName = 'nope'", 5, "FROM [Shippers]")]
     [InlineData("MakeQ", "SELECT Shippers.* INTO ShipCopy FROM Shippers", 2, "INTO [ShipCopy]")]
+    [InlineData("DdlQ", "CREATE TABLE ZZ (Id LONG)", 7, "CREATE TABLE ZZ")]
     public void Action_query_kinds_authored_through_dao_are_rebuilt(string name, string sql, int flag, string expected)
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "qkind-action-");
@@ -128,7 +129,7 @@ public class StoredQueryKindAccessTests
     }
 
     [Fact]
-    public void A_kind_libred_cannot_run_is_named_in_the_refusal()
+    public void A_union_authored_through_dao_is_rebuilt_as_a_query_returning_rows()
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "qkind-union-");
         try
@@ -138,11 +139,59 @@ public class StoredQueryKindAccessTests
             using var db = JetDatabase.Open(path);
             Assert.Equal((short)9, OperationFlag(db, "UniQ"));
 
-            // Not executed — but the reason has to say WHICH kind. "Not supported" on its own gives a caller
-            // no way to tell an unimplemented feature from a file LibRed failed to read.
+            // Its two segment rows and the option row's UNION bit, put back together; not an action query.
             StoredQuery q = db.Catalog.FindQuery("UniQ")!;
+            Assert.False(q.IsAction);
+            Assert.Equal("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers", q.Sql);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    [Fact]
+    public void A_dao_written_crosstab_reads_back_as_its_statement()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "qkind-crosstab-");
+        try
+        {
+            if (!Author(path, ("CrossQ", "TRANSFORM Count(Orders.OrderID) SELECT Orders.CustomerID FROM Orders " +
+                                         "GROUP BY Orders.CustomerID PIVOT Orders.EmployeeID"))) return;
+
+            using var db = JetDatabase.Open(path);
+            Assert.Equal((short)6, OperationFlag(db, "CrossQ"));
+
+            // Its value, heading, GROUP BY and PIVOT rows, put back together; not an action query.
+            StoredQuery q = db.Catalog.FindQuery("CrossQ")!;
+            Assert.False(q.IsAction);
+            Assert.Equal("TRANSFORM Count(Orders.OrderID) SELECT Orders.CustomerID FROM [Orders] " +
+                         "GROUP BY Orders.CustomerID PIVOT Orders.EmployeeID", q.Sql);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // DAO keeps a pass-through's connection string in its operation row's Name1 and the SQL in Expression, with no
+    // 0x04 row: LibRed reads both back, and runs neither.
+    [Fact]
+    public void A_dao_written_pass_through_reads_back_its_connect_string_and_sql()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "qkind-passthrough-");
+        try
+        {
+            object? engine = AceTestDatabase.CreateDaoEngine();
+            if (engine is null) return;
+            object database = Invoke(engine, "OpenDatabase", path, false, false, "")!;
+            // A named QueryDef is saved as it is created; Connect first, so DAO does not parse the SQL as Jet SQL.
+            object query = Invoke(database, "CreateQueryDef", "PassQ")!;
+            query.GetType().InvokeMember("Connect", BindingFlags.SetProperty, null, query, ["ODBC;DSN=none;"]);
+            query.GetType().InvokeMember("SQL", BindingFlags.SetProperty, null, query, ["SELECT 1"]);
+            Invoke(database, "Close");
+
+            using var db = JetDatabase.Open(path);
+            Assert.Equal((short)8, OperationFlag(db, "PassQ"));
+            StoredQuery q = db.Catalog.FindQuery("PassQ")!;
+            Assert.Equal("ODBC;DSN=none;", q.Connect);
+            Assert.Equal("SELECT 1", q.PassThroughSql);
             Assert.Null(q.Sql);
-            Assert.Contains("UNION", q.UnsupportedReason!, StringComparison.OrdinalIgnoreCase);
+            Assert.NotNull(q.UnsupportedReason);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

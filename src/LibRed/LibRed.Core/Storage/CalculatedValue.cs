@@ -49,6 +49,13 @@ internal static class CalculatedValue
                 $"Calculated column '{column.Name}' has no stored expression, so its value cannot be recomputed. " +
                 "The table's property blob is missing or damaged.");
 
+        // Without the evaluate bit ACE still computes and stores a value result, but refuses to compute a Text or
+        // Memo one — the insert, or the update of a column the expression reads, fails (verified).
+        if (!column.EvaluatesExpression && StoredType(column, 0) == JetDataType.Text)
+            throw new Calculated.CalculatedExpressionException(
+                $"Error evaluating calculated column '{column.Name}': its descriptor lacks the flag that lets the "
+                + "expression be evaluated.");
+
         object? result = Calculated.CalculatedEvaluator.Evaluate(
             Calculated.CalculatedExpression.ParseCached(text),
             name => Lookup(column, columns, values, name));
@@ -136,6 +143,13 @@ internal static class CalculatedValue
     /// Throws when the cached state is an <b>error</b> rather than a value.</summary>
     public static object? Decode(ColumnDef column, ReadOnlySpan<byte> envelope)
     {
+        // A calculated column without the evaluate bit (extended flag 0x80) is one ACE will not evaluate: it refuses
+        // every read of it, whatever the stored envelope holds.
+        if (!column.EvaluatesExpression)
+            throw new Calculated.CalculatedExpressionException(
+                $"Calculated column '{column.Name}' contains an invalid expression: its descriptor lacks the flag that "
+                + "lets the expression be evaluated.");
+
         // A failed expression is cached as its VBA error number with no payload, so it is NOT a Null even
         // though it has a Null's empty payload -- and reading it as one is a silent wrong answer, on a value
         // neither engine re-derives. ACE will not hand back such a row at all.

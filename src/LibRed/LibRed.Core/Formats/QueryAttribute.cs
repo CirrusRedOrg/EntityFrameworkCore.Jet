@@ -17,7 +17,8 @@ internal enum QueryAttribute : byte
     /// <summary>The <see cref="QueryOptions"/> in <c>Flag</c>, cumulative across rows.</summary>
     Option = 0x03,
 
-    /// <summary>The connection string to an external table (pass-through).</summary>
+    /// <summary>A FROM's IN externaldatabase — the path in <c>Name1</c>, a type or connect string in <c>Expression</c>.
+    /// A pass-through query has none: its connection string is on its operation row.</summary>
     Connect = 0x04,
 
     /// <summary>A named or derived table, a UNION segment, or a subquery.</summary>

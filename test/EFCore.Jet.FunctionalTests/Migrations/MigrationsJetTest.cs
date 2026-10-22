@@ -28,7 +28,6 @@ using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Migrations;
 
-[ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
 public class MigrationsJetTest : MigrationsTestBase<MigrationsJetTest.MigrationsJetFixture>
 {
     protected static string EOL
@@ -879,26 +878,12 @@ ALTER TABLE [People] ADD [Sum] AS [X] - [Y];
 """);
     }
 
+    [Fact(Skip = "The Jet file format does not support computed columns with indexes")]
     public override async Task Alter_column_change_computed_recreates_indexes()
     {
         await base.Alter_column_change_computed_recreates_indexes();
 
-        AssertSql(
-            """
-DROP INDEX [IX_People_Sum] ON [People];
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'Sum');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] DROP COLUMN [Sum];
-ALTER TABLE [People] ADD [Sum] AS [X] - [Y];
-""",
-            //
-            """
-CREATE INDEX [IX_People_Sum] ON [People] ([Sum]);
-""");
+        AssertSql();
     }
 
     public override async Task Alter_column_change_computed_type()

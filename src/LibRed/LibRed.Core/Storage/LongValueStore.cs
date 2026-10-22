@@ -204,13 +204,14 @@ public sealed class LongValueStore(PageChannel channel)
     }
 
     /// <summary>Appends <paramref name="row"/> to an existing LVAL page if it has room, returning the new
-    /// row index and the page's remaining free space (null if it does not fit). Lets several small long
-    /// values share one page, the way Access packs them.</summary>
+    /// row index and the room the page has left as ACE counts it for its free-pages map (null if it does not
+    /// fit). Lets several small long values share one page, the way Access packs them.</summary>
     /// <remarks>
     /// <paramref name="uncompressed"/> is the value before compression, when <paramref name="row"/> is its
     /// compressed form. ACE places such a value as though it were uncompressed — the page must have room for the
     /// uncompressed bytes — writes those bytes where they would go, then the compressed row over their upper end,
-    /// so the rest of the uncompressed image stays behind in the page's free space. Both are measured
+    /// so the rest of the uncompressed image stays behind in the page's free space. The room it then counts as
+    /// left is the uncompressed one too, though the free-space field records the compressed row. All measured
     /// (long-values.md).
     /// </remarks>
     internal (int Row, int RemainingFree)? TryAppend(int pageNumber, byte[] row, byte[]? uncompressed = null)
@@ -250,12 +251,16 @@ public sealed class LongValueStore(PageChannel channel)
             throw new InvalidDataException(
                 $"LVAL page {pageNumber} declares {parsed.FreeSpace} free bytes but its row geometry has {physicalFree}.");
         // Row data + its directory entry; a compressed value needs room for its uncompressed bytes.
-        if (physicalFree < Math.Max(row.Length, uncompressed?.Length ?? 0) + slotSize) return null;
+        int needed = Math.Max(row.Length, uncompressed?.Length ?? 0) + slotSize;
+        if (physicalFree < needed) return null;
 
         uncompressed?.CopyTo(page.AsSpan(lowest - uncompressed.Length));
         DataPage.TryAppendRow(page, format, row, RowSlotFlags.None, out int newRow); // room proven above
         _channel.WritePage(pageNumber, page);
-        return (newRow, DataPage.ReadFreeSpace(page, format));
+        // What is left once that room is taken — the page's free space for an uncompressed value, and less than
+        // it for a compressed one (verified: beside a 1800-character value, String(1009) stays in the free map,
+        // String(1010) leaves it, though its compressed row leaves over 1100 bytes free).
+        return (newRow, physicalFree - needed);
     }
 
     /// <summary>Writes one row (<paramref name="row"/>) to a fresh LVAL data page, packed from the page end.

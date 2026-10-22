@@ -93,28 +93,25 @@ hundreds of bytes against the pointer's four.
 > too large."*
 >
 > **The cap is ACE's, not the page's.** A page holds 4080 (4096 less the 14-byte header and a 2-byte slot),
-> and the 20-byte reserve below that is measured, not explained. It is also not derived from the row's
-> shape: three tables whose overhead differs by 23 bytes — 9, 12 and 20 text columns — all stop at the same
-> 4060.
+> and ACE fills a page with records under the cap to within a few bytes of that, so the 20 bytes are a limit on
+> the single record, not space kept on the page. 4060 is a constant in the engine, for adding a record and
+> replacing one alike, not derived from the page or the row (verified). It does not depend on the row's shape, it is Jet 4.0's on a Jet 4 `.mdb` as well as ACE's, and it is **the same under page-level and
+> row-level locking** (`Jet OLEDB:Database Locking Mode` 0 and 1), as it must be — a limit that moved with the
+> connection would make a file written by one client unreadable by another opening it differently (verified). That independence is also what lets LibRed,
+> which has no locking mode at all, enforce one constant for every caller.
 >
-> It is **the same 4060 under page-level and row-level locking** (`Jet OLEDB:Database Locking Mode` 0 and 1),
-> which is what it must be — a limit that moved with the connection would make a file written by one client
-> unreadable by another opening it differently. That independence is also what lets LibRed, which has no
-> locking mode at all, enforce one constant for every caller.
->
-> *Unverified:* the 20 bytes may be space the engine always keeps for row-lock bookkeeping, whether or not
-> the connection uses it. Two things point that way. Row-level locking arrived in Jet 4, the same generation
-> as this reserve. And the **class** of error is wrong for corruption: a malformed row reads as
-> "Unrecognized database format" or a decode failure, whereas this one reports a concurrent edit — so ACE
-> parsed the row and then its multi-user layer objected, meaning something is *interpreting* those bytes
-> rather than merely running past them. The mode-independence above is equally consistent with the reserve
-> being something else.
->
-> **Writing into the 4061–4080 band is worse than writing past it.** It fits the page, so nothing fails at
-> write time, and ACE then cannot materialise the row — it reports *"you and another user are attempting to
-> change the same data at the same time"*, naming a concurrency problem that does not exist. Only above 4080
-> does anything complain locally. A writer must therefore enforce 4060 rather than the page geometry;
-> LibRed does so in `RowInserter` from `JetFormatBase.MaxRecordSize`.
+> **A record in the 4061–4080 band is worse than one past it.** It fits the page, so nothing fails at write
+> time, but the engine reads no value from it — not even its key — whatever the connection's locking or share
+> mode. Reading it, updating it, or deleting it through a `WHERE` that reads a column fails with *"you and
+> another user are attempting to change the same data at the same time"*, naming a concurrency problem that
+> does not exist; `COUNT(*)` counts it, a `DELETE` with no `WHERE` empties the table with it, and the table's
+> other rows are unaffected. A `DELETE` that finds it through an index fails as well on an `.accdb`; on a Jet 4
+> `.mdb` it removes the row — under ACE and Jet 4.0 alike — when that index is the table's only one, and fails
+> with *"Cannot open database ''"* when another index needs a key from the record (verified). Past 4080 the row does
+> not fit the page at all. A writer must therefore enforce 4060 rather than the page geometry; LibRed does so in
+> `RowInserter` from `JetFormatBase.MaxRecordSize`, and its reader refuses such a record wherever a value is
+> read from it (`RowCodec.Decode`), so it counts and truncates one as the engine does — and refuses the index
+> delete on a `.mdb` too.
 
 > **Reader guardrails.** LibRed requires an exact format-sized type-`0x0101` page before either a full
 > scan or the O(1) index-seek slot path. The declared slot directory must fit before the heap; every
@@ -134,10 +131,9 @@ source. These shapes are verified in both directions: Access opens LibRed's relo
 Access's.
 
 **The slot is normally exactly 4 bytes wide, but not always.** When ACE relocates a row through
-ordinary DML it trims the slot down to the pointer, and LibRed does the same. Measured **with no
-exception** on ACE x64, the **ACE 2010 runtime on x86**, and LibRed's own writer, under: growing and
-shrinking text, repeated re-relocation of the same rows, page fragmentation by interleaved deletes and
-re-inserts, and an OLE column going from NULL to a value.
+ordinary DML it trims the slot down to the pointer, and LibRed does the same — whatever moved the row:
+growing or shrinking text, a repeated re-relocation, a page fragmented by deletes and re-inserts, or an OLE
+column going from NULL to a value (measured, on ACE x64 and the ACE 2010 runtime on x86).
 
 **A relocated row that grows past its new page moves again**, and the second move is the first one repeated
 rather than a chain: the pointer in the source slot is re-aimed at the row's third home, and the page it is
@@ -179,9 +175,10 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
 ## 5. Row record format
 
 ```
-[ colCount : 2 ]                                ← (max column id + 1), NOT the live column count
+[ colCount : 2 ]                                ← the TDEF's 0x29 id high-water, NOT the live column count
 [ fixed-length column data ... ]
 [ variable-length column data ... ]             ┐
+[ slack : zeros, usually none ]                 │ (record slack, below)
 [ variable-offset table : (numVarCols + 1) × 2 ]│ present ONLY when numVarCols > 0
 [ numVarCols : 2 ]                              ┘
 [ null bitmap : ceil(colCount / 8) bytes ]      ← the very end of the row
@@ -196,6 +193,50 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
   `T(A,B,C LONG)` + row `(11,22,33)` is **15 bytes** `03 00 | 0B000000 16000000 21000000 | 07`, not 19. The
   fixed-region length is recovered from the schema (column offsets), so the row needs no var-data-start pointer. (A reader keyed on fixed offsets +
   null bitmap decodes both forms; a *writer* must omit the section to be byte-faithful.)
+
+- **Which rows carry the section** is not written in the row; a reader decides it from the row's `colCount`
+  *n*, as ACE does (verified). The
+  question is how many variable slots had been handed out when the row was written, and each live column's
+  descriptor `0x07` (page-02b §3.4) records that for its own id:
+  - *n* at the `0x29` high-water — every slot ever handed out, `0x2B`;
+  - *n* the id of a live column — that column's `0x07`;
+  - *n* a dead id — the nearest live column below it: its `0x07`, plus its own slot if it is variable; none if
+    there is no live column below.
+
+  The section is present when that count is above 0. The last case is a guess, and ACE's: a variable column
+  dropped from between that live column and *n* is not seen, so a row written while it existed is read as
+  having no section, and its trailer as fixed data — a re-lay carries that row's chunk, offsets and `numVar` as
+  fixed bytes (verified). A trailer-less row whose dead bytes happen to form a valid trailer is not read as having one —
+  ACE does not look at the bytes.
+
+- **How long the fixed region is depends on the writer** (verified vs ACE):
+  - an **INSERT** writes the region the live columns reach, `max(offset+length)` — a dead slot left at the end
+    by a DROP COLUMN or by a retype to a variable type is not kept for new rows, though older rows carry it;
+  - an **UPDATE** writes over the old record: the region is the live one or the row's own, whichever is
+    longer, holding the old record's bytes position for position past where the new values land — so a dead
+    slot stays, a row predating a fixed ADD COLUMN grows with its old variable data or null bitmap in the new
+    slot, and a column set to NULL keeps its old bytes. A dropped variable column's chunk and every dead id's
+    bit stay too. Past the end of the old record the bytes are what the statement's **row buffer** holds: ACE
+    builds every row one UPDATE rewrites, in the order it reaches them, in one buffer per table, zeroed when the
+    statement starts and never cleared — the old record copied in, the new one written over it — so a byte
+    there holds the last *updated* record that reached that far, and a row the statement only reads does not
+    reach the buffer — so a short row predating a fixed ADD COLUMN can get, in its new slots, the text of a
+    longer row updated before it;
+  - an **ALTER COLUMN** re-lay does the same over the old live region plus the new slot (page-02b §3.8).
+
+- **Record slack: zero bytes between the variable data and the offset table**, outside every offset — the
+  offsets still mark where each value really ends. ACE leaves them in a record written over a longer default
+  (verified):
+  - an **INSERT** is written over the table's **all-defaults record** — every column's evaluated default, a
+    supplied column's included; a Text default cut to the column's width; a Memo or OLE default no part of it.
+    The statement's values go in **in the order its column list names them** (table order with no list): a value
+    shorter than the one it replaces leaves the difference as slack, and a longer one takes slack up before the
+    record grows. `T(K, A TEXT DEFAULT 'aaaa', B TEXT DEFAULT 'bbbbbbbb', C TEXT)` given `('x','y','z')` keeps 18
+    bytes — A and B leave 6 + 14, C's 2 take back 2 — while `(K, C, B, A)` with the same values keeps 20, because C
+    grows first. A value longer than every default keeps none, and so does a table without Text defaults;
+  - an **UPDATE** keeps the old record's slack, less what the changed values grow by — unless one of them
+    **shrinks**, which compacts the record and leaves none. A shrink never *adds* slack on UPDATE: a row without
+    any keeps none.
 
 - **An all-fixed row's fixed region is padded out to a minimum of 2 bytes**, so the shortest record ACE writes
   is 5: `[colCount:2][fixed:2][nullBitmap:1]`. It is a **floor, not an alignment** — `T(A,B,C BYTE)` keeps its
@@ -235,6 +276,14 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
   (`0x0F` above) and **clear** where it was NULL. A row **inserted afterwards** leaves it **clear** (`0x0D` on
   the same table), as do the dropped ids after a `DROP COLUMN` (`01` for a live column 0 with ids 1 and 2
   dropped).
+- **The padding past the last column follows the same rule.** The final byte's bits above the highest id are
+  carried forward by an UPDATE as they were: a row whose second byte reads `0x65` over its one live column (bit
+  0) still reads `0x65` after another column is updated or a memo set to Null (verified). An insert leaves them
+  clear. In a byte the row did not have before — an UPDATE or an `ALTER COLUMN` re-lay of a row predating an
+  `ADD COLUMN` that crossed a byte boundary — the bitmap is written over the row buffer (above; page-02b §3.8),
+  so its bits past the last id are that buffer's byte: stale text of the last updated record to reach that
+  position, under the bits the row sets (verified). Rows given a BIT column and all updated: the second reads
+  `0x49`, the first row's `H` under its one live bit; with only the second and fourth updated, both read `0x01`.
 - **Null bitmap** is indexed by **column id**; a **set bit = the value is present** (non-null).
 - **Fixed** column value is at `rowStart + 2 + fixedOffset`, `length` bytes.
   - A **fixed-length text** column (`CHAR`/`NCHAR`, not `TEXT`/`VARCHAR`) fills its whole `length`: the value is
@@ -269,20 +318,18 @@ not set the commit slot: it keeps no user slot of its own (§2.2).
   follows several fixed columns is still `fixed@0`. A writer must therefore *not* advance the fixed offset for a Boolean column.) On **write**, the value
   reaches the encoder as a bool *or* a number (a `bit` column is commonly inserted as `1`/`-1`/`0`
   or defaulted from `"0"`), so LibRed coerces it with Access truthiness — **any non-zero number (or
-  bool true) sets the bit**, `0`/false clears it. Verified: Access reads LibRed-written bits back
-  correctly and a bare-boolean predicate returns the right rows.
+  bool true) sets the bit**, `0`/false clears it (verified vs Access).
 - Variable offsets are **always 2 bytes** in Jet 4 / ACE, at any row size. There is **no
   jump table** (that is a Jet 3 construct for its 1-byte offsets).
 
 > **Row-reader guardrails.** LibRed bounds the null bitmap and optional variable trailer before reading
 > them. The offset table must fit the row, entry 0 (the variable-data end) must not pass the table start,
 > and its end-first offsets must remain within the row and be non-increasing. LibRed permits unused bytes
-> between entry 0 and the table itself, which schema-evolved rows can carry; why those rows retain the gap
-> has not been verified against Access. A requested variable slot must exist. Fixed values must fit the derived fixed region, and fixed-width scalar codecs require the
+> between entry 0 and the table itself — the record slack ACE leaves (§5, *Record slack*). A requested variable slot must exist. Fixed values must fit the derived fixed region, and fixed-width scalar codecs require the
 > exact widths in §6. A column id beyond an older row's stored `colCount` is absent/null—this preserves
-> ADD COLUMN behavior—and the variable trailer is considered present only when the stored row count
-> covers a currently known variable column. This also preserves the verified all-fixed form that omits
-> the trailer entirely. Structural violations are reported as `InvalidDataException`.
+> ADD COLUMN behavior—and the variable trailer is considered present by the `colCount` rule above. This also
+> preserves the verified all-fixed form that omits the trailer entirely. Structural violations are reported as
+> `InvalidDataException`.
 
 ## Writing — inserting a row
 
@@ -292,8 +339,7 @@ Placing an encoded row record (§5) into a data page's heap:
 > `lowestRowOffset − recordLength` (just below the current lowest row, or `pageSize − recordLength`
 > on an empty page), append its offset as a new slot at `0x0E + rowCount×2`, increment the row
 > count (`0x0C`), and decrease free space (`0x02`) by `recordLength + 2` (record bytes plus the
-> slot entry). The new row's **row id** is `(thisPage, oldRowCount)`. The fixed-region length of
-> the encoded record must match the table's existing rows — read it off any existing row's
-> variable-offset table (its last entry is the variable-data start = `2 + fixedRegionLength`).
+> slot entry). The new row's **row id** is `(thisPage, oldRowCount)`. The encoded record's fixed region is
+> the one the live columns reach (§5) — not one read off an existing row, which can be longer.
 > A row is found by **table scan** as soon as it is in the heap, but an **indexed lookup** (and
 > Access's PK seek) misses it until it is also added to every index B-tree (§10.4).

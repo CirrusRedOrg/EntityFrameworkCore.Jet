@@ -25,11 +25,20 @@
 | `0x13` | Int64 — **BIGINT** (ACE 16 / Access 2016) | 8-byte little-endian signed integer. Stored as a *variable*-length column (see below) |
 | `0x14` | DateTimeExtended — **DATETIME2** (ACE 17 / Access 2019+) | fixed 42-byte ASCII `<day>:<time>:<precision>` (see below) |
 
-> **Unmodelled codes are read, not refused.** `0x0D` and `0x0E` are held open in `JetDataType` as
-> `Unknown*` placeholders: a TDEF carrying one still parses, the column decodes to its **raw bytes**, and only
-> *writing* such a column is refused. This is not tidiness — the catalog reads **every** table's definition,
-> so a reader that refuses one unrecognised column cannot open the database at all. Neither has ever been
-> observed.
+> **`0x0D` and `0x0E` are not types ACE has** (verified). ACE treats a column carrying either as present but
+> unusable, not as a damaged table: the database and the table open, the other columns read and take inserts —
+> the column left Null — and OLE DB lists the column as binary (`DBTYPE_BYTES`) at its declared length. But ACE
+> will not hand back its value (*"Multiple-step OLE DB operation generated errors"*), evaluate a predicate over
+> it (*"Cannot perform this operation."*) or write a value to it (*"Cannot update '(expression)'; field not
+> updateable."*), and DAO refuses the table's definition (*"Operation is not supported for this type of
+> object."*).
+>
+> LibRed holds both open in `JetDataType` as `Unknown*` placeholders so that a TDEF carrying one still
+> parses — the catalog reads **every** table's definition, so refusing one unrecognised column would make the
+> whole database unopenable. As in ACE, a row may leave the column Null and writing a value to it is refused.
+> **Reading differs deliberately:** LibRed hands back the stored **raw bytes** where ACE refuses the value,
+> because its row reader decodes every column, and refusing the one column would make the rest of the table
+> unreadable too.
 
 **`0x11` is BigBinary — a binary value bounded by a single data page.** It holds up to 4000 bytes, which sits
 just inside the 4060-byte record cap ([page-01 §5](page-01-data-and-rows.md)), and the value is always stored
@@ -50,7 +59,7 @@ the declared length and no fixed or long flag, ADOX `adVarBinary` with its `Defi
 names it `BigBinary` only in its DataTypes list, where it is the binary type above 510 bytes.
 
 **In a query it is an OLE Object, not a binary.** Stored inline or not, ACE puts it under every restriction a
-long value has, with the same messages it gives `LONGBINARY` (verified, statement for statement, against both):
+long value has, with the same messages it gives `LONGBINARY` (verified):
 
 | Use | BigBinary and OLE alike |
 | --- | --- |
@@ -114,15 +123,14 @@ a declaration to something its existing data would violate.
 > index that round consistently with each other give no internal sign of it.
 
 **`BIGINT` is variable-length despite being a fixed 8 bytes.** ACE puts it behind the row's variable offset
-table rather than in the fixed region — a descriptor carrying length 8 with the fixed flag clear (verified: a
-column ACE creates has `length=8 fixed=False`, and its row holds the value at a variable-column start
-offset). Its *index* key is unaffected — key encoding dispatches on the column's type, not on where
+table rather than in the fixed region — a descriptor carrying length 8 with the fixed flag clear, the row
+holding the value in its variable section (verified). Its *index* key is unaffected — key encoding dispatches on the column's type, not on where
 the row keeps the bytes; the encoding itself is [§10.4](page-03-04-index-btree.md).
 
 > **The reason to match is faithfulness, not readability — ACE honours the descriptor's fixed flag.** It has
 > to: its own `MSysComplexType_GUID` declares `Value` *fixed* while every GUID column its DDL creates is
-> *variable*, so one engine reads both layouts routinely. Verified: a **fixed** BIGINT, Currency and
-> DateTime, and a **variable** Int32, Double, Currency and DateTime, all read back correctly through ACE. A
+> *variable*, so one engine reads both layouts routinely. ACE reads a **fixed** BIGINT, Currency and
+> DateTime, and a **variable** Int32, Double, Currency and DateTime, correctly (verified). A
 > fixed BIGINT is therefore *not* misread — the layout ACE writes is not the only one it looks for.
 
 **`GUID` is variable-length too — but only where ACE's DDL made it.** Every GUID column ACE's SQL creates
@@ -157,7 +165,7 @@ that byte order equals chronological order (an order-preserving inline encoding)
 `…737590:…495300000000:7` is 2020-06-15 13:45:30. Sub-second precision (to 100 ns) is preserved.
 
 Those three fields occupy **41** characters (19 + 1 + 19 + 1 + 1); the 42nd byte is a **NUL (`0x00`), not a
-space** — verified against rows ACE wrote (`… 3A 37 00`). The distinction is not cosmetic: the whole
+space** (verified vs ACE: `… 3A 37 00`). The distinction is not cosmetic: the whole
 42 bytes go into the index key verbatim, so a space there would put every key out of step with ACE's and make
 its seeks miss those rows.
 
@@ -284,6 +292,26 @@ Points verified against ACE that aren't obvious from that page:
   text space-padded to the full width, a writer that pads is one line away from silently *truncating* the
   over-long case instead of refusing it. The width check therefore belongs on the encode path for fixed
   columns (`JetTypeCodec.EnsureFitsFixedWidth`, before padding) and on the shared row-assembly path for variable ones (`RowCodec.AssembleRow`, so the ALTER re-lay passes it too).
+- **A value stored into a text or date column of another type is converted in the regional settings**
+  (verified; `INSERT`, `ALTER COLUMN` and a calculated column's cached result alike), so the bytes stored depend on
+  the machine's regional settings. Into text it is written as VBA's `CStr` writes it (`VbaText`): a Double to 15
+  significant digits, a Boolean as `-1`/`0`, a date in the regional short date and long time, without the time at
+  midnight and without the date on 1899-12-30. Text into a date is read as `CDate` reads it (`VbaDateText`), in the
+  regional day/month order.
+- **Text stored into a number or Yes/No column is read as VBA reads text as a number** (verified; `INSERT` and
+  `ALTER COLUMN` alike): in the regional decimal and group separators and currency symbol, with a sign before or
+  after, brackets for negative, and `&H`/`&O` and `e`/`d` exponents — `'$5'`, `'(5)'`, `'5-'`, `'1,000'`, `'&H10'`
+  and `'1d2'` all store as numbers (`VbaText.TextAsNumber`). Text that is not a number is refused, `'True'` and
+  `'Yes'` into a Yes/No column included.
+- **A date stored into a number or Yes/No column is its OLE Automation serial, and a number stored into a date
+  column is the date at that serial** (verified, on `INSERT`, `ALTER COLUMN` and as a column default): `Time()` at 20:58 stores
+  0.874 into a `DOUBLE`, 1 into a `LONG` and True into a Yes/No; `Now()` into a `LONG` stores the day number; 0
+  into a `DATETIME` stores 1899-12-30, 1000 stores 1902-09-26, and `True` (-1) 1899-12-29.
+- **A whole-number column rounds half to even**, from a number or text alike (verified: `'2.5'` stores 2, `'3.5'` 4).
+  A **Byte keeps the low byte** of that whole number rather than refusing one past its range (verified, on
+  `INSERT`: 256 stores 0, -1 255, 300 44, 255.5 0); `SHORT` and `LONG` refuse one past theirs.
+- **A Yes/No column stores whether the number rounded half to even is not 0** (verified: 0.5, -0.5 and 0.0001
+  store False; 0.6, 1.5 and 2.5 True).
 - **Narrowing an existing column is checked against its rows.** `ALTER TABLE … ALTER COLUMN c TEXT(5)` on a
   column holding wider values is refused rather than leaving rows that violate the declaration — and so is a
   retype whose converted values are too wide: a Memo or a `LONG` to `TEXT(1)`, a `LONG` to `BINARY(1)`. ACE
@@ -299,9 +327,11 @@ Points verified against ACE that aren't obvious from that page:
   being unable to materialise such a column — a 0 leaves the value no declared shape to be read back into.
   LibRed rejects out-of-range dimensions in `AccessTypeMapper` and, because a direct Core caller bypasses that, in `TableDefinition` too; an unspecified
   precision resolves to 18 on write rather than reaching the file as 0.
-- The grammar parses **two-word** type names (`CHARACTER VARYING`, `BIT VARYING`); three-word
-  (`NATIONAL CHARACTER VARYING`) is not parsed yet. `HYPERLINK`/`XML`/`SQL_VARIANT`/`VARIANT`/`COMP` have no
-  mapping (rejected, as ACE also rejects them).
+- Type names run to three words, mapped as ACE maps them (verified): the `NATIONAL` and `N` forms are the plain
+  ones — `NATIONAL CHAR[ACTER]`/`NCHAR` a fixed Text, `NATIONAL CHAR[ACTER] VARYING`/`NCHAR VARYING`/`NVARCHAR` a
+  variable one, and `NATIONAL TEXT` is `TEXT` (bare a Memo, sized a variable Text). ACE refuses `NATIONAL VARCHAR`,
+  `HYPERLINK`, `XML`, `SQL_VARIANT`, `VARIANT` and `COMP` as a type ("Syntax error in field definition"), and so
+  does LibRed.
 
 
 ---
@@ -420,7 +450,7 @@ type fits — 8 bytes as 4 wide characters, 42 bytes as binary — and hands bac
 converts, so nothing is corrupted but nothing is decoded either.
 
 **Only materialisation is broken, and only in the driver.** Through ODBC, an `INSERT` or `UPDATE` of either
-type stores the right value (read back from the file directly to confirm), `WHERE Big = 4294967297` and
+type stores the right value, `WHERE Big = 4294967297` and
 `WHERE Stamp = #…#` both match, and anything the engine computes comes back correctly — `CStr(Big)` returns
 `"4294967297"`, `Year(Stamp)` returns `2021`. It is only selecting the column itself, `MAX(Big)` included, that
 yields the undecoded bytes. So a caller stuck on ODBC can use either type by never selecting it bare; a tool
@@ -434,3 +464,23 @@ correctly, and it is the only surface that knows a column is calculated — `Fie
 hands back the expression, which OLE DB, ODBC and ADOX all withhold while reporting the expression's result
 type as if it were a stored one. The engine and DAO moved together; the interop layers did not, which is
 consistent with Access never reading its own files through them.
+
+## Footnote — fractions of a second through ACE's drivers
+
+*Driver behaviour, not file format.* A `DATETIME` stores a fraction of a second and a `DATETIME2` stores 100-ns
+ticks; whether a fraction arrives depends on how the driver binds the value, and the two drivers disagree
+(verified):
+
+| what is written | into `DATETIME` | into `DATETIME2` |
+| --- | --- | --- |
+| OLE DB date parameter (`DBTYPE_DATE`) | kept | **rounded** to the second |
+| ODBC timestamp parameter (`SQL_TYPE_TIMESTAMP`) | **truncated** to the second | **truncated** to the second |
+| ODBC double parameter (the OLE-automation date) | kept | — |
+| text carrying a fraction, either driver | refused: *"Data type mismatch"* | kept, full precision |
+| a `DATETIME` value copied in by the engine (`INSERT … SELECT`) | — | **rounded** to the second |
+
+So the engine itself rounds a date to the second on its way into `DATETIME2`, and only text reaches that type
+with its fraction. `Now()` and `Time()` give whole seconds, the fraction dropped, through either driver.
+
+LibRed takes a .NET `DateTime` as given and keeps its fraction in either type, and accepts text carrying a
+fraction into a `DATETIME`.

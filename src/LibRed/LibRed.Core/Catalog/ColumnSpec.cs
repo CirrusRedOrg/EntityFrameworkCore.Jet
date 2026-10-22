@@ -14,9 +14,9 @@ namespace LibRed.Catalog;
 // A calculated column (§3.4a): the expression, and the type the caller DECLARED for it. Both null for an
 // ordinary column. They are separate from Type because Type carries the descriptor's *promoted* storage
 // type, which need not be the result type at all — build one with Calculated() rather than by hand.
-// A column of a table the engine creates for itself, which leaves 0x09 — the second copy of the column id —
-// zero. A catalog column (SystemFlags) is one already; this marks the rest, such as the MSysComplexType_*
-// templates, which carry no catalog flag.
+// The ordinal position to write at 0x09, where it is not the column id. A column of a table the engine creates
+// for itself leaves it zero — a catalog column (SystemFlags) does already, and the rest, such as the
+// MSysComplexType_* templates, which carry no catalog flag, say so here. A make-table numbers its columns from 1.
 // Extended flag bits (0x10) LibRed does not model, to set on a created column: 0x10 on an attachment value
 // column (FileData, FileFlags, FileName, FileTimeStamp, FileType, FileURL).
 public sealed record ColumnSpec(
@@ -35,7 +35,7 @@ public sealed record ColumnSpec(
     bool SupportsCompressedUnicode = false,
     string? CalculatedExpression = null,
     JetDataType? CalculatedResultType = null,
-    bool IsEngineColumn = false,
+    int? Ordinal = null,
     byte ExtendedFlags = 0)
 {
     /// <summary>A calculated column of <paramref name="resultType"/> computing <paramref name="expression"/>.
@@ -49,6 +49,32 @@ public sealed record ColumnSpec(
         new(name, PromotedType(resultType), CalculatedLength(resultType), IsFixedLength: false,
             CalculatedExpression: Storage.Calculated.CalculatedExpression.NormaliseIdentifierQuoting(expression),
             CalculatedResultType: resultType);
+
+    /// <summary>An attachment column.</summary>
+    public static ColumnSpec Attachment(string name) => Complex(name, JetCatalog.AttachmentTemplate);
+
+    /// <summary>A multi-value column holding values of <paramref name="elementType"/>. The values take the
+    /// template's size whatever was asked for, as ACE does.</summary>
+    public static ColumnSpec MultiValue(string name, JetDataType elementType) =>
+        Complex(name, JetCatalog.MSysComplexTypeTables
+            .FirstOrDefault(t => t.Name != JetCatalog.AttachmentTemplate && t.Columns[0].Type == elementType).Name
+            ?? throw new NotSupportedException($"A multi-value column cannot hold {elementType}."));
+
+    // The in-row complex id: a fixed Int32 AutoNumber, drawn from the table's 0x1C.
+    private static ColumnSpec Complex(string name, string template) =>
+        new(name, JetDataType.Complex, sizeof(int), IsFixedLength: true, IsAutoNumber: true) { ComplexTemplate = template };
+
+    /// <summary>The <c>MSysComplexType_*</c> template of a complex column; null for any other.</summary>
+    internal string? ComplexTemplate { get; init; }
+
+    /// <summary>A complex column's <c>MSysComplexColumns.ComplexID</c>, assigned when the column is created.</summary>
+    internal int ComplexId { get; init; }
+
+    /// <inheritdoc cref="ColumnDef.OccupiesFixedData"/>
+    internal bool OccupiesFixedData => ColumnDef.OccupiesFixed(Type, IsFixedLength);
+
+    /// <summary>The column's collation, where it is not the database's.</summary>
+    internal Collation? Collation { get; init; }
 
     /// <summary>The descriptor's storage type: ACE widens the result type to the next in its family, which is
     /// why the payload's own length is what says how to decode it (§3.4a).</summary>

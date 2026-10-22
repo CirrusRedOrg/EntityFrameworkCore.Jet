@@ -325,7 +325,7 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
     /// like <c>Now()</c>) is returned as-is.</summary>
     private static object? ParseDefaultValue(JetDataType type, string? text)
     {
-        text = text?.Trim();
+        text = text is null ? null : PropertyBlob.DefaultExpression(text);
         if (string.IsNullOrEmpty(text) || text.Equals("NULL", StringComparison.OrdinalIgnoreCase))
             return null;
 

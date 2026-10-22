@@ -6,6 +6,10 @@ namespace LibRed.Catalog;
 /// </summary>
 public sealed class ColumnDef
 {
+    // Descriptors and property values are read-only data; counters and catalog enrichment belong to each
+    // decoded definition. No existing column-copy path exists: keep its complete snapshot here.
+    internal ColumnDef Copy() => (ColumnDef)MemberwiseClone();
+
     public required string Name { get; init; }
     public required JetDataType Type { get; init; }
 
@@ -27,16 +31,33 @@ public sealed class ColumnDef
     /// <summary>The "variable-table index" stored at descriptor offset 7 (<see cref="JetFormatBase.ColumnVariableIndexOffset"/>):
     /// the count of variable-length columns whose column-id is smaller than this one's. For a variable column this
     /// equals <see cref="VariableIndex"/>; for a fixed column it is the running count of preceding variable columns
-    /// (Access stores it on fixed columns too, and its strict row reader relies on it). -1 = unset (falls back to
-    /// the legacy "0 for fixed" behaviour used by the ADD COLUMN path).</summary>
-    public int VariableTableIndex { get; init; } = -1;
+    /// (Access stores it on fixed columns too, and its strict row reader relies on it). Left unset, it is what
+    /// the descriptor is written with: 0 for a fixed column, <see cref="VariableIndex"/> for a variable one.</summary>
+    public int VariableTableIndex
+    {
+        get => _variableTableIndex >= 0 ? _variableTableIndex : IsFixedLength ? 0 : VariableIndex;
+        init => _variableTableIndex = value;
+    }
+
+    private readonly int _variableTableIndex = -1;
 
     public bool IsFixedLength { get; init; }
+
+    /// <summary>Whether the column has bytes in the row's fixed-data region: every fixed-length column but a Yes/No,
+    /// which is fixed yet holds its value in its null-bitmap bit.</summary>
+    internal bool OccupiesFixedData => OccupiesFixed(Type, IsFixedLength);
+
+    internal static bool OccupiesFixed(JetDataType type, bool isFixedLength) =>
+        isFixedLength && type != JetDataType.Boolean;
 
     /// <summary>Whether the column accepts NULL. False for a NOT NULL / Required column — read from the
     /// <c>Required</c> property in the extended-properties (<c>LvProp</c>) blob, set by the catalog after
     /// the descriptors are decoded (like <see cref="DefaultValue"/>, the flag lives outside the TDEF).</summary>
     public bool IsNullable { get; internal set; } = true;
+
+    /// <summary>Whether a Text or Memo column takes a zero-length string. False where its <c>AllowZeroLength</c>
+    /// property is cleared — set by the catalog from the <c>LvProp</c> blob, like <see cref="IsNullable"/>.</summary>
+    public bool AllowZeroLength { get; internal set; } = true;
 
     public bool IsAutoNumber { get; init; }
 
@@ -54,10 +75,23 @@ public sealed class ColumnDef
     /// <summary>The column can store compressed Unicode text (§7) — extended-flag bit 0x10/0x01.</summary>
     public bool SupportsCompressedUnicode { get; init; }
 
-    /// <summary>A calculated (computed) column (ACE 14+) — extended-flag bits 0x10/0xC0. LibRed reads the
+    /// <summary>A calculated (computed) column (ACE 14+) — extended-flag bit 0x10/0x40, written with 0x80 beside it. LibRed reads the
     /// flag, preserves it, and decodes the cached result ACE stores for the column; evaluating the
     /// expression itself is separate (see the format spec).</summary>
     public bool IsCalculated { get; init; }
+
+    /// <summary>Whether a calculated column's expression may be evaluated — extended-flag bit 0x10/0x80, which ACE
+    /// writes with <see cref="IsCalculated"/> on every TDEF write. Without it ACE evaluates nothing and refuses
+    /// every read of the column as an invalid expression, and so does LibRed.</summary>
+    public bool EvaluatesExpression { get; init; } = true;
+
+    /// <summary>A write-once column — bit 0x01 of the descriptor byte at 0x11: an INSERT may set it, an UPDATE is
+    /// refused (<i>"Cannot update 'x'; field not updateable."</i>, verified). Read only: LibRed creates none.</summary>
+    public bool IsWriteOnce { get; init; }
+
+    /// <summary>A table's version-history column — the hidden complex column an append-only memo gives its table —
+    /// extended-flag bit 0x10/0x20. Read only: LibRed creates no version history, and edits keep the bit in place.</summary>
+    public bool IsVersionHistory { get; init; }
 
     /// <summary>The column owns a long-value (LVAL) map in the TDEF, so its stored chunk is a long-value
     /// descriptor rather than the value itself. True for Memo/OLE — and for a calculated column whose
@@ -100,8 +134,7 @@ public sealed class ColumnDef
     /// <c>GenUniqueID()</c> expression (Access's "New Values = Random"). Such a column is assigned a random
     /// Int32 on insert instead of the sequential seed/increment counter, and its TDEF high-water is left
     /// unadvanced. Verified byte-identical to a UI-authored Random AutoNumber (see the format spec).</summary>
-    public bool IsRandomAutoNumber => IsAutoNumber && DefaultValue is not null
-        && DefaultValue.Trim().Equals("GenUniqueID()", StringComparison.OrdinalIgnoreCase);
+    public bool IsRandomAutoNumber => IsAutoNumber && PropertyBlob.IsGenUniqueId(DefaultValue);
 
     /// <summary>Precision/scale for <see cref="JetDataType.FixedPoint"/> columns.</summary>
     public byte Precision { get; init; }
@@ -117,6 +150,9 @@ public sealed class ColumnDef
     /// LibRed encodes index keys for 417 collation configurations, not only General legacy.</remarks>
     public Collation Collation { get; init; } = Collation.GeneralLegacy;
 
+    /// <summary>A complex column's <c>MSysComplexColumns.ComplexID</c>, from the descriptor; 0 for any other.</summary>
+    public int ComplexId { get; init; }
+
     /// <summary>The column's on-disk descriptor bytes (the 25-byte Jet4 record), captured verbatim on read —
     /// the reserved words at <c>0x03</c> and <c>0x11</c> and the undocumented flag bits included, which no
     /// modelled property carries. Nothing writes from it: every DDL edits the descriptor in place, so those
@@ -128,9 +164,9 @@ public sealed class ColumnDef
     /// every other column.</summary>
     public byte SystemFlags { get; init; }
 
-    /// <summary>Whether a created column belongs to a table the engine makes for itself, which writes 0x09 — the
-    /// second copy of the column id — as zero.</summary>
-    internal bool IsEngineColumn { get; init; }
+    /// <summary>The ordinal position a created column writes at 0x09, where it is not the column id: zero on a
+    /// table the engine makes for itself, and the 1-based position on a make-table's.</summary>
+    internal int? Ordinal { get; init; }
 
     /// <summary>Extended flag bits (byte 0x10) LibRed does not model, to set on a created column — the attachment
     /// value column marker (0x10). 0 for every other column.</summary>

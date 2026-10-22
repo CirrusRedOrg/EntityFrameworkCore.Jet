@@ -69,7 +69,7 @@ public class ArithmeticTypeTests
     [Fact]
     public void Promotion_to_wider_types()
     {
-        Assert.IsType<double>(Scalar("1 + 2.5"));     // int + double → double
+        Assert.IsType<decimal>(Scalar("1 + 2.5"));    // int + a written decimal → Decimal (verified vs ACE)
         Assert.IsType<double>(Scalar("5 / 2"));       // '/' is floating division
         Assert.Equal(2.5d, Scalar("5 / 2"));
     }
@@ -95,16 +95,16 @@ public class ArithmeticTypeTests
     }
 
     [Fact]
-    public void Currency_arithmetic_stays_decimal()
+    public void Currency_plus_a_whole_stays_decimal_and_divided_is_a_double()
     {
-        // UnitPrice is Currency (decimal); a decimal operand promotes the whole expression to decimal.
+        // UnitPrice is Currency (decimal): plus a whole number it stays one, divided it is a Double (verified vs ACE).
         string path = Fresh();
         try
         {
             using var db = JetDatabase.Open(path);
             var e = new QueryEngine(db);
             Assert.IsType<decimal>(e.ExecuteQuery("SELECT UnitPrice + 1 AS c FROM Products").Rows.First()[0]);
-            Assert.IsType<decimal>(e.ExecuteQuery("SELECT UnitPrice / 2 AS c FROM Products").Rows.First()[0]);
+            Assert.IsType<double>(e.ExecuteQuery("SELECT UnitPrice / 2 AS c FROM Products").Rows.First()[0]);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

@@ -1,5 +1,6 @@
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -271,6 +272,105 @@ public class ComplexColumnTests
             .Select(id => (id, db.ReadComplexValues(column, id).Count))];
     }
 
+    // A new table with a multi-value and an attachment column: each resolves to a flat table built as DAO builds
+    // it, takes the registry's next ComplexIDs, and holds values a row adds.
+    [Fact]
+    public void Creating_complex_columns_on_a_new_table()
+    {
+        string path = TemporaryDatabase.CreatePath("complex-create-");
+        try
+        {
+            JetDatabase.Create(path);
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("C", [Long("ID"), ColumnSpec.MultiValue("X", JetDataType.Text), ColumnSpec.Attachment("Y")]);
+                db.OpenTable("C").Insert([1, null, null]);
+            }
+
+            using var reopened = JetDatabase.Open(path, readOnly: false);
+            TableDefinition owner = reopened.Catalog.FindTable("C")!;
+            Assert.Equal(ObjectAttributes.OwnsComplexColumns, owner.ObjectFlags);
+            ComplexColumn x = reopened.Catalog.FindComplexColumn("C", "X")!, y = reopened.Catalog.FindComplexColumn("C", "Y")!;
+            Assert.Equal((1, 2), (x.ComplexId, y.ComplexId));
+            Assert.Equal((1, 2), (owner.FindColumn("X")!.ComplexId, owner.FindColumn("Y")!.ComplexId));
+            Assert.Equal("MSysComplexType_Text", x.ElementTypeName);
+            Assert.True(y.IsAttachment);
+
+            Assert.Equal(ObjectAttributes.System | ObjectAttributes.ComplexFlatTable, y.FlatTable.ObjectFlags);
+            Assert.Equal(["_Y", "C_Y", "FileData", "FileFlags", "FileName", "FileTimeStamp", "FileType", "FileURL"],
+                y.FlatTable.Columns.Select(c => c.Name));
+            Assert.Equal([7, 6, 0, 1, 2, 3, 4, 5], y.FlatTable.Columns.Select(c => c.ColumnId));
+            Assert.Equal(["MSysComplexPKIndex", "_Y", "IdxFKPrimaryScalar"],
+                y.FlatTable.Indexes.OrderBy(i => i.RealIndexOrdinal).Select(i => i.Name));
+            Assert.Equal(["_Y", "FileName"],
+                y.FlatTable.Indexes.Single(i => i.Name == "IdxFKPrimaryScalar").Columns.Select(c => c.Column.Name));
+            Assert.All(owner.Indexes, i => Assert.Equal(0x0289, (int)i.Flags));
+
+            object?[] row = reopened.OpenTable("C").Rows().Single();
+            int id = (int)row[owner.FindColumn("X")!.Index]!;
+            Assert.Equal(id, row[owner.FindColumn("Y")!.Index]);
+            reopened.AddComplexValue(x, id, "red");
+            reopened.AddComplexValue(x, id, "blue");
+            reopened.AddAttachment(y, id, "note.txt", "hello"u8.ToArray());
+            Assert.Equal(["blue", "red"], reopened.ReadComplexValues(x, id).Select(v => (string)v[0]!).Order(StringComparer.Ordinal));
+            Assert.Single(reopened.ReadComplexValues(y, id));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // Appended to a table with rows, a complex column numbers the rows 1..n in row order, and a second one does
+    // the same again; the table's 0x1C keeps the higher of its old value and n.
+    [Fact]
+    public void Appending_complex_columns_numbers_the_existing_rows()
+    {
+        string path = TemporaryDatabase.CreatePath("complex-append-");
+        try
+        {
+            JetDatabase.Create(path);
+            using var db = JetDatabase.Open(path, readOnly: false);
+            db.CreateTable("P", [Long("ID")]);
+            for (int i = 1; i <= 3; i++) db.OpenTable("P").Insert([i]);
+
+            Assert.True(db.AddColumn("P", ColumnSpec.MultiValue("X", JetDataType.Int32)));
+            Assert.Equal([1, 2, 3], Ids(db, "X"));
+            Assert.Equal(3, db.Catalog.FindTable("P")!.ComplexAutoNumber);
+            Assert.Equal(ObjectAttributes.OwnsComplexColumns, db.Catalog.FindTable("P")!.ObjectFlags);
+
+            db.OpenTable("P").Insert([4, null]);
+            Storage.Table p = db.OpenTable("P");
+            p.Delete(p.Rows().WithIds().First().Id);
+            Assert.Equal([2, 3, 4], Ids(db, "X"));
+
+            Assert.True(db.AddColumn("P", ColumnSpec.Attachment("Y")));
+            Assert.Equal([1, 2, 3], Ids(db, "Y"));
+            Assert.Equal(4, db.Catalog.FindTable("P")!.ComplexAutoNumber);
+            Assert.Equal(2, db.Catalog.FindComplexColumn("P", "Y")!.ComplexId);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+
+        static List<int?> Ids(JetDatabase db, string column)
+        {
+            int index = db.Catalog.FindTable("P")!.FindColumn(column)!.Index;
+            return [.. db.OpenTable("P").Rows().Select(r => (int?)r[index])];
+        }
+    }
+
+    // A Jet 4 file has no complex-column registry, so there is nothing a complex column could be created in.
+    [Fact]
+    public void A_jet4_database_refuses_a_complex_column()
+    {
+        string path = TemporaryDatabase.CreatePath("complex-jet4-", ".mdb");
+        try
+        {
+            JetDatabase.Create(path, version: 0x01);
+            using var db = JetDatabase.Open(path, readOnly: false);
+            Assert.Throws<NotSupportedException>(() => db.CreateTable("C", [Long("ID"), ColumnSpec.Attachment("Y")]));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    private static ColumnSpec Long(string name) => new(name, JetDataType.Int32, 4, IsFixedLength: true);
+
     [Fact]
     public void A_column_that_is_not_complex_is_rejected()
     {
@@ -285,4 +385,24 @@ public class ComplexColumnTests
     [InlineData(new byte[] { 0, 0, 0, 0, 99, 0, 0, 0, 1, 2, 3, 4 })]       // body shorter than declared
     public void Malformed_attachment_data_is_rejected(byte[] blob) =>
         Assert.Throws<InvalidDataException>(() => ComplexAttachment.Unwrap(blob));
+
+    // What ACE refused and took through DAO's LoadFromFile: the blocked types whatever their case, their near
+    // neighbours and a name with no extension allowed.
+    [Theory]
+    [InlineData("x.exe", true)]
+    [InlineData("x.EXE", true)]
+    [InlineData("x.ps1", true)]
+    [InlineData("x.accdb", true)]
+    [InlineData("x.iso", true)]
+    [InlineData("x.dll", false)]
+    [InlineData("x.psm1", false)]
+    [InlineData("x.vss", false)]
+    [InlineData("x.txt", false)]
+    [InlineData("x", false)]
+    public void Attachment_types_ace_refuses_are_refused(string fileName, bool refused)
+    {
+        void Validate() => ComplexAttachment.ValidateAccessLimits(fileName, [1, 2, 3]);
+        if (refused) Assert.Throws<ArgumentException>(Validate);
+        else Validate();
+    }
 }

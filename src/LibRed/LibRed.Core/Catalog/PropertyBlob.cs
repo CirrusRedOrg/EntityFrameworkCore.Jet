@@ -1,3 +1,4 @@
+using EntityFrameworkCore.Jet.Data;
 using LibRed.Storage.Types;
 using System.Buffers.Binary;
 using System.Text;
@@ -62,6 +63,7 @@ public static class PropertyBlob
     public const string DefaultValueProperty = "DefaultValue";
     public const string CheckConstraintsProperty = "CheckConstraints";
     public const string RequiredProperty = "Required";
+    public const string AllowZeroLengthProperty = "AllowZeroLength";
     public const string ValidationRuleProperty = "ValidationRule";
     public const string ValidationTextProperty = "ValidationText";
 
@@ -121,6 +123,29 @@ public static class PropertyBlob
     /// <summary>A boolean property (e.g. <c>Required</c>), stored as a single 0/1 byte.</summary>
     public static Property Bool(string owner, string name, bool value) =>
         new(owner, name, value ? "1" : "0", JetDataType.Boolean);
+
+    /// <summary>A column's <c>DefaultValue</c> property — refused, as ACE refuses it, when the default is
+    /// <c>GenUniqueID()</c> and the column is not a <c>LONG</c>: "Cannot place this validation expression on this
+    /// field" (verified across BYTE/SHORT/SINGLE/DOUBLE/CURRENCY/DECIMAL/GUID/DATETIME/BIT/TEXT). Every route that
+    /// writes a default builds it here, after the statement's read-only refusal, which ACE makes first.</summary>
+    public static Property DefaultValue(string column, JetDataType type, string defaultSql) =>
+        IsGenUniqueId(defaultSql) && type != JetDataType.Int32
+            ? throw new InvalidOperationException(
+                $"Cannot place this validation expression on this field. GenUniqueID() is only valid as the " +
+                $"DEFAULT of a LONG (Int32) column (column '{column}').")
+            : new(column, DefaultValueProperty, defaultSql);
+
+    /// <summary>The expression a stored <c>DefaultValue</c> holds: its text without a leading <c>=</c>, which ACE
+    /// accepts in a DEFAULT and stores as written (verified: <c>DEFAULT =1</c> stores <c>=1</c> and inserts 1, and an
+    /// AutoNumber's <c>=GenUniqueID()</c> makes it a Random AutoNumber as <c>GenUniqueID()</c> does). Only the first
+    /// character is read past: ACE applies <c>= 1</c>, but refuses <c> =1</c> and <c>==1</c> as a syntax error
+    /// (verified).</summary>
+    public static string DefaultExpression(string defaultValue) =>
+        (defaultValue.StartsWith('=') ? defaultValue[1..] : defaultValue).Trim();
+
+    /// <summary>Whether a stored <c>DefaultValue</c> is Access's <c>GenUniqueID()</c>.</summary>
+    public static bool IsGenUniqueId(string? defaultValue) =>
+        defaultValue is not null && DefaultExpression(defaultValue).Equals("GenUniqueID()", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>A property holding <paramref name="value"/>, stored as the type Access uses for that CLR type —
     /// <see cref="bool"/> Boolean, <see cref="byte"/> Byte, <see cref="short"/> Int16, <see cref="int"/> Int32,
@@ -328,23 +353,28 @@ public static class PropertyBlob
         return Parse(blob).Properties;
     }
 
-    /// <summary>Extracts each column's <c>DefaultValue</c> (column name → value text).</summary>
+    /// <summary>Extracts each column's <c>DefaultValue</c> (column name → value text). An entry without the DDL flag
+    /// is not a default: ACE ignores it (verified).</summary>
     public static IReadOnlyDictionary<string, string> ReadColumnDefaults(IReadOnlyList<Property> properties)
     {
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (Property p in properties)
-            if (p.BlockType == ColumnBlock && p.Name == DefaultValueProperty)
+            if (p.BlockType == ColumnBlock && p.Name == DefaultValueProperty && (p.Flags & DdlFlag) != 0)
                 result[p.Owner] = p.Value;
         return result;
     }
 
-    /// <summary>The set of columns marked <c>Required</c> (NOT NULL) — a column has the property
-    /// only when it is required (Access omits it for a nullable column).</summary>
-    public static IReadOnlySet<string> ReadRequiredColumns(IReadOnlyList<Property> properties)
+    /// <summary>The set of columns whose boolean property <paramref name="name"/> reads <paramref name="value"/>:
+    /// <c>Required</c> set (NOT NULL — Access omits the property for a nullable column), or <c>AllowZeroLength</c>
+    /// cleared (DAO writes it on every text field it creates, 0 unless asked; a column SQL DDL creates carries none and
+    /// takes a zero-length string — measured). An entry without the DDL flag is not enforced: ACE ignores it (verified
+    /// for <c>Required</c>).</summary>
+    public static IReadOnlySet<string> ReadColumnsWith(IReadOnlyList<Property> properties, string name, bool value)
     {
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        string text = value ? "1" : "0";
         foreach (Property p in properties)
-            if (p.BlockType == ColumnBlock && p.Name == RequiredProperty && p.Value == "1")
+            if (p.BlockType == ColumnBlock && p.Name == name && p.Value == text && (p.Flags & DdlFlag) != 0)
                 result.Add(p.Owner);
         return result;
     }
@@ -396,18 +426,14 @@ public static class PropertyBlob
 
     /// <summary>Serialises CHECK constraints into the <c>CheckConstraints</c> property value: each is
     /// <c>name\0expression\0</c>, then a trailing <c>\0</c> terminator.</summary>
-    /// <remarks>Identifier quoting is normalised on the way in. A CHECK is evaluated by the Access
-    /// <b>expression service</b>, which does not understand SQL's <c>`backtick`</c> quoting — measured, it
-    /// reads <c>`Qty`</c> as a field whose name includes the backticks and fails "Could not find field". The
-    /// DDL parser accepts such a constraint quite happily and stores it, so the table is created and then
-    /// refuses every INSERT. This is the single point where check text becomes stored bytes, so normalising
-    /// here is what stops any route reaching the blob with SQL-flavoured quoting.</remarks>
+    /// <remarks>The expression is stored as given, <c>`backtick`</c> quoting included: ACE stores a CHECK's
+    /// backticks as written and enforces it (verified) — unlike a calculated column's expression, which it
+    /// cannot read with them.</remarks>
     public static string WriteCheckList(IReadOnlyList<(string Name, string Expression)> checks)
     {
         var sb = new StringBuilder();
         foreach (var (name, expr) in checks)
-            sb.Append(name).Append('\0')
-              .Append(Storage.Calculated.CalculatedExpression.NormaliseIdentifierQuoting(expr)).Append('\0');
+            sb.Append(name).Append('\0').Append(expr).Append('\0');
         sb.Append('\0');
         return sb.ToString();
     }
@@ -674,9 +700,9 @@ public static class PropertyBlob
             case JetDataType.Currency:
                 b = new byte[8]; BinaryPrimitives.WriteInt64LittleEndian(b, JetTypeCodec.CurrencyToScaled(value, invariant)); return b;
             case JetDataType.Single:
-                b = new byte[4]; BinaryPrimitives.WriteSingleLittleEndian(b, Convert.ToSingle(value, invariant)); return b;
+                b = new byte[4]; BinaryPrimitives.WriteSingleLittleEndian(b, JetDecimalConverter.ToSingle(value, invariant)); return b;
             case JetDataType.Double:
-                b = new byte[8]; BinaryPrimitives.WriteDoubleLittleEndian(b, Convert.ToDouble(value, invariant)); return b;
+                b = new byte[8]; BinaryPrimitives.WriteDoubleLittleEndian(b, JetDecimalConverter.ToDouble(value, invariant)); return b;
             case JetDataType.DateTime:
                 b = new byte[8]; BinaryPrimitives.WriteDoubleLittleEndian(b, ((DateTime)value).ToOADate()); return b;
         }

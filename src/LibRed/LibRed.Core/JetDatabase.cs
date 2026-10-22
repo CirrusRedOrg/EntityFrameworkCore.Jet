@@ -25,9 +25,6 @@ public sealed class JetDatabase : IDisposable
     {
         _channel = channel;
 
-        DefinitionPage = new DatabaseDefinitionPage();
-        DefinitionPage.Read(channel.ReadPage(0), channel.Format);
-
         // A writable open checks page 0's global map pointers now rather than at the first allocation: ACE marks
         // a file corrupt when one names a page past the end, and fails its first allocation when one names
         // anything but a usage map. A read-only open never allocates, so it reads such a file as ACE would.
@@ -39,8 +36,23 @@ public sealed class JetDatabase : IDisposable
         Catalog = new JetCatalog(channel, DefinitionPage.CatalogRootPage);
     }
 
-    /// <summary>The decoded database definition page (page 0).</summary>
-    public DatabaseDefinitionPage DefinitionPage { get; }
+    /// <summary>The decoded database definition page (page 0) — re-read whenever the format version has moved
+    /// under it: raised by DDL that needs a newer one, taken back down by a rollback, or raised by another handle,
+    /// all of which <see cref="PageChannel.Format"/> already follows. A re-read decodes into a new instance and
+    /// replaces the old one, so a reader on another thread never sees one half-decoded.</summary>
+    public DatabaseDefinitionPage DefinitionPage
+    {
+        get
+        {
+            DatabaseDefinitionPage? page = _definitionPage;
+            if (page is not null && page.JetVersion == (byte)_channel.Format.Version) return page;
+            page = new DatabaseDefinitionPage();
+            page.Read(_channel.ReadPage(0), _channel.Format);
+            return _definitionPage = page;
+        }
+    }
+
+    private DatabaseDefinitionPage? _definitionPage;
 
     /// <summary>The instant the database file was created, decoded from the obfuscated OLE
     /// timestamp on page 0 (see <see cref="DatabaseDefinitionPage.DatabaseCreationDate"/>).</summary>
@@ -207,29 +219,14 @@ public sealed class JetDatabase : IDisposable
     /// unconditionally.
     /// </summary>
     /// <remarks>
-    /// This is what lets a `BIGINT` or `DATETIME2` column be added to an older file: the type cannot be
-    /// represented below a given format, and Access's own engine responds by upgrading the file rather than
-    /// refusing the DDL — verified by having ACE add a Date/Time Extended column to an ACE 12 database and
-    /// diffing the result, which moved the version byte to 0x06 and nothing else
-    /// (docs/format/page-00-database.md).
+    /// The same raise DDL makes for a column type the file is too old for (<c>SchemaEditor.RaiseFormatFor</c>,
+    /// docs/format/page-00-database.md), for a caller that wants the file at a version outright.
     /// <para>The upgrade is one-way and there is no downgrade: a raised file cannot be opened by an Access
-    /// older than the new format. That is inherent to the type, not a choice here — the alternative is a file
-    /// whose columns Access cannot read at all.</para>
+    /// older than the new format.</para>
     /// <para>It joins the caller's transaction, so it commits with the statement that needed it and is undone
     /// with a statement that fails.</para>
     /// </remarks>
-    public bool EnsureFormatAtLeast(JetVersion minimum)
-    {
-        if (Format.Version >= minimum) return false;
-        if (!_channel.RaiseFormatVersion((byte)minimum)) return false;
-
-        RereadDefinitionPage();
-        return true;
-    }
-
-    /// <summary>Re-decodes page 0 into <see cref="DefinitionPage"/> — after the format version moves, and
-    /// after a rollback that may have put it back.</summary>
-    private void RereadDefinitionPage() => DefinitionPage.Read(_channel.ReadPage(0), _channel.Format);
+    public bool EnsureFormatAtLeast(JetVersion minimum) => _channel.RaiseFormatVersion((byte)minimum);
 
     /// <summary>Whether a transaction is currently open.</summary>
     public bool InTransaction => _channel.InTransaction;
@@ -253,26 +250,25 @@ public sealed class JetDatabase : IDisposable
 
     /// <summary>
     /// Rolls the current transaction back, restoring every touched page and dropping any pages the
-    /// transaction allocated.
+    /// transaction allocated. <paramref name="failed"/> says a statement failed, rather than a ROLLBACK asked
+    /// for it: ACE keeps the table counters a failed statement left.
     /// </summary>
-    public void Rollback()
+    public void Rollback(bool failed = false)
     {
         if (!_channel.InTransaction) return;
-        _channel.RollbackTransaction();
-        RereadDefinitionPage();   // page 0 moves too, when a rolled-back statement raised the format version
+        _channel.RollbackTransaction(failed);
     }
+
+    /// <inheritdoc cref="IO.PageChannel.AcceptCounters"/>
+    public void AcceptCounters() => _channel.AcceptCounters();
 
     /// <summary>Opens a savepoint within the current transaction (used to make a single statement atomic
     /// inside a larger user transaction). Requires a transaction to be open.</summary>
     public Savepoint CreateSavepoint() => _channel.CreateSavepoint();
 
     /// <summary>Rolls back to <paramref name="savepoint"/>, undoing writes made since it was created; the
-    /// transaction (and savepoint) stay open.</summary>
-    public void RollbackToSavepoint(Savepoint savepoint)
-    {
-        _channel.RollbackToSavepoint(savepoint);
-        RereadDefinitionPage();
-    }
+    /// transaction (and savepoint) stay open. <paramref name="failed"/> as for <see cref="Rollback"/>.</summary>
+    public void RollbackToSavepoint(Savepoint savepoint, bool failed = false) => _channel.RollbackToSavepoint(savepoint, failed);
 
     /// <summary>Releases <paramref name="savepoint"/>, merging its writes into the enclosing scope.</summary>
     public void ReleaseSavepoint(Savepoint savepoint) => _channel.ReleaseSavepoint(savepoint);
@@ -407,11 +403,9 @@ public sealed class JetDatabase : IDisposable
     /// refuses it too.</para>
     /// <para>The rest of what Access imposes on an attachment is <b>policy, not capability</b>: which
     /// extensions it deflates, its 256 MB per file (the format holds four times that), its name length and
-    /// character rules, and its blocked-extension list. The defaults here follow Access, because a file
-    /// Access cannot open is rarely what a caller wants — but <paramref name="compress"/> and
-    /// <paramref name="enforceAccessLimits"/> exist so the choice is the caller's. The blocked-extension list
-    /// is never applied: it belongs to the Access UI, and whether the engine refuses those through DAO is
-    /// untested.</para>
+    /// character rules, and the file types ACE refuses to attach — through DAO as well as in Access. The defaults
+    /// here follow ACE, because a file Access cannot open is rarely what a caller wants — but
+    /// <paramref name="compress"/> and <paramref name="enforceAccessLimits"/> exist so the choice is the caller's.</para>
     /// </remarks>
     /// <param name="column">The attachment column to add to.</param>
     /// <param name="complexId">The owning record's complex id, as its row carries it in the column.</param>
@@ -419,7 +413,7 @@ public sealed class JetDatabase : IDisposable
     /// <param name="content">The file's bytes.</param>
     /// <param name="compress">Force the stored form, or <see langword="null"/> to follow Access's convention
     /// for the extension. Both forms are valid on disk and ACE reads either.</param>
-    /// <param name="enforceAccessLimits">Apply Access's size and naming limits
+    /// <param name="enforceAccessLimits">Apply Access's size and naming limits and ACE's blocked file types
     /// (<see cref="ComplexAttachment.ValidateAccessLimits"/>). Off writes what the format permits.</param>
     public void AddAttachment(
         ComplexColumn column, int complexId, string fileName, byte[] content,
@@ -466,18 +460,20 @@ public sealed class JetDatabase : IDisposable
         IReadOnlyList<RelationshipSpec>? relationships = null,
         IReadOnlyList<UniqueIndexSpec>? uniqueConstraints = null,
         IReadOnlyList<(string Column, string DefaultSql)>? columnDefaults = null,
-        IReadOnlyList<(string Name, string Expression)>? checkConstraints = null,
+        IReadOnlyList<(string Name, string Expression, IReadOnlyList<(string Table, IReadOnlyList<string> Columns)> Reads)>? checkConstraints = null,
         string? primaryKeyName = null,
-        int primaryKeyDeclaredAfterColumns = 0,
+        int primaryKeyDeclaredAfter = 0,
         TableType tableType = TableType.User)
     {
         ValidateCalculated(columns, [.. columns.Select(c => c.Name)]);
-        EnsureFormatForCalculated(columns);
         new Catalog.SchemaEditor(_channel, Catalog, Collation)
             .Create(name, columns, primaryKey, relationships, uniqueConstraints, columnDefaults, checkConstraints,
-                primaryKeyName, primaryKeyDeclaredAfterColumns, tableType);
+                primaryKeyName, primaryKeyDeclaredAfter, tableType);
         Catalog.Invalidate();
     }
+
+    /// <inheritdoc cref="PageChannel.RefuseIfReadOnly"/>
+    public void RefuseIfReadOnly(ReadOnlyWrite write, string? objectName = null) => _channel.RefuseIfReadOnly(write, objectName);
 
     /// <summary>
     /// Adds an index to an existing table — the CREATE INDEX statement, back-filled from the table's rows.
@@ -498,11 +494,23 @@ public sealed class JetDatabase : IDisposable
         Catalog.Invalidate();
     }
 
-    /// <summary>Adds a table-level CHECK constraint to an existing table — ALTER TABLE ADD CONSTRAINT … CHECK.
-    /// Merges into the table's LvProp CheckConstraints property; the engine enforces it on insert/update.</summary>
-    public void AddCheckConstraint(string table, string name, string expression)
+    /// <summary>Whether every row of <paramref name="relationship"/>'s child table has its parent — the condition
+    /// <see cref="AddForeignKey"/> refuses a relationship over.</summary>
+    public bool ExistingRowsHaveParents(ForeignKey relationship)
     {
-        new Catalog.SchemaEditor(_channel, Catalog, Collation).AddCheckConstraint(table, name, expression);
+        ArgumentNullException.ThrowIfNull(relationship);
+        return new Catalog.SchemaEditor(_channel, Catalog, Collation)
+            .ExistingRowsHaveParents(relationship.Table, relationship.ReferencedTable, relationship.Columns);
+    }
+
+    /// <summary>Adds a table-level CHECK constraint to an existing table — ALTER TABLE ADD CONSTRAINT … CHECK.
+    /// Merges into the table's LvProp CheckConstraints property; the engine enforces it on insert/update.
+    /// <paramref name="reads"/> — the tables and columns the expression reads — go into the MSysObjects object ACE
+    /// records a check with.</summary>
+    public void AddCheckConstraint(string table, string name, string expression,
+        IReadOnlyList<(string Table, IReadOnlyList<string> Columns)> reads)
+    {
+        new Catalog.SchemaEditor(_channel, Catalog, Collation).AddCheckConstraint(table, name, expression, reads);
         Catalog.Invalidate();
     }
 
@@ -590,33 +598,43 @@ public sealed class JetDatabase : IDisposable
         new Catalog.SchemaEditor(_channel, Catalog, Collation).DropColumn(table, column);
 
     /// <summary>Adds a column — ALTER TABLE … ADD COLUMN. Appends the descriptor/name and bumps the counts;
-    /// existing rows read it as NULL. A memo/OLE column gets its long-value usage maps at the same time.
-    /// Returns false if the column already exists.</summary>
+    /// existing rows read it as NULL, except that a calculated column is computed for them. A memo/OLE column gets
+    /// its long-value usage maps at the same time. Returns false if the column already exists.</summary>
     public bool AddColumn(string table, Catalog.ColumnSpec column, string? defaultValue = null)
     {
-        if (column.CalculatedExpression is not null)
+        if (column.CalculatedExpression is null)
+            return new Catalog.SchemaEditor(_channel, Catalog, Collation).AddColumn(table, column, defaultValue);
+
+        // An added column can read the ones already there, and itself is now among them.
+        List<string> visible = [.. OpenTable(table).Definition.Columns.Select(c => c.Name), column.Name];
+        ValidateCalculated([column], visible);
+
+        // One unit, so a row the expression fails on takes the column back out with it.
+        bool ownTransaction = !_channel.InTransaction;
+        if (ownTransaction) BeginTransaction();
+        try
         {
-            // An added column can read the ones already there, and itself is now among them.
-            List<string> visible = [.. OpenTable(table).Definition.Columns.Select(c => c.Name), column.Name];
-            ValidateCalculated([column], visible);
-            EnsureFormatForCalculated([column]);
+            bool added = new Catalog.SchemaEditor(_channel, Catalog, Collation).AddColumn(table, column, defaultValue);
+            if (added)
+            {
+                // ACE computes the column for the rows already there. An UPDATE that changes nothing recomputes it:
+                // a row written before the column existed has no cached result to keep.
+                Catalog.Invalidate();
+                Table rows = OpenTable(table);
+                foreach ((RowId id, object?[] values) in rows.Rows().WithIds().ToList())
+                    rows.Update(id, values, new HashSet<int>());
+            }
+            if (ownTransaction) Commit(flush: false);
+            return added;
         }
-        return new Catalog.SchemaEditor(_channel, Catalog, Collation).AddColumn(table, column, defaultValue);
+        catch when (ownTransaction)
+        {
+            Rollback();
+            Catalog.Invalidate();
+            throw;
+        }
     }
 
-    /// <summary>Raises the file to ACE 14 when a calculated column is being created — the floor its own
-    /// <c>FCMinReadVer</c> property declares. Raising rather than refusing is what ACE does for a feature the
-    /// file is too old for, and is how <c>BIGINT</c> and <c>DATETIME2</c> are already handled; it joins the
-    /// caller's transaction, so a failed CREATE takes the version back down with it.</summary>
-    private void EnsureFormatForCalculated(IReadOnlyList<Catalog.ColumnSpec> columns)
-    {
-        foreach (Catalog.ColumnSpec column in columns)
-            if (column.CalculatedExpression is not null)
-            {
-                EnsureFormatAtLeast(JetVersion.Version14_2010);
-                return;
-            }
-    }
 
     /// <summary>Validates every calculated column in <paramref name="columns"/> against
     /// <paramref name="visible"/> before any of it is written. Runs first because the failure it prevents is
@@ -692,13 +710,50 @@ public sealed class JetDatabase : IDisposable
     /// <summary>Opens a table directly from its TDEF page, bypassing the catalog — used during database
     /// creation to seed the system tables before they self-register in <c>MSysObjects</c>.</summary>
     internal Storage.Table OpenTableAt(int tdefPage, string name, bool isSystem = true) =>
-        new(_channel, Catalog.ReadTableDefinition(tdefPage, name, isSystem), Catalog);
+        new(_channel, Catalog.ReadTableDefinition(tdefPage, name, isSystem, out _), Catalog);
 
-    /// <summary>Opens a table by name for row access.</summary>
+    /// <summary>The other database files this one's statements reached through an IN externaldatabase clause, by
+    /// <see cref="FileIdentity.Key"/>: one handle each, writable once anything has written there. Every handle opened
+    /// stays open until this one closes, a replaced read-only one too — a query's rows are read lazily, after the
+    /// statement that named the file returns.</summary>
+    private readonly Dictionary<string, JetDatabase> _external = [];
+    private readonly List<JetDatabase> _externalOpened = [];
+
+    /// <summary>
+    /// The database at <paramref name="path"/>, as a statement on this one reaches it through an IN externaldatabase
+    /// clause: opened on first use and kept for as long as this one is open, writable when <paramref name="writable"/>.
+    /// A relative path is taken from the process's current directory, and a missing file is refused with ACE's
+    /// message (both verified vs ACE). The file this database is itself is this database.
+    /// </summary>
+    public JetDatabase External(string path, string? password, bool writable)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        string key = FileIdentity.Key(path);
+        if (key == FileIdentity.Key(_channel.Path))
+            return this;
+        if (!File.Exists(path))
+            throw new FileNotFoundException(
+                $"'{path}' is not a valid path. Make sure that the path name is spelled correctly and that you are "
+                + "connected to the server on which the file resides.", path);
+
+        lock (_external)
+        {
+            if (_external.TryGetValue(key, out JetDatabase? database) && (!writable || !database._channel.IsReadOnly))
+                return database;
+            _external[key] = database = Open(path, readOnly: !writable, password);
+            _externalOpened.Add(database);
+            return database;
+        }
+    }
+
+    /// <summary>Opens a table by name for row access. A missing one is refused with ACE's message for a table a
+    /// statement reads — the one DAO's <c>OpenRecordset</c> gives too (verified).</summary>
     public Table OpenTable(string name)
     {
         TableDefinition def = Catalog.FindTable(name)
-            ?? throw new ArgumentException($"Table '{name}' was not found.", nameof(name));
+            ?? throw new ArgumentException(
+                $"The Microsoft Access database engine cannot find the input table or query '{name}'. Make sure it "
+                + "exists and that its name is spelled correctly.", nameof(name));
         return new Table(_channel, def, Catalog);
     }
 
@@ -709,6 +764,13 @@ public sealed class JetDatabase : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        lock (_external)
+        {
+            foreach (JetDatabase external in _externalOpened)
+                external.Dispose();
+            _externalOpened.Clear();
+            _external.Clear();
+        }
         try
         {
             if (!_channel.IsReadOnly)

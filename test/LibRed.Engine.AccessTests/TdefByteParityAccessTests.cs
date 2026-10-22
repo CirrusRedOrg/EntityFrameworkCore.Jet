@@ -31,6 +31,9 @@ public class TdefByteParityAccessTests(ITestOutputHelper output) : TempDatabaseT
         { "counter", "CREATE TABLE W (Id COUNTER, A TEXT(30), CONSTRAINT pk PRIMARY KEY (Id))" },
         { "unique", "CREATE TABLE W (Id LONG, A LONG, CONSTRAINT pk PRIMARY KEY (Id), CONSTRAINT u UNIQUE (A))" },
         { "self-reference", "CREATE TABLE W (Id LONG, P LONG, CONSTRAINT pk PRIMARY KEY (Id), CONSTRAINT fk FOREIGN KEY (P) REFERENCES W (Id))" },
+        // Names whose collation order differs from an ordinal one: `_` sorts before letters.
+        { "index-name-order", "CREATE TABLE W (Id LONG, A LONG, B LONG, C LONG, CONSTRAINT pk PRIMARY KEY (Id), "
+            + "CONSTRAINT [a_b] UNIQUE (A), CONSTRAINT ab UNIQUE (B), CONSTRAINT [_c] UNIQUE (C))" },
         { "guid+decimal", "CREATE TABLE W (Id LONG, G GUID, D DECIMAL(18,4), CONSTRAINT pk PRIMARY KEY (Id))" },
         { "many-columns", "CREATE TABLE W (Id LONG, A BYTE, B SMALLINT, C REAL, D FLOAT, E CURRENCY, "
             + "F DATETIME, G BIT, H CHAR(10), I VARCHAR(40), J BINARY(8), CONSTRAINT pk PRIMARY KEY (Id))" },

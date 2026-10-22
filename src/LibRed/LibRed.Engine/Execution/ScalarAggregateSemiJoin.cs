@@ -35,6 +35,9 @@ internal sealed class ScalarAggregateSemiJoin
     /// <summary>Per correlation key, whether NULL matches NULL. See <see cref="CorrelationSplit.NullSafe" />.</summary>
     private readonly IReadOnlyList<bool> _nullSafe;
 
+    /// <summary>Per correlation key, the type the outer value is probed as. See <see cref="CorrelationSplit.KeyTypes" />.</summary>
+    private readonly IReadOnlyList<Type?> _keyTypes;
+
     /// <summary>The aggregate call itself, kept to compute the value a key absent from the map stands for.</summary>
     private readonly FunctionCall _aggregate;
 
@@ -42,24 +45,26 @@ internal sealed class ScalarAggregateSemiJoin
     private object? _empty;
 
     private ScalarAggregateSemiJoin(
-        SelectStatement keyQuery, IReadOnlyList<Expression> outerKeys, IReadOnlyList<bool> nullSafe, FunctionCall aggregate)
-        => (_keyQuery, _outerKeys, _nullSafe, _aggregate) = (keyQuery, outerKeys, nullSafe, aggregate);
+        SelectStatement keyQuery, IReadOnlyList<Expression> outerKeys, IReadOnlyList<bool> nullSafe,
+        IReadOnlyList<Type?> keyTypes, FunctionCall aggregate)
+        => (_keyQuery, _outerKeys, _nullSafe, _keyTypes, _aggregate) = (keyQuery, outerKeys, nullSafe, keyTypes, aggregate);
 
     internal static ScalarAggregateSemiJoin? TryBuild(
         SelectStatement subquery,
         IReadOnlyList<OutputColumn> outerColumns,
         HashSet<string> outerAliases,
-        JetCatalog catalog)
+        JetDatabase database)
     {
         // A lone aggregate call and nothing else — see the remarks. TOP is redundant over a single row but would
         // have to be reasoned about, and DISTINCT/ORDER BY over one row are no-ops, so the strictest form is taken.
+        // OFFSET can skip that one row, which the grouped key query would not.
         if (subquery is not
             {
-                Top: null, GroupBy.Count: 0, Having: null, IsSelectStar: false,
+                Top: null, Offset: null, GroupBy.Count: 0, Having: null, IsSelectStar: false,
                 Projection: [{ Value: FunctionCall { Name: { } name } call }],
             }
             || !Planning.QueryPlanner.IsAggregate(name)
-            || SubqueryCorrelation.TrySplit(subquery, outerColumns, outerAliases, catalog) is not { } split)
+            || SubqueryCorrelation.TrySplit(subquery, outerColumns, outerAliases, database) is not { } split)
         {
             return null;
         }
@@ -76,7 +81,7 @@ internal sealed class ScalarAggregateSemiJoin
             DistinctRow = false,
         };
 
-        return new ScalarAggregateSemiJoin(keyQuery, split.OuterKeys, split.NullSafe, call);
+        return new ScalarAggregateSemiJoin(keyQuery, split.OuterKeys, split.NullSafe, split.KeyTypes, call);
     }
 
     /// <summary>
@@ -87,7 +92,7 @@ internal sealed class ScalarAggregateSemiJoin
     {
         if (_values is null)
         {
-            _values = executor.BuildGroupedAggregate(_keyQuery, _outerKeys.Count, _nullSafe);
+            _values = executor.BuildGroupedAggregate(_keyQuery, _outerKeys.Count, _nullSafe, _keyTypes);
             _empty = executor.EmptyGroupAggregate(_aggregate);
         }
 
@@ -96,7 +101,8 @@ internal sealed class ScalarAggregateSemiJoin
         {
             // Under a plain `=` a null correlation value equals no inner row, so the body aggregates over nothing.
             // Under the null-safe form it matches the inner rows that are also null, so it must be looked up.
-            if ((probe[i] = outerEval.Evaluate(_outerKeys[i])) is null && !_nullSafe[i])
+            if ((probe[i] = ExpressionEvaluator.AsColumnType(outerEval.Evaluate(_outerKeys[i]), _keyTypes[i], currency: false)) is null
+                && !_nullSafe[i])
             {
                 return _empty;
             }

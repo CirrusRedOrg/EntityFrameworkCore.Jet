@@ -43,10 +43,27 @@ internal enum ColumnExtendedFlags : byte
     /// <summary>The column can store compressed Unicode text (§7).</summary>
     CompressedUnicode = 0x01,
 
+    /// <summary>Set on a flat table's per-value id column, <c>&lt;table&gt;_&lt;column&gt;</c>.</summary>
+    ComplexValueId = 0x04,
+
+    /// <summary>Set on a flat table's link to the owning record, <c>_&lt;column&gt;</c>.</summary>
+    ComplexOwnerLink = 0x08,
+
     /// <summary>An attachment value column (FileData, FileFlags, FileName, FileTimeStamp, FileType, FileURL), in
     /// the attachment template and every attachment flat table.</summary>
     AttachmentValue = 0x10,
 
-    /// <summary>A calculated (computed) column (ACE 14+): the 0xC0 pair, either bit set.</summary>
-    Calculated = 0xC0,
+    /// <summary>A table's version-history column: the hidden <c>VersionHistory_&lt;GUID&gt;</c> complex column an
+    /// append-only memo gives its table, and no other.</summary>
+    VersionHistory = 0x20,
+
+    /// <summary>A calculated (computed) column (ACE 14+): alone it makes the column calculated, where
+    /// <see cref="EvaluatesExpression"/> alone leaves it an ordinary one (verified).</summary>
+    Calculated = 0x40,
+
+    /// <summary>A calculated column's expression may be evaluated. Without it ACE still knows the column as
+    /// calculated but evaluates nothing — every read is <i>"This calculated column contains an invalid
+    /// expression"</i>. ACE writes it with <see cref="Calculated"/> on every TDEF write, and ignores it on an
+    /// ordinary column (verified).</summary>
+    EvaluatesExpression = 0x80,
 }

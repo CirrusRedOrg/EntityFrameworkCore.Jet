@@ -79,7 +79,7 @@ public class MixedCompressionAccessTests(ITestOutputHelper output) : TempDatabas
             for (int row = 0; row < page.RowCount; row++)
             {
                 if (page.Rows[row].IsDeleted) continue;
-                foreach (var raw in RowCodec.LongValueDescriptors(definition.Columns, channel.Format, page.GetRow(row)))
+                foreach (var raw in RowCodec.LongValueDescriptors(definition, channel.Format, page.GetRow(row)))
                 {
                     if (raw.Key != memo.ColumnId) continue;
                     int stored = Storage.LongValueStore.Read(raw.Value, channel.Format).Length;

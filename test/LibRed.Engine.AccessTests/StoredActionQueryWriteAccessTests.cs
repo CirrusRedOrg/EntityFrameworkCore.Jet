@@ -3,6 +3,7 @@ using System.Data.OleDb;
 using LibRed;
 using LibRed.Catalog;
 using LibRed.Engine;
+using LibRed.Engine.Execution;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -27,8 +28,24 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
     [InlineData("SELECT ShipperID, CompanyName INTO ShipperCopy FROM Shippers WHERE ShipperID > 1")]
     [InlineData("SELECT DISTINCT Country INTO CountryCopy FROM Customers")]
     [InlineData("SELECT TOP 5 CompanyName INTO CustomerCopy FROM Customers")]
+    [InlineData("SELECT * INTO ShipperCopy FROM Shippers")]
     [InlineData("INSERT INTO Shippers (CompanyName) SELECT DISTINCT Country FROM Customers")]
     [InlineData("INSERT INTO Shippers (CompanyName, Phone) SELECT CompanyName, Phone FROM Customers WHERE Country = 'UK'")]
+    [InlineData("INSERT INTO Shippers SELECT CompanyName, Phone FROM Suppliers WHERE SupplierID < 4")]
+    [InlineData("INSERT INTO Shippers SELECT ContactTitle AS Phone, Phone AS CompanyName FROM Suppliers WHERE SupplierID < 4")]
+    [InlineData("INSERT INTO Shippers SELECT Suppliers.CompanyName FROM Suppliers WHERE SupplierID < 4")]
+    [InlineData("INSERT INTO Shippers SELECT * FROM (SELECT CompanyName, Phone FROM Suppliers WHERE SupplierID < 4) AS s")]
+    [InlineData("INSERT INTO Shippers VALUES (50, 'Fifty', '555')")]
+    [InlineData("INSERT INTO Shippers SELECT 'NoFrom' AS CompanyName")]
+    [InlineData("INSERT INTO Shippers (CompanyName) SELECT TOP 1 CompanyName FROM Suppliers ORDER BY SupplierID DESC")]
+    [InlineData("INSERT INTO Shippers (CompanyName) SELECT Country FROM Customers GROUP BY Country HAVING Count(*) > 10")]
+    [InlineData("SELECT TOP 1 CompanyName INTO TopCopy FROM Customers ORDER BY CustomerID DESC")]
+    [InlineData("SELECT Country, Count(*) AS N INTO CountryCount FROM Customers GROUP BY Country HAVING Count(*) > 5 ORDER BY Country DESC")]
+    [InlineData("DELETE Shippers.Phone FROM Shippers WHERE ShipperID > 900")]
+    [InlineData("DELETE Shippers.Phone, Shippers.CompanyName FROM Shippers WHERE ShipperID > 900")]
+    [InlineData("DELETE Phone FROM Shippers WHERE ShipperID > 900")]
+    [InlineData("DELETE Shippers.Phone, Shippers.* FROM Shippers WHERE ShipperID > 900")]
+    [InlineData("UPDATE [Order Details] SET [Order Details].Discount = 0 WHERE OrderID = 10248")]
     public void A_libred_written_action_query_stores_the_rows_ace_stores(string body)
     {
         string ourPath = Copy(), acePath = Copy();
@@ -304,6 +321,321 @@ public class StoredActionQueryWriteAccessTests : TempDatabaseTest
             Assert.Equal(7, engine.ExecuteNonQuery("EXECUTE [P]"));
         }
         finally { TemporaryDatabase.Delete(path); }
+    }
+
+    /// <summary>A UNION query is stored as ACE stores it — two segments, the text before its last UNION and the term
+    /// after it — and returns the same rows whichever engine wrote it and whichever runs it: ACE on LibRed's file, and
+    /// LibRed on ACE's and on its own. ACE returns a UNION's rows sorted and LibRed in the order it meets them, so the
+    /// rows compare as sets.</summary>
+    [Theory]
+    [InlineData("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers")]
+    [InlineData("SELECT CompanyName FROM Shippers UNION ALL SELECT CompanyName FROM Customers")]
+    [InlineData("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers UNION ALL SELECT CompanyName FROM Suppliers")]
+    [InlineData("SELECT CompanyName FROM Shippers UNION ALL SELECT CompanyName FROM Customers UNION SELECT CompanyName FROM Suppliers")]
+    [InlineData("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers UNION SELECT CompanyName FROM Suppliers " +
+                "UNION ALL SELECT ShipName FROM Orders")]
+    [InlineData("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers ORDER BY CompanyName DESC")]
+    [InlineData("SELECT CompanyName AS N FROM Shippers WHERE ShipperID > 1 UNION SELECT ContactName FROM Customers WHERE Country = 'UK'")]
+    [InlineData("TABLE Shippers UNION TABLE Shippers")]
+    [InlineData("TABLE [Order Details] UNION ALL TABLE [Order Details]")]
+    [InlineData("(SELECT CompanyName FROM Shippers) UNION (SELECT CompanyName FROM Customers)")]
+    [InlineData("SELECT CompanyName FROM Shippers UNION (SELECT CompanyName FROM Customers UNION ALL SELECT CompanyName FROM Suppliers)")]
+    [InlineData("SELECT Orders.OrderID FROM Orders INNER JOIN Customers ON Orders.CustomerID = Customers.CustomerID " +
+                "WHERE Customers.Country = 'UK' UNION SELECT OrderID FROM Orders WHERE OrderID < 10250")]
+    [InlineData("SELECT TOP 2 CompanyName FROM Shippers UNION SELECT DISTINCT Country FROM Customers")]
+    [InlineData("   SELECT   CompanyName\r\n FROM  Shippers   UNION   SELECT CompanyName  FROM Customers")]
+    [InlineData("SELECT Country, Count(*) AS N FROM Customers GROUP BY Country UNION SELECT Country, Count(*) FROM Suppliers GROUP BY Country")]
+    [InlineData("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers WITH OWNERACCESS OPTION")]
+    [InlineData("SELECT CompanyName FROM Shippers WITH OWNERACCESS OPTION UNION SELECT CompanyName FROM Customers")]
+    [InlineData("SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers ORDER BY CompanyName WITH OWNERACCESS OPTION")]
+    [InlineData("SELECT CompanyName FROM Shippers WHERE ShipperID = 1; UNION ALL SELECT CompanyName FROM Shippers WHERE ShipperID = 2")]
+    [InlineData("SELECT CompanyName FROM Shippers WHERE ShipperID = 1;\r\nUNION SELECT CompanyName FROM Shippers WHERE ShipperID = 2; " +
+                "UNION SELECT CompanyName FROM Shippers WHERE ShipperID = 3")]
+    public void A_union_query_is_stored_as_ace_stores_it_and_runs_alike(string body) =>
+        UnionRoundTrip($"CREATE PROCEDURE [Q] AS {body}", parameter: null);
+
+    [Fact]
+    public void A_union_query_declares_its_parameters_as_a_select_does() =>
+        UnionRoundTrip("CREATE PROCEDURE [Q] (pc Text(20)) AS SELECT CompanyName FROM Customers WHERE Country = pc " +
+                       "UNION SELECT CompanyName FROM Shippers", parameter: "UK");
+
+    private static void UnionRoundTrip(string sql, string? parameter)
+    {
+        string ourPath = Copy(), acePath = Copy();
+        try
+        {
+            using (var db = TemporaryDatabase.OpenTracked(ourPath, readOnly: false))
+                new QueryEngine(db).ExecuteNonQuery(sql);
+            using (var connection = AceTestDatabase.Open(acePath))
+            {
+                using var create = connection.CreateCommand();
+                create.CommandText = sql;
+                create.ExecuteNonQuery();
+            }
+
+            Assert.Equal(QueryRows(acePath, "Q"), QueryRows(ourPath, "Q"));
+            Assert.Equal(ObjectFlags(acePath, "Q"), ObjectFlags(ourPath, "Q"));
+
+            var aceRows = new List<string>();
+            using (var connection = AceTestDatabase.Open(ourPath, readOnly: true))
+            {
+                using var run = connection.CreateCommand();
+                run.CommandText = "Q";
+                run.CommandType = CommandType.StoredProcedure;
+                if (parameter is not null)
+                    run.Parameters.Add(new OleDbParameter { OleDbType = OleDbType.VarWChar, Size = 20, Value = parameter });
+                using var reader = run.ExecuteReader();
+                var values = new object[reader.FieldCount];
+                while (reader.Read())
+                {
+                    reader.GetValues(values);
+                    aceRows.Add(Row(values));
+                }
+            }
+            OleDbConnection.ReleaseObjectPool();
+            aceRows.Sort(StringComparer.Ordinal);
+
+            foreach (string path in new[] { acePath, ourPath })
+            {
+                using var db = TemporaryDatabase.OpenTracked(path, readOnly: true);
+                string execute = parameter is null ? "EXECUTE [Q]" : $"EXECUTE [Q] '{parameter}'";
+                List<string> ours = [.. new QueryEngine(db).ExecuteQuery(execute).Rows.Select(r => Row(r))];
+                ours.Sort(StringComparer.Ordinal);
+                Assert.Equal(aceRows, ours);
+            }
+        }
+        finally
+        {
+            TemporaryDatabase.Delete(ourPath);
+            TemporaryDatabase.Delete(acePath);
+        }
+
+        static string Row(object?[] values) => string.Join(" | ", values.Select(v =>
+            v is null or DBNull ? "NULL" : Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture)));
+    }
+
+    /// <summary>A crosstab is stored as ACE stores it — the TRANSFORM value, the headings and the PIVOT in column and
+    /// GROUP BY rows of their own flags — and runs alike: ACE on LibRed's file and LibRed on both return the same
+    /// columns, named alike, and the same rows in the same order.</summary>
+    [Theory]
+    [InlineData("TRANSFORM Count(*) SELECT Country FROM Customers GROUP BY Country PIVOT City")]
+    [InlineData("TRANSFORM Count(OrderID) SELECT EmployeeID FROM Orders GROUP BY EmployeeID PIVOT ShipVia")]
+    [InlineData("TRANSFORM Sum(Freight) AS F SELECT EmployeeID, Sum(Freight) AS Total FROM Orders WHERE Freight > 10 " +
+                "GROUP BY EmployeeID ORDER BY EmployeeID DESC PIVOT ShipVia IN (1, 2)")]
+    [InlineData("TRANSFORM Count(OrderID) SELECT DISTINCT EmployeeID AS Emp FROM Orders GROUP BY EmployeeID PIVOT ShipVia " +
+                "WITH OWNERACCESS OPTION")]
+    [InlineData("TRANSFORM Count(OrderID) SELECT EmployeeID, ShipVia FROM Orders GROUP BY EmployeeID, ShipVia PIVOT Year(OrderDate)")]
+    [InlineData("TRANSFORM Count(OrderID) SELECT EmployeeID FROM Orders GROUP BY EmployeeID, ShipVia PIVOT ShipVia")]
+    [InlineData("TRANSFORM Count(Orders.OrderID) SELECT Customers.Country FROM Orders INNER JOIN Customers " +
+                "ON Orders.CustomerID = Customers.CustomerID GROUP BY Customers.Country PIVOT Orders.ShipVia")]
+    public void A_crosstab_is_stored_as_ace_stores_it_and_runs_alike(string body) =>
+        QueryRoundTrip($"CREATE PROCEDURE [Q] AS {body}", parameter: null);
+
+    [Fact]
+    public void A_crosstab_declares_its_parameters_as_a_select_does() =>
+        QueryRoundTrip("CREATE PROCEDURE [Q] (y SHORT) AS TRANSFORM Count(OrderID) SELECT EmployeeID FROM Orders " +
+                       "WHERE Year(OrderDate) = y GROUP BY EmployeeID PIVOT DatePart('q', OrderDate)", parameter: (short)1997);
+
+    /// <summary>A bare <c>*</c> is the option row's output-all-fields bit beside the rows of the other columns named,
+    /// <c>TABLE t</c> is <c>SELECT * FROM t</c>, and DISTINCTROW is its own bit, with TOP and PERCENT or without — stored as
+    /// ACE stores them, and run alike, column names included.</summary>
+    [Theory]
+    [InlineData("SELECT * FROM Shippers")]
+    [InlineData("SELECT *, ShipperID AS X FROM Shippers")]
+    [InlineData("SELECT Phone, *, CompanyName FROM Shippers")]
+    [InlineData("SELECT *, (SELECT Max(OrderID) FROM Orders) AS M FROM Shippers")]
+    [InlineData("SELECT *, * FROM Shippers")]
+    [InlineData("TABLE Shippers")]
+    [InlineData("SELECT DISTINCTROW * FROM Shippers")]
+    [InlineData("SELECT DISTINCTROW Customers.CompanyName FROM Customers INNER JOIN Orders ON Customers.CustomerID = Orders.CustomerID " +
+                "WHERE Customers.Country = 'UK' ORDER BY Customers.CompanyName")]
+    [InlineData("SELECT DISTINCTROW TOP 3 Customers.CompanyName FROM Customers INNER JOIN Orders ON Customers.CustomerID = Orders.CustomerID " +
+                "WHERE Customers.Country = 'UK' ORDER BY Customers.CompanyName")]
+    [InlineData("SELECT DISTINCTROW TOP 50 PERCENT Customers.CompanyName FROM Customers INNER JOIN Orders ON Customers.CustomerID = Orders.CustomerID " +
+                "WHERE Customers.Country = 'UK' ORDER BY Customers.CompanyName")]
+    public void A_star_or_distinctrow_query_is_stored_as_ace_stores_it_and_runs_alike(string body) =>
+        QueryRoundTrip($"CREATE PROCEDURE [Q] AS {body}", parameter: null);
+
+    /// <summary>A SELECT's GROUP BY, HAVING and ORDER BY are stored as ACE stores them, and the query returns the same
+    /// rows in the same order from both engines — an ORDER BY on an aggregate, and a TOP it chooses the rows of,
+    /// included.</summary>
+    [Theory]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT Country, Count(*) AS N FROM Customers GROUP BY Country HAVING Count(*) > 5 ORDER BY Country DESC")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT TOP 3 Country, Count(*) AS N FROM Customers GROUP BY Country ORDER BY Count(*) DESC, Country")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT Customers.Country, Sum(Orders.Freight) AS F FROM Customers INNER JOIN Orders " +
+                "ON Customers.CustomerID = Orders.CustomerID WHERE Orders.OrderID < 10300 GROUP BY Customers.Country " +
+                "HAVING Sum(Orders.Freight) > 100 ORDER BY Sum(Orders.Freight) DESC")]
+    [InlineData("CREATE VIEW [Q] AS SELECT Country, Count(*) AS N FROM Customers GROUP BY Country HAVING Count(*) > 5")]
+    public void A_grouped_or_ordered_query_is_stored_as_ace_stores_it_and_runs_alike(string sql) =>
+        QueryRoundTrip(sql, parameter: null);
+
+    private static void QueryRoundTrip(string sql, short? parameter)
+    {
+        string ourPath = Copy(), acePath = Copy();
+        try
+        {
+            using (var db = TemporaryDatabase.OpenTracked(ourPath, readOnly: false))
+                new QueryEngine(db).ExecuteNonQuery(sql);
+            using (var connection = AceTestDatabase.Open(acePath))
+            {
+                using var create = connection.CreateCommand();
+                create.CommandText = sql;
+                create.ExecuteNonQuery();
+            }
+
+            Assert.Equal(QueryRows(acePath, "Q"), QueryRows(ourPath, "Q"));
+            Assert.Equal(ObjectFlags(acePath, "Q"), ObjectFlags(ourPath, "Q"));
+
+            var aceRows = new List<string>();
+            using (var connection = AceTestDatabase.Open(ourPath, readOnly: true))
+            {
+                using var run = connection.CreateCommand();
+                run.CommandText = "Q";
+                run.CommandType = CommandType.StoredProcedure;
+                if (parameter is not null)
+                    run.Parameters.Add(new OleDbParameter { OleDbType = OleDbType.SmallInt, Value = parameter });
+                using var reader = run.ExecuteReader();
+                aceRows.Add(string.Join(", ", Enumerable.Range(0, reader.FieldCount).Select(reader.GetName)));
+                var values = new object[reader.FieldCount];
+                while (reader.Read())
+                {
+                    reader.GetValues(values);
+                    aceRows.Add(Cells(values));
+                }
+            }
+            OleDbConnection.ReleaseObjectPool();
+
+            foreach (string path in new[] { acePath, ourPath })
+            {
+                using var db = TemporaryDatabase.OpenTracked(path, readOnly: true);
+                StoredQuery stored = db.Catalog.FindQuery("Q")!;
+                Assert.False(stored.IsAction);
+                ResultSet result = new QueryEngine(db).ExecuteQuery(parameter is null ? "EXECUTE [Q]" : $"EXECUTE [Q] {parameter}");
+                Assert.Equal(aceRows, [string.Join(", ", result.ColumnNames), .. result.Rows.Select(r => Cells(r))]);
+            }
+        }
+        finally
+        {
+            TemporaryDatabase.Delete(ourPath);
+            TemporaryDatabase.Delete(acePath);
+        }
+    }
+
+    /// <summary>A row's values as text, a number as its value whatever its type — ACE's Currency carries four places,
+    /// and a Count may come back as either engine's integer type.</summary>
+    private static string Cells(object?[] values) => string.Join(" | ", values.Select(v => v switch
+    {
+        null or DBNull => "NULL",
+        decimal or double or float or int or short or long or byte =>
+            Convert.ToDecimal(v, System.Globalization.CultureInfo.InvariantCulture).ToString("0.############", System.Globalization.CultureInfo.InvariantCulture),
+        _ => Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture),
+    }));
+
+    /// <summary>A query whose FROM or make-table names another file with IN externaldatabase is stored as ACE stores
+    /// it — the FROM's file in a <c>0x04</c> row, a make-table's on its operation row — in each of the forms ACE takes.
+    /// ACE runs the query LibRed stored, and a SELECT returns the same rows from both engines on both files.</summary>
+    [Theory]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT ShipperID, CompanyName FROM Shippers IN '{0}'")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT * FROM Shippers IN '{0}'")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT Shippers.ShipperID FROM Shippers IN '' [;DATABASE={0}] WHERE ShipperID > 1")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT CompanyName FROM Shippers IN '{0}' 'MS Access;'")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT CompanyName FROM Shippers IN '{0}' [MS Access;]")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT * FROM (SELECT * FROM Shippers IN '{0}') AS q")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT Orders.OrderID, Customers.Country FROM Orders INNER JOIN Customers " +
+                "ON Orders.CustomerID = Customers.CustomerID IN '{0}' WHERE Orders.OrderID < 10255")]
+    [InlineData("CREATE VIEW [Q] AS SELECT ShipperID, CompanyName FROM Shippers IN '{0}'")]
+    [InlineData("CREATE PROCEDURE [Q] AS TRANSFORM Count(OrderID) SELECT ShipVia FROM Orders IN '{0}' GROUP BY ShipVia PIVOT EmployeeID")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT ShipperID INTO ShipCopy IN '{0}' FROM Shippers")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT ShipperID INTO ShipCopy FROM Shippers IN '{0}'")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT Shippers.ShipperID INTO ShipCopy IN '' [;DATABASE={0}] FROM Shippers IN '{0}' WHERE ShipperID > 0")]
+    [InlineData("CREATE PROCEDURE [Q] AS SELECT ShipperID INTO ShipCopy IN '{0}' 'MS Access;' FROM Shippers")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers (CompanyName, Phone) IN '{0}' SELECT CompanyName, Phone FROM Suppliers WHERE SupplierID < 3")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers IN '{0}' SELECT CompanyName, Phone FROM Suppliers WHERE SupplierID < 3")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers IN '' [;DATABASE={0}] SELECT CompanyName FROM Suppliers WHERE SupplierID < 3")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers IN '{0}' 'MS Access;' SELECT TOP 1 CompanyName FROM Suppliers ORDER BY SupplierID DESC")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers IN '{0}' [MS Access;] SELECT CompanyName FROM Shippers IN '{0}' WHERE ShipperID = 1")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers (CompanyName) IN '{0}' VALUES ('new')")]
+    [InlineData("CREATE PROCEDURE [Q] AS INSERT INTO Shippers IN '{0}' VALUES (50, 'Fifty', '555')")]
+    public void An_in_externaldatabase_is_stored_as_ace_stores_it_and_runs_alike(string template)
+    {
+        string external = Copy(), ourPath = Copy(), acePath = Copy(), runPath = Copy(), runExternal = Copy();
+        try
+        {
+            // The other file's shippers are told apart from the statement's own.
+            foreach (string path in new[] { external, runExternal })
+                using (var connection = AceTestDatabase.Open(path))
+                {
+                    using var mark = connection.CreateCommand();
+                    mark.CommandText = "UPDATE Shippers SET CompanyName = 'ext ' & CompanyName";
+                    mark.ExecuteNonQuery();
+                }
+            OleDbConnection.ReleaseObjectPool();
+            string sql = string.Format(System.Globalization.CultureInfo.InvariantCulture, template, external);
+
+            using (var db = TemporaryDatabase.OpenTracked(ourPath, readOnly: false))
+                new QueryEngine(db).ExecuteNonQuery(sql);
+            using (var connection = AceTestDatabase.Open(acePath))
+            {
+                using var create = connection.CreateCommand();
+                create.CommandText = sql;
+                try { create.ExecuteNonQuery(); }
+                catch (OleDbException e) when (e.Message.StartsWith("Operation is not supported", StringComparison.Ordinal))
+                {
+                    Assert.Skip("ACE refuses remote tables here: set AllowQueryRemoteTables to 1 to run this test.");
+                }
+            }
+
+            Assert.Equal(QueryRows(acePath, "Q"), QueryRows(ourPath, "Q"));
+            Assert.Equal(ObjectFlags(acePath, "Q"), ObjectFlags(ourPath, "Q"));
+
+            // A make-table or an append writes rather than returns rows.
+            bool action = sql.Contains(" INTO ", StringComparison.Ordinal);
+            using (var db = TemporaryDatabase.OpenTracked(ourPath, readOnly: true))
+                Assert.Contains(" IN '", db.Catalog.FindQuery("Q")!.Sql, StringComparison.Ordinal);
+
+            // ACE runs the query LibRed stored, on a copy pointed at a copy of the other file, so a make-table or an
+            // append leaves both files the comparison reads alone.
+            File.Copy(ourPath, runPath, overwrite: true);
+            using (var db = TemporaryDatabase.OpenTracked(runPath, readOnly: false))
+            {
+                db.DropQueryObject("Q");
+                new QueryEngine(db).ExecuteNonQuery(string.Format(System.Globalization.CultureInfo.InvariantCulture, template, runExternal));
+            }
+            var aceRows = new List<string>();
+            using (var connection = AceTestDatabase.Open(runPath))
+            {
+                using var run = connection.CreateCommand();
+                run.CommandText = "Q";
+                run.CommandType = CommandType.StoredProcedure;
+                if (action) run.ExecuteNonQuery();
+                else
+                {
+                    using var reader = run.ExecuteReader();
+                    var values = new object[reader.FieldCount];
+                    while (reader.Read())
+                    {
+                        reader.GetValues(values);
+                        aceRows.Add(Cells(values));
+                    }
+                }
+            }
+            OleDbConnection.ReleaseObjectPool();
+            if (action) return;
+
+            aceRows.Sort(StringComparer.Ordinal);
+            foreach (string path in new[] { acePath, ourPath })
+            {
+                using var db = TemporaryDatabase.OpenTracked(path, readOnly: true);
+                List<string> ours = [.. new QueryEngine(db).ExecuteQuery("EXECUTE [Q]").Rows.Select(r => Cells(r))];
+                ours.Sort(StringComparer.Ordinal);
+                Assert.Equal(aceRows, ours);
+            }
+        }
+        finally
+        {
+            foreach (string path in new[] { external, ourPath, acePath, runPath, runExternal })
+                TemporaryDatabase.Delete(path);
+        }
     }
 
     /// <summary>

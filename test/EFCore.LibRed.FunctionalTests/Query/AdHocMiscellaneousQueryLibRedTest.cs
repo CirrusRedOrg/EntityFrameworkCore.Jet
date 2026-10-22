@@ -2610,7 +2610,28 @@ ORDER BY `s`.`PickupStatusId`
     {
         await base.Union_of_two_leftjoin_nonentity();
 
-        AssertSql();
+        AssertSql(
+            """
+SELECT `u`.`PickupStatusId`, `u`.`Count`
+FROM (
+    SELECT `s`.`PickupStatusId`, IIF(`r0`.`marker` IS NULL, 0, `r0`.`Count`) AS `Count`
+    FROM `Statuses` AS `s`
+    LEFT JOIN (
+        SELECT `r`.`PickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+        FROM `Requests` AS `r`
+        GROUP BY `r`.`PickupStatusId`
+    ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
+    UNION
+    SELECT `s0`.`PickupStatusId`, IIF(`r2`.`marker` IS NULL, 0, `r2`.`Count`) AS `Count`
+    FROM `Statuses` AS `s0`
+    LEFT JOIN (
+        SELECT `r1`.`PickupStatusId`, COUNT(*) AS `Count`, IIF(`r1`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+        FROM `Requests` AS `r1`
+        GROUP BY `r1`.`PickupStatusId`
+    ) AS `r2` ON `s0`.`PickupStatusId` = `r2`.`PickupStatusId`
+) AS `u`
+ORDER BY `u`.`PickupStatusId`
+""");
     }
 
     public override async Task OrderBy_member_of_nullable_projection()

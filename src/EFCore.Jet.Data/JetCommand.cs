@@ -8,7 +8,9 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+#if DEBUG
 using System.Threading;
+#endif
 
 namespace EntityFrameworkCore.Jet.Data
 {

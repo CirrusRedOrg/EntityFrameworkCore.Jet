@@ -96,15 +96,19 @@ Treat the number as of its date — an EF Core version bump moves it.
   + `ORDER BY`**, and **derived-table / `UNION` sources** (the long subquery text lands on an LVAL page so
   Access executes it); **`CREATE PROCEDURE`** (parameterized — bare or parenthesised list, `@name`),
   including **action-query** bodies (`CREATE TABLE`, `INSERT … VALUES`, `INSERT … SELECT`, `UPDATE`, `DELETE`
-  and `SELECT … INTO`); and **`EXECUTE`/`EXEC`**.
+  and `SELECT … INTO`), **`UNION`** and **crosstab (`TRANSFORM … PIVOT`)** bodies, and a FROM, make-table or
+  append naming another file with **`IN externaldatabase`**; and **`EXECUTE`/`EXEC`**.
   LibRed's own engine **reads them all back** — reconstructing the SQL from `MSysQueries` and expanding a
-  view referenced in `FROM` (or inside an expression subquery) to a derived table — so they run through
+  view referenced in `FROM` (or inside an expression subquery, or anywhere an `INSERT`, `UPDATE` or `DELETE`
+  reads, though not as the table one writes) to a derived table — so they run through
   LibRed too. Reading is not limited to what LibRed writes: the `Attribute=1` operation row is read as the
   query **kind** (Access writes it on plain SELECTs as well as on action queries), a query with no column
-  rows is Access's `SELECT *`, and `DISTINCTROW`, `TOP … PERCENT` and `WITH OWNERACCESS OPTION` are decoded
-  from their own option bits.
-  Measured over a corpus of 19 real-world databases: 479 of 592 stored queries come back as views, and 337 of
-  those reproduce ACE's own SQL exactly once bracketing and whitespace are normalised.
+  rows is Access's `SELECT *`, one with column rows and the output-all-fields bit is a `*` among those columns,
+  and `DISTINCTROW`, `TOP … PERCENT` and `WITH OWNERACCESS OPTION` are decoded from their own option bits —
+  and written back the same way.
+  Measured over a corpus of 49 real-world databases (2026-10-17): 1,297 of 1,314 stored queries are rebuilt, and
+  1,259 of those parse. The rest read multi-valued or attachment fields, or are Access's own form and report
+  record sources (which need the form), or alias two outputs alike, which ACE refuses too.
 - **Write** — row insert with order-preserving index-key encoding and **full B-tree maintenance**
   (descend to the target leaf, insert with prefix compression, **leaf/node splitting and root growth**);
   composite keys, byte-verified against a five-column mixed-type, mixed-direction index ACE itself built
@@ -203,8 +207,37 @@ Treat the number as of its date — an EF Core version bump moves it.
   `EXECUTE`, `IF … THEN`, `BEGIN`/`COMMIT`/`ROLLBACK [TRANSACTION|WORK]`, `SELECT @@IDENTITY`, and `SELECT`
   with `WHERE`, joins, `GROUP BY`/aggregates, `HAVING`, `ORDER BY`, `TOP [PERCENT]`,
   `ALL`/`DISTINCT`/`DISTINCTROW`, `UNION`/`INTERSECT`/`EXCEPT`, subqueries, and parameters.
+  A bare `*` may stand among other items (`SELECT *, x AS X`): those come first, then every column none of them
+  returns, as ACE orders them; a `*` in a grouped or aggregate query is refused. Output columns are named as ACE
+  names them: an unnamed expression is `Expr1000` and up by its place in the list, a column reference written twice
+  is an `Expr` name but for its last, two outputs that still share a name are told apart by table (`Orders.CustomerID`),
+  and an alias keeps its name, two equal aliases included.
+  A comparison with each row of a subquery — `x > ANY (…)`, `SOME`, `ALL`, any comparison — gives ACE's three-valued
+  result: ANY holds when one comparison does, ALL when every one does, over no rows ANY is False and ALL True whatever
+  `x` is (so `Null IN` an empty subquery is False, as in ACE), and otherwise a Null that leaves it undecided makes it
+  Null. **A NOT over one deliberately differs from ACE's:** LibRed negates it, where ACE turns `NOT (x < ALL (…))` into
+  `x >= ALL (…)`, which is not the negation, for any comparison but `=`.
+  **`TOP n` deliberately differs from ACE's:** it returns exactly n rows, where ACE's `TOP n` (and `TOP n PERCENT`)
+  also returns every further row whose `ORDER BY` keys equal the last one's — a stored query ACE wrote included.
+  `WITH TIES` asks for ACE's rows (below).
+  **Nested joins deliberately differ from ACE's:** they are evaluated as their parentheses nest them, so an INNER JOIN
+  on a column of an outer join's optional side (`(a LEFT JOIN b ON …) INNER JOIN c ON b.x = c.x`) and an inner join
+  nested as an outer join's operand (`a LEFT JOIN (b INNER JOIN c ON …) ON …`) each return the rows the standard
+  defines, where ACE refuses both with "JOIN expression not supported". It refuses an ON that does not reference
+  both sides (`… INNER JOIN c ON c.k = 1`) with the same message; LibRed takes any condition in an ON — constants,
+  functions and subqueries included — and evaluates it as written.
   `WITH OWNERACCESS OPTION` is taken wherever ACE takes it and changes nothing — LibRed has no users to act for —
   but a stored query keeps it.
+  **`TRANSFORM … PIVOT … [IN (…)]`**, the crosstab, with ACE's column naming and ordering, its fixed headings, row
+  totals and refusals (no `HAVING`, `TOP` or `*`); a stored one runs by name and as a FROM source.
+  **`IN externaldatabase`** after a FROM (every table of that FROM is read from the other file, a stored query of
+  that file included; a subquery elsewhere in the statement still reads this one), after a make-table's `INTO`
+  (the table is made there) and after an `INSERT INTO`'s target and column list (the rows are appended there, from a
+  SELECT or VALUES read here; `@@IDENTITY` is then the other file's new AutoNumber), in each of the forms ACE takes — `IN 'path'`, `IN 'path' 'MS Access;'`,
+  `IN 'path' [MS Access;]`, `IN '' [;DATABASE=path]`. Only Access databases are opened: a dBASE, Paradox, Excel or
+  text type is refused. ACE itself refuses every one of these unless its `AllowQueryRemoteTables` setting allows them
+  (Office updates since December 2025 default it to trusted databases only); LibRed has no such gate. The other file
+  stays open for as long as the database that reached it.
   Access's bang notation: `[Table]![Column]` is `Table.Column`, and an unaliased one is named as written, as
   ACE names it. A form control such as `[Forms]![frmMenu]![txtCity]` is reachable only as a parameter the
   query declares; unlike ACE, LibRed does not make an undeclared one an implicit parameter. `Yes`/`On` and
@@ -215,7 +248,7 @@ Treat the number as of its date — an EF Core version bump moves it.
   Function arguments are arity-checked against a per-function range table, so a wrong count raises rather
   than being silently ignored.
   Plan nodes: Scan / IndexScan / IndexSeek / IndexRangeSeek / Filter / Project / Join / HashJoin / Aggregate /
-  Sort / Limit / Distinct / DistinctRow / SetOperation / DerivedTable / Values / Window / SingleRow.
+  Sort / Limit / Distinct / DistinctRow / SetOperation / DerivedTable / Crosstab / Values / Window / SingleRow.
 - **SQL beyond what ACE has** — the engine deliberately accepts a superset of the Access dialect, which is
   what extended mode generates against (see the EF Core section below):
   - `CROSS APPLY` / `OUTER APPLY` — a lateral join, with the right side re-evaluated per left row. ACE has
@@ -246,8 +279,7 @@ Treat the number as of its date — an EF Core version bump moves it.
   - **`OFFSET … ROWS FETCH NEXT … ROWS ONLY`** paging, where the count may be any expression, not just a
     literal. Access has only `TOP n`, and only with a literal.
   - **`TOP n [PERCENT] WITH TIES`** and **`FETCH … ROWS WITH TIES`** — the n rows and every further one whose
-    `ORDER BY` keys equal the last one's. ACE's own `TOP n` always keeps those ties (it chooses the same rows,
-    verified); LibRed's plain `TOP n` returns exactly n, so `WITH TIES` is how to ask for ACE's rows. It needs an
+    `ORDER BY` keys equal the last one's — the rows ACE's own `TOP n` returns (verified). It needs an
     `ORDER BY` and is refused beside `DISTINCT`, and a view cannot store it.
   - **Standard scalar syntax** ACE lacks: `CASE`, `COALESCE`, `NULLIF`, `GREATEST`/`LEAST` (NULL arguments
     ignored, as SQL Server and PostgreSQL treat them — extended mode translates `Math.Max`/`Math.Min` to
@@ -265,6 +297,15 @@ Treat the number as of its date — an EF Core version bump moves it.
   - **`ORDER BY` bound to the query expression**, so it applies to a whole set operation rather than to its
     last operand; an operand carries its own ordering only when parenthesised. ACE silently accepts and then
     ignores an operand's `ORDER BY`, which is a wrong-answer bug rather than an error.
+- **ACE defects LibRed does not reproduce** — wrong answers ACE gives, measured, which LibRed answers correctly
+  on purpose. A parity probe that shows one of these is showing ACE's defect, not a LibRed gap:
+  - **An equality across two tables can match nothing.** Where one side is an expression over the *first*
+    table in the FROM clause whose result is a Double and which holds a decimal literal (`a.F * 1.5`,
+    `a.D * 1.5` past 28 digits, `a.C * 1.5`, `a.F * 1.11 - a.G`), and the other side is a bare column of a later
+    table, ACE returns no rows at all, `0 * 1.5 = 0` included — in `ON` and `WHERE` alike, whichever side of `=`
+    the expression is on. Swapping the tables in the FROM clause, making the column side an expression
+    (`b.F + 0`), or using `<`, `>` or `<>` gives the right rows, so it is ACE's equality lookup keying on the bare
+    column. LibRed matches the same rows in either FROM order (`DecimalEvaluationRuleTests`).
 - **ADO.NET** — connection / command / reader / parameter / transaction / factory over the engine, with the
   generated-AutoNumber `@@IDENTITY` round-trip carried up through Engine → Ado → EF Core.
   Transactions commit/roll back for real via a deferred-write page overlay in `PageChannel` (writes are
@@ -287,7 +328,6 @@ Format-level detail on each on-disk gap lives in `docs/format/`.
   in Access (the unique index still enforces uniqueness).
 - **`ValidationRule`/`ValidationText` are not enforced** — UI-authored validation, distinct from a SQL `CHECK`:
   a row violating an Access-authored rule is accepted where ACE would refuse it.
-- **`AllowZeroLength` not modelled.**
 - **A column-level `CHECK`** (`Col LONG CHECK (Col > 0)`) is parsed and silently dropped — neither stored nor
   enforced. Its ACE storage differs from the table-level form and is unprobed; a table-level `CHECK` over the
   same column is the working route.
@@ -297,8 +337,9 @@ Format-level detail on each on-disk gap lives in `docs/format/`.
 
 *SQL surface / engine gaps:*
 
-- **Stored crosstab, pass-through and UNION-kind queries** — read back as a *named* refusal rather than
-  executing.
+- **Stored pass-through queries** — read back as a *named* refusal rather than executing.
+- **A crosstab's columns when describing** (`CommandBehavior.SchemaOnly`) — only the row headings and fixed
+  headings, since the rest come from the data.
 - **`ALTER TABLE … RENAME INDEX`** — parsed and routed, but throws: the TDEF rewrite is not implemented.
 - **Function surface** — the evaluator's whitelist isn't proven identical to ACE's JES, and `Format`'s named
   date/currency formats are locale-dependent by design (not byte-identical cross-locale).

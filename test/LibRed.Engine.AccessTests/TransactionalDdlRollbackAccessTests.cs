@@ -12,20 +12,24 @@ public class TransactionalDdlRollbackAccessTests
     [Fact]
     public void Full_rollback_removes_created_index_view_table_and_column_alter_byte_for_byte()
     {
-        string path = Fresh("ddl-create-rollback-");
+        string path = Fresh("ddl-create-rollback-"), before = "";
         try
         {
             CreateBaseline(path);
-            byte[] before = File.ReadAllBytes(path);
+            before = TemporaryDatabase.CopyPath(path, "ddl-create-rollback-before-");
+            string[] statements =
+            [
+                "CREATE UNIQUE INDEX UX_DdlTxn_Code ON DdlTxn (Code)",
+                "CREATE VIEW DdlTxnView AS SELECT Id, V FROM DdlTxn",
+                "CREATE TABLE TransientDdl (Id LONG PRIMARY KEY)",
+                "ALTER TABLE DdlTxn ALTER COLUMN V TEXT(80)",
+            ];
 
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
                 var e = new QueryEngine(db);
                 e.ExecuteNonQuery("BEGIN TRANSACTION");
-                e.ExecuteNonQuery("CREATE UNIQUE INDEX UX_DdlTxn_Code ON DdlTxn (Code)");
-                e.ExecuteNonQuery("CREATE VIEW DdlTxnView AS SELECT Id, V FROM DdlTxn");
-                e.ExecuteNonQuery("CREATE TABLE TransientDdl (Id LONG PRIMARY KEY)");
-                e.ExecuteNonQuery("ALTER TABLE DdlTxn ALTER COLUMN V TEXT(80)");
+                foreach (string sql in statements) e.ExecuteNonQuery(sql);
 
                 TableDefinition changed = db.Catalog.FindTable("DdlTxn")!;
                 Assert.Contains(changed.Indexes, i => i.Name == "UX_DdlTxn_Code");
@@ -41,33 +45,41 @@ public class TransactionalDdlRollbackAccessTests
                 Assert.Throws<LibRed.Sql.Binding.SqlBindException>(() => e.ExecuteQuery("SELECT Id FROM DdlTxnView"));
             }
 
-            Assert.Equal(before, File.ReadAllBytes(path));
+            AssertSameAsAce(before, path, statements);
             using var connection = AceTestDatabase.Open(path);
             Execute(connection, "INSERT INTO DdlTxn (Id, Code, N, V) VALUES (2, 10, 7, 'duplicate allowed')");
             AssertScalar(connection, "SELECT COUNT(*) FROM DdlTxn WHERE Code = 10", 2);
             Assert.Throws<OleDbException>(() => ExecuteScalar(connection, "SELECT * FROM DdlTxnView"));
             Assert.Throws<OleDbException>(() => ExecuteScalar(connection, "SELECT * FROM TransientDdl"));
         }
-        finally { TemporaryDatabase.Delete(path); }
+        finally
+        {
+            TemporaryDatabase.Delete(path);
+            TemporaryDatabase.Delete(before);
+        }
     }
 
     [Fact]
     public void Full_rollback_restores_dropped_objects_and_rebuilt_column_byte_for_byte()
     {
-        string path = Fresh("ddl-drop-rollback-");
+        string path = Fresh("ddl-drop-rollback-"), before = "";
         try
         {
             CreateBaseline(path, withObjects: true);
-            byte[] before = File.ReadAllBytes(path);
+            before = TemporaryDatabase.CopyPath(path, "ddl-drop-rollback-before-");
+            string[] statements =
+            [
+                "DROP INDEX UX_DdlTxn_Code ON DdlTxn",
+                "DROP VIEW DdlTxnView",
+                "ALTER TABLE DdlTxn ALTER COLUMN N DOUBLE",
+                "DROP TABLE KeptTable",
+            ];
 
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
                 var e = new QueryEngine(db);
                 e.ExecuteNonQuery("BEGIN TRANSACTION");
-                e.ExecuteNonQuery("DROP INDEX UX_DdlTxn_Code ON DdlTxn");
-                e.ExecuteNonQuery("DROP VIEW DdlTxnView");
-                e.ExecuteNonQuery("ALTER TABLE DdlTxn ALTER COLUMN N DOUBLE");
-                e.ExecuteNonQuery("DROP TABLE KeptTable");
+                foreach (string sql in statements) e.ExecuteNonQuery(sql);
 
                 Assert.DoesNotContain(db.Catalog.FindTable("DdlTxn")!.Indexes, i => i.Name == "UX_DdlTxn_Code");
                 Assert.Equal(JetDataType.Double, db.Catalog.FindTable("DdlTxn")!.FindColumn("N")!.Type);
@@ -82,14 +94,41 @@ public class TransactionalDdlRollbackAccessTests
                 Assert.Single(e.ExecuteQuery("SELECT Id FROM DdlTxnView").Rows);
             }
 
-            Assert.Equal(before, File.ReadAllBytes(path));
+            AssertSameAsAce(before, path, statements);
             using var connection = AceTestDatabase.Open(path);
             AssertScalar(connection, "SELECT COUNT(*) FROM DdlTxnView", 1);
             AssertScalar(connection, "SELECT COUNT(*) FROM KeptTable", 1);
             Assert.Throws<OleDbException>(() =>
                 Execute(connection, "INSERT INTO DdlTxn (Id, Code, N, V) VALUES (2, 10, 7, 'duplicate')"));
         }
-        finally { TemporaryDatabase.Delete(path); }
+        finally
+        {
+            TemporaryDatabase.Delete(path);
+            TemporaryDatabase.Delete(before);
+        }
+    }
+
+    /// <summary>Asserts that LibRed's file after its rolled-back transaction is ACE's after the same one: ACE runs
+    /// <paramref name="statements"/> between a BEGIN and a ROLLBACK on a copy of <paramref name="before"/>, the file
+    /// LibRed started from. A rollback is not a byte-for-byte restore in ACE either — the session's reservation and
+    /// the catalog's counts outlive it (page-05-usage-maps.md, page-02a-tdef.md).</summary>
+    private static void AssertSameAsAce(string before, string libred, string[] statements)
+    {
+        string ace = TemporaryDatabase.CopyPath(before, "ddl-rollback-ace-");
+        string noise = TemporaryDatabase.CopyPath(before, "ddl-rollback-noise-");
+        try
+        {
+            string?[] errors = WholeFileParityProbeTest.RunThroughAce(ace, ["BEGIN TRANSACTION", .. statements, "ROLLBACK TRANSACTION"]);
+            Assert.True(errors.All(e => e is null), string.Join("; ", errors.Where(e => e is not null)));
+            WholeFileParityProbeTest.RunThroughAce(noise, []);
+            (string report, int pages) = WholeFileParityProbeTest.Compare(before, ace, noise, libred);
+            Assert.True(pages == 0, report);
+        }
+        finally
+        {
+            TemporaryDatabase.Delete(ace);
+            TemporaryDatabase.Delete(noise);
+        }
     }
 
     [Fact]

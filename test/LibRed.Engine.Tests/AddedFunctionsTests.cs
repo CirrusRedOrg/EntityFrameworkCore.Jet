@@ -33,6 +33,8 @@ public class AddedFunctionsTests : TempDatabaseTest
     [InlineData("MonthName(1, True)", "Jan")]
     [InlineData("MonthName(1, False)", "January")]
     [InlineData("TypeName(5)", "Long")]
+    [InlineData("TypeName(CVDate(1))", "Date")]
+    [InlineData("TypeName(IMEStatus())", "Long")]
     public void String_returning(string expr, string expected)
         => Assert.Equal(expected, Convert.ToString(Eval(expr)));
 
@@ -41,6 +43,8 @@ public class AddedFunctionsTests : TempDatabaseTest
     [InlineData("InStrRev('abc', 'b')", 2)]
     [InlineData("Val('12abc')", 12)]
     [InlineData("VarType(5)", 3)]
+    [InlineData("VarType(CVDate(1))", 7)]
+    [InlineData("IMEStatus()", 0)]
     public void Numeric_returning(string expr, int expected)
         => Assert.Equal(expected, Convert.ToInt32(Eval(expr)));
 
@@ -49,8 +53,25 @@ public class AddedFunctionsTests : TempDatabaseTest
     [InlineData("IsNumeric('12')", true)]
     [InlineData("IsNumeric('abc')", false)]
     [InlineData("IsError(1)", false)]
+    [InlineData("IsEmpty(1)", false)]
+    [InlineData("IsEmpty(Null)", false)]
+    [InlineData("IsEmpty('')", false)]
+    [InlineData("IsMissing(1)", false)]
+    [InlineData("IsMissing(Null)", false)]
+    [InlineData("IsObject(1)", false)]
+    [InlineData("IsObject(Null)", false)]
     public void Boolean_returning(string expr, bool expected)
         => Assert.Equal(expected, Convert.ToBoolean(Eval(expr)));
+
+    [Theory]
+    [InlineData("CVDate(1)", "1899-12-31")]
+    [InlineData("CVDate(True)", "1899-12-29")]
+    [InlineData("CVDate('2003-09-29')", "2003-09-29")]
+    public void Date_returning(string expr, string expected)
+        => Assert.Equal(DateTime.Parse(expected, System.Globalization.CultureInfo.InvariantCulture), Assert.IsType<DateTime>(Eval(expr)));
+
+    [Fact]
+    public void CVDate_of_null_is_null() => Assert.Null(Eval("CVDate(Null)"));
 
     [Fact]
     public void Rnd_and_Timer_are_in_range()

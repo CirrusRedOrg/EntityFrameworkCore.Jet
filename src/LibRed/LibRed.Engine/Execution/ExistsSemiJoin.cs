@@ -46,12 +46,16 @@ internal sealed class ExistsSemiJoin
     /// <summary>True when the key query projects the <c>IN</c> value after the correlation columns.</summary>
     private readonly bool _hasInValue;
 
+    /// <summary>Per key, the IN value's last, the type both sides are hashed as. See <see cref="CorrelationSplit.KeyTypes" />.</summary>
+    private readonly IReadOnlyList<Type?> _keyTypes;
+
     private HashSet<object?[]>? _keys;
     private HashSet<object?[]>? _nullTail;
 
     private ExistsSemiJoin(
-        SelectStatement keyQuery, IReadOnlyList<Expression> outerKeys, IReadOnlyList<bool> nullSafe, bool hasInValue)
-        => (_keyQuery, _outerKeys, _nullSafe, _hasInValue) = (keyQuery, outerKeys, nullSafe, hasInValue);
+        SelectStatement keyQuery, IReadOnlyList<Expression> outerKeys, IReadOnlyList<bool> nullSafe, bool hasInValue,
+        IReadOnlyList<Type?> keyTypes)
+        => (_keyQuery, _outerKeys, _nullSafe, _hasInValue, _keyTypes) = (keyQuery, outerKeys, nullSafe, hasInValue, keyTypes);
 
     /// <summary>
     ///     Analyses an <c>EXISTS</c> subquery, returning a semi-join plan or null when the rewrite would not be
@@ -62,8 +66,8 @@ internal sealed class ExistsSemiJoin
         SelectStatement subquery,
         IReadOnlyList<OutputColumn> outerColumns,
         HashSet<string> outerAliases,
-        JetCatalog catalog)
-        => TryBuild(subquery, null, outerColumns, outerAliases, catalog);
+        JetDatabase database)
+        => TryBuild(subquery, null, outerColumns, outerAliases, database);
 
     /// <summary>
     ///     The same analysis for <c>x [NOT] IN (subquery)</c>, where <paramref name="inValue" /> is the outer
@@ -92,9 +96,9 @@ internal sealed class ExistsSemiJoin
         Expression inValue,
         IReadOnlyList<OutputColumn> outerColumns,
         HashSet<string> outerAliases,
-        JetCatalog catalog)
+        JetDatabase database)
         => subquery is { Top: null, GroupBy.Count: 0, Having: null, IsSelectStar: false, Projection: [{ Value: ColumnReference }] }
-            ? TryBuild(subquery, inValue, outerColumns, outerAliases, catalog)
+            ? TryBuild(subquery, inValue, outerColumns, outerAliases, database)
             : null;
 
     private static ExistsSemiJoin? TryBuild(
@@ -102,12 +106,14 @@ internal sealed class ExistsSemiJoin
         Expression? inValue,
         IReadOnlyList<OutputColumn> outerColumns,
         HashSet<string> outerAliases,
-        JetCatalog catalog)
+        JetDatabase database)
     {
-        // (ORDER BY and DISTINCT are irrelevant to EXISTS.)
-        if (!TopCannotChangeExistence(subquery)
+        // (ORDER BY and DISTINCT are irrelevant to EXISTS.) OFFSET is not: it asks for more than n rows per key,
+        // which a key set cannot express.
+        if (subquery.Offset is not null
+            || !TopCannotChangeExistence(subquery)
             || !EmptyInputMeansNoRows(subquery)
-            || SubqueryCorrelation.TrySplit(subquery, outerColumns, outerAliases, catalog) is not { } split)
+            || SubqueryCorrelation.TrySplit(subquery, outerColumns, outerAliases, database) is not { } split)
         {
             return null;
         }
@@ -116,15 +122,17 @@ internal sealed class ExistsSemiJoin
         // projection rather than from a WHERE equality, and that a null there means UNKNOWN rather than no match
         // (see BuildSemiJoinKeys). It goes last so the probe can append the already-evaluated value.
         var projected = new List<Expression>(split.InnerKeys);
+        var keyTypes = new List<Type?>(split.KeyTypes);
         if (inValue is not null)
         {
             Expression output = subquery.Projection[0].Value;
-            if (!SubqueryCorrelation.SameKind((ColumnReference)output, split.Plan, catalog, inValue, outerColumns))
+            if (!SubqueryCorrelation.SameKind((ColumnReference)output, split.Plan, database, inValue, outerColumns, out Type? inType))
             {
                 return null;
             }
 
             projected.Add(output);
+            keyTypes.Add(inType);
         }
 
         var keyQuery = subquery with
@@ -149,7 +157,7 @@ internal sealed class ExistsSemiJoin
             TopPercent = false,
         };
 
-        return new ExistsSemiJoin(keyQuery, split.OuterKeys, split.NullSafe, inValue is not null);
+        return new ExistsSemiJoin(keyQuery, split.OuterKeys, split.NullSafe, inValue is not null, keyTypes);
     }
 
     /// <summary>
@@ -197,12 +205,9 @@ internal sealed class ExistsSemiJoin
 
         return !subquery.TopPercent
             && subquery.Top is LiteralExpression { Value: { } value }
-            && IsNumeric(value)
+            && LibRed.Storage.Types.JetTypeCodec.IsNumber(value)
             && JetDecimalConverter.ToDecimal(value, System.Globalization.CultureInfo.InvariantCulture) >= 1m;
     }
-
-    private static bool IsNumeric(object v)
-        => v is byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal;
 
     /// <summary>
     ///     Tests one outer row. The key set is built on first use — once per statement, not per row.
@@ -244,7 +249,7 @@ internal sealed class ExistsSemiJoin
         if (_keys is null)
         {
             (_keys, _nullTail) = executor.BuildSemiJoinKeys(
-                _keyQuery, _outerKeys.Count + (_hasInValue ? 1 : 0), _nullSafe, _hasInValue);
+                _keyQuery, _outerKeys.Count + (_hasInValue ? 1 : 0), _nullSafe, _keyTypes, _hasInValue);
         }
 
         var probe = new object?[_outerKeys.Count + (_hasInValue ? 1 : 0)];
@@ -252,7 +257,8 @@ internal sealed class ExistsSemiJoin
         {
             // A null matches nothing under a plain `=`, so there is no point probing. Under the null-safe form it
             // is a key like any other and must be looked up.
-            if ((probe[i] = outerEval.Evaluate(_outerKeys[i])) is null && !_nullSafe[i])
+            if ((probe[i] = ExpressionEvaluator.AsColumnType(outerEval.Evaluate(_outerKeys[i]), _keyTypes[i], currency: false)) is null
+                && !_nullSafe[i])
             {
                 return null;
             }
@@ -260,7 +266,7 @@ internal sealed class ExistsSemiJoin
 
         if (_hasInValue)
         {
-            probe[^1] = inValue;
+            probe[^1] = ExpressionEvaluator.AsColumnType(inValue, _keyTypes[^1], currency: false);
         }
 
         return probe;

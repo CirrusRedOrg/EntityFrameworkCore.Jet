@@ -155,7 +155,7 @@ public class ActionQueryProcedureAccessTests
     }
 
     [Fact]
-    public void A_kind_libred_cannot_run_still_reports_which_kind_it_is()
+    public void An_ace_written_crosstab_reads_back_as_its_statement()
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "action-crosstab-");
         try
@@ -164,12 +164,13 @@ public class ActionQueryProcedureAccessTests
                 CreateProcedure(conn, "ByCountry",
                     "TRANSFORM Count(*) SELECT Country FROM Customers GROUP BY Country PIVOT City");
 
+            // The value, heading, GROUP BY and PIVOT rows ACE wrote, put back together; a crosstab returns rows, so it
+            // is not an action query.
             using var db = JetDatabase.Open(path);
             StoredQuery query = db.Catalog.FindQuery("ByCountry")!;
-            Assert.Null(query.Sql);
-            // "Not supported" that doesn't say what it is leaves a caller no way to tell an unimplemented
-            // feature from an unreadable file.
-            Assert.Contains("Crosstab", query.UnsupportedReason!, StringComparison.OrdinalIgnoreCase);
+            Assert.Null(query.UnsupportedReason);
+            Assert.False(query.IsAction);
+            Assert.Equal("TRANSFORM Count(*) SELECT Country FROM [Customers] GROUP BY Country PIVOT City", query.Sql);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

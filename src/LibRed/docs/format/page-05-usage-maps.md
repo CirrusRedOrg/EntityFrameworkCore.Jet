@@ -27,17 +27,17 @@ begins at **offset 4**.
 
 The record is exactly **69 bytes** (`1 + 17 × 4`). Seventeen slots is not arbitrary: each bitmap page
 covers `(4096 − 4) × 8 = 32,736` pages ≈ 134 MB, so 17 slots span ≈ 2.28 GB — just past Jet's 2 GB
-file ceiling. A bitmap page's header is the page type `0x0105` (bytes `05 01`) then `[2..3]=0`, bitmap from
-offset 4.
+file ceiling. A bitmap page's header is the page type `0x0105` (bytes `05 01`) then two bytes ACE writes as
+zero when it creates the page and never reads or rewrites (verified); the bitmap starts at offset 4.
 Bitmap pages are allocated **lazily**, only when a bit in their range is first set, and are *not*
 themselves marked as owned by the table.
 
 LibRed treats this geometry as mandatory on read: a type-`0x01` record must be exactly 69 bytes,
-each nonzero pointer must be within the physical file, and its target must carry the complete verified
-`[05 01 00 00]` bitmap-page header. This validation happens before any bitmap is expanded into page
-numbers, so appended pointer-shaped bytes or pointers to ordinary data pages cannot become ownership data.
+each nonzero pointer must be within the physical file, and its target must carry the bitmap page type `0x0105`.
+This validation happens before any bitmap is expanded into page numbers, so appended pointer-shaped bytes or
+pointers to ordinary data pages cannot become ownership data.
 
-> Verified against an ACE-built table large enough to need one: owned map record
+> Example (verified vs ACE): an owned map record
 > `01 017D0000 E17F0000 00…` — type `0x01`, slot 0 → page 32,001, slot 1 → page 32,737, remaining
 > 15 slots zero, record length 69. Bitmap page 32,737's first bitmap byte is `0xFC`: pages 32,736 and
 > 32,737 clear (32,737 *is* the bitmap page), 32,738–32,743 set.
@@ -67,59 +67,89 @@ CREATE TABLE T (Id LONG, M MEMO, CONSTRAINT pk PRIMARY KEY (Id))    M rows 2/3, 
 CREATE TABLE T (M MEMO, A LONG CONSTRAINT u UNIQUE, N MEMO)    M rows 2/3, u row 4, N rows 5/6
 ```
 
-Index **data blocks** are unaffected: they stay in primary-key, then unique, then foreign-key order whatever
-the statement's order, so an index's data-block ordinal and its map row are independent.
+Index **data blocks** are numbered in the same declaration order (verified): primary key, unique and foreign
+key alike take the next ordinal where their constraint is written, not in a fixed order by kind. So among the
+indexes, a data-block ordinal and a map row run in the same order.
 
 Once the primary page is full the remaining long-value columns spill to a page of their own (owned = row 0,
 free = row 1); an index's map spills the same way rather than being squeezed in.
 
 > **LibRed write behaviour (multi-page growth on insert).** When an insert finds no owned data page
 > with room, LibRed allocates a new page (via the global map, §9.1), initialises it as an empty data
-> page owned by the table, sets its **owned** bit, and moves the **free** marker to it. Verified:
+> page owned by the table, sets its **owned** bit, and moves the **free** marker to it — but only when the
+> record it was taken for leaves room for a second as large (free space after it ≥ the record plus its
+> directory entry); a page its first row more than half fills is never marked free at all (verified: a first
+> row of 2019 bytes leaves 2061 and the page is marked, one of 2059 leaves 2021 and it is not; whether the
+> edge counts the 2-byte directory entry is not established, and LibRed counts it, as its fit test does). Verified:
 > Access reads a table LibRed spilled across many data pages and can still insert into it.
 > - **Free-pages map = the current append tail only.** Access clears a page from the free-pages map
 >   when an insert finds it too full and moves on, so after a sequential fill only the *last* page
->   stays marked free — verified: of equally-full ACE pages only the last is in the free map, because
->   each earlier one had a next-row attempt that didn't fit. LibRed matches this: on allocating a new page
->   it **clears the previous tail's free bit and sets the new page's**, leaving exactly the tail marked
->   free.
+>   stays marked free (verified): of equally-full pages only the last is in the free map, because
+>   each earlier one had a next-row attempt that didn't fit. LibRed matches this: an insert **clears the free bit
+>   of every page in the free map it finds too full** on its way to one with room, and a page it allocates is
+>   set when its first row leaves room for another, leaving at most the tail marked free. That holds when the page with room is not the last one tried
+>   too: a catalog insert that passes over a full `MSysObjects` page to a later one clears the full page's bit
+>   (verified).
 > - **A delete puts the bit back.** Space freed in a page that had none makes that page a candidate again, so
 >   its free bit is set when the row's space is reclaimed — otherwise the space is there and nothing looks at
 >   it. Verified vs ACE: deleting a row from the **first** of many data pages (full, so its bit had been
->   cleared as the fill moved on) has ACE write the map holder as well as the data page, and both engines then
->   write the same pages with the same bytes.
+>   cleared as the fill moved on) writes the map holder as well as the data page, and LibRed writes the same
+>   pages with the same bytes.
 > - **Inline map, grown in place.** LibRed writes the inline map with `startPage = 0` and an initially
 >   64-byte bitmap (pages 0–511). When an insert needs to mark a page **past** that window, LibRed grows
 >   the bitmap **record in place** — still type `0x00`, same `startPage` — extending it in **32-bit (4-byte)
 >   steps** and repacking the usage-map page's records (the `owned`/`free` maps and any index/column maps)
 >   from the end backward. So the record length is exactly
 >   `5 + roundUp(ceil((maxPage + 1 − startPage) / 8), 4)`.
->   Verified against ACE owned-map lengths on a 255-column table whose data pages start at 353:
+>   Verified against ACE owned-map lengths, with data pages starting at 353:
 >   8,000 data pages → **1053**, 12,000 → **1553**, 16,000 → **2053**, 30,000 → **3801**, 31,000 → **3925** — the
 >   formula reproduces every one. The step is **4 bytes, not 32**: a table spanning to page 753 carries a
 >   **96**-byte bitmap (record length **101**), which fits either because 96 is a multiple of both, but
 >   32-byte rounding would give 1056 / 1568 / 3808 for the larger tables. Access opens a LibRed-grown table,
 >   counts every row, and reads one living past page 512.
 > - **Inline → reference conversion.** Access keeps growing the inline record until it no longer fits its
->   usage-map page, then rewrites the map as type `0x01`. Verified by owned-map record length against
->   page count: 8,000 pages → 1053, 12,000 → 1553, 16,000 → 2053, 30,000 → **3801, still type `0x00`**;
+>   usage-map page, then rewrites the map as type `0x01` (verified): 8,000 pages → 1053, 12,000 → 1553, 16,000 → 2053, 30,000 → **3801, still type `0x00`**;
 >   at 34,000 pages the map is type `0x01`. So the switch is driven purely by *record fits the page*, not
 >   by a fixed page-count threshold. LibRed applies the same rule: grow inline while the repacked record
 >   fits, otherwise convert — re-marking every previously-owned page into freshly allocated bitmap pages
->   (grouped by slot, one write per bitmap page) and shrinking the record to the fixed 69 bytes.
->   ACE reads a LibRed-written reference map and counts every row back.
+>   and shrinking the record to the fixed 69 bytes.
+>   ACE reads a LibRed-written reference map and counts every row back. **Where a bitmap page goes:** the
+>   session's shared reservation's next page, if it holds one; otherwise, for range *k*, the lowest page not in use —
+>   free in the global map, or held by an owner's group — from range *k*'s first page on; with the global map in
+>   reference form, its search starts no earlier than the selected bitmap, as a new reservation's does (below), so a
+>   free page in an earlier range is passed over (measured: a DELETE's free-pages map, with the selected bitmap at
+>   range 1, took the free pages past the end of the file over free pages in range 0, and took those in a new
+>   session, where the selection starts again at range 0). A free page is taken as any free page is: the free pages
+>   round it become the session's reservation, and the next rows take them before their own group's pages. A held
+>   page is taken the same way once its group is given back: the group's other pages go free with it, and so into
+>   that reservation (measured: an index holding 33,165–33,167, a primary key's range-1 bitmap on 33,165, then the
+>   rows on 33,166, 33,167 and the free pages after the next group's first page). Measured with a primary-keyed table whose owned map converted at page ~17,990, with
+>   no reservation open: the range-0 bitmap went on page 45, the lowest of the free pages a
+>   dropped table had left, and the next rows on 46 onward; with no page free, on 13,927, the page the primary key's
+>   group still held from earlier in the same statement. The table's range-1 bitmap went on 32,737, the first page of
+>   that range the global map's own bitmap (32,736) left, though a group held pages from 32,625, and the next rows on
+>   32,738 onward. The primary key's own map, converting with the global map's range-0 bitmap on 32,000, put its
+>   bitmap on 32,001, and the next rows went on 32,002–32,007 before the data group's held pages.
+> - **An empty map is re-based, not grown.** Every inline map a table owns — owned and free, data, index and
+>   long-value — starts at `startPage = 0` with a 64-byte bitmap and no bit set. Asked to mark a page outside
+>   its window while it marks **no** page, ACE moves `startPage` to that page rounded down to 8 and keeps the
+>   record's length (verified: a table whose first data page is 605 / 1151 / 1535 starts its owned and free
+>   maps at 600 / 1144 / 1528, its index and long-value maps likewise on their own first pages). A page the
+>   window already covers is marked where it is, which is why a table below page 512 keeps `startPage = 0`.
+>   Its owned map then grows from that start as below; given a page *below* that start, it cannot slide, and ACE
+>   converts it to a reference map (verified: an owned map re-based on 600, its table then given 42, 44 and 45).
 > - **Movable window (free-pages maps).** A free-pages map's set bits stay clustered at the append tail, so
->   Access never grows it: it slides a fixed **64-byte bitmap (512 pages)** whose `startPage` is
->   `floor(page / 512) × 512`. Verified — a table whose tail page was 852 / 1227 / 1852 / 2852 had a free
->   record of length **69** with `startPage` 512 / 1024 / 1536 / 2560, one bit set, while the *owned* map of
->   the same table kept `startPage = 0` and grew. An owned map cannot slide: it must retain every page it has
->   ever taken. LibRed slides the window for free-pages maps (table and long-value column), and only for
->   them; if a bit already set would fall outside the new window it **widens** the record instead — the start
->   drops to the lowest page it must cover (rounded down to a byte, as the released map's move does) and the
->   record is sized to reach the highest — so nothing is silently forgotten. The window can already sit
->   **above** the page being marked, since it follows the append tail while a table's older pages stay where
->   they are; a map in that position must still be able to record the lower page. What ACE writes there —
->   a widened record, or a re-based window — is **not measured**.
+>   Access never grows it: the page an insert finds full leaves the map before the next tail is marked, so the
+>   map is empty at that moment and re-based on the new tail by the rule above. Its window therefore moves to
+>   the new tail's page rounded down to 8 — not to a 512-page boundary: a free map starting at 600 moved to
+>   1112, one at 1152 to 1664, and a long-value free map at 1152 to 1672 (verified). LibRed re-bases an empty
+>   map the same way. A **non-empty** free-pages map does not slide: it is grown and converted exactly as an
+>   owned map is. Asked for a page past its end, it grows in place from its start page (measured: a DELETE of
+>   every seventh row of a one-row-a-page table grows a table's free-pages map from start page 0, 69 bytes to 77,
+>   89 and 477, and it turns reference form only when its page cannot hold it). Asked for a page below its start
+>   — its window follows the append tail while a table's older pages stay where they are — it **converts to a
+>   reference map** (type `0x01`), so no page it advertised is dropped (verified: a table grown to page ~1140,
+>   its free map marking the tail, a row deleted on page ~340). LibRed does both, and is byte-identical in each.
 > - **The conversion point is a page-budget calculation, not a constant.** The owned map converts as soon as
 >   its next grown record would not fit the usage-map page alongside the page header (14 bytes), the row
 >   directory (2 bytes/record) and the *other* records sharing that page. So the threshold moves with the
@@ -127,14 +157,15 @@ free = row 1); an index's map spills the same way rather than being squeezed in.
 >
 >   | Table | Records on the map page | Owned-record budget | Converts at |
 >   | --- | --- | --- | --- |
->   | No primary key | owned + free | `4096 − 14 − 4 − 69` = **4009** | page **32,032** |
->   | Primary key | owned + free + the index's own map | `4096 − 14 − 6 − 69 − 69` = **3938** | page **31,456** while the index map stays 69 bytes |
+>   | No primary key | owned + free | `4096 − 14 − 4 − 69 − 4` = **4005** | page **32,000** |
+>   | Primary key | owned + free + the index's own map | `4096 − 14 − 6 − 69 − index − 4` | page **17,696** with a 1,785-byte index map; **31,424** were it to stay 69 bytes |
 >
->   The no-PK row is verified end-to-end: LibRed's table converts at exactly page 32,032 with a last inline
->   record of 4009 bytes; ACE's is still inline at page 31,354 (record 3925) and reference by 32,356,
->   bracketing the same value. **The primary-key row is not reconciled.** ACE carries the third record but has
->   already converted by page 31,409, earlier than 31,456 — consistent with the index's map growing past 69
->   bytes (below) and shrinking the budget, but the exact ACE conversion point with a key is not measured.
+>   The final **4** is the holder's reserve: a grown record may not leave the page fewer than 4 bytes free, the
+>   same rule as the global map's (below). Both rows are verified against ACE to the row, with one-row pages: a
+>   key-less table's owned map is inline at 4005 bytes with page 31,995 and reference once it needs page 32,000
+>   (4009 bytes would leave 0); a keyed table whose index map is 1,785 bytes is inline at 2217 bytes, 5 bytes
+>   left, with page 17,687, and reference at page 17,696 (2221 would leave 1). LibRed converts at the same row
+>   in both.
 >
 >   > Beware comparing thresholds across table shapes: a **primary-keyed** table and a **key-less** one
 >   > convert at different page counts under the identical rule, because only the budget differs. A keyed
@@ -151,8 +182,8 @@ free = row 1); an index's map spills the same way rather than being squeezed in.
 > fresh map takes the position freed at the end of the live region under the appended row number. The
 > index-data block's usage-map row field (`0x22`, §3.5) is re-pointed to that number; **no other pointer
 > changes**, because no other row's number does. LibRed reproduces this exactly (`RecycleOwnedMapRow`),
-> abandoned bytes included, so the whole file matches ACE byte-for-byte. Measured on ACE's own page, records
-> identified by content, with a long-value column's maps sitting below the index's:
+> abandoned bytes included, byte-for-byte. Measured, with a long-value column's maps sitting below the
+> index's:
 >
 > ```
 > before  row2 @3889 pages=[353]   row3 @3820 pages=[]   row4 @3751 pages=[]     free=3727
@@ -163,16 +194,15 @@ free = row 1); an index's map spills the same way rather than being squeezed in.
 >
 > The long-value maps slid up a record width and kept rows 3 and 4; only the index's pointer moved, to row 5.
 >
-> > **Each half hides from a different measurement.** The abandoned copy lies *below* the lowest live
-> > record, inside the region free space already covers, so slot offsets and free-space arithmetic both read
-> > the page as though it were not there — yet dropping step (1) costs a byte against ACE. The re-lay is
-> > invisible to offsets alone, because a moved record and a slid record occupy the same places; only
-> > identifying records **by content** separates them. And the two are indistinguishable altogether when the
-> > recycled row is the **last** one — the only kind an ACE-built schema produces, since a long-value column
-> > declared in `CREATE TABLE` takes its map rows before the index's. So writing step (1)'s record into the
-> > old row's slot passes every last-row shape, and then points a slot back **up** the page the moment a
-> > Memo/OLE column is added *after* an index — which no reader can walk, a row's extent running to where the
-> > previous slot begins. Only a whole-file byte diff against ACE catches both halves.
+> > **Both steps are part of the page, and they are easy to conflate.** The abandoned copy lies *below* the
+> > lowest live record, inside the region free space already covers, so slot offsets and free-space arithmetic
+> > both read the page as though it were not there — yet its bytes are on the page. The re-lay is invisible to
+> > offsets alone, because a moved record and a slid record occupy the same places; only a record's **content**
+> > tells them apart. And the two are indistinguishable altogether when the recycled row is the **last** one —
+> > the only kind an ACE-built schema produces, since a long-value column declared in `CREATE TABLE` takes its
+> > map rows before the index's. Writing the fresh record into the old row's slot instead matches every last-row
+> > shape, but points a slot back **up** the page the moment a Memo/OLE column is added *after* an index —
+> > which no reader can walk, a row's extent running to where the previous slot begins.
 
 
 ### 9.1 Global usage maps — free and released pages (page allocation)
@@ -188,8 +218,7 @@ catalog ([page-00 §2](page-00-database.md)):
 Both are ordinary usage-map records (inline or reference form, §9) on a data page — whose owner field
 (`0x04`) reads `0x00000001` where ACE creates it, though nothing checks it (below) — each starting as a
 69-byte inline map with start page `0`. In the free map a
-**set bit means the page is free / available**, the *opposite* of a per-table owned map — verified by
-diffing before/after an ACE `CREATE TABLE`.
+**set bit means the page is free / available**, the *opposite* of a per-table owned map (verified).
 
 **ACE follows the pointers; the location is not fixed.** Allocation uses whichever record `0x18` names, row
 included: pointed at the released map's row on the same page, ACE allocates from that map and leaves the free
@@ -206,17 +235,26 @@ A far larger page number is refused on the first open — from page 524,289 exac
 Only the page is checked on open — any row byte passes — but a `0x18` naming a record that is not a usage
 map (page 0, a TDEF page, an ordinary data page) fails at the first allocation and damages the database.
 
-**Freed pages are released at close, through the released-pages map.** Pages freed during a session are not
-reusable on the same connection: later allocations in that session grow the file instead, and the free map on
+**Freed pages are released at close, through the released-pages map.** Most pages freed during a session are
+not reusable on the same connection: later allocations in that session grow the file instead, and the free map on
 disk does not change until the file closes (verified). A handle's freed pages are its own business until then:
-on disk they are in neither map, and only the close moves them into the free map. At close ACE moves them into the free map. This holds for the
-long-value pages of a deleted row, the pages of a dropped index — by `DROP INDEX`, by `DROP CONSTRAINT` on a
-foreign key, or by the index rebuild of an `ALTER COLUMN` — and every page of a dropped table. A free made in a
-transaction that rolls back frees nothing; one that commits stays released even if a later transaction on the
-connection rolls back.
+on disk they are in neither map, and only the close moves them into the free map. This holds for the data and
+index pages a delete empties, every page of a `DELETE` with no `WHERE` (its long values included), a packed long
+value's page a deleted row or an `UPDATE` empties, a dropped Memo column's long values, the pages of a dropped index — by
+`DROP INDEX`, by `DROP CONSTRAINT` on a foreign key, or by the index rebuild of an `ALTER COLUMN` — and every page
+of a dropped table (verified). A free
+made in a transaction that rolls back frees nothing; one that commits stays released even if a later transaction
+on the connection rolls back.
 
-The exception is the long value an `UPDATE` replaces: its pages are set in the free map at once, and later
-statements on the same connection reuse them; the `UPDATE` that frees them does not.
+Two kinds of page are freed sooner (verified):
+
+- A **chained long value's** pages, when an `UPDATE` replaces the value or a `DELETE … WHERE` removes its row,
+  are set in the free map at once, and later statements on the same connection reuse them; the `UPDATE` that frees
+  them does not. An `UPDATE` replacing a chained value with one that does not chain — null, inline or single-page —
+  first takes the long-value page the next request would get, opening a shared reservation if there is none, and
+  frees it with the old chain without writing it: a page past the end of the file stays unwritten.
+- A rewritten definition's **old continuation pages** are set in the free map when the rewriting statement ends,
+  so the statement itself does not reuse them and the next one may.
 
 Any page set in the released-pages map is likewise **never allocated**, and at close its pages are merged into
 the free map and the map is left empty. Before that merge, the close sizes the map to cover every page released.
@@ -243,23 +281,79 @@ An inline record that already covers them stays as it is. Otherwise, in order of
 
 A map already in reference form gains a bitmap page, allocated the same way, for each range holding a released
 page that it has none for — a released table-definition page among the free pages is taken like any other, its
-type becoming `0x0105`. The merge then clears every bitmap page, each keeping its `05 01 00 00` header.
+type becoming `0x0105`. The merge then clears every bitmap page, each keeping its 4-byte header.
 
 So at rest the released-pages map has no bits set, though it may have grown, moved its start page or converted
 to reference form. A non-empty one is *inferred* to be a release interrupted before close.
 
 **Page allocation works through the free-pages map.** Access does **not** simply grow the file: it finds a
 set bit (a free page), **clears it** (marking the page used), and reuses that page — only growing
-the file when no free page remains. Verified: an ACE `CREATE TABLE` reuses free pages (for the TDEF,
+the file when its selection policy cannot find an eligible page or group. A partial group can therefore
+remain free while the file grows. Verified: an ACE `CREATE TABLE` reuses free pages (for the TDEF,
 usage map, etc.), and the only change to the free map's holder page is one cleared bit per page taken.
+
+**Free-page selection is stateful, not simply lowest-first (measured).** Each request is served by the first of
+these that applies:
+
+1. **The session's shared reservation.** While it holds a page, a request takes its lowest one, whichever owner
+   asks — data, index or long value; an existing reservation comes before an owner's group.
+2. **A new shared reservation** — for a table's data or a B-tree whose inline owned map names fewer than eight
+   pages, and for every long-value allocation whatever its column owns. The lowest free page `p` is taken and
+   every free bit of the 32-page window from `p`'s 8-page boundary is reserved: occupied pages are skipped, the
+   window is not widened to collect 32 free bits, and it ends at the selected global bitmap's end. The search
+   runs through the selected bitmap, then later bitmap slots, skipping a slot with no bitmap page; it does not
+   wrap back to an earlier bitmap.
+3. **An owner group** — for a table's data or a B-tree at eight pages or more, or with a reference-form owned
+   map; the data map and each B-tree map cross that boundary independently. The owner continues in its current
+   8-page group, then takes the lowest **fully free aligned** 8-page group anywhere in the global map, earlier
+   bitmaps included, holding that group's other free pages privately. Partly used groups are skipped, so the
+   file can grow while free pages remain below it.
+4. **A B-tree works two groups** — its **current** group, whose free remainder it holds, and its **other**
+   group, the one it left last, whose remainder is back in the free map. For a new **leaf**:
+   - when the table's data has moved to another 8-page group since the index's previous page, the leaf takes
+     the lowest page of the two groups not in use;
+   - otherwise it takes the other group's lowest free page, or a fresh group (as in 3) when the other has none.
+
+   A **node** page takes the current group's held pages, then the other group's lowest free page, then a fresh
+   group. Leaving a group returns its held pages and makes it the other group. These choices come after the
+   shared reservation, with one exception: when the data has taken a new group of its own since the index's
+   previous page, a leaf counts reserved pages as not in use and, when the lowest is in its other group, takes
+   it ahead of the reservation — and the held pages of the group it leaves join the reservation where its
+   window covers them.
+
+Unused shared-reservation pages return to the free map at close; an owner's unused group pages return at
+statement commit. A reference-form global map's selected bitmap is kept across requests and reset at reopen.
+
+**A rollback keeps the shared reservation (measured).** When a transaction, a nested transaction or a failed
+statement is rolled back, its writes go but the session's reservation stays, cleared bits and all, and is not
+refilled: the pages the undone writes took from it go to the free map, and the next request takes the
+reservation's next page. Those pages are left free below it, as zero pages once the file has grown past them. The
+undone writes are never on disk — inside a transaction ACE writes only the reservation's bits to the free map.
+This is allocation policy, not an on-disk requirement; see `docs/design/page-allocation.md`.
 
 > LibRed allocates **through** this map (the `PageChannel`'s single `PageAllocator`, which also owns file growth), found as ACE finds it — through page 0's `0x18`
 > pointer, row included — and never takes a page set in the released-pages map named at `0x1C`. A released
 > page at the end of the file is materialized, so the file stays contiguous, but not handed out. It takes a
-> free page, clears its bit, and reuses it — only growing the file when none is free — so its pages match
-> Access's allocation. Free bits at the current file end are the pre-allocated growth region; LibRed materializes
-> that next page contiguously before returning it, and rejects a bit that would skip beyond it. Repeated
-> allocations can therefore consume an ACE-authored run of future bits without creating a sparse file.
+> free page using the shared-reservation and owner-group policy above, growing when no eligible page
+> or group is found. Owner positions, groups and the selected global bitmap participate in transaction and
+> savepoint rollback; the shared reservation is kept as above, its bits cleared again over the restored map —
+> unless it lies in pages that map has no bit for, having come with map growth the rollback undid, when it goes
+> too (*unverified* against ACE). Free bits at the current file end are the pre-allocated growth region; LibRed materializes
+> intervening pages contiguously before returning the selected page — free, released, or reserved, its own
+> session's or, with the free bit clear, another handle's. A session's reservation and an owner's group take
+> pages from the map before they are written (measured: a reservation opened at the end of the file clears its
+> whole window past it, and another owner passes over a group's unwritten held pages). *Unverified:* that a second handle — a
+> second ACE process, or a second LibRed connection — sees and treats another's past-EOF reservation this way.
+> Repeated allocations can therefore consume an ACE-authored run
+> of future bits without creating a sparse file. For the same reason a covered page past the end of the file
+> whose bit is clear is never handed out as unused: when nothing eligible is free, the map is grown past every
+> page it covers and the page comes from the new free bits, as ACE does. In reference form
+> that is the first range with no bitmap page, whose bitmap is the range's own first page, as ACE places it —
+> also when pages an owner's group still holds lie between the end of the file and the range: LibRed writes
+> them out and takes the range's first page, as ACE does (verified both ways: 65472 with the file ending at the
+> range's start, and with 65465–65471 held by a table's own group while a long value in the same statement
+> opened the range). A promotion from inline form places its bitmap pages past every page the inline map
+> covered and carries the inline bits into them.
 > **Both map forms are handled.** For an inline (`0x00`) map it scans the record's
 > bitmap directly; for a **reference (`0x01`)** map — as a very large pre-existing ACE file carries —
 > it scans each slot's dedicated bitmap page (type `0x0105`), where a **set bit is a free page** (the
@@ -293,7 +387,7 @@ usage map, etc.), and the only change to the free map's holder page is one clear
 >
 > **Allocator mutation guardrails.** Both page-0 pointers must name distinct, live, non-overflow rows on
 > data pages inside the file, each an inline record with its complete header or a reference record of
-> exactly 69 bytes with unique in-file bitmap pointers and the complete `[05 01 00 00]` header. A writable
+> exactly 69 bytes with unique in-file bitmap pointers to pages of type `0x0105`. A writable
 > open checks this before anything else; a read-only open, which never allocates, does not. Page 0, the
 > map holder pages, bitmap pages themselves, out-of-file free targets, and non-contiguous growth targets are
 > rejected before a free bit is cleared or set.
@@ -307,9 +401,9 @@ in the index's data block (`0x22`); ACE frees them all.
 
 > Measured. A table of 3,000-character memo values can occupy many pages while its data-page map names
 > **one**: the row records, each holding a 12-byte descriptor, fit on a single page while the text lives on
-> LVAL pages. Dropping it through ACE returns all of them to the global free map at close, and refilling the
-> file reuses the space; freeing only the data pages and the TDEF returns almost nothing, and a refill grows the
-> file instead — the engine reuses exactly what the global map offers it, and nothing else.
+> LVAL pages. ACE's drop returns all of them to the global free map at close; freeing only the data pages and
+> the TDEF returns almost nothing for reuse — the engine reuses exactly what the global map offers it, and
+> nothing else.
 
 **A map's records are retired from their holder, and the holder goes back once nothing else lives on it.**
 The records are rows on owner-zero data pages, and one holder can carry records for several columns or
@@ -327,6 +421,13 @@ appends past it ([long-values](long-values.md)). `DROP CONSTRAINT` additionally 
 `MSysRelationships` rows outright — the row's space returns to its page and the table's row count falls —
 rather than only flagging the slots.
 
+**Inside a user transaction the tombstone waits for the commit (verified).** A statement on its own retires each
+record at once, as above. Within a transaction of several statements the record's row is flagged but keeps its
+bytes until the transaction commits: a record written meanwhile on the same holder goes below it, and at the commit
+the retired record is reclaimed, the newer one sliding up over it and leaving its first image behind in free space
+— a `DROP INDEX` then `CREATE INDEX` in one transaction leaves the new index's map record, as it stood when
+created, below the live records, where the same two statements on their own leave nothing.
+
 Each tombstone slides the records below it up the page, and the bytes they vacate are not cleared, so a moved
 record leaves a copy of itself behind. The order is therefore visible on disk, and ACE's is fixed:
 
@@ -336,14 +437,14 @@ record leaves a copy of itself behind. The order is therefore visible on disk, a
 3. the table's own data owned map — bits cleared — then its free map — bits left set.
 
 A map in reference form has its record retired in the same order; each of its bitmap pages has its bitmap
-zeroed and is freed, its `05 01 00 00` header left in place.
+zeroed and is freed, its 4-byte header left in place.
 
-> Measured against an ACE drop, page by page. ACE clears the bitmap bytes of the record as it frees each
+> Measured. ACE clears the bitmap bytes of the record as it frees each
 > page (the zeroing is visible inside the space the row then gives up), tombstones each 69-byte map record
 > with a `0xD000` slot, raises the page's free-space field by the bytes they occupied, and returns the page.
-> Doing all three, in the order above, makes the holder **byte-identical** between the two engines —
-> including for an indexed table whose second index's record sits below the long-value maps and slides
-> twice; returning the page alone leaves it differing.
+> All three are required, in the order above; LibRed does them so, and the holder is **byte-identical** to
+> ACE's — including for an indexed table whose second index's record sits below the long-value maps and
+> slides twice. Returning the page alone is not enough.
 >
 > The exclusivity test matters — releasing a holder that still carries another map's row would hand away a
 > live page, which is corruption rather than a leak. It is also the case that *only* clearing the bits is

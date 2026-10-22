@@ -83,6 +83,8 @@ public class CheckConstraintEnforcementAccessTests(ITestOutputHelper output)
     public void Libred_enforces_a_check_as_ace_does(params string[] steps)
     {
         string northwind = Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb");
+        Assert.SkipWhen(steps.Any(s => s.Contains('`', StringComparison.Ordinal))
+            && !AceTestDatabase.EnforcesBacktickCheck(northwind), AceTestDatabase.BacktickCheckReason);
         string ace = TemporaryDatabase.CopyPath(northwind, "chkenforce-ace-");
         string libred = TemporaryDatabase.CopyPath(northwind, "chkenforce-lib-");
         try
@@ -116,6 +118,8 @@ public class CheckConstraintEnforcementAccessTests(ITestOutputHelper output)
     {
         string[] inserts = ["INSERT INTO T VALUES (1)", "INSERT INTO T VALUES (-1)", "INSERT INTO T VALUES (999)"];
         string northwind = Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb");
+        Assert.SkipWhen(create.Contains('`', StringComparison.Ordinal)
+            && !AceTestDatabase.EnforcesBacktickCheck(northwind), AceTestDatabase.BacktickCheckReason);
         string aceOwn = TemporaryDatabase.CopyPath(northwind, "chkcross-ace-");
         string aceOnLibred = TemporaryDatabase.CopyPath(northwind, "chkcross-acelib-");
         string libredOnAce = TemporaryDatabase.CopyPath(northwind, "chkcross-libace-");

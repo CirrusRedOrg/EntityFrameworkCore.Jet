@@ -96,6 +96,8 @@ public class CalculatedColumnSqlAccessTests(ITestOutputHelper output) : TempData
     [Fact]
     public void Stores_a_backtick_quoted_check_as_ace_does()
     {
+        Assert.SkipUnless(AceTestDatabase.EnforcesBacktickCheck(
+            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb")), AceTestDatabase.BacktickCheckReason);
         string path = TemporaryDatabase.CreatePath("check-tick-");
         try
         {

@@ -100,7 +100,7 @@ internal static class AceTestDatabase
         return null;
     }
 
-    private static readonly Dictionary<string, bool> ColumnTypeSupport = [];
+    private static readonly Dictionary<string, bool> Accepted = [];
 
     /// <summary>
     /// Whether the ACE installed on this machine can create a column of <paramref name="typeName"/>, asked by
@@ -119,35 +119,63 @@ internal static class AceTestDatabase
     /// even <c>DATETIME2(7)</c> and <c>DATETIMEEXTENDED</c> as syntax errors. If a guarded test ever fails on
     /// an older engine instead of skipping, this assumption is where to look.</para>
     /// </remarks>
-    public static bool SupportsColumnType(string sourceDatabase, string typeName)
-    {
-        lock (ColumnTypeSupport)
-        {
-            if (ColumnTypeSupport.TryGetValue(typeName, out bool known)) return known;
-
-            bool supported;
-            string path = TemporaryDatabase.CopyPath(sourceDatabase, "ace-typeprobe-");
-            try
-            {
-                using OleDbConnection connection = Open(path);
-                using OleDbCommand command = connection.CreateCommand();
-                command.CommandText = $"CREATE TABLE AceTypeProbe (V {typeName})";
-                command.ExecuteNonQuery();
-                supported = true;
-            }
-            catch (Exception)
-            {
-                supported = false;
-            }
-            finally { TemporaryDatabase.Delete(path); }
-
-            ColumnTypeSupport[typeName] = supported;
-            return supported;
-        }
-    }
+    public static bool SupportsColumnType(string sourceDatabase, string typeName) =>
+        Accepts(sourceDatabase, $"CREATE TABLE AceProbe (V {typeName})");
 
     /// <summary>The skip reason for a type this ACE cannot create.</summary>
     public static string UnsupportedColumnTypeReason(string typeName) =>
         $"The installed ACE cannot create a {typeName} column - it predates the type. " +
         $"DATETIME2 needs ACE 17 (Access 2019+/365); BIGINT needs ACE 16 (Access 2016).";
+
+    /// <summary>
+    /// Whether the ACE installed on this machine enforces a CHECK constraint that names its column in backticks.
+    /// </summary>
+    /// <remarks>
+    /// Every ACE stores the check's text with its backticks. The Microsoft 365 runtime then evaluates it; ACE 2010
+    /// and the 2016 redistributable CI installs read <c>`Qty`</c> as a field named with the backticks and refuse
+    /// every row, a passing one included (docs/format/page-02c-default-values.md). A test comparing LibRed's
+    /// enforcement of such a check with ACE's has nothing to compare against there. Guard it with
+    /// <c>Assert.SkipUnless(AceTestDatabase.EnforcesBacktickCheck(...), AceTestDatabase.BacktickCheckReason)</c>.
+    /// </remarks>
+    public static bool EnforcesBacktickCheck(string sourceDatabase) =>
+        Accepts(sourceDatabase, "CREATE TABLE AceProbe (Qty LONG, CONSTRAINT ck CHECK (`Qty` > 0))",
+            "INSERT INTO AceProbe VALUES (5)");
+
+    /// <summary>The skip reason for an ACE that cannot evaluate a backtick-quoted CHECK.</summary>
+    public const string BacktickCheckReason =
+        "The installed ACE refuses every row against a CHECK naming its column in backticks; " +
+        "only the Microsoft 365 runtime evaluates one.";
+
+    /// <summary>Whether ACE runs <paramref name="statements"/> on a throwaway copy of <paramref name="sourceDatabase"/>
+    /// without refusing any, asked once and cached.</summary>
+    private static bool Accepts(string sourceDatabase, params string[] statements)
+    {
+        string key = string.Join("\n", statements);
+        lock (Accepted)
+        {
+            if (Accepted.TryGetValue(key, out bool known)) return known;
+
+            bool accepted;
+            string path = TemporaryDatabase.CopyPath(sourceDatabase, "ace-probe-");
+            try
+            {
+                using OleDbConnection connection = Open(path);
+                foreach (string statement in statements)
+                {
+                    using OleDbCommand command = connection.CreateCommand();
+                    command.CommandText = statement;
+                    command.ExecuteNonQuery();
+                }
+                accepted = true;
+            }
+            catch (Exception)
+            {
+                accepted = false;
+            }
+            finally { TemporaryDatabase.Delete(path); }
+
+            Accepted[key] = accepted;
+            return accepted;
+        }
+    }
 }

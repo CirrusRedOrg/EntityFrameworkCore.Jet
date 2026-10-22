@@ -26,7 +26,7 @@ namespace LibRed.Engine.Tests;
 /// counts a lock-file user's writes and LibRed does not keep; the clock values stamped during the run, wherever they
 /// lie, dead bytes included — the wall-clock DateCreate and DateUpdate of MSysObjects rows, a data page's write
 /// stamp at 0x08, and the tick-count copy of it a chained long value's descriptor carries; and a stored query's
-/// WHERE-row LvExtra, which ACE can leave uninitialised. A query's compiled plan
+/// LvExtra wherever it holds no parameter's facets, which ACE can leave uninitialised. A query's compiled plan
 /// (MSysObjects.Lv) is copied from ACE's file into LibRed's before comparing. A copy opened and closed through ACE with nothing
 /// done to it shows what ACE writes merely for holding a session; a byte that alone changes is counted apart rather
 /// than as a difference. Calculated and complex columns are left out — ACE's OLE DB DDL cannot create either.</para>
@@ -2171,7 +2171,7 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
     /// (page-00-database.md §2.2); the clock values either engine stamps during the run — the wall-clock DateCreate
     /// and DateUpdate on MSysObjects pages, every data page's write stamp, and a chained long value's tick-count
     /// chain stamp — wherever they lie, a record's dead bytes and the free space below the rows included; and a
-    /// stored query's WHERE-row LvExtra.</summary>
+    /// stored query's LvExtra wherever it holds no parameter's facets.</summary>
     private static void Mask(string path, byte[] file, HashSet<int>[] masks)
     {
         using var database = JetDatabase.Open(path, readOnly: true);
@@ -2230,16 +2230,23 @@ public class WholeFileParityProbeTest(ITestOutputHelper output)
                 }
         }
 
-        // A WHERE row's LvExtra, which ACE can fill with an uninitialised value that changes from one ACE process to
-        // the next (system-catalog.md). Only the WHERE row's: a parameter row's LvExtra holds its facets, the other
-        // rows' are ACE's 0, and whether a row carries one at all is its null-bitmap bit — all still compared.
+        // A stored query's LvExtra wherever it holds no parameter's facets. ACE can leave it uninitialised, with a
+        // value that changes from one ACE process to the next (system-catalog.md): every engine in the WHERE row, and
+        // the 2016 redistributable in the rows after a declared parameter too — the FROM row uninitialised, the others
+        // carrying an earlier row's value, where the Microsoft 365 runtime writes 0. A text or decimal parameter's
+        // facets, and whether a row carries LvExtra at all (its null-bitmap bit), are still compared.
         TableDefinition queries = database.Catalog.FindTable("MSysQueries")!;
-        ColumnDef attribute = queries.FindColumn("Attribute")!, lvExtra = queries.FindColumn("LvExtra")!;
+        ColumnDef attribute = queries.FindColumn("Attribute")!, flag = queries.FindColumn("Flag")!,
+            lvExtra = queries.FindColumn("LvExtra")!;
         if (!lvExtra.IsFixedLength) return;
         Table queryRows = database.OpenTable("MSysQueries");
         foreach ((RowId id, object?[] values) in queryRows.Rows().WithIds())
         {
-            if (values[attribute.Index] is not (byte and 8) || values[lvExtra.Index] is null) continue;
+            if (values[lvExtra.Index] is null) continue;
+            if (values[attribute.Index] is byte a && (QueryAttribute)a == QueryAttribute.Parameter
+                && values[flag.Index] is short f
+                && StoredQuery.UnpackParameterFacets((JetDataType)(byte)f, values[lvExtra.Index] as int?) is not (null, null, null))
+                continue;
             var page = new DataPage();
             page.Read(queryRows.Channel.ReadPageShared(id.Page), queryRows.Channel.Format);
             if (page.Rows[id.Row] is not { IsDeleted: false, HasOverflow: false } slot) continue;

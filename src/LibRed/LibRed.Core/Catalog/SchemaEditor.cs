@@ -164,7 +164,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             .ToList();
 
         // The table's data-block indexes: the primary key (unique), a unique index per UNIQUE constraint, and
-        // one non-unique index per foreign key over its child columns — Access enforces a relationship through
+        // one index per foreign key over its child columns, unique only for a one-to-one — Access enforces a relationship through
         // an index on the FK columns. Each carries the relationship (if any) it backs. They are numbered in the
         // order the statement declares them, whatever their kind (verified vs ACE); with no order given (every
         // DeclaredAfter 0) the stable sort leaves them primary key, unique, foreign key.
@@ -179,7 +179,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         foreach (UniqueIndexSpec unique in uniqueConstraints)
             indexPlans.Add((unique.Name, unique.Columns, false, true, null, unique.DeclaredAfter));
         foreach (RelationshipSpec fk in relationships)
-            indexPlans.Add((fk.Name, fk.Columns.Select(c => c.Column).ToList(), false, false, fk, fk.DeclaredAfter));
+            indexPlans.Add((fk.Name, fk.Columns.Select(c => c.Column).ToList(), false, fk.IsOneToOne, fk, fk.DeclaredAfter));
         indexPlans = [.. indexPlans.OrderBy(p => p.DeclaredAfter)];
 
         // Every index this CREATE would build, including the ones arriving as a PRIMARY KEY or UNIQUE
@@ -420,6 +420,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         for (int i = 0; i < indexPlans.Count; i++)
         {
             if (indexPlans[i].Fk is not { } fk) continue;
+            _catalog.CreateRelationshipObject(fk.Name);
             AddRelationshipRows(name, fk);
             if (Owns(i)) AllocateRoot(i);
         }
@@ -638,15 +639,14 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// <summary>
     /// Writes the <c>MSysRelationships</c> rows for one relationship — one row per column pair, with
     /// <c>ccolumn</c> = the pair count, <c>icolumn</c> = the 0-based pair index, and <c>grbit</c>
-    /// encoding enforce/cascade (verified against Access: an enforced no-cascade FK stores grbit 0) — and the
-    /// relationship's own <c>MSysObjects</c> object, which ACE records for every relationship.
+    /// encoding enforce/cascade (verified against Access: an enforced no-cascade FK stores grbit 0).
     /// </summary>
     private void AddRelationshipRows(string childTable, RelationshipSpec fk)
     {
         TableDefinition msys = _catalog.RequireTable("MSysRelationships");
-        _catalog.CreateRelationshipObject(fk.Name);
 
         var grbit = RelationshipFlags.None;
+        if (fk.IsOneToOne) grbit |= RelationshipFlags.OneToOne;
         if (!fk.IsEnforced) grbit |= RelationshipFlags.DontEnforce;
         if (fk.CascadeUpdate) grbit |= RelationshipFlags.UpdateCascade;
         if (fk.CascadeDelete) grbit |= RelationshipFlags.DeleteCascade;
@@ -972,8 +972,8 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     }
 
     /// <summary>
-    /// Adds a foreign key to an existing child table: a backing non-unique index over the child
-    /// columns carrying an outgoing-relationship block, an incoming block on the parent's TDEF, and the
+    /// Adds a foreign key to an existing child table: a backing index over the child columns, unique only for a
+    /// one-to-one, carrying an outgoing-relationship block, an incoming block on the parent's TDEF, and the
     /// MSysRelationships rows. The child index and parent block are written the same way inline-FK creation
     /// does (verified byte-faithful vs ACE). A self-reference hosts both ends in the one table; FOREIGN KEY
     /// NO INDEX is not yet handled.
@@ -1008,6 +1008,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // the parent ACE cannot enforce, so it records the relationship as a declaration and stops there.
         if (!fk.IsEnforced)
         {
+            _catalog.CreateRelationshipObject(fk.Name);
             AddRelationshipRows(childTable, fk);
             _catalog.Invalidate();
             return;
@@ -1024,14 +1025,30 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
                 ? (child.DefinitionPage, ReferencedOrdinalIn(child, fk),
                     NextLogicalIndexNumber(child.DefinitionPage, above: NextLogicalIndexNumber(child.DefinitionPage)))
                 : ResolveParent(fk, child.DefinitionPage);
-        int childBlockNum = InsertIndex(child, fk.Name, slots,
-            unique: false, required: false, ignoreNulls: false,
-            (num, ord) => new TableDefinition.LogicalIndexSpec(num, ord, ForeignKeyType.Outgoing, (uint)parentNum,
-                parentPage, upd, del, IndexInfoType.Foreign, fk.Name));
 
-        AddIncomingRelationshipBlock(new IncomingRelationship(
-            parentPage, parentNum, refOrdinal, (uint)childBlockNum, child.DefinitionPage, upd, del));
-        AddRelationshipRows(childTable, fk);
+        // ACE writes the relationship's object before its index, so a one-to-one refused over duplicate child keys
+        // leaves MSysObjects' and MSysACEs' counting behind, as a rollback does (measured).
+        bool ownTransaction = !_channel.InTransaction;
+        if (ownTransaction) _channel.BeginTransaction();
+        try
+        {
+            _catalog.CreateRelationshipObject(fk.Name);
+            int childBlockNum = InsertIndex(child, fk.Name, slots,
+                unique: fk.IsOneToOne, required: false, ignoreNulls: false,
+                (num, ord) => new TableDefinition.LogicalIndexSpec(num, ord, ForeignKeyType.Outgoing, (uint)parentNum,
+                    parentPage, upd, del, IndexInfoType.Foreign, fk.Name));
+
+            AddIncomingRelationshipBlock(new IncomingRelationship(
+                parentPage, parentNum, refOrdinal, (uint)childBlockNum, child.DefinitionPage, upd, del));
+            AddRelationshipRows(childTable, fk);
+            if (ownTransaction) _channel.CommitTransaction(flush: false);
+        }
+        catch when (ownTransaction)
+        {
+            _channel.RollbackTransaction(failed: true);
+            _catalog.Invalidate();
+            throw;
+        }
         _catalog.Invalidate();
     }
 

@@ -253,7 +253,8 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > and a relationship's child index — whichever of a pair came first, and inside one `CREATE TABLE` as well. A
 > flag or a column apart keeps them apart: plain beside unique, `IGNORE NULL` or `DISALLOW NULL`, ascending beside
 > descending, a relationship beside a `UNIQUE` or the primary key over its column, a column list beside a prefix
-> of it. Dropping one of the names — `DROP INDEX`, or `DROP CONSTRAINT` for a relationship — takes only its
+> of it. A **one-to-one** relationship's child index is unique (`0x81`), so it is the `UNIQUE` index over its
+> columns that it shares, and it still keeps apart from the primary key (`0x89`) over them (verified vs DAO). Dropping one of the names — `DROP INDEX`, or `DROP CONSTRAINT` for a relationship — takes only its
 > logical block and name; the data block, its statistics and its B-tree stay with the name that is left
 > (verified). In a `CREATE TABLE` the constraint declared later is the one that shares: it takes no usage-map
 > row and no root, so the rows and roots go to the others in declaration order as if it were not there

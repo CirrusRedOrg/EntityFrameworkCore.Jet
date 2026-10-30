@@ -194,8 +194,9 @@ Treat the number as of its date — an EF Core version bump moves it.
   read back onto the column, and applied when an insert omits the column — **and Access honors them too**.
   Table-level `CHECK` constraints are persisted to the `LvProp` `CheckConstraints` property (verbatim
   expression text) and read back onto `TableDefinition.CheckConstraints` — **and Access enforces them**.
-  From files Access wrote, a relationship's 1:1 flag (`grbit` `0x01`) is read and reported as ONE/MANY by
-  `INFORMATION_SCHEMA`, and a column's `ValidationRule`/`ValidationText` are read off the same property blob,
+  A relationship's 1:1 flag (`grbit` `0x01`) is read and reported as ONE/MANY by `INFORMATION_SCHEMA`, and
+  written through the Core API (`RelationshipSpec.IsOneToOne`) as DAO's `dbRelationUnique` writes it — SQL has no
+  syntax for it. A column's `ValidationRule`/`ValidationText` are read off the `LvProp` property blob,
   reported by `INFORMATION_SCHEMA` and kept through a rewrite.
 - **SQL** — ANTLR front end (parser → binder via `ISchemaProvider` → planner → executor). Statements:
   `CREATE TABLE`, `CREATE [UNIQUE] INDEX … [WITH {PRIMARY|DISALLOW NULL|IGNORE NULL}]`, `CREATE VIEW`,
@@ -324,8 +325,6 @@ Format-level detail on each on-disk gap lives in `docs/format/`.
 
 - **`ON UPDATE SET NULL`** — pathway threaded but throws; its Jet storage bytes are unverified because the
   ACE OLE DB provider rejects the DDL (needs a UI/DAO-created sample to probe).
-- **1:1 relationships** (`dbRelationUnique` = `0x01`) — never written; a 1:1 migration would render as 1:many
-  in Access (the unique index still enforces uniqueness).
 - **`ValidationRule`/`ValidationText` are not enforced** — UI-authored validation, distinct from a SQL `CHECK`:
   a row violating an Access-authored rule is accepted where ACE would refuse it.
 - **A column-level `CHECK`** (`Col LONG CHECK (Col > 0)`) is parsed and silently dropped — neither stored nor

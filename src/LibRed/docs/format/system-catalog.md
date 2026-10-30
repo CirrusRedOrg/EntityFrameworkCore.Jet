@@ -848,7 +848,13 @@
   > are unique. On an **enforced** relationship the child's backing index is created **unique** with it, and
   > non-unique without it even when the child column is the table's primary key. What ACE then enforces is
   > that index's unique flag (page-02d §3.5, `0x2E`), not this bit: made to disagree, ACE follows the flag
-  > (verified vs ACE). The bit is what Access and DAO report as the relationship's type.
+  > (verified vs ACE). The bit is what Access and DAO report as the relationship's type. A one-to-one differs
+  > from the same one-to-many in those two places only — `0x01` on every row of the key, and `0x81` for `0x80` on
+  > the child index — and DAO's one-to-many is byte-identical to SQL's `FOREIGN KEY` (verified). DAO refuses a
+  > one-to-one over child rows that already share a key (*"…would create duplicate values in the index, primary
+  > key, or relationship…"*); rows whose key is null do not collide. The refusal comes after the relationship's
+  > `MSysObjects` object and its `MSysACEs` rows are written, so their rollback leaves those two tables'
+  > counting behind (page-02a §3.1) and nothing else (verified, whole-file diff).
 
   > **Writing a relationship.** An **enforced** relationship is `MSysRelationships` rows, an `MSysObjects`
   > row of its own (`Type` = 8, under the relationship container, with the `MSysACEs` rows that container

@@ -906,6 +906,14 @@
   > renamed**, which cannot collide with itself: ACE allows renaming a table to its own name, and allows a
   > case-only change (both verified). The self-rename case is not hypothetical — EF models "move a table to
   > another schema" as a rename, and on a schema-less engine that degrades to `RENAME TO` the *same* name.
+  >
+  > **Renaming an index (verified, through DAO's `Index.Name` — ACE has no SQL for it).** Only the table's
+  > definition changes; this table names no index. A primary key renames even while a relationship references
+  > it, the parent's incoming block untouched. Two renames are refused, leaving the file as it was: the index a
+  > relationship created on its child table (named after the relationship) — *"Cannot delete this index or table.
+  > It is either the current index or is used in a relationship."* — and a name another index of the table has —
+  > *"Index already exists."* A case-only change is the same index, and renames. The definition rewrite is in
+  > [page-02a](page-02a-tdef.md) §3.2.
 
 - **MSysNameMap** is Access's **Name AutoCorrect** map: for each object Access tracks, the names it and the
   objects it depends on had when the map was last written. Five columns, no indexes: `GUID` (GUID), `Id`

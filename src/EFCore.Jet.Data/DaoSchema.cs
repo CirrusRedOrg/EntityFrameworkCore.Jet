@@ -559,6 +559,29 @@ namespace EntityFrameworkCore.Jet.Data
             }
         }
 
+        public override void RenameIndex(string tableName, string oldIndexName, string newIndexName)
+        {
+            if (string.IsNullOrWhiteSpace(tableName))
+                throw new ArgumentNullException(nameof(tableName));
+            if (string.IsNullOrWhiteSpace(oldIndexName))
+                throw new ArgumentNullException(nameof(oldIndexName));
+            if (string.IsNullOrWhiteSpace(newIndexName))
+                throw new ArgumentNullException(nameof(newIndexName));
+
+            try
+            {
+                using var tableDefs = _database.TableDefs;
+                using var tableDef = tableDefs[tableName];
+                using var indexes = tableDef.Indexes;
+                using var index = indexes[oldIndexName];
+                index.Name = newIndexName;
+            }
+            catch (Exception e)
+            {
+                throw new InvalidOperationException($"Cannot rename index '{oldIndexName}' to '{newIndexName}' of table '{tableName}'.", e);
+            }
+        }
+
         private static string GetDataTypeString(DataTypeEnum dataType, bool isIdentity = false)
             => dataType switch
             {

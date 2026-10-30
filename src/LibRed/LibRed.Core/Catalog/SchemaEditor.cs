@@ -740,6 +740,18 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             : throw new InvalidOperationException($"Column '{c.Column}' does not exist in '{table.Name}'.")).ToList();
     }
 
+    /// <summary>ACE rejects a duplicate index name — for a foreign key's backing index as much as a CREATE INDEX, and
+    /// for a rename (verified) — and so must LibRed: every lookup downstream (DROP INDEX, the back-fill, DROP
+    /// CONSTRAINT) finds an index by name with First/FirstOrDefault, so two blocks sharing one name make those
+    /// operations pick an arbitrary block — a DROP that removes the wrong one.</summary>
+    private void RejectDuplicateIndexName(TableDefinition table, string indexName)
+    {
+        JetTextComparer names = JetTextComparer.For(_collation);
+        if (table.LogicalIndexes.Any(l => names.Equals(l.Name, indexName)))
+            throw new InvalidOperationException(
+                $"Table '{table.Name}' already has an index named '{indexName}'.");
+    }
+
     /// <summary>Surgically inserts one index into an existing table's TDEF: its logical info block, name-sorted, and
     /// its data index — or, where the table has a data block over the same columns, directions and flags, that one.
     /// <paramref name="buildInfo"/> gets (block number, data-block ordinal) and returns the info block's fields — a
@@ -748,15 +760,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         bool unique, bool required, bool ignoreNulls, Func<int, int, TableDefinition.LogicalIndexSpec> buildInfo)
     {
         JetFormatBase format = _channel.Format;
-
-        // ACE rejects a duplicate index name — for a foreign key's backing index as much as a CREATE INDEX
-        // (verified) — and so must LibRed: every lookup downstream (DROP INDEX, the back-fill, DROP CONSTRAINT)
-        // finds an index by name with First/FirstOrDefault, so two blocks sharing one name make those operations
-        // pick an arbitrary block — a DROP that removes the wrong one.
-        JetTextComparer names = JetTextComparer.For(_collation);
-        if (table.LogicalIndexes.Any(l => names.Equals(l.Name, indexName)))
-            throw new InvalidOperationException(
-                $"Table '{table.Name}' already has an index named '{indexName}'.");
+        RejectDuplicateIndexName(table, indexName);
 
         // The index-data block holds exactly IndexDataMaxColumns slots, with no count and no continuation, so
         // a wider index cannot be represented. TableDefinition rejects this when a table is created with its
@@ -803,7 +807,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         int newNum = NextLogicalIndexNumber(table.DefinitionPage);
         if (shared >= 0)
         {
-            InsertLogicalBlock(parts, indexName, buildInfo(newNum, shared));
+            InsertLogicalBlock(parts, indexName, TableDefinition.BuildInfoBlock(format, buildInfo(newNum, shared)));
             WriteTdef(table.DefinitionPage, parts);
             _catalog.Invalidate();
             return newNum;
@@ -844,7 +848,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         parts.Stats.Add(new byte[format.RealIndexEntrySize]);
         TableDefinition.WriteIndexTree(dataBlock, format, rootPage, newIndexUsageRow, usageMapPage);
         parts.DataBlocks.Add(dataBlock);
-        InsertLogicalBlock(parts, indexName, buildInfo(newNum, dataCount));
+        InsertLogicalBlock(parts, indexName, TableDefinition.BuildInfoBlock(format, buildInfo(newNum, dataCount)));
 
         WriteTdef(table.DefinitionPage, parts);
         _catalog.Invalidate();
@@ -1463,6 +1467,40 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         return true;
     }
 
+    /// <summary>
+    /// Renames an index — <c>ALTER TABLE … RENAME INDEX … TO</c>. ACE has no SQL for it; DAO's <c>Index.Name</c>
+    /// is the oracle (RenameIndexDaoProbeTest): only the definition changes — the logical block moves to where its
+    /// new name sorts, its bytes unchanged — and the primary key renames even while a relationship references it.
+    /// ACE refuses the index a relationship created on its child table, and a name another index has.
+    /// Returns false if no such index exists.
+    /// </summary>
+    public bool RenameIndex(string tableName, string oldName, string newName)
+    {
+        TableDefinition table = DesignTable(tableName);
+        JetTextComparer names = JetTextComparer.For(_collation);
+        TableDefinition.Parts parts = TableDefinition.ReadParts(_channel, table.DefinitionPage); // stitches continuation pages for a multi-page TDEF
+        int at = parts.Logical.FindIndex(b => names.Equals(NameOf(b.Name), oldName));
+        if (at < 0) return false;
+        JetName.Validate(newName, "index name");
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, table.Name);
+        if (IsRelationshipIndex(table, oldName))
+            throw new InvalidOperationException(
+                "Cannot delete this index or table. It is either the current index or is used in a relationship.");
+        // A case-only rename is the same index, not a collision with itself (verified).
+        if (!names.Equals(oldName, newName)) RejectDuplicateIndexName(table, newName);
+
+        byte[] info = parts.Logical[at].Info;
+        parts.Logical.RemoveAt(at);
+        InsertLogicalBlock(parts, newName, info);
+        // ACE writes the renamed definition twice, the same bytes both times (measured): a multi-page one's
+        // continuations land on the lowest free pages, then again past them, since the first copy's pages stay
+        // held until the statement ends. Re-read for the second, so it replaces the chain the first wrote.
+        WriteTdef(table.DefinitionPage, parts);
+        WriteTdef(table.DefinitionPage, TableDefinition.ReadParts(_channel, table.DefinitionPage));
+        _catalog.Invalidate();
+        return true;
+    }
+
     /// <summary>Re-owns the renamed column's extended-property block in its table's <c>MSysObjects.LvProp</c>
     /// blob, so its DefaultValue/Required/validation survive the rename (ACE does this — verified). No-op when
     /// the column had no properties.</summary>
@@ -1815,13 +1853,19 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // The parent side matches a unique/primary index only, which is exactly the set FindParentKeyIndex
         // will accept as a parent key — ACE refuses a relationship over anything else, so no file this engine
         // writes can have one.
-        return _catalog.Relationships.Any(r =>
-            (string.Equals(r.Table, table.Name, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(name, r.Name, StringComparison.OrdinalIgnoreCase)) ||
-            (string.Equals(r.ReferencedTable, table.Name, StringComparison.OrdinalIgnoreCase)
+        return IsRelationshipIndex(table, name) || _catalog.Relationships.Any(r =>
+            string.Equals(r.ReferencedTable, table.Name, StringComparison.OrdinalIgnoreCase)
                 && (index.IsUnique || index.IsPrimaryKey)
-                && SameCols(r.Columns.Select(c => c.ReferencedColumn))));
+                && SameCols(r.Columns.Select(c => c.ReferencedColumn)));
     }
+
+    /// <summary>True if <paramref name="name"/> is the child-side index a relationship of <paramref name="table"/>
+    /// created — named after the relationship. The one index ACE refuses to rename; the referenced key on the
+    /// parent renames (verified).</summary>
+    private bool IsRelationshipIndex(TableDefinition table, string name) =>
+        _catalog.Relationships.Any(r =>
+            string.Equals(r.Table, table.Name, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(name, r.Name, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Adds a column — <c>ALTER TABLE t ADD COLUMN c type</c>. A metadata TDEF edit (probed vs ACE, the
@@ -3093,17 +3137,17 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             "an incoming relationship", parts.DataBlocks.Count, parts.Logical.Count + 1);
 
         string newName = HiddenRelationshipName(inc.Number);
-        InsertLogicalBlock(parts, newName, inc.Spec(newName));
+        InsertLogicalBlock(parts, newName, TableDefinition.BuildInfoBlock(_channel.Format, inc.Spec(newName)));
 
         WriteTdef(inc.ParentPage, parts);
     }
 
     /// <summary>Inserts a logical block and its name where they sort: by name, in the database's collation (§3.6).</summary>
-    private void InsertLogicalBlock(TableDefinition.Parts parts, string name, TableDefinition.LogicalIndexSpec spec)
+    private void InsertLogicalBlock(TableDefinition.Parts parts, string name, byte[] info)
     {
         JetTextComparer names = JetTextComparer.For(_collation);
         int k = parts.Logical.Count(b => names.Compare(NameOf(b.Name), name) < 0);
-        parts.Logical.Insert(k, (TableDefinition.BuildInfoBlock(_channel.Format, spec), TableDefinition.NameEntry(name, _channel.Format)));
+        parts.Logical.Insert(k, (info, TableDefinition.NameEntry(name, _channel.Format)));
     }
 
     /// <summary>An incoming block's hidden name: <c>.r</c> and index_num in base 16 with the letters <c>A</c>–<c>P</c>

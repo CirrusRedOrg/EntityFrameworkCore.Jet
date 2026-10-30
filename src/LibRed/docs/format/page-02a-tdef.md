@@ -252,6 +252,14 @@ the documented 255-column, 32-index, and 64-character-name limits.
 > the first page's `0x04` next pointer is zeroed and it follows the single-page rule below (8 bytes zeroed
 > past the new end, the rest left); a definition growing onto a second page keeps its first page and takes a
 > fresh continuation. LibRed's `TableDefinition.WriteChain` does all of this.
+>
+> **Renaming an index (verified vs ACE).** The index's name entry is replaced, and its logical block moves with
+> it to where the new name sorts (§3.3, name order); the info block's bytes are unchanged, `index_num`
+> included. ACE writes the renamed definition **twice**, the same bytes both times. A single-page definition is
+> rewritten in place, so the second write changes nothing; a multi-page one's continuations take the lowest
+> free pages and then, since the first copy's pages are held until the statement ends, pages past them — from
+> free pages `56, 55` at the end of a 60-page file, `first → 56 → 55` and then `first → 61 → 60`, the first
+> copy left on its released pages.
 
 
 ### 3.3 Body layout (in order, after the header)

@@ -200,7 +200,7 @@ Treat the number as of its date — an EF Core version bump moves it.
 - **SQL** — ANTLR front end (parser → binder via `ISchemaProvider` → planner → executor). Statements:
   `CREATE TABLE`, `CREATE [UNIQUE] INDEX … [WITH {PRIMARY|DISALLOW NULL|IGNORE NULL}]`, `CREATE VIEW`,
   `CREATE PROCEDURE`, `ALTER TABLE` (ADD/DROP COLUMN, ADD PK/FK/UNIQUE/CHECK, ALTER COLUMN incl. the
-  byte-faithful in-place type change and `SET`/`DROP DEFAULT`, DROP CONSTRAINT, `RENAME TO`/`RENAME COLUMN`),
+  byte-faithful in-place type change and `SET`/`DROP DEFAULT`, DROP CONSTRAINT, `RENAME TO`/`RENAME COLUMN`/`RENAME INDEX`),
   `DROP {TABLE|INDEX|VIEW|PROCEDURE}`, `INSERT`
   (with AutoNumber) — from `VALUES`, from a multi-row table value constructor, or from a query
   (`INSERT INTO … SELECT`, the append query) — `SELECT … INTO` (the make-table query), `UPDATE`, `DELETE`,
@@ -340,7 +340,6 @@ Format-level detail on each on-disk gap lives in `docs/format/`.
 - **Stored pass-through queries** — read back as a *named* refusal rather than executing.
 - **A crosstab's columns when describing** (`CommandBehavior.SchemaOnly`) — only the row headings and fixed
   headings, since the rest come from the data.
-- **`ALTER TABLE … RENAME INDEX`** — parsed and routed, but throws: the TDEF rewrite is not implemented.
 - **Function surface** — the evaluator's whitelist isn't proven identical to ACE's JES, and `Format`'s named
   date/currency formats are locale-dependent by design (not byte-identical cross-locale).
 - **Single-writer concurrency** — LibRed is a **single-writer engine that merely tolerates extra open

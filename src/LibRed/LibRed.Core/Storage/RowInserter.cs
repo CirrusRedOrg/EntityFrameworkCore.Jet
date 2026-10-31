@@ -204,6 +204,10 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
         // unreadable row an INSERT was stopped from producing.
         EnsureRecordFits(format, record);
 
+        // The row is left in the statement's buffer for the next one built over it — only once it is known to fit,
+        // since one grown past the page does not fit the buffer either.
+        if (buffer is not null) record.CopyTo(buffer, 0);
+
         if (DataPage.ReadSlot(srcPage.Span, format, id.Row).Flags.HasFlag(RowSlotFlags.Overflow))
         {
             // This slot is a forward record pointer to the real (relocated) row; rewrite it on its target page

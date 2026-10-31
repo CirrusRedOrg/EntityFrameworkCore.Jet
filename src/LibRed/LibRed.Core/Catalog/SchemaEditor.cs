@@ -2635,8 +2635,10 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
                 r.Raw.CopyTo(buffer, 0);
                 byte[] record = BuildRelaidRecord(
                     r.Raw, oldDef, newTarget, r.Values, newDef.Columns, newMaxId, newFixedLen, newVarCount, buffer);
-                record.CopyTo(buffer, 0);
+                // Written first, as RewriteRowRaw refuses a record past the cap: one grown past the page does not
+                // fit the buffer either.
                 writer.RewriteRowRaw(r.Id, record);
+                record.CopyTo(buffer, 0);
             }
 
             // 4. Finish each index rebuild: backfill the fresh B-tree with new-type keys, then free the old root

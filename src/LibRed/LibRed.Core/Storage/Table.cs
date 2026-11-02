@@ -258,7 +258,11 @@ public sealed class Table
         Write(() =>
         {
             object?[] values = GetRow(id, StoredColumns) ?? throw new InvalidOperationException($"Row '{id}' does not exist.");
-            foreach (ComplexColumn complex in _catalog.LoadComplexColumns(Definition.DefinitionPage))
+            // Only a table with a complex column has values elsewhere to remove, so only it asks MSysComplexColumns:
+            // on a file whose registry is damaged, ACE deletes from any other table as usual (measured).
+            IEnumerable<ComplexColumn> complexColumns = Definition.Columns.Any(c => c.Type == JetDataType.Complex)
+                ? _catalog.LoadComplexColumns(Definition.DefinitionPage) : [];
+            foreach (ComplexColumn complex in complexColumns)
             {
                 if (values[complex.OwnerTable.RequireColumn(complex.ColumnName).Index] is not { } raw) continue;
                 int recordId = Convert.ToInt32(raw, System.Globalization.CultureInfo.InvariantCulture);

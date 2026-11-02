@@ -998,7 +998,9 @@ Four layers — the user table, then three kinds of ordinary hidden/system table
 2. **`MSysComplexColumns`** maps each complex column to its backing table:
    `(ColumnName, ComplexID, ComplexTypeObjectID, ConceptualTableID, FlatTableID)`. E.g.
    `Attachments | 3 | 39 | 79 | 150` = the `Attachments` column of table `79`, element type **39**
-   (`MSysComplexType_Attachment`), backed by flat table **150** = `f_<GUID>_Attachments`.
+   (`MSysComplexType_Attachment`), backed by flat table **150** = `f_<GUID>_Attachments`. A write to a table
+   with no `Complex` column does not depend on it: with `ConceptualTableID`'s type byte damaged from Long to
+   Byte, ACE inserts, updates and deletes rows of such a table as usual (verified).
 3. **`MSysComplexType_*`** — nine schema templates, one per element subtype, matching the DAO `dbComplex*`
    codes: `UnsignedByte, Short, Long, IEEESingle, IEEEDouble, GUID, Decimal, Text, Attachment`.
    `MSysComplexType_Attachment` = `FileData:Ole, FileFlags:Int32, FileName:Text, FileTimeStamp:DateTime,

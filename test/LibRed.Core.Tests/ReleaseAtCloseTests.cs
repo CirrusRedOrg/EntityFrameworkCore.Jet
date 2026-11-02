@@ -120,6 +120,45 @@ public class ReleaseAtCloseTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // A released map whose start page is -2,147,483,648 (its high byte damaged), every bit clear: ACE's close leaves
+    // it as it was and merges the pages a session released into the free map exactly as on the undamaged file
+    // (measured, releasing a picture's three long-value pages).
+    [Fact]
+    public void The_close_leaves_a_released_map_starting_below_page_zero_as_it_is_and_frees_the_pages()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "release-negative-");
+        try
+        {
+            int holderPage;
+            byte[] holder, record;
+            using (var channel = PageChannel.Open(path, readOnly: true))
+            {
+                DataPage.RowSlot slot;
+                (_, holderPage, holder, slot) = TestDatabases.GlobalMap(channel, Format.ReleasedPagesMapPointerOffset);
+                System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(
+                    InlineMap(holder, slot)[Format.UsageMapStartPageOffset..], int.MinValue);
+                record = InlineMap(holder, slot).ToArray();
+            }
+            TestDatabases.WritePage(path, holderPage, holder);
+
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                var allocator = db.OpenTable("MSysObjects").Channel.Allocator;
+                allocator.Release(300);
+                allocator.Release(301);
+            }
+
+            using (var channel = PageChannel.Open(path, readOnly: true))
+            {
+                Assert.True(FreeMapBit(channel, 300));
+                Assert.True(FreeMapBit(channel, 301));
+                (_, _, byte[] after, DataPage.RowSlot slot) = TestDatabases.GlobalMap(channel, Format.ReleasedPagesMapPointerOffset);
+                Assert.Equal(record, InlineMap(after, slot).ToArray());
+            }
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     [Fact]
     public void Pages_already_in_the_released_map_are_merged_by_a_close_that_wrote_but_not_by_an_idle_one()
     {

@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(JetTargetFramework)</TargetFramework>
+    <RootNamespace>LibRed.Core.Fuzz</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <Platforms>AnyCPU;x86;x64</Platforms>
+    <!-- Signed with the repo key so it can be an InternalsVisibleTo friend of the strong-named LibRed.Core:
+         the shared walk opens an index cursor on a table's channel. SharpFuzz rewrites LibRed.Core.dll
+         after publish, which voids that assembly's signature; .NET does not validate strong-name
+         signatures, and this assembly (the friend) is not instrumented, so the grant still matches. -->
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)..\..\Key.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SharpFuzz" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LibRed\LibRed.Core\LibRed.Core.csproj" />
+    <!-- The leak contract, the authored seed shapes and the read walk, shared with the fixed-seed sweep
+         in LibRed.Core.Tests so the two cannot disagree about what a leak is. -->
+    <Compile Include="..\LibRed.Shared\MalformedFile.cs" Link="MalformedFile.cs" />
+  </ItemGroup>
+
+  <!-- Seed databases: the ACE-authored Northwind every LibRed test project links, and the Agile-encrypted
+       fixture, so page-0 patches reach the encryption header parsers. -->
+  <ItemGroup>
+    <Content Include="..\JetProviderExceptionTests\Northwind.accdb">
+      <Link>Data\Northwind.accdb</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\LibRed.Core.Tests\Data\EncryptedTest.accdb">
+      <Link>Data\EncryptedTest.accdb</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

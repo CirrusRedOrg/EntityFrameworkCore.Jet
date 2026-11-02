@@ -30,6 +30,7 @@
 		<PackageVersion Include="MSTest.TestAdapter" Version="4.4.0" />
 		<PackageVersion Include="MSTest.TestFramework" Version="4.4.0" />
 		<PackageVersion Include="NetTopologySuite" Version="2.6.0" />
+		<PackageVersion Include="SharpFuzz" Version="2.3.0" />
 		<PackageVersion Include="System.Data.Odbc" Version="$(MSLibVersion)" />
 		<PackageVersion Include="System.Data.OleDb" Version="$(MSLibVersion)" />
 		<!-- Not used directly: Microsoft.Build.Tasks.Core (18.9.6 through 18.11.0) pulls in Pkcs 10.0.10, which

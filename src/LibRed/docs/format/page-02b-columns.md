@@ -41,14 +41,21 @@ normally, but a compact drops the column, every column after it and every row of
 > computed and stored, on an insert and on an update of a column it reads, while a Text or Memo one refuses both
 > (*"Error evaluating CHECK constraint."*). An update that touches none of its inputs, and a delete, go through
 > either way. A column with `0x40` and no expression at all fails before that, the table refusing to open
-> (*"Property not found"*), and a compact drops it. `0x80` alone does nothing: the column is an ordinary one, and
+> (*"Property not found"*), and a compact drops it — fixed-length or variable, everything that loads that table
+> fails so, its column schema included, while the table list and the other tables still read. On a **catalog**
+> table it depends which: `0x40` on any `MSysObjects` column, fixed or variable, and the database itself will not
+> open (*"Invalid database object reference."*); on `MSysRelationships` the foreign-key list fails *"Property not
+> found"* as a user table's reads do; on `MSysQueries` the database opens and lists no views at all. `0x80` alone
+> does nothing: the column is an ordinary one, and
 > the bit goes at the next TDEF rewrite. A broken expression does not clear `0x80` — after `DROP COLUMN` of a
 > column it reads, the flags stay `0xC0` and the error comes from the expression itself. Extended bit `0x02` is
 > ignored and kept, through a rewrite and a compact alike.
 >
 > LibRed reads `0x40` as calculated and writes `0xC0`, as ACE does, and over `0x40` alone reads, writes, updates
 > and deletes as ACE does (`ColumnDef.EvaluatesExpression`). An update or delete never reads a calculated
-> result, which is also what lets it rewrite a row whose result is a cached error.
+> result, which is also what lets it rewrite a row whose result is a cached error. A calculated column with no
+> `Expression` property refuses its table's definition, and one in `MSysObjects` refuses the catalog, both as
+> `InvalidDataException`; a damaged `MSysQueries` refuses too, where ACE lists no views.
 >
 > **Extended flags beyond `0x01`/`0xC0` belong to the complex columns (verified where set).** `0x10` is set on
 > exactly the six attachment value columns — `FileData`, `FileFlags`, `FileName`, `FileTimeStamp`, `FileType`,
@@ -354,6 +361,16 @@ column's rank among the variable columns ordered by ascending id.
 > so deriving decodes the wrong slot (verified: after dropping a middle Text column, the next Text column
 > read the dropped column's value). Why the gap is left, and what it means for writing a row rather than
 > reading one, are [§3.1](page-02a-tdef.md#31-header) and [§5](page-01-data-and-rows.md) respectively.
+
+> **Two live columns naming one slot.** ACE does not check that variable indexes are distinct (verified on
+> Northwind's `Customers` with `City`'s index set to `CompanyName`'s, 0): the table opens and reads, and `City`
+> reads the company name, cut to `City`'s declared 15 characters in a `SELECT`. A write of `City` with that
+> value is refused as too large for the field, an update of another column succeeds, and an insert writes both
+> columns through the one slot, the later value winning. An index on `City` still holds each row under its
+> real city, so a write that has to move or remove that entry fails as the index section's missing-entry case
+> ([§10.4a](page-03-04-index-btree.md#104a-entry-removal--a-leaf-is-rewritten-not-repacked)). LibRed opens
+> and reads the table and refuses the same writes, but returns `City` whole (19 characters); whether ACE's cut
+> is the engine's or the OLE DB column binding's is not established.
 
 #### Declared width limits
 

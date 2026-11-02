@@ -682,8 +682,12 @@ public sealed class JetCatalog
     private TableDefinition ReadTable(object?[]? row, TableDefinition mo, Dictionary<string, int>? columns,
         Table? source = null, RowId sourceRow = default, DecodedTable? known = null)
     {
-        int definitionPage = known?.Metadata.DefinitionPage ?? (int)row![columns!["Id"]]!;
-        string name = known?.Metadata.Name ?? (string)row![columns!["Name"]]!;
+        // Without its name or its Id the row names no table. ACE refuses such a table too (measured): a null Id
+        // reads as "Unrecognized database format", and a null Name fails the table list.
+        string name = known?.Metadata.Name ?? row![columns!["Name"]] as string
+            ?? throw new InvalidDataException("A table's MSysObjects row has no Name.");
+        int definitionPage = known?.Metadata.DefinitionPage ?? (row![columns!["Id"]] is int id ? id
+            : throw new InvalidDataException($"The MSysObjects row of table '{name}' has no Id."));
         EnsureFresh();
         // Enumeration and name lookup decode through this same path. Reuse the kept system definitions
         // here too, rather than repeatedly decoding them just to discard them from a user-table schema view.
@@ -700,7 +704,8 @@ public sealed class JetCatalog
         if (source is not null)
             row = source.GetRow(sourceRow)
                 ?? throw new InvalidDataException($"Catalog row {sourceRow.Page}:{sourceRow.Row} disappeared while reading '{name}'.");
-        var flags = known?.Flags ?? (ObjectAttributes)unchecked((uint)(int)row![columns!["Flags"]]!);
+        // A null Flags is no flags: ACE reads the table as usual (measured).
+        var flags = known?.Flags ?? (row![columns!["Flags"]] is int stored ? (ObjectAttributes)unchecked((uint)stored) : 0);
         ReadOnlyMemory<byte> propertyBlob = known?.Properties ?? (row![columns!["LvProp"]] as byte[]);
         ReadOnlyMemory<byte> page = default;
         if (held is not null)
@@ -765,6 +770,10 @@ public sealed class JetCatalog
 
             (definition.ValidationRule, definition.ValidationText) = PropertyBlob.ReadValidation(properties, "");
         }
+        // ACE will not load a table whose calculated column has no Expression property: the database opens, but
+        // everything that loads that table fails "Property not found." (measured, fixed or variable column).
+        if (definition.Columns.FirstOrDefault(c => c.IsCalculated && c.CalculatedExpression is null) is { } orphan)
+            throw new InvalidDataException($"Calculated column '{name}.{orphan.Name}' has no Expression property.");
         if (_tableDefinitions.Count >= 64 && !_tableDefinitions.ContainsKey(name))
             _tableDefinitions.Remove(_tableDefinitions.Keys.First(key =>
                 !string.Equals(key, "MSysObjects", StringComparison.OrdinalIgnoreCase)));
@@ -1486,6 +1495,20 @@ public sealed class JetCatalog
     {
         var definition = new TableDefinition { Name = name, IsSystem = isSystem };
         reused = definition.Read(_channel, definitionPage, previous);
+        // The catalog reads these three by column name. A page that decodes as a table but lacks one of their
+        // columns — page 0's catalog root, or an MSysObjects Id, pointing at another TDEF — is not that table.
+        ColumnSpec[]? catalogColumns =
+            string.Equals(name, "MSysObjects", StringComparison.OrdinalIgnoreCase) ? MSysObjectsColumns
+            : string.Equals(name, "MSysQueries", StringComparison.OrdinalIgnoreCase) ? MSysQueriesColumns
+            : string.Equals(name, "MSysRelationships", StringComparison.OrdinalIgnoreCase) ? MSysRelationshipsColumns
+            : null;
+        if (catalogColumns?.FirstOrDefault(c => definition.FindColumn(c.Name) is null) is { } missing)
+            throw new InvalidDataException(
+                $"Page {definitionPage}, read as {name}, has no '{missing.Name}' column: it is not the definition of {name}.");
+        // ACE will not open a database whose MSysObjects has a calculated column, fixed or variable (measured).
+        if (catalogColumns == MSysObjectsColumns && definition.Columns.FirstOrDefault(c => c.IsCalculated) is { } calculated)
+            throw new InvalidDataException(
+                $"MSysObjects (page {definitionPage}) has a calculated column, '{calculated.Name}'.");
         return definition;
     }
 

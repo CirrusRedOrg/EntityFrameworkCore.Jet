@@ -29,7 +29,9 @@ public class ColumnDescriptorFlagTests
     }
 
     // ACE writes 0xC0 on a calculated column but reads only 0x40: with 0x80 alone a column is an ordinary one, its
-    // value read as stored, and with 0x40 alone it is calculated (measured by patching the bit into a text column).
+    // value read as stored, and with 0x40 alone it is calculated (measured by patching the bit into a text column) —
+    // here one with no Expression property, so ACE will not load the table: SELECT, COUNT(*) and the column schema
+    // all fail "Property not found." (measured on this very file).
     [Theory]
     [InlineData(0x80, false)]
     [InlineData(0x40, true)]
@@ -58,10 +60,15 @@ public class ColumnDescriptorFlagTests
             File.WriteAllBytes(path, file);
 
             using var read = JetDatabase.Open(path);
+            if (calculated)
+            {
+                Assert.Throws<InvalidDataException>(() => read.OpenTable("T"));
+                return;
+            }
             Table table = read.OpenTable("T");
             ColumnDef column = table.Definition.FindColumn("A")!;
-            Assert.Equal(calculated, column.IsCalculated);
-            if (!calculated) Assert.Equal("plain", table.Rows().Single()[column.Index]);
+            Assert.False(column.IsCalculated);
+            Assert.Equal("plain", table.Rows().Single()[column.Index]);
         }
         finally { TemporaryDatabase.Delete(path); }
     }
@@ -194,6 +201,51 @@ public class ColumnDescriptorFlagTests
             other[0] = 2;
             table.Update(id, other, new HashSet<int> { 0 });
             Assert.Equal([2, "first"], table.Rows().Single());
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // The AutoNumber bit 0x04 on a Text column (a damaged descriptor): ACE still takes an explicit value, and sets the
+    // counter at 0x14 to the value's first four bytes as UTF-16LE, zero-padded (measured: Customers.Address flagged,
+    // "Street", "500" and "A" inserted).
+    [Theory]
+    [InlineData("Street", 0x00740053)]
+    [InlineData("500", 0x00300035)]
+    [InlineData("A", 65)]
+    public void An_explicit_value_in_a_text_column_flagged_AutoNumber_sets_the_counter_to_its_first_four_bytes(
+        string value, int counter)
+    {
+        string path = TemporaryDatabase.CreatePath("autonumber-text-");
+        try
+        {
+            JetDatabase.Create(path);
+            int page;
+            byte[] raw;
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("T", [new("Id", JetDataType.Int32, 4, IsFixedLength: true), new ColumnSpec("A", JetDataType.Text, 40, IsFixedLength: false)]);
+                var t = db.Catalog.FindTable("T")!;
+                page = t.DefinitionPage;
+                raw = t.FindColumn("A")!.RawDescriptor!;
+            }
+
+            byte[] file = File.ReadAllBytes(path);
+            JetFormatBase format = JetFormatBase.FromVersionByte(file[0x14]);
+            int at = file.AsSpan(page * format.PageSize, format.PageSize).IndexOf(raw);
+            Assert.True(at >= 0);
+            file[page * format.PageSize + at + format.ColumnFlagsOffset] |= (byte)ColumnFlags.AutoNumber;
+            File.WriteAllBytes(path, file);
+            int Counter() => TableDefinition.ReadLastAutoNumber(TestDatabases.ReadPage(path, page), format);
+            Assert.Equal(0, Counter());
+
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                Table table = db.OpenTable("T");
+                Assert.True(table.Definition.FindColumn("A")!.IsAutoNumber);
+                table.Insert([1, value]);
+                Assert.Equal([1, value], table.Rows().Single());
+            }
+            Assert.Equal(counter, Counter());
         }
         finally { TemporaryDatabase.Delete(path); }
     }

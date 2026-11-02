@@ -94,6 +94,13 @@
 > it pins `0x14` at `int.MaxValue` forever, so every later insert reissues `int.MinValue` and the table is
 > wedged — for ACE too, since the damage is the on-disk `0x14`. LibRed therefore applies its monotone guard
 > (the deliberate KB 884185 immunity) **only to caller-supplied explicit ids**; see `RowInserter`.
+>
+> **The counter is the first four bytes of the value (verified vs ACE).** A Text column whose descriptor carries
+> the AutoNumber flag `0x04` (a damaged file) still opens, reads and takes INSERTs and DELETEs; an UPDATE of the
+> column is refused as not updateable. An explicit text value sets `0x14` to the value's first four bytes as UTF-16LE,
+> zero-padded: `'Street'` → `0x00740053`, `'500'` → `0x00300035`, `'A'` → `65`. A generated id goes the other way —
+> with the flag byte `0x06` the id's four bytes are stored as two characters (`0x00740054` → `'Tt'`); with `0xEE`
+> (`0x40` set as well) ACE stores `'\x01\0'` and resets `0x14` to `1`. LibRed matches the explicit case only.
 
 > **Reader/writer count guardrails.** LibRed validates the documented 255-column and 32-real-index
 > limits before allocating count-sized structures, rejects negative logical/real index counts, and checks

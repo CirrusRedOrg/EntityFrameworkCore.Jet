@@ -126,6 +126,30 @@ public class GlobalMapPointerTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // 0x18 aimed at row 0 of page 94, a long value of 4,076 bytes: read as an inline map it starts at page 352,321,631,
+    // so its first free page lies past the 2 GiB limit no file can grow beyond. ACE refuses every statement that needs
+    // a page on this file and adds none (measured), and so does the allocator — at once, without growing the file
+    // towards the page first.
+    [Fact]
+    public void Allocation_refuses_a_free_page_past_the_largest_file()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "globalptr-past-limit-");
+        try
+        {
+            byte[] longValue = TestDatabases.ReadPage(path, 94);
+            Assert.Equal("LVAL", System.Text.Encoding.ASCII.GetString(longValue, Format.DataOwnerOffset, 4));
+            TestDatabases.WriteMapPointer(path, Format.FreePagesMapPointerOffset, 0, 94);
+
+            using (var channel = PageChannel.Open(path, readOnly: false))
+            {
+                Assert.Throws<InvalidDataException>(() => channel.Allocator.Allocate());
+                Assert.Equal(NorthwindPages, channel.PageCount);
+            }
+            Assert.Equal(longValue, TestDatabases.ReadPage(path, 94));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     /// <summary>Each case breaks one pointer and leaves the other as Northwind stores it.</summary>
     public static TheoryData<string, int, int, int, int> InvalidPointers
     {

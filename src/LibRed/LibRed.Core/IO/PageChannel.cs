@@ -202,6 +202,9 @@ public sealed class PageChannel : IDisposable
 
     public int PageSize => _format.PageSize;
 
+    /// <summary>The most pages a file can hold: ACE's 2 GiB limit (524288 Jet4/ACE pages).</summary>
+    internal int MaxPageCount => (int)((1L << 31) / PageSize);
+
     /// <summary>Number of pages currently in the file — or, inside a transaction, the logical count including
     /// pages the overlay has allocated but not yet written to disk. Read from the shared cache's record of the
     /// file's length rather than the stream, so it costs no syscall.</summary>
@@ -406,7 +409,7 @@ public sealed class PageChannel : IDisposable
 
         // ACE-only full-database probe: the file reaches exactly 2 GiB (524288 Jet4/ACE pages)
         // and rejects the next allocation. Check before staging a page or extending the stream.
-        if ((long)pageNumber >= (1L << 31) / PageSize)
+        if (pageNumber >= MaxPageCount)
             throw new InvalidOperationException("The database cannot grow beyond 2 GiB, the maximum file size.");
 
         // Inside a transaction, defer the write into the private overlay — invisible to other channels until

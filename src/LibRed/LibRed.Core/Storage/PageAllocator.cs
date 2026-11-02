@@ -520,7 +520,9 @@ internal sealed class PageAllocator
         int start = UsageMap.StartPage(released.Record, format);
         int lowest = pages.Min, highest = pages.Max;
         int Covering(int from) => headerSize + UsageMap.InlineBitmapBytes(format, highest - from + 1);
-        if (lowest >= start && highest < start + (released.Slot.Length - headerSize) * 8) return;
+        // A map starting below page 0 is left as it was, and the pages are freed all the same: ACE's close does
+        // (measured, start -2,147,483,648).
+        if (start < 0 || lowest >= start && highest < start + (released.Slot.Length - headerSize) * 8) return;
 
         var holder = new DataPage();
         holder.Read(new PageBuffer(released.Page, released.PageNumber), format);
@@ -876,6 +878,11 @@ internal sealed class PageAllocator
     /// against two ACE handles.</summary>
     private void EnsurePhysicalAllocation(int page)
     {
+        // A page past the largest file is in no database: ACE refuses to allocate it and leaves the file as it was
+        // (measured), where growing towards it would buffer pages up to the 2 GiB limit before WritePage refused one.
+        if (page > _channel.PageCount && page >= _channel.MaxPageCount)
+            throw new InvalidDataException(
+                $"The global free map selected page {page}, past the largest file of {_channel.MaxPageCount} pages.");
         while (_channel.PageCount < page) Append();
         if (page < _channel.PageCount) return;
         int allocated = Append();

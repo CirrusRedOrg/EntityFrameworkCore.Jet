@@ -51,6 +51,13 @@
   The last column lists what a row of that kind *can* carry, not what every one does: a query or relationship
   written by ACE or LibRed leaves `LvProp` null (below), where Access fills it.
 
+  > **A table's row with a null `Id`, `Name` or `Flags`** (measured, by clearing the column's null-bitmap bit).
+  > The database still opens. A null **`Flags`** is no flags: the table reads as usual, and `MSysQueries`, its
+  > system bit gone, is listed as a `TABLE`. A null **`Id`** leaves the table listed but unreadable — *"Unrecognized
+  > database format"* — and on `MSysQueries` leaves no views at all. A null **`Name`** fails the table list
+  > (`E_FAIL`). LibRed reads a null `Flags` as `0` and refuses a table whose row has no `Id` or `Name` as
+  > `InvalidDataException`.
+
   > **A name is unique within its container, and only there.** That is the rule the unique `(ParentId, Name)`
   > index states, and the one ACE applies (verified, case-insensitively): a new table (`CREATE TABLE`,
   > `SELECT … INTO`, a rename) or query (`CREATE VIEW` / `CREATE PROCEDURE`) is refused when a table, query or

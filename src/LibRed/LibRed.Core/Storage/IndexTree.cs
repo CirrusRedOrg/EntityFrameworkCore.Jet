@@ -177,8 +177,10 @@ internal sealed class IndexTree(PageChannel channel, TableDefinition table)
 
         int idx = LowerBound(entries, key);
         while (idx < entries.Count && CompareBytes(entries[idx].Key, key) == 0 && entries[idx].Trailer != pointer) idx++;
+        // The key is built from the row's own stored values, so a missing entry is an index that disagrees with its
+        // table: damage, which ACE refuses too ("The search key was not found in any record.", measured).
         if (idx == entries.Count || entries[idx].Trailer != pointer || CompareBytes(entries[idx].Key, key) != 0)
-            throw new InvalidOperationException(
+            throw new InvalidDataException(
                 $"Index '{index.Name}': entry for row {rowId.Page}:{rowId.Row} was not found on leaf {leafPage}.");
         entries.RemoveAt(idx);
 

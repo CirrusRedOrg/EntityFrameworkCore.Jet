@@ -165,7 +165,8 @@ test/
   LibRed.EFCore.Tests/            LibRed EF Core provider: query round-trip,
                                   database-first scaffolding            [no driver; CI's Windows ACE job]
   LibRed.Shared/                  Helpers compiled into the Core/Engine test pairs and LibRed.Ado.Tests
-                                  (TemporaryDatabase, …; AceTestDatabase into the AccessTests only)
+                                  (TemporaryDatabase, …; AceTestDatabase into the AccessTests only;
+                                  MalformedFile into LibRed.Core.Tests and LibRed.Core.Fuzz)
   EFCore.LibRed.FunctionalTests/  EF Core specification suite over LibRed, compatible
                                   SQL mode (Jet-dialect SQL)                        [cross-platform]
   EFCore.LibRed.Extended.FunctionalTests/
@@ -176,6 +177,9 @@ test/
                                   split, storage, writes, DDL, catalog, and an opt-in ACE
                                   head-to-head. `-- --validate` checks the SQL corpus.
                                   See its README.md                                [cross-platform]
+  LibRed.Core.Fuzz/               SharpFuzz + libFuzzer harness over LibRed.Core: damaged databases
+                                  and blob decoders, held to the sweep's leak contract. Not in CI;
+                                  needs third-party tools. See its README.md       [cross-platform]
   Shared/                         For the EF functional suites: ModuleInitializer.cs (locks culture to
                                   en-US) and TestUtilities/ (test orderers, crash detection, conditions)
 

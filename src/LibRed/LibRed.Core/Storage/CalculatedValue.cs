@@ -150,6 +150,9 @@ internal static class CalculatedValue
                 $"Calculated column '{column.Name}' contains an invalid expression: its descriptor lacks the flag that "
                 + "lets the expression be evaluated.");
 
+        // The width first: a slot too short to be an envelope is damage, and its first four bytes are no status.
+        ReadOnlySpan<byte> payload = Payload(envelope, column);
+
         // A failed expression is cached as its VBA error number with no payload, so it is NOT a Null even
         // though it has a Null's empty payload -- and reading it as one is a silent wrong answer, on a value
         // neither engine re-derives. ACE will not hand back such a row at all.
@@ -158,7 +161,6 @@ internal static class CalculatedValue
                 $"Calculated column '{column.Name}' holds a cached error, not a value: "
                 + $"{VbaErrorText(error)}. Its expression is '{column.CalculatedExpression ?? "(unknown)"}'.");
 
-        ReadOnlySpan<byte> payload = Payload(envelope, column);
         JetDataType type = StoredType(column, payload.Length);
 
         // A zero-length payload is a Null result -- EXCEPT for text, where it is the empty string. The two
@@ -172,10 +174,9 @@ internal static class CalculatedValue
     }
 
     /// <summary>The envelope's leading status: 0 when the expression produced a value, otherwise the VBA
-    /// runtime error number it raised. A short envelope reads as 0 — a truncated slot is the width check's
-    /// business, not this one's.</summary>
+    /// runtime error number it raised. Read only after <see cref="Payload"/> has checked the width.</summary>
     private static uint Status(ReadOnlySpan<byte> envelope) =>
-        envelope.Length >= StatusSize ? BinaryPrimitives.ReadUInt32LittleEndian(envelope[..StatusSize]) : 0;
+        BinaryPrimitives.ReadUInt32LittleEndian(envelope[..StatusSize]);
 
     /// <summary>Names the VBA errors a calculated expression can actually raise, so the message says what
     /// went wrong rather than quoting a number. Measured: <c>CDbl(Null)</c> caches 94 and <c>CDbl('hello')</c>

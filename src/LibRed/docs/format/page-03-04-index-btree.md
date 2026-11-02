@@ -971,6 +971,13 @@ packing: where the prefix is longer than the key, there are no key bytes left to
 
 Both engines then agree byte for byte: LibRed touches no page ACE does not (verified).
 
+> **An entry the row says is there, and is not.** The entry to remove is found by the key the row's stored
+> values encode to. When the index holds the row under another key — the file's index and table disagree —
+> ACE refuses the `UPDATE` that would move the entry, and the `DELETE` that would remove it, with *"The search
+> key was not found in any record."* and changes nothing (verified, on a `Customers` row whose `City` reads
+> another column's slot, §3 of [page-02b](page-02b-columns.md)). LibRed refuses both with
+> `InvalidDataException` and rolls the statement back.
+
 ### 10.4d A leaf the removal empties leaves the tree
 
 An underfull leaf is left alone (§10.4a), but a leaf whose **last** entry is removed is taken out of the tree

@@ -1335,7 +1335,12 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             // a UI-authored Random AutoNumber reads last-value 0). Advancing it would be meaningless (random ids
             // don't form a monotone sequence) and diverge from Access's on-disk state.
             if (column.IsRandomAutoNumber) continue;
-            int assigned = Convert.ToInt32(value, CultureInfo.InvariantCulture);
+            // The counter is a value's first four bytes. On a Text column that carries the AutoNumber flag — a
+            // damaged descriptor — ACE takes them from the UTF-16 text, zero-padded (measured: "Street" sets 0x14 to
+            // 0x00740053, "A" to 65).
+            int assigned = value is string text
+                ? (text.Length > 0 ? text[0] : 0) | (text.Length > 1 ? text[1] << 16 : 0)
+                : Convert.ToInt32(value, CultureInfo.InvariantCulture);
             int highWater = TableDefinition.ReadLastAutoNumber(tdef, format);
             // An id this insert *generated* always becomes the new high-water: it came from 0x14 + increment,
             // so it is by construction the next value in the sequence. That includes the wrap past

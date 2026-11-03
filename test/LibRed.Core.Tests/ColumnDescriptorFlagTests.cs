@@ -250,6 +250,45 @@ public class ColumnDescriptorFlagTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // The same bit on an OLE column: an explicit binary value sets the counter to its first four bytes (measured:
+    // Categories.Picture flagged, bytes 01 02 03 04 05 06 set 0x14 to 0x04030201).
+    [Fact]
+    public void An_explicit_value_in_an_ole_column_flagged_AutoNumber_sets_the_counter_to_its_first_four_bytes()
+    {
+        string path = TemporaryDatabase.CreatePath("autonumber-ole-");
+        try
+        {
+            JetDatabase.Create(path);
+            int page;
+            byte[] raw;
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("T", [new("Id", JetDataType.Int32, 4, IsFixedLength: true), new ColumnSpec("P", JetDataType.Ole, 0, IsFixedLength: false)]);
+                var t = db.Catalog.FindTable("T")!;
+                page = t.DefinitionPage;
+                raw = t.FindColumn("P")!.RawDescriptor!;
+            }
+
+            byte[] file = File.ReadAllBytes(path);
+            JetFormatBase format = JetFormatBase.FromVersionByte(file[0x14]);
+            int at = file.AsSpan(page * format.PageSize, format.PageSize).IndexOf(raw);
+            Assert.True(at >= 0);
+            file[page * format.PageSize + at + format.ColumnFlagsOffset] |= (byte)ColumnFlags.AutoNumber;
+            File.WriteAllBytes(path, file);
+
+            byte[] value = [1, 2, 3, 4, 5, 6];
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                Table table = db.OpenTable("T");
+                Assert.True(table.Definition.FindColumn("P")!.IsAutoNumber);
+                table.Insert([1, value]);
+                Assert.Equal(value, table.Rows().Single()[1]);
+            }
+            Assert.Equal(0x04030201, TableDefinition.ReadLastAutoNumber(TestDatabases.ReadPage(path, page), format));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     // Without 0x80 ACE will not evaluate a calculated column, whatever its expression: every read of it fails "This
     // calculated column contains an invalid expression" (measured by clearing the bit on a DAO-created [Qty]*2).
     [Fact]

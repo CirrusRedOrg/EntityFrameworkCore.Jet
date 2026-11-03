@@ -101,6 +101,10 @@
 > zero-padded: `'Street'` → `0x00740053`, `'500'` → `0x00300035`, `'A'` → `65`. A generated id goes the other way —
 > with the flag byte `0x06` the id's four bytes are stored as two characters (`0x00740054` → `'Tt'`); with `0xEE`
 > (`0x40` set as well) ACE stores `'\x01\0'` and resets `0x14` to `1`. LibRed matches the explicit case only.
+> On an OLE column flagged the same way the counter likewise takes a binary value's first four bytes: `01 02 03 04
+> 05 06` → `0x04030201`. With the table's own AutoNumber (`Categories.CategoryID`) beside it, an `INSERT` that
+> leaves that column out is refused *"You must enter a value in the 'Categories.CategoryID' field"*, its id
+> burned, and a one-byte binary value left `0x14` at the explicit `CategoryID` rather than taking the byte.
 
 > **Reader/writer count guardrails.** LibRed validates the documented 255-column and 32-real-index
 > limits before allocating count-sized structures, rejects negative logical/real index counts, and checks

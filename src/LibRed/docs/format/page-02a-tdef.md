@@ -105,6 +105,11 @@
 > 05 06` → `0x04030201`. With the table's own AutoNumber (`Categories.CategoryID`) beside it, an `INSERT` that
 > leaves that column out is refused *"You must enter a value in the 'Categories.CategoryID' field"*, its id
 > burned, and a one-byte binary value left `0x14` at the explicit `CategoryID` rather than taking the byte.
+> On a fixed column the width decides: a 4-byte `Single` takes its own bits (`0.25` → `0x3E800000`), while an
+> `Integer`, `Currency` or `Date/Time` column refuses the row, explicit value and all, with *"The field is too
+> small to accept the amount of data you attempted to add."* and `0x14` advanced by one — the id is drawn and
+> burned. DAO refuses to create the flag on a GUID column at all (`dbAutoIncrField` on `dbGUID`: *"Invalid
+> argument"*).
 
 > **Reader/writer count guardrails.** LibRed validates the documented 255-column and 32-real-index
 > limits before allocating count-sized structures, rejects negative logical/real index counts, and checks

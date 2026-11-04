@@ -1225,9 +1225,17 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
     /// </summary>
     private bool[]? AssignAutoNumbers(JetFormatBase format, object?[] values, ReadOnlySpan<byte> tdef)
     {
+        // The counter is four bytes. A fixed column of another width carrying the AutoNumber flag — a damaged
+        // descriptor — cannot hold it: ACE draws the id all the same and then refuses the row, explicit value or not
+        // (measured on Integer, Currency and Date/Time columns; Single and Long, four bytes, take theirs). A random
+        // AutoNumber draws no id, so it is left as it was.
+        static bool CannotHoldTheCounter(ColumnDef column) =>
+            column.IsFixedLength && column.Type != JetDataType.Boolean && column.Length != sizeof(int)
+            && !column.IsRandomAutoNumber;
+
         bool needed = false;
         foreach (ColumnDef column in _table.Columns)
-            if (column.IsAutoNumber && values[column.Index] is null or DBNull) { needed = true; break; }
+            if (column.IsAutoNumber && (values[column.Index] is null or DBNull || CannotHoldTheCounter(column))) { needed = true; break; }
         if (!needed) return null;
 
         int highWater = TableDefinition.ReadLastAutoNumber(tdef, format);
@@ -1241,7 +1249,8 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
 
         bool[] generated = new bool[values.Length];
         foreach (ColumnDef column in _table.Columns)
-            if (column.IsAutoNumber && column.Type != JetDataType.Complex && values[column.Index] is null or DBNull)
+            if (column.IsAutoNumber && column.Type != JetDataType.Complex
+                && (values[column.Index] is null or DBNull || CannotHoldTheCounter(column)))
             {
                 if (column.IsRandomAutoNumber)
                     // "Random" AutoNumber (DefaultValue = GenUniqueID()): a random Int32, independent of the
@@ -1253,9 +1262,13 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
                     // Seed-Increment, so the first assigned id is the Seed. The addition is deliberately
                     // unchecked: past int.MaxValue the counter wraps to int.MinValue and keeps going, which
                     // is exactly what ACE does (no overflow error exists — see AceAutoNumberOverflowProbeTest).
-                    values[column.Index] = highWater = unchecked(highWater + column.Increment);
-                    generated[column.Index] = true;
+                    highWater = unchecked(highWater + column.Increment);
                     _channel.KeepThroughRollback(_table.DefinitionPage, format.TdefLastAutoNumberOffset, highWater);
+                    if (CannotHoldTheCounter(column))
+                        throw new InvalidOperationException(
+                            $"The field '{column.Name}' is too small to accept the amount of data you attempted to add.");
+                    values[column.Index] = highWater;
+                    generated[column.Index] = true;
                 }
             }
         return generated;
@@ -1335,12 +1348,14 @@ internal sealed class RowInserter(PageChannel channel, TableDefinition table)
             // a UI-authored Random AutoNumber reads last-value 0). Advancing it would be meaningless (random ids
             // don't form a monotone sequence) and diverge from Access's on-disk state.
             if (column.IsRandomAutoNumber) continue;
-            // The counter is a value's first four bytes. On a Text or OLE column that carries the AutoNumber flag — a
-            // damaged descriptor — ACE takes them from the UTF-16 text, zero-padded, or from the binary value
-            // (measured: "Street" sets 0x14 to 0x00740053, "A" to 65, bytes 01 02 03 04 05 06 to 0x04030201).
+            // The counter is a value's first four bytes. On a Text, OLE or Single column that carries the AutoNumber
+            // flag — a damaged descriptor — ACE takes them from the UTF-16 text, zero-padded, from the binary value,
+            // or from the float (measured: "Street" sets 0x14 to 0x00740053, "A" to 65, bytes 01 02 03 04 05 06 to
+            // 0x04030201, 0.25 to 0x3E800000).
             int assigned = value switch
             {
                 string text => (text.Length > 0 ? text[0] : 0) | (text.Length > 1 ? text[1] << 16 : 0),
+                float single => BitConverter.SingleToInt32Bits(single),
                 byte[] bytes => bytes.Take(4).Select((b, i) => b << (8 * i)).Aggregate(0, (counter, b) => counter | b),
                 _ => Convert.ToInt32(value, CultureInfo.InvariantCulture),
             };

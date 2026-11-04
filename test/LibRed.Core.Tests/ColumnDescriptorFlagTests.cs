@@ -289,6 +289,66 @@ public class ColumnDescriptorFlagTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // The same bit on fixed columns. A 4-byte Single takes its own bits as the counter; a column of any other width
+    // cannot hold the 4-byte counter, and ACE refuses the row — explicit value and all — with the id burned
+    // (measured: Order Details.Discount 0.25 set 0x14 to 0x3E800000; Quantity, UnitPrice, Orders.Freight and
+    // OrderDate refused "The field is too small to accept the amount of data you attempted to add.", 0x14 + 1).
+    [Theory]
+    [InlineData(JetDataType.Single, 4, 0.25f, 0x3E800000, false)]
+    [InlineData(JetDataType.Int16, 2, (short)-2, 1, true)]
+    [InlineData(JetDataType.Currency, 8, 12.5, 1, true)]
+    [InlineData(JetDataType.DateTime, 8, "2000-01-02", 1, true)]
+    public void An_explicit_value_in_a_fixed_column_flagged_AutoNumber_needs_four_bytes(
+        JetDataType type, int length, object value, int counter, bool refused)
+    {
+        string path = TemporaryDatabase.CreatePath("autonumber-fixed-");
+        try
+        {
+            JetDatabase.Create(path);
+            int page;
+            byte[] raw;
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("T", [new("Id", JetDataType.Int32, 4, IsFixedLength: true), new ColumnSpec("V", type, length, IsFixedLength: true)]);
+                var t = db.Catalog.FindTable("T")!;
+                page = t.DefinitionPage;
+                raw = t.FindColumn("V")!.RawDescriptor!;
+            }
+
+            byte[] file = File.ReadAllBytes(path);
+            JetFormatBase format = JetFormatBase.FromVersionByte(file[0x14]);
+            int at = file.AsSpan(page * format.PageSize, format.PageSize).IndexOf(raw);
+            Assert.True(at >= 0);
+            file[page * format.PageSize + at + format.ColumnFlagsOffset] |= (byte)ColumnFlags.AutoNumber;
+            File.WriteAllBytes(path, file);
+
+            object stored = type switch
+            {
+                JetDataType.Currency => Convert.ToDecimal(value, System.Globalization.CultureInfo.InvariantCulture),
+                JetDataType.DateTime => DateTime.Parse((string)value, System.Globalization.CultureInfo.InvariantCulture),
+                _ => value,
+            };
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                Table table = db.OpenTable("T");
+                Assert.True(table.Definition.FindColumn("V")!.IsAutoNumber);
+                if (refused)
+                {
+                    var ex = Assert.Throws<InvalidOperationException>(() => table.Insert([1, stored]));
+                    Assert.Contains("too small to accept", ex.Message, StringComparison.Ordinal);
+                    Assert.Empty(table.Rows());
+                }
+                else
+                {
+                    table.Insert([1, stored]);
+                    Assert.Equal([1, stored], table.Rows().Single());
+                }
+            }
+            Assert.Equal(counter, TableDefinition.ReadLastAutoNumber(TestDatabases.ReadPage(path, page), format));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     // Without 0x80 ACE will not evaluate a calculated column, whatever its expression: every read of it fails "This
     // calculated column contains an invalid expression" (measured by clearing the bit on a DAO-created [Qty]*2).
     [Fact]

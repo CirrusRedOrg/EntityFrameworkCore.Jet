@@ -788,11 +788,12 @@ public sealed class JetDatabase : IDisposable
                 _channel.Allocator.ReturnReleasedPages();
             }
         }
-        catch (InvalidDataException)
+        catch (Exception e) when (e is InvalidDataException or NotSupportedException)
         {
-            // The global maps were damaged after the open validated them. The release runs in its own transaction,
-            // so nothing of it was written: the released pages simply stay unreusable, which Compact reclaims —
-            // better than a close that throws out of a using block and hides whatever was already unwinding.
+            // The global maps are damaged, or in a shape LibRed cannot grow, past what the open validated. The
+            // release runs in its own transaction, so nothing of it was written: the released pages simply stay
+            // unreusable, which Compact reclaims — better than a close that throws out of a using block and hides
+            // whatever was already unwinding.
         }
         finally
         {

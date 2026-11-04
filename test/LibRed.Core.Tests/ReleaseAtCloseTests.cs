@@ -159,6 +159,42 @@ public class ReleaseAtCloseTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // A close whose release cannot run — here a released map turned reference form, which needs a bitmap page, and
+    // a free map with no free page and a nonzero start page, which LibRed does not grow — does not throw out of
+    // Dispose. The release runs in its own transaction, so it writes nothing, and the released page stays released.
+    [Fact]
+    public void A_close_whose_release_cannot_run_writes_nothing_and_does_not_throw()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "release-cannot-");
+        try
+        {
+            int holderPage;
+            byte[] holder;
+            using (var channel = PageChannel.Open(path, readOnly: true))
+            {
+                DataPage.RowSlot free, released;
+                (_, holderPage, holder, free) = TestDatabases.GlobalMap(channel, Format.FreePagesMapPointerOffset);
+                (_, _, _, released) = TestDatabases.GlobalMap(channel, Format.ReleasedPagesMapPointerOffset);
+                Span<byte> freeMap = InlineMap(holder, free);
+                System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(freeMap[Format.UsageMapStartPageOffset..], 8);
+                UsageMap.InlineBits(freeMap, Format).Clear();
+                Assert.Equal(Format.UsageMapReferenceRecordSize, released.Length);
+                Assert.All(UsageMap.InlineBits(InlineMap(holder, released), Format).ToArray(), b => Assert.Equal(0, b));
+                holder[released.Offset] = (byte)UsageMapType.Reference;
+            }
+            TestDatabases.WritePage(path, holderPage, holder);
+
+            var db = JetDatabase.Open(path, readOnly: false);
+            PageAllocator allocator = db.OpenTable("MSysObjects").Channel.Allocator;
+            Assert.Throws<NotSupportedException>(() => allocator.Allocate());   // the free map LibRed cannot grow
+            allocator.Release(300);
+            db.Dispose();
+
+            Assert.Equal(holder, TestDatabases.ReadPage(path, holderPage));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     [Fact]
     public void Pages_already_in_the_released_map_are_merged_by_a_close_that_wrote_but_not_by_an_idle_one()
     {

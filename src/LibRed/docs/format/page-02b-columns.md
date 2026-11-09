@@ -6,7 +6,7 @@
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 1 | Data type (see §6) |
+| `0x00` | 1 | Data type (see §6). A code no type has does not refuse the table outright (verified): with `0x0D` or `0x0E` the table opens and counts, and only a read of that column fails — OLE DB's conversion errors, or *"Data type mismatch in criteria expression"* in a `WHERE`; with `0x15` everything that loads the table is *"Unrecognized database format"*. On `MSysRelationships.szColumn` (`0x0D`) every table still lists and reads and unrelated DDL runs, but the foreign-key list fails *"Cannot perform this operation"*; LibRed refuses reading the relationships the same way |
 | `0x01` | 2 | Minimum engine build for the column, the low half of a 32-bit value (`0x03` is the high half) — `0x0659` as ACE and Jet 4.0 write it; each refuses the table when it exceeds its own build, 4518 and 9801 ([page-02a §3.1](page-02a-tdef.md) note) |
 | `0x03` | 2 | The high half of the minimum-build field at `0x01`, which is 32 bits: non-zero here puts the build past ACE's, and ACE refuses the table — *"This object requires a newer version of the Microsoft Access database engine"* (verified). Write zero |
 | `0x05` | 2 | Column id |

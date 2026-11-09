@@ -983,6 +983,12 @@ public sealed class JetCatalog
             }
         }
 
+        // Every column below is read as its own type. One of another type — a damaged type byte — leaves no
+        // relationship readable, as ACE's foreign-key list fails "Cannot perform this operation" on it while every
+        // table still reads (measured, MSysRelationships.szColumn's type byte made 0x0D).
+        if (MSysRelationshipsColumns.FirstOrDefault(c => def.FindColumn(c.Name)?.Type != c.Type) is { } retyped)
+            throw new InvalidDataException(
+                $"MSysRelationships.{retyped.Name} is not {retyped.Type}: the relationships cannot be read.");
         var catalogRows = new CatalogRows(_channel, def);
         var columns = def.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
         int nameIdx = columns["szRelationship"], childTableIdx = columns["szObject"], childColumnIdx = columns["szColumn"],

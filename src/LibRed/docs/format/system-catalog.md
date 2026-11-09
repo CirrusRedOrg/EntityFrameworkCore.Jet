@@ -844,6 +844,13 @@
   single-column FK stores `ccolumn = 1`, `icolumn = 0`, `grbit = 0`; a relationship cascading both update
   and delete stores `grbit = 0x1100`; Access's relationship dialog writes each bit above as its option says.
 
+  > **A relationship row with a null column** (measured, by clearing one column's null-bitmap bit in one row). The
+  > database opens, every table reads and DDL runs. The foreign-key list leaves out the relationship whose row has
+  > a null `szObject` or `szReferencedObject`, and lists it all the same with a null `szRelationship`, `szColumn`,
+  > `icolumn` or `grbit`. LibRed reads the relationships the same way. A column of another type than its own — a
+  > damaged type byte — fails the foreign-key list instead, *"Cannot perform this operation"*, and LibRed refuses
+  > the relationships as `InvalidDataException` ([page-02b §3.4](page-02b-columns.md)).
+
   > **`grbit` records the relationship; ACE does not act on its cascade bits.** The update and delete actions
   > ACE applies are the ones in the relationship's index-info blocks (§3.6, `0x15`/`0x16`): with the two made
   > to disagree, a parent delete that `grbit` calls cascading but the blocks do not is refused, and one the

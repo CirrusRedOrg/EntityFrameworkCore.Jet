@@ -74,4 +74,44 @@ public class CatalogTests
         }
         finally { TemporaryDatabase.Delete(path); }
     }
+
+    // One MSysRelationships row with one column made NULL through its null bitmap. ACE's foreign-key list leaves out
+    // the relationship whose row names no child or parent table, and lists it all the same with a null name, flags,
+    // column order or column (measured on this file's first row, FK_CustomerCustomerDemo: 14 and 15 of 15).
+    [Theory]
+    [InlineData("szObject", true)]
+    [InlineData("szReferencedObject", true)]
+    [InlineData("szRelationship", false)]
+    [InlineData("grbit", false)]
+    [InlineData("icolumn", false)]
+    [InlineData("szColumn", false)]
+    public void A_null_in_a_relationship_row_leaves_it_out_only_when_it_names_no_table(string column, bool leftOut)
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "catalog-relnull-");
+        try
+        {
+            int offset, bit, relationships;
+            using (var db = JetDatabase.Open(path))
+            {
+                relationships = db.Catalog.Relationships.Count;
+                Storage.Table rel = db.OpenTable("MSysRelationships");
+                int columnId = rel.Definition.FindColumn(column)!.ColumnId;
+                var (id, _) = rel.Rows().WithIds().First();
+                Formats.JetFormatBase format = db.Channel.Format;
+                Assert.True(Pages.DataPage.TryReadRow(db.Channel.ReadPage(id.Page), format, id.Row,
+                    out Pages.DataPage.RowSlot slot, out ReadOnlySpan<byte> row));
+                int bitmapSize = Storage.BitmapBits.ByteCount(System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(row));
+                offset = id.Page * format.PageSize + slot.Offset + slot.Length - bitmapSize + (columnId >> 3);
+                bit = 1 << (columnId & 7);
+            }
+            byte[] bytes = File.ReadAllBytes(path);
+            Assert.NotEqual(0, bytes[offset] & bit);
+            bytes[offset] &= (byte)~bit;
+            File.WriteAllBytes(path, bytes);
+
+            using var damaged = JetDatabase.Open(path);
+            Assert.Equal(leftOut ? relationships - 1 : relationships, damaged.Catalog.Relationships.Count);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
 }

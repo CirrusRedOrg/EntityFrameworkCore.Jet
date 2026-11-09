@@ -1009,14 +1009,18 @@ public sealed class JetCatalog
                 r => string.Equals(r[keyIdx] as string, key, StringComparison.OrdinalIgnoreCase)).Select(r => r.Values);
         foreach (object?[] row in rows)
         {
-            string name = (string)row[nameIdx]!;
+            // A null where a value belongs, as ACE reads it (measured, one row's column made NULL): a row naming no
+            // child or parent table is left out of the foreign-key list; a null name, flags, column order or column
+            // is listed all the same, as empty and zero.
+            if (row[childTableIdx] is not string childTable || row[parentTableIdx] is not string parentTable) continue;
+            string name = row[nameIdx] as string ?? "";
             if (!groups.TryGetValue(name, out var g))
             {
-                g = ((string)row[childTableIdx]!, (string)row[parentTableIdx]!,
-                     (RelationshipFlags)(int)row[flagsIdx]!, []);
+                g = (childTable, parentTable, (RelationshipFlags)(row[flagsIdx] as int? ?? 0), []);
                 groups[name] = g;
             }
-            g.Columns.Add(((int)row[orderIdx]!, (string)row[childColumnIdx]!, (string)row[parentColumnIdx]!));
+            g.Columns.Add((row[orderIdx] as int? ?? 0, row[childColumnIdx] as string ?? "",
+                           row[parentColumnIdx] as string ?? ""));
         }
 
         IReadOnlyList<ForeignKey> result = groups

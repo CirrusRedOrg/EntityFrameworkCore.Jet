@@ -17,7 +17,7 @@ The sweep stays the regression guard; this is the search. Nothing here runs in C
 | `LIBRED_FUZZ_TARGET` | Input | What it drives |
 | --- | --- | --- |
 | `database` | a patch list (below) | open, catalog, every table's rows, every index's entries — `MalformedFile.Exercise` |
-| `writes` | a patch list (below) | the same walk opened for writing: in each user table still listed, the first of its first 32 rows the write accepts is also rewritten in place, deleted and inserted again, before its indexes are walked |
+| `writes` | a patch list (below) | the same walk opened for writing: in each user table still listed, the first of its first 32 rows the write accepts is also rewritten in place, deleted and inserted again, then the operations the input selects run (below), before its indexes are walked |
 | `properties` | raw bytes | `PropertyBlob.Read`, the `LvProp` blob decoder |
 | `namemap` | raw bytes | `NameMap.ReadRow` and `NameMap.ReadProperty` |
 
@@ -34,6 +34,23 @@ past its column, a record past the page, a write-once column — and the write A
 treating them as leaks only buries the real findings: an out-of-range index, a null reference, an overflow, a hang.
 The cost is that damage which surfaces as `InvalidOperationException` goes unflagged here. The two targets take
 the same inputs, so `corpus\database` is a good starting corpus for `corpus\writes`.
+
+**The first byte also picks the `writes` workload.** Its remainder by six is the seed; its quotient is a set of
+flags, bit *n* selecting entry *n* of `MalformedFile.Operations`, run on every user table in this order:
+
+| Bit | Operation | What it reaches |
+| --- | --- | --- |
+| 0 | long values | a 9,000-byte value into every Memo and OLE column of the first row, then null: long-value chains allocated and freed |
+| 1 | add and drop columns | a Long and a Text column added and dropped: four definition rewrites |
+| 2 | create and drop an index | an index built from the table's rows over its first Long or Text column, then dropped |
+| 3 | delete and roll back | the first 32 rows deleted by a statement that rolls back |
+| 4 | rename and rename back | the table and its first column renamed and named back |
+| 5 | drop the table | every page the table owns freed, then released at close |
+
+Each runs as one statement, in a transaction of its own that a refusal rolls back, as `QueryEngine` runs a writing
+statement. A byte holds at most 42 as a quotient, so a single input reaches every operation alone and many of their
+combinations, not all of them at once. An input written before the workload existed keeps its patches: it simply
+runs the operations its first byte now selects after the row rewrite it always ran.
 
 ## Running it
 
@@ -58,16 +75,36 @@ Then fuzz one target. libfuzzer-dotnet passes the child exactly one argument (th
 environment. The corpus directory may start empty; libFuzzer grows it.
 
 ```powershell
-$env:LIBRED_FUZZ_TARGET = "database"
-mkdir corpus\database
+$env:LIBRED_FUZZ_TARGET = "writes"
+mkdir corpus\writes
 libfuzzer-dotnet-windows.exe --target_path=dotnet --target_arg=fuzz-bin\LibRed.Core.Fuzz.dll `
-    -timeout=10 -rss_limit_mb=4096 -max_len=256 corpus\database
+    -timeout=10 -rss_limit_mb=4096 -max_len=256 `
+    -use_value_profile=1 "-dict=test\LibRed.Core.Fuzz\database.dict" corpus\writes
 ```
+
+The quotes matter in PowerShell: an argument that starts with `-` and contains a `.` is otherwise split at the dot,
+and libFuzzer then takes `.Core.Fuzz\database.dict` for a corpus directory that does not exist.
+
+`-use_value_profile=1` makes libFuzzer count a comparison that got closer as new coverage, which is what gets a
+patch past a check on one exact value — a type code, a flag bit, a page number. `database.dict` gives the mutator the
+multi-byte values it is slow to guess at random: the u16 page numbers and offsets of the fields a reader steers by
+(page 0's map pointers, the TDEF counters, a column descriptor's type and flags) and the values they take. Both apply
+to `database` as well; the blob targets want neither.
 
 `-max_len=256` is about 50 patches, plenty for `database`; the blob targets want more (`-max_len=4096`). Every
 `database` run copies and writes a seed file, so it is the slow target — `replay` gets through 300 random inputs
 in about four seconds, startup and authoring the seeds included, uninstrumented — and the blob targets are far
 faster. Add `-jobs=N -workers=N` to use more cores, `-max_total_time=<seconds>` to stop on a budget.
+
+**When a run stops finding anything, change what it is given rather than running it longer.** Merge what earlier
+runs found into a fresh, minimal corpus — libFuzzer keeps only the inputs that still add coverage — and start the
+next run from that:
+
+```powershell
+mkdir corpus\merged
+libfuzzer-dotnet-windows.exe --target_path=dotnet --target_arg=fuzz-bin\LibRed.Core.Fuzz.dll `
+    -merge=1 -timeout=10 -rss_limit_mb=4096 corpus\merged corpus\writes corpus\database
+```
 
 ## When it finds something
 

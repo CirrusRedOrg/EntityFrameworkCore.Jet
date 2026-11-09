@@ -114,13 +114,15 @@ internal static class MalformedFile
     /// Walks everything a caller would, one stage at a time and <b>continuing past failures</b>: open, list
     /// the catalog, then each table's rows separately. With <paramref name="write"/>, in each user table still
     /// listed, the first of its first 32 rows the write accepts is also rewritten in place, deleted and inserted
-    /// again before its indexes are walked.
+    /// again, then each of the <see cref="Operations"/> <paramref name="operations"/> selects runs, before its
+    /// indexes are walked.
     /// </summary>
     /// <remarks>
     /// Per-stage on purpose. Stopping at the first exception means one damaged TDEF hides every path behind
     /// it, and the interesting leak is rarely the first thing that breaks.
     /// </remarks>
-    public static IEnumerable<(string Stage, Exception? Leak)> Exercise(string path, string? password = null, bool write = false)
+    public static IEnumerable<(string Stage, Exception? Leak)> Exercise(string path, string? password = null, bool write = false,
+        int operations = 0)
     {
         JetDatabase? database = null;
         try
@@ -187,6 +189,18 @@ internal static class MalformedFile
                     if (!listed) continue;
                 }
 
+                // Then the operations selected — the code a row rewrite never reaches: long-value chains, schema edits,
+                // a rolled-back transaction. Each is one statement, as QueryEngine runs every writing statement: in a
+                // transaction of its own, rolled back when the operation is refused.
+                for (int bit = 0; write && !table.IsSystem && listed && bit < Operations.Length; bit++)
+                {
+                    if ((operations & (1 << bit)) == 0) continue;
+                    (string name, Action<JetDatabase, string> operation, bool rollBack) = Operations[bit];
+                    yield return Try($"{name} '{table.Name}'", () => Statement(database, () => operation(database, table.Name), rollBack));
+                    yield return Try($"find '{table.Name}' again", () => listed = database.Catalog.FindTable(table.Name) is not null);
+                }
+                if (!listed) continue;
+
                 // A table SCAN reads the usage map and the data pages and never descends a B-tree, so
                 // without this every index page the sweep corrupts goes unread — the split-index shape was
                 // building node pages that nothing then looked at. Walking the entries decodes every page
@@ -206,6 +220,86 @@ internal static class MalformedFile
             }
         }
         finally { database?.Dispose(); }
+    }
+
+    /// <summary>
+    /// What a write workload can run on each user table after its row rewrite, in this order; bit <c>n</c> of
+    /// <see cref="Exercise"/>'s <c>operations</c> selects entry <c>n</c>. Each uses only the public API, and none
+    /// leaves the schema changed on an undamaged file, so the walk after it reads what it read before — except the
+    /// last, which drops the table.
+    /// </summary>
+    internal static readonly (string Name, Action<JetDatabase, string> Run, bool RollBack)[] Operations =
+    [
+        // A chained long value written into every Memo and OLE column of the first row, then taken out again: the
+        // long-value allocation and the free of a chain.
+        ("long values", (database, name) =>
+        {
+            Table table = database.OpenTable(name);
+            List<ColumnDef> longValues = [.. table.Definition.Columns.Where(c => c.Type is JetDataType.Memo or JetDataType.Ole)];
+            if (longValues.Count == 0 || table.Rows().WithIds().Take(1).ToList() is not [(RowId id, object?[] row)]) return;
+            var changed = (object?[])row.Clone();
+            foreach (ColumnDef column in longValues)
+                changed[column.Index] = column.Type == JetDataType.Memo ? new string('m', 9000) : new byte[9000];
+            table.Update(id, changed, longValues.Select(c => c.Index).ToHashSet());
+            foreach (ColumnDef column in longValues) changed[column.Index] = null;
+            table.Update(id, changed, longValues.Select(c => c.Index).ToHashSet());
+        }, false),
+        // Two columns added, one fixed and one variable, and dropped again: the definition rewritten four times.
+        ("add and drop columns", (database, name) =>
+        {
+            database.AddColumn(name, new ColumnSpec("FuzzLong", JetDataType.Int32, 4, IsFixedLength: true));
+            database.AddColumn(name, new ColumnSpec("FuzzText", JetDataType.Text, 40, IsFixedLength: false));
+            database.DropColumn(name, "FuzzLong");
+            database.DropColumn(name, "FuzzText");
+        }, false),
+        // An index built over the table's rows and dropped again: a B-tree built from damaged rows, then freed.
+        ("create and drop an index", (database, name) =>
+        {
+            if (database.OpenTable(name).Definition.Columns.FirstOrDefault(c => c.Type is JetDataType.Int32 or JetDataType.Text)
+                is not { } column) return;
+            database.CreateIndex(name, "FuzzIndex", [(column.Name, false)]);
+            database.DropIndex(name, "FuzzIndex");
+        }, false),
+        // The first rows deleted by a statement that then rolls back: every page it wrote restored from the overlay.
+        ("delete and roll back", (database, name) =>
+        {
+            Table table = database.OpenTable(name);
+            foreach ((RowId id, _) in table.Rows().WithIds().Take(32).ToList())
+            {
+                try { table.Delete(id); }
+                catch (InvalidOperationException) { }
+            }
+        }, true),
+        // The table and its first column renamed and named back: the catalog row and the definition rewritten.
+        ("rename and rename back", (database, name) =>
+        {
+            if (database.RenameTable(name, "FuzzRenamed")) database.RenameTable("FuzzRenamed", name);
+            string column = database.OpenTable(name).Definition.Columns[0].Name;
+            if (database.RenameColumn(name, column, "FuzzColumn")) database.RenameColumn(name, "FuzzColumn", column);
+        }, false),
+        // The table dropped: every page it owns freed, then released at close.
+        ("drop the table", (database, name) => database.DropTable(name), false),
+    ];
+
+    /// <summary>Runs <paramref name="operation"/> as one statement: in a transaction of its own, committed — or, with
+    /// <paramref name="rollBack"/>, rolled back — or rolled back when the operation is refused with
+    /// <see cref="InvalidOperationException"/>, as ACE refuses a write a damaged schema breaks. Anything else rolls
+    /// back too and goes on to be judged by the contract.</summary>
+    private static void Statement(JetDatabase database, Action operation, bool rollBack)
+    {
+        database.BeginTransaction();
+        try
+        {
+            operation();
+            if (rollBack) database.Rollback();
+            else database.Commit(flush: false);
+        }
+        catch (InvalidOperationException) { database.Rollback(failed: true); }
+        catch
+        {
+            database.Rollback(failed: true);
+            throw;
+        }
     }
 
     private static (string Outcome, Exception? Leak) Try(string stage, Action action)

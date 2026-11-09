@@ -95,7 +95,8 @@ internal static class Program
 /// mutating a whole file spends nearly every mutation on row data. So the input is a patch list against one of
 /// a fixed set of good seed databases: <c>[seed][page u16][offset u16][byte]…</c>, each field reduced modulo
 /// what it indexes. Inputs stay a few bytes long, every one decodes to a database, and libFuzzer still learns
-/// which patches reach new code. Unlike the sweep, page 0 and every offset are in range.
+/// which patches reach new code. Unlike the sweep, page 0 and every offset are in range. The first byte's
+/// quotient by the seed count is the write workload's operation flags (<see cref="MalformedFile.Operations"/>).
 /// </remarks>
 internal sealed class DatabaseTarget
 {
@@ -141,7 +142,8 @@ internal sealed class DatabaseTarget
         }
         File.WriteAllBytes(_path, bytes);
 
-        foreach ((_, Exception? leak) in MalformedFile.Exercise(_path, password, _write))
+        // The rest of the first byte picks the write workload's operations, so a patch list keeps its meaning.
+        foreach ((_, Exception? leak) in MalformedFile.Exercise(_path, password, _write, operations: data[0] / _seeds.Length))
             if (leak is not null)
                 ExceptionDispatchInfo.Throw(leak);
     }

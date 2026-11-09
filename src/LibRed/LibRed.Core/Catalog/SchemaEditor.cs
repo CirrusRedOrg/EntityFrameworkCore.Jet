@@ -957,7 +957,11 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// record, and returns its row. The new map tracks no pages yet, so an empty bitmap is correct.</summary>
     private int AppendEmptyUsageMapRow(JetFormatBase format, int pageNumber)
     {
-        byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
+        // Read as every other append reads its page first: the header and the slot directory checked, so a page
+        // whose row count runs past it is refused rather than walked.
+        PageBuffer buffer = _channel.ReadPage(pageNumber);
+        new DataPage().Read(buffer, format);
+        byte[] page = buffer.Span.ToArray();
 
         // A record written below the directory would overwrite the slots themselves — which reads back later
         // as a slot with offset 0 "outside the row heap", a long way from the cause. The caller is expected

@@ -270,16 +270,25 @@ internal static class MalformedFile
                 catch (InvalidOperationException) { }
             }
         }, true),
-        // The table and its first column renamed and named back: the catalog row and the definition rewritten.
+        // The table and its first column renamed and named back: the catalog row and the definition rewritten. Only a
+        // name a caller could give is named back: damage can store one ACE refuses, which reads but cannot be given
+        // back, there or here.
         ("rename and rename back", (database, name) =>
         {
-            if (database.RenameTable(name, "FuzzRenamed")) database.RenameTable("FuzzRenamed", name);
+            if (Nameable(name) && database.RenameTable(name, "FuzzRenamed")) database.RenameTable("FuzzRenamed", name);
             string column = database.OpenTable(name).Definition.Columns[0].Name;
-            if (database.RenameColumn(name, column, "FuzzColumn")) database.RenameColumn(name, "FuzzColumn", column);
+            if (Nameable(column) && database.RenameColumn(name, column, "FuzzColumn"))
+                database.RenameColumn(name, "FuzzColumn", column);
         }, false),
         // The table dropped: every page it owns freed, then released at close.
         ("drop the table", (database, name) => database.DropTable(name), false),
     ];
+
+    private static bool Nameable(string name)
+    {
+        try { JetName.Validate(name); return true; }
+        catch (ArgumentException) { return false; }
+    }
 
     /// <summary>Runs <paramref name="operation"/> as one statement: in a transaction of its own, committed — or, with
     /// <paramref name="rollBack"/>, rolled back — or rolled back when the operation is refused with

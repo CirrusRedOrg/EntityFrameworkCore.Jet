@@ -310,6 +310,11 @@ the documented 255-column, 32-index, and 64-character-name limits.
 > `SELECT *` names the column as stored. Only the DDL refuses it, so a column renamed away from that name (DAO's
 > `Field.Name`) cannot be given it back — *"'…' is not a valid name."*
 >
+> Two columns stored under one name (verified, one name entry damaged into another's) still read. A lookup by
+> that name resolves to the first of them: `SELECT` of the name reads the first column's value, `SELECT *` lists
+> both as `Table.name`, and `CREATE INDEX` over the name indexes the first. `ADD COLUMN` of the name is refused,
+> *"Field '…' already exists in table '…'."*
+>
 > LibRed enforces all of this on caller-supplied names via `JetName.Validate`, since writing the format
 > directly bypasses ACE's DDL parser. Internal hidden names (the `.rN` incoming-relationship index names, §3.6)
 > legitimately start with `.` and are **not** validated.

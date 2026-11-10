@@ -75,6 +75,40 @@ public class CatalogTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // One column's name damaged into another's: c4 made c3. ACE reads the table and resolves the name to the first
+    // column that has it — SELECT c3 reads c3's value — and CREATE INDEX succeeds over that name and over another
+    // column (measured on this shape).
+    [Fact]
+    public void A_name_two_columns_share_resolves_to_the_first_of_them()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "catalog-dupname-");
+        try
+        {
+            int page;
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("Wide",
+                    [.. Enumerable.Range(0, 6).Select(i => new Catalog.ColumnSpec($"c{i}", Catalog.JetDataType.Int32, 4, IsFixedLength: true))]);
+                db.OpenTable("Wide").Insert([0, 1, 2, 3, 4, 5]);
+                page = db.Catalog.FindTable("Wide")!.DefinitionPage;
+            }
+            byte[] file = File.ReadAllBytes(path);
+            int pageSize = Formats.JetFormatBase.FromVersionByte(file[0x14]).PageSize;
+            // c4's name entry: its length, then the name in UTF-16.
+            int at = file.AsSpan(page * pageSize, pageSize).IndexOf((byte[])[4, 0, (byte)'c', 0, (byte)'4', 0]);
+            Assert.True(at >= 0);
+            file[page * pageSize + at + 4] = (byte)'3';
+            File.WriteAllBytes(path, file);
+
+            using var damaged = JetDatabase.Open(path, readOnly: false);
+            Assert.Equal(["c0", "c1", "c2", "c3", "c3", "c5"], damaged.Catalog.FindTable("Wide")!.Columns.Select(c => c.Name));
+            damaged.CreateIndex("Wide", "I0", [("c0", false)]);
+            damaged.CreateIndex("Wide", "I3", [("c3", false)]);
+            Assert.Equal(3, damaged.Catalog.FindTable("Wide")!.FindIndex("I3")!.Columns.Single().Column.ColumnId);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     // One MSysRelationships row with one column made NULL through its null bitmap. ACE's foreign-key list leaves out
     // the relationship whose row names no child or parent table, and lists it all the same with a null name, flags,
     // column order or column (measured on this file's first row, FK_CustomerCustomerDemo: 14 and 15 of 15).

@@ -731,14 +731,12 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
                 throw new InvalidOperationException($"Invalid field definition '{name}' in definition of index or relationship.");
     }
 
-    /// <summary>Resolves index column names to (columnId, ascending) slots against a table.</summary>
+    /// <summary>Resolves index column names to (columnId, ascending) slots against a table. A name two columns of a
+    /// damaged definition share resolves to the first of them, as ACE resolves it (measured).</summary>
     private static List<(int Id, bool Ascending)> ResolveSlots(
-        TableDefinition table, IEnumerable<(string Column, bool Ascending)> columns)
-    {
-        var byName = table.Columns.ToDictionary(c => c.Name, c => c.ColumnId, StringComparer.OrdinalIgnoreCase);
-        return columns.Select(c => byName.TryGetValue(c.Column, out int id) ? (Id: id, c.Ascending)
+        TableDefinition table, IEnumerable<(string Column, bool Ascending)> columns) =>
+        columns.Select(c => table.FindColumn(c.Column) is { } column ? (Id: column.ColumnId, c.Ascending)
             : throw new InvalidOperationException($"Column '{c.Column}' does not exist in '{table.Name}'.")).ToList();
-    }
 
     /// <summary>ACE rejects a duplicate index name — for a foreign key's backing index as much as a CREATE INDEX, and
     /// for a rename (verified) — and so must LibRed: every lookup downstream (DROP INDEX, the back-fill, DROP

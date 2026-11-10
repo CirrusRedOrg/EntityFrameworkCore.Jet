@@ -36,9 +36,15 @@ public class CollationQueryProbeTests
         AssertComparesIn(ace, GeneralOrder, below: ["ča", "ca"], literal: "general", minMax: "ca / lm");
     }
 
+    // The 2016 redistributable takes an access violation in ACECORE on the literal 'lja' < 'lm' here, which kills the
+    // test process and every test after it; it answered on .NET 11 RC 2 and crashes since RC 3. DATETIME2 support is
+    // how this suite tells that engine from the Microsoft 365 runtime, which runs the query.
     [Fact]
     public void A_general_column_in_a_database_stamped_croatian_compares_as_croatian()
     {
+        Assert.SkipUnless(AceTestDatabase.SupportsColumnType(TestDatabases.NorthwindAccdb, "DATETIME2"),
+            "The ACE 2016 redistributable crashes (access violation in ACECORE) comparing a Croatian digraph literal "
+            + "in a database stamped Croatian.");
         Dictionary<string, string[]> ace = Probe(stampHeader: true, stampColumn: false);
         AssertComparesIn(ace, CroatianOrder, below: ["ca"], literal: "croatian", minMax: "ca / lja");
     }

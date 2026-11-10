@@ -1,8 +1,8 @@
 <Project>
 	<PropertyGroup>
 		<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-		<EFCoreVersion>[11.0.0-rc.3.26522.148]</EFCoreVersion>
-		<MSLibVersion>[11.0.0-rc.3.26522.148]</MSLibVersion>
+		<EFCoreVersion>[11.0.0]</EFCoreVersion>
+		<MSLibVersion>[11.0.0]</MSLibVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -25,7 +25,7 @@
 		<PackageVersion Include="Microsoft.Extensions.Logging" Version="$(MSLibVersion)" />
 		<PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="$(MSLibVersion)" />
 		<PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.0" />
-		<PackageVersion Include="Microsoft.SourceLink.GitHub" Version="11.0.100-rc.3.26522.148" />
+		<PackageVersion Include="Microsoft.SourceLink.GitHub" Version="11.0.100" />
 		<PackageVersion Include="Moq" Version="4.20.72" />
 		<PackageVersion Include="MSTest.TestAdapter" Version="4.4.0" />
 		<PackageVersion Include="MSTest.TestFramework" Version="4.4.0" />
@@ -41,8 +41,8 @@
 		     xunit.v3.extensibility.core, so inheriting from its test bases requires v3. Pinned to the
 		     same build EF resolves, so the two cannot disagree about which xunit is in the graph. -->
 		<PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
-		<PackageVersion Include="xunit.v3.assert" Version="4.0.0" />
-		<PackageVersion Include="xunit.v3.core" Version="4.0.0" />
-		<PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.0" />
+		<PackageVersion Include="xunit.v3.assert" Version="4.0.1" />
+		<PackageVersion Include="xunit.v3.core" Version="4.0.1" />
+		<PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.1" />
 	</ItemGroup>
 </Project>

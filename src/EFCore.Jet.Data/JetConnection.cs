@@ -1,6 +1,7 @@
 using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using Microsoft.Win32;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
@@ -407,6 +408,10 @@ namespace EntityFrameworkCore.Jet.Data
                 throw;
             }
         }
+
+        private static readonly ConcurrentDictionary<string, bool> _hasDualTable = new(StringComparer.Ordinal);
+
+        public bool HasDualTable => _hasDualTable.GetOrAdd(ActiveConnectionString!, _ => TableExists(DefaultDualTableName));
 
         /// <summary>
         /// Gets a string that represents the version of the server to which the object is connected.

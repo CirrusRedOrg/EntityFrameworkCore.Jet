@@ -305,7 +305,7 @@ CREATE TABLE `{LockTableName}` (
         private IRelationalCommand CreateInsertLockCommand(DateTimeOffset timestamp)
         {
             var timestampLiteral = Dependencies.TypeMappingSource.GetMapping(typeof(DateTimeOffset)).GenerateSqlLiteral(timestamp);
-            var dualTableName = JetDualTable.Name;
+            var dualTableName = string.IsNullOrEmpty(JetDualTable.Name) ? LockTableName : JetDualTable.Name;
 
             return Dependencies.RawSqlCommandBuilder.Build($"""
 INSERT INTO `{LockTableName}` (`Id`, `Timestamp`)

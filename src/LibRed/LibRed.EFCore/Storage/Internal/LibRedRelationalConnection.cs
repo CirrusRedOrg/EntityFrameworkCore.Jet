@@ -1,3 +1,7 @@
+using System.Data;
+using EntityFrameworkCore.Jet.Infrastructure;
+using EntityFrameworkCore.LibRed.Infrastructure;
+using EntityFrameworkCore.LibRed.Infrastructure.Internal;
 using LibRed.Data;
 
 namespace EntityFrameworkCore.LibRed.Storage.Internal;
@@ -11,5 +15,16 @@ public class LibRedRelationalConnection(RelationalConnectionDependencies depende
     : RelationalConnection(dependencies), ILibRedRelationalConnection
 {
     protected override DbConnection CreateDbConnection()
-        => new LibRedConnection { ConnectionString = ConnectionString };
+    {
+        var connection = new LibRedConnection { ConnectionString = ConnectionString };
+        if (Dependencies.ContextOptions.FindExtension<LibRedOptionsExtension>()?.SqlMode == LibRedSqlMode.Compatible)
+        {
+            connection.StateChange += (_, e) =>
+            {
+                if (e.CurrentState == ConnectionState.Open)
+                    JetDualTable.DetectedName = connection.HasDualTable ? LibRedConnection.DualTableName : "";
+            };
+        }
+        return connection;
+    }
 }

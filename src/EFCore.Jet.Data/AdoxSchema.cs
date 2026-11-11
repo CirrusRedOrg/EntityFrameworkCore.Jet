@@ -653,6 +653,10 @@ namespace EntityFrameworkCore.Jet.Data
             }
         }
 
+        public override void RenameIndex(string tableName, string oldIndexName, string newIndexName)
+            => throw new NotSupportedException(
+                $"Cannot rename index '{oldIndexName}' of table '{tableName}' through ADOX; rename it through DAO.");
+
         private static string GetDataTypeString(DataTypeEnum dataType, bool isIdentity = false)
         {
             switch (dataType)

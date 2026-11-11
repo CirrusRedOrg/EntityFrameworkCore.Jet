@@ -7,7 +7,7 @@ It is kept in sync with `CLAUDE.md`; if you change guidance in one, check whethe
 
 EntityFrameworkCore.Jet is an EF Core provider for Microsoft Jet/ACE databases (Microsoft Access `.mdb`/`.accdb` files). The **Jet** provider runs **Windows only** and bridges EF Core to the Access database engine via either ODBC or OLE DB. Alongside it, **LibRed** (also in this repo, on `master`) is a from-scratch managed engine that reads/writes the file format directly and is **cross-platform** — see the LibRed section below.
 
-Current version: `11.0.0-alpha.5` (`Version.props`) targeting EF Core 11 and `net11.0`; `global.json` pins the 11.0.100 RC2 SDK with `rollForward: latestFeature`. The test projects use **xunit v3**, except `EFCore.Jet.Data.Tests` and `EFCore.Jet.IntegrationTests`, which use MSTest.
+Current version: `11.0.0-beta.1` (`Version.props`) targeting EF Core 11 and `net11.0`; `global.json` pins the 11.0.100 SDK with `rollForward: latestFeature`. The test projects use **xunit v3**, except `EFCore.Jet.Data.Tests` and `EFCore.Jet.IntegrationTests`, which use MSTest.
 
 `LibRed.Core`, `LibRed.Sql`, `LibRed.Engine` and `LibRed.Ado` are the exception: they multi-target
 `$(LibRedTargetFrameworks)` = `net10.0;net11.0`, since none of them depends on an EF Core package. `LibRed.EFCore`
@@ -165,7 +165,8 @@ test/
   LibRed.EFCore.Tests/            LibRed EF Core provider: query round-trip,
                                   database-first scaffolding            [no driver; CI's Windows ACE job]
   LibRed.Shared/                  Helpers compiled into the Core/Engine test pairs and LibRed.Ado.Tests
-                                  (TemporaryDatabase, …; AceTestDatabase into the AccessTests only)
+                                  (TemporaryDatabase, …; AceTestDatabase into the AccessTests only;
+                                  MalformedFile into LibRed.Core.Tests and LibRed.Core.Fuzz)
   EFCore.LibRed.FunctionalTests/  EF Core specification suite over LibRed, compatible
                                   SQL mode (Jet-dialect SQL)                        [cross-platform]
   EFCore.LibRed.Extended.FunctionalTests/
@@ -176,6 +177,9 @@ test/
                                   split, storage, writes, DDL, catalog, and an opt-in ACE
                                   head-to-head. `-- --validate` checks the SQL corpus.
                                   See its README.md                                [cross-platform]
+  LibRed.Core.Fuzz/               SharpFuzz + libFuzzer harness over LibRed.Core: damaged databases
+                                  and blob decoders, held to the sweep's leak contract. Not in CI;
+                                  needs third-party tools. See its README.md       [cross-platform]
   Shared/                         For the EF functional suites: ModuleInitializer.cs (locks culture to
                                   en-US) and TestUtilities/ (test orderers, crash detection, conditions)
 
@@ -405,8 +409,10 @@ flags — `jet` and `libred` — and skips the jobs that don't apply:
   partway through the largest shard.
 - **LibRed** — `LibRed.Engine.Tests` and `LibRed.Core.Tests` on Linux/Windows/macOS + ubuntu-arm/windows-arm,
   no ACE anywhere.
-- **LibRedAccess** — the ACE cross-check suites on `windows-latest` with ACE 2016, plus `LibRed.Ado.Tests` and
-  `LibRed.EFCore.Tests`, which need no driver but run only there for now.
+- **LibRedAccess** — the ACE cross-check suites on `windows-latest`, plus `LibRed.Ado.Tests` and
+  `LibRed.EFCore.Tests`, which need no driver but run only there for now. Two legs: the 2016 redistributable, and
+  the Microsoft 365 Access Runtime installed through the Office Deployment Tool, where the version-guarded cases
+  (BIGINT/DATETIME2, backtick CHECKs) actually run. The 365 leg is `continue-on-error` until it proves stable.
 - **LibRedFunctional** — both `EFCore.LibRed.FunctionalTests` (compatible mode) and
   `EFCore.LibRed.Extended.FunctionalTests` (extended mode) on the five-platform matrix, `continue-on-error`.
 - **NuGet** — packs for `master`, `*-servicing`, `*-wip` and release tags, attaching the packages to the run

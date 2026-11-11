@@ -39,6 +39,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         private List<string> _nullNumerics = [];
         private Stack<Expression> parent = new();
         private CoreTypeMapping? _boolTypeMapping;
+        private TableExpression? _queryTable;
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
@@ -208,6 +209,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         private void VisitJetTables(IReadOnlyList<TableExpressionBase> tables, bool addFromSql, out List<ColumnExpression> colexp)
         {
             colexp = [];
+            _queryTable ??= tables.OfType<TableExpression>().FirstOrDefault();
             if (tables.Count == 0)
             {
                 GeneratePseudoFromClause();
@@ -524,8 +526,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         protected override void GeneratePseudoFromClause()
         {
+            var dualTableName = string.IsNullOrEmpty(JetDualTable.Name) ? _queryTable?.Name : JetDualTable.Name;
+
             Sql.AppendLine()
-                .Append("FROM " + "(SELECT COUNT(*) FROM `" + JetDualTable.Name + "`)");
+                .Append("FROM " + "(SELECT COUNT(*) FROM `" + dualTableName + "`)");
         }
 
         private void GenerateList<T>(

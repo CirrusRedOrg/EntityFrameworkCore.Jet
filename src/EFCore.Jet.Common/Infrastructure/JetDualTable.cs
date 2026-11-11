@@ -41,7 +41,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure
         /// <summary>
         /// The DUAL table or query the scaffolding factory last detected in the database.
         /// </summary>
-        public static string DetectedName { get; set; } = "#Dual";
+        public static string DetectedName { get; set; } = "";
 
         /// <summary>
         /// The name to generate into SQL: the user's <see cref="CustomName"/> when one has been set,

@@ -34,6 +34,7 @@ namespace EntityFrameworkCore.Jet.Data
         public abstract void EnsureDualTable();
         public abstract void RenameTable(string oldTableName, string newTableName);
         public abstract void RenameColumn(string tableName, string oldColumnName, string newColumnName);
+        public abstract void RenameIndex(string tableName, string oldIndexName, string newIndexName);
 
         internal static bool IsSystemTableByName(string tableName)
             => tableName.StartsWith("msys", StringComparison.OrdinalIgnoreCase);

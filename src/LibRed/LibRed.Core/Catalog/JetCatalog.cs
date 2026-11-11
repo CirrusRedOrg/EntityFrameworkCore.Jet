@@ -682,8 +682,12 @@ public sealed class JetCatalog
     private TableDefinition ReadTable(object?[]? row, TableDefinition mo, Dictionary<string, int>? columns,
         Table? source = null, RowId sourceRow = default, DecodedTable? known = null)
     {
-        int definitionPage = known?.Metadata.DefinitionPage ?? (int)row![columns!["Id"]]!;
-        string name = known?.Metadata.Name ?? (string)row![columns!["Name"]]!;
+        // Without its name or its Id the row names no table. ACE refuses such a table too (measured): a null Id
+        // reads as "Unrecognized database format", and a null Name fails the table list.
+        string name = known?.Metadata.Name ?? row![columns!["Name"]] as string
+            ?? throw new InvalidDataException("A table's MSysObjects row has no Name.");
+        int definitionPage = known?.Metadata.DefinitionPage ?? (row![columns!["Id"]] is int id ? id
+            : throw new InvalidDataException($"The MSysObjects row of table '{name}' has no Id."));
         EnsureFresh();
         // Enumeration and name lookup decode through this same path. Reuse the kept system definitions
         // here too, rather than repeatedly decoding them just to discard them from a user-table schema view.
@@ -700,7 +704,8 @@ public sealed class JetCatalog
         if (source is not null)
             row = source.GetRow(sourceRow)
                 ?? throw new InvalidDataException($"Catalog row {sourceRow.Page}:{sourceRow.Row} disappeared while reading '{name}'.");
-        var flags = known?.Flags ?? (ObjectAttributes)unchecked((uint)(int)row![columns!["Flags"]]!);
+        // A null Flags is no flags: ACE reads the table as usual (measured).
+        var flags = known?.Flags ?? (row![columns!["Flags"]] is int stored ? (ObjectAttributes)unchecked((uint)stored) : 0);
         ReadOnlyMemory<byte> propertyBlob = known?.Properties ?? (row![columns!["LvProp"]] as byte[]);
         ReadOnlyMemory<byte> page = default;
         if (held is not null)
@@ -765,6 +770,10 @@ public sealed class JetCatalog
 
             (definition.ValidationRule, definition.ValidationText) = PropertyBlob.ReadValidation(properties, "");
         }
+        // ACE will not load a table whose calculated column has no Expression property: the database opens, but
+        // everything that loads that table fails "Property not found." (measured, fixed or variable column).
+        if (definition.Columns.FirstOrDefault(c => c.IsCalculated && c.CalculatedExpression is null) is { } orphan)
+            throw new InvalidDataException($"Calculated column '{name}.{orphan.Name}' has no Expression property.");
         if (_tableDefinitions.Count >= 64 && !_tableDefinitions.ContainsKey(name))
             _tableDefinitions.Remove(_tableDefinitions.Keys.First(key =>
                 !string.Equals(key, "MSysObjects", StringComparison.OrdinalIgnoreCase)));
@@ -974,6 +983,12 @@ public sealed class JetCatalog
             }
         }
 
+        // Every column below is read as its own type. One of another type — a damaged type byte — leaves no
+        // relationship readable, as ACE's foreign-key list fails "Cannot perform this operation" on it while every
+        // table still reads (measured, MSysRelationships.szColumn's type byte made 0x0D).
+        if (MSysRelationshipsColumns.FirstOrDefault(c => def.FindColumn(c.Name)?.Type != c.Type) is { } retyped)
+            throw new InvalidDataException(
+                $"MSysRelationships.{retyped.Name} is not {retyped.Type}: the relationships cannot be read.");
         var catalogRows = new CatalogRows(_channel, def);
         var columns = def.Columns.ToDictionary(c => c.Name, c => c.Index, StringComparer.OrdinalIgnoreCase);
         int nameIdx = columns["szRelationship"], childTableIdx = columns["szObject"], childColumnIdx = columns["szColumn"],
@@ -994,14 +1009,18 @@ public sealed class JetCatalog
                 r => string.Equals(r[keyIdx] as string, key, StringComparison.OrdinalIgnoreCase)).Select(r => r.Values);
         foreach (object?[] row in rows)
         {
-            string name = (string)row[nameIdx]!;
+            // A null where a value belongs, as ACE reads it (measured, one row's column made NULL): a row naming no
+            // child or parent table is left out of the foreign-key list; a null name, flags, column order or column
+            // is listed all the same, as empty and zero.
+            if (row[childTableIdx] is not string childTable || row[parentTableIdx] is not string parentTable) continue;
+            string name = row[nameIdx] as string ?? "";
             if (!groups.TryGetValue(name, out var g))
             {
-                g = ((string)row[childTableIdx]!, (string)row[parentTableIdx]!,
-                     (RelationshipFlags)(int)row[flagsIdx]!, []);
+                g = (childTable, parentTable, (RelationshipFlags)(row[flagsIdx] as int? ?? 0), []);
                 groups[name] = g;
             }
-            g.Columns.Add(((int)row[orderIdx]!, (string)row[childColumnIdx]!, (string)row[parentColumnIdx]!));
+            g.Columns.Add((row[orderIdx] as int? ?? 0, row[childColumnIdx] as string ?? "",
+                           row[parentColumnIdx] as string ?? ""));
         }
 
         IReadOnlyList<ForeignKey> result = groups
@@ -1486,6 +1505,20 @@ public sealed class JetCatalog
     {
         var definition = new TableDefinition { Name = name, IsSystem = isSystem };
         reused = definition.Read(_channel, definitionPage, previous);
+        // The catalog reads these three by column name. A page that decodes as a table but lacks one of their
+        // columns — page 0's catalog root, or an MSysObjects Id, pointing at another TDEF — is not that table.
+        ColumnSpec[]? catalogColumns =
+            string.Equals(name, "MSysObjects", StringComparison.OrdinalIgnoreCase) ? MSysObjectsColumns
+            : string.Equals(name, "MSysQueries", StringComparison.OrdinalIgnoreCase) ? MSysQueriesColumns
+            : string.Equals(name, "MSysRelationships", StringComparison.OrdinalIgnoreCase) ? MSysRelationshipsColumns
+            : null;
+        if (catalogColumns?.FirstOrDefault(c => definition.FindColumn(c.Name) is null) is { } missing)
+            throw new InvalidDataException(
+                $"Page {definitionPage}, read as {name}, has no '{missing.Name}' column: it is not the definition of {name}.");
+        // ACE will not open a database whose MSysObjects has a calculated column, fixed or variable (measured).
+        if (catalogColumns == MSysObjectsColumns && definition.Columns.FirstOrDefault(c => c.IsCalculated) is { } calculated)
+            throw new InvalidDataException(
+                $"MSysObjects (page {definitionPage}) has a calculated column, '{calculated.Name}'.");
         return definition;
     }
 

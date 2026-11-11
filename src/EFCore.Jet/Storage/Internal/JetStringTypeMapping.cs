@@ -90,6 +90,14 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                              length != null && length <= _maxSpecificSize
                 ? _maxSpecificSize
                 : -1;
+
+            //The Access ODBC driver refuses a string parameter over 255 characters (HY104) unless it is long text.
+            //OdbcType.NText = 12;
+            if (parameter.Size == -1)
+            {
+                var setodbctype = parameter.GetType().GetMethods().FirstOrDefault(x => x.Name == "set_OdbcType");
+                setodbctype?.Invoke(parameter, [12]);
+            }
         }
 
         /// <summary>

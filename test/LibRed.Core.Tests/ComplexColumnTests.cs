@@ -379,6 +379,42 @@ public class ComplexColumnTests
         Assert.Throws<InvalidOperationException>(() => db.ReadComplexValues("Customers", "CustomerID", 1));
     }
 
+    // MSysComplexColumns.ConceptualTableID's type byte damaged from Long (0x04) to Byte (0x02): a write still looks up
+    // its table's complex columns there, by the table's definition page — 283 for Shippers, which no Byte holds. ACE
+    // inserts and deletes a Shippers row on this file as usual (measured), and so does LibRed.
+    [Fact]
+    public void A_write_goes_ahead_when_the_registry_types_its_owner_column_as_another_kind()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "complex-owner-type-");
+        try
+        {
+            int page;
+            byte[] raw;
+            using (var db = JetDatabase.Open(path))
+            {
+                TableDefinition registry = db.Catalog.FindTable("MSysComplexColumns")!;
+                page = registry.DefinitionPage;
+                raw = registry.FindColumn("ConceptualTableID")!.RawDescriptor!;
+                Assert.True(db.Catalog.FindTable("Shippers")!.DefinitionPage > byte.MaxValue);
+            }
+            byte[] file = File.ReadAllBytes(path);
+            JetFormatBase format = JetFormatBase.FromVersionByte(file[0x14]);
+            int at = file.AsSpan(page * format.PageSize, format.PageSize).IndexOf(raw);
+            Assert.True(at >= 0);
+            Assert.Equal((byte)JetDataType.Int32, file[page * format.PageSize + at + format.ColumnTypeOffset]);
+            file[page * format.PageSize + at + format.ColumnTypeOffset] = (byte)JetDataType.Byte;
+            File.WriteAllBytes(path, file);
+
+            using var damaged = JetDatabase.Open(path, readOnly: false);
+            var shippers = damaged.OpenTable("Shippers");
+            shippers.Insert([null, "Fuzz", null]);
+            var (id, _) = shippers.Rows().WithIds().Single(r => (string?)r.Values[1] == "Fuzz");
+            shippers.Delete(id);
+            Assert.Equal(3, shippers.Rows().Count());
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     [Theory]
     [InlineData(new byte[] { 1, 2, 3 })]                                    // shorter than the outer header
     [InlineData(new byte[] { 9, 0, 0, 0, 4, 0, 0, 0, 1, 2, 3, 4 })]        // unknown compression flag

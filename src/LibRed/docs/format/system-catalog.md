@@ -51,6 +51,13 @@
   The last column lists what a row of that kind *can* carry, not what every one does: a query or relationship
   written by ACE or LibRed leaves `LvProp` null (below), where Access fills it.
 
+  > **A table's row with a null `Id`, `Name` or `Flags`** (measured, by clearing the column's null-bitmap bit).
+  > The database still opens. A null **`Flags`** is no flags: the table reads as usual, and `MSysQueries`, its
+  > system bit gone, is listed as a `TABLE`. A null **`Id`** leaves the table listed but unreadable — *"Unrecognized
+  > database format"* — and on `MSysQueries` leaves no views at all. A null **`Name`** fails the table list
+  > (`E_FAIL`). LibRed reads a null `Flags` as `0` and refuses a table whose row has no `Id` or `Name` as
+  > `InvalidDataException`.
+
   > **A name is unique within its container, and only there.** That is the rule the unique `(ParentId, Name)`
   > index states, and the one ACE applies (verified, case-insensitively): a new table (`CREATE TABLE`,
   > `SELECT … INTO`, a rename) or query (`CREATE VIEW` / `CREATE PROCEDURE`) is refused when a table, query or
@@ -837,6 +844,13 @@
   single-column FK stores `ccolumn = 1`, `icolumn = 0`, `grbit = 0`; a relationship cascading both update
   and delete stores `grbit = 0x1100`; Access's relationship dialog writes each bit above as its option says.
 
+  > **A relationship row with a null column** (measured, by clearing one column's null-bitmap bit in one row). The
+  > database opens, every table reads and DDL runs. The foreign-key list leaves out the relationship whose row has
+  > a null `szObject` or `szReferencedObject`, and lists it all the same with a null `szRelationship`, `szColumn`,
+  > `icolumn` or `grbit`. LibRed reads the relationships the same way. A column of another type than its own — a
+  > damaged type byte — fails the foreign-key list instead, *"Cannot perform this operation"*, and LibRed refuses
+  > the relationships as `InvalidDataException` ([page-02b §3.4](page-02b-columns.md)).
+
   > **`grbit` records the relationship; ACE does not act on its cascade bits.** The update and delete actions
   > ACE applies are the ones in the relationship's index-info blocks (§3.6, `0x15`/`0x16`): with the two made
   > to disagree, a parent delete that `grbit` calls cascading but the blocks do not is refused, and one the
@@ -848,7 +862,13 @@
   > are unique. On an **enforced** relationship the child's backing index is created **unique** with it, and
   > non-unique without it even when the child column is the table's primary key. What ACE then enforces is
   > that index's unique flag (page-02d §3.5, `0x2E`), not this bit: made to disagree, ACE follows the flag
-  > (verified vs ACE). The bit is what Access and DAO report as the relationship's type.
+  > (verified vs ACE). The bit is what Access and DAO report as the relationship's type. A one-to-one differs
+  > from the same one-to-many in those two places only — `0x01` on every row of the key, and `0x81` for `0x80` on
+  > the child index — and DAO's one-to-many is byte-identical to SQL's `FOREIGN KEY` (verified). DAO refuses a
+  > one-to-one over child rows that already share a key (*"…would create duplicate values in the index, primary
+  > key, or relationship…"*); rows whose key is null do not collide. The refusal comes after the relationship's
+  > `MSysObjects` object and its `MSysACEs` rows are written, so their rollback leaves those two tables'
+  > counting behind (page-02a §3.1) and nothing else (verified, whole-file diff).
 
   > **Writing a relationship.** An **enforced** relationship is `MSysRelationships` rows, an `MSysObjects`
   > row of its own (`Type` = 8, under the relationship container, with the `MSysACEs` rows that container
@@ -906,6 +926,14 @@
   > renamed**, which cannot collide with itself: ACE allows renaming a table to its own name, and allows a
   > case-only change (both verified). The self-rename case is not hypothetical — EF models "move a table to
   > another schema" as a rename, and on a schema-less engine that degrades to `RENAME TO` the *same* name.
+  >
+  > **Renaming an index (verified, through DAO's `Index.Name` — ACE has no SQL for it).** Only the table's
+  > definition changes; this table names no index. A primary key renames even while a relationship references
+  > it, the parent's incoming block untouched. Two renames are refused, leaving the file as it was: the index a
+  > relationship created on its child table (named after the relationship) — *"Cannot delete this index or table.
+  > It is either the current index or is used in a relationship."* — and a name another index of the table has —
+  > *"Index already exists."* A case-only change is the same index, and renames. The definition rewrite is in
+  > [page-02a](page-02a-tdef.md) §3.2.
 
 - **MSysNameMap** is Access's **Name AutoCorrect** map: for each object Access tracks, the names it and the
   objects it depends on had when the map was last written. Five columns, no indexes: `GUID` (GUID), `Id`
@@ -977,7 +1005,9 @@ Four layers — the user table, then three kinds of ordinary hidden/system table
 2. **`MSysComplexColumns`** maps each complex column to its backing table:
    `(ColumnName, ComplexID, ComplexTypeObjectID, ConceptualTableID, FlatTableID)`. E.g.
    `Attachments | 3 | 39 | 79 | 150` = the `Attachments` column of table `79`, element type **39**
-   (`MSysComplexType_Attachment`), backed by flat table **150** = `f_<GUID>_Attachments`.
+   (`MSysComplexType_Attachment`), backed by flat table **150** = `f_<GUID>_Attachments`. A write to a table
+   with no `Complex` column does not depend on it: with `ConceptualTableID`'s type byte damaged from Long to
+   Byte, ACE inserts, updates and deletes rows of such a table as usual (verified).
 3. **`MSysComplexType_*`** — nine schema templates, one per element subtype, matching the DAO `dbComplex*`
    codes: `UnsignedByte, Short, Long, IEEESingle, IEEEDouble, GUID, Decimal, Text, Attachment`.
    `MSysComplexType_Attachment` = `FileData:Ole, FileFlags:Int32, FileName:Text, FileTimeStamp:DateTime,

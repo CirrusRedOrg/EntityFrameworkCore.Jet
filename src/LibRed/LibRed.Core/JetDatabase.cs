@@ -591,6 +591,15 @@ public sealed class JetDatabase : IDisposable
         return renamed;
     }
 
+    /// <summary>Renames an index — ALTER TABLE … RENAME INDEX … TO, as DAO's Index.Name does. Returns false if the
+    /// index doesn't exist; throws for the index a relationship created, or a name another index has.</summary>
+    public bool RenameIndex(string table, string oldName, string newName)
+    {
+        bool renamed = new Catalog.SchemaEditor(_channel, Catalog, Collation).RenameIndex(table, oldName, newName);
+        if (renamed) Catalog.Invalidate();
+        return renamed;
+    }
+
     /// <summary>Drops a column — ALTER TABLE … DROP COLUMN. A metadata-only TDEF edit (survivors and rows are
     /// untouched), except that a memo/OLE column's long-value usage maps are retired with it, as ACE does.
     /// Returns false if the column doesn't exist; throws for an indexed/keyed column (drop the index first).</summary>
@@ -779,11 +788,12 @@ public sealed class JetDatabase : IDisposable
                 _channel.Allocator.ReturnReleasedPages();
             }
         }
-        catch (InvalidDataException)
+        catch (Exception e) when (e is InvalidDataException or NotSupportedException)
         {
-            // The global maps were damaged after the open validated them. The release runs in its own transaction,
-            // so nothing of it was written: the released pages simply stay unreusable, which Compact reclaims —
-            // better than a close that throws out of a using block and hides whatever was already unwinding.
+            // The global maps are damaged, or in a shape LibRed cannot grow, past what the open validated. The
+            // release runs in its own transaction, so nothing of it was written: the released pages simply stay
+            // unreusable, which Compact reclaims — better than a close that throws out of a using block and hides
+            // whatever was already unwinding.
         }
         finally
         {

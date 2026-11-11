@@ -9,5 +9,6 @@ namespace EntityFrameworkCore.Jet.Data
 
         void RenameTable(string oldTableName, string newTableName);
         void RenameColumn(string tableName, string oldColumnName, string newColumnName);
+        void RenameIndex(string tableName, string oldIndexName, string newIndexName);
     }
 }

@@ -194,13 +194,14 @@ Treat the number as of its date — an EF Core version bump moves it.
   read back onto the column, and applied when an insert omits the column — **and Access honors them too**.
   Table-level `CHECK` constraints are persisted to the `LvProp` `CheckConstraints` property (verbatim
   expression text) and read back onto `TableDefinition.CheckConstraints` — **and Access enforces them**.
-  From files Access wrote, a relationship's 1:1 flag (`grbit` `0x01`) is read and reported as ONE/MANY by
-  `INFORMATION_SCHEMA`, and a column's `ValidationRule`/`ValidationText` are read off the same property blob,
+  A relationship's 1:1 flag (`grbit` `0x01`) is read and reported as ONE/MANY by `INFORMATION_SCHEMA`, and
+  written through the Core API (`RelationshipSpec.IsOneToOne`) as DAO's `dbRelationUnique` writes it — SQL has no
+  syntax for it. A column's `ValidationRule`/`ValidationText` are read off the `LvProp` property blob,
   reported by `INFORMATION_SCHEMA` and kept through a rewrite.
 - **SQL** — ANTLR front end (parser → binder via `ISchemaProvider` → planner → executor). Statements:
   `CREATE TABLE`, `CREATE [UNIQUE] INDEX … [WITH {PRIMARY|DISALLOW NULL|IGNORE NULL}]`, `CREATE VIEW`,
   `CREATE PROCEDURE`, `ALTER TABLE` (ADD/DROP COLUMN, ADD PK/FK/UNIQUE/CHECK, ALTER COLUMN incl. the
-  byte-faithful in-place type change and `SET`/`DROP DEFAULT`, DROP CONSTRAINT, `RENAME TO`/`RENAME COLUMN`),
+  byte-faithful in-place type change and `SET`/`DROP DEFAULT`, DROP CONSTRAINT, `RENAME TO`/`RENAME COLUMN`/`RENAME INDEX`),
   `DROP {TABLE|INDEX|VIEW|PROCEDURE}`, `INSERT`
   (with AutoNumber) — from `VALUES`, from a multi-row table value constructor, or from a query
   (`INSERT INTO … SELECT`, the append query) — `SELECT … INTO` (the make-table query), `UPDATE`, `DELETE`,
@@ -324,8 +325,6 @@ Format-level detail on each on-disk gap lives in `docs/format/`.
 
 - **`ON UPDATE SET NULL`** — pathway threaded but throws; its Jet storage bytes are unverified because the
   ACE OLE DB provider rejects the DDL (needs a UI/DAO-created sample to probe).
-- **1:1 relationships** (`dbRelationUnique` = `0x01`) — never written; a 1:1 migration would render as 1:many
-  in Access (the unique index still enforces uniqueness).
 - **`ValidationRule`/`ValidationText` are not enforced** — UI-authored validation, distinct from a SQL `CHECK`:
   a row violating an Access-authored rule is accepted where ACE would refuse it.
 - **A column-level `CHECK`** (`Col LONG CHECK (Col > 0)`) is parsed and silently dropped — neither stored nor
@@ -340,7 +339,6 @@ Format-level detail on each on-disk gap lives in `docs/format/`.
 - **Stored pass-through queries** — read back as a *named* refusal rather than executing.
 - **A crosstab's columns when describing** (`CommandBehavior.SchemaOnly`) — only the row headings and fixed
   headings, since the rest come from the data.
-- **`ALTER TABLE … RENAME INDEX`** — parsed and routed, but throws: the TDEF rewrite is not implemented.
 - **Function surface** — the evaluator's whitelist isn't proven identical to ACE's JES, and `Format`'s named
   date/currency formats are locale-dependent by design (not byte-identical cross-locale).
 - **Single-writer concurrency** — LibRed is a **single-writer engine that merely tolerates extra open

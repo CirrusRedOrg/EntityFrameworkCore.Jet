@@ -12,8 +12,13 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             $@"^\s*alter\s+table\s+{GetIdentifierPattern("TableName")}\s+rename\s+column\s+{GetIdentifierPattern("OldColumnName")}\s+to\s+{GetIdentifierPattern("NewColumnName")}\s*$",
             RegexOptions.IgnoreCase);
 
+        private static readonly Regex _renameTableIndexRegex = new(
+            $@"^\s*alter\s+table\s+{GetIdentifierPattern("TableName")}\s+rename\s+index\s+{GetIdentifierPattern("OldIndexName")}\s+to\s+{GetIdentifierPattern("NewIndexName")}\s*$",
+            RegexOptions.IgnoreCase);
+
         public static bool IsDatabaseOperation(string commandText)
-            => _renameTableRegex.IsMatch(commandText) || _renameTableColumnRegex.IsMatch(commandText);
+            => _renameTableRegex.IsMatch(commandText) || _renameTableColumnRegex.IsMatch(commandText) ||
+               _renameTableIndexRegex.IsMatch(commandText);
 
         public static bool TryDatabaseOperation(JetConnection connection, string commandText)
         {
@@ -40,6 +45,18 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                 return true;
             }
 
+            match = _renameTableIndexRegex.Match(commandText);
+            if (match.Success)
+            {
+                var tableName = match.Groups["TableName"].Value;
+                var oldIndexName = match.Groups["OldIndexName"].Value;
+                var newIndexName = match.Groups["NewIndexName"].Value;
+
+                RenameIndex(connection, tableName, oldIndexName, newIndexName);
+
+                return true;
+            }
+
             return false;
         }
 
@@ -56,6 +73,12 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
         {
             using var schemaProvider = SchemaProvider.CreateInstance(connection.SchemaProviderType, connection, false);
             schemaProvider.RenameColumn(tableName, oldColumnName, newColumnName);
+        }
+
+        private static void RenameIndex(JetConnection connection, string tableName, string oldIndexName, string newIndexName)
+        {
+            using var schemaProvider = SchemaProvider.CreateInstance(connection.SchemaProviderType, connection, false);
+            schemaProvider.RenameIndex(tableName, oldIndexName, newIndexName);
         }
     }
 }

@@ -67,6 +67,14 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             parameter.Size = value == null || value == DBNull.Value || length != null && length <= maxSpecificSize
                 ? maxSpecificSize
                 : -1;
+
+            //The Access ODBC driver refuses a binary parameter over 510 bytes (HY104) unless it is long binary.
+            //OdbcType.Image = 9;
+            if (parameter.Size == -1)
+            {
+                var setodbctype = parameter.GetType().GetMethods().FirstOrDefault(x => x.Name == "set_OdbcType");
+                setodbctype?.Invoke(parameter, [9]);
+            }
         }
 
         /// <summary>

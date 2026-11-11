@@ -76,9 +76,9 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
     /// <param name="slackOf">The zero bytes to leave between the variable data and its offset table (spec §5), from
     /// the variable chunks this row is written with, by variable index; null for none.</param>
     /// <param name="buffer">The buffer an UPDATE builds its rows in, one per statement and table, page-sized and
-    /// zeroed at the start: <paramref name="prior"/> is copied in, the row is built over it, and the row is left in
-    /// it — so a byte the row does not write and its old record did not reach holds the last updated record that
-    /// did (verified vs ACE, UpdateRowBufferProbeTest). Null for none.</param>
+    /// zeroed at the start: <paramref name="prior"/> is copied in and the row is built over it, and the caller leaves
+    /// the row in it once the row is known to fit — so a byte the row does not write and its old record did not reach
+    /// holds the last updated record that did (verified vs ACE, UpdateRowBufferProbeTest). Null for none.</param>
     internal byte[] Encode(object?[] values, IReadOnlyDictionary<int, byte[]>? preservedCalculated,
         object?[]? logicalValues = null, Layout prior = default, Func<IReadOnlyList<byte[]>, int>? slackOf = null,
         byte[]? buffer = null)
@@ -112,10 +112,8 @@ public sealed class RowCodec(IReadOnlyList<ColumnDef> columns, JetFormatBase for
             varChunks[column.VariableIndex] = v is null ? [] : JetTypeCodec.Encode(column, v, _format);
         }
 
-        byte[] row = AssembleRow(_format, _maxColumnId, fixedRegion, varChunks, _columns, values, prior.NullBitmap,
+        return AssembleRow(_format, _maxColumnId, fixedRegion, varChunks, _columns, values, prior.NullBitmap,
             slackOf?.Invoke(varChunks) ?? 0, buffer);
-        if (buffer is not null) row.CopyTo(buffer, 0);
-        return row;
     }
 
     /// <summary>The fixed region of a row being written over <paramref name="prior"/>: <paramref name="liveLength"/>

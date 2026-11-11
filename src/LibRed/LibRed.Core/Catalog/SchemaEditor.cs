@@ -164,7 +164,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             .ToList();
 
         // The table's data-block indexes: the primary key (unique), a unique index per UNIQUE constraint, and
-        // one non-unique index per foreign key over its child columns — Access enforces a relationship through
+        // one index per foreign key over its child columns, unique only for a one-to-one — Access enforces a relationship through
         // an index on the FK columns. Each carries the relationship (if any) it backs. They are numbered in the
         // order the statement declares them, whatever their kind (verified vs ACE); with no order given (every
         // DeclaredAfter 0) the stable sort leaves them primary key, unique, foreign key.
@@ -179,7 +179,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         foreach (UniqueIndexSpec unique in uniqueConstraints)
             indexPlans.Add((unique.Name, unique.Columns, false, true, null, unique.DeclaredAfter));
         foreach (RelationshipSpec fk in relationships)
-            indexPlans.Add((fk.Name, fk.Columns.Select(c => c.Column).ToList(), false, false, fk, fk.DeclaredAfter));
+            indexPlans.Add((fk.Name, fk.Columns.Select(c => c.Column).ToList(), false, fk.IsOneToOne, fk, fk.DeclaredAfter));
         indexPlans = [.. indexPlans.OrderBy(p => p.DeclaredAfter)];
 
         // Every index this CREATE would build, including the ones arriving as a PRIMARY KEY or UNIQUE
@@ -420,6 +420,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         for (int i = 0; i < indexPlans.Count; i++)
         {
             if (indexPlans[i].Fk is not { } fk) continue;
+            _catalog.CreateRelationshipObject(fk.Name);
             AddRelationshipRows(name, fk);
             if (Owns(i)) AllocateRoot(i);
         }
@@ -638,15 +639,14 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// <summary>
     /// Writes the <c>MSysRelationships</c> rows for one relationship — one row per column pair, with
     /// <c>ccolumn</c> = the pair count, <c>icolumn</c> = the 0-based pair index, and <c>grbit</c>
-    /// encoding enforce/cascade (verified against Access: an enforced no-cascade FK stores grbit 0) — and the
-    /// relationship's own <c>MSysObjects</c> object, which ACE records for every relationship.
+    /// encoding enforce/cascade (verified against Access: an enforced no-cascade FK stores grbit 0).
     /// </summary>
     private void AddRelationshipRows(string childTable, RelationshipSpec fk)
     {
         TableDefinition msys = _catalog.RequireTable("MSysRelationships");
-        _catalog.CreateRelationshipObject(fk.Name);
 
         var grbit = RelationshipFlags.None;
+        if (fk.IsOneToOne) grbit |= RelationshipFlags.OneToOne;
         if (!fk.IsEnforced) grbit |= RelationshipFlags.DontEnforce;
         if (fk.CascadeUpdate) grbit |= RelationshipFlags.UpdateCascade;
         if (fk.CascadeDelete) grbit |= RelationshipFlags.DeleteCascade;
@@ -731,13 +731,23 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
                 throw new InvalidOperationException($"Invalid field definition '{name}' in definition of index or relationship.");
     }
 
-    /// <summary>Resolves index column names to (columnId, ascending) slots against a table.</summary>
+    /// <summary>Resolves index column names to (columnId, ascending) slots against a table. A name two columns of a
+    /// damaged definition share resolves to the first of them, as ACE resolves it (measured).</summary>
     private static List<(int Id, bool Ascending)> ResolveSlots(
-        TableDefinition table, IEnumerable<(string Column, bool Ascending)> columns)
-    {
-        var byName = table.Columns.ToDictionary(c => c.Name, c => c.ColumnId, StringComparer.OrdinalIgnoreCase);
-        return columns.Select(c => byName.TryGetValue(c.Column, out int id) ? (Id: id, c.Ascending)
+        TableDefinition table, IEnumerable<(string Column, bool Ascending)> columns) =>
+        columns.Select(c => table.FindColumn(c.Column) is { } column ? (Id: column.ColumnId, c.Ascending)
             : throw new InvalidOperationException($"Column '{c.Column}' does not exist in '{table.Name}'.")).ToList();
+
+    /// <summary>ACE rejects a duplicate index name — for a foreign key's backing index as much as a CREATE INDEX, and
+    /// for a rename (verified) — and so must LibRed: every lookup downstream (DROP INDEX, the back-fill, DROP
+    /// CONSTRAINT) finds an index by name with First/FirstOrDefault, so two blocks sharing one name make those
+    /// operations pick an arbitrary block — a DROP that removes the wrong one.</summary>
+    private void RejectDuplicateIndexName(TableDefinition table, string indexName)
+    {
+        JetTextComparer names = JetTextComparer.For(_collation);
+        if (table.LogicalIndexes.Any(l => names.Equals(l.Name, indexName)))
+            throw new InvalidOperationException(
+                $"Table '{table.Name}' already has an index named '{indexName}'.");
     }
 
     /// <summary>Surgically inserts one index into an existing table's TDEF: its logical info block, name-sorted, and
@@ -748,15 +758,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         bool unique, bool required, bool ignoreNulls, Func<int, int, TableDefinition.LogicalIndexSpec> buildInfo)
     {
         JetFormatBase format = _channel.Format;
-
-        // ACE rejects a duplicate index name — for a foreign key's backing index as much as a CREATE INDEX
-        // (verified) — and so must LibRed: every lookup downstream (DROP INDEX, the back-fill, DROP CONSTRAINT)
-        // finds an index by name with First/FirstOrDefault, so two blocks sharing one name make those operations
-        // pick an arbitrary block — a DROP that removes the wrong one.
-        JetTextComparer names = JetTextComparer.For(_collation);
-        if (table.LogicalIndexes.Any(l => names.Equals(l.Name, indexName)))
-            throw new InvalidOperationException(
-                $"Table '{table.Name}' already has an index named '{indexName}'.");
+        RejectDuplicateIndexName(table, indexName);
 
         // The index-data block holds exactly IndexDataMaxColumns slots, with no count and no continuation, so
         // a wider index cannot be represented. TableDefinition rejects this when a table is created with its
@@ -803,7 +805,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         int newNum = NextLogicalIndexNumber(table.DefinitionPage);
         if (shared >= 0)
         {
-            InsertLogicalBlock(parts, indexName, buildInfo(newNum, shared));
+            InsertLogicalBlock(parts, indexName, TableDefinition.BuildInfoBlock(format, buildInfo(newNum, shared)));
             WriteTdef(table.DefinitionPage, parts);
             _catalog.Invalidate();
             return newNum;
@@ -844,7 +846,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         parts.Stats.Add(new byte[format.RealIndexEntrySize]);
         TableDefinition.WriteIndexTree(dataBlock, format, rootPage, newIndexUsageRow, usageMapPage);
         parts.DataBlocks.Add(dataBlock);
-        InsertLogicalBlock(parts, indexName, buildInfo(newNum, dataCount));
+        InsertLogicalBlock(parts, indexName, TableDefinition.BuildInfoBlock(format, buildInfo(newNum, dataCount)));
 
         WriteTdef(table.DefinitionPage, parts);
         _catalog.Invalidate();
@@ -953,7 +955,11 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     /// record, and returns its row. The new map tracks no pages yet, so an empty bitmap is correct.</summary>
     private int AppendEmptyUsageMapRow(JetFormatBase format, int pageNumber)
     {
-        byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
+        // Read as every other append reads its page first: the header and the slot directory checked, so a page
+        // whose row count runs past it is refused rather than walked.
+        PageBuffer buffer = _channel.ReadPage(pageNumber);
+        new DataPage().Read(buffer, format);
+        byte[] page = buffer.Span.ToArray();
 
         // A record written below the directory would overwrite the slots themselves — which reads back later
         // as a slot with offset 0 "outside the row heap", a long way from the cause. The caller is expected
@@ -968,8 +974,8 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
     }
 
     /// <summary>
-    /// Adds a foreign key to an existing child table: a backing non-unique index over the child
-    /// columns carrying an outgoing-relationship block, an incoming block on the parent's TDEF, and the
+    /// Adds a foreign key to an existing child table: a backing index over the child columns, unique only for a
+    /// one-to-one, carrying an outgoing-relationship block, an incoming block on the parent's TDEF, and the
     /// MSysRelationships rows. The child index and parent block are written the same way inline-FK creation
     /// does (verified byte-faithful vs ACE). A self-reference hosts both ends in the one table; FOREIGN KEY
     /// NO INDEX is not yet handled.
@@ -1004,6 +1010,7 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // the parent ACE cannot enforce, so it records the relationship as a declaration and stops there.
         if (!fk.IsEnforced)
         {
+            _catalog.CreateRelationshipObject(fk.Name);
             AddRelationshipRows(childTable, fk);
             _catalog.Invalidate();
             return;
@@ -1020,14 +1027,30 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
                 ? (child.DefinitionPage, ReferencedOrdinalIn(child, fk),
                     NextLogicalIndexNumber(child.DefinitionPage, above: NextLogicalIndexNumber(child.DefinitionPage)))
                 : ResolveParent(fk, child.DefinitionPage);
-        int childBlockNum = InsertIndex(child, fk.Name, slots,
-            unique: false, required: false, ignoreNulls: false,
-            (num, ord) => new TableDefinition.LogicalIndexSpec(num, ord, ForeignKeyType.Outgoing, (uint)parentNum,
-                parentPage, upd, del, IndexInfoType.Foreign, fk.Name));
 
-        AddIncomingRelationshipBlock(new IncomingRelationship(
-            parentPage, parentNum, refOrdinal, (uint)childBlockNum, child.DefinitionPage, upd, del));
-        AddRelationshipRows(childTable, fk);
+        // ACE writes the relationship's object before its index, so a one-to-one refused over duplicate child keys
+        // leaves MSysObjects' and MSysACEs' counting behind, as a rollback does (measured).
+        bool ownTransaction = !_channel.InTransaction;
+        if (ownTransaction) _channel.BeginTransaction();
+        try
+        {
+            _catalog.CreateRelationshipObject(fk.Name);
+            int childBlockNum = InsertIndex(child, fk.Name, slots,
+                unique: fk.IsOneToOne, required: false, ignoreNulls: false,
+                (num, ord) => new TableDefinition.LogicalIndexSpec(num, ord, ForeignKeyType.Outgoing, (uint)parentNum,
+                    parentPage, upd, del, IndexInfoType.Foreign, fk.Name));
+
+            AddIncomingRelationshipBlock(new IncomingRelationship(
+                parentPage, parentNum, refOrdinal, (uint)childBlockNum, child.DefinitionPage, upd, del));
+            AddRelationshipRows(childTable, fk);
+            if (ownTransaction) _channel.CommitTransaction(flush: false);
+        }
+        catch when (ownTransaction)
+        {
+            _channel.RollbackTransaction(failed: true);
+            _catalog.Invalidate();
+            throw;
+        }
         _catalog.Invalidate();
     }
 
@@ -1463,6 +1486,40 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         return true;
     }
 
+    /// <summary>
+    /// Renames an index — <c>ALTER TABLE … RENAME INDEX … TO</c>. ACE has no SQL for it; DAO's <c>Index.Name</c>
+    /// is the oracle (RenameIndexDaoProbeTest): only the definition changes — the logical block moves to where its
+    /// new name sorts, its bytes unchanged — and the primary key renames even while a relationship references it.
+    /// ACE refuses the index a relationship created on its child table, and a name another index has.
+    /// Returns false if no such index exists.
+    /// </summary>
+    public bool RenameIndex(string tableName, string oldName, string newName)
+    {
+        TableDefinition table = DesignTable(tableName);
+        JetTextComparer names = JetTextComparer.For(_collation);
+        TableDefinition.Parts parts = TableDefinition.ReadParts(_channel, table.DefinitionPage); // stitches continuation pages for a multi-page TDEF
+        int at = parts.Logical.FindIndex(b => names.Equals(NameOf(b.Name), oldName));
+        if (at < 0) return false;
+        JetName.Validate(newName, "index name");
+        _channel.RefuseIfReadOnly(ReadOnlyWrite.Design, table.Name);
+        if (IsRelationshipIndex(table, oldName))
+            throw new InvalidOperationException(
+                "Cannot delete this index or table. It is either the current index or is used in a relationship.");
+        // A case-only rename is the same index, not a collision with itself (verified).
+        if (!names.Equals(oldName, newName)) RejectDuplicateIndexName(table, newName);
+
+        byte[] info = parts.Logical[at].Info;
+        parts.Logical.RemoveAt(at);
+        InsertLogicalBlock(parts, newName, info);
+        // ACE writes the renamed definition twice, the same bytes both times (measured): a multi-page one's
+        // continuations land on the lowest free pages, then again past them, since the first copy's pages stay
+        // held until the statement ends. Re-read for the second, so it replaces the chain the first wrote.
+        WriteTdef(table.DefinitionPage, parts);
+        WriteTdef(table.DefinitionPage, TableDefinition.ReadParts(_channel, table.DefinitionPage));
+        _catalog.Invalidate();
+        return true;
+    }
+
     /// <summary>Re-owns the renamed column's extended-property block in its table's <c>MSysObjects.LvProp</c>
     /// blob, so its DefaultValue/Required/validation survive the rename (ACE does this — verified). No-op when
     /// the column had no properties.</summary>
@@ -1815,13 +1872,19 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
         // The parent side matches a unique/primary index only, which is exactly the set FindParentKeyIndex
         // will accept as a parent key — ACE refuses a relationship over anything else, so no file this engine
         // writes can have one.
-        return _catalog.Relationships.Any(r =>
-            (string.Equals(r.Table, table.Name, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(name, r.Name, StringComparison.OrdinalIgnoreCase)) ||
-            (string.Equals(r.ReferencedTable, table.Name, StringComparison.OrdinalIgnoreCase)
+        return IsRelationshipIndex(table, name) || _catalog.Relationships.Any(r =>
+            string.Equals(r.ReferencedTable, table.Name, StringComparison.OrdinalIgnoreCase)
                 && (index.IsUnique || index.IsPrimaryKey)
-                && SameCols(r.Columns.Select(c => c.ReferencedColumn))));
+                && SameCols(r.Columns.Select(c => c.ReferencedColumn)));
     }
+
+    /// <summary>True if <paramref name="name"/> is the child-side index a relationship of <paramref name="table"/>
+    /// created — named after the relationship. The one index ACE refuses to rename; the referenced key on the
+    /// parent renames (verified).</summary>
+    private bool IsRelationshipIndex(TableDefinition table, string name) =>
+        _catalog.Relationships.Any(r =>
+            string.Equals(r.Table, table.Name, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(name, r.Name, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Adds a column — <c>ALTER TABLE t ADD COLUMN c type</c>. A metadata TDEF edit (probed vs ACE, the
@@ -2574,8 +2637,10 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
                 r.Raw.CopyTo(buffer, 0);
                 byte[] record = BuildRelaidRecord(
                     r.Raw, oldDef, newTarget, r.Values, newDef.Columns, newMaxId, newFixedLen, newVarCount, buffer);
-                record.CopyTo(buffer, 0);
+                // Written first, as RewriteRowRaw refuses a record past the cap: one grown past the page does not
+                // fit the buffer either.
                 writer.RewriteRowRaw(r.Id, record);
+                record.CopyTo(buffer, 0);
             }
 
             // 4. Finish each index rebuild: backfill the fresh B-tree with new-type keys, then free the old root
@@ -3093,17 +3158,17 @@ internal sealed class SchemaEditor(PageChannel channel, JetCatalog catalog, Coll
             "an incoming relationship", parts.DataBlocks.Count, parts.Logical.Count + 1);
 
         string newName = HiddenRelationshipName(inc.Number);
-        InsertLogicalBlock(parts, newName, inc.Spec(newName));
+        InsertLogicalBlock(parts, newName, TableDefinition.BuildInfoBlock(_channel.Format, inc.Spec(newName)));
 
         WriteTdef(inc.ParentPage, parts);
     }
 
     /// <summary>Inserts a logical block and its name where they sort: by name, in the database's collation (§3.6).</summary>
-    private void InsertLogicalBlock(TableDefinition.Parts parts, string name, TableDefinition.LogicalIndexSpec spec)
+    private void InsertLogicalBlock(TableDefinition.Parts parts, string name, byte[] info)
     {
         JetTextComparer names = JetTextComparer.For(_collation);
         int k = parts.Logical.Count(b => names.Compare(NameOf(b.Name), name) < 0);
-        parts.Logical.Insert(k, (TableDefinition.BuildInfoBlock(_channel.Format, spec), TableDefinition.NameEntry(name, _channel.Format)));
+        parts.Logical.Insert(k, (info, TableDefinition.NameEntry(name, _channel.Format)));
     }
 
     /// <summary>An incoming block's hidden name: <c>.r</c> and index_num in base 16 with the letters <c>A</c>–<c>P</c>

@@ -139,6 +139,56 @@ public class IndexTraversalCorruptionTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // B's variable index patched to A's, so the two columns share one slot: B reads A's value, while B's index still
+    // holds the row under the value B was written with. A write of that row looks for the entry under the value it
+    // reads and finds none. ACE refuses the same write on the same damage — Customers.City moved onto CompanyName's
+    // slot — with "The search key was not found in any record." and leaves the table as it was (measured), so this is
+    // damage, not a refused value, and the statement rolls back.
+    [Theory]
+    [InlineData("update")]
+    [InlineData("delete")]
+    public void A_write_whose_index_entry_the_row_no_longer_matches_is_rejected_as_corruption(string statement)
+    {
+        string path = TemporaryDatabase.CreatePath("index-orphaned-");
+        try
+        {
+            JetDatabase.Create(path);
+            int page;
+            byte[] a, b;
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("T", [new("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                    new ColumnSpec("A", JetDataType.Text, 40, IsFixedLength: false),
+                    new ColumnSpec("B", JetDataType.Text, 40, IsFixedLength: false)]);
+                db.CreateIndex("T", "ix", [("B", false)]);
+                db.OpenTable("T").Insert([1, "aa", "bb"]);
+                TableDefinition t = db.Catalog.FindTable("T")!;
+                (page, a, b) = (t.DefinitionPage, t.FindColumn("A")!.RawDescriptor!, t.FindColumn("B")!.RawDescriptor!);
+            }
+            byte[] file = File.ReadAllBytes(path);
+            JetFormatBase format = JetFormatBase.FromVersionByte(file[0x14]);
+            int at = file.AsSpan(page * format.PageSize, format.PageSize).IndexOf(b);
+            Assert.True(at >= 0);
+            a.AsSpan(format.ColumnVariableIndexOffset, 2).CopyTo(file.AsSpan(page * format.PageSize + at + format.ColumnVariableIndexOffset));
+            File.WriteAllBytes(path, file);
+
+            using var damaged = JetDatabase.Open(path, readOnly: false);
+            Table table = damaged.OpenTable("T");
+            (RowId id, object?[] row) = table.Rows().WithIds().Single();
+            Assert.Equal([1, "aa", "aa"], row);
+            if (statement == "delete")
+                Assert.Throws<InvalidDataException>(() => table.Delete(id));
+            else
+            {
+                var changed = (object?[])row.Clone();
+                changed[2] = "cc";
+                Assert.Throws<InvalidDataException>(() => table.Update(id, changed));
+            }
+            Assert.Equal([1, "aa", "aa"], table.Rows().Single());
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     private static (int Root, int Owner) IndexIdentity(string path)
     {
         using var db = JetDatabase.Open(path);

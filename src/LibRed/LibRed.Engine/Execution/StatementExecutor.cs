@@ -845,13 +845,16 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     }
 
     /// <summary>
-    /// RENAME INDEX — renames an index; the name lives in the TDEF's index block. If the index backs a foreign
-    /// key, check its coupling to the relationship name (<c>szRelationship</c>). Access cannot do this through
-    /// SQL <i>or</i> DAO/ADOX, so there is no ACE oracle for the operation itself — verify via the converged
-    /// end state (an index created as the new name should match one created then renamed).
+    /// RENAME INDEX — renames an index; the name lives in the TDEF's logical index block. ACE has no SQL for it,
+    /// but DAO renames one through <c>Index.Name</c>, and LibRed matches that (see <c>SchemaEditor.RenameIndex</c>).
     /// </summary>
-    private int RenameIndex(string table, string index, string newName) => throw new NotSupportedException(
-        $"ALTER TABLE `{table}` RENAME INDEX `{index}` TO `{newName}` is parsed and routed but the TDEF rewrite is not implemented yet.");
+    private int RenameIndex(string table, string index, string newName)
+    {
+        if (!_database.RenameIndex(table, index, newName))
+            throw new InvalidOperationException(
+                $"ALTER TABLE '{table}' RENAME INDEX '{index}' TO '{newName}': the index was not found.");
+        return 0;
+    }
 
     private int DropConstraint(string table, string name)
     {

@@ -700,11 +700,17 @@ jobs:
       - Preconditions
       - Changes
     if: (needs.Preconditions.outputs.lastCommitIsAutoCommit != 'true' || needs.Preconditions.outputs.lastCommitCreatedBeforeSeconds > 300) && needs.Changes.outputs.libred == 'true'
+    # The 365 leg is new: it does not gate the build until it has proven itself stable.
+    continue-on-error: ${{ matrix.aceVersion == '365' }}
     strategy:
       fail-fast: false
       matrix:
+        # 2016 is the out-of-support redistributable; 365 is the current Microsoft 365 Access Runtime, the engine
+        # the cross-checks are measured on. They differ where a test guards itself (BIGINT/DATETIME2, a
+        # backtick-quoted CHECK, a stored query's LvExtra), so those cases only run on the 365 leg.
         aceVersion:
           - 2016
+          - 365
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -719,9 +725,38 @@ jobs:
       - name: Install Access Database Engine
         shell: pwsh
         run: |
-          $setupFileName = 'AccessDatabaseEngine_${{ matrix.aceVersion }}_x64.exe'
-          Invoke-WebRequest "https://cirrusredorg.github.io/EntityFrameworkCore.Jet/$setupFileName" -OutFile $setupFileName
-          & ".\$setupFileName" /passive /quiet /norestart REBOOT=ReallySuppress | Out-Default
+          if ('${{ matrix.aceVersion }}' -eq '365')
+          {
+              # The runtime is click-to-run: the Office Deployment Tool downloads it from Microsoft's CDN, so
+              # the tool is fetched from there too rather than hosted.
+              Invoke-WebRequest 'https://officecdn.microsoft.com/pr/wsus/setup.exe' -OutFile setup.exe
+              Set-Content AccessRuntime.xml @'
+          <Configuration>
+            <Add OfficeClientEdition="64" Channel="Current">
+              <Product ID="AccessRuntimeRetail">
+                <Language ID="en-us" />
+              </Product>
+            </Add>
+            <Updates Enabled="FALSE" />
+            <Display Level="None" AcceptEULA="TRUE" />
+          </Configuration>
+          '@
+              $setup = Start-Process .\setup.exe -ArgumentList '/configure', 'AccessRuntime.xml' -Wait -PassThru
+              if ($setup.ExitCode -ne 0) { throw "The Office Deployment Tool exited with $($setup.ExitCode)." }
+              # Since the December 2025 Office builds, ACE refuses every query that reaches another file ("Operation
+              # is not supported for this type of object") unless AllowQueryRemoteTables is 1. The IN externaldatabase
+              # cross-checks were measured with it set, as on the developer machine. -Force on an existing registry
+              # key would wipe its values, so the key is only created when missing.
+              $engines = 'HKLM:\SOFTWARE\Microsoft\Office\16.0\Access Connectivity Engine\Engines'
+              if (-not (Test-Path $engines)) { New-Item $engines -Force | Out-Null }
+              New-ItemProperty $engines -Name AllowQueryRemoteTables -PropertyType DWord -Value 1 -Force | Out-Null
+          }
+          else
+          {
+              $setupFileName = 'AccessDatabaseEngine_${{ matrix.aceVersion }}_x64.exe'
+              Invoke-WebRequest "https://cirrusredorg.github.io/EntityFrameworkCore.Jet/$setupFileName" -OutFile $setupFileName
+              & ".\$setupFileName" /passive /quiet /norestart REBOOT=ReallySuppress | Out-Default
+          }
       - name: 'ACE Information'
         shell: pwsh
         run: |

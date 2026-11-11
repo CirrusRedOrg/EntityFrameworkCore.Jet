@@ -9,8 +9,8 @@ namespace EntityFrameworkCore.Jet.Data
     /// </summary>
     public class JetFactory : DbProviderFactory
     {
-        public static readonly Version MinimumRequiredOdbcVersion = new(9, 0, 0);
-        public static readonly Version MinimumRequiredOleDbVersion = new(9, 0, 0);
+        public static readonly Version MinimumRequiredOdbcVersion = new(11, 0, 0);
+        public static readonly Version MinimumRequiredOleDbVersion = new(11, 0, 0);
 
         public static readonly JetFactory Instance = new();
 

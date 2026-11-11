@@ -211,6 +211,59 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             Assert.IsFalse(ViewResolves("vwDoc"), "The view still resolves — ACE rewrote the stored query.");
         }
 
+        /// <summary>
+        /// The index-rename counterpart, through the intercepted DAO path. Measured against ACE
+        /// (RenameIndexDaoProbeTest): a plain index and a primary key rename — the key in place even while a
+        /// relationship references it — but the index a relationship created on its child table is refused, as is
+        /// a name another index of the table has.
+        /// </summary>
+        [TestMethod]
+        public void Probe_what_an_index_rename_does()
+        {
+            string plain = TryRenameIndex("Parent", "IX_Parent_Name", "IX_Parent_Name_Renamed");
+            string key = TryRenameIndex("Parent", "PK_Parent", "PK_Parent_Renamed");
+            string relationship = TryRenameIndex("Child", "FK_Child_Parent", "FK_Child_Parent_Renamed");
+            string taken = TryRenameIndex("Child", "PK_Child", "FK_Child_Parent");
+
+            ReOpenConnection();
+
+            Report($"rename plain index     : {plain}");
+            Report($"rename referenced key  : {key}");
+            Report($"rename FK's own index  : {relationship}");
+            Report($"rename onto taken name : {taken}");
+            ReportIndexes();
+            ReportRelations();
+
+            Assert.AreEqual("ALLOWED (no error)", plain);
+            Assert.IsTrue(IndexExists("Parent", "IX_Parent_Name_Renamed"), "The plain index was not renamed.");
+            Assert.IsFalse(IndexExists("Parent", "IX_Parent_Name"), "The old index name still resolves.");
+
+            Assert.AreEqual("ALLOWED (no error)", key);
+            Assert.IsTrue(IndexExists("Parent", "PK_Parent_Renamed"), "The primary key was not renamed.");
+            Assert.AreEqual("True", RelationValue("FK_Child_Parent", "IS_ENFORCED"), ignoreCase: true,
+                "The relationship lost its enforcement when its referenced key was renamed.");
+
+            Assert.IsTrue(relationship.StartsWith("REJECTED"), $"ACE renamed a relationship's own index: {relationship}");
+            Assert.IsTrue(IndexExists("Child", "FK_Child_Parent"), "The relationship's index lost its name.");
+
+            Assert.IsTrue(taken.StartsWith("REJECTED"), $"ACE renamed an index onto a name another index has: {taken}");
+            Assert.IsTrue(IndexExists("Child", "PK_Child"), "The primary key lost its name.");
+        }
+
+        private string TryRenameIndex(string table, string from, string to)
+        {
+            try
+            {
+                using var command = _connection.CreateCommand($"ALTER TABLE `{table}` RENAME INDEX `{from}` TO `{to}`");
+                command.ExecuteNonQuery();
+                return "ALLOWED (no error)";
+            }
+            catch (Exception e)
+            {
+                return $"REJECTED — {e.GetType().Name}: {e.GetBaseException().Message.ReplaceLineEndings(" ")}";
+            }
+        }
+
         /// <summary>A single field of the named relationship's column mapping, or null if it is gone.</summary>
         private string RelationColumnValue(string relationName, string columnName)
         {

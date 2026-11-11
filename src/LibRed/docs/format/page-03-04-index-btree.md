@@ -691,10 +691,11 @@ to `n` bytes, as page-01 stores it. LibRed builds the row and every key from one
       `ll`+`ll`. **Only Hungarian doubles** — a doubled digraph is written by doubling its first letter, so
       `ggy` is `gy`+`gy` (`56 03 56 03`) and `ssz` is `sz`+`sz`, while Czech `cch` is plainly `c`+`ch`
       (`4D 58 03`) and Spanish `cch` is `c`+`ch`. Doubling has to be tested *before* the plain longest match,
-      or `ggy` degrades to `g`+`gy`. **Case breaks a contraction** where a lowercase letter is followed by an
-      uppercase one inside it, and the match falls to a shorter one: `cS`, `sZ`, `gY`, `cH`, `lL`, `lJ` and `dŽ`
-      are two letters each, Hungarian `dzS` is `dz`+`S` and `dZs` is `d`+`zs` — while `Cs`, `CS`, `Ch`, `Lj` and
-      `Dž` contract, and so does a doubled `cCs` (verified in every digraph order). A contraction can carry a secondary of its own: Croatian `dž` is
+      or `ggy` degrades to `g`+`gy`. **A contraction matches only in lowercase, uppercase or title case**; any
+      other case mix falls to a shorter match: `cS`, `sZ`, `gY`, `cH`, `lL`, `lJ` and `dŽ` are two letters each,
+      Hungarian `dzS` is `dz`+`S`, `dZs` is `d`+`zs` and `DZs` is `DZ`+`s` — while `Cs`, `CS`, `Ch`, `Lj`, `Dž`,
+      `Dzs` and `DZS` contract, and so does a doubled `cCs`; a doubled `dDZs` is `dz`+`dz`+`s` (verified in every
+      case mix of every contraction). A contraction can carry a secondary of its own: Croatian `dž` is
       `50 04` with secondary `04`, Danish `aa` is `å`'s primary with secondary `03`.
     - **Expansion** — one character, several primaries. German Phone Book: `ä` = `7F 4A 51 01 00`, primaries
       `a`+`e` (General has `a` + umlaut secondary); likewise `ö`→`o`+`e`, `ü`→`u`+`e`. Same primitive as
@@ -969,6 +970,13 @@ stored entry can again be shorter than four bytes. Taking the tail of the key al
 packing: where the prefix is longer than the key, there are no key bytes left to take (verified).
 
 Both engines then agree byte for byte: LibRed touches no page ACE does not (verified).
+
+> **An entry the row says is there, and is not.** The entry to remove is found by the key the row's stored
+> values encode to. When the index holds the row under another key — the file's index and table disagree —
+> ACE refuses the `UPDATE` that would move the entry, and the `DELETE` that would remove it, with *"The search
+> key was not found in any record."* and changes nothing (verified, on a `Customers` row whose `City` reads
+> another column's slot, §3 of [page-02b](page-02b-columns.md)). LibRed refuses both with
+> `InvalidDataException` and rolls the statement back.
 
 ### 10.4d A leaf the removal empties leaves the tree
 

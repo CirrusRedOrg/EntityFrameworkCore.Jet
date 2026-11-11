@@ -64,6 +64,33 @@ public class PageAndRowCorruptionTests
             DataPage.TryReadRow(new PageBuffer(page, 7), Format, 1, out _, out _));
     }
 
+    // CREATE INDEX appends the new index's usage map to the page holding the table's own maps when it has room. That
+    // page's row count pushed past what a page holds is refused there as on every read of it, not walked off the
+    // page's end.
+    [Fact]
+    public void Creating_an_index_applies_the_same_header_validation_to_the_usage_map_page()
+    {
+        string path = TemporaryDatabase.CreatePath("index-mappage-");
+        try
+        {
+            JetDatabase.Create(path);
+            int mapPage;
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("T", [new("Id", JetDataType.Int32, 4, IsFixedLength: true), new ColumnSpec("A", JetDataType.Text, 40, IsFixedLength: false)]);
+                mapPage = db.Channel.ReadPage(db.Catalog.FindTable("T")!.DefinitionPage).ReadRecordPointer(Format.TdefOwnedPagesOffset).Page;
+            }
+            byte[] page = TestDatabases.ReadPage(path, mapPage);
+            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(Format.DataRowCountOffset, 2),
+                (ushort)(BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(Format.DataRowCountOffset, 2)) | 0x4500));
+            TestDatabases.WritePage(path, mapPage, page);
+
+            using var damaged = JetDatabase.Open(path, readOnly: false);
+            Assert.Throws<InvalidDataException>(() => damaged.CreateIndex("T", "ix", [("A", false)]));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     [Fact]
     public void Zero_length_deleted_overflow_tombstone_remains_a_valid_slot_shape()
     {

@@ -311,4 +311,45 @@ public class AlterTableRenameTests
             TemporaryDatabase.Delete(path);
         }
     }
+
+    // ACE renames an index through DAO's Index.Name (byte parity in RenameIndexParityAccessTests): a plain index and
+    // a key a relationship references both rename, the relationship's own index and a name another index has do not.
+    [Fact]
+    public void Rename_index_renames_a_plain_index_and_a_referenced_key_and_refuses_what_ace_refuses()
+    {
+        string path = Fresh();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                var e = new QueryEngine(db);
+                CreateParentChild(e);
+
+                e.ExecuteNonQuery("ALTER TABLE Parent RENAME INDEX IX_Parent_Name TO IX_Parent_Name_Renamed");
+                e.ExecuteNonQuery("ALTER TABLE Parent RENAME INDEX PK_Parent TO PK_Parent_Renamed");
+
+                Assert.Throws<InvalidOperationException>(
+                    () => e.ExecuteNonQuery("ALTER TABLE Child RENAME INDEX FK_Child_Parent TO FK_Renamed"));
+                Assert.Throws<InvalidOperationException>(
+                    () => e.ExecuteNonQuery("ALTER TABLE Child RENAME INDEX PK_Child TO FK_Child_Parent"));
+                Assert.Throws<InvalidOperationException>(
+                    () => e.ExecuteNonQuery("ALTER TABLE Child RENAME INDEX NoSuchIndex TO Whatever"));
+
+                // The relationship over the renamed key still holds.
+                Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO Child (Id, ParentId) VALUES (2, 99)"));
+            }
+
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                Assert.Equal(["IX_Parent_Name_Renamed", "PK_Parent_Renamed"],
+                    db.Catalog.FindTable("Parent")!.Indexes.Select(i => i.Name).Order());
+                Assert.Contains(db.Catalog.FindTable("Child")!.LogicalIndexes, l => l.Name == "FK_Child_Parent");
+                Assert.Contains(db.Catalog.FindTable("Child")!.LogicalIndexes, l => l.Name == "PK_Child");
+            }
+        }
+        finally
+        {
+            TemporaryDatabase.Delete(path);
+        }
+    }
 }

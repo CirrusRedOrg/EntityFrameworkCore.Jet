@@ -70,6 +70,10 @@ internal static class BitmapBits
         for (int bit = NextSetBit(bitmap, 0); bit >= 0; bit = NextSetBit(bitmap, bit + 1))
         {
             long page = (long)basePage + bit;
+            // Keeping every bit keeps pages past the file's end, never a page no file can have: a negative one
+            // would be taken for a bit index below the bitmap's first byte.
+            if (page is < 0 or > int.MaxValue)
+                throw new InvalidDataException($"{what} names page {page}, which no file can hold.");
             if (rejectBeyond is { } pageCount && (page <= 1 || page >= pageCount))
                 throw new InvalidDataException(
                     $"{what} names page {page}, outside the file's 2..{pageCount - 1} range.");

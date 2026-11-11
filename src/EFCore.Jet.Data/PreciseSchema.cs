@@ -80,6 +80,9 @@ namespace EntityFrameworkCore.Jet.Data
         public override void RenameColumn(string tableName, string oldColumnName, string newColumnName)
             => _adoxSchema.Value.RenameColumn(tableName, oldColumnName, newColumnName); // either ADOX or DAO is fine
 
+        public override void RenameIndex(string tableName, string oldIndexName, string newIndexName)
+            => _daoSchema.Value.RenameIndex(tableName, oldIndexName, newIndexName); // DAO's is the one measured against ACE
+
         public override void Dispose()
         {
             if (_daoSchema.IsValueCreated)

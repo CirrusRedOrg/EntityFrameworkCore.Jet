@@ -1,0 +1,63 @@
+# libFuzzer dictionary for the database and writes targets (-dict=test\LibRed.Core.Fuzz\database.dict).
+#
+# The input is a patch list, [seed][page u16][offset u16][byte]..., so the entries that help are the ones random
+# mutation is slow to find: little-endian u16 page numbers and in-page offsets of fields that steer a reader, and
+# the byte values those fields take. Offsets are Jet 4 / ACE (src/LibRed/LibRed.Core/Formats/Jet4Format.cs).
+
+# Pages: the database definition, the global maps' holder, the first catalog pages.
+page_0="\x00\x00"
+page_1="\x01\x00"
+page_2="\x02\x00"
+page_3="\x03\x00"
+
+# Page 0: version byte, free-pages and released-pages map pointers.
+p0_version="\x14\x00"
+p0_free_map="\x18\x00"
+p0_free_map_page="\x19\x00"
+p0_released_map="\x1c\x00"
+p0_released_map_page="\x1d\x00"
+
+# Data and TDEF page header: owner, row count; TDEF row count and AutoNumber counter.
+data_owner="\x04\x00"
+data_rows="\x0c\x00"
+tdef_rows="\x10\x00"
+tdef_autonumber="\x14\x00"
+
+# Patch bytes: boundaries, sign bits, and the column flag bits (fixed 0x01, updatable 0x02, AutoNumber 0x04,
+# GUID 0x40, hyperlink 0x80) and extended flag bits (calculated 0x40, evaluate 0x80).
+b_00="\x00"
+b_01="\x01"
+b_02="\x02"
+b_04="\x04"
+b_06="\x06"
+b_40="\x40"
+b_7f="\x7f"
+b_80="\x80"
+b_c0="\xc0"
+b_ff="\xff"
+
+# Column type codes.
+type_boolean="\x01"
+type_byte="\x02"
+type_int16="\x03"
+type_int32="\x04"
+type_currency="\x05"
+type_single="\x06"
+type_double="\x07"
+type_datetime="\x08"
+type_binary="\x09"
+type_text="\x0a"
+type_ole="\x0b"
+type_memo="\x0c"
+type_guid="\x0f"
+type_numeric="\x10"
+type_complex="\x12"
+type_bigint="\x13"
+type_datetime2="\x14"
+
+# Wide values for multi-byte fields (counts, pointers, start pages).
+u16_max="\xff\xff"
+u16_signed_max="\xff\x7f"
+u16_signed_min="\x00\x80"
+u32_max="\xff\xff\xff\xff"
+u32_signed_min="\x00\x00\x00\x80"

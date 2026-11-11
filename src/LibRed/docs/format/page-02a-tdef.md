@@ -94,6 +94,22 @@
 > it pins `0x14` at `int.MaxValue` forever, so every later insert reissues `int.MinValue` and the table is
 > wedged — for ACE too, since the damage is the on-disk `0x14`. LibRed therefore applies its monotone guard
 > (the deliberate KB 884185 immunity) **only to caller-supplied explicit ids**; see `RowInserter`.
+>
+> **The counter is the first four bytes of the value (verified vs ACE).** A Text column whose descriptor carries
+> the AutoNumber flag `0x04` (a damaged file) still opens, reads and takes INSERTs and DELETEs; an UPDATE of the
+> column is refused as not updateable. An explicit text value sets `0x14` to the value's first four bytes as UTF-16LE,
+> zero-padded: `'Street'` → `0x00740053`, `'500'` → `0x00300035`, `'A'` → `65`. A generated id goes the other way —
+> with the flag byte `0x06` the id's four bytes are stored as two characters (`0x00740054` → `'Tt'`); with `0xEE`
+> (`0x40` set as well) ACE stores `'\x01\0'` and resets `0x14` to `1`. LibRed matches the explicit case only.
+> On an OLE column flagged the same way the counter likewise takes a binary value's first four bytes: `01 02 03 04
+> 05 06` → `0x04030201`. With the table's own AutoNumber (`Categories.CategoryID`) beside it, an `INSERT` that
+> leaves that column out is refused *"You must enter a value in the 'Categories.CategoryID' field"*, its id
+> burned, and a one-byte binary value left `0x14` at the explicit `CategoryID` rather than taking the byte.
+> On a fixed column the width decides: a 4-byte `Single` takes its own bits (`0.25` → `0x3E800000`), while an
+> `Integer`, `Currency` or `Date/Time` column refuses the row, explicit value and all, with *"The field is too
+> small to accept the amount of data you attempted to add."* and `0x14` advanced by one — the id is drawn and
+> burned. DAO refuses to create the flag on a GUID column at all (`dbAutoIncrField` on `dbGUID`: *"Invalid
+> argument"*).
 
 > **Reader/writer count guardrails.** LibRed validates the documented 255-column and 32-real-index
 > limits before allocating count-sized structures, rejects negative logical/real index counts, and checks
@@ -252,6 +268,14 @@ the documented 255-column, 32-index, and 64-character-name limits.
 > the first page's `0x04` next pointer is zeroed and it follows the single-page rule below (8 bytes zeroed
 > past the new end, the rest left); a definition growing onto a second page keeps its first page and takes a
 > fresh continuation. LibRed's `TableDefinition.WriteChain` does all of this.
+>
+> **Renaming an index (verified vs ACE).** The index's name entry is replaced, and its logical block moves with
+> it to where the new name sorts (§3.3, name order); the info block's bytes are unchanged, `index_num`
+> included. ACE writes the renamed definition **twice**, the same bytes both times. A single-page definition is
+> rewritten in place, so the second write changes nothing; a multi-page one's continuations take the lowest
+> free pages and then, since the first copy's pages are held until the statement ends, pages past them — from
+> free pages `56, 55` at the end of a 60-page file, `first → 56 → 55` and then `first → 61 → 60`, the first
+> copy left on its released pages.
 
 
 ### 3.3 Body layout (in order, after the header)
@@ -281,6 +305,15 @@ the documented 255-column, 32-index, and 64-character-name limits.
 > `CREATE PROCEDURE` refuses it. A foreign key's name is also an index name on its table, so `ADD CONSTRAINT …
 > FOREIGN KEY` is refused when the table already has an index of that name — *"Table 'FkC' already has an index
 > named 'Taken'."*
+>
+> A stored column name that holds a control character (U+0003, verified) still reads: the table opens and
+> `SELECT *` names the column as stored. Only the DDL refuses it, so a column renamed away from that name (DAO's
+> `Field.Name`) cannot be given it back — *"'…' is not a valid name."*
+>
+> Two columns stored under one name (verified, one name entry damaged into another's) still read. A lookup by
+> that name resolves to the first of them: `SELECT` of the name reads the first column's value, `SELECT *` lists
+> both as `Table.name`, and `CREATE INDEX` over the name indexes the first. `ADD COLUMN` of the name is refused,
+> *"Field '…' already exists in table '…'."*
 >
 > LibRed enforces all of this on caller-supplied names via `JetName.Validate`, since writing the format
 > directly bypasses ACE's DDL parser. Internal hidden names (the `.rN` incoming-relationship index names, §3.6)

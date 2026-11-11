@@ -288,10 +288,14 @@ public sealed class DataPage : Page
     /// masked out of <see cref="JetFormatBase.DataRowOffsetMask"/> and so can exceed the page; rows are packed from the page end
     /// backward, so they must also never increase. <c>RowInserter</c>'s in-place repackers re-derived this
     /// arithmetic without the checks, which on a corrupt directory produced an out-of-range exception from a
-    /// half-repacked page rather than a diagnosis.</summary>
+    /// half-repacked page rather than a diagnosis. The previous boundary is checked too: a directory walk has
+    /// already validated it, but <see cref="TryReadRow"/> reads it straight from the neighbouring slot.</summary>
     internal static void ValidateSlot(
         int pageNumber, int bufferLength, int index, int offset, int previousEnd, int directoryEnd)
     {
+        if (previousEnd > bufferLength)
+            throw new InvalidDataException(
+                $"Data page {pageNumber} row slot {index - 1} has offset {previousEnd}, past the page end {bufferLength}.");
         if (offset < directoryEnd || offset > bufferLength)
             throw new InvalidDataException(
                 $"Data page {pageNumber} row slot {index} has offset {offset}, outside the row heap " +

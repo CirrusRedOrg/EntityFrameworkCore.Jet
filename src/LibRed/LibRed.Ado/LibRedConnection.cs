@@ -161,7 +161,9 @@ public sealed class LibRedConnection : DbConnection
     /// the last thing tying this assembly to the Windows-only EFCore.Jet.Data, for no benefit beyond a
     /// five-character string.
     /// </remarks>
-    internal const string DualTableName = "#Dual";
+    public const string DualTableName = "#Dual";
+
+    public bool HasDualTable => _database?.Catalog.FindTable(DualTableName) is not null;
 
     // The DAO/ADOX creation path created this via ISchemaOperationsProvider.EnsureDualTable; native
     // creation must do the same or those queries fail to bind.

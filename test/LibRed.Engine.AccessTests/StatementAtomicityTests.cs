@@ -144,6 +144,55 @@ public class StatementAtomicityTests : TempDatabaseTest
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // A row grown past the page, not just past the 4060-byte cap: both writers build the row in a page-sized buffer,
+    // and checked only after it was built, the row threw an ArgumentException out of the copy into that buffer. ACE
+    // refuses either statement with "Record is too large", and so must LibRed, leaving the rows as they were.
+    [Theory]
+    [InlineData("UPDATE W SET T8 = T0, T9 = T1")]   // grows by two 500-byte chunks
+    [InlineData("ALTER TABLE W ALTER COLUMN T7 TEXT(255)")]   // the re-lay keeps T7's old chunk and appends the new one
+    public void A_row_grown_past_the_page_is_refused_as_ace_refuses_it(string statement)
+    {
+        string origin = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "atomic-page-");
+        string ace = "", libred = "";
+        try
+        {
+            string full = new('a', 250);
+            using (var db = JetDatabase.Open(origin, readOnly: false))
+            {
+                var e = new QueryEngine(db);
+                e.ExecuteNonQuery("CREATE TABLE W (Id LONG PRIMARY KEY, "
+                    + string.Join(", ", Enumerable.Range(0, 7).Select(i => $"T{i} TEXT(255)"))
+                    + ", T7 TEXT(250), T8 TEXT(255), T9 TEXT(255))");
+                // 8 × 500 bytes and 32 of overhead: 4032, inside the cap.
+                e.ExecuteNonQuery("INSERT INTO W (Id, " + string.Join(", ", Enumerable.Range(0, 8).Select(i => $"T{i}"))
+                    + ") VALUES (1, " + string.Join(", ", Enumerable.Range(0, 8).Select(_ => $"'{full}'")) + ")");
+            }
+            ace = TemporaryDatabase.CopyPath(origin, "atomic-page-ace-");
+            libred = TemporaryDatabase.CopyPath(origin, "atomic-page-lib-");
+
+            string? aceRefusal = WholeFileParityProbeTest.RunThroughAce(ace, [statement]).Single();
+            Assert.NotNull(aceRefusal);
+            Assert.Contains("Record is too large", aceRefusal);
+
+            using (var db = JetDatabase.Open(libred, readOnly: false))
+            {
+                var error = Assert.Throws<InvalidOperationException>(() => new QueryEngine(db).ExecuteNonQuery(statement));
+                Assert.Contains("Record is too large", error.Message);
+            }
+
+            using var connection = AceTestDatabase.Open(libred);
+            AssertScalar(connection, "SELECT COUNT(*) FROM W WHERE T8 IS NULL AND T9 IS NULL", 1);
+            Assert.Equal(full, ExecuteScalar(connection, "SELECT T7 FROM W WHERE Id = 1"));
+            Assert.Equal(250, Convert.ToInt32(connection.GetSchema("Columns", [null, null, "W", "T7"]).Rows[0]["CHARACTER_MAXIMUM_LENGTH"]));
+        }
+        finally
+        {
+            TemporaryDatabase.Delete(origin);
+            TemporaryDatabase.Delete(ace);
+            TemporaryDatabase.Delete(libred);
+        }
+    }
+
     private static object? ExecuteScalar(OleDbConnection connection, string sql)
     {
         using var command = connection.CreateCommand();

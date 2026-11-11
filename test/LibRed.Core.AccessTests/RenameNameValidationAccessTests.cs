@@ -185,6 +185,39 @@ public class RenameNameValidationAccessTests(ITestOutputHelper output) : TempDat
         Assert.Equal("hello", read.ExecuteScalar());
     }
 
+    // A damaged file can hold a name ACE's DDL refuses — here SupplierID's 'r' made U+0003. ACE reads it as stored:
+    // the table opens and SELECT * names the column so. Renamed away through DAO, it cannot be given back: "'…' is
+    // not a valid name" (measured). LibRed reads it the same way and refuses the rename back as it refuses the name
+    // from any caller.
+    [Fact]
+    public void A_stored_name_create_would_refuse_still_reads_but_cannot_be_given_back()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "rename-stored-name-");
+        string damaged = "Supplie" + (char)3 + "ID";
+        int page;
+        using (var database = JetDatabase.Open(path)) page = database.Catalog.FindTable("Suppliers")!.DefinitionPage;
+        byte[] file = File.ReadAllBytes(path);
+        int pageSize = Formats.JetFormatBase.FromVersionByte(file[0x14]).PageSize;
+        int at = file.AsSpan(page * pageSize, pageSize).IndexOf(System.Text.Encoding.Unicode.GetBytes("SupplierID"));
+        Assert.True(at >= 0);
+        System.Text.Encoding.Unicode.GetBytes(damaged).CopyTo(file, page * pageSize + at);
+        File.WriteAllBytes(path, file);
+
+        using (OleDbConnection connection = AceTestDatabase.Open(path))
+        using (OleDbCommand read = connection.CreateCommand())
+        {
+            read.CommandText = "SELECT * FROM Suppliers";
+            using OleDbDataReader reader = read.ExecuteReader();
+            Assert.Equal(damaged, reader.GetName(0));
+        }
+
+        using var libred = JetDatabase.Open(path, readOnly: false);
+        Assert.Equal(damaged, libred.Catalog.FindTable("Suppliers")!.Columns[0].Name);
+        Assert.Equal(29, libred.OpenTable("Suppliers").Rows().Count());
+        Assert.True(libred.RenameColumn("Suppliers", damaged, "Renamed"));
+        Assert.Throws<ArgumentException>(() => libred.RenameColumn("Suppliers", "Renamed", damaged));
+    }
+
     private static JetDatabase Fresh(out string path)
     {
         path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "rename-name-");

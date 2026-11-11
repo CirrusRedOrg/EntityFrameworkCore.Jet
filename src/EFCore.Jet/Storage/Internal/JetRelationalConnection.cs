@@ -1,6 +1,8 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Data;
 using EntityFrameworkCore.Jet.Data;
+using EntityFrameworkCore.Jet.Infrastructure;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
@@ -29,6 +31,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             var connection = (JetConnection)JetFactory.Instance.CreateConnection();
             connection.DataAccessProviderFactory = _jetOptionsExtension.DataAccessProviderFactory!;
             connection.ConnectionString = ConnectionString!;
+            connection.StateChange += (_, e) =>
+            {
+                if (e.CurrentState == ConnectionState.Open)
+                    JetDualTable.DetectedName = connection.HasDualTable ? JetConnection.DefaultDualTableName : "";
+            };
 
             return connection;
         }

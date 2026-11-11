@@ -155,8 +155,9 @@ internal sealed class LocaleTailoring
     {
         for (int length = Math.Min(MaxLength, text.Length - start); length >= 1; length--)
         {
-            // A lowercase letter followed by an uppercase one breaks a contraction, which then falls to a shorter
-            // match: "cS" is c and S, "dzS" is dz and S, "dZs" is d and zs (verified vs ACE in every digraph order).
+            // A contraction matches only in lowercase, uppercase or title case; any other mix falls to a shorter
+            // match: "cS" is c and S, "dzS" is dz and S, "dZs" is d and zs, "DZs" is DZ and s (verified vs ACE in
+            // every case mix of every contraction).
             if (BreaksCase(text.Slice(start, length)))
                 continue;
             if (TryGet(text.Slice(start, length), out weight))
@@ -172,7 +173,8 @@ internal sealed class LocaleTailoring
         static bool BreaksCase(ReadOnlySpan<char> candidate)
         {
             for (int i = 0; i + 1 < candidate.Length; i++)
-                if (char.IsLower(candidate[i]) && char.IsUpper(candidate[i + 1]))
+                if ((char.IsLower(candidate[i]) && char.IsUpper(candidate[i + 1])) ||
+                    (i > 0 && char.IsUpper(candidate[i]) && char.IsLower(candidate[i + 1])))
                     return true;
             return false;
         }

@@ -446,41 +446,49 @@ internal sealed class PageAllocator
     {
         SortedSet<int> pages = [.. _channel.PagesReleasedAtClose];
         if (pages.Count == 0 && !_channel.HasPublishedWrites && _reservationBits == 0 && _groups.Count == 0) return;
-        (_, MapRecord released) = ReadGlobalMaps();
-        // Every bit kept, none bounded by the file: a released page past its end was never materialized, and is
-        // skipped below.
-        pages.UnionWith(UsageMap.PagesInRecord(_channel, released.Record, rejectBeyond: null, "The global released-pages map"));
-        if (pages.Count == 0 && _reservationBits == 0 && _groups.Count == 0) return;
 
-        bool ownTransaction = !_channel.InTransaction;
-        if (ownTransaction) _channel.BeginTransaction();
-        try
+        // In the file's exclusive scope, as a writing statement runs: the global maps are read, rewritten and
+        // committed with no other connection committing between. Outside it, a statement on another connection
+        // could commit page 1 after this transaction first wrote it, and the commit would fail as a write conflict.
+        _channel.WriteExclusive(() =>
         {
-            // Sized before the merge: a conversion allocates its bitmap pages from the free map as it stands,
-            // without the pages being released.
-            if (pages.Count != 0) SizeReleasedMap(pages);
-            ReturnGroups();
+            (_, MapRecord released) = ReadGlobalMaps();
+            // Every bit kept, none bounded by the file: a released page past its end was never materialized, and is
+            // skipped below.
+            pages.UnionWith(UsageMap.PagesInRecord(_channel, released.Record, rejectBeyond: null, "The global released-pages map"));
+            if (pages.Count == 0 && _reservationBits == 0 && _groups.Count == 0) return false;
 
-            // A released page past the end of the file was never materialized; the free map already records
-            // every page past the end as free.
-            foreach (int page in pages)
-                if (page < _channel.PageCount) Free(page);
-            for (int bit = 0; bit < 32; bit++)
-                if ((_reservationBits & (1u << bit)) != 0) Free(_reservationStart + bit);
-            _reservationBits = 0;
-            _owners.Clear();
-            _bitmapSlot = 0;
+            bool ownTransaction = !_channel.InTransaction;
+            if (ownTransaction) _channel.BeginTransaction();
+            try
+            {
+                // Sized before the merge: a conversion allocates its bitmap pages from the free map as it stands,
+                // without the pages being released.
+                if (pages.Count != 0) SizeReleasedMap(pages);
+                ReturnGroups();
 
-            (_, released) = ReadGlobalMaps();
-            ClearReleasedMap(released);
-            _channel.ClearPagesReleasedAtClose();
-            if (ownTransaction) _channel.CommitTransaction(flush: false);
-        }
-        catch
-        {
-            if (ownTransaction) _channel.RollbackTransaction();
-            throw;
-        }
+                // A released page past the end of the file was never materialized; the free map already records
+                // every page past the end as free.
+                foreach (int page in pages)
+                    if (page < _channel.PageCount) Free(page);
+                for (int bit = 0; bit < 32; bit++)
+                    if ((_reservationBits & (1u << bit)) != 0) Free(_reservationStart + bit);
+                _reservationBits = 0;
+                _owners.Clear();
+                _bitmapSlot = 0;
+
+                (_, released) = ReadGlobalMaps();
+                ClearReleasedMap(released);
+                _channel.ClearPagesReleasedAtClose();
+                if (ownTransaction) _channel.CommitTransaction(flush: false);
+            }
+            catch
+            {
+                if (ownTransaction) _channel.RollbackTransaction();
+                throw;
+            }
+            return true;
+        });
     }
 
     /// <summary>
@@ -512,7 +520,9 @@ internal sealed class PageAllocator
         int start = UsageMap.StartPage(released.Record, format);
         int lowest = pages.Min, highest = pages.Max;
         int Covering(int from) => headerSize + UsageMap.InlineBitmapBytes(format, highest - from + 1);
-        if (lowest >= start && highest < start + (released.Slot.Length - headerSize) * 8) return;
+        // A map starting below page 0 is left as it was, and the pages are freed all the same: ACE's close does
+        // (measured, start -2,147,483,648).
+        if (start < 0 || lowest >= start && highest < start + (released.Slot.Length - headerSize) * 8) return;
 
         var holder = new DataPage();
         holder.Read(new PageBuffer(released.Page, released.PageNumber), format);
@@ -868,6 +878,11 @@ internal sealed class PageAllocator
     /// against two ACE handles.</summary>
     private void EnsurePhysicalAllocation(int page)
     {
+        // A page past the largest file is in no database: ACE refuses to allocate it and leaves the file as it was
+        // (measured), where growing towards it would buffer pages up to the 2 GiB limit before WritePage refused one.
+        if (page > _channel.PageCount && page >= _channel.MaxPageCount)
+            throw new InvalidDataException(
+                $"The global free map selected page {page}, past the largest file of {_channel.MaxPageCount} pages.");
         while (_channel.PageCount < page) Append();
         if (page < _channel.PageCount) return;
         int allocated = Append();

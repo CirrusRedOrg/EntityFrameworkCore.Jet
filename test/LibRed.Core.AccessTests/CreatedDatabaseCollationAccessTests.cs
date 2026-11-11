@@ -72,8 +72,9 @@ public class CreatedDatabaseCollationAccessTests(ITestOutputHelper output)
         "ñ", "č", "ž", "lj", "dž", "ch", "ll", "ı", "İ", "å", "ø", "ß",
         "เก", "ไทย", "Ω", "б", "א",
         "一", "漢字", "人々", "カタカナ", "がくせい", "한국", "韓國", @"C:\",
-        // A digraph in each mix of case — whether a lowercase letter then an uppercase one still contracts.
-        "cs", "Cs", "cS", "CS", "sz", "Sz", "sZ", "dzs", "Dzs", "dZs", "dzS", "ccs", "cCs", "gy", "gY", "ny", "nY",
+        // A digraph in each mix of case — only lowercase, uppercase and title case contract.
+        "cs", "Cs", "cS", "CS", "sz", "Sz", "sZ", "dzs", "Dzs", "dZs", "dzS", "DzS", "DZs", "DZsa", "DZS", "dDZs",
+        "ccs", "cCs", "gy", "gY", "ny", "nY",
         "zs", "zS", "ch", "Ch", "cH", "CH", "lj", "Lj", "lJ", "nj", "nJ", "dž", "dŽ", "ll", "lL", "aa", "Aa", "aA",
         "~sq_cSzallitoLista",
     ];

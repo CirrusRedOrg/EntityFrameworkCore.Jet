@@ -509,20 +509,6 @@ WHERE NOT (`e`.`IsDraft`)
         AssertSql();
     }
 
-    public override async Task Query_filter_with_EF_Constant_throws()
-    {
-        await base.Query_filter_with_EF_Constant_throws();
-
-        AssertSql();
-    }
-
-    public override async Task Query_filter_with_EF_Parameter_throws()
-    {
-        await base.Query_filter_with_EF_Parameter_throws();
-
-        AssertSql();
-    }
-
     public override async Task GroupBy_aggregate_over_required_navigation_with_query_filter(bool async)
     {
         await base.GroupBy_aggregate_over_required_navigation_with_query_filter(async);

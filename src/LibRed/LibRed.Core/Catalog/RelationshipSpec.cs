@@ -33,7 +33,10 @@ public sealed record RelationshipSpec(
     // their usage-map rows in (see SchemaEditor). Only a statement knows it; 0 — the default a direct caller
     // gets — leaves the indexes primary key, unique, relationship, each map row ahead of every long-value
     // column's.
-    int DeclaredAfter = 0)
+    int DeclaredAfter = 0,
+    // One-to-one (grbit 0x01, DAO's dbRelationUnique): the child's backing index is unique. ACE's SQL cannot
+    // declare one, so only a direct caller sets it.
+    bool IsOneToOne = false)
 {
     /// <summary>A relationship naming only its child columns, to reference the parent's primary key.</summary>
     public static IReadOnlyList<(string Column, string ReferencedColumn)> ChildColumnsOnly(IReadOnlyList<string> columns) =>

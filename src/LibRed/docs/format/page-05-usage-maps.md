@@ -234,6 +234,40 @@ the opening user's commit slot at close, and every later open fails with *"Unrec
 A far larger page number is refused on the first open — from page 524,289 exactly, as measured on `0x1C`.
 Only the page is checked on open — any row byte passes — but a `0x18` naming a record that is not a usage
 map (page 0, a TDEF page, an ordinary data page) fails at the first allocation and damages the database.
+Aimed at a long-value row instead — row 0 of a 4,076-byte value, whose bytes read as an inline map starting at
+page 352,321,631 — the database opens and reads, and every statement needing a page fails *"Cannot open database
+''"* with the file left as it was: no page added, the long value untouched. An `INSERT` that had drawn its
+AutoNumber keeps it burned (verified). LibRed refuses to grow the file to any page past the 2 GiB limit, which
+refuses this one at the same point.
+
+**ACE does not look at the page the free map gives it (verified).** A `0x18` naming a table's own owned-pages
+map makes that table's pages free, and so does the page's bit set in the real free map; either way ACE allocates
+the page and writes over it. That held for a user table's page, a system table's, a page of the table the
+statement itself reads and writes, and one the connection had just scanned — a `CREATE TABLE` writes its
+definition there, an `INSERT` needing a long-value page writes one, and the rows on it are lost to a scan while
+`COUNT(*)` still answers from the TDEF's row count.
+
+Only some statements fail, and only on some tables' pages:
+
+- **`CREATE TABLE`** fails when it took a page of `MSysObjects` or `MSysACEs` — the two tables it inserts rows
+  into — with the write-conflict error ("…you and another user are attempting to change the same data at the
+  same time"). The page and the file are left intact. Taking a page of `MSysQueries` or `MSysRelationships`,
+  which it writes nothing to, succeeds.
+- **An `INSERT` writing a long value** fails with *"Unrecognized database format"* when the page it took is the
+  `MSysObjects` page holding its own table's row, or the one holding the database's and containers' rows (with
+  `MSysDb`). It fails after drawing the AutoNumber and before writing the row, leaves the page as it was, and
+  the file does not open again. Reading the table or its columns, or inserting a short row into it, on the same
+  connection first changes nothing. The same `INSERT` taking another `MSysObjects` page succeeds and writes its
+  long value over the catalog rows there, as does one taking a page of `MSysACEs` or `MSysRelationships`; so does
+  an `INSERT` that needs only data pages, onto any catalog page, its own table's row's included. Which of the
+  first page's rows the long-value write goes back to is not established.
+
+So ACE has no check that keeps a live page out of allocation; a statement fails when it goes back to the table
+whose page it took. LibRed allocates the same way. Where its statement goes back to such a page through a read
+that checks the page — `CREATE TABLE` inserting its catalog row on the `MSysObjects` page it has just made a
+definition — it refuses with `InvalidDataException` and rolls back, leaving the file intact as ACE does. Which
+page each engine takes, and what each goes back to, differ, so the two do not fail on the same cases: the
+`INSERT` that takes an `MSysObjects` page succeeds in LibRed and leaves the catalog damaged.
 
 **Freed pages are released at close, through the released-pages map.** Most pages freed during a session are
 not reusable on the same connection: later allocations in that session grow the file instead, and the free map on
@@ -278,6 +312,10 @@ An inline record that already covers them stays as it is. Otherwise, in order of
   3. a 69-byte reference record naming them replaces the inline one. The records are repacked from the page
      end and the vacated bytes are not cleared, so the long record's bitmap stays on the page below the new
      one.
+
+An inline record whose start page is below 0 is not sized at all: with start page -2,147,483,648 and no bits set,
+releasing three pages and closing leaves the record as it was and merges the pages into the free map exactly as
+on the undamaged file (verified).
 
 A map already in reference form gains a bitmap page, allocated the same way, for each range holding a released
 page that it has none for — a released table-definition page among the free pages is taken like any other, its

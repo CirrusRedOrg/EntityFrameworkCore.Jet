@@ -1,8 +1,8 @@
 <Project>
 	<PropertyGroup>
 		<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-		<EFCoreVersion>[11.0.0]</EFCoreVersion>
-		<MSLibVersion>[11.0.0]</MSLibVersion>
+		<EFCoreVersion>[11.0.0,11.0.999]</EFCoreVersion>
+		<MSLibVersion>[11.0.0,11.0.999]</MSLibVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
